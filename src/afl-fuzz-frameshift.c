@@ -1,7 +1,7 @@
 
 #include "afl-fuzz.h"
 
-#define FRAMESHIFT_DEBUG 1
+// #define FRAMESHIFT_DEBUG 1
 
 #define FRAMESHIFT_INITIAL_CAPACITY 128
 
@@ -153,27 +153,37 @@ void fs_add_relation(fs_meta_t *meta, fs_relation_t *rel) {
 
 void fs_save(fs_meta_t *meta) {
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "Saving metadata\n");
+#endif
   for (u32 i = 0; i < meta->rel_count; i++) {
 
     fs_relation_t *rel = &meta->relations[i];
     rel_save(rel);
 
   }
+
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "done\n");
+#endif
 
 }
 
 void fs_restore(fs_meta_t *meta) {
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "Restoring metadata\n");
+#endif
   for (u32 i = 0; i < meta->rel_count; i++) {
 
     fs_relation_t *rel = &meta->relations[i];
     rel_restore(rel);
 
   }
+
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "done\n");
+#endif
 
 }
 
@@ -184,7 +194,9 @@ void fs_restore(fs_meta_t *meta) {
 int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size,
                     u8 ignore_invalid) {
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "Inserting %llu at %llu\n", data_size, idx);
+#endif
   for (u32 i = 0; i < meta->rel_count; i++) {
 
     if (meta->relations[i].enabled) {
@@ -210,14 +222,18 @@ int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size,
 
   }
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "done\n");
+#endif
   return 0;
 
 }
 
 void fs_track_delete(fs_meta_t *meta, u64 idx, u64 data_size) {
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "Deleting %llu at %llu\n", data_size, idx);
+#endif
   for (u32 i = 0; i < meta->rel_count; i++) {
 
     if (meta->relations[i].enabled) {
@@ -233,13 +249,18 @@ void fs_track_delete(fs_meta_t *meta, u64 idx, u64 data_size) {
     }
 
   }
+
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "done\n");
+#endif
 
 }
 
 void fs_sanitize(fs_meta_t *meta, u8 *buf) {
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "fs_sanitize\n");
+#endif
   // Apply the relations in reverse order.
   for (u32 i = meta->rel_count - 1; i != (u32)-1; i--) {
 
@@ -248,13 +269,18 @@ void fs_sanitize(fs_meta_t *meta, u8 *buf) {
     rel_apply(buf, &meta->relations[i]);
 
   }
+
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "done\n");
+#endif
 
 }
 
 void fs_clone_meta(afl_state_t *afl) {
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "Cloning metadata\n");
+#endif
   fs_meta_t *meta = afl->queue_cur->fs_meta;
   fs_meta_t *fs_curr_meta = afl->fs_curr_meta;
   if (unlikely(!fs_curr_meta)) {
@@ -270,7 +296,9 @@ void fs_clone_meta(afl_state_t *afl) {
   }
 
   // Copy relation data over.
-fprintf(stderr, "x\n");
+#ifdef FRAMESHIFT_DEBUG
+  fprintf(stderr, "x\n");
+#endif
   if (fs_curr_meta->rel_capacity < meta->rel_count) {
 
     // Increase capacity if needed.
@@ -286,15 +314,21 @@ fprintf(stderr, "x\n");
 
   // Blocked points will be read only after this, so we can shallow copy.
   fs_curr_meta->blocked_points_map = meta->blocked_points_map;
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "done\n");
+#endif
 
 }
 
 fs_meta_t *fs_new_meta(u32 size) {
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "fs_new_meta\n");
+#endif
   fs_meta_t *meta = malloc(sizeof(fs_meta_t));
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "%p\n", meta);
+#endif
   meta->rel_count = 0;
   meta->rel_capacity = FRAMESHIFT_INITIAL_CAPACITY;
   meta->relations = malloc(sizeof(fs_relation_t) * meta->rel_capacity);
@@ -302,7 +336,9 @@ fs_meta_t *fs_new_meta(u32 size) {
   meta->blocked_points_map = malloc(size);
   memset(meta->blocked_points_map, 0, size);
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "done\n");
+#endif
   return meta;
 
 }
@@ -399,7 +435,9 @@ void check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size,
   u32 insertion = anchor + curr_size;
   if (insertion > len) { return; }
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "check_anchor\n");
+#endif
 
   // Construct testcase with valid insertion.
   memcpy(scratch, buf, insertion);
@@ -441,8 +479,10 @@ void check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size,
 
   double recover_pct = (double)recover_count / loss_count;
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "   -> Anchor: %u, Insertion: %u, Recovery: %.2f%%\n", anchor,
-  insertion, recover_pct * 100);
+          insertion, recover_pct * 100);
+#endif
 
   // Update the best relation if we have a better recovery.
   if (recover_pct > *curr_recover) {
@@ -452,13 +492,18 @@ void check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size,
     *curr_recover = recover_pct;
 
   }
+
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "done\n");
+#endif
 
 }
 
 void frameshift_stage(afl_state_t *afl) {
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "Frameshift stage\n");
+#endif
 
   u64 time_start = get_cur_time();
 
@@ -469,7 +514,9 @@ void frameshift_stage(afl_state_t *afl) {
 
   }
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "b %p\n", afl->frameshift_index_buffer);
+#endif
   u32 *index_buf = afl->frameshift_index_buffer;
   u32  index_count = 0;
 
@@ -477,7 +524,9 @@ void frameshift_stage(afl_state_t *afl) {
   u32 len = afl->queue_cur->len;
 
   u8 *scratch = malloc(len + 0x100);  // We will at most shift by 0xff
-fprintf(stderr, "s %p - %p %u\n", scratch, buf, len);
+#ifdef FRAMESHIFT_DEBUG
+  fprintf(stderr, "s %p - %p %u\n", scratch, buf, len);
+#endif
 
   // Print out
 #ifdef FRAMESHIFT_DEBUG
@@ -497,9 +546,13 @@ fprintf(stderr, "s %p - %p %u\n", scratch, buf, len);
   u32 map_size = afl->fsrv.map_size;
 
   // Compute coverage of this testcase.
-fprintf(stderr, "l0 %p %u\n", buf, len);
+#ifdef FRAMESHIFT_DEBUG
+  fprintf(stderr, "l0 %p %u\n", buf, len);
+#endif
   lightweight_run(afl, buf, len);
-fprintf(stderr, "l1\n");
+#ifdef FRAMESHIFT_DEBUG
+  fprintf(stderr, "l1\n");
+#endif
   for (u32 i = 0; i < map_size; i++) {
 
     if (trace_bits[i] > 0) { index_buf[index_count++] = i; }
@@ -509,7 +562,9 @@ fprintf(stderr, "l1\n");
   // Compute base coverage for an invalid testcase.
   // Keep only indices that are found in the current testcase and not the base.
   lightweight_run(afl, "a", 1);
-fprintf(stderr, "l2\n");
+#ifdef FRAMESHIFT_DEBUG
+  fprintf(stderr, "l2\n");
+#endif
   u32 write_idx = 0;
   for (u32 i = 0; i < index_count; i++) {
 
@@ -526,12 +581,16 @@ fprintf(stderr, "l2\n");
 
   u32 loss_threshold = ((index_count * FRAMESHIFT_LOSS_PCT) / 100) + 1;
 
-  // printf("[FS] Index count: %u\n", index_count);
+#ifdef FRAMESHIFT_DEBUG
+  fprintf(stderr, "[FS] Index count: %u\n", index_count);
+#endif
   u32  inflection_points_count = 0;
   u32  inflection_points_capacity = 128;
   u32 *inflection_points = calloc(inflection_points_capacity, sizeof(u32));
 
-fprintf(stderr, "i %p\n", inflection_points);
+#ifdef FRAMESHIFT_DEBUG
+  fprintf(stderr, "i %p\n", inflection_points);
+#endif
   // Outer loop, run at most max_iterations times.
   for (u32 i = 0; i < FRAMESHIFT_MAX_ITERS; i++) {
 
@@ -544,7 +603,7 @@ fprintf(stderr, "i %p\n", inflection_points);
       for (u8 k = 0; k < sizeof(FRAMESHIFT_SEARCH_ORDER) / sizeof(field_tmpl_t);
            k++) {
 
-        field_tmpl_t *tmpl = &FRAMESHIFT_SEARCH_ORDER[k];
+        field_tmpl_t *tmpl = (field_tmpl_t *)&FRAMESHIFT_SEARCH_ORDER[k];
         u8            size = tmpl->size;
         u8            le = tmpl->le;
 
@@ -575,8 +634,8 @@ fprintf(stderr, "i %p\n", inflection_points);
 
         fs_relation_t potential_rel = {.pos = field_pos,
                                        .val = curr_size,
-                                       .anchor = -1,  // unset
-                                       .insert = -1,  // unset
+                                       .anchor = (u64)-1,  // unset
+                                       .insert = (u64)-1,  // unset
                                        .size = size,
                                        .le = le,
                                        .enabled = 1};
@@ -660,7 +719,7 @@ fprintf(stderr, "i %p\n", inflection_points);
                        meta, trace_bits, loss_buffer, loss_count, scratch,
                        shift_amount, &potential_rel, &curr_recover);
 
-          if (potential_rel.anchor == -1) {
+          if (potential_rel.anchor == (u64)-1) {
 
             // Check other inflection points.
             for (u32 j = 0; j < inflection_points_count; j++) {
@@ -677,20 +736,23 @@ fprintf(stderr, "i %p\n", inflection_points);
         }
 
         // Check if we have a valid relation.
-        if (potential_rel.anchor == -1) {
+        if (potential_rel.anchor == (u64)-1) {
 
           // No valid relation found, continue.
           continue;
 
         }
 
-        /*
-                printf(
-                    "[FS] Found relation: pos=%u size=%u le=%u shift=%u value=%u
-           " "anchor=%u insert=%u (loss: %d recover: %.2f%%)\n", field_pos,
-           size, le, shift_amount, curr_size, potential_rel.anchor,
-                    potential_rel.insert, loss_count, curr_recover);
-        */
+#ifdef FRAMESHIFT_DEBUG
+        fprintf(stderr,
+                "[FS] Found relation: pos=%u size=%u le=%u shift=%u value=%u
+                " " anchor = % u insert = % u(loss
+                                              : % d recover
+                                              : % .2f % %)\n ", field_pos,
+                                          size,
+                le, shift_amount, curr_size, potential_rel.anchor,
+                potential_rel.insert, loss_count, curr_recover);
+#endif
 
         potential_rel.val = curr_size;
         fs_add_relation(meta, &potential_rel);
@@ -728,7 +790,10 @@ fprintf(stderr, "i %p\n", inflection_points);
     }
 
   }
+
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "fooobar\n");
+#endif
 
   u64 time_end = get_cur_time();
 
@@ -737,7 +802,9 @@ fprintf(stderr, "i %p\n", inflection_points);
   afl->fs_stats.searched += 1;
   if (meta->rel_count > 0) { afl->fs_stats.found += 1; }
 
+#ifdef FRAMESHIFT_DEBUG
   fprintf(stderr, "done\n");
+#endif
 
 }
 
