@@ -682,6 +682,7 @@ static void check_term_size(afl_state_t *afl) {
    execve() calls, plus in several other circumstances. */
 
 void show_stats(afl_state_t *afl) {
+
   SAYF(TERM_ALT_SCREEN);
 
   if (afl->pizza_is_served) {
@@ -695,6 +696,7 @@ void show_stats(afl_state_t *afl) {
   }
 
   SAYF(TERM_HOME_SCREEN);
+
 }
 
 void show_stats_normal(afl_state_t *afl) {
@@ -2583,3 +2585,4 @@ inline void update_cmplog_time(afl_state_t *afl, u64 *time) {
   *time = cur;
 
 }
+

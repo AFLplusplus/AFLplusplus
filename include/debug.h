@@ -317,7 +317,7 @@ static inline const char *colorfilter(const char *x) {
   do {                                                                   \
                                                                          \
     SAYF(bSTOP RESET_G1 CURSOR_SHOW TERM_HOME_SCREEN cRST cLRD           \
-         "\n[-] PROGRAM ABORT : " cRST x);                               \
+         "\n[-] PROGRAM ABORT : " cRST               x);                               \
     SAYF(cLRD "\n         Location : " cRST "%s(), %s:%u\n\n", __func__, \
          __FILE__, (u32)__LINE__);                                       \
     exit(1);                                                             \
@@ -330,7 +330,7 @@ static inline const char *colorfilter(const char *x) {
   do {                                                                   \
                                                                          \
     SAYF(bSTOP RESET_G1 CURSOR_SHOW TERM_HOME_SCREEN cRST cLRD           \
-         "\n[-] PROGRAM ABORT : " cRST x);                               \
+         "\n[-] PROGRAM ABORT : " cRST               x);                               \
     SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n\n", __func__, \
          __FILE__, (u32)__LINE__);                                       \
     fflush(stdout);                                                      \
@@ -345,7 +345,7 @@ static inline const char *colorfilter(const char *x) {
                                                                        \
     fflush(stdout);                                                    \
     SAYF(bSTOP RESET_G1 CURSOR_SHOW TERM_HOME_SCREEN cRST cLRD         \
-         "\n[-]  SYSTEM ERROR : " cRST x);                             \
+         "\n[-]  SYSTEM ERROR : " cRST               x);                             \
     SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n", __func__, \
          __FILE__, (u32)__LINE__);                                     \
     SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));    \
@@ -426,3 +426,4 @@ static inline const char *colorfilter(const char *x) {
   } while (0)
 
 #endif                                                   /* ! _HAVE_DEBUG_H */
+
