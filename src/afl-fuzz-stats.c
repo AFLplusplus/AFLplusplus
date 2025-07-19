@@ -663,6 +663,19 @@ void plot_profile_data(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
+/* Scroll the terminal so when the stats clear the screen
+   we don't delete anything. */
+
+void make_space_for_stats() {
+
+  struct winsize ws;
+
+  if (ioctl(1, TIOCGWINSZ, &ws)) { return; }
+
+  SAYF("\x1b[%dS", ws.ws_row);
+
+}
+
 /* Check terminal dimensions after resize. */
 
 static void check_term_size(afl_state_t *afl) {
