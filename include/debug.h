@@ -184,6 +184,8 @@
 #define cEOL "\x1b[0K"
 #define CURSOR_HIDE "\x1b[?25l"
 #define CURSOR_SHOW "\x1b[?25h"
+#define TERM_ALT_SCREEN "\x1b[?1049h"
+#define TERM_HOME_SCREEN "\x1b[?1049l"
 
 /************************
  * Debug & error macros *
@@ -424,4 +426,3 @@ static inline const char *colorfilter(const char *x) {
   } while (0)
 
 #endif                                                   /* ! _HAVE_DEBUG_H */
-
