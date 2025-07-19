@@ -1694,3 +1694,4 @@ std::string ModuleSanitizerCoverageAFL::getSectionEnd(
   return "__stop___" + Section;
 
 }
+
