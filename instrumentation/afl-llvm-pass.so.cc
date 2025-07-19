@@ -831,3 +831,4 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
   return PreservedAnalyses();
 
 }
+
