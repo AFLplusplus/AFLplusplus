@@ -2904,15 +2904,15 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       // o->v0, v1_len, o->v1);
 
       if (!memcmp(o->v0, orig_o->v0, v0_len) &&
-          o->unused[0] != ADDR_ATTR_NOTFOUND &&
-          orig_o->unused[0] != ADDR_ATTR_NOTFOUND) {
+          ADDR_ATTR_V0(o->addr_attr) != ADDR_ATTR_NOTFOUND &&
+          ADDR_ATTR_V0(orig_o->addr_attr) != ADDR_ATTR_NOTFOUND) {
 
         maybe_add_auto(afl, o->v0, v0_len);
 
       } else if (!memcmp(o->v1, orig_o->v1, v1_len) &&
 
-                 o->unused[1] != ADDR_ATTR_NOTFOUND &&
-                 orig_o->unused[1] != ADDR_ATTR_NOTFOUND) {
+                 ADDR_ATTR_V1(o->addr_attr) != ADDR_ATTR_NOTFOUND &&
+                 ADDR_ATTR_V1(orig_o->addr_attr) != ADDR_ATTR_NOTFOUND) {
 
         maybe_add_auto(afl, o->v1, v1_len);
 
