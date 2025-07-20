@@ -2978,6 +2978,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   show_init_stats(afl);
 
+  if (!getenv("AFL_NO_UI") && !afl->not_on_tty) { make_space_for_stats(); }
+
   if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
 
   afl->start_time = get_cur_time();

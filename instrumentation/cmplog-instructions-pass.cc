@@ -579,3 +579,4 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
     return PreservedAnalyses();
 
 }
+

@@ -1253,6 +1253,7 @@ void write_setup_file(afl_state_t *, u32, char **);
 void write_stats_file(afl_state_t *, u32, double, double, double);
 void maybe_update_plot_file(afl_state_t *, u32, double, double);
 void write_queue_stats(afl_state_t *);
+void make_space_for_stats();
 void show_stats(afl_state_t *);
 void show_stats_normal(afl_state_t *);
 void show_stats_pizza(afl_state_t *);
