@@ -1017,7 +1017,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         Value *GuardPtr = IRB.CreateIntToPtr(
             IRB.CreateAdd(
                 IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                ConstantInt::get(IntptrTy, (++special + AllBlocks.size()) * 4)),
+                ConstantInt::get(IntptrTy, (special++ + AllBlocks.size() - skip_blocks ) * 4)),
             Int32PtrTy);
 
         LoadInst *Idx = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
@@ -1117,12 +1117,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           auto GuardPtr1 = IRB.CreateInBoundsGEP(
               FunctionGuardArray->getValueType(), FunctionGuardArray,
               {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks))});
 
           auto GuardPtr2 = IRB.CreateInBoundsGEP(
               FunctionGuardArray->getValueType(), FunctionGuardArray,
               {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks))});
 
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
@@ -1156,12 +1156,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           auto GuardPtr1 = IRB.CreateInBoundsGEP(
               FunctionGuardArray->getValueType(), FunctionGuardArray,
               {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks))});
 
           auto GuardPtr2 = IRB.CreateInBoundsGEP(
               FunctionGuardArray->getValueType(), FunctionGuardArray,
               {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks))});
 
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
@@ -1224,7 +1224,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                     IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                     ConstantInt::get(
                         IntptrTy,
-                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+                        (cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks) * 4)),
                 Int32PtrTy);
 
             auto GuardPtr2 = IRB.CreateIntToPtr(
@@ -1232,7 +1232,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                     IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                     ConstantInt::get(
                         IntptrTy,
-                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+                        (cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks) * 4)),
                 Int32PtrTy);
 
             result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
@@ -1260,7 +1260,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                     IRB.CreateAdd(
                         IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                         ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
-                                                    AllBlocks.size()) *
+                                                    AllBlocks.size() - skip_blocks) *
                                                        4)),
                     Int32PtrTy);
                 x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
@@ -1269,7 +1269,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                     IRB.CreateAdd(
                         IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                         ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
-                                                    AllBlocks.size()) *
+                                                    AllBlocks.size() - skip_blocks) *
                                                        4)),
                     Int32PtrTy);
                 y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
@@ -1281,7 +1281,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                           IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                           ConstantInt::get(
                               IntptrTy,
-                              (cnt_cov + local_selects++ + AllBlocks.size()) *
+                              (cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks) *
                                   4)),
                       Int32PtrTy);
                   x = IRB.CreateInsertElement(x, val1, i);
@@ -1291,7 +1291,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                           IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                           ConstantInt::get(
                               IntptrTy,
-                              (cnt_cov + local_selects++ + AllBlocks.size()) *
+                              (cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks) *
                                   4)),
                       Int32PtrTy);
                   y = IRB.CreateInsertElement(y, val2, i);
