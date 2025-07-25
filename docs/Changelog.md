@@ -12,6 +12,7 @@
   - qemu_mode:
     - fix compilation for a few platforms
   - afl-cc:
+    - fix a offset calculation bug in AFL++ PCGUARD
     - make AFL_DUMP_MAP_SIZE work for CLASSIC modes
 
 
