@@ -416,6 +416,14 @@ static void __afl_map_shm(void) {
 
   }
 
+  if (getenv("AFL_DUMP_MAP_SIZE")) {
+
+    printf("%u\n", __afl_map_size);
+    fflush(stdout);
+    exit(-1);
+
+  }
+
   if (__afl_sharedmem_fuzzing && (!id_str || !getenv(SHM_FUZZ_ENV_VAR) ||
                                   fcntl(FORKSRV_FD, F_GETFD) == -1 ||
                                   fcntl(FORKSRV_FD + 1, F_GETFD) == -1)) {
