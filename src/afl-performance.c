@@ -105,7 +105,13 @@ u64 get_binary_hash(u8 *fn) {
   struct stat st;
   if (fstat(fd, &st) < 0) { PFATAL("Unable to fstat '%s'", fn); }
   u32 f_len = st.st_size;
-  if (!f_len) { close(fd); return 0;}
+  if (!f_len) {
+
+    close(fd);
+    return 0;
+
+  }
+
   u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
   if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
   close(fd);
