@@ -65,7 +65,7 @@ if not (cwd.parent / "afl-showmap").exists():
 
 if not shutil.which("cargo"):
     print("[*] No cargo, installing Rust and this might take a while...")
-    run_cmd("curl https://sh.rustup.rs -sSf | CARGO_HOME=/etc/cargo sh -s -- -y", cwd)
+    run_cmd("wget -qO- https://sh.rustup.rs | CARGO_HOME=/etc/cargo sh -s -- -y", cwd)
     previous_path = os.environ["PATH"]
     os.environ["PATH"] = f"/etc/cargo/bin:{previous_path}"
 
