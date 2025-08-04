@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 #
 # By Ziqiao Kong <mio@lazym.io>
 
@@ -32,6 +32,15 @@ def run_cmd(cmd: str, cwd: Path = None, quiet: bool = False):
         subprocess.check_call(cmd, shell=True, cwd=cwd)
         return None
 
+
+def detect_from_env_or_file(target: str):
+    if target in os.environ:
+        return os.environ[target]
+    elif (cwd / target).exists():
+        with open(cwd / target, mode="r") as f:
+            return f.read().strip()
+    else:
+        return None
     
 if sys.platform == 'win32':
     print("[!] Unicornafl does not support Windows so far (no fsrv support).")
@@ -39,30 +48,25 @@ if sys.platform == 'win32':
     
 cwd = Path(__file__).parent
 
-libs_path = cwd / "libs"
+libs_path = cwd / "lib"
 include_path = cwd / "include"
 if libs_path.exists():
     print("[!] Cleaning previous artifacts...")
     shutil.rmtree(libs_path)
 if include_path.exists():
-    print("[!] Clearning previous headers...")
+    print("[!] Cleaning previous headers...")
     shutil.rmtree(include_path)
 
 if not (cwd.parent / "afl-showmap").exists():
     print("[!] Please compile AFL++ firstly.")
     exit(1)
 
-
 if not shutil.which("cargo"):
     print("[*] No cargo, installing Rust and this might take a while...")
     run_cmd("curl https://sh.rustup.rs -sSf | sh -s -- -y", cwd)
-    
-if "UNICORNAFL_VERSION" in os.environ:
-    unicornafl_version = os.environ["UNICORNAFL_VERSION"]
-elif (cwd / "UNICORNAFL_VERSION").exists():
-    with open(cwd / "UNICORNAFL_VERSION", mode="r") as f:
-        unicornafl_version = f.read().strip()
-else:
+
+unicornafl_version = detect_from_env_or_file("UNICORNAFL_VERSION")
+if not unicornafl_version:
     print("[!] No valid UNICORNAFL_VERSION found")
     exit(1)
 
@@ -72,7 +76,6 @@ if not (cwd / "unicornafl" / ".git").exists():
 
 print(f"[*] We will checkout unicornafl {unicornafl_version}")
 run_cmd(f"git fetch --all && git checkout {unicornafl_version}", cwd / "unicornafl")
-
 
 print(f"[*] Now building unicornafl python bindings")
 venv = in_venv()
@@ -90,7 +93,7 @@ print(f"[*] Python bindings built, now testing...")
 with tempfile.TemporaryDirectory() as tmpdir:
     dst_file = Path(tmpdir) / "test-instr0"
     print("[*] Testing a rather simple python harness")
-    run_cmd(f"../afl-showmap -U -m none -t 2000 -o {dst_file.absolute()} -- python3 ./samples/python_simple/simple_test_harness.py ./sample_inputs/sample1.bin")
+    run_cmd(f"../afl-showmap -U -m none -t 2000 -o {dst_file.absolute()} -- python3 ./samples/python_simple/simple_test_harness.py ./sample_inputs/sample1.bin", None, True)
 
     if dst_file.exists():
         print(f"[*] Cool, it works =).")
@@ -117,15 +120,11 @@ for ln in lns:
         ln_json = json.loads(ln)
         if "reason" in ln_json and ln_json['reason'] == "build-script-executed":
             if "linked_libs" in ln_json and any(["unicorn" in x for x in ln_json['linked_libs']]):
-                if "linked_paths" in ln_json:
-                    # maybe from out_dir?
-                    unicorn_dylib = Path(ln_json['linked_paths'][0].split("=")[1]) / ucdylib
-
-if not unicorn_dylib:
-    print(f"[!] Fail to find the unicorn shared library we built...")
-    exit(1)
-print(f"[*] Copied {unicorn_dylib.absolute()}")
-shutil.copy(unicorn_dylib, libs_path / ucdylib)
+                if "out_dir" in ln_json:
+                    out_dir = Path(ln_json['out_dir'])
+                    shutil.copytree(out_dir / "lib", libs_path, dirs_exist_ok=True)
+                    shutil.copytree(out_dir / "include", include_path, dirs_exist_ok=True)
+                    print(f"[*] Copied from {out_dir.absolute()}")
 
 
 print(f"""[*] All done! You have compiled unicornafl without any issue.
