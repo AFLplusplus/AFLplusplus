@@ -50,6 +50,8 @@ cwd = Path(__file__).parent
 
 libs_path = cwd / "lib"
 include_path = cwd / "include"
+unicornafl_path = cwd / "unicornafl"
+
 if libs_path.exists():
     print("[!] Cleaning previous artifacts...")
     shutil.rmtree(libs_path)
@@ -78,12 +80,12 @@ except subprocess.CalledProcessError:
     print(f"[!] Unicornafl is not a submodule, do a separate clone...")
     run_cmd("rm -rf unicornafl && git clone https://github.com/AFLplusplus/unicornafl", cwd)
 
-if not (cwd / "unicornafl" / ".git").exists():
+if not (unicornafl_path / ".git").exists():
     print(f"[!] Submodule not existing, will do a checkout firstly")
     run_cmd("git submodule update --init --recursive", cwd)
 
 print(f"[*] We will checkout unicornafl {unicornafl_version}")
-run_cmd(f"git fetch --all && git checkout {unicornafl_version}", cwd / "unicornafl")
+run_cmd(f"git fetch --all && git checkout {unicornafl_version}", unicornafl_path)
 
 print(f"[*] Now building unicornafl python bindings")
 venv = in_venv()
@@ -98,7 +100,7 @@ if not shutil.which("maturin"):
         run_cmd("pip install maturin")
 
 print(f"[*] Now building unicornafl with maturin")
-run_cmd("maturin develop --release", cwd / "unicornafl", True)
+run_cmd("maturin develop --release", unicornafl_path, True)
 print(f"[*] Python bindings built, now testing...")
 
 with tempfile.TemporaryDirectory() as tmpdir:
@@ -110,19 +112,19 @@ with tempfile.TemporaryDirectory() as tmpdir:
         print(f"[*] Cool, it works =).")
 
 print(f"[*] Now building unicornafl C/C++ bindings")
-cargo_out = run_cmd(f"cargo build --release --features bindings --message-format=json", cwd / "unicornafl", True)
+cargo_out = run_cmd(f"cargo build --release --features bindings --message-format=json", unicornafl_path, True)
 
 print("[*] Copying unicornafl libraries and headers")
 os.makedirs(libs_path, exist_ok=True)
-shutil.copyfile(cwd / "unicornafl" / "target" / "release" / "libunicornafl.a", libs_path / "libunicornafl.a")
+shutil.copyfile(unicornafl_path / "target" / "release" / "libunicornafl.a", libs_path / "libunicornafl.a")
 if sys.platform == "darwin":
     dylib = "libunicornafl.dylib"
     ucdylib = "libunicorn.so"
 else:
     dylib = "libunicornafl.so"
     ucdylib = "libunicorn.so"
-shutil.copyfile(cwd / "unicornafl" / "target" / "release" / dylib, libs_path / dylib)
-shutil.copytree(cwd / "unicornafl" / "include", include_path)
+shutil.copyfile(unicornafl_path / "target" / "release" / dylib, libs_path / dylib)
+shutil.copytree(unicornafl_path / "include", include_path)
 print(f"[*] Now we have to look for unicorn dynamic libraries")
 unicorn_dylib = None
 lns = cargo_out.decode('utf-8').split('\n')
