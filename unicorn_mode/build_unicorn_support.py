@@ -86,11 +86,14 @@ run_cmd(f"git fetch --all && git checkout {unicornafl_version}", cwd / "unicorna
 print(f"[*] Now building unicornafl python bindings")
 venv = in_venv()
 if not venv:
-    print(f"[!] A python venv is highly recommended!")
+    print(f"[!] A python venv is highly recommended! We will try to add --user for you.")
 
 if not shutil.which("maturin"):
     print(f"[!] No maturin, will install maturin firstly")
-    run_cmd("pip install --user maturin")
+    if not venv:
+        run_cmd("pip install --user maturin")
+    else:
+        run_cmd("pip install maturin")
 
 print(f"[*] Now building unicornafl with maturin")
 run_cmd("maturin develop --release", cwd / "unicornafl", True)
