@@ -70,6 +70,12 @@ if not unicornafl_version:
     print("[!] No valid UNICORNAFL_VERSION found")
     exit(1)
 
+try:
+    run_cmd("git status", cwd / "unicornafl")
+except subprocess.CalledProcessError:
+    print(f"[!] Unicornafl is not a submodule, do a separate clone...")
+    run_cmd("rm -rf unicornafl && git clone https://github.com/AFLplusplus/unicornafl", cwd)
+
 if not (cwd / "unicornafl" / ".git").exists():
     print(f"[!] Submodule not existing, will do a checkout firstly")
     run_cmd("git submodule update --init --recursive", cwd)
