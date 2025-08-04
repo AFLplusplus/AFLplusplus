@@ -39,7 +39,7 @@ RUN apt-get update && \
     apt-get -y install --no-install-recommends \
     make cmake automake meson ninja-build bison flex \
     git xz-utils bzip2 wget jupp nano bash-completion less vim joe ssh psmisc \
-    python3 python3-dev python3-pip python-is-python3 \
+    python3 python3-dev python3-pip python-is-python3 python3-venv \
     libtool libtool-bin libglib2.0-dev \
     apt-transport-https gnupg dialog \
     gnuplot-nox libpixman-1-dev bc \
@@ -88,6 +88,8 @@ ARG CXX=g++-$GCC_VERSION
 ARG TEST_BUILD
 
 RUN sed -i.bak 's/^	-/	/g' GNUmakefile && \
+    python3 -m venv .venv && \
+    source .venv/bin/activate && \
     make clean && make distrib && \
     ([ "${TEST_BUILD}" ] || (make install)) && \
     mv GNUmakefile.bak GNUmakefile
@@ -96,3 +98,5 @@ RUN echo "set encoding=utf-8" > /root/.vimrc && \
     echo ". /etc/bash_completion" >> ~/.bashrc && \
     echo 'alias joe="joe --wordwrap --joe_state -nobackup"' >> ~/.bashrc && \
     echo "export PS1='"'[AFL++ \h] \w \$ '"'" >> ~/.bashrc
+
+ENV PATH="/AFLplusplus/.venv/bin:$PATH"
