@@ -71,7 +71,7 @@ if not unicornafl_version:
     exit(1)
 
 try:
-    run_cmd("git status", cwd / "unicornafl")
+    run_cmd("git status", cwd)
 except subprocess.CalledProcessError:
     print(f"[!] Unicornafl is not a submodule, do a separate clone...")
     run_cmd("rm -rf unicornafl && git clone https://github.com/AFLplusplus/unicornafl", cwd)
