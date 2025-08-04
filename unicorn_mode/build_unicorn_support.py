@@ -64,10 +64,9 @@ if not (cwd.parent / "afl-showmap").exists():
     exit(1)
 
 if not shutil.which("cargo"):
-    print("[*] No cargo, installing Rust and this might take a while...")
-    run_cmd("wget -qO- https://sh.rustup.rs | CARGO_HOME=/etc/cargo sh -s -- -y", cwd)
-    previous_path = os.environ["PATH"]
-    os.environ["PATH"] = f"/etc/cargo/bin:{previous_path}"
+    print("[!] No cargo, please install Rust in advance.")
+    print("[!] TLDR: `curl https://sh.rustup.rs -sSf | sh -s -- -y`")
+    exit(1)
 
 unicornafl_version = detect_from_env_or_file("UNICORNAFL_VERSION")
 if not unicornafl_version:
