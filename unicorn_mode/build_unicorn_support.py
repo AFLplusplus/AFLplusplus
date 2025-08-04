@@ -148,7 +148,7 @@ print(f"""[*] All done! You have compiled unicornafl without any issue.
         unicornafl = {{ path = "{(cwd/'unicornafl').absolute()}" }}
     to your Cargo.toml.
     
-    Please also have a look at { (cwd / 'unicornafl' / 'docs').absolute() } which contains vary hints and usages.
+    Please also have a look at { (cwd / 'unicornafl' / 'docs').absolute() } which contains various hints and usages.
     
-    If you have any issue about unicornafl, please let us know.
+    If you have any issue about unicornafl, please raise an issue.
 """)
