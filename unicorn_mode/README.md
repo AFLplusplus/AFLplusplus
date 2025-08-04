@@ -8,6 +8,8 @@ The port to AFL++ is by Dominik Maier <mail@dmnk.co>.
 The CompareCoverage and NeverZero counters features are by Andrea Fioraldi
 <andreafioraldi@gmail.com>.
 
+The current maintainer of Unicorn and UnicornAFL is Ziqiao Kong <mio@lazym.io>
+
 ## 1) Introduction
 
 The code in [unicorn_mode/](./) allows you to build the
@@ -36,11 +38,8 @@ and add in the Unicorn mode features:
 
 ```
 cd unicorn_mode
-./build_unicorn_support.sh
+./build_unicorn_support.py
 ```
-
-NOTE: This script checks out a Unicorn Engine fork as submodule that has been
-tested and is stable-ish, based on the unicorn engine `next` branch.
 
 Building Unicorn will take a little bit (~5-10 minutes). Once it completes, it
 automatically compiles a sample application and verifies that it works.
@@ -105,11 +104,8 @@ An example use of AFL-Unicorn mode is discussed in the paper Unicorefuzz:
 As for the QEMU-based instrumentation, unicornafl comes with a sub-instruction
 based instrumentation similar in purpose to laf-intel.
 
-The options that enable Unicorn CompareCoverage are the same used for QEMU. This
-will split up each multi-byte compare to give feedback for each correct byte:
-
-* `AFL_COMPCOV_LEVEL=1` to instrument comparisons with only immediate values.
-* `AFL_COMPCOV_LEVEL=2` to instrument all comparison instructions.
+`UNICORN_AFL_CMPCOV=1` will split up each multi-byte compare to give feedback for 
+each correct byte.
 
 Comparison instructions are currently instrumented only for the x86, x86_64, and
 ARM targets.
@@ -120,22 +116,13 @@ Running the build script builds unicornafl and its Python bindings and installs
 them on your system. This installation will leave any existing Unicorn
 installations untouched.
 
-If you want to use unicornafl instead of unicorn in a script, replace all
-`unicorn` imports with `unicornafl` inputs, everything else should "just work".
-If you use 3rd party code depending on unicorn, you can use unicornafl
-monkeypatching. Before importing anything that depends on unicorn, do:
+It will also build a C/C++ bindings for you located at `unicorn_mode/lib` and `unicorn_mode/include`.
 
-```python
-import unicornafl
-unicornafl.monkeypatch()
-```
+## 5) Examples, Documents
 
-This will replace all unicorn imports with unicornafl inputs.
-
-## 5) Examples
-
-Apart from reading the documentation in `afl.c` and the Python bindings of
-unicornafl, the best documentation are the [samples/](./samples).
+Firstly read documents from `unicorn_mode/unicornafl/docs`. Most questions could get answers
+there, like how to update Unicorn version etc. There are also plenty of [samples/](./samples) to
+facilitate your harness building.
 
 The following examples exist at the time of writing:
 
