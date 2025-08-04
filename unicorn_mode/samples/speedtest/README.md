@@ -5,7 +5,7 @@ to show the raw speed of C, Rust, and Python harnesses.
 
 ## Compiling...
 
-Make sure you built unicornafl first (`../../build_unicorn_support.sh`).
+Make sure you built unicornafl first (`../../build_unicorn_support.py`).
 Build the target using the provided Makefile.
 This will also run the [./get_offsets.py](./get_offsets.py) script,
 which finds some relevant addresses in the target binary using `objdump`,

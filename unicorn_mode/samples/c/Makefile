@@ -40,7 +40,7 @@ harness-debug.o: harness.c ../../include/unicorn/*.h
 	${CC} ${CFLAGS} -g -c harness.c -o $@
 
 ../../lib/libunicornafl.a:
-	cd ../.. && ./build_unicorn_support.sh
+	cd ../.. && ./build_unicorn_support.py
 
 harness: harness.o
 	${CC} harness.o ../../lib/libunicornafl.a $(LDFLAGS) -o $@

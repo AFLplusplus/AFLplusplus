@@ -146,7 +146,7 @@ To build unicorn_mode:
 
 ```shell
 cd unicorn_mode
-./build_unicorn_support.sh
+./build_unicorn_support.py
 ```
 
 For further information, check out
