@@ -165,8 +165,7 @@ void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
     u32 size_diff = new_size - old_size;
 
     memset(afl->var_bytes + old_size, 0, size_diff);
-    memset(afl->top_rated + old_size * sizeof(void *), 0,
-           size_diff * sizeof(void *));
+    memset(afl->top_rated + old_size, 0, size_diff * sizeof(void *));
     memset(afl->clean_trace + old_size, 0, size_diff);
     memset(afl->clean_trace_custom + old_size, 0, size_diff);
     memset(afl->first_trace + old_size, 0, size_diff);
