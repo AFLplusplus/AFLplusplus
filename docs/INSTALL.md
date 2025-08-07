@@ -93,6 +93,8 @@ These build options exist:
 * NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)
 * NO_NYX - disable building nyx mode dependencies
 * NO_CORESIGHT - disable building coresight (arm64 only)
+* NO_QEMU - disable building QEMU support
+* NO_UNICORN - disable building unicorn
 * NO_UNICORN_ARM64 - disable building unicorn on arm64
 * AFL_NO_X86 - if compiling on non-Intel/AMD platforms
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g., Debian)

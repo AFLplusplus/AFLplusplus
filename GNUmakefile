@@ -96,7 +96,7 @@ ifdef PERFORMANCE
   ifeq "$(SYS)" "Linux"
     ifeq "$(shell grep avx2 /proc/cpuinfo)" ""
     else
-  	SPECIAL_PERFORMANCE += -mavx2 -D_HAVE_AVX2
+	SPECIAL_PERFORMANCE += -mavx2 -D_HAVE_AVX2
     endif
   endif
   ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
@@ -322,6 +322,12 @@ ifdef TEST_MMAP
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
+ifeq "$(ARCH)" "aarch64"
+  ifdef NO_UNICORN_ARM64
+	NO_UNICORN=1
+  endif
+endif
+
 .PHONY: all
 all:	test_x86 test_shm test_python ready $(PROGS) llvm gcc_plugin test_build all_done
 	-$(MAKE) -C utils/aflpp_driver
@@ -383,7 +389,7 @@ help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
 	@echo "all: the main AFL++ binaries and llvm/gcc instrumentation"
-	@echo "binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode, qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
+	@echo "binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode, qemu_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
 	@echo "source-only: everything for source code fuzzing: nyx_mode, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
@@ -414,6 +420,8 @@ help:
 	@echo "NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)"
 	@echo NO_NYX - disable building nyx mode dependencies
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
+	@echo NO_QEMU - disable building QEMU support
+	@echo NO_UNICORN - disable building unicorn
 	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
 	@echo "WAFL_MODE - enable for WASM fuzzing with https://github.com/fgsect/WAFL"
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
@@ -714,14 +722,12 @@ ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
 endif
 endif
+ifndef NO_QEMU
 	-cd qemu_mode && sh ./build_qemu_support.sh
-  ifeq "$(ARCH)" "aarch64"
-    ifndef NO_UNICORN_ARM64
+endif
+ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
-    endif
-  else
-	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
-  endif
+endif
 endif
 
 .PHONY: binary-only
@@ -746,14 +752,12 @@ ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
 endif
 endif
+ifndef NO_QEMU
 	-cd qemu_mode && sh ./build_qemu_support.sh
-  ifeq "$(ARCH)" "aarch64"
-    ifndef NO_UNICORN_ARM64
+endif
+ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
-    endif
-  else
-	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
-  endif
+endif
 endif
 	@echo
 	@echo
@@ -771,13 +775,9 @@ ifndef NO_NYX
 endif
 endif
 	@test -e afl-qemu-trace && echo "[+] qemu_mode successfully built" || echo "[-] qemu_mode could not be built, see docs/INSTALL.md for what is needed"
-  ifeq "$(ARCH)" "aarch64"
-    ifndef NO_UNICORN_ARM64
+ifndef NO_UNICORN
 	@test -e unicorn_mode/unicornafl/build_python/libunicornafl.so && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
-    endif
-  else
-	@test -e unicorn_mode/unicornafl/build_python/libunicornafl.so && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
-  endif
+endif
 endif
 	@echo
 
