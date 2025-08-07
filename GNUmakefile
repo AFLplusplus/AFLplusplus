@@ -96,7 +96,7 @@ ifdef PERFORMANCE
   ifeq "$(SYS)" "Linux"
     ifeq "$(shell grep avx2 /proc/cpuinfo)" ""
     else
-  	SPECIAL_PERFORMANCE += -mavx2 -D_HAVE_AVX2
+	SPECIAL_PERFORMANCE += -mavx2 -D_HAVE_AVX2
     endif
   endif
   ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
