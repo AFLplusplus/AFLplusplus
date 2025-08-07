@@ -28,6 +28,8 @@
 #ifndef __AFL_SHAREDMEM_H
 #define __AFL_SHAREDMEM_H
 
+#include <unistd.h>
+
 #include "types.h"
 
 typedef struct sharedmem {
