@@ -322,6 +322,12 @@ ifdef TEST_MMAP
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
+ifeq "$(ARCH)" "aarch64"
+  ifdef NO_UNICORN_ARM64
+	NO_UNICORN=1
+  endif
+endif
+
 .PHONY: all
 all:	test_x86 test_shm test_python ready $(PROGS) llvm gcc_plugin test_build all_done
 	-$(MAKE) -C utils/aflpp_driver
@@ -415,6 +421,7 @@ help:
 	@echo NO_NYX - disable building nyx mode dependencies
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
 	@echo NO_QEMU - disable building QEMU support
+	@echo NO_UNICORN - disable building unicorn
 	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
 	@echo "WAFL_MODE - enable for WASM fuzzing with https://github.com/fgsect/WAFL"
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
@@ -718,13 +725,9 @@ endif
 ifndef NO_QEMU
 	-cd qemu_mode && sh ./build_qemu_support.sh
 endif
-  ifeq "$(ARCH)" "aarch64"
-    ifndef NO_UNICORN_ARM64
+ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
-    endif
-  else
-	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
-  endif
+endif
 endif
 
 .PHONY: binary-only
@@ -752,13 +755,9 @@ endif
 ifndef NO_QEMU
 	-cd qemu_mode && sh ./build_qemu_support.sh
 endif
-  ifeq "$(ARCH)" "aarch64"
-    ifndef NO_UNICORN_ARM64
+ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
-    endif
-  else
-	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
-  endif
+endif
 endif
 	@echo
 	@echo
@@ -776,13 +775,9 @@ ifndef NO_NYX
 endif
 endif
 	@test -e afl-qemu-trace && echo "[+] qemu_mode successfully built" || echo "[-] qemu_mode could not be built, see docs/INSTALL.md for what is needed"
-  ifeq "$(ARCH)" "aarch64"
-    ifndef NO_UNICORN_ARM64
+ifndef NO_UNICORN
 	@test -e unicorn_mode/unicornafl/build_python/libunicornafl.so && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
-    endif
-  else
-	@test -e unicorn_mode/unicornafl/build_python/libunicornafl.so && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
-  endif
+endif
 endif
 	@echo
 
