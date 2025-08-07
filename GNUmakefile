@@ -383,7 +383,7 @@ help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
 	@echo "all: the main AFL++ binaries and llvm/gcc instrumentation"
-	@echo "binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode, qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
+	@echo "binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode, qemu_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
 	@echo "source-only: everything for source code fuzzing: nyx_mode, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
