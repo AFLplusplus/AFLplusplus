@@ -414,6 +414,7 @@ help:
 	@echo "NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)"
 	@echo NO_NYX - disable building nyx mode dependencies
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
+	@echo NO_QEMU - disable building QEMU support
 	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
 	@echo "WAFL_MODE - enable for WASM fuzzing with https://github.com/fgsect/WAFL"
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
@@ -714,7 +715,9 @@ ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
 endif
 endif
+ifndef NO_QEMU
 	-cd qemu_mode && sh ./build_qemu_support.sh
+endif
   ifeq "$(ARCH)" "aarch64"
     ifndef NO_UNICORN_ARM64
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
@@ -746,7 +749,9 @@ ifndef NO_NYX
 	-cd nyx_mode && ./build_nyx_support.sh
 endif
 endif
+ifndef NO_QEMU
 	-cd qemu_mode && sh ./build_qemu_support.sh
+endif
   ifeq "$(ARCH)" "aarch64"
     ifndef NO_UNICORN_ARM64
 	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
