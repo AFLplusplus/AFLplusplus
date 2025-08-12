@@ -2344,6 +2344,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         u32 clone_len = 1;
+        if (unlikely(len + clone_len > max_len)) { goto retry_havoc_step; }
         u32 clone_to = rand_below(afl, len);
         u32 strat = rand_below(afl, 2);
         u32 clone_from = clone_to ? clone_to - 1 : 0;
