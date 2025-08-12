@@ -2566,7 +2566,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 use_extra = rand_below(afl, afl->extras_cnt);
         u32 extra_len = afl->extras[use_extra].len;
-        if (unlikely(len + extra_len >= max_len)) { goto retry_havoc_step; }
+        if (unlikely(len + extra_len > max_len)) { goto retry_havoc_step; }
 
         u8 *ptr = afl->extras[use_extra].data;
         u32 insert_at = rand_below(afl, len + 1);
@@ -2606,7 +2606,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 use_extra = rand_below(afl, afl->a_extras_cnt);
         u32 extra_len = afl->a_extras[use_extra].len;
-        if (unlikely(len + extra_len >= max_len)) { goto retry_havoc_step; }
+        if (unlikely(len + extra_len > max_len)) { goto retry_havoc_step; }
 
         u8 *ptr = afl->a_extras[use_extra].data;
         u32 insert_at = rand_below(afl, len + 1);
@@ -2646,7 +2646,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         if (unlikely(!splice_buf || !splice_len)) { goto retry_havoc_step; }
 
-        if (unlikely(len + HAVOC_BLK_XL >= max_len)) { goto retry_havoc_step; }
+        if (unlikely(len + HAVOC_BLK_XL > max_len)) { goto retry_havoc_step; }
 
         /* insert mode */
 
