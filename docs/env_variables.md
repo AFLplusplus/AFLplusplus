@@ -326,10 +326,10 @@ mode.
     [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md)
     for more information.
 
-    Setting `AFL_GCC_DISABLE_VERSION_CHECK=1` will disable the GCC plugin 
+    Setting `AFL_GCC_DISABLE_VERSION_CHECK=1` will disable the GCC plugin
     version check if the target GCC plugin differs from the system-installed
-    version, resolving issues caused by version mismatches between GCC and 
-    the plugin. 
+    version, resolving issues caused by version mismatches between GCC and
+    the plugin.
 
     Setting `AFL_GCC_OUT_OF_LINE=1` will instruct afl-gcc-fast to instrument the
     code with calls to an injected subroutine instead of the much more efficient
@@ -424,7 +424,7 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_EXIT_ON_SEED_ISSUES` will restore the vanilla afl-fuzz behavior which
     does not allow crashes or timeout seeds in the initial -i corpus.
 
-  - `AFL_CRASHING_SEEDS_AS_NEW_CRASH` will treat crashing seeds as new crash. these 
+  - `AFL_CRASHING_SEEDS_AS_NEW_CRASH` will treat crashing seeds as new crash. these
     crashes will be written to crashes folder as op:dry_run, and orig:<seed_file_name>.
 
   - `AFL_EXIT_ON_TIME` causes afl-fuzz to terminate if no new paths were found
@@ -577,11 +577,6 @@ checks or alter some of the more exotic semantics of the tool:
     without disrupting the afl-fuzz process itself. This is useful, among other
     things, for bootstrapping libdislocator.so.
 
-  - In QEMU mode (-Q), setting `AFL_QEMU_CUSTOM_BIN` will cause afl-fuzz to skip
-    prepending `afl-qemu-trace` to your command line. Use this if you wish to
-    use a custom afl-qemu-trace or if you need to modify the afl-qemu-trace
-    arguments.
-
   - `AFL_SHA1_FILENAMES` causes AFL++ to generate files named by the SHA1 hash
     of their contents, rather than use the standard `id:000000,...` names.
 
@@ -703,9 +698,18 @@ checks or alter some of the more exotic semantics of the tool:
     enough privileges to modify the ownership of entities (e.g. CAP\_CHOWN
     capability in Linux system).
 
+  - Normally a `README.txt` is written to the `crashes/` directory when a first
+    crash is found. Setting `AFL_NO_CRASH_README` will prevent this. Useful when
+    counting crashes based on a file count in that directory.
+
 ## 6) Settings for afl-qemu-trace
 
 The QEMU wrapper used to instrument binary-only code supports several settings:
+
+  - Setting `AFL_QEMU_CUSTOM_BIN` will cause afl-fuzz to skip prepending
+    `afl-qemu-trace` to your command line. Use this if you wish to use a
+    custom afl-qemu-trace or if you need to modify the afl-qemu-trace
+    arguments.
 
   - Setting `AFL_COMPCOV_LEVEL` enables the CompareCoverage tracing of all cmp
     and sub in x86 and x86_64 and memory comparison functions (e.g., strcmp,
@@ -730,8 +734,10 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
     inside any dynamically linked libraries (notably including glibc).
 
   - You can use `AFL_QEMU_INST_RANGES=0xaaaa-0xbbbb,0xcccc-0xdddd` to just
-    instrument specific memory locations, e.g. a specific library.
-    Excluding ranges takes priority over any included ranges or `AFL_INST_LIBS`.
+    instrument specific memory locations, e.g. a specific library. You may
+    also provide the filename of the library. Excluding ranges takes priority
+    over any included ranges or `AFL_INST_LIBS`. See
+    [qemu_mode/README.md#partial-instrumenation](../qemu_mode/README.md#6-partial-instrumentation)).
 
   - You can use `AFL_QEMU_EXCLUDE_RANGES=0xaaaa-0xbbbb,0xcccc-0xdddd` to **NOT**
     instrument specific memory locations, e.g. a specific library.
@@ -774,10 +780,6 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - The underlying QEMU binary will recognize any standard "user space
     emulation" variables (e.g., `QEMU_STACK_SIZE`), but there should be no
     reason to touch them.
-
-  - Normally a `README.txt` is written to the `crashes/` directory when a first
-    crash is found. Setting `AFL_NO_CRASH_README` will prevent this. Useful when
-    counting crashes based on a file count in that directory.
 
 ## 8) Settings for afl-frida-trace
 
