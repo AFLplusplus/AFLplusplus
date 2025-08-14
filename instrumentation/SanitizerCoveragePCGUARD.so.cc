@@ -232,7 +232,7 @@ extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginIn
                                              ) {
 #if LLVM_VERSION_MAJOR >= 20
         // Only add the pass for non-LTO phases to avoid conflicts
-        if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink && 
+        if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink &&
             Phase != ThinOrFullLTOPhase::FullLTOPreLink) {
           MPM.addPass(ModuleSanitizerCoverageAFL());
         }
