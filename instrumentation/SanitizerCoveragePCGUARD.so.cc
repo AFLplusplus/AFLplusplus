@@ -217,38 +217,36 @@ class ModuleSanitizerCoverageAFL
 
 }  // namespace
 
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
-
-  return {LLVM_PLUGIN_API_VERSION, "SanitizerCoveragePCGUARD", "v0.2",
-          /* lambda to insert our pass into the pass pipeline. */
-          [](PassBuilder &PB) {
-
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo() {
+  return {
+    LLVM_PLUGIN_API_VERSION, 
+    "SanitizerCoveragePCGUARD", 
+    "v0.2",
+    [](PassBuilder &PB) {
 #if LLVM_VERSION_MAJOR >= 16
-            PB.registerOptimizerEarlyEPCallback([](ModulePassManager &MPM,
-                                                   OptimizationLevel  OL
-  #if LLVM_VERSION_MAJOR >= 20
-                                                   ,
-                                                   ThinOrFullLTOPhase Phase
-  #endif
-                                                ) {
-
-              MPM.addPass(ModuleSanitizerCoverageAFL());
-
-            });
-
-#else
-            PB.registerOptimizerLastEPCallback(
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
-
-                  MPM.addPass(ModuleSanitizerCoverageAFL());
-
-                });
-
+      PB.registerOptimizerEarlyEPCallback([](ModulePassManager &MPM,
+                                             OptimizationLevel OL
+#if LLVM_VERSION_MAJOR >= 20
+                                             ,ThinOrFullLTOPhase Phase
 #endif
-
-          }};
-
+                                             ) {
+#if LLVM_VERSION_MAJOR >= 20
+        // Only add the pass for non-LTO phases to avoid conflicts
+        if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink && 
+            Phase != ThinOrFullLTOPhase::FullLTOPreLink) {
+          MPM.addPass(ModuleSanitizerCoverageAFL());
+        }
+#else
+        MPM.addPass(ModuleSanitizerCoverageAFL());
+#endif
+      });
+#else
+      PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM, OptimizationLevel OL) {
+        MPM.addPass(ModuleSanitizerCoverageAFL());
+      });
+#endif
+    }
+  };
 }
 
 PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
