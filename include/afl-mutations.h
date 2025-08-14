@@ -1896,7 +1896,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         item = rand_below(afl, sizeof(interesting_16) >> 1);
-        *(u16 *)(buf + rand_below(afl, len - 1)) = interesting_16[item];
+        INSERT16(buf, rand_below(afl, len - 1), interesting_16[item]);
 
         break;
 
@@ -1909,7 +1909,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         item = rand_below(afl, sizeof(interesting_16) >> 1);
-        *(u16 *)(buf + rand_below(afl, len - 1)) = SWAP16(interesting_16[item]);
+        INSERT16(buf, rand_below(afl, len - 1), SWAP16(interesting_16[item]));
 
         break;
 
@@ -1922,7 +1922,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 4)) { break; }  // no retry
 
         item = rand_below(afl, sizeof(interesting_32) >> 2);
-        *(u32 *)(buf + rand_below(afl, len - 3)) = interesting_32[item];
+        INSERT32(buf, rand_below(afl, len - 3), interesting_32[item]);
 
         break;
 
@@ -1935,7 +1935,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 4)) { break; }  // no retry
 
         item = rand_below(afl, sizeof(interesting_32) >> 2);
-        *(u32 *)(buf + rand_below(afl, len - 3)) = SWAP32(interesting_32[item]);
+        INSERT32(buf, rand_below(afl, len - 3), SWAP32(interesting_32[item]));
 
         break;
 
@@ -1969,7 +1969,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 pos = rand_below(afl, len - 1);
         item = 1 + rand_below(afl, ARITH_MAX);
-        *(u16 *)(buf + pos) -= item;
+        INSERT16(buf, pos, EXTRACT16(buf, pos) - item);
 
         break;
 
@@ -1982,8 +1982,8 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         u32 pos = rand_below(afl, len - 1);
-        u16 num = 1 + rand_below(afl, ARITH_MAX);
-        *(u16 *)(buf + pos) = SWAP16(SWAP16(*(u16 *)(buf + pos)) - num);
+        item = 1 + rand_below(afl, ARITH_MAX);
+        INSERT16(buf, pos, SWAP16(SWAP16(EXTRACT16(buf, pos)) - item));
 
         break;
 
@@ -1997,7 +1997,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 pos = rand_below(afl, len - 1);
         item = 1 + rand_below(afl, ARITH_MAX);
-        *(u16 *)(buf + pos) += item;
+        INSERT16(buf, pos, EXTRACT16(buf, pos) + item);
 
         break;
 
@@ -2010,8 +2010,8 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         u32 pos = rand_below(afl, len - 1);
-        u16 num = 1 + rand_below(afl, ARITH_MAX);
-        *(u16 *)(buf + pos) = SWAP16(SWAP16(*(u16 *)(buf + pos)) + num);
+        item = 1 + rand_below(afl, ARITH_MAX);
+        INSERT16(buf, pos, SWAP16(SWAP16(EXTRACT16(buf, pos)) + item));
 
         break;
 
@@ -2025,7 +2025,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 pos = rand_below(afl, len - 3);
         item = 1 + rand_below(afl, ARITH_MAX);
-        *(u32 *)(buf + pos) -= item;
+        INSERT32(buf, pos, EXTRACT32(buf, pos) - item);
 
         break;
 
@@ -2038,8 +2038,8 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 4)) { break; }  // no retry
 
         u32 pos = rand_below(afl, len - 3);
-        u32 num = 1 + rand_below(afl, ARITH_MAX);
-        *(u32 *)(buf + pos) = SWAP32(SWAP32(*(u32 *)(buf + pos)) - num);
+        item = 1 + rand_below(afl, ARITH_MAX);
+        INSERT32(buf, pos, SWAP32(SWAP32(EXTRACT32(buf, pos)) - item));
 
         break;
 
@@ -2053,7 +2053,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 pos = rand_below(afl, len - 3);
         item = 1 + rand_below(afl, ARITH_MAX);
-        *(u32 *)(buf + pos) += item;
+        INSERT32(buf, pos, EXTRACT32(buf, pos) + item);
 
         break;
 
@@ -2066,8 +2066,8 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 4)) { break; }  // no retry
 
         u32 pos = rand_below(afl, len - 3);
-        u32 num = 1 + rand_below(afl, ARITH_MAX);
-        *(u32 *)(buf + pos) = SWAP32(SWAP32(*(u32 *)(buf + pos)) + num);
+        item = 1 + rand_below(afl, ARITH_MAX);
+        INSERT32(buf, pos, SWAP32(SWAP32(EXTRACT32(buf, pos) + item)));
 
         break;
 
