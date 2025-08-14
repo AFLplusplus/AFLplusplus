@@ -389,7 +389,7 @@ help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
 	@echo "all: the main AFL++ binaries and llvm/gcc instrumentation"
-	@echo "binary-only: everything for binary-only fuzzing: frida_mode, nyx_mode, qemu_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
+	@echo "binary-only: everything for binary-only fuzzing: nyx_mode, qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
 	@echo "source-only: everything for source code fuzzing: nyx_mode, libdislocator, libtokencap"
 	@echo "distrib: everything (for both binary-only and source code fuzzing)"
 	@echo "man: creates simple man pages from the help option of the programs"
@@ -421,6 +421,7 @@ help:
 	@echo NO_NYX - disable building nyx mode dependencies
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
 	@echo NO_QEMU - disable building QEMU support
+	@echo NO_FRIDA - disable building FRIDA support
 	@echo NO_UNICORN - disable building unicorn
 	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
 	@echo "WAFL_MODE - enable for WASM fuzzing with https://github.com/fgsect/WAFL"
@@ -710,7 +711,9 @@ endif
 	-$(MAKE) -C utils/socket_fuzzing
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
+ifndef NO_FRIDA
 	-$(MAKE) -C frida_mode
+endif
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
   ifndef NO_CORESIGHT
@@ -740,7 +743,9 @@ endif
 	-$(MAKE) -C utils/socket_fuzzing
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
+ifndef NO_FRIDA
 	-$(MAKE) -C frida_mode
+endif
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
   ifndef NO_CORESIGHT
