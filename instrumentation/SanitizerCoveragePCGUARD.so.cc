@@ -221,7 +221,6 @@ extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
 
   return {LLVM_PLUGIN_API_VERSION, "SanitizerCoveragePCGUARD", "v0.2",
-          /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
 #if LLVM_VERSION_MAJOR >= 16
@@ -233,7 +232,18 @@ llvmGetPassPluginInfo() {
   #endif
                                                 ) {
 
+  #if LLVM_VERSION_MAJOR >= 20
+              // Only add the pass for non-LTO phases to avoid conflicts
+              if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink &&
+                  Phase != ThinOrFullLTOPhase::FullLTOPreLink) {
+
+                MPM.addPass(ModuleSanitizerCoverageAFL());
+
+              }
+
+  #else
               MPM.addPass(ModuleSanitizerCoverageAFL());
+  #endif
 
             });
 
@@ -330,7 +340,7 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
   auto      SecStart = SecStartEnd.first;
   auto      SecEnd = SecStartEnd.second;
   Function *CtorFunc;
-  Type     *PtrTy = PointerType::getUnqual(Ty);
+  // Type     *PtrTy = PointerType::getUnqual(Ty);
   std::tie(CtorFunc, std::ignore) = createSanitizerCtorAndInitFunctions(
       M, CtorName, InitFunctionName, {PtrTy, PtrTy}, {SecStart, SecEnd});
   // assert(CtorFunc->getName() == CtorName);
@@ -398,24 +408,27 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   FunctionBoolArray = nullptr;
   FunctionPCsArray = nullptr;
   IntptrTy = Type::getIntNTy(*C, DL->getPointerSizeInBits());
-  IntptrPtrTy = PointerType::getUnqual(IntptrTy);
   Type       *VoidTy = Type::getVoidTy(*C);
   IRBuilder<> IRB(*C);
+  PtrTy = PointerType::getUnqual(*C);
+#if LLVM_MAJOR >= 20
+  IntptrPtrTy = Int64PtrTy = Int32PtrTy = Int8PtrTy = Int1PtrTy = PtrTy;
+#else
+  IntptrPtrTy = PointerType::getUnqual(IntptrTy);
   Int64PtrTy = PointerType::getUnqual(IRB.getInt64Ty());
   Int32PtrTy = PointerType::getUnqual(IRB.getInt32Ty());
   Int8PtrTy = PointerType::getUnqual(IRB.getInt8Ty());
   Int1PtrTy = PointerType::getUnqual(IRB.getInt1Ty());
+#endif
   Int64Ty = IRB.getInt64Ty();
   Int32Ty = IRB.getInt32Ty();
   Int16Ty = IRB.getInt16Ty();
   Int8Ty = IRB.getInt8Ty();
   Int1Ty = IRB.getInt1Ty();
-  PtrTy = PointerType::getUnqual(*C);
 
   LLVMContext &Ctx = M.getContext();
-  AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+  AFLMapPtr = new GlobalVariable(M, PtrTy, false, GlobalValue::ExternalLinkage,
+                                 0, "__afl_area_ptr");
   One = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 1);
   Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
 
@@ -1354,8 +1367,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         */
 
-        LoadInst *MapPtr =
-            IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+        LoadInst *MapPtr = IRB.CreateLoad(PtrTy, AFLMapPtr);
         ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(MapPtr);
 
         while (1) {
@@ -1626,7 +1638,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 
     /* Load SHM pointer */
 
-    LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+    LoadInst *MapPtr = IRB.CreateLoad(PtrTy, AFLMapPtr);
     ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(MapPtr);
 
     /* Load counter for CurLoc */

@@ -7,6 +7,7 @@
 ### Version ++4.34a (dev)
   - afl-fuzz
     - scroll down before clearing the screen to not loose content
+    - minor bug fixes
   - afl-showmap
     - fix -C parameter breakage introduced in v4.33c
   - qemu_mode:
@@ -14,6 +15,11 @@
   - afl-cc:
     - fix a offset calculation bug in AFL++ PCGUARD
     - make AFL_DUMP_MAP_SIZE work for CLASSIC modes
+    - fix a crash when running with LLVM 20 when compiling PCGUARD with LTO
+    - Fix deprecation warnings for LLVM 20+
+  - Building:
+    - new NO_UNICORN and NO_QEMU and NO_FRIDA build options
+    - build fixes for FreeBSD
 
 
 ### Version ++4.33c (release)
