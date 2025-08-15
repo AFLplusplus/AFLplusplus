@@ -102,7 +102,7 @@ bool InjectionRoutines::hookRtns(Module &M) {
       Memcmp, Strcmp, Strncmp;
   LLVMContext &C = M.getContext();
 
-  Type        *VoidTy = Type::getVoidTy(C);
+  Type *VoidTy = Type::getVoidTy(C);
 #if LLVM_MAJOR >= 20
   PointerType *i8PtrTy = PointerType::getUnqual(C);
 #else

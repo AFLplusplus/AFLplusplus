@@ -2420,10 +2420,11 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         s64 val = buf[off] - '0';
         for (u32 i = off + 1; i < off2; ++i) {
 
-          u8 digit = buf[i] - '0';
+          u8  digit = buf[i] - '0';
           s64 valx10;
 
-          if (val > INT64_MAX/10 || (valx10 = (val * 10)) > INT64_MAX - digit) {
+          if (val > INT64_MAX / 10 ||
+              (valx10 = (val * 10)) > INT64_MAX - digit) {
 
             off2 = i;
             break;
@@ -2440,24 +2441,33 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         switch (strat) {
 
           case 0:
-            if (val == INT64_MAX){
+            if (val == INT64_MAX) {
+
               val /= 10;
               --off2;
+
             }
+
             val++;
             break;
           case 1:
-            if (val == INT64_MIN){
+            if (val == INT64_MIN) {
+
               val /= 10;
               --off2;
+
             }
+
             val--;
             break;
           case 2:
-            if (val > INT64_MAX/2 || val < INT64_MIN/2) {
+            if (val > INT64_MAX / 2 || val < INT64_MIN / 2) {
+
               val /= 10;
               --off2;
+
             }
+
             val *= 2;
             break;
           case 3:
@@ -2476,17 +2486,23 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
             break;
           case 5:
-            if (val > INT64_MAX - 256){
+            if (val > INT64_MAX - 256) {
+
               val /= 10;
               --off2;
+
             }
+
             val += rand_below(afl, 256);
             break;
           case 6:
-            if (val < INT64_MIN + 256){
+            if (val < INT64_MIN + 256) {
+
               val /= 10;
               --off2;
+
             }
+
             val -= rand_below(afl, 256);
             break;
           case 7:
@@ -2506,7 +2522,11 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         } else {
 
-          if (unlikely(off + new_len + len - off2 > max_len)) { goto retry_havoc_step; }
+          if (unlikely(off + new_len + len - off2 > max_len)) {
+
+            goto retry_havoc_step;
+
+          }
 
           /* Head */
 
