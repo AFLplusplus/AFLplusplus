@@ -308,7 +308,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
      __afl_prev_loc is thread-local. */
 
   GlobalVariable *AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+      new GlobalVariable(M, PointerType::get(C, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   GlobalVariable *AFLPrevLoc;
   GlobalVariable *AFLPrevCaller;
@@ -441,7 +441,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
           PrevCaller = IRB.CreateLoad(PrevCallerTy, AFLPrevCaller);
           PrevCaller->setMetadata(M.getMDKindID("nosanitize"),
+  #if LLVM_MAJOR >= 20
+                                  MDNode::get(C, {}));
+  #else
                                   MDNode::get(C, None));
+  #endif
           PrevCtx =
               IRB.CreateZExt(IRB.CreateXorReduce(PrevCaller), IRB.getInt32Ty());
 
@@ -454,7 +458,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
           // local variable on the stack
           LoadInst *PrevCtxLoad = IRB.CreateLoad(IRB.getInt32Ty(), AFLContext);
           PrevCtxLoad->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                                   MDNode::get(C, {}));
+#else
                                    MDNode::get(C, None));
+#endif
           PrevCtx = PrevCtxLoad;
 
         }
@@ -501,7 +509,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
             StoreInst *Store =
                 IRB.CreateStore(UpdatedPrevCaller, AFLPrevCaller);
             Store->setMetadata(M.getMDKindID("nosanitize"),
+  #if LLVM_MAJOR >= 20
+                               MDNode::get(C, {}));
+  #else
                                MDNode::get(C, None));
+  #endif
 
           } else
 
@@ -511,7 +523,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
             if (ctx_str) NewCtx = IRB.CreateXor(PrevCtx, NewCtx);
             StoreInst *StoreCtx = IRB.CreateStore(NewCtx, AFLContext);
             StoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                                  MDNode::get(C, {}));
+#else
                                   MDNode::get(C, None));
+#endif
 
           }
 
@@ -582,7 +598,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 #endif
               RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
             RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                                    MDNode::get(C, {}));
+#else
                                     MDNode::get(C, None));
+#endif
 
           }
 
@@ -615,7 +635,12 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
       }
 
-      PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      PrevLoc->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                           MDNode::get(C, {}));
+#else
+                           MDNode::get(C, None));
+#endif
       Value *PrevLocTrans;
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
@@ -638,8 +663,13 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
       /* Load SHM pointer */
 
-      LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
-      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(C, 0), AFLMapPtr);
+      MapPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                          MDNode::get(C, {}));
+#else
+                          MDNode::get(C, None));
+#endif
 
       Value *MapPtrIdx;
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
@@ -670,7 +700,12 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
       } else {
 
         LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
-        Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        Counter->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                             MDNode::get(C, {}));
+#else
+                             MDNode::get(C, None));
+#endif
 
         Value *Incr = IRB.CreateAdd(Counter, One);
 
@@ -695,7 +730,12 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
         }
 
         IRB.CreateStore(Incr, MapPtrIdx)
-            ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+            ->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                          MDNode::get(C, {}));
+#else
+                          MDNode::get(C, None));
+#endif
 
       }                                                  /* non atomic case */
 
@@ -713,7 +753,12 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
             ShuffledPrevLoc, IRB.CreateLShr(CurLoc, (uint64_t)1), (uint64_t)0);
 
         Store = IRB.CreateStore(UpdatedPrevLoc, AFLPrevLoc);
-        Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        Store->setMetadata(M.getMDKindID("nosanitize"),
+  #if LLVM_MAJOR >= 20
+                           MDNode::get(C, {}));
+  #else
+                           MDNode::get(C, None));
+  #endif
 
       } else
 
@@ -722,7 +767,12 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
         Store = IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1),
                                 AFLPrevLoc);
-        Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        Store->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                           MDNode::get(C, {}));
+#else
+                           MDNode::get(C, None));
+#endif
 
       }
 
@@ -744,7 +794,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 #endif
             RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
           RestoreCtx->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                                  MDNode::get(C, {}));
+#else
                                   MDNode::get(C, None));
+#endif
 
         }
 
@@ -797,7 +851,11 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
         ConstantInt *const_loc = ConstantInt::get(Int32Ty, map_size);
         StoreInst *  StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
         StoreFinalLoc->setMetadata(M.getMDKindID("nosanitize"),
-                                     MDNode::get(C, None));
+#if LLVM_MAJOR >= 20
+                                  MDNode::get(C, {}));
+#else
+                                  MDNode::get(C, None));
+#endif
 
       }
 

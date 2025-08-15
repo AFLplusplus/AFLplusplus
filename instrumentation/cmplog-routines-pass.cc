@@ -350,7 +350,12 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     LoadInst *CmpPtr =
         IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
 
@@ -378,7 +383,12 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     LoadInst *CmpPtr =
         IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
 
@@ -410,7 +420,12 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     LoadInst *CmpPtr =
         IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
 
@@ -438,7 +453,12 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     LoadInst *CmpPtr =
         IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
 
@@ -470,7 +490,12 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     LoadInst *CmpPtr =
         IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
 
@@ -497,7 +522,12 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     LoadInst *CmpPtr =
         IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
 
@@ -524,7 +554,12 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     LoadInst *CmpPtr =
         IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
 
@@ -551,7 +586,12 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     LoadInst *CmpPtr =
         IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-    CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
     auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
     auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
 
