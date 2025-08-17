@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # By Ziqiao Kong <mio@lazym.io>
 
@@ -41,11 +41,7 @@ def detect_from_env_or_file(target: str):
             return f.read().strip()
     else:
         return None
-    
-if sys.platform == 'win32':
-    print("[!] Unicornafl does not support Windows so far (no fsrv support).")
-    exit(1)
-    
+
 cwd = Path(__file__).parent
 
 libs_path = cwd / "lib"
@@ -60,7 +56,7 @@ if include_path.exists():
     shutil.rmtree(include_path)
 
 if not (cwd.parent / "afl-showmap").exists():
-    print("[!] Please compile AFL++ firstly.")
+    print("[!] Please compile AFL++ first.")
     exit(1)
 
 if not shutil.which("cargo"):
@@ -80,7 +76,7 @@ except subprocess.CalledProcessError:
     run_cmd("rm -rf unicornafl && git clone https://github.com/AFLplusplus/unicornafl", cwd)
 
 if not (unicornafl_path / ".git").exists():
-    print(f"[!] Submodule not existing, will do a checkout firstly")
+    print(f"[!] Submodule not existing, will do a checkout first")
     run_cmd("git submodule update --init --recursive", cwd)
 
 print(f"[*] We will checkout unicornafl {unicornafl_version}")
@@ -92,7 +88,7 @@ if not venv:
     print(f"[!] A python venv is highly recommended! We will try to add --user for you.")
 
 if not shutil.which("maturin"):
-    print(f"[!] No maturin, will install maturin firstly")
+    print(f"[!] No maturin, will install maturin first")
     if not venv:
         run_cmd("pip install --user maturin")
     else:
@@ -109,6 +105,9 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
     if dst_file.exists():
         print(f"[*] Cool, it works =).")
+    else:
+        print(f"[!] Unicornafl can not fuzz a simplest case, please submit an issue.")
+        exit(-1)
 
 print(f"[*] Now building unicornafl C/C++ bindings")
 cargo_out = run_cmd(f"cargo build --release --features bindings --message-format=json", unicornafl_path, True)
@@ -140,7 +139,7 @@ for ln in lns:
 
 
 print(f"""[*] All done! You have compiled unicornafl without any issue.
-    You could start using python bindings by `import unicornafl`.
+    You can now start using python bindings by `import unicornafl`.
     For C/C++ users, please see {libs_path.absolute()} for libraries and {include_path.absolute()} for headers.
     For Rust users, either add:
         unicornafl = {{ git = "https://github.com/AFLplusplus/unicornafl", rev="{unicornafl_version}" }}
