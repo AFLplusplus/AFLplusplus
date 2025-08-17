@@ -18,7 +18,7 @@ def run_cmd(cmd: str, cwd: Path = None, quiet: bool = False):
     if not cwd:
         cwd = Path(__file__).parent
     if quiet:
-        print(f"[*] Runing queitly: \"{cmd}\" under workding directory {cwd}")
+        print(f"[*] Runing quietly: \"{cmd}\" under workding directory {cwd}")
     else:
         print(f"[*] Runing: \"{cmd}\" under workding directory {cwd}")
     if quiet:
