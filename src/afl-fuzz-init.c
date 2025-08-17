@@ -3224,7 +3224,11 @@ void check_binary(afl_state_t *afl, u8 *fname) {
          "want -\n"
          "    this setup will be slow and offer no practical benefits.\n");
 
-    FATAL("Instrumentation found in -Q mode");
+    if (!afl->afl_env.afl_ignore_problems) {
+
+      FATAL("Instrumentation found in -Q mode");
+
+    }
 
   }
 

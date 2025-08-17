@@ -221,12 +221,8 @@ extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
 
   return {LLVM_PLUGIN_API_VERSION, "SanitizerCoveragePCGUARD", "v0.2",
-          /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR == 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-#endif
 #if LLVM_VERSION_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback([](ModulePassManager &MPM,
                                                    OptimizationLevel  OL
@@ -236,7 +232,18 @@ llvmGetPassPluginInfo() {
   #endif
                                                 ) {
 
+  #if LLVM_VERSION_MAJOR >= 20
+              // Only add the pass for non-LTO phases to avoid conflicts
+              if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink &&
+                  Phase != ThinOrFullLTOPhase::FullLTOPreLink) {
+
+                MPM.addPass(ModuleSanitizerCoverageAFL());
+
+              }
+
+  #else
               MPM.addPass(ModuleSanitizerCoverageAFL());
+  #endif
 
             });
 
@@ -333,7 +340,7 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
   auto      SecStart = SecStartEnd.first;
   auto      SecEnd = SecStartEnd.second;
   Function *CtorFunc;
-  Type     *PtrTy = PointerType::getUnqual(Ty);
+  // Type     *PtrTy = PointerType::getUnqual(Ty);
   std::tie(CtorFunc, std::ignore) = createSanitizerCtorAndInitFunctions(
       M, CtorName, InitFunctionName, {PtrTy, PtrTy}, {SecStart, SecEnd});
   // assert(CtorFunc->getName() == CtorName);
@@ -401,24 +408,27 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   FunctionBoolArray = nullptr;
   FunctionPCsArray = nullptr;
   IntptrTy = Type::getIntNTy(*C, DL->getPointerSizeInBits());
-  IntptrPtrTy = PointerType::getUnqual(IntptrTy);
   Type       *VoidTy = Type::getVoidTy(*C);
   IRBuilder<> IRB(*C);
+  PtrTy = PointerType::getUnqual(*C);
+#if LLVM_MAJOR >= 20
+  IntptrPtrTy = Int64PtrTy = Int32PtrTy = Int8PtrTy = Int1PtrTy = PtrTy;
+#else
+  IntptrPtrTy = PointerType::getUnqual(IntptrTy);
   Int64PtrTy = PointerType::getUnqual(IRB.getInt64Ty());
   Int32PtrTy = PointerType::getUnqual(IRB.getInt32Ty());
   Int8PtrTy = PointerType::getUnqual(IRB.getInt8Ty());
   Int1PtrTy = PointerType::getUnqual(IRB.getInt1Ty());
+#endif
   Int64Ty = IRB.getInt64Ty();
   Int32Ty = IRB.getInt32Ty();
   Int16Ty = IRB.getInt16Ty();
   Int8Ty = IRB.getInt8Ty();
   Int1Ty = IRB.getInt1Ty();
-  PtrTy = PointerType::getUnqual(*C);
 
   LLVMContext &Ctx = M.getContext();
-  AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+  AFLMapPtr = new GlobalVariable(M, PtrTy, false, GlobalValue::ExternalLinkage,
+                                 0, "__afl_area_ptr");
   One = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 1);
   Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
 
@@ -1020,7 +1030,9 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         Value *GuardPtr = IRB.CreateIntToPtr(
             IRB.CreateAdd(
                 IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                ConstantInt::get(IntptrTy, (++special + AllBlocks.size()) * 4)),
+                ConstantInt::get(
+                    IntptrTy,
+                    (special++ + AllBlocks.size() - skip_blocks) * 4)),
             Int32PtrTy);
 
         LoadInst *Idx = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
@@ -1120,12 +1132,14 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           auto GuardPtr1 = IRB.CreateInBoundsGEP(
               FunctionGuardArray->getValueType(), FunctionGuardArray,
               {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() -
+                             skip_blocks))});
 
           auto GuardPtr2 = IRB.CreateInBoundsGEP(
               FunctionGuardArray->getValueType(), FunctionGuardArray,
               {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() -
+                             skip_blocks))});
 
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
@@ -1159,12 +1173,14 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           auto GuardPtr1 = IRB.CreateInBoundsGEP(
               FunctionGuardArray->getValueType(), FunctionGuardArray,
               {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() -
+                             skip_blocks))});
 
           auto GuardPtr2 = IRB.CreateInBoundsGEP(
               FunctionGuardArray->getValueType(), FunctionGuardArray,
               {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size()))});
+               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() -
+                             skip_blocks))});
 
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
@@ -1225,17 +1241,19 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
             auto GuardPtr1 = IRB.CreateIntToPtr(
                 IRB.CreateAdd(
                     IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                    ConstantInt::get(
-                        IntptrTy,
-                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+                    ConstantInt::get(IntptrTy,
+                                     (cnt_cov + local_selects++ +
+                                      AllBlocks.size() - skip_blocks) *
+                                         4)),
                 Int32PtrTy);
 
             auto GuardPtr2 = IRB.CreateIntToPtr(
                 IRB.CreateAdd(
                     IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                    ConstantInt::get(
-                        IntptrTy,
-                        (cnt_cov + local_selects++ + AllBlocks.size()) * 4)),
+                    ConstantInt::get(IntptrTy,
+                                     (cnt_cov + local_selects++ +
+                                      AllBlocks.size() - skip_blocks) *
+                                         4)),
                 Int32PtrTy);
 
             result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
@@ -1243,7 +1261,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           } else
 
-#if LLVM_VERSION_MAJOR >= 14
               if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
             FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
@@ -1263,18 +1280,20 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                 Value *val1 = IRB.CreateIntToPtr(
                     IRB.CreateAdd(
                         IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                        ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
-                                                    AllBlocks.size()) *
-                                                       4)),
+                        ConstantInt::get(IntptrTy,
+                                         (cnt_cov + local_selects++ +
+                                          AllBlocks.size() - skip_blocks) *
+                                             4)),
                     Int32PtrTy);
                 x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
 
                 Value *val2 = IRB.CreateIntToPtr(
                     IRB.CreateAdd(
                         IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                        ConstantInt::get(IntptrTy, (cnt_cov + local_selects++ +
-                                                    AllBlocks.size()) *
-                                                       4)),
+                        ConstantInt::get(IntptrTy,
+                                         (cnt_cov + local_selects++ +
+                                          AllBlocks.size() - skip_blocks) *
+                                             4)),
                     Int32PtrTy);
                 y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
 
@@ -1283,20 +1302,20 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                   val1 = IRB.CreateIntToPtr(
                       IRB.CreateAdd(
                           IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                          ConstantInt::get(
-                              IntptrTy,
-                              (cnt_cov + local_selects++ + AllBlocks.size()) *
-                                  4)),
+                          ConstantInt::get(IntptrTy,
+                                           (cnt_cov + local_selects++ +
+                                            AllBlocks.size() - skip_blocks) *
+                                               4)),
                       Int32PtrTy);
                   x = IRB.CreateInsertElement(x, val1, i);
 
                   val2 = IRB.CreateIntToPtr(
                       IRB.CreateAdd(
                           IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                          ConstantInt::get(
-                              IntptrTy,
-                              (cnt_cov + local_selects++ + AllBlocks.size()) *
-                                  4)),
+                          ConstantInt::get(IntptrTy,
+                                           (cnt_cov + local_selects++ +
+                                            AllBlocks.size() - skip_blocks) *
+                                               4)),
                       Int32PtrTy);
                   y = IRB.CreateInsertElement(y, val2, i);
 
@@ -1311,7 +1330,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           } else
 
-#endif
           {
 
             if (!be_quiet) {
@@ -1349,8 +1367,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         */
 
-        LoadInst *MapPtr =
-            IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+        LoadInst *MapPtr = IRB.CreateLoad(PtrTy, AFLMapPtr);
         ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(MapPtr);
 
         while (1) {
@@ -1379,9 +1396,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           if (use_threadsafe_counters) {
 
             IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-#if LLVM_VERSION_MAJOR >= 13
                                 llvm::MaybeAlign(1),
-#endif
                                 llvm::AtomicOrdering::Monotonic);
 
           } else {
@@ -1623,7 +1638,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 
     /* Load SHM pointer */
 
-    LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+    LoadInst *MapPtr = IRB.CreateLoad(PtrTy, AFLMapPtr);
     ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(MapPtr);
 
     /* Load counter for CurLoc */
@@ -1633,10 +1648,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
     if (use_threadsafe_counters) {
 
       IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-#if LLVM_VERSION_MAJOR >= 13
-                          llvm::MaybeAlign(1),
-#endif
-                          llvm::AtomicOrdering::Monotonic);
+                          llvm::MaybeAlign(1), llvm::AtomicOrdering::Monotonic);
 
     } else {
 

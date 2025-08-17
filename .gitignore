@@ -33,6 +33,7 @@ afl-clang-lto++.8
 afl-clang-lto.8
 afl-cmin.8
 afl-cmin.bash.8
+afl-cmin.py.8
 afl-cs-proxy
 afl-frida-trace.so
 afl-fuzz
@@ -66,6 +67,8 @@ a.out
 as
 compile_commands.json
 core*
+custom_mutators/aflpp/standalone/aflpp-standalone
+custom_mutators/autotokens/standalone/autotokens-standalone
 examples/afl_frida/afl-frida
 examples/afl_frida/frida-gum-example.c
 examples/afl_frida/frida-gum.h
@@ -83,6 +86,8 @@ out
 qemu_mode/libcompcov/compcovtest
 qemu_mode/qemu-*
 qemu_mode/qemuafl
+t
+test-instr
 test/.afl_performance
 test-instr
 test/output

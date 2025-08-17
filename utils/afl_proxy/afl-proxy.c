@@ -199,9 +199,9 @@ static u32 __afl_next_testcase(u8 *buf, u32 max_len) {
 
 }
 
-static void __afl_end_testcase(void) {
+static void __afl_end_testcase(int status) {
 
-  int status = 0xffffff;
+  if (!status) { status = -1; }
 
   if (write(FORKSRV_FD + 1, &status, 4) != 4) exit(1);
 
@@ -241,7 +241,8 @@ int main(int argc, char *argv[]) {
     }
 
     /* report the test case is done and wait for the next */
-    __afl_end_testcase();
+    // set the value to XXX (need to check) to report a crash
+    __afl_end_testcase(0);
 
   }
 

@@ -571,9 +571,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (argc > 1 && strcmp(argv_orig[1], "--help") == 0) {
+  if (argc > 1 && (strcmp(argv_orig[1], "--help") == 0 ||
+                   strncmp(argv_orig[1], "-h", 2) == 0)) {
 
-    usage(argv_orig[0], 1);
+    if (argc == 2 && (strcmp(argv_orig[1], "--help") == 0 ||
+                      strcmp(argv_orig[1], "-h") == 0)) {
+
+      usage(argv_orig[0], 1);
+
+    } else {
+
+      usage(argv_orig[0], 2);
+
+    }
+
     exit(0);
 
   }
@@ -2858,6 +2869,26 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->reinit_table = 1;
     update_calibration_time(afl, &resume_start);
 
+    if (afl->fsrv.cmplog_binary &&
+        afl->fsrv.init_child_func != cmplog_exec_child) {
+
+      FATAL("BUG in afl-fuzz detected. Cmplog mode not set correctly.");
+
+    }
+
+    afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                   afl->afl_env.afl_debug_child);
+
+    if (afl->fsrv.support_shmem_fuzz && !afl->fsrv.use_shmem_fuzz) {
+
+      afl_shm_deinit(afl->shm_fuzz);
+      ck_free(afl->shm_fuzz);
+      afl->shm_fuzz = NULL;
+      afl->fsrv.support_shmem_fuzz = 0;
+      afl->fsrv.shmem_fuzz = NULL;
+
+    }
+
   } else {
 
     // after we have the correct bitmap size we can read the bitmap -B option
@@ -2943,6 +2974,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   show_init_stats(afl);
 
+  if (!getenv("AFL_NO_UI") && !afl->not_on_tty) { make_space_for_stats(); }
+
   if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
 
   afl->start_time = get_cur_time();
@@ -2958,7 +2991,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->stop_soon) { goto stop_fuzzing; }
 
-  if (!afl->in_place_resume) { check_sync_fuzzers(afl); }
+  if (!afl->in_place_resume && afl->sync_dir) { check_sync_fuzzers(afl); }
 
   /* Woop woop woop */
 
@@ -2992,6 +3025,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
+  u8 very_first_run = 1;
 
   while (likely(!afl->stop_soon)) {
 
@@ -3005,9 +3039,10 @@ int main(int argc, char **argv_orig, char **envp) {
                     (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
                    afl->sync_id)) {
 
-        if (unlikely(!afl->queue_cycle && afl->afl_env.afl_import_first)) {
+        if (unlikely(very_first_run && afl->afl_env.afl_import_first)) {
 
           OKF("Syncing queues from other fuzzer instances first ...");
+          very_first_run = 0;
 
         }
 

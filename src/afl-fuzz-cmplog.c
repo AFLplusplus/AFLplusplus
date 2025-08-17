@@ -24,8 +24,6 @@
 
  */
 
-#include <sys/select.h>
-
 #include "afl-fuzz.h"
 #include "cmplog.h"
 

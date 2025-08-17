@@ -27,34 +27,20 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-  #include "llvm/Passes/PassPlugin.h"
-  #include "llvm/Passes/PassBuilder.h"
-  #include "llvm/IR/PassManager.h"
-#else
-  #include "llvm/IR/LegacyPassManager.h"
-  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#endif
+#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
-#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
-  #include "llvm/Passes/OptimizationLevel.h"
-#endif
+#include "llvm/Passes/OptimizationLevel.h"
 
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-  #include "llvm/IR/Verifier.h"
-  #include "llvm/IR/DebugInfo.h"
-#else
-  #include "llvm/Analysis/Verifier.h"
-  #include "llvm/DebugInfo.h"
-  #define nullptr 0
-#endif
+#include "llvm/IR/Verifier.h"
+#include "llvm/IR/DebugInfo.h"
 
 #include <set>
 #include "afl-llvm-common.h"
@@ -63,42 +49,16 @@ using namespace llvm;
 
 namespace {
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 class SplitSwitchesTransform : public PassInfoMixin<SplitSwitchesTransform> {
 
  public:
   SplitSwitchesTransform() {
 
-#else
-class SplitSwitchesTransform : public ModulePass {
-
- public:
-  static char ID;
-  SplitSwitchesTransform() : ModulePass(ID) {
-
-#endif
     initInstrumentList();
 
   }
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-#else
-  bool runOnModule(Module &M) override;
-
-  #if LLVM_VERSION_MAJOR >= 4
-  StringRef getPassName() const override {
-
-  #else
-  const char *getPassName() const override {
-
-  #endif
-    return "splits switch constructs";
-
-  }
-
-#endif
-
   struct CaseExpr {
 
     ConstantInt *Val;
@@ -125,7 +85,6 @@ class SplitSwitchesTransform : public ModulePass {
 
 }  // namespace
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
 
@@ -133,20 +92,16 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-  #if 1
-    #if LLVM_VERSION_MAJOR <= 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-    #endif
-    #if LLVM_VERSION_MAJOR >= 16
+#if LLVM_VERSION_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback(
-    #else
+#else
             PB.registerOptimizerLastEPCallback(
-    #endif
+#endif
                 [](ModulePassManager &MPM, OptimizationLevel OL
-    #if LLVM_VERSION_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
                    ,
                    ThinOrFullLTOPhase Phase
-    #endif
+#endif
 
                 ) {
 
@@ -154,35 +109,9 @@ llvmGetPassPluginInfo() {
 
                 });
 
-  /* TODO LTO registration */
-  #else
-            using PipelineElement = typename PassBuilder::PipelineElement;
-            PB.registerPipelineParsingCallback([](StringRef          Name,
-                                                  ModulePassManager &MPM,
-                                                  ArrayRef<PipelineElement>) {
-
-              if (Name == "splitswitches") {
-
-                MPM.addPass(SplitSwitchesTransform());
-                return true;
-
-              } else {
-
-                return false;
-
-              }
-
-            });
-
-  #endif
-
           }};
 
 }
-
-#else
-char SplitSwitchesTransform::ID = 0;
-#endif
 
 /* switchConvert - Transform simple list of Cases into list of CaseRange's */
 BasicBlock *SplitSwitchesTransform::switchConvert(
@@ -392,10 +321,7 @@ BasicBlock *SplitSwitchesTransform::switchConvert(
 
 bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
-#if (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 7)
-  LLVMContext &C = M.getContext();
-#endif
-
+  // LLVMContext              &C = M.getContext();
   std::vector<SwitchInst *> switches;
 
   /* iterate over all functions, bbs and instruction and add
@@ -462,11 +388,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
     CaseVector Cases;
     for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e;
          ++i)
-#if LLVM_VERSION_MAJOR >= 5
       Cases.push_back(CaseExpr(i->getCaseValue(), i->getCaseSuccessor()));
-#else
-      Cases.push_back(CaseExpr(i.getCaseValue(), i.getCaseSuccessor()));
-#endif
     /* bugfix thanks to pbst
      * round up bytesChecked (in case getBitWidth() % 8 != 0) */
     std::vector<bool> bytesChecked((7 + Cases[0].Val->getBitWidth()) / 8,
@@ -512,14 +434,8 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
 }
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 PreservedAnalyses SplitSwitchesTransform::run(Module                &M,
                                               ModuleAnalysisManager &MAM) {
-
-#else
-bool SplitSwitchesTransform::runOnModule(Module &M) {
-
-#endif
 
   if ((isatty(2) && getenv("AFL_QUIET") == NULL) || getenv("AFL_DEBUG") != NULL)
     printf("Running split-switches-pass by laf.intel@gmail.com\n");
@@ -529,42 +445,16 @@ bool SplitSwitchesTransform::runOnModule(Module &M) {
   bool ret = splitSwitches(M);
   verifyModule(M);
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-                             /*  if (modified) {
-                           
-                                 PA.abandon<XX_Manager>();
-                           
-                               }*/
+  /*  if (modified) {
+
+      PA.abandon<XX_Manager>();
+
+    }*/
 
   if (ret == false)
     return PreservedAnalyses::all();
   else
     return PreservedAnalyses();
-#else
-  return ret;
-#endif
 
 }
-
-#if LLVM_VERSION_MAJOR < 11                         /* use old pass manager */
-static void registerSplitSwitchesTransPass(const PassManagerBuilder &,
-                                           legacy::PassManagerBase &PM) {
-
-  auto p = new SplitSwitchesTransform();
-  PM.add(p);
-
-}
-
-static RegisterStandardPasses RegisterSplitSwitchesTransPass(
-    PassManagerBuilder::EP_OptimizerLast, registerSplitSwitchesTransPass);
-
-static RegisterStandardPasses RegisterSplitSwitchesTransPass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0, registerSplitSwitchesTransPass);
-
-  #if LLVM_VERSION_MAJOR >= 11
-static RegisterStandardPasses RegisterSplitSwitchesTransPassLTO(
-    PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
-    registerSplitSwitchesTransPass);
-  #endif
-#endif
 

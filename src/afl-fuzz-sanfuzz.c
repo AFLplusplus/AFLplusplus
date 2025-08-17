@@ -26,8 +26,6 @@
 
 /* This file roughly follows afl-fuzz-asanfuzz */
 
-#include <sys/select.h>
-
 #include "afl-fuzz.h"
 
 void sanfuzz_exec_child(afl_forkserver_t *fsrv, char **argv) {

@@ -65,9 +65,10 @@ extern "C" {
 #endif
 
 #if defined(__APPLE__) && defined(__MACH__)
-  #define SECTION_RODATA                                               \
-    __attribute__((used, retain)) __attribute__((section("__RODATA,__" \
-                                                         "rodata")))
+  #define SECTION_RODATA                          \
+    __attribute__((used, retain)) __attribute__(( \
+        section("__RODATA,__"                     \
+                "rodata")))
 #else
   #define SECTION_RODATA \
     __attribute__((used, retain)) __attribute__((section(".rodata")))

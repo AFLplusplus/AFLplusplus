@@ -429,19 +429,23 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   FunctionBoolArray = nullptr;
   FunctionPCsArray = nullptr;
   IntptrTy = Type::getIntNTy(*C, DL->getPointerSizeInBits());
-  IntptrPtrTy = PointerType::getUnqual(IntptrTy);
   Type       *VoidTy = Type::getVoidTy(*C);
   IRBuilder<> IRB(*C);
+  PtrTy = PointerType::getUnqual(*C);
+#if LLVM_MAJOR >= 20
+  IntptrPtrTy = Int64PtrTy = Int32PtrTy = Int8PtrTy = Int1PtrTy = PtrTy;
+#else
+  IntptrPtrTy = PointerType::getUnqual(IntptrTy);
   Int64PtrTy = PointerType::getUnqual(IRB.getInt64Ty());
   Int32PtrTy = PointerType::getUnqual(IRB.getInt32Ty());
   Int8PtrTy = PointerType::getUnqual(IRB.getInt8Ty());
   Int1PtrTy = PointerType::getUnqual(IRB.getInt1Ty());
+#endif
   Int64Ty = IRB.getInt64Ty();
   Int32Ty = IRB.getInt32Ty();
   Int16Ty = IRB.getInt16Ty();
   Int8Ty = IRB.getInt8Ty();
   Int1Ty = IRB.getInt1Ty();
-  PtrTy = PointerType::getUnqual(*C);
 
   /* AFL++ START */
   char        *ptr;
@@ -558,15 +562,13 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   if (!map_addr) {
 
-    AFLMapPtr =
-        new GlobalVariable(M, PointerType::get(Int8Tyi, 0), false,
-                           GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+    AFLMapPtr = new GlobalVariable(
+        M, PtrTy, false, GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
   } else {
 
     ConstantInt *MapAddr = ConstantInt::get(Int64Tyi, map_addr);
-    MapPtrFixed =
-        ConstantExpr::getIntToPtr(MapAddr, PointerType::getUnqual(Int8Tyi));
+    MapPtrFixed = ConstantExpr::getIntToPtr(MapAddr, PtrTy);
 
   }
 
@@ -1199,13 +1201,12 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
             Ctx, *(new ArrayRef<char>(ptrhld.get(), offset))));
         AFLInternalDictionary->setConstant(true);
 
-        GlobalVariable *AFLDictionary = new GlobalVariable(
-            M, PointerType::get(Int8Tyi, 0), false,
-            GlobalValue::ExternalLinkage, 0, "__afl_dictionary");
+        GlobalVariable *AFLDictionary =
+            new GlobalVariable(M, PtrTy, false, GlobalValue::ExternalLinkage, 0,
+                               "__afl_dictionary");
 
         Value *AFLDictOff = IRB.CreateGEP(Int8Ty, AFLInternalDictionary, Zero);
-        Value *AFLDictPtr =
-            IRB.CreatePointerCast(AFLDictOff, PointerType::get(Int8Tyi, 0));
+        Value *AFLDictPtr = IRB.CreatePointerCast(AFLDictOff, PtrTy);
         StoreInst *StoreDict = IRB.CreateStore(AFLDictPtr, AFLDictionary);
         ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(StoreDict);
 
@@ -1897,8 +1898,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
           uint32_t vector_cur = 0;
           /* Load SHM pointer */
-          LoadInst *MapPtr =
-              IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+          LoadInst *MapPtr = IRB.CreateLoad(PtrTy, AFLMapPtr);
           ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(MapPtr);
 
           while (1) {
@@ -2267,7 +2267,7 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
 
     } else {
 
-      LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(Int8Ty, 0), AFLMapPtr);
+      LoadInst *MapPtr = IRB.CreateLoad(PtrTy, AFLMapPtr);
       ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(MapPtr);
       MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, val);
 

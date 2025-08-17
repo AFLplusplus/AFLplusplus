@@ -3,6 +3,7 @@ THISPATH=`dirname ${0}`
 
 # call afl-cmin.py if it can be executed successfully.
 if $THISPATH/afl-cmin.py --help > /dev/null 2>&1; then
+  test "$1" = "-h" -o "$1" = "-hh" && { echo afl-cmin.py; echo; }
   exec $THISPATH/afl-cmin.py "$@"
 fi
 
@@ -107,6 +108,8 @@ function getopt(argc, argv, options,    thisopt, i)
 
 function usage() {
    print \
+"afl-cmin\n" \
+"\n" \
 "afl-cmin [ options ] -- /path/to/target_app [ ... ]\n" \
 "\n" \
 "Required parameters:\n" \
