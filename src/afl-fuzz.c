@@ -2995,7 +2995,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->stop_soon) { goto stop_fuzzing; }
 
-  if (!afl->in_place_resume) { check_sync_fuzzers(afl); }
+  if (!afl->in_place_resume && afl->sync_dir) { check_sync_fuzzers(afl); }
 
   /* Woop woop woop */
 
@@ -3250,7 +3250,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (likely(!afl->old_seed_selection)) {
 
-        if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
+        if (likely(afl->pending_favored && afl->smallest_favored != -1)) {
 
           afl->current_entry = afl->smallest_favored;
 

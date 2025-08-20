@@ -1500,6 +1500,10 @@ void add_real_argv0(aflcc_state_t *aflcc) {
 
       } else {
 
+#ifndef CLANG_BIN
+  #define CLANG_BIN "/there/is/no/clang/defined/use/LLVM_CONFIG"
+#endif
+
         if (USE_BINDIR)
           snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang",
                    LLVM_BINDIR);
@@ -2693,6 +2697,15 @@ void add_misc_params(aflcc_state_t *aflcc) {
     insert_param(aflcc, "none");
 
   }
+
+#if LLVM_MAJOR == 18
+  if (aflcc->compiler_mode != GCC && aflcc->compiler_mode != GCC_PLUGIN) {
+
+    insert_param(aflcc, "-fno-record-command-line");
+    insert_param(aflcc, "-gno-record-command-line");
+
+  }
+#endif
 
 }
 
