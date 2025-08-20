@@ -2698,6 +2698,15 @@ void add_misc_params(aflcc_state_t *aflcc) {
 
   }
 
+#if LLVM_MAJOR == 18
+  if (aflcc->compiler_mode != GCC && aflcc->compiler_mode != GCC_PLUGIN) {
+
+    insert_param(aflcc, "-fno-record-command-line");
+    insert_param(aflcc, "-gno-record-command-line");
+
+  }
+#endif
+
 }
 
 /*
