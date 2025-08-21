@@ -13,6 +13,13 @@
 
 */
 
+#ifdef __linux__
+  #ifndef _GNU_SOURCE
+    #define _GNU_SOURCE
+  #endif
+  #include <link.h>
+#endif
+
 #ifdef __AFL_CODE_COVERAGE
   #ifndef _GNU_SOURCE
     #define _GNU_SOURCE
@@ -2400,6 +2407,48 @@ static int area_is_valid(void *ptr, size_t len) {
 
 }
 
+/* Attribute of whether the Buffer points to the memory area mapped by ELF */
+
+#ifdef __linux__
+
+// From
+// https://github.com/google/honggfuzz/blob/ded8c87bcf3cc32f64c1097746a3461d6da1c24a/libhfcommon/util.c#L963
+static int addr_static_cb(struct dl_phdr_info *info, size_t size, void *data) {
+
+  for (size_t i = 0; i < info->dlpi_phnum; i++) {
+
+    if (info->dlpi_phdr[i].p_type != PT_LOAD) { continue; }
+    uintptr_t addr_start = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
+    uintptr_t addr_end = addr_start + MIN(info->dlpi_phdr[i].p_memsz,
+                                          info->dlpi_phdr[i].p_filesz);
+    if (((uintptr_t)data >= addr_start) && ((uintptr_t)data < addr_end)) {
+
+      if ((info->dlpi_phdr[i].p_flags & PF_W) == 0) {
+
+        return ADDR_ATTR_RO;
+
+      } else {
+
+        return ADDR_ATTR_RW;
+
+      }
+
+    }
+
+  }
+
+  return ADDR_ATTR_NOTFOUND;
+
+}
+
+static u8 get_prog_addr_attr(const void *addr) {
+
+  return dl_iterate_phdr(addr_static_cb, (void *)addr);
+
+}
+
+#endif
+
 /* hook for string with length functions, eg. strncmp, strncasecmp etc.
    Note that we ignore the len parameter and take longer strings if present. */
 void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
@@ -2456,9 +2505,14 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
   cmpfn[hits].v0_len = 0x80 + l;
   cmpfn[hits].v1_len = 0x80 + l;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, len1);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, len2);
-  // fprintf(stderr, "RTN3\n");
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, 32);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, 32);
+// fprintf(stderr, "RTN3\n");
+#ifdef __linux__
+  u8 attr1 = get_prog_addr_attr(ptr1);
+  u8 attr2 = get_prog_addr_attr(ptr2);
+  cmpfn->addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
+#endif
 
 }
 
@@ -2510,9 +2564,14 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
   cmpfn[hits].v0_len = 0x80 + len1;
   cmpfn[hits].v1_len = 0x80 + len2;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, len1);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, len2);
-  // fprintf(stderr, "RTN3\n");
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, 32);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, 32);
+// fprintf(stderr, "RTN3\n");
+#ifdef __linux__
+  u8 attr1 = get_prog_addr_attr(ptr1);
+  u8 attr2 = get_prog_addr_attr(ptr2);
+  cmpfn->addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
+#endif
 
 }
 
@@ -2569,9 +2628,14 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   cmpfn[hits].v0_len = len;
   cmpfn[hits].v1_len = len;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
-  // fprintf(stderr, "RTN3\n");
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, 32);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, 32);
+// fprintf(stderr, "RTN3\n");
+#ifdef __linux__
+  u8 attr1 = get_prog_addr_attr(ptr1);
+  u8 attr2 = get_prog_addr_attr(ptr2);
+  cmpfn->addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
+#endif
 
 }
 
@@ -2637,9 +2701,15 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
   cmpfn[hits].v0_len = l;
   cmpfn[hits].v1_len = l;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, 32);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, 32);
   // fprintf(stderr, "RTN3\n");
+  #ifdef __linux__
+  u8 attr1 = get_prog_addr_attr(ptr1);
+  u8 attr2 = get_prog_addr_attr(ptr2);
+  cmpfn->addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
+  #endif
+
 #endif
 
 }

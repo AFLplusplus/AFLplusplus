@@ -2903,14 +2903,33 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       // shape_len), check_if_text_buf((u8 *)&o->v1, shape_len), v0_len,
       // o->v0, v1_len, o->v1);
 
-      // Note that this check differs from the line 1901, for RTN we are more
-      // opportunistic for adding to the dictionary than cmps
-      if (!memcmp(o->v0, orig_o->v0, v0_len) ||
-          (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len))
+      if (!memcmp(o->v0, orig_o->v0, v0_len) &&
+          ADDR_ATTR_V0(o->addr_attr) != ADDR_ATTR_NOTFOUND &&
+          ADDR_ATTR_V0(orig_o->addr_attr) != ADDR_ATTR_NOTFOUND) {
+
         maybe_add_auto(afl, o->v0, v0_len);
-      if (!memcmp(o->v1, orig_o->v1, v1_len) ||
-          (!found_one || check_if_text_buf((u8 *)&o->v1, v1_len) == v1_len))
+
+      } else if (!memcmp(o->v1, orig_o->v1, v1_len) &&
+
+                 ADDR_ATTR_V1(o->addr_attr) != ADDR_ATTR_NOTFOUND &&
+                 ADDR_ATTR_V1(orig_o->addr_attr) != ADDR_ATTR_NOTFOUND) {
+
         maybe_add_auto(afl, o->v1, v1_len);
+
+      } else {
+
+        // Note that this check differs from the line 1901, for RTN we are more
+        // opportunistic for adding to the dictionary than cmps
+        if (!memcmp(o->v0, orig_o->v0, v0_len) &&
+            (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len) &&
+            v0_len != 32)
+          maybe_add_auto(afl, o->v0, v0_len);
+        if (!memcmp(o->v1, orig_o->v1, v1_len) &&
+            (!found_one || check_if_text_buf((u8 *)&o->v1, v1_len) == v1_len) &&
+            v1_len != 32)
+          maybe_add_auto(afl, o->v1, v1_len);
+
+      }
 
       //}
 
