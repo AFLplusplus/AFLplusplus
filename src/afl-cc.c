@@ -2705,6 +2705,7 @@ void add_misc_params(aflcc_state_t *aflcc) {
     insert_param(aflcc, "-gno-record-command-line");
 
   }
+
 #endif
 
 }
