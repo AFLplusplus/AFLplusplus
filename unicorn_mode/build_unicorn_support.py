@@ -84,24 +84,38 @@ run_cmd(f"git fetch --all && git checkout {unicornafl_version}", unicornafl_path
 
 print(f"[*] Now building unicornafl python bindings")
 venv = in_venv()
-if not venv:
-    print(f"[!] A python venv is highly recommended! We will try to add --user for you.")
+skip_venv = os.environ.get("AFL_UCAFL_NO_VENV") is not None
+venv_prefix = sys.prefix
+py3 = sys.executable
+if not venv and not skip_venv:
+    print(f"[!] A python venv is highly recommended! We will create one for you...")
+    venv_prefix = cwd / ".venv"
+    run_cmd(f"{py3} -m venv {venv_prefix.absolute()}")
+    py3 = venv_prefix / "bin" / "python3"
+elif not venv and skip_venv:
+    print("[!] You opt in installing the unicornafl to your current site packages, which probably won't work.")
+    print(f"[!] We will add --user for you and install with intepreter from {sys.executable}")
+
+print(f"[*] We will install unicornafl to venv at {venv_prefix} using {py3}")
 
 if not shutil.which("maturin"):
     print(f"[!] No maturin, will install maturin first")
-    if not venv:
-        run_cmd("pip install --user maturin")
+    if skip_venv:
+        run_cmd(f"{py3} -m pip install --user maturin")
     else:
-        run_cmd("pip install maturin")
+        run_cmd(f"{py3} -m pip install maturin")
 
 print(f"[*] Now building unicornafl with maturin")
-run_cmd("maturin develop --release", unicornafl_path, True)
+if skip_venv:
+    run_cmd(f"maturin develop --release", unicornafl_path, True)
+else:
+    run_cmd(f"{Path(venv_prefix) / 'bin' / 'maturin'} develop --release", unicornafl_path, True)
 print(f"[*] Python bindings built, now testing...")
 
 with tempfile.TemporaryDirectory() as tmpdir:
     dst_file = Path(tmpdir) / "test-instr0"
     print("[*] Testing a rather simple python harness")
-    run_cmd(f"../afl-showmap -U -m none -t 2000 -o {dst_file.absolute()} -- python3 ./samples/python_simple/simple_test_harness.py ./sample_inputs/sample1.bin", None, True)
+    run_cmd(f"../afl-showmap -U -m none -t 2000 -o {dst_file.absolute()} -- {py3} ./samples/python_simple/simple_test_harness.py ./sample_inputs/sample1.bin", None, True)
 
     if dst_file.exists():
         print(f"[*] Cool, it works =).")
@@ -138,8 +152,14 @@ for ln in lns:
                     print(f"[*] Copied from {out_dir.absolute()}")
 
 
+if skip_venv:
+    venv_prefix = "."
+else:
+    venv_prompt = f" and venv {venv_prefix}. Please do `source {Path(venv_prefix)/'bin'/'activate'}` first."
+
 print(f"""[*] All done! You have compiled unicornafl without any issue.
-    You can now start using python bindings by `import unicornafl`.
+    You can now start using python bindings by `import unicornafl`. Please note the python bindings have been
+    installed to with intepreter {py3}{venv_prompt}
     For C/C++ users, please see {libs_path.absolute()} for libraries and {include_path.absolute()} for headers.
     For Rust users, either add:
         unicornafl = {{ git = "https://github.com/AFLplusplus/unicornafl", rev="{unicornafl_version}" }}
