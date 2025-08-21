@@ -6,6 +6,7 @@
 
 ### Version ++4.34a (dev)
   - afl-fuzz
+    - larger improvements to CMPLOG, thanks to @am009
     - scroll down before clearing the screen to not loose content
     - minor bug fixes
   - afl-showmap
