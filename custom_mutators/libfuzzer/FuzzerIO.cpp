@@ -84,7 +84,7 @@ void WriteToFile(const std::string &Data, const std::string &Path) {
 void WriteToFile(const uint8_t *Data, size_t Size, const std::string &Path) {
 
   return;
- 
+
   // Use raw C interface because this function may be called from a sig handler.
   FILE *Out = fopen(Path.c_str(), "wb");
   if (!Out) return;

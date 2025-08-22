@@ -22,6 +22,7 @@
     typedef ret_type (*FUNC_TYPE(func))(__VA_ARGS__); \
     namespace __interception {                        \
                                                       \
+                                                      \
     FUNC_TYPE(func) PTR_TO_REAL(func);                \
                                                       \
     }

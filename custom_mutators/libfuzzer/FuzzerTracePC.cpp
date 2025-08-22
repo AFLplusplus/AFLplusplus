@@ -42,14 +42,14 @@ void TracePC::HandleInline8bitCountersInit(uint8_t *Start, uint8_t *Stop) {
   if (Start == Stop) return;
   if (NumModules && Modules[NumModules - 1].Start() == Start) return;
   assert(NumModules < sizeof(Modules) / sizeof(Modules[0]));
-  auto &   M = Modules[NumModules++];
+  auto    &M = Modules[NumModules++];
   uint8_t *AlignedStart = RoundUpByPage(Start);
   uint8_t *AlignedStop = RoundDownByPage(Stop);
   size_t   NumFullPages = AlignedStop > AlignedStart
-                            ? (AlignedStop - AlignedStart) / PageSize()
-                            : 0;
-  bool NeedFirst = Start < AlignedStart || !NumFullPages;
-  bool NeedLast = Stop > AlignedStop && AlignedStop >= AlignedStart;
+                              ? (AlignedStop - AlignedStart) / PageSize()
+                              : 0;
+  bool     NeedFirst = Start < AlignedStart || !NumFullPages;
+  bool     NeedLast = Stop > AlignedStop && AlignedStop >= AlignedStart;
   M.NumRegions = NumFullPages + NeedFirst + NeedLast;
   ;
   assert(M.NumRegions > 0);
@@ -178,7 +178,7 @@ void TracePC::UpdateObservedPCs() {
     if (ObservedPCs.insert(TE).second && DoPrintNewPCs) {
 
       PrintPC("\tNEW_PC: %p %F %L", "\tNEW_PC: %p",
-              GetNextInstructionPc(TE->PC));
+                           GetNextInstructionPc(TE->PC));
       Printf("\n");
 
     }
@@ -249,7 +249,7 @@ const TracePC::PCTableEntry *TracePC::PCTableEntryByIdx(uintptr_t Idx) {
 
   for (size_t i = 0; i < NumPCTables; i++) {
 
-    auto & M = ModulePCTable[i];
+    auto  &M = ModulePCTable[i];
     size_t Size = M.Stop - M.Start;
     if (Idx < Size) return &M.Start[Idx];
     Idx -= Size;
@@ -307,7 +307,7 @@ void TracePC::SetFocusFunction(const std::string &FuncName) {
   if (FuncName.empty() || FuncName == "auto") return;
   for (size_t M = 0; M < NumModules; M++) {
 
-    auto & PCTE = ModulePCTable[M];
+    auto  &PCTE = ModulePCTable[M];
     size_t N = PCTE.Stop - PCTE.Start;
     for (size_t I = 0; I < N; I++) {
 

@@ -110,7 +110,7 @@ int ExecuteCommand(const Command &Cmd) {
   (void)posix_spawnattr_setflags(&SpawnAttributes, SpawnFlags);
 
   pid_t       Pid;
-  char **     Environ = environ;  // Read from global
+  char      **Environ = environ;  // Read from global
   const char *CommandCStr = CmdLine.c_str();
   char *const Argv[] = {strdup("sh"), strdup("-c"), strdup(CommandCStr), NULL};
   int         ErrorCode = 0, ProcessStatus = 0;

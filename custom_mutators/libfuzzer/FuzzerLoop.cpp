@@ -467,7 +467,7 @@ void Fuzzer::CheckExitOnSrcPosOrItem() {
       if (Descr.find(Options.ExitOnSrcPos) != std::string::npos) {
 
         Printf("INFO: found line matching '%s', exiting.\n",
-               Options.ExitOnSrcPos.c_str());
+                       Options.ExitOnSrcPos.c_str());
         _Exit(0);
 
       }
@@ -540,8 +540,8 @@ void Fuzzer::PrintPulseAndReportSlowInput(const uint8_t *Data, size_t Size) {
 
 }
 
-static void WriteFeatureSetToFile(const std::string &     FeaturesDir,
-                                  const std::string &     FileName,
+static void WriteFeatureSetToFile(const std::string      &FeaturesDir,
+                                  const std::string      &FileName,
                                   const Vector<uint32_t> &FeatureSet) {
 
   if (FeaturesDir.empty() || FeatureSet.empty()) return;
@@ -562,8 +562,8 @@ static void RenameFeatureSetFile(const std::string &FeaturesDir,
 }
 
 static void WriteEdgeToMutationGraphFile(const std::string &MutationGraphFile,
-                                         const InputInfo *  II,
-                                         const InputInfo *  BaseII,
+                                         const InputInfo   *II,
+                                         const InputInfo   *BaseII,
                                          const std::string &MS) {
 
   if (MutationGraphFile.empty()) return;
@@ -1076,8 +1076,8 @@ void Fuzzer::MinimizeCrashLoop(const Unit &U) {
 
 }  // namespace fuzzer
 
-#ifdef  INTROSPECTION
-  extern const char *introspection_ptr;
+#ifdef INTROSPECTION
+extern const char *introspection_ptr;
 #endif
 
 extern "C" {
@@ -1088,7 +1088,7 @@ ATTRIBUTE_INTERFACE size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size,
   assert(fuzzer::F);
   fuzzer::F->GetMD().StartMutationSequence();
   size_t r = fuzzer::F->GetMD().DefaultMutate(Data, Size, MaxSize);
-#ifdef  INTROSPECTION
+#ifdef INTROSPECTION
   introspection_ptr = fuzzer::F->GetMD().WriteMutationSequence();
 #endif
   return r;

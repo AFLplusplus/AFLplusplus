@@ -5,24 +5,29 @@
 #include <unistd.h>
 #include <getopt.h>
 
-static int            max_havoc = 16, verbose;
-static char _mh[4] = "16";
+static int   max_havoc = 16, verbose;
+static char  _mh[4] = "16";
 static char *dict, *mh = _mh;
 
 extern int module_disabled;
 
-void *afl_custom_init(afl_state_t *, unsigned int);
-u8 afl_custom_queue_get(void *data, const u8 *filename);
+void  *afl_custom_init(afl_state_t *, unsigned int);
+u8     afl_custom_queue_get(void *data, const u8 *filename);
 size_t afl_custom_fuzz(void *data, u8 *buf, size_t buf_size, u8 **out_buf,
-                            u8 *add_buf, size_t add_buf_size, size_t max_size);
+                       u8 *add_buf, size_t add_buf_size, size_t max_size);
 
 u32 write_to_testcase(afl_state_t *afl, void **mem, u32 a, u32 b) {
+
   return 0;
+
 }
+
 fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
                                   u32 i) {
-return FSRV_RUN_OK;
-                                  }
+
+  return FSRV_RUN_OK;
+
+}
 
 int main(int argc, char *argv[]) {
 
@@ -43,7 +48,9 @@ int main(int argc, char *argv[]) {
     printf("  -m val  max mutations (1-val, val default is 16)\n");
     printf("  -x file dictionary file (AFL++ format)\n");
     printf("You can set the following environment variable parameters:\n");
-    printf("AUTOTOKENS_COMMENT` - what character or string starts a comment which will be\n");
+    printf(
+        "AUTOTOKENS_COMMENT` - what character or string starts a comment which "
+        "will be\n");
     printf("                      removed. Default: \"/* ... */\"\n");
     return 0;
 
@@ -157,7 +164,7 @@ int main(int argc, char *argv[]) {
 
   if (dict) {
 
-    load_extras(afl, (u8*)dict);
+    load_extras(afl, (u8 *)dict);
     if (verbose)
       fprintf(stderr, "Loaded dictionary: %s (%u entries)\n", dict,
               afl->extras_cnt);
