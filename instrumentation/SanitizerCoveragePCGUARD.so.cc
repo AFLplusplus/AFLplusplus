@@ -972,7 +972,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       Instruction *instr = &*BB.begin();
       LLVMContext &Ctx = BB.getContext();
       MDNode      *md = MDNode::get(Ctx, MDString::get(Ctx, "skipinstrument"));
-      instr->setMetadata("tag", md);
+      instr->setMetadata("skipinstrument", md);
       skip_blocks++;
 
     }
