@@ -18,9 +18,9 @@ def run_cmd(cmd: str, cwd: Path = None, quiet: bool = False):
     if not cwd:
         cwd = Path(__file__).parent
     if quiet:
-        print(f"[*] Runing quietly: \"{cmd}\" under workding directory {cwd}")
+        print(f"[*] Running quietly: \"{cmd}\" under workding directory {cwd}")
     else:
-        print(f"[*] Runing: \"{cmd}\" under workding directory {cwd}")
+        print(f"[*] Running: \"{cmd}\" under workding directory {cwd}")
     if quiet:
         try:
             out = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, cwd=cwd)
@@ -169,5 +169,5 @@ print(f"""[*] All done! You have compiled unicornafl without any issue.
     
     Please also have a look at { (cwd / 'unicornafl' / 'docs').absolute() } which contains various hints and usages.
     
-    If you have any issue about unicornafl, please raise an issue.
+    If you find an issue in unicornafl, please post to https://github.com/AFLplusplus/unicornafl
 """)
