@@ -85,6 +85,7 @@ else:
         if not upgraded or not detect_rustc_version():
             print("[!] We can't build unicornafl and libafl due to a too old rustc.")
             print("[!] Please install a more recent rustc and retry.")
+            print(f"[!] The minimum rustc version to build is {MINUMUM_RUSTC_TO_BUILD[0]}.{MINUMUM_RUSTC_TO_BUILD[1]}.{MINUMUM_RUSTC_TO_BUILD[2]}")
             exit(3)
             
 unicornafl_version = detect_from_env_or_file("UNICORNAFL_VERSION")
