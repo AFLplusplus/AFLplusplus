@@ -6,6 +6,7 @@
 *.pyc
 *.so
 *.swp
+.venv
 .DS_Store
 .format-cache
 .sync_tmp
@@ -103,6 +104,10 @@ test/unittests/unit_preallocable
 test/unittests/unit_rand
 unicorn_mode/samples/*/output/
 unicorn_mode/samples/*/\.test-*
+unicorn_mode/include
+unicorn_mode/libs
+unicorn_mode/lib
+unicorn_mode/unicornafl/target
 utils/afl_network_proxy/afl-network-client
 utils/afl_network_proxy/afl-network-server
 utils/afl_proxy/afl-proxy

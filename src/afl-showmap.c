@@ -1301,6 +1301,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (unicorn_mode) { FATAL("Multiple -U options not supported"); }
 
         unicorn_mode = true;
+        fsrv->unicorn_mode = true;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */

@@ -39,7 +39,7 @@ RUN apt-get update && \
     apt-get -y install --no-install-recommends \
     make cmake automake meson ninja-build bison flex \
     git xz-utils bzip2 wget jupp nano bash-completion less vim joe ssh psmisc \
-    python3 python3-dev python3-pip python-is-python3 \
+    python3 python3-dev python3-pip python-is-python3 python3-venv \
     libtool libtool-bin libglib2.0-dev \
     apt-transport-https gnupg dialog \
     gnuplot-nox libpixman-1-dev bc \
@@ -65,8 +65,9 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 0
     update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${LLVM_VERSION} 0 && \
     update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${LLVM_VERSION} 0
 
-#RUN wget -qO- https://sh.rustup.rs | CARGO_HOME=/etc/cargo sh -s -- -y -q --no-modify-path
-#ENV PATH=$PATH:/etc/cargo/bin
+# Needed by unicornafl
+RUN wget -qO- https://sh.rustup.rs | CARGO_HOME=/etc/cargo sh -s -- -y -q --no-modify-path
+ENV PATH=$PATH:/etc/cargo/bin
 
 RUN apt clean -y
 
@@ -86,6 +87,9 @@ ARG CXX=g++-$GCC_VERSION
 
 # Used in CI to prevent a 'make clean' which would remove the binaries to be tested
 ARG TEST_BUILD
+
+RUN python3 -m venv .venv
+ENV PATH="/AFLplusplus/.venv/bin:$PATH"
 
 RUN sed -i.bak 's/^	-/	/g' GNUmakefile && \
     make clean && make distrib && \
