@@ -67,7 +67,7 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <sys/wait.h>
 #include <sys/types.h>
 
-#if !__GNUC__
+#ifdef __llvm__
   #include "llvm/Config/llvm-config.h"
 #endif
 
