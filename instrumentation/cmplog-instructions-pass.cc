@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <cstdint>
 #include <iostream>
 #include <list>
 #include <string>
@@ -392,25 +392,50 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
       }
 
       // do we need to cast?
-switch (max_size) {
+#if INTPTR_MAX == INT32_MAX
+    /* 32-bit code */
+    switch (max_size) {
         case 8:
-          break;
+            break;
         case 9 ... 16:
-          cast_size = 16;
-          break;
+            cast_size = 16;
+            break;
         case 17 ... 32:
-          cast_size = 32;
-          break;
+            cast_size = 32;
+            break;
         case 33 ... 64:
-          cast_size = 64;
-          break;
+            cast_size = 64;
+            break;
         case 80:
+            break;
         case 128:
-          cast_size = max_size;
-          break;
+            cast_size = max_size;
+            break;
         default:
-          cast_size = 128;
-}
+            cast_size = 128;
+            break;
+    }
+#else
+    /* original code */
+    switch (max_size) {
+        case 8:
+            break;
+        case 9 ... 16:
+            cast_size = 16;
+            break;
+        case 17 ... 32:
+            cast_size = 32;
+            break;
+        case 33 ... 64:
+            cast_size = 64;
+            break;
+        case 80:
+            break;
+        case 128:
+            cast_size = max_size;
+            break;
+    }
+#endif
 
       // XXX FIXME BUG TODO
       if (is_fp && vector_cnt) { continue; }
