@@ -14,6 +14,7 @@
   - qemu_mode:
     - fix compilation for a few platforms
   - afl-cc:
+    - enable LLVM 22
     - fix a offset calculation bug in AFL++ PCGUARD
     - make AFL_DUMP_MAP_SIZE work for CLASSIC modes
     - fix a crash when running with LLVM 20 when compiling PCGUARD with LTO
