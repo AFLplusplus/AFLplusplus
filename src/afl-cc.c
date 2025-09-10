@@ -2846,6 +2846,26 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
     }
 
+    /* args we want to remove that are gcc specific when we use clang */
+
+  } else if ((!strcmp(cur_argv,
+
+                      "-Wno-missing-template-arg-list-after-template-kw") ||
+              !strcmp(cur_argv, "-Wno-dangling-assignment-gsl")) &&
+
+             (aflcc->compiler_mode != GCC &&
+              aflcc->compiler_mode != GCC_PLUGIN)) {
+
+    if (scan) {
+
+      final_ = PARAM_SCAN;
+
+    } else {
+
+      final_ = PARAM_DROP;
+
+    }
+
   } else if (cur_argv[0] != '-') {
 
     /* It's a weak, loose pattern, with very different purpose

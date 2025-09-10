@@ -146,9 +146,9 @@ bool CmplogSwitches::hookInstrs(Module &M) {
   FunctionCallee cmplogHookIns8 = c8;
 
 #if INTPTR_MAX != INT32_MAX
-  IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
+  IntegerType   *Int128Ty = IntegerType::getInt128Ty(C);
   FunctionCallee c16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy,
-                                            Int128Ty, Int128Ty, Int8Ty);
+                                             Int128Ty, Int128Ty, Int8Ty);
   FunctionCallee cmplogHookIns16 = c16;
   FunctionCallee cN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy,
                                             Int128Ty, Int128Ty, Int8Ty, Int8Ty);
@@ -325,6 +325,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
                   IRB.CreateCall(cmplogHookInsN, args);
 
                 }
+
 #endif
                 break;
               default:
