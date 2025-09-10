@@ -67,27 +67,17 @@ if not (cwd.parent / "afl-showmap").exists():
     print("[!] Please compile AFL++ first.")
     exit(1)
 
-upgraded = False
+
 if not shutil.which("cargo"):
     print("[!] No cargo, please install Rust in advance.")
     print("[!] TLDR: `curl https://sh.rustup.rs -sSf | sh -s -- -y`")
     exit(2)
-else:
-    if not detect_rustc_version():
-        print("[!] Your rustc seems too old to build unicornafl and libafl")
-        
-        if shutil.which("rustup"):
-            print("[*] We will help you upgrade your rust version")
-            run_cmd("rustup upgrade", None, False)
-            run_cmd("rustup default stable", None, False)
-            upgraded = True
 
-        if not upgraded or not detect_rustc_version():
-            print("[!] We can't build unicornafl and libafl due to a too old rustc.")
-            print("[!] Please install a more recent rustc and retry.")
-            print(f"[!] The minimum rustc version to build is {MINUMUM_RUSTC_TO_BUILD[0]}.{MINUMUM_RUSTC_TO_BUILD[1]}.{MINUMUM_RUSTC_TO_BUILD[2]}")
-            exit(3)
-            
+if not detect_rustc_version():
+    print("[!] Your rustc seems too old to build unicornafl and libafl")
+    print(f"[!] The minimum rustc version to build is {MINUMUM_RUSTC_TO_BUILD[0]}.{MINUMUM_RUSTC_TO_BUILD[1]}.{MINUMUM_RUSTC_TO_BUILD[2]}")
+    exit(3)
+        
 unicornafl_version = detect_from_env_or_file("UNICORNAFL_VERSION")
 if not unicornafl_version:
     print("[!] No valid UNICORNAFL_VERSION found")
@@ -182,10 +172,7 @@ else:
     venv_prompt = f" and venv {venv_prefix}. Please do `source {Path(venv_prefix)/'bin'/'activate'}` first."
 
 
-if upgraded:
-    rust_upgraded = "\n    WARN: Your default rust version was upgraded during building.\n"
-else:
-    rust_upgraded = ""
+
 
 print(f"""[*] All done! You have compiled unicornafl without any issue.
     You can now start using python bindings by `import unicornafl`. Please note the python bindings have been
@@ -198,6 +185,6 @@ print(f"""[*] All done! You have compiled unicornafl without any issue.
     to your Cargo.toml.
     
     Please also have a look at { (cwd / 'unicornafl' / 'docs').absolute() } which contains various hints and usages.
-    {rust_upgraded}
+
     If you find an issue in unicornafl, please post to https://github.com/AFLplusplus/unicornafl
 """)
