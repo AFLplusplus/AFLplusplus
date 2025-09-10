@@ -25,6 +25,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "afl-ijon-min.h"
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <signal.h>
@@ -101,6 +102,67 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
     });
 
   }
+
+  /* Check for new IJON max values after execution */
+  if (afl->ijon_state && afl->ijon_bits) {
+
+    /* CONDITIONAL SHARED MEMORY ACCESS: Fixed for ≤65k, dynamic for >65k */
+
+    // Get current input data for IJON processing
+    u8 *input_data = NULL;
+    u32 input_len = 0;
+
+    /* Read input data from testcase file that was just executed */
+    if (afl->fsrv.out_file) {
+      struct stat st;
+      if (stat(afl->fsrv.out_file, &st) == 0) {
+
+        if (st.st_size > 0) {
+          input_len = st.st_size;
+          input_data = ck_alloc(input_len);
+
+          int fd = open(afl->fsrv.out_file, O_RDONLY);
+          if (fd >= 0) {
+            ssize_t bytes_read = read(fd, input_data, input_len);
+            close(fd);
+
+            if (bytes_read != input_len) {
+              ck_free(input_data);
+              input_data = NULL;
+              input_len = 0;
+            }
+          } else {
+            ck_free(input_data);
+            input_data = NULL;
+            input_len = 0;
+          }
+        }
+      }
+    }
+
+    if (input_data) {
+      /* CONDITIONAL PROCESSING: Use appropriate access method based on map size */
+      if (fsrv->map_size <= 65536) {
+        /* PRESERVE CURRENT BEHAVIOR: Use legacy shared_data_t cast for ≤65k maps */
+        shared_data_t* shared_data = (shared_data_t*)fsrv->trace_bits;
+        ijon_update_max(afl->ijon_state, shared_data, input_data, input_len);
+      } else {
+        /* DYNAMIC BEHAVIOR: Use new access pattern for >65k maps */
+        dynamic_shared_access_t *shared_access = setup_dynamic_shared_access(
+          fsrv->trace_bits, fsrv->map_size);
+
+        ijon_update_max_dynamic(afl->ijon_state, shared_access, input_data, input_len);
+        cleanup_dynamic_shared_access(shared_access);
+      }
+    }
+
+    /* Clean up allocated input data */
+    if (input_data) {
+      ck_free(input_data);
+      input_data = NULL;
+    }
+  }
+
 
 #ifdef PROFILING
   clock_gettime(CLOCK_REALTIME, &spec);
@@ -813,9 +875,9 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
       }
 
-      closedir(dir);
-
     }
+
+    closedir(dir);
 
     if (!have_main) {
 

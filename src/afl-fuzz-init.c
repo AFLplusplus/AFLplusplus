@@ -27,6 +27,7 @@
 #include "common.h"
 #include <limits.h>
 #include <string.h>
+#include <sys/stat.h>
 #include "cmplog.h"
 
 #ifdef HAVE_AFFINITY
@@ -903,6 +904,8 @@ void perform_dry_run(afl_state_t *afl) {
     idx = 0;
 
   }
+
+  /* Note: IJON queue validation removed - no longer needed with atomic file operations */
 
   do {
 
@@ -2376,6 +2379,16 @@ void setup_dirs_fds(afl_state_t *afl) {
   tmp = alloc_printf("%s/hangs", afl->out_dir);
   if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
+
+  /* IJON max tracking directory (only if IJON is enabled) */
+
+  if (getenv("AFL_IJON")) {
+    tmp = alloc_printf("%s/ijon_max", afl->out_dir);
+    if (mkdir(tmp, afl->dir_perm) && errno != EEXIST) {
+      PFATAL("Unable to create '%s'", tmp);
+    }
+    ck_free(tmp);
+  }
 
   /* Generally useful file descriptors. */
 

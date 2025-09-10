@@ -24,6 +24,7 @@
 #define _HAVE_DEBUG_H
 
 #include <errno.h>
+#include <sys/stat.h>
 
 #include "types.h"
 #include "config.h"
@@ -418,8 +419,29 @@ static inline const char *colorfilter(const char *x) {
   do {                                                         \
                                                                \
     s32 _len = (s32)(len);                                     \
+    if (getenv("AFL_DEBUG")) {                                 \
+      fprintf(stderr, "[DEBUG ck_read] %s: expecting %d bytes, fd=%d\n", fn, _len, fd); \
+    }                                                          \
+    /* DEBUG: Add file size check for IJON debugging */       \
+    if (getenv("AFL_DEBUG")) {                                 \
+      struct stat _st;                                         \
+      if (fstat(fd, &_st) == 0) {                              \
+        fprintf(stderr, "[DEBUG ck_read] %s: actual file size is %ld bytes\n", fn, (long)_st.st_size); \
+        if (_st.st_size != _len) {                             \
+          fprintf(stderr, "[DEBUG ck_read] %s: FILE SIZE MISMATCH! Queue says %d bytes, file has %ld bytes\n", fn, _len, (long)_st.st_size); \
+        }                                                      \
+      }                                                        \
+    }                                                          \
     s32 _res = read(fd, buf, _len);                            \
-    if (_res != _len) RPFATAL(_res, "Short read from %s", fn); \
+    if (getenv("AFL_DEBUG")) {                                 \
+      fprintf(stderr, "[DEBUG ck_read] %s: got %d bytes (expected %d)\n", fn, _res, _len); \
+    }                                                          \
+    if (_res != _len) {                                        \
+      if (getenv("AFL_DEBUG")) {                               \
+        fprintf(stderr, "[DEBUG ck_read] %s: SHORT READ! Expected %d, got %d (diff: %d)\n", fn, _len, _res, _len - _res); \
+      }                                                        \
+      RPFATAL(_res, "Short read from %s", fn);                \
+    }                                                          \
                                                                \
   } while (0)
 

@@ -46,6 +46,8 @@
 #include "forkserver.h"
 #include "common.h"
 
+#include "afl-ijon-min.h"
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -886,7 +888,13 @@ typedef struct afl_state {
   FILE *introspection_file;
   u32   bitsmap_size;
 #endif
-
+  /* IJON max tracking state */
+  ijon_min_state *ijon_state;            /* IJON input management state */
+  u64          *ijon_bits;               /* Pointer to IJON max tracking map */
+  time_t        last_ijon_log_time;      /* Rate limiting for IJON UI output */
+  u8           *ijon_input_data;         /* Currently executed IJON input data */
+  u32           ijon_input_len;          /* Length of currently executed IJON input */
+  u8            is_doing_ijon;           /* Flag to track IJON execution state */
 } afl_state_t;
 
 struct custom_mutator {

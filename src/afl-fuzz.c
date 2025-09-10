@@ -25,8 +25,11 @@
  */
 
 #include "afl-fuzz.h"
+#include "afl-ijon-min.h"
 #include "alloc-inl.h"
 #include "cmplog.h"
+#include <sys/stat.h>
+#include <errno.h>
 #include "asanfuzz.h"
 #include "common.h"
 #include <limits.h>
@@ -1279,7 +1282,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->unicorn_mode) { FATAL("Multiple -U options not supported"); }
         afl->unicorn_mode = 1;
-        afl->fsrv.unicorn_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -2449,6 +2451,8 @@ int main(int argc, char **argv_orig, char **envp) {
   // read_foreign_testcases(afl, 1); for the moment dont do this
   OKF("Loaded a total of %u seeds.", afl->queued_items);
 
+  /* Note: IJON queue validation removed - no longer needed with atomic file operations */
+
   /* If we don't have a file name chosen yet, use a safe default. */
 
   if (!afl->fsrv.out_file) {
@@ -2490,8 +2494,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->cmplog_binary) {
 
+    if (afl->unicorn_mode) {
+
+      FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
+
+    }
+
     if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
-        !afl->non_instrumented_mode && !afl->unicorn_mode) {
+        !afl->non_instrumented_mode) {
 
       check_binary(afl, afl->cmplog_binary);
 
@@ -2555,9 +2565,33 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   afl->argv = use_argv;
+
+  /* UNIFIED SHARED MEMORY: Use static total size for IJON mode */
+  size_t shm_size = afl->fsrv.map_size;
+  if (getenv("AFL_IJON")) {
+    /* CONDITIONAL ALLOCATION: Fixed for ≤65k, dynamic for >65k */
+    if (afl->fsrv.map_size <= 65536) {
+      /* PRESERVE CURRENT BEHAVIOR: Use fixed MAP_SIZE_TOTAL for small maps */
+      shm_size = MAP_SIZE_TOTAL;  // 65536 + 4096 = 69632
+      OKF("IJON enabled: fixed layout for map size %u (total: %zu bytes)",
+          afl->fsrv.map_size, shm_size);
+    } else {
+      /* DYNAMIC BEHAVIOR: Calculate based on actual map size for large maps */
+      shm_size = afl->fsrv.map_size + MAP_SIZE_IJON_BYTES;
+      OKF("IJON enabled: dynamic layout for map size %u (total: %zu bytes)",
+          afl->fsrv.map_size, shm_size);
+    }
+  }
+
+  // afl->fsrv.trace_bits =
+  //     afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
+  //                  afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+
   afl->fsrv.trace_bits =
-      afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
+      afl_shm_init(&afl->shm, shm_size, afl->non_instrumented_mode,
                    afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+
+  /* IJON setup moved to after forkserver handshake for correct map size */
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
@@ -2584,8 +2618,21 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_fsrv_kill(&afl->fsrv);
       afl_shm_deinit(&afl->shm);
       afl->fsrv.map_size = new_map_size;
+
+      /* CONDITIONAL RESIZE: Fixed for ≤65k, dynamic for >65k */
+      size_t resize_shm_size = new_map_size;
+      if (getenv("AFL_IJON")) {
+        if (new_map_size <= 65536) {
+          /* PRESERVE CURRENT BEHAVIOR: Use fixed total for small maps */
+          resize_shm_size = MAP_SIZE_TOTAL;
+        } else {
+          /* DYNAMIC BEHAVIOR: Calculate based on new map size */
+          resize_shm_size = new_map_size + MAP_SIZE_IJON_BYTES;
+        }
+      }
+
       afl->fsrv.trace_bits =
-          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
+          afl_shm_init(&afl->shm, resize_shm_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
@@ -2595,6 +2642,35 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+  }
+
+  /* Set up IJON state if enabled - MOVED here to use correct map size from forkserver handshake */
+  if (getenv("AFL_IJON")) {
+
+#ifdef __linux__
+    if (afl->fsrv.nyx_mode) {
+      FATAL("IJON mode is not compatible with nyx mode (-X/-Y). Nyx uses full system emulation with different memory management.");
+    }
+#endif
+
+    /* CONDITIONAL IJON PLACEMENT: Fixed offset for ≤65k, dynamic for >65k */
+    u32 ijon_offset;
+    if (afl->fsrv.map_size <= 65536) {
+      /* PRESERVE CURRENT BEHAVIOR: Fixed offset */
+      ijon_offset = MAP_SIZE;  // Always 65536
+    } else {
+      /* DYNAMIC BEHAVIOR: Use actual map size */
+      ijon_offset = afl->fsrv.map_size;
+    }
+
+    afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + ijon_offset);
+
+    char *max_dir = alloc_printf("%s/ijon_max", afl->out_dir);
+    afl->ijon_state = new_ijon_min_state(max_dir);
+
+    /* IJON state initialized - no additional setup needed with atomic file operations */
+
+    ck_free(max_dir);
   }
 
   san_abstraction = getenv("AFL_SAN_ABSTRACTION");
@@ -2713,7 +2789,6 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
     afl->cmplog_fsrv.cs_mode = afl->fsrv.cs_mode;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
-    afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
@@ -2991,7 +3066,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->stop_soon) { goto stop_fuzzing; }
 
-  if (!afl->in_place_resume && afl->sync_dir) { check_sync_fuzzers(afl); }
+  if (!afl->in_place_resume) { check_sync_fuzzers(afl); }
 
   /* Woop woop woop */
 
@@ -3246,7 +3321,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (likely(!afl->old_seed_selection)) {
 
-        if (likely(afl->pending_favored && afl->smallest_favored != -1)) {
+        if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
 
           afl->current_entry = afl->smallest_favored;
 
@@ -3645,6 +3720,122 @@ stop_fuzzing:
   exit(0);
 
 }
+
+
+#if 0  /* REMOVED - Dead code from previous callback approach */
+void ijon_update_queue_metadata(void* afl_ptr, const char* filename, size_t new_len) {
+
+  afl_state_t* afl = (afl_state_t*)afl_ptr;
+  if (!afl || !filename) return;
+
+  /* Extract the IJON slot name from the filename (e.g., "223" from "/path/ijon_max/223") */
+  const char* slot_name = strrchr(filename, '/');
+  if (!slot_name) return;  /* Invalid path */
+  slot_name++;  /* Skip the '/' character */
+
+  if (getenv("AFL_DEBUG")) {
+    fprintf(stderr, "[DEBUG IJON] Looking for queue entry with slot name '%s' (from %s)\n", slot_name, filename);
+  }
+
+  /* Find queue entry matching this slot name in the orig: field */
+  for (u32 i = 0; i < afl->queued_items; i++) {
+    struct queue_entry* q = afl->queue_buf[i];
+    if (q && q->fname) {
+      /* Look for "orig:SLOT_NAME" pattern in the queue filename */
+      char orig_pattern[256];
+      snprintf(orig_pattern, sizeof(orig_pattern), "orig:%s", slot_name);
+      if (strstr(q->fname, orig_pattern)) {
+        /* Found matching queue entry - update length */
+        u32 old_len = q->len;
+        q->len = (u32)new_len;
+
+        if (getenv("AFL_DEBUG")) {
+          fprintf(stderr, "[DEBUG IJON] Updated queue metadata for %s: %u -> %u bytes\n",
+                  filename, old_len, (u32)new_len);
+        }
+
+        /* Update file stats if needed */
+        struct stat st;
+        if (stat(q->fname, &st) == 0) {
+          if ((size_t)st.st_size != new_len) {
+            if (getenv("AFL_DEBUG")) {
+              fprintf(stderr, "[DEBUG IJON] WARNING: Updated queue len=%u but file size=%ld\n",
+                      (u32)new_len, (long)st.st_size);
+            }
+          }
+        }
+
+        break;  /* Found and updated, no need to continue */
+      }
+    }
+  }
+
+}
+
+/* CRITICAL FIX: Validate and repair queue metadata for existing IJON files */
+void ijon_validate_queue_metadata(void* afl_ptr) {
+
+  afl_state_t* afl = (afl_state_t*)afl_ptr;
+
+  /* ALWAYS print this to confirm function is called */
+  fprintf(stderr, "[IJON VALIDATION] Function called with afl_ptr=%p\n", afl_ptr);
+
+  if (!afl) {
+    fprintf(stderr, "[IJON VALIDATION] Early return: afl is NULL\n");
+    return;
+  }
+
+  if (!afl->ijon_state) {
+    fprintf(stderr, "[IJON VALIDATION] ijon_state is NULL, but will continue with basic file size validation\n");
+    /* Continue anyway - we can still fix file size mismatches even without IJON state */
+  }
+
+  fprintf(stderr, "[IJON VALIDATION] afl=%p, ijon_state=%p, queued_items=%u\n",
+          afl, afl->ijon_state, afl->queued_items);
+
+  u32 repaired_count = 0;
+  u32 i;
+
+  if (getenv("AFL_DEBUG")) {
+    fprintf(stderr, "[DEBUG IJON] Validating queue metadata for %u entries...\n", afl->queued_items);
+  }
+
+  for (i = 0; i < afl->queued_items; i++) {
+    struct queue_entry* q = afl->queue_buf[i];
+    if (!q || !q->fname) {
+      fprintf(stderr, "[IJON VALIDATION] Skipping entry %u: q=%p, fname=%p\n",
+              i, q, q ? q->fname : NULL);
+      continue;
+    }
+
+    struct stat st;
+    if (stat(q->fname, &st) == 0) {
+      /* Check for size mismatch */
+      if ((u32)st.st_size != q->len) {
+        fprintf(stderr, "[IJON VALIDATION] REPAIRING queue metadata for %s: %u -> %ld bytes\n",
+                q->fname, q->len, (long)st.st_size);
+        q->len = (u32)st.st_size;
+        repaired_count++;
+      } else {
+        /* Print info for files that are OK */
+        if (getenv("AFL_DEBUG")) {
+          fprintf(stderr, "[DEBUG IJON] File %s: metadata=%u, actual=%ld (OK)\n",
+                  q->fname, q->len, (long)st.st_size);
+        }
+      }
+    } else {
+      fprintf(stderr, "[IJON VALIDATION] WARNING: Cannot stat file %s (errno=%d)\n",
+              q->fname, errno);
+    }
+  }
+
+  if (repaired_count > 0) {
+    OKF("IJON: Repaired %u queue entries with stale metadata", repaired_count);
+  }
+
+}
+/* Note: IJON validation function removed - moved to disabled code block */
+#endif  /* End of removed callback code */
 
 #endif                                                          /* !AFL_LIB */
 

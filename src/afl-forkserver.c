@@ -308,6 +308,12 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   /* exec related stuff */
   fsrv->child_pid = -1;
   fsrv->map_size = get_map_size();
+
+  if (getenv("AFL_IJON")) {
+    /* IJON ENABLED: Let the normal resize logic handle IJON space allocation */
+    /* The actual IJON space allocation will happen during resize based on target's reported size */
+    /* This ensures we work correctly for both small (≤65k) and large (>65k) targets */
+  }
   fsrv->real_map_size = fsrv->map_size;
   fsrv->use_fauxsrv = false;
   fsrv->last_run_timed_out = false;
@@ -2039,6 +2045,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     }
 
 #else
+    /* Clear shared memory for clean execution */
     memset(fsrv->trace_bits, 0, fsrv->map_size);
     MEM_BARRIER();
 #endif

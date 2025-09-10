@@ -684,6 +684,11 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   q->fname = fname;
   q->len = len;
+
+  // Debug: Track queue entry creation
+  if (getenv("AFL_DEBUG")) {
+    fprintf(stderr, "[DEBUG add_to_queue] Created %s: len=%u, q=%p\n", fname, len, (void*)q);
+  }
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
   q->trace_mini = NULL;
@@ -808,8 +813,6 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
   u32 i;
   u64 fav_factor;
   u64 fuzz_p2;
-
-  if (unlikely(q->disabled)) { return; }
 
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
@@ -966,7 +969,7 @@ void cull_queue(afl_state_t *afl) {
 
       }
 
-      if (!afl->top_rated[i]->favored && !afl->top_rated[i]->disabled) {
+      if (!afl->top_rated[i]->favored) {
 
         afl->top_rated[i]->favored = 1;
         ++afl->queued_favored;
@@ -974,8 +977,7 @@ void cull_queue(afl_state_t *afl) {
         if (!afl->top_rated[i]->was_fuzzed) {
 
           ++afl->pending_favored;
-          if (unlikely(afl->smallest_favored == -1 ||
-                       afl->smallest_favored > (s64)afl->top_rated[i]->id)) {
+          if (unlikely(afl->smallest_favored < 0)) {
 
             afl->smallest_favored = (s64)afl->top_rated[i]->id;
 
@@ -1093,8 +1095,6 @@ void update_bitmap_rescore(afl_state_t *afl, struct queue_entry *q, u32 index) {
   u32 i = index;
   u64 fav_factor;
   u64 fuzz_p2;
-
-  if (unlikely(q->disabled)) { return; }
 
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
@@ -1554,6 +1554,11 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
   u32    len = q->len;
   double weight = q->weight;
+
+  // Debug: Log queue entry access for debugging
+  if (getenv("AFL_DEBUG")) {
+    fprintf(stderr, "[DEBUG queue_testcase_get] %s: q->len=%u, q=%p\n", q->fname, q->len, (void*)q);
+  }
 
   // first handle if no testcase cache is configured, or if the
   // weighting of the testcase is below average.

@@ -161,54 +161,6 @@ typedef int128_t s128;
                                                \
   })
 
-#define EXTRACT16(_s, _o)      \
-  ({                           \
-                               \
-    u8 *s = (u8 *)(_s) + (_o); \
-    u16 _ret = s[1];           \
-    _ret = (_ret << 8) | s[0]; \
-    _ret;                      \
-                               \
-  })
-
-#define EXTRACT32(_s, _o)      \
-  ({                           \
-                               \
-    u8 *s = (u8 *)(_s) + (_o); \
-    u32 _ret = s[3];           \
-    _ret = (_ret << 8) | s[2]; \
-    _ret = (_ret << 8) | s[1]; \
-    _ret = (_ret << 8) | s[0]; \
-    _ret;                      \
-                               \
-  })
-
-#define INSERT16(_d, _o, _x)   \
-  {                            \
-                               \
-    u8 *d = (u8 *)(_d) + (_o); \
-    u16 x = _x;                \
-    d[0] = x & 0xFF;           \
-    x >>= 8;                   \
-    d[1] = x & 0xFF;           \
-                               \
-  }
-
-#define INSERT32(_d, _o, _x)   \
-  {                            \
-                               \
-    u8 *d = (u8 *)(_d) + (_o); \
-    u32 x = _x;                \
-    d[0] = x & 0xFF;           \
-    x >>= 8;                   \
-    d[1] = x & 0xFF;           \
-    x >>= 8;                   \
-    d[2] = x & 0xFF;           \
-    x >>= 8;                   \
-    d[3] = x & 0xFF;           \
-                               \
-  }
-
 #ifdef AFL_LLVM_PASS
   #if defined(__linux__) || !defined(__ANDROID__)
     #define AFL_SR(s) (srandom(s))
@@ -220,10 +172,10 @@ typedef int128_t s128;
 #else
   #if defined(__linux__) || !defined(__ANDROID__)
     #define SR(s) (srandom(s))
-    #define R(x) (random() % (x))
+    #define AFL_R(x) (random() % (x))
   #else
     #define SR(s) ((void)s)
-    #define R(x) (arc4random_uniform(x))
+    #define AFL_R(x) (arc4random_uniform(x))
   #endif
 #endif                                                    /* ^AFL_LLVM_PASS */
 
