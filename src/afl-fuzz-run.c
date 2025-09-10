@@ -104,7 +104,7 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
   }
 
   /* Check for new IJON max values after execution */
-  if (afl->ijon_state && afl->ijon_bits) {
+  if (unlikely(afl->ijon_state && afl->ijon_bits)) {
 
     /* CONDITIONAL SHARED MEMORY ACCESS: Fixed for ≤65k, dynamic for >65k */
 

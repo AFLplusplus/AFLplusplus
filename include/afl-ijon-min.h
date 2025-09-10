@@ -6,6 +6,7 @@
 
 #define IJON_MAX_INPUT_SIZE (64*1024)
 
+
 typedef struct {
   char* filename;
   int slot_id;

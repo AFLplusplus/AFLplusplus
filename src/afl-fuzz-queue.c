@@ -686,7 +686,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->len = len;
 
   // Debug: Track queue entry creation
-  if (getenv("AFL_DEBUG")) {
+  if (afl->debug) {
     fprintf(stderr, "[DEBUG add_to_queue] Created %s: len=%u, q=%p\n", fname, len, (void*)q);
   }
   q->depth = afl->cur_depth + 1;
@@ -1556,7 +1556,7 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
   double weight = q->weight;
 
   // Debug: Log queue entry access for debugging
-  if (getenv("AFL_DEBUG")) {
+  if (afl->debug) {
     fprintf(stderr, "[DEBUG queue_testcase_get] %s: q->len=%u, q=%p\n", q->fname, q->len, (void*)q);
   }
 

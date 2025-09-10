@@ -340,7 +340,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   u32 a_len = 0;
 
   /* IJON: If we're doing IJON, skip deterministic stages and go directly to havoc */
-  if (afl->is_doing_ijon) {
+  if (unlikely(afl->is_doing_ijon)) {
 
     /* Use IJON input data that was set up in fuzz_one() */
     len = afl->ijon_input_len;
@@ -2055,7 +2055,7 @@ havoc_stage:
   }
 
   /* IJON stage name override */
-  if (afl->is_doing_ijon) {
+  if (unlikely(afl->is_doing_ijon)) {
     afl->stage_name = "ijon-max";
     afl->stage_short = "ijon-max";
   }
@@ -3459,7 +3459,7 @@ retry_splicing:
 abandon_entry:
 
   /* IJON queue protection only - memory cleanup handled normally */
-  if (afl->is_doing_ijon) {
+  if (unlikely(afl->is_doing_ijon)) {
 
     /* Reset IJON flag - memory cleanup handled by normal flow */
     afl->is_doing_ijon = 0;
@@ -3471,8 +3471,8 @@ abandon_entry:
   /* Update afl->pending_not_fuzzed count if we made it through the calibration
      cycle and have not seen this entry before. */
 
-  if (!afl->is_doing_ijon && !afl->stop_soon && !afl->queue_cur->cal_failed &&
-      !afl->queue_cur->was_fuzzed && !afl->queue_cur->disabled) {
+  if (unlikely(!afl->is_doing_ijon && !afl->stop_soon && !afl->queue_cur->cal_failed &&
+      !afl->queue_cur->was_fuzzed && !afl->queue_cur->disabled)) {
 
     --afl->pending_not_fuzzed;
     afl->queue_cur->was_fuzzed = 1;
@@ -3486,7 +3486,7 @@ abandon_entry:
 
   }
 
-  if (!afl->is_doing_ijon) {
+  if (unlikely(!afl->is_doing_ijon)) {
     ++afl->queue_cur->fuzz_level;
   }
   orig_in = NULL;
@@ -6219,7 +6219,7 @@ u8 fuzz_one(afl_state_t *afl) {
   s32 fd = -1;
 
   /* IJON max tracking: Check if we should use IJON input (80% chance) */
-  if (afl->ijon_state && ijon_should_schedule((ijon_min_state*)afl->ijon_state)) {
+  if (unlikely(afl->ijon_state && ijon_should_schedule((ijon_min_state*)afl->ijon_state))) {
 
     ijon_input_info* ijon_input = ijon_get_input((ijon_min_state*)afl->ijon_state);
 
