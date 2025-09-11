@@ -979,6 +979,13 @@ static void __afl_start_forkserver(void) {
       status |= FS_NEW_OPT_AUTODICT;
 
     }
+    /* Add IJON capability flag if IJON is enabled */
+    if (getenv("AFL_IJON")) {
+      status |= FS_OPT_IJON;
+      if (__afl_debug) {
+        fprintf(stderr, "DEBUG: Setting FS_OPT_IJON flag in options\n");
+      }
+    }
 
     if (write(FORKSRV_FD + 1, msg, 4) != 4) {
 
@@ -1030,13 +1037,6 @@ static void __afl_start_forkserver(void) {
 
     // send welcome message as final message
     status = version;
-    /* Add IJON capability flag if IJON is enabled */
-    if (getenv("AFL_IJON")) {
-      status |= FS_OPT_IJON;
-      if (__afl_debug) {
-        fprintf(stderr, "DEBUG: Setting FS_OPT_IJON flag\n");
-      }
-    }
     if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
 
   }
