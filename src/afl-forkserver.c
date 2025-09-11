@@ -1349,7 +1349,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       rlen = read(fsrv->fsrv_st_fd, &status2, 4);
 
       // Mask out expected capability flags when comparing handshake status
-      u32 expected_flags = FS_OPT_IJON;
+      u32 expected_flags = 0;
+      if (fsrv->use_ijon) { expected_flags |= FS_OPT_IJON; }
       if ((status2 & ~expected_flags) != keep) {
 
         FATAL("Error in forkserver communication (%08x=>%08x)", keep, status2);
