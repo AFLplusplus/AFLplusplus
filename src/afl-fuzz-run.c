@@ -875,9 +875,9 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
       }
 
-    }
+      closedir(dir);
 
-    closedir(dir);
+    }
 
     if (!have_main) {
 

@@ -1282,6 +1282,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->unicorn_mode) { FATAL("Multiple -U options not supported"); }
         afl->unicorn_mode = 1;
+        afl->fsrv.unicorn_mode = 1;
 
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_UNICORN; }
 
@@ -2492,14 +2493,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->cmplog_binary) {
 
-    if (afl->unicorn_mode) {
-
-      FATAL("CmpLog and Unicorn mode are not compatible at the moment, sorry");
-
-    }
-
     if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
-        !afl->non_instrumented_mode) {
+        !afl->non_instrumented_mode && !afl->unicorn_mode) {
 
       check_binary(afl, afl->cmplog_binary);
 
@@ -2785,6 +2780,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
     afl->cmplog_fsrv.cs_mode = afl->fsrv.cs_mode;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
+    afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
     afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
@@ -3062,7 +3058,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->stop_soon) { goto stop_fuzzing; }
 
-  if (!afl->in_place_resume) { check_sync_fuzzers(afl); }
+  if (!afl->in_place_resume && afl->sync_dir) { check_sync_fuzzers(afl); }
 
   /* Woop woop woop */
 

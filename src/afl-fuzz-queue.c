@@ -810,9 +810,12 @@ void destroy_queue(afl_state_t *afl) {
 void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
                          bool have_trace) {
 
+
   u32 i;
   u64 fav_factor;
   u64 fuzz_p2;
+
+  if (unlikely(q->disabled)) { return; }
 
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
@@ -969,7 +972,7 @@ void cull_queue(afl_state_t *afl) {
 
       }
 
-      if (!afl->top_rated[i]->favored) {
+      if (!afl->top_rated[i]->favored && !afl->top_rated[i]->disabled)) {
 
         afl->top_rated[i]->favored = 1;
         ++afl->queued_favored;
@@ -1095,6 +1098,8 @@ void update_bitmap_rescore(afl_state_t *afl, struct queue_entry *q, u32 index) {
   u32 i = index;
   u64 fav_factor;
   u64 fuzz_p2;
+
+  if (unlikely(q->disabled)) { return; }
 
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 

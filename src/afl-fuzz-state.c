@@ -81,6 +81,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   afl->shm.map_size = map_size ? map_size : MAP_SIZE;
 
+  afl->smallest_favored = -1;  
   afl->w_init = 0.9;
   afl->w_end = 0.3;
   afl->g_max = 5000;
@@ -173,8 +174,7 @@ void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
     u32 size_diff = new_size - old_size;
 
     memset(afl->var_bytes + old_size, 0, size_diff);
-    memset(afl->top_rated + old_size * sizeof(void *), 0,
-           size_diff * sizeof(void *));
+    memset(afl->top_rated + old_size, 0, size_diff * sizeof(void *));
     memset(afl->clean_trace + old_size, 0, size_diff);
     memset(afl->clean_trace_custom + old_size, 0, size_diff);
     memset(afl->first_trace + old_size, 0, size_diff);
