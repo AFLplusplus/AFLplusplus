@@ -73,7 +73,7 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
   #include <execinfo.h>
 #endif
 
-#if __llvm__
+#ifdef __llvm__
   #include "llvm/Config/llvm-config.h"
 #endif
 
@@ -2546,7 +2546,6 @@ static u8 get_prog_addr_attr(const void *addr) {
 
 #endif
 
-
 /* hook for string with length functions, eg. strncmp, strncasecmp etc.
    Note that we ignore the len parameter and take longer strings if present. */
 void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
@@ -2802,7 +2801,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   __builtin_memcpy(cmpfn[hits].v0, ptr1, 32);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, 32);
   // fprintf(stderr, "RTN3\n");
-    #ifdef __linux__
+  #ifdef __linux__
   u8 attr1 = get_prog_addr_attr(ptr1);
   u8 attr2 = get_prog_addr_attr(ptr2);
   cmpfn->addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
