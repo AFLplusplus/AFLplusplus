@@ -905,8 +905,6 @@ void perform_dry_run(afl_state_t *afl) {
 
   }
 
-  /* Note: IJON queue validation removed - no longer needed with atomic file operations */
-
   do {
 
     if (afl->in_place_resume) { --idx; }

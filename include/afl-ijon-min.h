@@ -62,8 +62,6 @@ void ijon_store_history_if_best(ijon_min_state* self, int i, uint8_t* data, size
 void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data, size_t len);
 void destroy_ijon_min_state(ijon_min_state* self);
 
-/* Note: Callback function prototypes removed - no longer needed with atomic file operations */
-
 /* Dynamic shared memory access functions for >65k maps */
 dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_size);
 void cleanup_dynamic_shared_access(dynamic_shared_access_t *access);

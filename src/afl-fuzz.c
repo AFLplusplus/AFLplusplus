@@ -2451,8 +2451,6 @@ int main(int argc, char **argv_orig, char **envp) {
   // read_foreign_testcases(afl, 1); for the moment dont do this
   OKF("Loaded a total of %u seeds.", afl->queued_items);
 
-  /* Note: IJON queue validation removed - no longer needed with atomic file operations */
-
   /* If we don't have a file name chosen yet, use a safe default. */
 
   if (!afl->fsrv.out_file) {
@@ -2590,8 +2588,6 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, shm_size, afl->non_instrumented_mode,
                    afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
-
-  /* IJON setup moved to after forkserver handshake for correct map size */
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&

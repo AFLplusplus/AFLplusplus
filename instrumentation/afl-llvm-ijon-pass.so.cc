@@ -153,8 +153,6 @@ PreservedAnalyses IJONInstrumentation::run(Module &M, ModuleAnalysisManager &MAM
 
   }
 
-  /* Say something nice. */
-
   if (!inst_blocks) {
     // This is normal during linking phase
     if (getenv("AFL_IJON_VERBOSE")) {
@@ -368,9 +366,6 @@ void IJONInstrumentation::transformIJONMaxCall(CallInst *call, uint32_t call_ind
 
   // Add sentinel (0ULL) to mark end of arguments
   args.push_back(ConstantInt::get(Type::getInt64Ty(call->getContext()), 0));
-
-  // CRITICAL FIX: Removed problematic debug printf calls that were causing infinite loop
-  // The debug prints were calling castToInt64 multiple times and corrupting the IR
 
   // Create the call to ijon_max_variadic
   IRB.CreateCall(ijonMaxVariadicFunc, args);

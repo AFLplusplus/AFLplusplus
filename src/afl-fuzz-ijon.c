@@ -47,8 +47,6 @@ ijon_min_state* new_ijon_min_state(char* max_dir) {
   self->num_entries = 0;
   self->num_updates = 0;
 
-  /* Note: Callback initialization removed - no longer needed with atomic file operations */
-
   /* Create the IJON max directory if it doesn't exist */
   if (mkdir(max_dir, 0700) && errno != EEXIST) {
     PFATAL("Unable to create IJON max directory '%s'", max_dir);
@@ -91,7 +89,7 @@ u8 ijon_should_schedule(ijon_min_state* self) {
   if (self->num_entries > 0) {
     // return 1;  // 100% chance to schedule IJON input for debugging
 
-    /* 60% scheduling probability (commented for production use):*/
+    /* 80% scheduling probability */
     if (random() % 100 < 80) {
       return 1;  // 80% chance to schedule IJON input
     }
@@ -148,8 +146,6 @@ void ijon_store_max_input(ijon_min_state* self, int i, uint8_t* data, size_t len
     WARNF("Failed to rename IJON temp file %s to %s: %s", temp_filename, inf->filename, strerror(errno));
     unlink(temp_filename);  /* Clean up failed temp file */
   }
-
-  /* Note: Queue metadata callback removed - not needed as AFL++ handles this correctly */
 
   // Store in history file ONLY if this input achieves the best value for variable i
   ijon_store_history_if_best(self, i, data, len);
@@ -235,7 +231,6 @@ void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data
           WARNF("Failed to rename IJON history temp file %s to %s: %s", temp_history_filename, history_filename, strerror(errno));
           unlink(temp_history_filename);  /* Clean up failed temp file */
         }
-        /* Note: History queue metadata callback removed - not needed as AFL++ handles this correctly */
       }
     } else {
       WARNF("Failed to open IJON history temp file %s: %s", temp_history_filename, strerror(errno));
@@ -245,8 +240,6 @@ void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data
     ck_free(history_filename);
   }
 }
-
-/* Debug function removed - IJON implementation is production ready */
 
 void ijon_update_max(ijon_min_state* self, shared_data_t* shared, uint8_t* data, size_t len) {
 
