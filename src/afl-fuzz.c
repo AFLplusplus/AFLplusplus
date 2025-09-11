@@ -2568,7 +2568,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   /* UNIFIED SHARED MEMORY: Use static total size for IJON mode */
   size_t shm_size = afl->fsrv.map_size;
-  if (getenv("AFL_IJON")) {
+  if (afl->fsrv.use_ijon) {
     /* CONDITIONAL ALLOCATION: Fixed for ≤65k, dynamic for >65k */
     if (afl->fsrv.map_size <= 65536) {
       /* PRESERVE CURRENT BEHAVIOR: Use fixed MAP_SIZE_TOTAL for small maps */
@@ -2621,7 +2621,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       /* CONDITIONAL RESIZE: Fixed for ≤65k, dynamic for >65k */
       size_t resize_shm_size = new_map_size;
-      if (getenv("AFL_IJON")) {
+      if (afl->fsrv.use_ijon) {
         if (new_map_size <= 65536) {
           /* PRESERVE CURRENT BEHAVIOR: Use fixed total for small maps */
           resize_shm_size = MAP_SIZE_TOTAL;
@@ -2645,7 +2645,7 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   /* Set up IJON state if enabled - MOVED here to use correct map size from forkserver handshake */
-  if (getenv("AFL_IJON")) {
+  if (afl->fsrv.use_ijon) {
 
 #ifdef __linux__
     if (afl->fsrv.nyx_mode) {

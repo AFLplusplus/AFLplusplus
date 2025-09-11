@@ -1030,6 +1030,13 @@ static void __afl_start_forkserver(void) {
 
     // send welcome message as final message
     status = version;
+    /* Add IJON capability flag if IJON is enabled */
+    if (getenv("AFL_IJON")) {
+      status |= FS_OPT_IJON;
+      if (__afl_debug) {
+        fprintf(stderr, "DEBUG: Setting FS_OPT_IJON flag\n");
+      }
+    }
     if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
 
   }
@@ -1980,6 +1987,27 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
     }
 
+  }
+
+  // IJON SUPPORT: Expand map size when AFL_IJON=1 to ensure AFL tools
+  // read the full map that will contain IJON coverage points
+  if (getenv("AFL_IJON")) {
+    if (__afl_map_size <= 65536) {
+      // SMALL MAPS: Static expansion (preserve current behavior)
+      if (__afl_final_loc < MAP_SIZE - 1) {
+        __afl_final_loc = MAP_SIZE - 1;
+        if (__afl_debug) {
+          fprintf(stderr, "DEBUG: IJON small map - expanded to %u (static)\n", __afl_final_loc);
+        }
+      }
+    } else {
+      // LARGE MAPS: Dynamic expansion
+      __afl_final_loc += MAP_SIZE_IJON_ENTRIES;
+      if (__afl_debug) {
+        fprintf(stderr, "DEBUG: IJON large map - added %u entries (now %u)\n", 
+                MAP_SIZE_IJON_ENTRIES, __afl_final_loc);
+      }
+    }
   }
 
 #ifdef __AFL_CODE_COVERAGE
