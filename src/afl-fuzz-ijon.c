@@ -162,25 +162,18 @@ void ijon_store_history_if_best(ijon_min_state* self, int i, uint8_t* data, size
 /* Unconditional history storage (original logic) */
 void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data, size_t len) {
   // Rolling history buffer with per-variable guaranteed coverage
-  static int history_limit = -1;  // -1 = not initialized
+  static int history_init = -1;  // -1 = not initialized
   static int global_history_index = 0;
   static int variable_to_index[MAP_SIZE_IJON_ENTRIES];  // Maps variable slot to history index
   static int num_discovered_vars = 0;
 
   // Initialize history limit from environment variable (once)
-  if (history_limit == -1) {
-    char *env = getenv("AFL_IJON_HISTORY_LIMIT");
-    if (env) {
-      history_limit = atoi(env);
-      if (history_limit < 0) history_limit = 0;  // Invalid values = disable
-    } else {
-      history_limit = 20;  // Default: 20 historical finding files
-    }
-
+  if (unlikely(history_init == -1)) {
     // Initialize variable mapping
     for (int j = 0; j < MAP_SIZE_IJON_ENTRIES; j++) {
       variable_to_index[j] = -1;  // -1 means not assigned
     }
+    history_init = 1;
   }
 
   // Store historical input if history is enabled

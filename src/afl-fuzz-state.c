@@ -81,7 +81,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   afl->shm.map_size = map_size ? map_size : MAP_SIZE;
 
-  afl->smallest_favored = -1;  
+  afl->smallest_favored = -1;
+  afl->afl_ijon_history_limit = 20;
   afl->w_init = 0.9;
   afl->w_end = 0.3;
   afl->g_max = 5000;
@@ -631,6 +632,19 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->max_length =
                 atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+          } else if (!strncmp(env, "AFL_IJON_HISTORY_LIMIT",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_ijon_history_limit =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_ijon_history_limit < 0) {
+
+              afl->afl_ijon_history_limit = 0;
+
+            }
 
           } else if (!strncmp(env, "AFL_PIZZA_MODE",
 

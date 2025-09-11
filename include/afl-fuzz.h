@@ -476,7 +476,7 @@ typedef struct afl_env_vars {
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
-  s32 afl_pizza_mode;
+  s32 afl_pizza_mode, afl_ijon_history_limit;
 
   uid_t afl_forksrv_uid;
 
