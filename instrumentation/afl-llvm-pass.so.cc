@@ -181,36 +181,6 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
-  
-  // Check if IJON state-aware coverage is enabled
-  const char *ijon_enabled = getenv("AFL_LLVM_IJON");
-  
-  // If IJON is enabled, check if the module actually uses IJON_STATE
-  bool uses_ijon_state = false;
-  if (ijon_enabled) {
-    for (auto &F : M) {
-      for (auto &BB : F) {
-        for (auto &I : BB) {
-          if (auto *call = dyn_cast<CallInst>(&I)) {
-            Value *calledValue = call->getCalledOperand();
-            if (Function *calledFunc = dyn_cast<Function>(calledValue)) {
-              if (calledFunc->getName() == "ijon_xor_state") {
-                uses_ijon_state = true;
-                break;
-              }
-            }
-          }
-        }
-        if (uses_ijon_state) break;
-      }
-      if (uses_ijon_state) break;
-    }
-    
-    // Only enable state-aware coverage if IJON_STATE is actually used
-    if (!uses_ijon_state) {
-      ijon_enabled = nullptr;  // Disable IJON state-aware coverage
-    }
-  }
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || !!getenv("AFL_DEBUG")) {
 
@@ -343,7 +313,6 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
   GlobalVariable *AFLPrevLoc;
   GlobalVariable *AFLPrevCaller;
   GlobalVariable *AFLContext = NULL;
-  GlobalVariable *AFLIJONState = NULL;
 
   if (ctx_str || caller_str)
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
@@ -377,17 +346,6 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
   AFLPrevLoc = new GlobalVariable(
       M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc", 0,
       GlobalVariable::GeneralDynamicTLSModel, 0, false);
-#endif
-
-  // Initialize IJON state global variable if IJON is enabled
-  if (ijon_enabled)
-#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
-    AFLIJONState = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state");
-#else
-    AFLIJONState = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state", 0,
-        GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
 
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
@@ -723,14 +681,6 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 #endif
         EdgeIndex = IRB.CreateXor(PrevLocTrans, CurLoc);
       
-      // Apply IJON state-aware coverage if enabled
-      if (ijon_enabled && AFLIJONState) {
-        LoadInst *IJONStateVal = IRB.CreateLoad(Int32Ty, AFLIJONState);
-        IJONStateVal->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-        // Apply IJON formula: state XOR (ids * 2) XOR idt
-        // Note: AFL++ already shifts PrevLoc, so we XOR state with the computed edge
-        EdgeIndex = IRB.CreateXor(IJONStateVal, EdgeIndex);
-      }
       
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
       if (ngram_size)
