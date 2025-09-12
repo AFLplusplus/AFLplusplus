@@ -44,6 +44,11 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 
 #include "afl-ijon-min.h"
 
+/* For backtrace() support in ijon_hashstack */
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+  #include <execinfo.h>
+#endif
+
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 #undef XXH_INLINE_ALL
