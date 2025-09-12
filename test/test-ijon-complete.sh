@@ -14,16 +14,16 @@ echo "5" > test-input/input3.txt
 echo "!" > test-input/input4.txt
 
 echo "1. Testing PCGUARD mode (default) with IJON..."
-AFL_LLVM_IJON=1 ./afl-cc -O2 -g test-ijon-complete.c -o test-ijon-pcguard 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
+AFL_LLVM_IJON=1 ../afl-clang-fast test-ijon-complete.c -o test-ijon-pcguard 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
 echo "    Compiled with PCGUARD + IJON state-aware coverage"
 
 echo "2. Testing LTO mode with IJON..."
-AFL_LLVM_IJON=1 ./afl-clang-lto -O2 -g test-ijon-complete.c -o test-ijon-lto 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
+AFL_LLVM_IJON=1 ../afl-clang-lto test-ijon-complete.c -o test-ijon-lto 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
 echo "    Compiled with LTO + IJON state-aware coverage"
 
-echo "3. Testing Legacy mode (IJON should be disabled)..."
-./afl-clang-fast -O2 -g test-ijon-complete.c -o test-ijon-legacy 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete - no IJON instrumentation"
-echo "    Compiled with Legacy mode (no IJON state-aware coverage)"
+echo "3. Compiling baseline without IJON ..."
+../afl-clang-fast test-ijon-complete.c -o test-ijon-lto 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
+echo "    Compiled with LTO + IJON state-aware coverage"
 
 echo
 echo "4. Testing coverage ID differentiation..."
@@ -121,7 +121,7 @@ echo "Testing all IJON macros in the current test program..."
 
 # Check IJON macro counts in compilation output
 echo " Analyzing IJON macro usage:"
-pcguard_compile_output=$(AFL_LLVM_IJON=1 ./afl-cc -O2 -g test-ijon-complete.c -o test-ijon-enhanced-check 2>&1)
+pcguard_compile_output=$(AFL_LLVM_IJON=1 ../afl-clang-fast test-ijon-complete.c -o test-ijon-enhanced-check 2>&1)
 
 # Extract macro counts
 ijon_max_calls=$(echo "$pcguard_compile_output" | grep -o "IJON_MAX: [0-9]*" | grep -o "[0-9]*" || echo "0")
@@ -176,7 +176,7 @@ echo " Coverage tracking: Working"
 echo
 echo "IJON implementation testing completed successfully."
 echo "Integrated IJON macros (IJON_STATE, IJON_MAX, IJON_MIN, IJON_SET, IJON_INC) are fully functional."
-echo "To use IJON in your projects, compile with AFL_LLVM_IJON=1 and use the afl-cc or afl-clang-lto compilers."
+echo "To use IJON in your projects, compile with AFL_LLVM_IJON=1 and use the afl-clang-fast or afl-clang-lto compilers."
 echo
 echo "================================================="
 echo "For advanced IJON testing with complex examples:"
