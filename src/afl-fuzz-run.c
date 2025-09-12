@@ -861,7 +861,9 @@ void check_sync_fuzzers(afl_state_t *afl) {
         if (max_fd >= 0) {
 
           --max_start_id;  // counting from 0
-          write(max_fd, &max_start_id, sizeof(u32));
+          if (write(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32)) {
+            /* Ignore write failure - sync will continue */
+          }
           close(max_fd);
 
         }
@@ -1037,7 +1039,10 @@ void sync_fuzzers(afl_state_t *afl) {
 
     if (max_fd >= 0) {
 
-      read(max_fd, &max_start_id, sizeof(u32));
+      if (read(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32)) {
+        /* Use default value on read failure */
+        max_start_id = 0;
+      }
       close(max_fd);
       if (max_start_id < next_min_accept) { unlink(qd_synced_maxid); }
 

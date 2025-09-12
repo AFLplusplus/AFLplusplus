@@ -2051,8 +2051,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       // We can fit both coverage and IJON within the max allowed size
       __afl_final_loc = required_total_size - 1;  // Set final_loc to last index in expanded map
       if (__afl_debug) {
-        fprintf(stderr, "DEBUG: IJON enabled - expanded __afl_final_loc from %u to %u (unified layout: %u coverage + %u IJON = %u total)\n",
-                natural_final_loc, __afl_final_loc, natural_map_size, MAP_SIZE_IJON_BYTES, required_total_size);
+        fprintf(stderr, "DEBUG: IJON enabled - expanded __afl_final_loc from %u to %u (unified layout: %u coverage + %zu IJON = %u total)\n",
+                natural_final_loc, __afl_final_loc, natural_map_size, (size_t)MAP_SIZE_IJON_BYTES, required_total_size);
       }
     } else {
       // Required space exceeds maximum - this will cause an error later
@@ -3283,7 +3283,6 @@ void ijon_max_variadic(uint32_t addr, ...) {
   // Process all arguments until we hit the sentinel (0)
   // Using Java-style hash: hash = 31 * hash + value
   while ((value = va_arg(args, u64)) != 0) {
-      u64 old_combined = combined;
       combined = combined * 31 + value;
       arg_count++;
 
@@ -3311,7 +3310,6 @@ void ijon_min_variadic(uint32_t addr, ...) {
   // Process all arguments until we hit the sentinel (0)
   // Using Java-style hash: hash = 31 * hash + value
   while ((value = va_arg(args, u64)) != 0) {
-      u64 old_combined = combined;
       combined = combined * 31 + value;
       arg_count++;
 

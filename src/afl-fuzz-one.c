@@ -6210,12 +6210,9 @@ u8 fuzz_one(afl_state_t *afl) {
 
   int key_val_lv_1 = -1, key_val_lv_2 = -1;
 
-  /* IJON execution path - variables for havoc stage (declare at function level) */
-  u32 len = 0, temp_len = 0;
+  /* IJON execution path - variables for file handling */
+  u32 len = 0;
   u8 *in_buf = NULL, *out_buf = NULL, *orig_in = NULL;
-  u64 havoc_queued = 0, orig_hit_cnt = 0;
-  u32 perf_score = 100;
-  u8 ret_val = 0;
   s32 fd = -1;
 
   /* IJON max tracking: Check if we should use IJON input (80% chance) */
