@@ -71,22 +71,6 @@ PreservedAnalyses IJONInstrumentation::run(Module &M, ModuleAnalysisManager &MAM
 
     be_quiet = 1;
 
-  /* Decide instrumentation ratio */
-
-  char *inst_ratio_str = getenv("AFL_INST_RATIO");
-  unsigned int inst_ratio = 100;
-
-  if (inst_ratio_str) {
-
-    if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || inst_ratio > 100) {
-      fprintf(stderr, "Bad value of AFL_INST_RATIO (must be between 1 and 100)\n");
-      exit(1);
-    }
-
-    inst_ratio /= 10;
-
-  }
-
   /* Create the ijon_max_variadic and ijon_set functions if they don't exist */
   createIJONMaxVariadicFunction(M);
 
