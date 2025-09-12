@@ -277,6 +277,8 @@ class ModuleSanitizerCoverageLTO
   Module                          *Mo = NULL;
   GlobalVariable                  *AFLContext = NULL;
   GlobalVariable                  *AFLMapPtr = NULL;
+  GlobalVariable                  *AFLIJONState = NULL;
+  const char                      *ijon_enabled = nullptr;
   Value                           *MapPtrFixed = NULL;
   AllocaInst                      *CTX_add = NULL;
   std::ofstream                    dFile;
@@ -454,6 +456,47 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   Int8Tyi = IntegerType::getInt8Ty(Ctx);
   Int32Tyi = IntegerType::getInt32Ty(Ctx);
   Int64Tyi = IntegerType::getInt64Ty(Ctx);
+
+  // Check if IJON state-aware coverage is enabled
+  ijon_enabled = getenv("AFL_LLVM_IJON");
+  
+  // If IJON is enabled, check if the module actually uses IJON_STATE
+  bool uses_ijon_state = false;
+  if (ijon_enabled) {
+    for (auto &F : M) {
+      for (auto &BB : F) {
+        for (auto &I : BB) {
+          if (auto *call = dyn_cast<CallInst>(&I)) {
+            Value *calledValue = call->getCalledOperand();
+            if (Function *calledFunc = dyn_cast<Function>(calledValue)) {
+              if (calledFunc->getName() == "ijon_xor_state") {
+                uses_ijon_state = true;
+                break;
+              }
+            }
+          }
+        }
+        if (uses_ijon_state) break;
+      }
+      if (uses_ijon_state) break;
+    }
+    
+    // Only enable state-aware coverage if IJON_STATE is actually used
+    if (!uses_ijon_state) {
+      ijon_enabled = nullptr;  // Disable IJON state-aware coverage
+    }
+  }
+
+  // Initialize IJON state global variable if IJON is enabled
+  if (ijon_enabled)
+#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
+    AFLIJONState = new GlobalVariable(
+        M, Int32Tyi, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state");
+#else
+    AFLIJONState = new GlobalVariable(
+        M, Int32Tyi, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state", 0,
+        GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
 
   /* Show a banner */
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -2255,6 +2298,15 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
       ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(CTX_load);
       val = IRB.CreateAdd(CurLoc, CTX_load);
 
+    }
+    
+    // Apply IJON state-aware coverage if enabled
+    if (ijon_enabled && AFLIJONState) {
+      LoadInst *IJONStateVal = IRB.CreateLoad(Int32Tyi, AFLIJONState);
+      ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(IJONStateVal);
+      // Apply IJON formula: state XOR coverage_index
+      // This makes every coverage point context-aware based on current IJON state
+      val = IRB.CreateXor(IJONStateVal, val);
     }
 
     /* Load SHM pointer */
