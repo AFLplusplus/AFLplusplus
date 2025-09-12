@@ -3195,13 +3195,7 @@ void ijon_set(uint32_t loc_addr, uint32_t val) {
 // BUG TODO -> THIS IS WRONG ... what is this meant to do?
   u32 coverage_id = combined_hash % available_map_size;
 
-  // Cache AFL_DEBUG environment check for performance (only check once)
-  static int afl_debug_enabled = -1;
-  if (unlikely(afl_debug_enabled == -1)) {
-    afl_debug_enabled = getenv("AFL_DEBUG") ? 1 : 0;
-  }
-
-  if (afl_debug_enabled) {
+  if (__afl_debug) {
     fprintf(stderr, "[IJON_SET] Call #%d: loc_addr=%u, val=%u, combined_hash=%u, coverage_id=%u, AFL_IJON=%s\n",
             call_count, loc_addr, val, combined_hash, coverage_id,
             &__afl_ijon_enabled != NULL ? "1" : "0");
@@ -3241,13 +3235,7 @@ void ijon_inc(uint32_t loc_addr, uint32_t val) {
 // BUG TODO -> THIS IS WRONG ... what is this meant to do?
   u32 coverage_id = combined_hash % available_map_size;
 
-  // Cache AFL_DEBUG environment check for performance (only check once)
-  static int afl_debug_enabled = -1;
-  if (unlikely(afl_debug_enabled == -1)) {
-    afl_debug_enabled = getenv("AFL_DEBUG") ? 1 : 0;
-  }
-
-  if (afl_debug_enabled) {
+  if (__afl_debug) {
     fprintf(stderr, "[IJON_INC] Call #%d: loc_addr=%u, val=%u, combined_hash=%u, coverage_id=%u, AFL_IJON=%s\n",
             call_count, loc_addr, val, combined_hash, coverage_id,
             &__afl_ijon_enabled != NULL ? "1" : "0");
@@ -3322,7 +3310,7 @@ void ijon_xor_state(uint32_t val) {
 // BUG TODO -> THIS IS WRONG ... what is this meant to do?
   __afl_ijon_state = (__afl_ijon_state ^ val) % state_modulo;
 
-  if (getenv("AFL_DEBUG")) {
+  if (__afl_debug) {
     fprintf(stderr, "[IJON_STATE] State: %u, modulo: %u, layout: unified\n",
             __afl_ijon_state, state_modulo);
   }
@@ -3333,7 +3321,7 @@ void ijon_push_state(uint32_t x) {
   __afl_ijon_state_log = (__afl_ijon_state_log << 8) | (x & 0xff);
   ijon_xor_state(__afl_ijon_state_log);
 
-  if (getenv("AFL_DEBUG")) {
+  if (__afl_debug) {
     fprintf(stderr, "[IJON_PUSH_STATE] Pushed: %u, new state_log: %u, state: %u\n",
             x, __afl_ijon_state_log, __afl_ijon_state);
   }
@@ -3343,7 +3331,7 @@ void ijon_reset_state(void) {
   __afl_ijon_state = 0;
   __afl_ijon_state_log = 0;
 
-  if (getenv("AFL_DEBUG")) {
+  if (__afl_debug) {
     fprintf(stderr, "[IJON_RESET_STATE] State reset to 0\n");
   }
 }
@@ -3373,14 +3361,14 @@ uint32_t ijon_hashstack_backtrace(void) {
     #endif
 
     #ifdef DEBUG_IJON_STACK
-    if (getenv("AFL_DEBUG")) {
+    if (__afl_debug) {
       fprintf(stderr, "stack_frame[%d]: %p\n", i, buffer[i]);
     }
     #endif
   }
 
   #ifdef DEBUG_IJON_STACK
-  if (getenv("AFL_DEBUG")) {
+  if (__afl_debug) {
     fprintf(stderr, ">>>> Final Stackhash: %lx (from %d frames)\n", res, num);
   }
   #endif
