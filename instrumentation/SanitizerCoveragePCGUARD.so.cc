@@ -461,9 +461,12 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   LLVMContext &Ctx = M.getContext();
   AFLMapPtr = new GlobalVariable(M, PtrTy, false, GlobalValue::ExternalLinkage,
                                  0, "__afl_area_ptr");
+
+  One = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 1);
+  Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
   
   // Initialize IJON state global variable if IJON is enabled
-  if (ijon_enabled)
+  if (ijon_enabled) {
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
     AFLIJONState = new GlobalVariable(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state");
@@ -472,10 +475,10 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state", 0,
         GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
+    GlobalVariable *GV = new GlobalVariable(M, Int32Ty, 0, GlobalValue::WeakODRLinkage, One, "__afl_ijon_enabled");
+    GV->setAlignment(Align(4));
+  }
   
-  One = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 1);
-  Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
-
   // Make sure smaller parameters are zero-extended to i64 if required by the
   // target ABI.
   AttributeList SanCovTraceCmpZeroExtAL;

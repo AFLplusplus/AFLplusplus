@@ -488,7 +488,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   }
 
   // Initialize IJON state global variable if IJON is enabled
-  if (ijon_enabled)
+  if (ijon_enabled) {
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
     AFLIJONState = new GlobalVariable(
         M, Int32Tyi, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state");
@@ -497,6 +497,9 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
         M, Int32Tyi, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state", 0,
         GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
+    GlobalVariable *GV = new GlobalVariable(M, Int32Ty, 0, GlobalValue::WeakODRLinkage, One, "__afl_ijon_enabled");
+    GV->setAlignment(Align(4));
+  }
 
   /* Show a banner */
   setvbuf(stdout, NULL, _IONBF, 0);
