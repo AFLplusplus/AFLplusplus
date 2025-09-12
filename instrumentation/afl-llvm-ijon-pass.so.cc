@@ -77,7 +77,6 @@ PreservedAnalyses IJONInstrumentation::run(Module &M, ModuleAnalysisManager &MAM
   // Create the ijon_set function: void ijon_set(uint32_t addr, uint32_t val)
   LLVMContext &Context = M.getContext();
 
-  Type *Int8Ty = Type::getInt8Ty(Context);
   FunctionType *ijonSetFT = FunctionType::get(
     Type::getVoidTy(Context),
     {Type::getInt32Ty(Context), Type::getInt32Ty(Context)}, // addr, val
@@ -91,6 +90,7 @@ PreservedAnalyses IJONInstrumentation::run(Module &M, ModuleAnalysisManager &MAM
 #if LLVM_MAJOR >= 20
   Type *PtrTy = PointerType::getUnqual(Context);
 #else
+  Type *Int8Ty = Type::getInt8Ty(Context);
   Type *PtrTy = PointerType::get(Int8Ty, 0);
 #endif
 
