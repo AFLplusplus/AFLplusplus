@@ -972,7 +972,7 @@ void cull_queue(afl_state_t *afl) {
 
       }
 
-      if (!afl->top_rated[i]->favored && !afl->top_rated[i]->disabled)) {
+      if (!afl->top_rated[i]->favored && !afl->top_rated[i]->disabled) {
 
         afl->top_rated[i]->favored = 1;
         ++afl->queued_favored;

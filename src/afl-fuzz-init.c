@@ -2378,16 +2378,6 @@ void setup_dirs_fds(afl_state_t *afl) {
   if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
-  /* IJON max tracking directory (only if IJON is enabled) */
-
-  if (getenv("AFL_IJON")) {
-    tmp = alloc_printf("%s/ijon_max", afl->out_dir);
-    if (mkdir(tmp, afl->dir_perm) && errno != EEXIST) {
-      PFATAL("Unable to create '%s'", tmp);
-    }
-    ck_free(tmp);
-  }
-
   /* Generally useful file descriptors. */
 
   afl->fsrv.dev_null_fd = open("/dev/null", O_RDWR);

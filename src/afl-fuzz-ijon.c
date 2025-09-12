@@ -25,8 +25,21 @@
 #include "afl-ijon-min.h"
 #include "afl-fuzz.h"
 
+/* Global IJON history limit - initialized from environment or AFL state */
+static int afl_ijon_history_limit_global = 0;
+static bool afl_ijon_history_limit_initialized = false;
+
 /* Function prototypes */
 void ijon_load_existing_state(ijon_min_state* self);
+
+/* Initialize global IJON history limit from environment variable */
+static void init_afl_ijon_history_limit(void) {
+  if (afl_ijon_history_limit_initialized) return;
+  
+  char* history_limit_env = getenv("AFL_IJON_HISTORY_LIMIT");
+  afl_ijon_history_limit_global = history_limit_env ? atoi(history_limit_env) : 0;
+  afl_ijon_history_limit_initialized = true;
+}
 
 ijon_input_info* new_ijon_input_info(char* max_dir, int i) {
   ijon_input_info* self = (ijon_input_info*)ck_alloc(sizeof(ijon_input_info));
@@ -176,15 +189,18 @@ void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data
     history_init = 1;
   }
 
+  // Initialize global history limit if not done yet
+  init_afl_ijon_history_limit();
+
   // Store historical input if history is enabled
-  if (history_limit > 0) {
+  if (afl_ijon_history_limit_global > 0) {
     // Check if limit is sufficient for discovered variables (one-time check)
     if (variable_to_index[i] == -1) {
       // New variable discovered - check if limit is sufficient
-      if (num_discovered_vars + 1 > history_limit) {
+      if (num_discovered_vars + 1 > afl_ijon_history_limit_global) {
         FATAL("AFL_IJON_HISTORY_LIMIT=%d insufficient for %d variables. Minimum required: %d. "
               "Either increase limit or disable history (unset AFL_IJON_HISTORY_LIMIT).",
-              history_limit, num_discovered_vars + 1, num_discovered_vars + 1);
+              afl_ijon_history_limit_global, num_discovered_vars + 1, num_discovered_vars + 1);
       }
 
       // Track this new variable
@@ -193,12 +209,12 @@ void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data
     }
 
     // Use global rolling buffer for all finding files
-    int idx = global_history_index++ % history_limit;
+    int idx = global_history_index++ % afl_ijon_history_limit_global;
 
     char* history_filename = NULL;
 
     // Use global rolling buffer naming
-    int padding = snprintf(NULL, 0, "%d", history_limit - 1);
+    int padding = snprintf(NULL, 0, "%d", afl_ijon_history_limit_global - 1);
     if (padding < 3) padding = 3;  // Minimum 3 digits for clean sorting
 
     if (asprintf(&history_filename, "%s/finding_%0*d.dat", self->max_dir, padding, idx) < 0) {

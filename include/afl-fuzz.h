@@ -695,6 +695,7 @@ typedef struct afl_state {
   u32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
   s64 smallest_favored;                 /* smallest queue id favored        */
+  s32 afl_ijon_history_limit;           /* IJON history buffer limit        */
 
   u32 main_node_id, main_node_max;      /*   Main instance job splitting    */
 
