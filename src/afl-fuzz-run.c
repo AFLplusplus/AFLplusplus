@@ -106,7 +106,7 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
   /* Check for new IJON max values after execution */
   if (unlikely(afl->ijon_state && afl->ijon_bits)) {
 
-    /* CONDITIONAL SHARED MEMORY ACCESS: Fixed for ≤65k, dynamic for >65k */
+    /* UNIFIED SHARED MEMORY ACCESS: Always use dynamic allocation */
 
     // Get current input data for IJON processing
     u8 *input_data = NULL;
@@ -141,19 +141,12 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
     }
 
     if (input_data) {
-      /* CONDITIONAL PROCESSING: Use appropriate access method based on map size */
-      if (fsrv->map_size <= 65536) {
-        /* PRESERVE CURRENT BEHAVIOR: Use legacy shared_data_t cast for ≤65k maps */
-        shared_data_t* shared_data = (shared_data_t*)fsrv->trace_bits;
-        ijon_update_max(afl->ijon_state, shared_data, input_data, input_len);
-      } else {
-        /* DYNAMIC BEHAVIOR: Use new access pattern for >65k maps */
-        dynamic_shared_access_t *shared_access = setup_dynamic_shared_access(
-          fsrv->trace_bits, fsrv->map_size);
+      /* UNIFIED BEHAVIOR: Always use dynamic access pattern */
+      dynamic_shared_access_t *shared_access = setup_dynamic_shared_access(
+        fsrv->trace_bits, fsrv->map_size);
 
-        ijon_update_max_dynamic(afl->ijon_state, shared_access, input_data, input_len);
-        cleanup_dynamic_shared_access(shared_access);
-      }
+      ijon_update_max_dynamic(afl->ijon_state, shared_access, input_data, input_len);
+      cleanup_dynamic_shared_access(shared_access);
     }
 
     /* Clean up allocated input data */

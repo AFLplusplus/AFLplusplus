@@ -250,36 +250,6 @@ void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data
   }
 }
 
-void ijon_update_max(ijon_min_state* self, shared_data_t* shared, uint8_t* data, size_t len) {
-
-  /* Process IJON max values */
-  for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
-    /* Check for max value updates */
-    if (shared->afl_max[i] > self->max_map[i]) {
-
-      // Found a new maximum for variable i
-      if (self->max_map[i] == 0) {
-        // First time this slot is triggered
-        self->num_entries++;
-      }
-
-      // Save input that achieved new max for variable i
-      /* New maximum found for slot */
-      self->max_map[i] = shared->afl_max[i];
-      OKF("Updated IJON max slot %d: 0x%llx (len: %ld)", i, self->max_map[i], len);
-
-      // Save input to slot-specific file and history
-      // Save EVERY improvement to history (no threshold)
-      ijon_store_max_input(self, i, data, len);
-
-    } else if (shared->afl_max[i] > 0 && shared->afl_max[i] <= self->max_map[i]) {
-      /* Value not higher than stored maximum */
-    }
-  }
-
-  /* IJON processing complete */
-}
-
 void destroy_ijon_min_state(ijon_min_state* self) {
   if (!self) return;
 
@@ -299,7 +269,7 @@ void destroy_ijon_min_state(ijon_min_state* self) {
   ck_free(self);
 }
 
-/* Dynamic shared memory access functions for >65k maps */
+/* Unified dynamic shared memory access functions for all map sizes */
 
 dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_size) {
   dynamic_shared_access_t *access = (dynamic_shared_access_t*)ck_alloc(sizeof(dynamic_shared_access_t));
@@ -307,17 +277,10 @@ dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_siz
   access->coverage_area = trace_bits;
   access->coverage_size = map_size;
 
-  if (map_size <= 65536) {
-    /* FIXED LAYOUT: Use original logic for ≤65k maps */
-    access->ijon_offset = MAP_SIZE;  // Always 65536
-    access->ijon_max_area = (u64*)(trace_bits + MAP_SIZE);
-    access->is_dynamic = 0;
-  } else {
-    /* DYNAMIC LAYOUT: Use map size for offset for >65k maps */
-    access->ijon_offset = map_size;
-    access->ijon_max_area = (u64*)(trace_bits + map_size);
-    access->is_dynamic = 1;
-  }
+  /* UNIFIED LAYOUT: Always use dynamic layout for all map sizes */
+  access->ijon_offset = map_size;
+  access->ijon_max_area = (u64*)(trace_bits + map_size);
+  access->is_dynamic = 1;
 
   return access;
 }
@@ -325,15 +288,6 @@ dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_siz
 void cleanup_dynamic_shared_access(dynamic_shared_access_t *access) {
   if (access) {
     ck_free(access);
-  }
-}
-
-shared_data_t* get_legacy_shared_data(u8 *trace_bits, u32 map_size) {
-  if (map_size <= 65536) {
-    /* Direct cast works for fixed layout ≤65k maps */
-    return (shared_data_t*)trace_bits;
-  } else {
-    FATAL("Cannot use legacy shared_data_t for map size %u > 65536", map_size);
   }
 }
 
@@ -352,8 +306,8 @@ void ijon_update_max_dynamic(ijon_min_state* self, dynamic_shared_access_t* shar
 
       // Save input that achieved new max for variable i
       self->max_map[i] = shared->ijon_max_area[i];
-      OKF("Updated IJON max slot %d: 0x%llx (len: %ld) [%s layout]",
-          i, self->max_map[i], len, shared->is_dynamic ? "dynamic" : "fixed");
+      OKF("Updated IJON max slot %d: 0x%llx (len: %ld)",
+          i, self->max_map[i], len);
 
       // Save input to slot-specific file and history
       ijon_store_max_input(self, i, data, len);

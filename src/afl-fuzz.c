@@ -2559,21 +2559,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->argv = use_argv;
 
-  /* UNIFIED SHARED MEMORY: Use static total size for IJON mode */
+  /* UNIFIED SHARED MEMORY: Always use dynamic allocation for IJON mode */
   size_t shm_size = afl->fsrv.map_size;
   if (afl->fsrv.use_ijon) {
-    /* CONDITIONAL ALLOCATION: Fixed for ≤65k, dynamic for >65k */
-    if (afl->fsrv.map_size <= 65536) {
-      /* PRESERVE CURRENT BEHAVIOR: Use fixed MAP_SIZE_TOTAL for small maps */
-      shm_size = MAP_SIZE_TOTAL;  // 65536 + 4096 = 69632
-      OKF("IJON enabled: fixed layout for map size %u (total: %zu bytes)",
-          afl->fsrv.map_size, shm_size);
-    } else {
-      /* DYNAMIC BEHAVIOR: Calculate based on actual map size for large maps */
-      shm_size = afl->fsrv.map_size + MAP_SIZE_IJON_BYTES;
-      OKF("IJON enabled: dynamic layout for map size %u (total: %zu bytes)",
-          afl->fsrv.map_size, shm_size);
-    }
+    /* UNIFIED ALLOCATION: Always use dynamic map_size + IJON_BYTES */
+    shm_size = afl->fsrv.map_size + MAP_SIZE_IJON_BYTES;
+    OKF("IJON enabled: dynamic layout for map size %u (total: %zu bytes)",
+        afl->fsrv.map_size, shm_size);
   }
 
   // afl->fsrv.trace_bits =
@@ -2610,16 +2602,11 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_deinit(&afl->shm);
       afl->fsrv.map_size = new_map_size;
 
-      /* CONDITIONAL RESIZE: Fixed for ≤65k, dynamic for >65k */
+      /* UNIFIED RESIZE: Always use dynamic allocation for IJON mode */
       size_t resize_shm_size = new_map_size;
       if (afl->fsrv.use_ijon) {
-        if (new_map_size <= 65536) {
-          /* PRESERVE CURRENT BEHAVIOR: Use fixed total for small maps */
-          resize_shm_size = MAP_SIZE_TOTAL;
-        } else {
-          /* DYNAMIC BEHAVIOR: Calculate based on new map size */
-          resize_shm_size = new_map_size + MAP_SIZE_IJON_BYTES;
-        }
+        /* UNIFIED ALLOCATION: Always use dynamic map_size + IJON_BYTES */
+        resize_shm_size = new_map_size + MAP_SIZE_IJON_BYTES;
       }
 
       afl->fsrv.trace_bits =
@@ -2644,15 +2631,8 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 #endif
 
-    /* CONDITIONAL IJON PLACEMENT: Fixed offset for ≤65k, dynamic for >65k */
-    u32 ijon_offset;
-    if (afl->fsrv.map_size <= 65536) {
-      /* PRESERVE CURRENT BEHAVIOR: Fixed offset */
-      ijon_offset = MAP_SIZE;  // Always 65536
-    } else {
-      /* DYNAMIC BEHAVIOR: Use actual map size */
-      ijon_offset = afl->fsrv.map_size;
-    }
+    /* UNIFIED IJON PLACEMENT: Always use dynamic offset */
+    u32 ijon_offset = afl->fsrv.map_size;
 
     afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + ijon_offset);
 

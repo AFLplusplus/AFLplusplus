@@ -2041,36 +2041,24 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   // IJON SUPPORT: Expand map size when AFL_IJON=1 to ensure AFL tools
   // read the full map that will contain IJON coverage points
   if (getenv("AFL_IJON")) {
-    // CONDITIONAL EXPANSION: Different logic for ≤65k vs >65k maps
-    if (__afl_map_size <= 65536) {
-      // PRESERVE CURRENT BEHAVIOR: Expand to MAP_SIZE-1 for small maps
-      if (__afl_final_loc < MAP_SIZE - 1) {
-        __afl_final_loc = MAP_SIZE - 1;  // Use most of available MAP_SIZE (65535)
-        if (__afl_debug) {
-          fprintf(stderr, "DEBUG: IJON enabled - expanded __afl_final_loc to %u (fixed layout)\n",
-                  __afl_final_loc);
-        }
+    // UNIFIED EXPANSION: Always use dynamic logic for all map sizes
+    // The target needs its natural coverage space PLUS space for IJON data
+    u32 natural_final_loc = __afl_final_loc;  // Save the natural target's last index
+    u32 natural_map_size = natural_final_loc + 1;  // Actual coverage map size needed
+    u32 required_total_size = natural_map_size + MAP_SIZE_IJON_BYTES;  // Coverage + IJON bytes
+
+    if (required_total_size <= FS_OPT_MAX_MAPSIZE) {
+      // We can fit both coverage and IJON within the max allowed size
+      __afl_final_loc = required_total_size - 1;  // Set final_loc to last index in expanded map
+      if (__afl_debug) {
+        fprintf(stderr, "DEBUG: IJON enabled - expanded __afl_final_loc from %u to %u (unified layout: %u coverage + %u IJON = %u total)\n",
+                natural_final_loc, __afl_final_loc, natural_map_size, MAP_SIZE_IJON_BYTES, required_total_size);
       }
     } else {
-      // DYNAMIC BEHAVIOR: For large maps, we need to expand to reserve space for IJON
-      // The target needs its natural coverage space PLUS space for IJON data
-      u32 natural_final_loc = __afl_final_loc;  // Save the natural target's last index (e.g., 77759)
-      u32 natural_map_size = natural_final_loc + 1;  // Actual coverage map size needed (e.g., 77760)
-      u32 required_total_size = natural_map_size + MAP_SIZE_IJON_BYTES;  // Coverage + IJON bytes (e.g., 77760 + 4096 = 81856)
-
-      if (required_total_size <= FS_OPT_MAX_MAPSIZE) {
-        // We can fit both coverage and IJON within the max allowed size
-        __afl_final_loc = required_total_size - 1;  // Set final_loc to last index in expanded map (e.g., 81855)
-        if (__afl_debug) {
-          fprintf(stderr, "DEBUG: IJON enabled - expanded __afl_final_loc from %u to %u (dynamic layout: %u coverage + %u IJON = %u total)\n",
-                  natural_final_loc, __afl_final_loc, natural_map_size, MAP_SIZE_IJON_BYTES, required_total_size);
-        }
-      } else {
-        // Required space exceeds maximum - this will cause an error later
-        if (__afl_debug) {
-          fprintf(stderr, "DEBUG: IJON enabled - WARNING: required space %u exceeds FS_OPT_MAX_MAPSIZE %u\n",
-                  required_total_size, FS_OPT_MAX_MAPSIZE);
-        }
+      // Required space exceeds maximum - this will cause an error later
+      if (__afl_debug) {
+        fprintf(stderr, "DEBUG: IJON enabled - WARNING: required space %u exceeds FS_OPT_MAX_MAPSIZE %u\n",
+                required_total_size, FS_OPT_MAX_MAPSIZE);
       }
     }
   }
@@ -3151,15 +3139,8 @@ void ijon_max(uint32_t addr, u64 val) {
 
   if (unlikely(__afl_ijon_bits == NULL && __afl_area_ptr)) {
 
-    /* CONDITIONAL IJON PLACEMENT: Fixed offset for ≤65k, dynamic for >65k */
-    u32 ijon_offset;
-    if (__afl_map_size <= 65536) {
-      /* PRESERVE CURRENT BEHAVIOR: Fixed offset for small maps */
-      ijon_offset = MAP_SIZE;  // Always 65536 for compatibility
-    } else {
-      /* DYNAMIC BEHAVIOR: Place after actual map for large maps */
-      ijon_offset = __afl_map_size;
-    }
+    /* UNIFIED BEHAVIOR: Always place IJON data after actual map */
+    u32 ijon_offset = __afl_map_size;
 
     __afl_ijon_bits = (u64 *)(__afl_area_ptr + ijon_offset);
 
@@ -3349,22 +3330,14 @@ void ijon_min_variadic(uint32_t addr, ...) {
 /* IJON state management functions */
 
 void ijon_xor_state(uint32_t val) {
-  /* CONDITIONAL STATE RANGE: Fixed for ≤65k, dynamic for >65k */
-  u32 state_modulo;
-  if (__afl_map_size <= 65536) {
-    /* PRESERVE CURRENT BEHAVIOR: Use fixed MAP_SIZE for small maps */
-    state_modulo = MAP_SIZE;  // Always 65536
-  } else {
-    /* DYNAMIC BEHAVIOR: Use actual map size for large maps */
-    state_modulo = __afl_map_size;
-  }
+  /* UNIFIED STATE RANGE: Always use actual map size */
+  u32 state_modulo = __afl_map_size;
 
   __afl_ijon_state = (__afl_ijon_state ^ val) % state_modulo;
 
   if (getenv("AFL_DEBUG")) {
-    fprintf(stderr, "[IJON_STATE] State: %u, modulo: %u, layout: %s\n",
-            __afl_ijon_state, state_modulo,
-            (__afl_map_size <= 65536) ? "fixed" : "dynamic");
+    fprintf(stderr, "[IJON_STATE] State: %u, modulo: %u, layout: unified\n",
+            __afl_ijon_state, state_modulo);
   }
 }
 

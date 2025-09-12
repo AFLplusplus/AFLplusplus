@@ -24,48 +24,36 @@ typedef struct {
   /* Note: Callback fields removed - no longer needed with atomic file operations */
 } ijon_min_state;
 
-/* UNIFIED SHARED MEMORY LAYOUT - STATIC DESIGN
+/* UNIFIED SHARED MEMORY LAYOUT - DYNAMIC DESIGN
  *
- * shared_data_t overlays the shared memory region directly:
- * [0...MAP_SIZE-1]                    : Coverage bitmap (afl_area)
- * [MAP_SIZE...MAP_SIZE+IJON_SIZE-1]   : IJON max values (afl_max)
+ * Dynamic shared memory layout for all map sizes:
+ * [0...map_size-1]                    : Coverage bitmap (variable size)
+ * [map_size...map_size+IJON_SIZE-1]   : IJON max values (fixed 4096 bytes)
  *
- * This eliminates dynamic allocation and provides predictable memory layout.
+ * This provides consistent behavior across all map sizes using dynamic allocation.
  */
 
-// Shared memory structure that overlays fsrv->trace_bits directly (≤65k maps only)
-typedef struct {
-  u8 afl_area[MAP_SIZE];                    // Standard coverage map
-  u64 afl_max[MAP_SIZE_IJON_ENTRIES];       // IJON max tracking map
-} shared_data_t;
-
-// Compile-time verification that our structure matches the total allocation (≤65k only)
-_Static_assert(sizeof(shared_data_t) == MAP_SIZE_TOTAL,
-    "shared_data_t size must match MAP_SIZE_TOTAL");
-
-// Dynamic shared memory access structure for >65k maps
+// Dynamic shared memory access structure for all map sizes
 typedef struct {
   u8  *coverage_area;      // Points to coverage start
   u64 *ijon_max_area;      // Points to IJON max start (dynamic offset)
   u32  coverage_size;      // Actual coverage map size
   u32  ijon_offset;        // Where IJON data starts
-  u8   is_dynamic;         // Flag: 0=fixed layout, 1=dynamic layout
+  u8   is_dynamic;         // Flag: always 1 (unified dynamic layout)
 } dynamic_shared_access_t;
 
 /* Function prototypes */
 ijon_min_state* new_ijon_min_state(char* max_dir);
 u8 ijon_should_schedule(ijon_min_state* self);
 ijon_input_info* ijon_get_input(ijon_min_state* self);
-void ijon_update_max(ijon_min_state* self, shared_data_t* shared, uint8_t* data, size_t len);
 void ijon_store_max_input(ijon_min_state* self, int i, uint8_t* data, size_t len);
 void ijon_store_history_if_best(ijon_min_state* self, int i, uint8_t* data, size_t len);
 void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data, size_t len);
 void destroy_ijon_min_state(ijon_min_state* self);
 
-/* Dynamic shared memory access functions for >65k maps */
+/* Unified dynamic shared memory access functions for all map sizes */
 dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_size);
 void cleanup_dynamic_shared_access(dynamic_shared_access_t *access);
-shared_data_t* get_legacy_shared_data(u8 *trace_bits, u32 map_size);
 void ijon_update_max_dynamic(ijon_min_state* self, dynamic_shared_access_t* shared, uint8_t* data, size_t len);
 
 /* IJON max tracking runtime functions */
