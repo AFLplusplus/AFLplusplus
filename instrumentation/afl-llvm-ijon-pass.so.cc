@@ -85,9 +85,16 @@ PreservedAnalyses IJONInstrumentation::run(Module &M, ModuleAnalysisManager &MAM
 
   // Create runtime utility functions that IJON macros depend on
   // ijon_strdist function: uint32_t ijon_strdist(char* a, char* b)
+
+#if LLVM_MAJOR >= 20
+  Type *PtrTy = PointerType::getUnqual(Context);
+#else
+  Type *PtrTy = PointerType::get(Int8Ty, 0);
+#endif
+
   FunctionType *strdistFT = FunctionType::get(
     Type::getInt32Ty(Context),
-    {PointerType::get(Type::getInt8Ty(Context), 0), PointerType::get(Type::getInt8Ty(Context), 0)}, // char*, char*
+    {PtrTy, PtrTy}, // char*, char*
     false // not variadic
   );
   (void)Function::Create(strdistFT, Function::ExternalLinkage, "ijon_strdist", &M);
@@ -490,9 +497,17 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
+#if LLVM_VERSION_MAJOR <= 13
+            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+#endif
             // Register only once to avoid duplicate processing
             PB.registerOptimizerLastEPCallback(
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
+                [](ModulePassManager &MPM, OptimizationLevel OL
+#if LLVM_VERSION_MAJOR >= 20
+                                                  ,
+                                                  ThinOrFullLTOPhase Phase
+#endif
+                ) {
                   MPM.addPass(IJONInstrumentation());
                 });
 
