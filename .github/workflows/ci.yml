@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        version: [16, 17, 18, 19, 20]
+        version: [16, 17, 18, 19, 20, 21, 22]
     env:
       AFL_SKIP_CPUFREQ: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
