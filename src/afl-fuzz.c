@@ -2559,22 +2559,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->argv = use_argv;
 
-  /* UNIFIED SHARED MEMORY: Always use dynamic allocation for IJON mode */
-  size_t shm_size = afl->fsrv.map_size;
-  if (afl->fsrv.use_ijon) {
-    /* UNIFIED ALLOCATION: Always use dynamic map_size + IJON_BYTES */
-    shm_size = afl->fsrv.map_size + MAP_SIZE_IJON_BYTES;
-    OKF("IJON enabled: dynamic layout for map size %u (total: %zu bytes)",
-        afl->fsrv.map_size, shm_size);
-  }
-
-  // afl->fsrv.trace_bits =
-  //     afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
-  //                  afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
-
   afl->fsrv.trace_bits =
-      afl_shm_init(&afl->shm, shm_size, afl->non_instrumented_mode,
-                   afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+    afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
+                 afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
 
   if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
       !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
@@ -2602,15 +2589,8 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_deinit(&afl->shm);
       afl->fsrv.map_size = new_map_size;
 
-      /* UNIFIED RESIZE: Always use dynamic allocation for IJON mode */
-      size_t resize_shm_size = new_map_size;
-      if (afl->fsrv.use_ijon) {
-        /* UNIFIED ALLOCATION: Always use dynamic map_size + IJON_BYTES */
-        resize_shm_size = new_map_size + MAP_SIZE_IJON_BYTES;
-      }
-
       afl->fsrv.trace_bits =
-          afl_shm_init(&afl->shm, resize_shm_size, afl->non_instrumented_mode,
+          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
@@ -2631,17 +2611,15 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 #endif
 
-    /* UNIFIED IJON PLACEMENT: Always use dynamic offset */
+    map_size -= MAP_SIZE_IJON_BYTES;
+    afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
+
     u32 ijon_offset = afl->fsrv.map_size;
-
     afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + ijon_offset);
-
     char *max_dir = alloc_printf("%s/ijon_max", afl->out_dir);
     afl->ijon_state = new_ijon_min_state(max_dir);
-
-    /* IJON state initialized - no additional setup needed with atomic file operations */
-
     ck_free(max_dir);
+
   }
 
   san_abstraction = getenv("AFL_SAN_ABSTRACTION");
@@ -2687,9 +2665,8 @@ int main(int argc, char **argv_orig, char **envp) {
        * we just allocate some dummy memory here.
        */
       afl->san_fsrvs[i].trace_bits = ck_alloc(
-          afl->fsrv.map_size + 8); /* One more u64 according to afl_shm_init*/
+          afl->fsrv.map_size + 8 + (afl->fsrv.use_ijon ? MAP_SIZE_IJON_BYTES : 0 )); /* One more u64 according to afl_shm_init*/
       afl->san_fsrvs[i].san_but_not_instrumented = 1;
-
       afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
       afl->san_fsrvs[i].qemu_mode = afl->fsrv.qemu_mode;
       afl->san_fsrvs[i].frida_mode = afl->fsrv.frida_mode;
@@ -2725,6 +2702,12 @@ int main(int argc, char **argv_orig, char **envp) {
         afl_fsrv_kill(&afl->san_fsrvs[i]);
         afl_shm_deinit(&afl->shm);
 
+        if (afl->fsrv.use_ijon) {
+          new_map_size -= MAP_SIZE_IJON_BYTES;
+          map_size -= MAP_SIZE_IJON_BYTES;
+          afl->san_fsrvs[i].map_size -= MAP_SIZE_IJON_BYTES;
+        }
+
         afl->san_fsrvs[i].map_size = new_map_size;  // non-cmplog stays the same
         map_size = new_map_size;
 
@@ -2739,6 +2722,8 @@ int main(int argc, char **argv_orig, char **envp) {
                        afl->afl_env.afl_debug_child);
         afl_fsrv_start(&afl->san_fsrvs[i], afl->argv, &afl->stop_soon,
                        afl->afl_env.afl_debug_child);
+
+
 
       }
 

@@ -416,8 +416,8 @@ static void __afl_map_shm(void) {
 
     // IJON SUPPORT: Expand map size when compiled with IJON to ensure AFL tools
     // read the full map that will contain IJON coverage points
-    if (&__afl_ijon_enabled != NULL) {
-        __afl_final_loc += MAP_SIZE_IJON_ENTRIES;
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled) {
+        __afl_final_loc += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_ENTRIES;
           if (__afl_debug) {
             fprintf(stderr, "DEBUG: IJON map - added %u entries (now %u)\n", 
                   MAP_SIZE_IJON_ENTRIES, __afl_final_loc);
@@ -465,9 +465,9 @@ static void __afl_map_shm(void) {
 
     // IJON SUPPORT: Expand map size when compiled with IJON to ensure AFL tools
     // read the full map that will contain IJON coverage points
-    if (&__afl_ijon_enabled != NULL) {
-        __afl_map_size += MAP_SIZE_IJON_ENTRIES;
-          if (__afl_debug) {
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled) {
+        __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_ENTRIES;
+        if (__afl_debug) {
             fprintf(stderr, "DEBUG: IJON map - added %u entries (now %u)\n", 
                   MAP_SIZE_IJON_ENTRIES, __afl_map_size);
         }
@@ -998,7 +998,18 @@ static void __afl_start_forkserver(void) {
      assume we're not running in forkserver mode and just execute program. */
 
   // return because possible non-forkserver usage
-  if (write(FORKSRV_FD + 1, msg, 4) != 4) { return; }
+  if (write(FORKSRV_FD + 1, msg, 4) != 4) { 
+  
+    if (&__afl_ijon_enabled != NULL) {
+      __afl_ijon_enabled = 0;
+    }
+
+    return;
+  }
+
+  if (&__afl_ijon_enabled != NULL) {
+    __afl_ijon_enabled = 1;
+  }
 
   if (!__afl_old_forkserver) {
 
@@ -1019,7 +1030,7 @@ static void __afl_start_forkserver(void) {
 
     }
     /* Add IJON capability flag if IJON is enabled */
-    if (&__afl_ijon_enabled != NULL) {
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled) {
       status |= FS_OPT_IJON;
       if (__afl_debug) {
         fprintf(stderr, "DEBUG: Setting FS_OPT_IJON flag in options\n");
@@ -2048,31 +2059,6 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   }
 
 #endif  // __AFL_CODE_COVERAGE
-
-  // IJON SUPPORT: Expand map size when AFL_IJON=1 to ensure AFL tools
-  // read the full map that will contain IJON coverage points
-  if (&__afl_ijon_enabled != NULL) {
-    // UNIFIED EXPANSION: Always use dynamic logic for all map sizes
-    // The target needs its natural coverage space PLUS space for IJON data
-    u32 natural_final_loc = __afl_final_loc;  // Save the natural target's last index
-    u32 natural_map_size = natural_final_loc + 1;  // Actual coverage map size needed
-    u32 required_total_size = natural_map_size + MAP_SIZE_IJON_BYTES;  // Coverage + IJON bytes
-
-    if (required_total_size <= FS_OPT_MAX_MAPSIZE) {
-      // We can fit both coverage and IJON within the max allowed size
-      __afl_final_loc = required_total_size - 1;  // Set final_loc to last index in expanded map
-      if (__afl_debug) {
-        fprintf(stderr, "DEBUG: IJON enabled - expanded __afl_final_loc from %u to %u (unified layout: %u coverage + %zu IJON = %u total)\n",
-                natural_final_loc, __afl_final_loc, natural_map_size, (size_t)MAP_SIZE_IJON_BYTES, required_total_size);
-      }
-    } else {
-      // Required space exceeds maximum - this will cause an error later
-      if (__afl_debug) {
-        fprintf(stderr, "DEBUG: IJON enabled - WARNING: required space %u exceeds FS_OPT_MAX_MAPSIZE %u\n",
-                required_total_size, FS_OPT_MAX_MAPSIZE);
-      }
-    }
-  }
 
   if (__afl_debug) {
 
@@ -3148,10 +3134,12 @@ uint32_t ijon_hashmem(uint32_t old, char* val, size_t len) {
 /* Core max/min tracking functions */
 void ijon_max(uint32_t addr, u64 val) {
 
+  if (unlikely(&__afl_ijon_enabled == NULL || !__afl_ijon_enabled)) return;
+
   if (unlikely(__afl_ijon_bits == NULL && __afl_area_ptr)) {
 
     /* UNIFIED BEHAVIOR: Always place IJON data after actual map */
-    u32 ijon_offset = __afl_cov_map_size;
+    u32 ijon_offset = __afl_cov_map_size + MAP_SIZE_IJON_MAP;
 
     __afl_ijon_bits = (u64 *)(__afl_area_ptr + ijon_offset);
 
@@ -3184,71 +3172,46 @@ void ijon_min(uint32_t addr, u64 val) {
 /* IJON set tracking function - binary state coverage */
 void ijon_set(uint32_t loc_addr, uint32_t val) {
   static int call_count = 0;
+
+  if (unlikely(&__afl_ijon_enabled == NULL || !__afl_ijon_enabled)) return;
+
   call_count++;
 
   // ORIGINAL IJON APPROACH: XOR location hash with value to create unique coverage point
   // This follows the original: ijon_map_set(ijon_hashstr(__LINE__,__FILE__)^(x))
-  uint32_t combined_hash = loc_addr ^ val;
-
-  // Use actual available shared memory size when AFL_IJON=1
-  u32 available_map_size = 0;
-  if (&__afl_ijon_enabled != NULL) {
-    // Use target's calculated size for standalone mode
-    available_map_size = __afl_map_size;
-  }
-
-// BUG TODO -> THIS IS WRONG ... what is this meant to do?
-  u32 coverage_id = combined_hash % available_map_size;
+  u32 combined_hash = loc_addr ^ val;
+  u32 coverage_id = combined_hash % MAP_SIZE_IJON_MAP;
 
   if (__afl_debug) {
-    fprintf(stderr, "[IJON_SET] Call #%d: loc_addr=%u, val=%u, combined_hash=%u, coverage_id=%u, AFL_IJON=%s\n",
-            call_count, loc_addr, val, combined_hash, coverage_id,
-            &__afl_ijon_enabled != NULL ? "1" : "0");
+    fprintf(stderr, "[IJON_SET] Call #%d: loc_addr=%u, val=%u, combined_hash=%u, coverage_id=%u\n",
+            call_count, loc_addr, val, combined_hash, coverage_id);
   }
 
-  // Memory-safe: Use actual available shared memory size
-  // Use AFL's incremental coverage approach (same as __afl_trace)
-  // u8 *p = &__afl_area_ptr[coverage_id];
-// #if 1                                      /* enable for neverZero feature. */
-//   #if __GNUC__
-//   u8 c = __builtin_add_overflow(*p, 1, p);
-//   *p += c;
-//   #else
-//   *p += 1 + ((u8)(1 + *p) == 0);
-//   #endif
-// #else
-//   ++*p;
-// #endif
-  __afl_area_ptr[coverage_id] = 1;
+  __afl_area_ptr[__afl_cov_map_size + coverage_id] = 1;
 }
 
 /* IJON inc tracking function - incremental counter coverage */
 void ijon_inc(uint32_t loc_addr, uint32_t val) {
   static int call_count = 0;
+
+  if (unlikely(&__afl_ijon_enabled == NULL || !__afl_ijon_enabled)) return;
+
   call_count++;
 
   // ORIGINAL IJON APPROACH: XOR location hash with value to create unique coverage point
   // This follows the original: ijon_map_set(ijon_hashstr(__LINE__,__FILE__)^(x))
   uint32_t combined_hash = loc_addr ^ val;
 
-  // Use actual available shared memory size when AFL_IJON=1
-  u32 available_map_size = 0;
-  if (&__afl_ijon_enabled != NULL) {
-    available_map_size = __afl_map_size;
-  }
-
-// BUG TODO -> THIS IS WRONG ... what is this meant to do?
-  u32 coverage_id = combined_hash % available_map_size;
+  u32 coverage_id = combined_hash % MAP_SIZE_IJON_MAP;
 
   if (__afl_debug) {
-    fprintf(stderr, "[IJON_INC] Call #%d: loc_addr=%u, val=%u, combined_hash=%u, coverage_id=%u, AFL_IJON=%s\n",
-            call_count, loc_addr, val, combined_hash, coverage_id,
-            &__afl_ijon_enabled != NULL ? "1" : "0");
+    fprintf(stderr, "[IJON_INC] Call #%d: loc_addr=%u, val=%u, combined_hash=%u, coverage_id=%u\n",
+            call_count, loc_addr, val, combined_hash, coverage_id);
   }
 
   // Memory-safe: Use actual available shared memory size
   // Use AFL's incremental coverage approach (same as __afl_trace)
-  __afl_area_ptr[coverage_id] += 1;
+  __afl_area_ptr[__afl_cov_map_size + coverage_id] += 1;
 }
 
 /* Variadic runtime functions */
@@ -3309,10 +3272,8 @@ void ijon_min_variadic(uint32_t addr, ...) {
 /* IJON state management functions */
 
 void ijon_xor_state(uint32_t val) {
-  /* UNIFIED STATE RANGE: Always use actual map size */
-  u32 state_modulo = __afl_map_size;
+  u32 state_modulo = MAP_SIZE_IJON_MAP;
 
-// BUG TODO -> THIS IS WRONG ... what is this meant to do?
   __afl_ijon_state = (__afl_ijon_state ^ val) % state_modulo;
 
   if (__afl_debug) {
@@ -3322,6 +3283,7 @@ void ijon_xor_state(uint32_t val) {
 }
 
 void ijon_push_state(uint32_t x) {
+  // TODO: is this correct? xor - move x into val - then xor again?
   ijon_xor_state(__afl_ijon_state_log);
   __afl_ijon_state_log = (__afl_ijon_state_log << 8) | (x & 0xff);
   ijon_xor_state(__afl_ijon_state_log);
