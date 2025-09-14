@@ -2620,6 +2620,9 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->ijon_state = new_ijon_min_state(max_dir);
     ck_free(max_dir);
 
+    /* from here on out the other forkservers do not need IJON hence we disable it */
+    setenv("AFL_NO_IJON", "1", 1);
+
   }
 
   san_abstraction = getenv("AFL_SAN_ABSTRACTION");
@@ -2731,7 +2734,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    OKF("All forkservers for extra sanitizers instrumented binares are up and "
+    OKF("All forkservers for extra sanitizers instrumented binaries are up and "
         "we have abstraction = %d",
         afl->san_abstraction);
 

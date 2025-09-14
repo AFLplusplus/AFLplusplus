@@ -407,6 +407,8 @@ static void __afl_map_shm(void) {
   // if we are not running in afl ensure the map exists
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
 
+  if (getenv("AFL_NO_IJON") && &__afl_ijon_enabled) { __afl_ijon_enabled = 0; }
+
   char *id_str = getenv(SHM_ENV_VAR);
 
   if (__afl_final_loc) {
@@ -971,6 +973,8 @@ static void __afl_start_forkserver(void) {
   u8 child_stopped = 0;
 
   void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
+
+  if (getenv("AFL_NO_IJON") && &__afl_ijon_enabled) { __afl_ijon_enabled = 0; }
 
   if (getenv("AFL_OLD_FORKSERVER")) {
 
