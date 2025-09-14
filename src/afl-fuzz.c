@@ -2668,7 +2668,7 @@ int main(int argc, char **argv_orig, char **envp) {
        * we just allocate some dummy memory here.
        */
       afl->san_fsrvs[i].trace_bits = ck_alloc(
-          afl->fsrv.map_size + 8 + (afl->fsrv.use_ijon ? MAP_SIZE_IJON_BYTES : 0 )); /* One more u64 according to afl_shm_init*/
+          afl->fsrv.map_size + 8); /* One more u64 according to afl_shm_init*/
       afl->san_fsrvs[i].san_but_not_instrumented = 1;
       afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
       afl->san_fsrvs[i].qemu_mode = afl->fsrv.qemu_mode;
@@ -2704,12 +2704,6 @@ int main(int argc, char **argv_orig, char **envp) {
         afl_fsrv_kill(&afl->fsrv);
         afl_fsrv_kill(&afl->san_fsrvs[i]);
         afl_shm_deinit(&afl->shm);
-
-        if (afl->fsrv.use_ijon) {
-          new_map_size -= MAP_SIZE_IJON_BYTES;
-          map_size -= MAP_SIZE_IJON_BYTES;
-          afl->san_fsrvs[i].map_size -= MAP_SIZE_IJON_BYTES;
-        }
 
         afl->san_fsrvs[i].map_size = new_map_size;  // non-cmplog stays the same
         map_size = new_map_size;
