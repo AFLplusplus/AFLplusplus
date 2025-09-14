@@ -3529,7 +3529,6 @@ static u8 file_contains_ijon_usage(const char* source_file) {
         strstr(line, "ijon_set(") ||
         strstr(line, "ijon_inc(") ||
         strstr(line, "ijon_xor_state(") ||
-        strstr(line, "ijon_push_state(") ||
         strstr(line, "ijon_reset_state(") ||
         strstr(line, "IJON_MAX(") ||
         strstr(line, "IJON_MIN(") ||

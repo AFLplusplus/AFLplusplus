@@ -70,7 +70,6 @@ void ijon_inc(uint32_t addr, uint32_t val);
 
 /* IJON state management functions */
 void ijon_xor_state(uint32_t val);
-void ijon_push_state(uint32_t x);
 void ijon_reset_state(void);
 
 /* Supporting hash functions */

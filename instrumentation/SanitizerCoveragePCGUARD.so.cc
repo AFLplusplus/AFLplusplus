@@ -1706,7 +1706,10 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
       ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(IJONStateVal);
       // Apply IJON formula: state XOR coverage_index
       // This makes every coverage point context-aware based on current IJON state
-      CoverageIndex = IRB.CreateXor(IJONStateVal, CoverageIndex);
+      Value *XorResult = IRB.CreateXor(IJONStateVal, CoverageIndex);
+      // Ensure result stays within map bounds to prevent buffer overruns
+      Value *MapSize = ConstantInt::get(Int32Ty, MAP_SIZE);
+      CoverageIndex = IRB.CreateURem(XorResult, MapSize);
     }
     
     Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CoverageIndex);

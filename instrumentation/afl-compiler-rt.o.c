@@ -3282,18 +3282,6 @@ void ijon_xor_state(uint32_t val) {
   }
 }
 
-void ijon_push_state(uint32_t x) {
-  // TODO: is this correct? xor - move x into val - then xor again?
-  ijon_xor_state(__afl_ijon_state_log);
-  __afl_ijon_state_log = (__afl_ijon_state_log << 8) | (x & 0xff);
-  ijon_xor_state(__afl_ijon_state_log);
-
-  if (__afl_debug) {
-    fprintf(stderr, "[IJON_PUSH_STATE] Pushed: %u, new state_log: %u, state: %u\n",
-            x, __afl_ijon_state_log, __afl_ijon_state);
-  }
-}
-
 void ijon_reset_state(void) {
   __afl_ijon_state = 0;
   __afl_ijon_state_log = 0;
