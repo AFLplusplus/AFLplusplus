@@ -276,10 +276,9 @@ dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_siz
   access->coverage_area = trace_bits;
   access->coverage_size = map_size;
 
-  u32 coverage_size = map_size - 1 - MAP_SIZE_IJON_MAP - MAP_SIZE_IJON_BYTES;
-  u32 ijon_offset = coverage_size + MAP_SIZE_IJON_MAP;
+  u32 ijon_offset = map_size - MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP;
   
-  access->ijon_offset = coverage_size;
+  access->ijon_offset = ijon_offset; 
   access->ijon_max_area = (u64*)(trace_bits + ijon_offset);
   access->is_dynamic = 1;
   

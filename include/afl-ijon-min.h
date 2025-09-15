@@ -20,17 +20,18 @@ typedef struct {
   size_t num_updates;
   char* max_dir;
   int schedule_prob;
-
-  /* Note: Callback fields removed - no longer needed with atomic file operations */
 } ijon_min_state;
 
 /* UNIFIED SHARED MEMORY LAYOUT - DYNAMIC DESIGN
  *
  * Dynamic shared memory layout for all map sizes:
- * [0...map_size-1]                    : Coverage bitmap (variable size)
- * [map_size...map_size+IJON_SIZE-1]   : IJON max values (fixed 4096 bytes)
+ * [0...coverage_size-1]                           : Coverage bitmap (variable size)
+ * [coverage_size...coverage_size+IJON_MAP-1]      : IJON set/inc area (65536 bytes)
+ * [coverage_size+IJON_MAP...coverage_size+IJON_MAP+IJON_BYTES-1] : IJON max area (4096 bytes)
  *
- * This provides consistent behavior across all map sizes using dynamic allocation.
+ * Where coverage_size = map_size - MAP_SIZE_IJON_MAP - MAP_SIZE_IJON_BYTES
+ * Target writes IJON data at: __afl_final_loc + MAP_SIZE_IJON_MAP
+ * Fuzzer reads IJON data from: map_size - MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP
  */
 
 // Dynamic shared memory access structure for all map sizes
