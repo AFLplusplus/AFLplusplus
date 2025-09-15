@@ -141,14 +141,15 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
     }
 
     if (input_data) {
-      /* UNIFIED BEHAVIOR: Always use dynamic access pattern */
+
+      /* Use real_map_size for IJON to match target's calculation */
       dynamic_shared_access_t *shared_access = setup_dynamic_shared_access(
-        fsrv->trace_bits, fsrv->map_size);
+        fsrv->trace_bits, fsrv->real_map_size);
 
       ijon_update_max_dynamic(afl->ijon_state, shared_access, input_data, input_len);
       cleanup_dynamic_shared_access(shared_access);
     }
-    /* Clean up allocated input data */
+    
     if (input_data) {
       ck_free(input_data);
       input_data = NULL;

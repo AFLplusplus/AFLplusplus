@@ -3098,10 +3098,7 @@ void __afl_injection_xss(u8 *buf) {
 
 /* Supporting hash functions */
 uint64_t ijon_simple_hash(uint64_t x) {
-  // Fibonacci hashing: ZERO collisions for range 0-511
-  // Uses golden ratio (phi-1) * 2^64 for optimal distribution
-  // Best performance: 0% collisions, perfect distribution, fastest speed
-  const uint64_t golden_ratio = 0x9E3779B97F4A7C15ULL; // (sqrt(5)-1)/2 * 2^64
+  const uint64_t golden_ratio = 0x9E3779B97F4A7C15ULL;
   return x * golden_ratio;
 }
 
@@ -3109,6 +3106,7 @@ uint32_t ijon_hashint(uint32_t old, uint32_t val) {
   // PERFECT HASH: Bit-interleaving approach for coordinate pairs
   // Guarantees no hash collisions for coordinates < 65536
   // Interleave bits of x and y to create unique 32-bit hash
+
 
   uint32_t x = old;
   uint32_t y = val;
@@ -3141,7 +3139,6 @@ uint32_t ijon_hashmem(uint32_t old, char* val, size_t len) {
   return old;
 }
 
-/* Core max/min tracking functions */
 void ijon_max(uint32_t addr, u64 val) {
 
   if (unlikely(&__afl_ijon_enabled == NULL || !__afl_ijon_enabled)) {
@@ -3150,14 +3147,12 @@ void ijon_max(uint32_t addr, u64 val) {
 
   if (unlikely(__afl_ijon_bits == NULL && __afl_area_ptr)) {
 
-    /* UNIFIED BEHAVIOR: Always place IJON data after actual map */
     u32 ijon_offset = __afl_final_loc + MAP_SIZE_IJON_MAP;
-
     __afl_ijon_bits = (u64 *)(__afl_area_ptr + ijon_offset);
-
-    /* Clear IJON section on each execution for fresh state */
+    
+    /* Clear IJON max area on first initialization to avoid processing uninitialized data */
     memset(__afl_ijon_bits, 0, MAP_SIZE_IJON_ENTRIES * sizeof(u64));
-
+    
   }
 
   if (unlikely(!__afl_ijon_bits)) {
@@ -3177,7 +3172,6 @@ void ijon_min(uint32_t addr, u64 val) {
   ijon_max(addr, val);
 }
 
-/* IJON set tracking function - binary state coverage */
 void ijon_set(uint32_t loc_addr, uint32_t val) {
 
   if (unlikely(&__afl_ijon_enabled == NULL || !__afl_ijon_enabled)) return;
@@ -3187,10 +3181,9 @@ void ijon_set(uint32_t loc_addr, uint32_t val) {
   u32 combined_hash = loc_addr ^ val;
   u32 coverage_id = combined_hash % MAP_SIZE_IJON_MAP;
 
-  __afl_area_ptr[__afl_cov_map_size + coverage_id] = 1;
+  __afl_area_ptr[__afl_final_loc + coverage_id] = 1;
 }
 
-/* IJON inc tracking function - incremental counter coverage */
 void ijon_inc(uint32_t loc_addr, uint32_t val) {
 
   if (unlikely(&__afl_ijon_enabled == NULL || !__afl_ijon_enabled)) return;
@@ -3203,7 +3196,7 @@ void ijon_inc(uint32_t loc_addr, uint32_t val) {
 
   // Memory-safe: Use actual available shared memory size
   // Use AFL's incremental coverage approach (same as __afl_trace)
-  __afl_area_ptr[__afl_cov_map_size + coverage_id] += 1;
+  __afl_area_ptr[__afl_final_loc + coverage_id] += 1;
 }
 
 /* Variadic runtime functions */

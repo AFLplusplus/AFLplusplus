@@ -270,20 +270,19 @@ void destroy_ijon_min_state(ijon_min_state* self) {
   ck_free(self);
 }
 
-/* Unified dynamic shared memory access functions for all map sizes */
-
 dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_size) {
   dynamic_shared_access_t *access = (dynamic_shared_access_t*)ck_alloc(sizeof(dynamic_shared_access_t));
 
   access->coverage_area = trace_bits;
   access->coverage_size = map_size;
 
-  /* UNIFIED LAYOUT: Always use dynamic layout for all map sizes */
-  /* Use the same offset as target-side calculation */
-  access->ijon_offset = map_size;  /* Use map_size directly as it represents the coverage end */
-  access->ijon_max_area = (u64*)(trace_bits + access->ijon_offset);
-  access->is_dynamic = 1;  
-
+  u32 coverage_size = map_size - 1 - MAP_SIZE_IJON_MAP - MAP_SIZE_IJON_BYTES;
+  u32 ijon_offset = coverage_size + MAP_SIZE_IJON_MAP;
+  
+  access->ijon_offset = coverage_size;
+  access->ijon_max_area = (u64*)(trace_bits + ijon_offset);
+  access->is_dynamic = 1;
+  
   return access;
 }
 
@@ -295,34 +294,23 @@ void cleanup_dynamic_shared_access(dynamic_shared_access_t *access) {
 
 void ijon_update_max_dynamic(ijon_min_state* self, dynamic_shared_access_t* shared, uint8_t* data, size_t len) {
   
-  /* Process IJON max values using dynamic access */
   int non_zero_slots = 0;
   for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
-    /* Check for max value updates */
     if (shared->ijon_max_area[i] > 0) {
       non_zero_slots++;
     }
     
     if (shared->ijon_max_area[i] > self->max_map[i]) {
-
-      // Found a new maximum for variable i
       if (self->max_map[i] == 0) {
-        // First time this slot is triggered
         self->num_entries++;
       }
 
-      // Save input that achieved new max for variable i
       self->max_map[i] = shared->ijon_max_area[i];
       OKF("Updated IJON max slot %d: 0x%llx (len: %ld)",
           i, self->max_map[i], len);
 
-      // Save input to slot-specific file and history
       ijon_store_max_input(self, i, data, len);
-
-    } else if (shared->ijon_max_area[i] > 0 && shared->ijon_max_area[i] <= self->max_map[i]) {
-      /* Value not higher than stored maximum */
     }
   }
 
-  /* IJON processing complete */
 }

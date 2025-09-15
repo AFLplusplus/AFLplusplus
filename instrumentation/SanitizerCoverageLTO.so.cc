@@ -277,6 +277,7 @@ class ModuleSanitizerCoverageLTO
   Module                          *Mo = NULL;
   GlobalVariable                  *AFLContext = NULL;
   GlobalVariable                  *AFLMapPtr = NULL;
+  GlobalVariable                  *AFLCovMapSize = NULL;
   GlobalVariable                  *AFLIJONState = NULL;
   const char                      *ijon_enabled = nullptr;
   Value                           *MapPtrFixed = NULL;
@@ -462,51 +463,75 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   
   // If IJON is enabled, check if the module actually uses any IJON functions
   bool uses_ijon_functions = false;
+  bool uses_ijon_state = false;
   if (ijon_enabled) {
+    // Scan for IJON function calls to determine if we need IJON symbols
     for (auto &F : M) {
       for (auto &BB : F) {
         for (auto &I : BB) {
+          Function *calledFunc = nullptr;
+          StringRef funcName;
+          
+          // Check both CallInst and InvokeInst
           if (auto *call = dyn_cast<CallInst>(&I)) {
             Value *calledValue = call->getCalledOperand();
-            if (Function *calledFunc = dyn_cast<Function>(calledValue)) {
-              StringRef funcName = calledFunc->getName();
-              if (funcName.startswith("ijon_")) {
-                // Accept any IJON function, not just ijon_xor_state
-                if (funcName == "ijon_xor_state" || funcName == "ijon_max" || 
-                    funcName == "ijon_min" || funcName == "ijon_set" || 
-                    funcName == "ijon_inc" || funcName == "ijon_max_variadic" ||
-                    funcName == "ijon_min_variadic") {
-                  uses_ijon_functions = true;
-                  break;
-                }
+            calledFunc = dyn_cast<Function>(calledValue);
+          } else if (auto *invoke = dyn_cast<InvokeInst>(&I)) {
+            Value *calledValue = invoke->getCalledOperand();
+            calledFunc = dyn_cast<Function>(calledValue);
+          }
+          
+          if (calledFunc) {
+            funcName = calledFunc->getName();
+            if (funcName.starts_with("ijon_")) {
+              // Check for state-aware functions (only ijon_xor_state)
+              if (funcName == "ijon_xor_state") {
+                uses_ijon_functions = true;
+                uses_ijon_state = true;
+                break;
+              }
+              // Check for other IJON functions (max/min/set/inc)
+              else if (funcName == "ijon_max" || funcName == "ijon_min" || 
+                       funcName == "ijon_set" || funcName == "ijon_inc" || 
+                       funcName == "ijon_max_variadic" || funcName == "ijon_min_variadic") {
+                uses_ijon_functions = true;
+                // Don't break - keep looking for ijon_xor_state
+              }
+              // Ignore helper functions (ijon_hash*, ijon_strdist, etc.)
+              else if (funcName.starts_with("ijon_hash") || funcName == "ijon_strdist") {
+                // These are helper functions, not instrumentation functions
               }
             }
           }
         }
-        if (uses_ijon_functions) break;
+        if (uses_ijon_state) break; // Found state function, no need to continue
       }
-      if (uses_ijon_functions) break;
+      if (uses_ijon_state) break;
     }
     
-    // Enable IJON if any IJON functions are used
     if (!uses_ijon_functions) {
-      ijon_enabled = nullptr;  // Disable IJON
+      ijon_enabled = nullptr;
     }
   }
 
-  // Initialize IJON state global variable if IJON is enabled
+  // Initialize IJON symbols based on what functions are used
   if (ijon_enabled) {
-#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
-    AFLIJONState = new GlobalVariable(
-        M, Int32Tyi, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state");
-#else
-    AFLIJONState = new GlobalVariable(
-        M, Int32Tyi, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state", 0,
-        GlobalVariable::GeneralDynamicTLSModel, 0, false);
-#endif
+    // Always create __afl_ijon_enabled for IJON memory allocation
     Constant *One32 = ConstantInt::get(Int32Ty, 1);
     GlobalVariable *GV = new GlobalVariable(M, Int32Ty, 0, GlobalValue::WeakODRLinkage, One32, "__afl_ijon_enabled");
     GV->setAlignment(Align(4));
+    
+    // Only create __afl_ijon_state if state-aware functions are used
+    if (uses_ijon_state) {
+#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
+      AFLIJONState = new GlobalVariable(
+          M, Int32Tyi, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state");
+#else
+      AFLIJONState = new GlobalVariable(
+          M, Int32Tyi, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state", 0,
+          GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
+    }
   }
 
   /* Show a banner */
@@ -618,6 +643,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
     AFLMapPtr = new GlobalVariable(
         M, PtrTy, false, GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+    AFLCovMapSize = new GlobalVariable(
+        M, Int32Tyi, false, GlobalValue::ExternalLinkage, 0, "__afl_cov_map_size");
 
   } else {
 
@@ -1296,6 +1323,18 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
       OKF("Instrumented %u locations (%u selects)%s (%s mode).", inst,
           select_cnt, buf, modeline);
+      
+      if (getenv("AFL_LLVM_IJON")) {
+        if (uses_ijon_functions) {
+          if (uses_ijon_state) {
+            OKF("IJON state-aware coverage enabled for all instrumented locations (IJON_STATE detected).");
+          } else {
+            OKF("IJON data tracking enabled for instrumented locations (IJON_DATA detected, no state-aware coverage).");
+          }
+        } else {
+          OKF("IJON enabled but no IJON calls detected - using regular coverage.");
+        }
+      }
 
     }
 
@@ -2316,11 +2355,11 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
       LoadInst *IJONStateVal = IRB.CreateLoad(Int32Tyi, AFLIJONState);
       ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(IJONStateVal);
       // Apply IJON formula: state XOR coverage_index
-      // This makes every coverage point context-aware based on current IJON state
       Value *XorResult = IRB.CreateXor(IJONStateVal, val);
       // Ensure result stays within map bounds to prevent buffer overruns
-      Value *MapSize = ConstantInt::get(Int32Tyi, MAP_SIZE);
-      val = IRB.CreateURem(XorResult, MapSize);
+      LoadInst *CovMapSize = IRB.CreateLoad(Int32Tyi, AFLCovMapSize);
+      ModuleSanitizerCoverageLTO::SetNoSanitizeMetadata(CovMapSize);
+      val = IRB.CreateURem(XorResult, CovMapSize);
     }
 
     /* Load SHM pointer */
