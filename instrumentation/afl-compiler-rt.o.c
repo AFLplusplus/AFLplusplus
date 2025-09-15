@@ -144,6 +144,7 @@ u8 __afl_forkserver_setenv = 0;
 static u64  __afl_ijon_initial[MAP_SIZE_IJON_ENTRIES];
 u64        *__afl_ijon_bits = __afl_ijon_initial;  // Initial buffer, will point to shared memory at MAP_SIZE offset
 u32         __afl_ijon_map_size = MAP_SIZE_IJON_ENTRIES;
+u32         __afl_ijon_map_increased = 0;
 extern int  __afl_ijon_enabled __attribute__((weak));
 
 /* IJON state tracking globals */
@@ -407,7 +408,10 @@ static void __afl_map_shm(void) {
   // if we are not running in afl ensure the map exists
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
 
-  if (getenv("AFL_NO_IJON") && &__afl_ijon_enabled) { __afl_ijon_enabled = 0; }
+  if (getenv("AFL_NO_IJON") && &__afl_ijon_enabled) {
+    __afl_ijon_enabled = 0;
+    __afl_ijon_map_increased = 1;
+  }
 
   char *id_str = getenv(SHM_ENV_VAR);
 
@@ -416,8 +420,9 @@ static void __afl_map_shm(void) {
     __afl_map_size = __afl_final_loc + 1;  // as we count starting 0
     __afl_cov_map_size = __afl_map_size;
     
-    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled) {
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled && !__afl_ijon_map_increased) {
         __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;  // Fixed: add to __afl_map_size, not __afl_final_loc
+        __afl_ijon_map_increased = 1;
     }
 
     if (getenv("AFL_DUMP_MAP_SIZE")) {
@@ -969,7 +974,16 @@ static void __afl_start_forkserver(void) {
 
   void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
-  if (getenv("AFL_NO_IJON") && &__afl_ijon_enabled) { __afl_ijon_enabled = 0; }
+  if (getenv("AFL_NO_IJON") && &__afl_ijon_enabled) {
+    __afl_ijon_enabled = 0;
+    __afl_ijon_map_increased = 1;
+  }
+
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled && !__afl_ijon_map_increased) {
+        __afl_cov_map_size = __afl_map_size;
+        __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
+        __afl_ijon_map_increased = 1;
+    } else  if (!__afl_cov_map_size) {  __afl_cov_map_size = __afl_map_size; }
 
   if (getenv("AFL_OLD_FORKSERVER")) {
 
@@ -1001,12 +1015,13 @@ static void __afl_start_forkserver(void) {
   
     if (&__afl_ijon_enabled != NULL) {
       __afl_ijon_enabled = 0;
+      __afl_ijon_map_increased = 1;
     }
 
     return;
   }
 
-  if (&__afl_ijon_enabled != NULL) {
+  if (&__afl_ijon_enabled != NULL && !__afl_ijon_map_increased) {
     __afl_ijon_enabled = 1;
   }
 
@@ -2065,6 +2080,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   }
 
+  /*
   // IJON SUPPORT: Apply deferred IJON expansion now that __afl_final_loc is known
   if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled && __afl_final_loc > 0) {
     u32 coverage_size = __afl_final_loc + 1;
@@ -2074,6 +2090,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       __afl_map_size = coverage_size + MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
     }
   }
+  */
 
   if (__afl_already_initialized_shm) {
 

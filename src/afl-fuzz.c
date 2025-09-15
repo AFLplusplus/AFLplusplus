@@ -2611,6 +2611,10 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 #endif
 
+    if (map_size <= 4 + MAP_SIZE_IJON_BYTES + MAP_SIZE_IJON_MAP) {
+      FATAL("target forkserver reports too small map for IJON - BUG!");
+    }
+
     map_size -= MAP_SIZE_IJON_BYTES;
     afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
 
