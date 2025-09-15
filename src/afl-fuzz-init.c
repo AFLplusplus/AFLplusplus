@@ -3017,6 +3017,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
+    if (afl->fsrv.target_path) { ck_free(afl->fsrv.target_path); }
+
     afl->fsrv.target_path = ck_strdup(fname);
 
 #ifdef __linux__
@@ -3069,6 +3071,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       }
 
       env_path = delim;
+
+      if (afl->fsrv.target_path) { ck_free(afl->fsrv.target_path); }
 
       if (cur_elem[0]) {
 
