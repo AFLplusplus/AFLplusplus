@@ -2617,6 +2617,7 @@ int main(int argc, char **argv_orig, char **envp) {
     u32 ijon_offset = afl->fsrv.map_size;
     afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + ijon_offset);
     char *max_dir = alloc_printf("%s/ijon_max", afl->out_dir);
+    
     afl->ijon_state = new_ijon_min_state(max_dir);
     ck_free(max_dir);
 

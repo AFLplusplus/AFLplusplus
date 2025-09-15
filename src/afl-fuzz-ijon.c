@@ -174,6 +174,7 @@ void ijon_store_history_if_best(ijon_min_state* self, int i, uint8_t* data, size
 
 /* Unconditional history storage (original logic) */
 void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data, size_t len) {
+  
   // Rolling history buffer with per-variable guaranteed coverage
   static int history_init = -1;  // -1 = not initialized
   static int global_history_index = 0;
@@ -221,7 +222,7 @@ void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data
       WARNF("asprintf() failed for history filename");
       return;
     }
-
+    
     /* Use atomic write for history files to prevent race conditions */
     char temp_history_filename[512];
     snprintf(temp_history_filename, sizeof(temp_history_filename), "%s.tmp", history_filename);
@@ -278,9 +279,10 @@ dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_siz
   access->coverage_size = map_size;
 
   /* UNIFIED LAYOUT: Always use dynamic layout for all map sizes */
-  access->ijon_offset = map_size;
-  access->ijon_max_area = (u64*)(trace_bits + map_size);
-  access->is_dynamic = 1;
+  /* Use the same offset as target-side calculation */
+  access->ijon_offset = map_size;  /* Use map_size directly as it represents the coverage end */
+  access->ijon_max_area = (u64*)(trace_bits + access->ijon_offset);
+  access->is_dynamic = 1;  
 
   return access;
 }
@@ -292,10 +294,15 @@ void cleanup_dynamic_shared_access(dynamic_shared_access_t *access) {
 }
 
 void ijon_update_max_dynamic(ijon_min_state* self, dynamic_shared_access_t* shared, uint8_t* data, size_t len) {
-
+  
   /* Process IJON max values using dynamic access */
+  int non_zero_slots = 0;
   for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
     /* Check for max value updates */
+    if (shared->ijon_max_area[i] > 0) {
+      non_zero_slots++;
+    }
+    
     if (shared->ijon_max_area[i] > self->max_map[i]) {
 
       // Found a new maximum for variable i

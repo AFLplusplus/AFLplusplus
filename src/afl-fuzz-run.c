@@ -148,7 +148,6 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
       ijon_update_max_dynamic(afl->ijon_state, shared_access, input_data, input_len);
       cleanup_dynamic_shared_access(shared_access);
     }
-
     /* Clean up allocated input data */
     if (input_data) {
       ck_free(input_data);

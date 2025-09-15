@@ -400,30 +400,46 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   // Check if IJON state-aware coverage is enabled
   ijon_enabled = getenv("AFL_LLVM_IJON");
   
-  // If IJON is enabled, check if the module actually uses IJON_STATE
-  bool uses_ijon_state = false;
+  // If IJON is enabled, check if the module actually uses any IJON functions
+  bool uses_ijon_functions = false;
   if (ijon_enabled) {
+    // Scan for IJON function calls to determine if we need IJON symbols
     for (auto &F : M) {
       for (auto &BB : F) {
         for (auto &I : BB) {
+          Function *calledFunc = nullptr;
+          StringRef funcName;
+          
+          // Check both CallInst and InvokeInst
           if (auto *call = dyn_cast<CallInst>(&I)) {
             Value *calledValue = call->getCalledOperand();
-            if (Function *calledFunc = dyn_cast<Function>(calledValue)) {
-              if (calledFunc->getName() == "ijon_xor_state") {
-                uses_ijon_state = true;
+            calledFunc = dyn_cast<Function>(calledValue);
+          } else if (auto *invoke = dyn_cast<InvokeInst>(&I)) {
+            Value *calledValue = invoke->getCalledOperand();
+            calledFunc = dyn_cast<Function>(calledValue);
+          }
+          
+          if (calledFunc) {
+            funcName = calledFunc->getName();
+            if (funcName.starts_with("ijon_")) {
+              // Accept any IJON function, not just ijon_xor_state
+              if (funcName == "ijon_xor_state" || funcName == "ijon_max" || 
+                  funcName == "ijon_min" || funcName == "ijon_set" || 
+                  funcName == "ijon_inc" || funcName == "ijon_max_variadic" ||
+                  funcName == "ijon_min_variadic") {
+                uses_ijon_functions = true;
                 break;
               }
             }
           }
         }
-        if (uses_ijon_state) break;
+        if (uses_ijon_functions) break;
       }
-      if (uses_ijon_state) break;
+      if (uses_ijon_functions) break;
     }
     
-    // Only enable state-aware coverage if IJON_STATE is actually used
-    if (!uses_ijon_state) {
-      ijon_enabled = nullptr;  // Disable IJON state-aware coverage
+    if (!uses_ijon_functions) {
+      ijon_enabled = nullptr;
     }
   }
 
@@ -475,7 +491,8 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
         M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state", 0,
         GlobalVariable::GeneralDynamicTLSModel, 0, false);
 #endif
-    GlobalVariable *GV = new GlobalVariable(M, Int32Ty, 0, GlobalValue::WeakODRLinkage, One, "__afl_ijon_enabled");
+    Constant *One32 = ConstantInt::get(Int32Ty, 1);
+    GlobalVariable *GV = new GlobalVariable(M, Int32Ty, 0, GlobalValue::WeakODRLinkage, One32, "__afl_ijon_enabled");
     GV->setAlignment(Align(4));
   }
   

@@ -1221,14 +1221,16 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         u32 tmp_map_size;
         rlen = read(fsrv->fsrv_st_fd, &tmp_map_size, 4);
 
-        if (!fsrv->map_size) { fsrv->map_size = MAP_SIZE; }
+        if (!fsrv->map_size) { 
+          fsrv->map_size = MAP_SIZE; 
+        }
 
         fsrv->real_map_size = tmp_map_size;
-
+        
         if (tmp_map_size % 64) {
 
           tmp_map_size = (((tmp_map_size + 63) >> 6) << 6);
-
+          
         }
 
         if (!be_quiet) { ACTF("Target map size: %u", fsrv->real_map_size); }
