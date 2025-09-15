@@ -2617,6 +2617,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     map_size -= MAP_SIZE_IJON_BYTES;
     afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
+    afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES;
 
     u32 ijon_offset = afl->fsrv.map_size;
     afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + ijon_offset);
