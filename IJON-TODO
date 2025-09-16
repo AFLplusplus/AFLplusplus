@@ -1,4 +1,5 @@
 * ensure ijon resume (-i -) works
 * ensure ijon overwrite (-i in) works
+* add documentation! docs/IJON.md
 * Ensure ijon test cases work when everything is done!
 * then delete this file
