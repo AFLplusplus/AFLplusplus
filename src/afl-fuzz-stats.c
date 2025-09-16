@@ -1475,7 +1475,7 @@ void show_stats_normal(afl_state_t *afl) {
   //} else {
 
   if (afl->ijon_state) {
-    SAYF(bV bSTOP " trim/eff/ijon : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+    SAYF(bV bSTOP "trim/eff/ijon: " cRST "%-36s " bSTG bV RESET_G1, tmp);
   } else {
     SAYF(bV bSTOP "    trim/eff : " cRST "%-36s " bSTG bV RESET_G1, tmp);
   }
