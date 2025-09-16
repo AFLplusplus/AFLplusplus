@@ -440,7 +440,7 @@ static inline const char *colorfilter(const char *x) {
     if (0) {                                                   \
       fprintf(stderr, "[DEBUG ck_read] %s: got %d bytes (expected %d)\n", fn, _res, _len); \
     }                                                          \
-    if (_res != _len) {                                        \
+    if (unlikely(_res != _len)) {                                        \
       if (0) {                                                 \
         fprintf(stderr, "[DEBUG ck_read] %s: SHORT READ! Expected %d, got %d (diff: %d)\n", fn, _len, _res, _len - _res); \
       }                                                        \

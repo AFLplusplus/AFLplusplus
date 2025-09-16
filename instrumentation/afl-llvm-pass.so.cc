@@ -672,22 +672,17 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
 #endif
 
       Value *MapPtrIdx;
-      Value *EdgeIndex;
-      
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
       if (ngram_size)
-        EdgeIndex = IRB.CreateXor(PrevLocTrans, IRB.CreateZExt(CurLoc, Int32Ty));
+        MapPtrIdx = IRB.CreateGEP(
+            Int8Ty, MapPtr,
+            IRB.CreateZExt(
+                IRB.CreateXor(PrevLocTrans, IRB.CreateZExt(CurLoc, Int32Ty)),
+                Int32Ty));
       else
 #endif
-        EdgeIndex = IRB.CreateXor(PrevLocTrans, CurLoc);
-      
-      
-#ifdef AFL_HAVE_VECTOR_INTRINSICS
-      if (ngram_size)
-        MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, IRB.CreateZExt(EdgeIndex, Int32Ty));
-      else
-#endif
-        MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, EdgeIndex);
+        MapPtrIdx =
+            IRB.CreateGEP(Int8Ty, MapPtr, IRB.CreateXor(PrevLocTrans, CurLoc));
 
       /* Update bitmap */
 

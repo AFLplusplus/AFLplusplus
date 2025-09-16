@@ -861,7 +861,7 @@ void check_sync_fuzzers(afl_state_t *afl) {
         if (max_fd >= 0) {
 
           --max_start_id;  // counting from 0
-          if (write(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32)) {
+          if (unlikely(write(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32))) {
             /* Ignore write failure - sync will continue */
           }
           close(max_fd);
@@ -1037,9 +1037,8 @@ void sync_fuzzers(afl_state_t *afl) {
     sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir, sd_ent->d_name);
     s32 max_fd = open(qd_synced_maxid, O_RDONLY, DEFAULT_PERMISSION);
 
-    if (max_fd >= 0) {
-
-      if (read(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32)) {
+    if (likely(max_fd >= 0)) {
+      if (unlikely(read(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32))) {
         /* Use default value on read failure */
         max_start_id = 0;
       }
