@@ -2,6 +2,8 @@
 
 set -e
 
+export AFL_PATH=`pwd`/..
+
 echo "=== IJON Comprehensive Test ==="
 echo "Testing IJON support across different AFL++ compilation modes"
 echo
@@ -22,7 +24,7 @@ AFL_LLVM_IJON=1 ../afl-clang-lto test-ijon-complete.c -o test-ijon-lto 2>&1 | gr
 echo "    Compiled with LTO + IJON state-aware coverage"
 
 echo "3. Compiling baseline without IJON ..."
-../afl-clang-fast test-ijon-complete.c -o test-ijon-lto 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
+../afl-clang-fast test-ijon-complete.c -o test-ijon-legacy 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
 echo "    Compiled with LTO + IJON state-aware coverage"
 
 echo
@@ -35,14 +37,14 @@ echo "A" > test-input/input1.txt
 echo "a" > test-input/input2.txt
 
 echo "  PCGUARD + IJON coverage with different inputs:"
-./afl-showmap -q -o coverage-pcguard-A.map ./test-ijon-pcguard < test-input/input1.txt
-./afl-showmap -q -o coverage-pcguard-a.map ./test-ijon-pcguard < test-input/input2.txt
+../afl-showmap -q -o coverage-pcguard-A.map ./test-ijon-pcguard < test-input/input1.txt
+../afl-showmap -q -o coverage-pcguard-a.map ./test-ijon-pcguard < test-input/input2.txt
 echo "    Input 'A': [$(cut -d: -f1 coverage-pcguard-A.map | tr '\n' ',' | sed 's/,$//')] ($(wc -l < coverage-pcguard-A.map) edges)"
 echo "    Input 'a': [$(cut -d: -f1 coverage-pcguard-a.map | tr '\n' ',' | sed 's/,$//')] ($(wc -l < coverage-pcguard-a.map) edges)"
 
 echo "  LTO + IJON coverage with different inputs:"
-./afl-showmap -q -o coverage-lto-A.map ./test-ijon-lto < test-input/input1.txt
-./afl-showmap -q -o coverage-lto-a.map ./test-ijon-lto < test-input/input2.txt
+../afl-showmap -q -o coverage-lto-A.map ./test-ijon-lto < test-input/input1.txt
+../afl-showmap -q -o coverage-lto-a.map ./test-ijon-lto < test-input/input2.txt
 echo "    Input 'A': [$(cut -d: -f1 coverage-lto-A.map | tr '\n' ',' | sed 's/,$//')] ($(wc -l < coverage-lto-A.map) edges)"
 echo "    Input 'a': [$(cut -d: -f1 coverage-lto-a.map | tr '\n' ',' | sed 's/,$//')] ($(wc -l < coverage-lto-a.map) edges)"
 
@@ -56,18 +58,18 @@ echo "5" > test-input/input3.txt
 echo "Generating coverage maps for state-aware analysis..."
 
 # PCGUARD + IJON
-./afl-showmap -q -o suite_pcguard_A.map ./test-ijon-pcguard < test-input/input1.txt
-./afl-showmap -q -o suite_pcguard_a.map ./test-ijon-pcguard < test-input/input2.txt
-./afl-showmap -q -o suite_pcguard_5.map ./test-ijon-pcguard < test-input/input3.txt
+../afl-showmap -q -o suite_pcguard_A.map ./test-ijon-pcguard < test-input/input1.txt
+../afl-showmap -q -o suite_pcguard_a.map ./test-ijon-pcguard < test-input/input2.txt
+../afl-showmap -q -o suite_pcguard_5.map ./test-ijon-pcguard < test-input/input3.txt
 
 # LTO + IJON
-./afl-showmap -q -o suite_lto_A.map ./test-ijon-lto < test-input/input1.txt
-./afl-showmap -q -o suite_lto_a.map ./test-ijon-lto < test-input/input2.txt
-./afl-showmap -q -o suite_lto_5.map ./test-ijon-lto < test-input/input3.txt
+../afl-showmap -q -o suite_lto_A.map ./test-ijon-lto < test-input/input1.txt
+../afl-showmap -q -o suite_lto_a.map ./test-ijon-lto < test-input/input2.txt
+../afl-showmap -q -o suite_lto_5.map ./test-ijon-lto < test-input/input3.txt
 
 # Baseline (no IJON)
-./afl-showmap -q -o suite_baseline_A.map ./test-ijon-legacy < test-input/input1.txt
-./afl-showmap -q -o suite_baseline_a.map ./test-ijon-legacy < test-input/input2.txt
+../afl-showmap -q -o suite_baseline_A.map ./test-ijon-legacy < test-input/input1.txt
+../afl-showmap -q -o suite_baseline_a.map ./test-ijon-legacy < test-input/input2.txt
 
 # Function to get coverage IDs
 get_coverage_ids() {
@@ -108,7 +110,7 @@ echo "   Creating coverage maps for each input..."
 for mode in pcguard lto legacy; do
     echo "   Testing $mode mode..."
     for i in 1 2 3 4; do
-        ./afl-showmap -q -m none -o coverage-${mode}-input${i}.map ./test-ijon-${mode} < test-input/input${i}.txt
+        ../afl-showmap -q -m none -o coverage-${mode}-input${i}.map ./test-ijon-${mode} < test-input/input${i}.txt
         edges=$(wc -l < coverage-${mode}-input${i}.map)
         echo "     Input $i: $edges coverage edges"
     done
@@ -136,8 +138,8 @@ echo "   IJON_STATE calls: $ijon_state_calls"
 
 # Quick coverage test with enhanced program
 echo " Testing enhanced coverage differentiation:"
-./afl-showmap -q -o enhanced_test_A.map ./test-ijon-enhanced-check < <(echo "A") 2>/dev/null
-./afl-showmap -q -o enhanced_test_Z.map ./test-ijon-enhanced-check < <(echo "Z") 2>/dev/null
+../afl-showmap -q -o enhanced_test_A.map ./test-ijon-enhanced-check < <(echo "A") 2>/dev/null
+../afl-showmap -q -o enhanced_test_Z.map ./test-ijon-enhanced-check < <(echo "Z") 2>/dev/null
 
 if [ -f "enhanced_test_A.map" ] && [ -f "enhanced_test_Z.map" ]; then
     edges_A=$(wc -l < enhanced_test_A.map)
