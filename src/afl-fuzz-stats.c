@@ -1453,6 +1453,17 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
+  /* Add IJON statistics if IJON is enabled */
+  if (afl->ijon_state) {
+
+    u8 tmp_ijon[64];
+    sprintf(tmp_ijon, ", %zu/%zu", 
+            afl->ijon_state->num_updates, 
+            afl->ijon_state->num_entries);
+    strcat(tmp, tmp_ijon);
+
+  }
+
   // if (afl->custom_mutators_count) {
 
   //
@@ -1463,7 +1474,11 @@ void show_stats_normal(afl_state_t *afl) {
   //
   //} else {
 
-  SAYF(bV bSTOP "    trim/eff : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+  if (afl->ijon_state) {
+    SAYF(bV bSTOP " trim/eff/ijon : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+  } else {
+    SAYF(bV bSTOP "    trim/eff : " cRST "%-36s " bSTG bV RESET_G1, tmp);
+  }
 
   //}
 

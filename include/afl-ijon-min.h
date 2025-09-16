@@ -30,8 +30,15 @@ typedef struct {
  * [coverage_size+IJON_MAP...coverage_size+IJON_MAP+IJON_BYTES-1] : IJON max area (4096 bytes)
  *
  * Where coverage_size = map_size - MAP_SIZE_IJON_MAP - MAP_SIZE_IJON_BYTES
- * Target writes IJON data at: __afl_final_loc + MAP_SIZE_IJON_MAP
- * Fuzzer reads IJON data from: map_size - MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP
+ * 
+ * OFFSET CALCULATIONS (ALIGNED):
+ * Target IJON offset: __afl_map_size - 2*MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP
+ * Fuzzer IJON offset: map_size - MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP
+ * 
+ * Both calculations produce identical results:
+ * - Target __afl_map_size includes full IJON areas (coverage + IJON_MAP + IJON_BYTES)
+ * - Fuzzer map_size has MAP_SIZE_IJON_BYTES subtracted by afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES
+ * - Target compensates by subtracting extra MAP_SIZE_IJON_BYTES in calculation
  */
 
 // Dynamic shared memory access structure for all map sizes
@@ -92,7 +99,6 @@ uint32_t ijon_memdist(char* a, char* b, size_t len);
 #endif
 
 /* IJON max tracking macros */
-// Single unified IJON_MAX macro - calls one runtime function
 #define IJON_MAX(...) do { \
     static uint32_t _ijon_loc_cache = 0; \
     if (unlikely(_ijon_loc_cache == 0)) { \

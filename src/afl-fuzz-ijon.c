@@ -305,8 +305,7 @@ void ijon_update_max_dynamic(ijon_min_state* self, dynamic_shared_access_t* shar
       }
 
       self->max_map[i] = shared->ijon_max_area[i];
-      OKF("Updated IJON max slot %d: 0x%llx (len: %ld)",
-          i, self->max_map[i], len);
+      self->num_updates++;
 
       ijon_store_max_input(self, i, data, len);
     }

@@ -3164,11 +3164,12 @@ void ijon_max(uint32_t addr, u64 val) {
 
   if (unlikely(__afl_ijon_bits == NULL && __afl_area_ptr)) {
 
-    u32 ijon_offset = __afl_final_loc + MAP_SIZE_IJON_MAP;
+    u32 ijon_offset = __afl_map_size - 2*MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP;
     __afl_ijon_bits = (u64 *)(__afl_area_ptr + ijon_offset);
     
     /* Clear IJON max area on first initialization to avoid processing uninitialized data */
     memset(__afl_ijon_bits, 0, MAP_SIZE_IJON_ENTRIES * sizeof(u64));
+    
     
   }
 
