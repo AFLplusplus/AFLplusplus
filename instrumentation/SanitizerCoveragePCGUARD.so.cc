@@ -423,7 +423,11 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
           
           if (calledFunc) {
             funcName = calledFunc->getName();
+#if LLVM_VERSION_MAJOR >= 18
             if (funcName.starts_with("ijon_")) {
+#else
+            if (funcName.startswith("ijon_")) {
+#endif
               // Check for state-aware functions (only ijon_xor_state)
               if (funcName == "ijon_xor_state") {
                 uses_ijon_functions = true;
@@ -438,7 +442,11 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
                 // Don't break - keep looking for ijon_xor_state
               }
               // Ignore helper functions (ijon_hash*, ijon_strdist, etc.)
+#if LLVM_VERSION_MAJOR >= 18
               else if (funcName.starts_with("ijon_hash") || funcName == "ijon_strdist") {
+#else
+              else if (funcName.startswith("ijon_hash") || funcName == "ijon_strdist") {
+#endif
                 // These are helper functions, not instrumentation functions
               }
             }
