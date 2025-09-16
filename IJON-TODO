@@ -1,8 +1,3 @@
-* No need for AFL_IJON with afl-fuzz (enable through forkserver)
-* No IJON support in afl-llvn-pass.so.cc
-* Ensure PCGUARD + LTO work fine with IJON (need AFL_IJON env)
-  => SanitizeCoveragePCGUARD.cc + SanitizeCoverageLTO.cc
-  - afl-compiler-rt
-  - afl-fuzz different map size handling needed for ijon parts?
+* ensure ijon resume (-i -) works
+* ensure ijon overwrite (-i in) works
 * Ensure ijon test cases work when everything is done!
-
