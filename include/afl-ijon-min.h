@@ -60,9 +60,29 @@ void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data
 void destroy_ijon_min_state(ijon_min_state* self);
 
 /* Unified dynamic shared memory access functions for all map sizes */
-dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_size);
+dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_size, u32 real_map_size);
 void cleanup_dynamic_shared_access(dynamic_shared_access_t *access);
 void ijon_update_max_dynamic(ijon_min_state* self, dynamic_shared_access_t* shared, uint8_t* data, size_t len);
+
+/* Structure for comprehensive IJON state persistence */
+typedef struct {
+  u32 ijon_offset;
+  u32 map_size;
+  u32 real_map_size;
+  u32 target_map_size;  /* __afl_map_size from target */
+  u8 is_initialized;
+} ijon_fastresume_state_t;
+
+/* IJON comprehensive state save/load for fastresume */
+void save_ijon_state_for_fastresume(u32 offset, u32 map_size, u32 real_map_size, u32 target_map_size);
+ijon_fastresume_state_t* get_saved_ijon_state(void);
+u8 has_saved_ijon_state(void);
+void clear_saved_ijon_state(void);
+
+/* IJON offset save/load for fastresume (legacy compatibility) */
+void save_ijon_offset_for_fastresume(u32 offset);
+u32 get_saved_ijon_offset(void);
+u8 has_saved_ijon_offset(void);
 
 /* IJON max tracking runtime functions */
 #ifdef __cplusplus

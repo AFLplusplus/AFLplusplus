@@ -2321,6 +2321,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   u64 prev_target_hash = 0;
   s32 fast_resume = 0;
+  u8  is_ijon_fastresume = 0;
   #ifdef HAVE_ZLIB
   gzFile fr_fd = NULL;
   #else
@@ -2379,32 +2380,44 @@ int main(int argc, char **argv_orig, char **envp) {
       if ((fr_fd = ZLIBOPEN(fn, "rb")) != NULL) {
 
   #else
-      if ((fr_fd = open(fn, O_RDONLY)) >= 0) {
+      if (likely((fr_fd = open(fn, O_RDONLY)) >= 0)) {
 
   #endif
 
         u8   ver_string[8];
         u64 *ver = (u64 *)ver_string;
-        u64  expect_ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
-                         (sizeof(struct queue_entry) << 1);
+        /* Try both version calculations to handle IJON/non-IJON compatibility */
+        u64  expect_ver_no_ijon = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
+                                 (sizeof(struct queue_entry) << 1);
+        u64  expect_ver_with_ijon = expect_ver_no_ijon + sizeof(u32) + sizeof(ijon_fastresume_state_t);
+        
 
         if (NZLIBREAD(fr_fd, ver_string, sizeof(ver_string)) !=
-            sizeof(ver_string))
+            sizeof(ver_string)) {
           WARNF("Empty fastresume.bin, ignoring, cannot perform FAST RESUME");
-        else if (expect_ver != *ver)
-          WARNF(
-              "Different AFL++ version or feature usage, cannot perform FAST "
-              "RESUME");
-        else {
+        } else {
+          if (*ver != expect_ver_no_ijon && *ver != expect_ver_with_ijon) {
+            WARNF(
+                "Different AFL++ version or feature usage, cannot perform FAST "
+                "RESUME");
+          } else {
 
           OKF("Will perform FAST RESUME");
           fast_resume = 1;
+          
+          /* Detect if this is an IJON fastresume file */
+          is_ijon_fastresume = (*ver == expect_ver_with_ijon);
 
+          }
         }
 
       } else {
 
         ACTF("fastresume.bin not found, cannot perform FAST RESUME!");
+        /* Clear any saved IJON state since we're not doing fastresume */
+        if (afl->fsrv.use_ijon) {
+          clear_saved_ijon_state();
+        }
 
       }
 
@@ -2615,19 +2628,45 @@ int main(int argc, char **argv_orig, char **envp) {
       FATAL("target forkserver reports too small map for IJON - BUG!");
     }
 
-    map_size -= MAP_SIZE_IJON_BYTES;
-    afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
-    afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES;
+    /* Skip map size reduction during fastresume - target already configured correctly */
+    if (!fast_resume) {
+      map_size -= MAP_SIZE_IJON_BYTES;
+      afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
+      afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES;
+    }
 
-    u32 ijon_offset = afl->fsrv.map_size;
+    /* Calculate IJON offset based on mode */
+    u32 ijon_offset;
+    if (!fast_resume) {
+      /* Normal mode: use reduced map_size */
+      ijon_offset = afl->fsrv.map_size;
+    } else {
+      /* FastResume mode: use saved offset from comprehensive state */
+      if (has_saved_ijon_state()) {
+        ijon_offset = get_saved_ijon_state()->ijon_offset;
+      } else {
+        /* Fallback: calculate from unreduced map_size */
+        ijon_offset = afl->fsrv.map_size - MAP_SIZE_IJON_BYTES;
+      }
+    }
     afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + ijon_offset);
     char *max_dir = alloc_printf("%s/ijon_max", afl->out_dir);
     
     afl->ijon_state = new_ijon_min_state(max_dir);
     ck_free(max_dir);
 
+
+    if (!has_saved_ijon_state() && !fast_resume) {
+      u32 correct_ijon_offset = afl->fsrv.real_map_size - MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP;
+      u32 target_map_size = afl->fsrv.real_map_size + MAP_SIZE_IJON_BYTES + MAP_SIZE_IJON_MAP;
+      save_ijon_state_for_fastresume(correct_ijon_offset, map_size, afl->fsrv.real_map_size, target_map_size);
+    }
+
     /* from here on out the other forkservers do not need IJON hence we disable it */
-    setenv("AFL_NO_IJON", "1", 1);
+    /* BUT: do not disable IJON during fast resume as we need it for continued fuzzing */
+    if (!fast_resume) {
+      setenv("AFL_NO_IJON", "1", 1);
+    }
 
   }
 
@@ -2838,19 +2877,58 @@ int main(int argc, char **argv_orig, char **envp) {
 
     u64 resume_start = get_cur_time_us();
     // if we get here then we should abort on errors
-    ZLIBREAD(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
-    ZLIBREAD(fr_fd, afl->virgin_tmout, afl->fsrv.map_size, "virgin_tmout");
-    ZLIBREAD(fr_fd, afl->virgin_crash, afl->fsrv.map_size, "virgin_crash");
-    ZLIBREAD(fr_fd, afl->var_bytes, afl->fsrv.map_size, "var_bytes");
+    
+    u32 stored_map_size;
+    if (unlikely(afl->fsrv.use_ijon)) {
+      // Use map_size to match what was saved (both save and load use afl->fsrv.map_size)
+      /* Read the stored map size from the fastresume file */
+      ZLIBREAD(fr_fd, &stored_map_size, sizeof(stored_map_size), "stored_map_size");
+      ZLIBREAD(fr_fd, afl->virgin_bits, stored_map_size, "virgin_bits");
+      ZLIBREAD(fr_fd, afl->virgin_tmout, stored_map_size, "virgin_tmout");
+      ZLIBREAD(fr_fd, afl->virgin_crash, stored_map_size, "virgin_crash");
+      ZLIBREAD(fr_fd, afl->var_bytes, stored_map_size, "var_bytes");
+      
+      /* Only load IJON state if this was an IJON fastresume file */
+      if (is_ijon_fastresume) {
+        ijon_fastresume_state_t saved_ijon_state;
+        
+        /* Initialize with known pattern to detect read issues */
+        memset(&saved_ijon_state, 0xAA, sizeof(saved_ijon_state));
+        
+        ZLIBREAD(fr_fd, &saved_ijon_state, sizeof(ijon_fastresume_state_t), "ijon_state");       
+        
+        if (saved_ijon_state.is_initialized) {
+          /* Fast resume: Use the exact same IJON offset that was saved (binary hasn't changed) */
+          save_ijon_state_for_fastresume(saved_ijon_state.ijon_offset, saved_ijon_state.map_size, 
+                                         saved_ijon_state.real_map_size, saved_ijon_state.target_map_size);
+          
+          /* Update afl->ijon_bits pointer with the correct saved offset */
+          afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + saved_ijon_state.ijon_offset);
+        }
+      }
+    } else {
+      /* Read the stored map size from the fastresume file (same as IJON path) */
+      ZLIBREAD(fr_fd, &stored_map_size, sizeof(stored_map_size), "stored_map_size");
+      ZLIBREAD(fr_fd, afl->virgin_bits, stored_map_size, "virgin_bits");
+      ZLIBREAD(fr_fd, afl->virgin_tmout, stored_map_size, "virgin_tmout");
+      ZLIBREAD(fr_fd, afl->virgin_crash, stored_map_size, "virgin_crash");
+      ZLIBREAD(fr_fd, afl->var_bytes, stored_map_size, "var_bytes");
+    }
 
     u8                  res[1] = {0};
     u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
     u8                 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
-    u32                 r = 8 + afl->fsrv.map_size * 4;
+    
+    // Use stored map size for queue reading calculations (matches what was saved)
+    u32                 r, m_len;
+    u32 queue_map_size = stored_map_size;  // Use the map size that was used during save
+    r = 8 + sizeof(u32) + queue_map_size * 4;  /* +sizeof(u32) for map_size field */
+    m_len = ((queue_map_size + 7) >> 3);
+    
     u32                 q_len = o_end - o_start;
-    u32                 m_len = ((afl->fsrv.map_size + 7) >> 3);
     struct queue_entry *q;
 
+    
     for (u32 i = 0; i < afl->queued_items; i++) {
 
       q = afl->queue_buf[i];
@@ -2892,11 +2970,28 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    
     u8 buf[4];
-    if (NZLIBREAD(fr_fd, buf, 3) > 0) {
-
-      FATAL("invalid trailing data in fastresume.bin");
-
+    int trailing_bytes = NZLIBREAD(fr_fd, buf, 3);
+    if (trailing_bytes > 0) {
+      
+      // Check if trailing bytes are just ZLIB padding (all zeros) - only for IJON mode
+      if (is_ijon_fastresume) {
+        u8 all_zeros = 1;
+        for (int i = 0; i < trailing_bytes; i++) {
+          if (buf[i] != 0) {
+            all_zeros = 0;
+            break;
+          }
+        }
+        
+        if (!all_zeros || trailing_bytes > 4) {
+          FATAL("invalid trailing data in fastresume.bin");
+        }
+      } else {
+        // Non-IJON mode - strict check, no tolerance for trailing data
+        FATAL("invalid trailing data in fastresume.bin");
+      }
     }
 
     OKF("Successfully loaded fastresume.bin (%u bytes)!", r);
@@ -3578,15 +3673,47 @@ stop_fuzzing:
       u8   ver_string[8];
       u32  w = 0;
       u64 *ver = (u64 *)ver_string;
+      /* Include IJON state size in version only when IJON is used */
       *ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
-             (sizeof(struct queue_entry) << 1);
-
+             (sizeof(struct queue_entry) << 1) +
+             (afl->fsrv.use_ijon ? sizeof(u32) + sizeof(ijon_fastresume_state_t) : 0);
+      
       ZLIBWRITE(fr_fd, ver_string, sizeof(ver_string), "ver_string");
+      
+      /* Write the map size first so it can be read during load */
+      ZLIBWRITE(fr_fd, &afl->fsrv.map_size, sizeof(afl->fsrv.map_size), "map_size");
+      
       ZLIBWRITE(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
       ZLIBWRITE(fr_fd, afl->virgin_tmout, afl->fsrv.map_size, "virgin_tmout");
       ZLIBWRITE(fr_fd, afl->virgin_crash, afl->fsrv.map_size, "virgin_crash");
       ZLIBWRITE(fr_fd, afl->var_bytes, afl->fsrv.map_size, "var_bytes");
-      w += sizeof(ver_string) + afl->fsrv.map_size * 4;
+      
+      /* Save IJON state only when IJON is enabled */
+      if (afl->fsrv.use_ijon) {
+        
+        /* Force IJON state to be saved if not already saved */
+        if (!has_saved_ijon_state()) {
+          /* Calculate current IJON parameters */
+          u32 current_ijon_offset = afl->fsrv.real_map_size + afl->fsrv.map_size;
+          save_ijon_state_for_fastresume(current_ijon_offset, afl->fsrv.map_size, 
+                                         afl->fsrv.real_map_size, afl->fsrv.real_map_size);
+        }
+        
+        ijon_fastresume_state_t* ijon_state = get_saved_ijon_state();
+        if (ijon_state) {
+          
+
+          /* Only update map sizes to current values for consistency with virgin arrays */
+          ijon_state->map_size = afl->fsrv.map_size;
+          ijon_state->real_map_size = afl->fsrv.real_map_size;
+          ijon_state->target_map_size = afl->fsrv.real_map_size;          
+  
+          ZLIBWRITE(fr_fd, ijon_state, sizeof(ijon_fastresume_state_t), "ijon_state");
+          w += sizeof(ijon_fastresume_state_t);
+        }
+      }
+      
+      w += sizeof(ver_string) + sizeof(u32) + afl->fsrv.map_size * 4;  /* +sizeof(u32) for map_size */
 
       u8                  on[1] = {1}, off[1] = {0};
       u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);

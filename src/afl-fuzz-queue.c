@@ -685,10 +685,6 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->fname = fname;
   q->len = len;
 
-  // Debug: Track queue entry creation
-  if (unlikely(afl->debug)) {
-    fprintf(stderr, "[DEBUG add_to_queue] Created %s: len=%u, q=%p\n", fname, len, (void*)q);
-  }
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
   q->trace_mini = NULL;
@@ -1560,10 +1556,6 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
   u32    len = q->len;
   double weight = q->weight;
 
-  // Debug: Log queue entry access for debugging
-  if (unlikely(afl->debug)) {
-    fprintf(stderr, "[DEBUG queue_testcase_get] %s: q->len=%u, q=%p\n", q->fname, q->len, (void*)q);
-  }
 
   // first handle if no testcase cache is configured, or if the
   // weighting of the testcase is below average.

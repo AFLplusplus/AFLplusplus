@@ -29,6 +29,49 @@
 static int afl_ijon_history_limit_global = 0;
 static bool afl_ijon_history_limit_initialized = false;
 
+/* Global comprehensive IJON state for fastresume save/load */
+static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
+static u8 afl_ijon_fastresume_loaded = 0;
+
+/* Functions to save/load comprehensive IJON state for fastresume */
+void save_ijon_state_for_fastresume(u32 offset, u32 map_size, u32 real_map_size, u32 target_map_size) {
+  
+  afl_ijon_fastresume_state.ijon_offset = offset;
+  afl_ijon_fastresume_state.map_size = map_size;
+  afl_ijon_fastresume_state.real_map_size = real_map_size;
+  afl_ijon_fastresume_state.target_map_size = target_map_size;
+  afl_ijon_fastresume_state.is_initialized = 1;
+  afl_ijon_fastresume_loaded = 1;
+  
+}
+
+ijon_fastresume_state_t* get_saved_ijon_state(void) {
+  return afl_ijon_fastresume_loaded ? &afl_ijon_fastresume_state : NULL;
+}
+
+u8 has_saved_ijon_state(void) {
+  return afl_ijon_fastresume_loaded;
+}
+
+void clear_saved_ijon_state(void) {
+  memset(&afl_ijon_fastresume_state, 0, sizeof(ijon_fastresume_state_t));
+  afl_ijon_fastresume_loaded = 0;
+}
+
+/* Legacy functions for backward compatibility */
+void save_ijon_offset_for_fastresume(u32 offset) {
+  afl_ijon_fastresume_state.ijon_offset = offset;
+  afl_ijon_fastresume_loaded = 1;
+}
+
+u32 get_saved_ijon_offset(void) {
+  return afl_ijon_fastresume_state.ijon_offset;
+}
+
+u8 has_saved_ijon_offset(void) {
+  return afl_ijon_fastresume_loaded;
+}
+
 /* Function prototypes */
 void ijon_load_existing_state(ijon_min_state* self);
 
@@ -70,13 +113,13 @@ ijon_min_state* new_ijon_min_state(char* max_dir) {
     self->infos[i] = new_ijon_input_info(max_dir, i);
   }
 
-  /* CRITICAL FIX: Load existing max values from disk */
+  /* Load existing max values from disk */
   ijon_load_existing_state(self);
 
   return self;
 }
 
-/* CRITICAL FIX: Load existing IJON max values from disk */
+/* Load existing IJON max values from disk */
 void ijon_load_existing_state(ijon_min_state* self) {
   struct stat st;
 
@@ -228,7 +271,7 @@ void ijon_store_history_unconditional(ijon_min_state* self, int i, uint8_t* data
     snprintf(temp_history_filename, sizeof(temp_history_filename), "%s.tmp", history_filename);
 
     int fd = open(temp_history_filename, O_CREAT | O_TRUNC | O_WRONLY, 0600);
-    if (fd >= 0) {
+    if (likely(fd >= 0)) {
       ssize_t written = write(fd, data, len);
       close(fd);
 
@@ -270,13 +313,36 @@ void destroy_ijon_min_state(ijon_min_state* self) {
   ck_free(self);
 }
 
-dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_size) {
+dynamic_shared_access_t* setup_dynamic_shared_access(u8 *trace_bits, u32 map_size, u32 real_map_size) {
+  
   dynamic_shared_access_t *access = (dynamic_shared_access_t*)ck_alloc(sizeof(dynamic_shared_access_t));
 
   access->coverage_area = trace_bits;
   access->coverage_size = map_size;
 
-  u32 ijon_offset = map_size - MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP;
+  /* Calculate IJON offset to match target's __afl_map_size calculation
+   * 
+   * Strategy:
+   * 1. If we have a saved offset from fastresume, use it (perfect alignment)
+   * 2. Otherwise, calculate normally and save it for future resume
+   */
+  u32 ijon_offset;
+  
+  if (has_saved_ijon_state()) {
+    /* Resume mode: use the saved state from fastresume.bin */
+    ijon_fastresume_state_t* saved_state = get_saved_ijon_state();
+    ijon_offset = saved_state->ijon_offset;
+  } else {
+    /* Normal mode: calculate offset and save comprehensive state for future resume */
+    ijon_offset = real_map_size - MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP;
+    
+    /* Save all critical values for perfect resume alignment - but only if not already saved */
+    if (!has_saved_ijon_state()) {
+      u32 target_map_size = real_map_size + MAP_SIZE_IJON_BYTES + MAP_SIZE_IJON_MAP;
+      save_ijon_state_for_fastresume(ijon_offset, map_size, real_map_size, target_map_size);
+      
+    }
+  }
   
   access->ijon_offset = ijon_offset; 
   access->ijon_max_area = (u64*)(trace_bits + ijon_offset);
@@ -293,12 +359,8 @@ void cleanup_dynamic_shared_access(dynamic_shared_access_t *access) {
 
 void ijon_update_max_dynamic(ijon_min_state* self, dynamic_shared_access_t* shared, uint8_t* data, size_t len) {
   
-  int non_zero_slots = 0;
   for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
-    if (shared->ijon_max_area[i] > 0) {
-      non_zero_slots++;
-    }
-    
+
     if (shared->ijon_max_area[i] > self->max_map[i]) {
       if (self->max_map[i] == 0) {
         self->num_entries++;
