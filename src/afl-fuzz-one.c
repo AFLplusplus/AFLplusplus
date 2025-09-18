@@ -6277,7 +6277,7 @@ u8 fuzz_one(afl_state_t *afl) {
   }
 
   /* Clear IJON input data for normal fuzzing */
-  if (afl->ijon_input_data) {
+  if (unlikely(afl->ijon_input_data)) {
     ck_free(afl->ijon_input_data);
     afl->ijon_input_data = NULL;
     afl->ijon_input_len = 0;
