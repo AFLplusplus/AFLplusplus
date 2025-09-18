@@ -2415,7 +2415,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         ACTF("fastresume.bin not found, cannot perform FAST RESUME!");
         /* Clear any saved IJON state since we're not doing fastresume */
-        if (afl->fsrv.use_ijon) {
+        if (unlikely(afl->fsrv.use_ijon)) {
           clear_saved_ijon_state();
         }
 
@@ -2616,7 +2616,7 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   /* Set up IJON state if enabled - MOVED here to use correct map size from forkserver handshake */
-  if (afl->fsrv.use_ijon) {
+  if (unlikely(afl->fsrv.use_ijon)) {
 
 #ifdef __linux__
     if (afl->fsrv.nyx_mode) {
@@ -2907,8 +2907,8 @@ int main(int argc, char **argv_orig, char **envp) {
         }
       }
     } else {
-      /* Read the stored map size from the fastresume file (same as IJON path) */
-      ZLIBREAD(fr_fd, &stored_map_size, sizeof(stored_map_size), "stored_map_size");
+      /* Normal fuzzing: use current map_size directly */
+      stored_map_size = afl->fsrv.map_size;
       ZLIBREAD(fr_fd, afl->virgin_bits, stored_map_size, "virgin_bits");
       ZLIBREAD(fr_fd, afl->virgin_tmout, stored_map_size, "virgin_tmout");
       ZLIBREAD(fr_fd, afl->virgin_crash, stored_map_size, "virgin_crash");
@@ -2922,7 +2922,7 @@ int main(int argc, char **argv_orig, char **envp) {
     // Use stored map size for queue reading calculations (matches what was saved)
     u32                 r, m_len;
     u32 queue_map_size = stored_map_size;  // Use the map size that was used during save
-    r = 8 + sizeof(u32) + queue_map_size * 4;  /* +sizeof(u32) for map_size field */
+    r = 8 + (afl->fsrv.use_ijon ? sizeof(u32) : 0) + queue_map_size * 4;  /* +sizeof(u32) for map_size field only in IJON mode */
     m_len = ((queue_map_size + 7) >> 3);
     
     u32                 q_len = o_end - o_start;
@@ -3680,8 +3680,10 @@ stop_fuzzing:
       
       ZLIBWRITE(fr_fd, ver_string, sizeof(ver_string), "ver_string");
       
-      /* Write the map size first so it can be read during load */
-      ZLIBWRITE(fr_fd, &afl->fsrv.map_size, sizeof(afl->fsrv.map_size), "map_size");
+      /* Write the map size first so it can be read during load (IJON only) */
+      if (unlikely(afl->fsrv.use_ijon)) {
+        ZLIBWRITE(fr_fd, &afl->fsrv.map_size, sizeof(afl->fsrv.map_size), "map_size");
+      }
       
       ZLIBWRITE(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
       ZLIBWRITE(fr_fd, afl->virgin_tmout, afl->fsrv.map_size, "virgin_tmout");
@@ -3689,7 +3691,7 @@ stop_fuzzing:
       ZLIBWRITE(fr_fd, afl->var_bytes, afl->fsrv.map_size, "var_bytes");
       
       /* Save IJON state only when IJON is enabled */
-      if (afl->fsrv.use_ijon) {
+      if (unlikely(afl->fsrv.use_ijon)) {
         
         /* Force IJON state to be saved if not already saved */
         if (!has_saved_ijon_state()) {
@@ -3713,7 +3715,7 @@ stop_fuzzing:
         }
       }
       
-      w += sizeof(ver_string) + (afl->fsrv.use_ijon ? sizeof(u32) : 0) + afl->fsrv.map_size * 4;  /* +sizeof(u32) for map_size only in IJON mode */
+      w += sizeof(ver_string) + (afl->fsrv.use_ijon ? sizeof(u32) : 0) + afl->fsrv.map_size * 4;  /* +sizeof(u32) for map_size field only in IJON mode */
 
       u8                  on[1] = {1}, off[1] = {0};
       u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
