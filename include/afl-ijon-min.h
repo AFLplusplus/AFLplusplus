@@ -18,6 +18,7 @@ typedef struct {
   ijon_input_info* infos[MAP_SIZE_IJON_ENTRIES];
   size_t num_entries;
   size_t num_updates;
+  size_t num_total_executions;  /* Total IJON function executions */
   char* max_dir;
   int schedule_prob;
 } ijon_min_state;

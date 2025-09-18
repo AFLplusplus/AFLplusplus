@@ -102,6 +102,7 @@ ijon_min_state* new_ijon_min_state(char* max_dir) {
   self->max_dir = ck_strdup(max_dir);
   self->num_entries = 0;
   self->num_updates = 0;
+  self->num_total_executions = 0;
 
   /* Create the IJON max directory if it doesn't exist */
   if (mkdir(max_dir, 0700) && errno != EEXIST) {
@@ -358,6 +359,9 @@ void cleanup_dynamic_shared_access(dynamic_shared_access_t *access) {
 }
 
 void ijon_update_max_dynamic(ijon_min_state* self, dynamic_shared_access_t* shared, uint8_t* data, size_t len) {
+  
+  /* Count total IJON max function executions */
+  self->num_total_executions++;
   
   for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
 

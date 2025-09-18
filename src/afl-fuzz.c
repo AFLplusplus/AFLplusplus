@@ -3713,7 +3713,7 @@ stop_fuzzing:
         }
       }
       
-      w += sizeof(ver_string) + sizeof(u32) + afl->fsrv.map_size * 4;  /* +sizeof(u32) for map_size */
+      w += sizeof(ver_string) + (afl->fsrv.use_ijon ? sizeof(u32) : 0) + afl->fsrv.map_size * 4;  /* +sizeof(u32) for map_size only in IJON mode */
 
       u8                  on[1] = {1}, off[1] = {0};
       u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);

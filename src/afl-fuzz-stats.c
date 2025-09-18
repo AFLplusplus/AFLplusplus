@@ -1457,9 +1457,16 @@ void show_stats_normal(afl_state_t *afl) {
   if (unlikely(afl->ijon_state)) {
 
     u8 tmp_ijon[64];
-    sprintf(tmp_ijon, ", %zu/%zu", 
-            afl->ijon_state->num_updates, 
-            afl->ijon_state->num_entries);
+    if (afl->ijon_state->num_total_executions > 0) {
+      sprintf(tmp_ijon, ", %.2f%% (%zu/%zu)", 
+              (100.0 * afl->ijon_state->num_updates) / afl->ijon_state->num_total_executions,
+              afl->ijon_state->num_updates, 
+              afl->ijon_state->num_total_executions);
+    } else {
+      sprintf(tmp_ijon, ", %zu/%zu", 
+              afl->ijon_state->num_updates, 
+              afl->ijon_state->num_entries);
+    }
     strcat(tmp, tmp_ijon);
 
   }
