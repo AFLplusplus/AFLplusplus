@@ -2137,7 +2137,7 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   /* Handle IJON max directory - preserve during resume, clean during overwrite */
   fn = alloc_printf("%s/ijon_max", afl->out_dir);
   
-  if (afl->in_place_resume && !access(fn, F_OK)) {
+  if (afl->in_place_resume) {
     /* During resume: preserve IJON directory by renaming (like crashes/hangs) */
     time_t    cur_t = time(0);
     struct tm t;
@@ -2152,13 +2152,9 @@ static void handle_existing_out_dir(afl_state_t *afl) {
 #endif
     rename(fn, nfn);  /* Ignore errors like other directories */
     ck_free(nfn);
-  }
-  
-  /* During overwrite: clean up IJON files */
-  if (!afl->in_place_resume && !access(fn, F_OK)) {
-    if (delete_files(fn, NULL)) {
-      /* IJON directory cleanup failed, but this is not critical - continue */
-    }
+  } else {
+    /* During overwrite: clean up IJON files */
+    delete_files(fn, NULL);  /* Ignore errors - handles non-existence gracefully */
   }
   
   ck_free(fn);
