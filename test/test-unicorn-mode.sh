@@ -5,7 +5,8 @@
 test -f ../unicorn_mode/.venv/bin/activate && { $ECHO "$GREY[*] Loading python venv for Unicorn"; . ../unicorn_mode/.venv/bin/activate ; }
 
 $ECHO "$BLUE[*] Testing: unicorn_mode"
-test -s ../unicorn_mode/lib/libunicornafl.a && {
+DIR=`ls -d ../unicorn_mode/.venv/lib/python*/site-packages/unicorn 2>/dev/null | tail -n 1`
+test -d "$DIR" && {
   test -e ../unicorn_mode/samples/python_simple/simple_target.bin -a -e ../unicorn_mode/samples/compcov_x64/compcov_target.bin && {
     {
       # We want to see python errors etc. in logs, in case something doesn't work
