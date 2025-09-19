@@ -81,9 +81,9 @@ test -s ../unicorn_mode/lib/libunicornafl.a && {
         # If CompCov works, a new tuple will appear in the map => new input in queue
         $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 35 seconds"
         {
-          export AFL_COMPCOV_LEVEL=2
+          export UNICORN_AFL_CMPCOV=1
           ../afl-fuzz -m ${MEM_LIMIT} -V15 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
-          unset AFL_COMPCOV_LEVEL
+          unset UNICORN_AFL_CMPCOV
         } >>errors 2>&1
         test -n "$( ls out/default/crashes/id:000000* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
