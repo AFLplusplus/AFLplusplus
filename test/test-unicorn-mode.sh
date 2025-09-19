@@ -66,7 +66,7 @@ test -d "$DIR" && {
         {
           ../afl-fuzz -m ${MEM_LIMIT} -V15 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/python_simple/simple_test_harness.py @@ >>errors 2>&1
         } >>errors 2>&1
-        test -n "$( ls out/default/queue/id:000000* 2>/dev/null )" && {
+        test -n "$( ls out/default/queue/id:000002* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode"
         } || {
           echo CUT------------------------------------------------------------------CUT
@@ -93,6 +93,22 @@ test -d "$DIR" && {
           cat errors
           echo CUT------------------------------------------------------------------CUT
           $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode compcov"
+          CODE=1
+        }
+        rm -rf out errors
+
+        printf '\x01\x01' > in/in
+        $ECHO "$GREY[*] running afl-fuzz for unicorn_mode cmplog, this will take approx 25 seconds"
+        {
+          ../afl-fuzz -m ${MEM_LIMIT} -V15 -U -i in -o out -d -c 0 -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
+        } >>errors 2>&1
+        test -n "$( ls out/default/crashes/id:000000* 2>/dev/null )" && {
+          $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode cmplog"
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+          $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode cmplog"
           CODE=1
         }
         rm -rf in out errors
