@@ -369,7 +369,7 @@ man:    $(MANPAGES)
 test:	tests
 
 .PHONY: tests
-tests:	source-only
+tests:	source-only binary-only
 	@cd test ; ./test-all.sh
 	@rm -f test/errors
 
