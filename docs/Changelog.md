@@ -14,10 +14,12 @@
   - qemu_mode:
     - fix compilation for a few platforms
   - afl-cc:
+    - enable LLVM 22
     - fix a offset calculation bug in AFL++ PCGUARD
     - make AFL_DUMP_MAP_SIZE work for CLASSIC modes
     - fix a crash when running with LLVM 20 when compiling PCGUARD with LTO
-    - Fix deprecation warnings for LLVM 20+
+    - fix deprecation warnings for LLVM 20+
+    - fix 128 bit support for cmplog-switches pass
     - skip blocks for instrumentation that are already instrumented
   - Building:
     - new NO_UNICORN and NO_QEMU and NO_FRIDA build options

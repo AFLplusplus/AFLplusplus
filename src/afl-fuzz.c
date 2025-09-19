@@ -1280,7 +1280,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->unicorn_mode) { FATAL("Multiple -U options not supported"); }
         afl->unicorn_mode = 1;
         afl->fsrv.unicorn_mode = 1;
-  
+
         if (!mem_limit_given) { afl->fsrv.mem_limit = MEM_LIMIT_UNICORN; }
 
         break;
