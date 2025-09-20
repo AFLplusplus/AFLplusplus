@@ -45,7 +45,7 @@ using namespace fuzzer;
   #endif  // LIBFUZZER_MSVC
 
 extern "C" {
-\
+
   #define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN)         \
     RETURN_TYPE NAME##Def FUNC_SIG {                          \
                                                               \
@@ -79,7 +79,7 @@ static T *GetFnPtr(T *Fun, T *FunDef, const char *FnName, bool WarnIfMissing) {
 namespace fuzzer {
 
 ExternalFunctions::ExternalFunctions() {
-\
+
   #define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN) \
     this->NAME = GetFnPtr<decltype(::NAME)>(::NAME, ::NAME##Def, #NAME, WARN);
 

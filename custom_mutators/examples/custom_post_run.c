@@ -2,13 +2,11 @@
 // This is an example on how to use afl_custom_post_run
 // It executes custom code each time after AFL++ executes the target
 //
-// cc -O3 -fPIC -shared -g -o custom_post_run.so -I../../include custom_post_run.c
-// cd ../..
-// afl-cc -o test-instr test-instr.c
+// cc -O3 -fPIC -shared -g -o custom_post_run.so -I../../include
+// custom_post_run.c cd ../.. afl-cc -o test-instr test-instr.c
 // AFL_CUSTOM_MUTATOR_LIBRARY=custom_mutators/examples/custom_post_run.so \
 //   afl-fuzz -i in -o out -- ./test-instr -f /tmp/foo
 //
-
 
 #include "afl-fuzz.h"
 
@@ -43,8 +41,8 @@ void afl_custom_post_run(my_mutator_t *data) {
 
   printf("hello from afl_custom_post_run\n");
   return;
-}
 
+}
 
 void afl_custom_deinit(my_mutator_t *data) {
 

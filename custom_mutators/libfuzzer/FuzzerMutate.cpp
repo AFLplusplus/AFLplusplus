@@ -28,7 +28,7 @@ static void PrintASCII(const Word &W, const char *PrintAfter) {
 
 }
 
-MutationDispatcher::MutationDispatcher(Random &              Rand,
+MutationDispatcher::MutationDispatcher(Random               &Rand,
                                        const FuzzingOptions &Options)
     : Rand(Rand), Options(Options) {
 
@@ -92,7 +92,7 @@ size_t MutationDispatcher::Mutate_CustomCrossOver(uint8_t *Data, size_t Size,
   const Unit &Other = *CrossOverWith;
   if (Other.empty()) return 0;
   CustomCrossOverInPlaceHere.resize(MaxSize);
-  auto & U = CustomCrossOverInPlaceHere;
+  auto  &U = CustomCrossOverInPlaceHere;
   size_t NewSize = EF->LLVMFuzzerCustomCrossOver(
       Data, Size, Other.data(), Other.size(), U.data(), U.size(), Rand.Rand());
   if (!NewSize) return 0;
@@ -102,17 +102,19 @@ size_t MutationDispatcher::Mutate_CustomCrossOver(uint8_t *Data, size_t Size,
 
 }
 
-
 size_t MutationDispatcher::Mutate_ShuffleBytes(uint8_t *Data, size_t Size,
                                                size_t MaxSize) {
+
   if (Size > MaxSize || Size == 0) return 0;
   size_t ShuffleAmount =
       Rand(std::min(Size, (size_t)8)) + 1;  // [1,8] and <= Size.
   size_t ShuffleStart = Rand(Size - ShuffleAmount);
   assert(ShuffleStart + ShuffleAmount <= Size);
   unsigned num = std::chrono::system_clock::now().time_since_epoch().count();
-  std::shuffle(Data + ShuffleStart, Data + ShuffleStart + ShuffleAmount, std::default_random_engine(num));
-  //std::shuffle(Data + ShuffleStart, Data + ShuffleStart + ShuffleAmount, Rand);
+  std::shuffle(Data + ShuffleStart, Data + ShuffleStart + ShuffleAmount,
+               std::default_random_engine(num));
+  // std::shuffle(Data + ShuffleStart, Data + ShuffleStart + ShuffleAmount,
+  // Rand);
   return Size;
 
 }
@@ -230,7 +232,7 @@ DictionaryEntry MutationDispatcher::MakeDictionaryEntryFromCMP(
     size_t Size) {
 
   bool           HandleFirst = Rand.RandBool();
-  const void *   ExistingBytes, *DesiredBytes;
+  const void    *ExistingBytes, *DesiredBytes;
   Word           W;
   const uint8_t *End = Data + Size;
   for (int Arg = 0; Arg < 2; Arg++) {
@@ -619,11 +621,11 @@ const char *MutationDispatcher::WriteMutationSequence() {
   buf = "";
 
   for (size_t i = 0; i < CurrentMutatorSequence.size(); i++) {
-  
+
     buf = buf + " " + CurrentMutatorSequence[i].Name;
-  
+
   }
-  
+
   return buf.c_str();
 
 }

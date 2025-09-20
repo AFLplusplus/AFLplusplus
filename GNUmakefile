@@ -369,7 +369,7 @@ man:    $(MANPAGES)
 test:	tests
 
 .PHONY: tests
-tests:	source-only
+tests:	source-only binary-only
 	@cd test ; ./test-all.sh
 	@rm -f test/errors
 
@@ -729,7 +729,7 @@ ifndef NO_QEMU
 	-cd qemu_mode && sh ./build_qemu_support.sh
 endif
 ifndef NO_UNICORN
-	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
 endif
 endif
 
@@ -761,7 +761,7 @@ ifndef NO_QEMU
 	-cd qemu_mode && sh ./build_qemu_support.sh
 endif
 ifndef NO_UNICORN
-	-cd unicorn_mode && unset CFLAGS && sh ./build_unicorn_support.sh
+	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
 endif
 endif
 	@echo
@@ -781,7 +781,7 @@ endif
 endif
 	@test -e afl-qemu-trace && echo "[+] qemu_mode successfully built" || echo "[-] qemu_mode could not be built, see docs/INSTALL.md for what is needed"
 ifndef NO_UNICORN
-	@test -e unicorn_mode/unicornafl/build_python/libunicornafl.so && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
+	@test -e unicorn_mode/lib/libunicorn.a && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
 endif
 endif
 	@echo

@@ -1,6 +1,6 @@
 // This simple example just creates random buffer <= 100 filled with 'A'
 // needs -I /path/to/AFLplusplus/include
-//#include "custom_mutator_helpers.h"
+// #include "custom_mutator_helpers.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -16,13 +16,13 @@ typedef struct my_mutator {
 
   afl_state_t *afl;
 
-  u8 *   mutator_buf;
-  u8 *   unparsed_input;
+  u8    *mutator_buf;
+  u8    *unparsed_input;
   Array *mutated_walk;
   Array *orig_walk;
 
   IdxMap_new *statemap;  // Keeps track of the statemap
-  UT_array ** recurIdx;
+  UT_array  **recurIdx;
   // Get_Dupes_Ret* getdupesret; // Recursive feature map
   int recurlen;
 
@@ -38,8 +38,8 @@ typedef struct my_mutator {
 state *create_pda(u8 *automaton_file) {
 
   struct json_object *parsed_json;
-  state *             pda;
-  json_object *       source_obj, *attr;
+  state              *pda;
+  json_object        *source_obj, *attr;
   int                 arraylen, ii, ii2, trigger_len, error;
 
   printf("\n[GF] Automaton file passed:%s", automaton_file);
@@ -71,7 +71,7 @@ state *create_pda(u8 *automaton_file) {
   enum json_type type;
   json_object_object_foreach(source_obj, key, val) {
 
-    state *  state_ptr;
+    state   *state_ptr;
     trigger *trigger_ptr;
     int      offset;
 
@@ -215,7 +215,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
     struct queue_entry *q = data->afl->queue_buf[tid];
 
     // Read the input representation for the splice candidate
-    u8 *   automaton_fn = alloc_printf("%s.aut", q->fname);
+    u8    *automaton_fn = alloc_printf("%s.aut", q->fname);
     Array *spliceCandidate = read_input(pda, automaton_fn);
 
     if (spliceCandidate) {
@@ -265,12 +265,12 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
  * @param filename_new_queue File name of the new queue entry
  * @param filename_orig_queue File name of the original queue entry
  */
-u8 afl_custom_queue_new_entry(my_mutator_t * data,
+u8 afl_custom_queue_new_entry(my_mutator_t  *data,
                               const uint8_t *filename_new_queue,
                               const uint8_t *filename_orig_queue) {
 
   // get the filename
-  u8 *   automaton_fn, *unparsed_input;
+  u8    *automaton_fn, *unparsed_input;
   Array *new_input;
   s32    fd;
 
@@ -327,9 +327,9 @@ u8 afl_custom_queue_new_entry(my_mutator_t * data,
 uint8_t afl_custom_queue_get(my_mutator_t *data, const uint8_t *filename) {
 
   // get the filename
-  u8 *        automaton_fn = alloc_printf("%s.aut", filename);
+  u8         *automaton_fn = alloc_printf("%s.aut", filename);
   IdxMap_new *statemap_ptr;
-  terminal *  term_ptr;
+  terminal   *term_ptr;
   int         state;
 
   // TODO: I don't think we need to update pointers when reading back

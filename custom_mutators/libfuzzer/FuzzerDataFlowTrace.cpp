@@ -136,7 +136,7 @@ void DataFlowTrace::ReadCoverage(const std::string &DirPath) {
 
 }
 
-static void DFTStringAppendToVector(Vector<uint8_t> *  DFT,
+static void DFTStringAppendToVector(Vector<uint8_t>   *DFT,
                                     const std::string &DFTString) {
 
   assert(DFT->size() == DFTString.size());
@@ -246,8 +246,7 @@ bool DataFlowTrace::Init(const std::string &DirPath, std::string *FocusFunction,
 
   }
 
-  if (FocusFuncIdx == SIZE_MAX || Files.size() <= 1)
-    return false;
+  if (FocusFuncIdx == SIZE_MAX || Files.size() <= 1) return false;
 
   // Read traces.
   size_t NumTraceFiles = 0;
@@ -314,9 +313,9 @@ int CollectDataFlow(const std::string &DFTBinary, const std::string &DirPath,
     // we then request tags in [0,Size/2) and [Size/2, Size), and so on.
     // Function number => DFT.
     auto OutPath = DirPlusFile(DirPath, Hash(FileToVector(F.File)));
-//    std::unordered_map<size_t, Vector<uint8_t>> DFTMap;
-//    std::unordered_set<std::string>             Cov;
-    Command                                     Cmd;
+    //    std::unordered_map<size_t, Vector<uint8_t>> DFTMap;
+    //    std::unordered_set<std::string>             Cov;
+    Command Cmd;
     Cmd.addArgument(DFTBinary);
     Cmd.addArgument(F.File);
     Cmd.addArgument(OutPath);

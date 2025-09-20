@@ -906,6 +906,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!mem_limit_given) { mem_limit = MEM_LIMIT_UNICORN; }
 
         unicorn_mode = 1;
+        fsrv.unicorn_mode = 1;
         fsrv.mem_limit = mem_limit;
         break;
 

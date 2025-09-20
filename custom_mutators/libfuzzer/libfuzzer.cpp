@@ -2,12 +2,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-//#include "config.h"
-//#include "debug.h"
+// #include "config.h"
+// #include "debug.h"
 #include "afl-fuzz.h"
 
-#ifdef  INTROSPECTION
-  const char *introspection_ptr;
+#ifdef INTROSPECTION
+const char *introspection_ptr;
 #endif
 
 afl_state_t *afl_struct;
@@ -23,7 +23,7 @@ extern "C" void   LLVMFuzzerMyInit(int (*UserCb)(const uint8_t *Data,
 typedef struct my_mutator {
 
   afl_state_t *afl;
-  u8 *         mutator_buf;
+  u8          *mutator_buf;
   unsigned int seed;
   unsigned int extras_cnt, a_extras_cnt;
 
@@ -140,12 +140,13 @@ extern "C" size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf,
 
 }
 
-#ifdef  INTROSPECTION
-extern "C" const char* afl_custom_introspection(my_mutator_t *data) {
+#ifdef INTROSPECTION
+extern "C" const char *afl_custom_introspection(my_mutator_t *data) {
 
   return introspection_ptr;
 
 }
+
 #endif
 
 /**

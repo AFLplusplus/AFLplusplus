@@ -4,12 +4,11 @@ ifdef debug
 	CC := clang
 	CXX := clang++
 endif
-ifdef DEBUG
-	CPPFLAGS += -fsanitize=address
-	CXXFLAGS += -Wall
-	CC := clang
-	CXX := clang++
-endif
+
+CC = cc
+CXX = c++
+CXXFLAGS += -flto=full
+
 
 all:	autotokens.so
 

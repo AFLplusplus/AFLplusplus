@@ -37,7 +37,8 @@ void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  if (!fsrv->qemu_mode && !fsrv->frida_mode && argv[0] != fsrv->cmplog_binary) {
+  if (!fsrv->unicorn_mode && !fsrv->qemu_mode && !fsrv->frida_mode &&
+      argv[0] != fsrv->cmplog_binary) {
 
     fsrv->target_path = argv[0] = fsrv->cmplog_binary;
 

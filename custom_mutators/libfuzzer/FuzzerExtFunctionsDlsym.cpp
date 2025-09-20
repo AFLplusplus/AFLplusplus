@@ -44,7 +44,7 @@ static T GetFnPtr(const char *FnName, bool WarnIfMissing) {
 namespace fuzzer {
 
 ExternalFunctions::ExternalFunctions() {
-\
+
   #define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN) \
     this->NAME = GetFnPtr<decltype(ExternalFunctions::NAME)>(#NAME, WARN)
 

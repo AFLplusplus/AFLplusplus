@@ -53,17 +53,17 @@ namespace fuzzer {
 // Program arguments.
 struct FlagDescription {
 
-  const char *  Name;
-  const char *  Description;
+  const char   *Name;
+  const char   *Description;
   int           Default;
-  int *         IntFlag;
-  const char ** StrFlag;
+  int          *IntFlag;
+  const char  **StrFlag;
   unsigned int *UIntFlag;
 
 };
 
 struct {
-\
+
 #define FUZZER_DEPRECATED_FLAG(Name)
 #define FUZZER_FLAG_INT(Name, Default, Description) int Name;
 #define FUZZER_FLAG_UNSIGNED(Name, Default, Description) unsigned int Name;
@@ -76,12 +76,14 @@ struct {
 
 } Flags;
 
-static const FlagDescription FlagDescriptions[]{
-\
-#define FUZZER_DEPRECATED_FLAG(Name) \
-  {#Name, "Deprecated; don't use", 0, nullptr, nullptr, nullptr},
-#define FUZZER_FLAG_INT(Name, Default, Description) \
-  {#Name, Description, Default, &Flags.Name, nullptr, nullptr},
+static const FlagDescription FlagDescriptions[] {
+
+#define FUZZER_DEPRECATED_FLAG(Name)                               \
+  { #Name, "Deprecated; don't use", 0, nullptr, nullptr, nullptr } \
+  ,
+#define FUZZER_FLAG_INT(Name, Default, Description)              \
+  { #Name, Description, Default, &Flags.Name, nullptr, nullptr } \
+  ,
 #define FUZZER_FLAG_UNSIGNED(Name, Default, Description) \
   {#Name,   Description, static_cast<int>(Default),      \
    nullptr, nullptr,     &Flags.Name},
@@ -99,7 +101,7 @@ static const size_t kNumFlags =
     sizeof(FlagDescriptions) / sizeof(FlagDescriptions[0]);
 
 static Vector<std::string> *Inputs;
-static std::string *        ProgName;
+static std::string         *ProgName;
 
 static void PrintHelp() {
 
@@ -235,7 +237,7 @@ static bool ParseOneFlag(const char *Param) {
 
 // We don't use any library to minimize dependencies.
 static void ParseFlags(const Vector<std::string> &Args,
-                       const ExternalFunctions *  EF) {
+                       const ExternalFunctions   *EF) {
 
   for (size_t F = 0; F < kNumFlags; F++) {
 
@@ -433,7 +435,7 @@ static std::string GetDedupTokenFromCmdOutput(const std::string &S) {
 }
 
 int CleanseCrashInput(const Vector<std::string> &Args,
-                      const FuzzingOptions &     Options) {
+                      const FuzzingOptions      &Options) {
 
   if (Inputs->size() != 1 || !Flags.exact_artifact_path) {
 
@@ -506,7 +508,7 @@ int CleanseCrashInput(const Vector<std::string> &Args,
 }
 
 int MinimizeCrashInput(const Vector<std::string> &Args,
-                       const FuzzingOptions &     Options) {
+                       const FuzzingOptions      &Options) {
 
   if (Inputs->size() != 1) {
 
@@ -973,9 +975,9 @@ int FuzzerDriver(int *argc, char ***argv, UserCallback Callback) {
   }
 
   Random Rand(Seed);
-  auto * MD = new MutationDispatcher(Rand, Options);
-  auto * Corpus = new InputCorpus(Options.OutputCorpus, Entropic);
-  auto * F = new Fuzzer(Callback, *Corpus, *MD, Options);
+  auto  *MD = new MutationDispatcher(Rand, Options);
+  auto  *Corpus = new InputCorpus(Options.OutputCorpus, Entropic);
+  auto  *F = new Fuzzer(Callback, *Corpus, *MD, Options);
 
   for (auto &U : Dictionary)
     if (U.size() <= Word::GetMaxSize())

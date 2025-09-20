@@ -175,7 +175,7 @@ typedef struct aflcc_state {
   u8 cmplog_mode;
 
   u8 have_instr_env, have_gcc, have_clang, have_llvm, have_gcc_plugin, have_lto,
-      have_optimized_pcguard, have_instr_list;
+      have_optimized_pcguard, have_instr_list, wnoerror;
 
   u8 fortify_set, x_set, bit_mode, preprocessor_only, have_unroll, have_o,
       have_pic, have_c, shared_linking, partial_linking, non_dash, have_fp,
@@ -246,7 +246,7 @@ static inline void load_llvm_pass(aflcc_state_t *aflcc, u8 *pass) {
 
   if (getenv("AFL_LLVM_ONLY_FSRV")) {
 
-    if (!be_quiet) { DEBUGF("SAND: Coverage instrumentation disabled\n"); }
+    if (!be_quiet) { DEBUGF("Coverage instrumentation disabled\n"); }
     return;
 
   }
@@ -368,6 +368,8 @@ void aflcc_state_init(aflcc_state_t *aflcc, u8 *argv0) {
     be_quiet = 1;
 
   }
+
+  if (getenv("AFL_LLVM_NO_ERROR")) { aflcc->wnoerror = 1; }
 
   if ((getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) && (!aflcc->debug)) {
 
@@ -2830,10 +2832,7 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
     else
       final_ = PARAM_DROP;
 
-  } else if (!strncmp(cur_argv, "-stdlib=", 8) &&
-
-             (aflcc->compiler_mode == GCC ||
-              aflcc->compiler_mode == GCC_PLUGIN)) {
+  } else if (!strcmp(cur_argv, "-Werror") && aflcc->wnoerror) {
 
     if (scan) {
 
@@ -2846,15 +2845,53 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
     }
 
-  } else if (cur_argv[0] != '-') {
+  } else
 
-    /* It's a weak, loose pattern, with very different purpose
-     than others. We handle it at last, cautiously and robustly. */
+      if (!strncmp(cur_argv, "-stdlib=", 8) &&
 
-    if (scan && cur_argv[0] != '@')  // response file support
-      aflcc->non_dash = 1;
+          (aflcc->compiler_mode == GCC || aflcc->compiler_mode == GCC_PLUGIN)) {
 
-  }
+    if (scan) {
+
+      final_ = PARAM_SCAN;
+
+    } else {
+
+      if (!be_quiet) WARNF("Found '%s' - stripping!", cur_argv);
+      final_ = PARAM_DROP;
+
+    }
+
+  } else
+
+    /* args we want to remove that are gcc specific when we use clang */
+
+    if ((!strcmp(cur_argv,
+
+                 "-Wno-missing-template-arg-list-after-template-kw") ||
+         !strcmp(cur_argv, "-Wno-dangling-assignment-gsl")) &&
+
+        (aflcc->compiler_mode != GCC && aflcc->compiler_mode != GCC_PLUGIN)) {
+
+      if (scan) {
+
+        final_ = PARAM_SCAN;
+
+      } else {
+
+        final_ = PARAM_DROP;
+
+      }
+
+    } else if (cur_argv[0] != '-') {
+
+      /* It's a weak, loose pattern, with very different purpose
+       than others. We handle it at last, cautiously and robustly. */
+
+      if (scan && cur_argv[0] != '@')  // response file support
+        aflcc->non_dash = 1;
+
+    }
 
 #undef SCAN_KEEP
 
@@ -2994,6 +3031,7 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
           "  AFL_DONT_OPTIMIZE: disable optimization instead of -O3\n"
           "  AFL_NO_BUILTIN: no builtins for string compare functions (for "
           "libtokencap.so)\n"
+          "  AFL_LLVM_NO_ERROR: strip out -Werror\n"
           "  AFL_NOOPT: behave like a normal compiler (to pass configure "
           "tests)\n"
           "  AFL_PATH: path to instrumenting pass and runtime  "
@@ -3566,8 +3604,6 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
       load_llvm_pass(aflcc, "injection-pass.so");
 
     }
-
-    // insert_param(aflcc, "-Qunused-arguments");
 
   }
 

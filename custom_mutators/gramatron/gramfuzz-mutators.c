@@ -36,12 +36,12 @@ UT_icd intpair_icd = {sizeof(intpair_t), NULL, NULL, NULL};
 Array *performSpliceOne(Array *originput, IdxMap_new *statemap_orig,
                         Array *splicecand) {
 
-  UT_array * stateptr, *pairs;
+  UT_array  *stateptr, *pairs;
   intpair_t  ip;
   intpair_t *cand;
 
   terminal *term_ptr;
-  Array *   prefix;
+  Array    *prefix;
   int       state;
 
   // Initialize the dynamic holding the splice indice pairs
@@ -58,7 +58,8 @@ Array *performSpliceOne(Array *originput, IdxMap_new *statemap_orig,
     int length = utarray_len(stateptr);
     if (length) {
 
-      int *splice_idx = (int *)utarray_eltptr(stateptr, rand_below(global_afl, length));
+      int *splice_idx =
+          (int *)utarray_eltptr(stateptr, rand_below(global_afl, length));
       ip.orig_idx = *splice_idx;
       ip.splice_idx = x;
       utarray_push_back(pairs, &ip);
@@ -88,9 +89,9 @@ UT_array **get_dupes(Array *input, int *recur_len) {
   // Variables related to finding duplicates
   int         offset = 0;
   int         state;
-  terminal *  term_ptr;
+  terminal   *term_ptr;
   IdxMap_new *idxMapPtr;
-  UT_array ** recurIdx;
+  UT_array  **recurIdx;
 
   // Declare the Recursive Map Table
   IdxMap_new *idxmapStart =
@@ -165,9 +166,9 @@ Array *doMult(Array *input, UT_array **recur, int recurlen) {
   int       idx = rand_below(global_afl, recurlen);
   UT_array *recurMap = recur[idx];
   UT_array *recurPtr;
-  Array *   prefix;
-  Array *   postfix;
-  Array *   feature;
+  Array    *prefix;
+  Array    *postfix;
+  Array    *feature;
 
   // Choose two indices to get the recursive feature
   int recurIndices = utarray_len(recurMap);

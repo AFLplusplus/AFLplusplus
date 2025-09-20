@@ -45,7 +45,7 @@ static Stats ParseFinalStatsFromLog(const std::string &LogPath) {
   struct {
 
     const char *Name;
-    size_t *    Var;
+    size_t     *Var;
 
   } NameVarPairs[] = {
 
@@ -111,7 +111,7 @@ struct GlobalEnv {
   Set<uint32_t>                         Features, Cov;
   Set<std::string>                      FilesWithDFT;
   Vector<std::string>                   Files;
-  Random *                              Rand;
+  Random                               *Rand;
   std::chrono::system_clock::time_point ProcessStartTime;
   int                                   Verbosity = 0;
 

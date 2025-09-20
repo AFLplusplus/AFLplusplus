@@ -980,7 +980,7 @@ static void mangle_Resize(run_t *run, bool printable) {
 
 void mangle_mangleContent(run_t *run, int speed_factor) {
 
-  static void (*const mangleFuncs[])(run_t * run, bool printable) = {
+  static void (*const mangleFuncs[])(run_t *run, bool printable) = {
 
       mangle_Shrink,    mangle_Expand,         mangle_Bit,
       mangle_IncByte,   mangle_DecByte,        mangle_NegByte,

@@ -152,7 +152,7 @@ size_t Merger::ApproximateMemoryConsumption() const {
 // Decides which files need to be merged (add those to NewFiles).
 // Returns the number of new features added.
 size_t Merger::Merge(const Set<uint32_t> &InitialFeatures,
-                     Set<uint32_t> *      NewFeatures,
+                     Set<uint32_t>       *NewFeatures,
                      const Set<uint32_t> &InitialCov, Set<uint32_t> *NewCov,
                      Vector<std::string> *NewFiles) {
 
@@ -171,7 +171,7 @@ size_t Merger::Merge(const Set<uint32_t> &InitialFeatures,
   // Remove all features that we already know from all other inputs.
   for (size_t i = NumFilesInFirstCorpus; i < Files.size(); i++) {
 
-    auto &           Cur = Files[i].Features;
+    auto            &Cur = Files[i].Features;
     Vector<uint32_t> Tmp;
     std::set_difference(Cur.begin(), Cur.end(), AllFeatures.begin(),
                         AllFeatures.end(), std::inserter(Tmp, Tmp.begin()));
@@ -311,9 +311,9 @@ void Fuzzer::CrashResistantMergeInternalStep(const std::string &CFPath) {
 
 }
 
-static size_t WriteNewControlFile(const std::string &          CFPath,
-                                  const Vector<SizedFile> &    OldCorpus,
-                                  const Vector<SizedFile> &    NewCorpus,
+static size_t WriteNewControlFile(const std::string           &CFPath,
+                                  const Vector<SizedFile>     &OldCorpus,
+                                  const Vector<SizedFile>     &NewCorpus,
                                   const Vector<MergeFileInfo> &KnownFiles) {
 
   std::unordered_set<std::string> FilesToSkip;
@@ -354,11 +354,11 @@ static size_t WriteNewControlFile(const std::string &          CFPath,
 
 // Outer process. Does not call the target code and thus should not fail.
 void CrashResistantMerge(const Vector<std::string> &Args,
-                         const Vector<SizedFile> &  OldCorpus,
-                         const Vector<SizedFile> &  NewCorpus,
-                         Vector<std::string> *      NewFiles,
-                         const Set<uint32_t> &      InitialFeatures,
-                         Set<uint32_t> *            NewFeatures,
+                         const Vector<SizedFile>   &OldCorpus,
+                         const Vector<SizedFile>   &NewCorpus,
+                         Vector<std::string>       *NewFiles,
+                         const Set<uint32_t>       &InitialFeatures,
+                         Set<uint32_t>             *NewFeatures,
                          const Set<uint32_t> &InitialCov, Set<uint32_t> *NewCov,
                          const std::string &CFPath, bool V /*Verbose*/) {
 

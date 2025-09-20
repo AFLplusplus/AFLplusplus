@@ -5,19 +5,25 @@
 
 
 ### Version ++4.34a (dev)
+  - unicorn_mode:
+    - UnicornAFL v3!! thanks to @wtdcode!
+  - qemu_mode:
+    - fix compilation for a few platforms
   - afl-fuzz
     - larger improvements to CMPLOG, thanks to @am009
     - scroll down before clearing the screen to not loose content
     - minor bug fixes
   - afl-showmap
     - fix -C parameter breakage introduced in v4.33c
-  - qemu_mode:
-    - fix compilation for a few platforms
   - afl-cc:
+    - enabled LLVM 22
     - fix a offset calculation bug in AFL++ PCGUARD
     - make AFL_DUMP_MAP_SIZE work for CLASSIC modes
     - fix a crash when running with LLVM 20 when compiling PCGUARD with LTO
-    - Fix deprecation warnings for LLVM 20+
+    - fix deprecation warnings for LLVM 20+
+    - fix 128 bit support for cmplog-switches pass
+    - fix 32 bit cmplog support
+    - skip blocks for instrumentation that are already instrumented
   - Building:
     - new NO_UNICORN and NO_QEMU and NO_FRIDA build options
     - build fixes for FreeBSD

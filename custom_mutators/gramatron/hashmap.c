@@ -235,7 +235,7 @@ int hashmap_rehash(map_t in) {
   hashmap_element *curr;
 
   /* Setup the new elements */
-  hashmap_map *    m = (hashmap_map *)in;
+  hashmap_map     *m = (hashmap_map *)in;
   hashmap_element *temp =
       (hashmap_element *)calloc(2 * m->table_size, sizeof(hashmap_element));
   if (!temp) return MAP_OMEM;
