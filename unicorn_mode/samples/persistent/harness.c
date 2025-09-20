@@ -41,7 +41,7 @@ static const int64_t BASE_ADDRESS = 0x100000;
 static const int64_t CODE_ADDRESS = 0x101139;
 static const int64_t END_ADDRESS = 0x10120d;
 // Address of the stack (Some random address again)
-static const int64_t STACK_ADDRESS = (((int64_t) 0x01) << 58);
+static const int64_t STACK_ADDRESS = (((int64_t) 0x01) << 30);
 // Size of the stack (arbitrarily chosen, just make it big enough)
 static const int64_t STACK_SIZE = 0x10000;
 // Location where the input will be placed (make sure the emulated program knows this somehow, too ;) )

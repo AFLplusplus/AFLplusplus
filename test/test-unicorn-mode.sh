@@ -13,7 +13,7 @@ test -d "$DIR" && {
       export AFL_DEBUG_CHILD=1
 
       # some python version should be available now
-      PYTHONS="`command -v python3` `command -v python`"
+      PYTHONS="`command -v ../unicorn_mode/.venv/bin/python3` `command -v python3` `command -v python`"
       EASY_INSTALL_FOUND=0
       for PYTHON in $PYTHONS ; do
 
@@ -37,8 +37,8 @@ test -d "$DIR" && {
       cd ../unicorn_mode/samples/persistent
       make >>errors 2>&1
       $ECHO "$GREY[*] running afl-fuzz for unicorn_mode (persistent), this will take approx 25 seconds"
-      AFL_DEBUG_CHILD=1 ../../../afl-fuzz -m none -V15 -U -i sample_inputs -o out -- ./harness @@ >>errors 2>&1
-      test -n "$( ls out/default/queue/id:000006* 2>/dev/null )" && {
+      AFL_DEBUG_CHILD=1 make fuzz >>errors 2>&1
+      test -n "$( ls out/default/crashes/id:000000* 2>/dev/null )" && {
         $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode (persistent)"
       } || {
         echo CUT------------------------------------------------------------------CUT
@@ -82,17 +82,33 @@ test -d "$DIR" && {
         # If CompCov works, a new tuple will appear in the map => new input in queue
         $ECHO "$GREY[*] running afl-fuzz for unicorn_mode compcov, this will take approx 35 seconds"
         {
-          export AFL_COMPCOV_LEVEL=2
+          export UNICORN_AFL_CMPCOV=1
           ../afl-fuzz -m ${MEM_LIMIT} -V15 -U -i in -o out -d -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
-          unset AFL_COMPCOV_LEVEL
+          unset UNICORN_AFL_CMPCOV
         } >>errors 2>&1
-        test -n "$( ls out/default/queue/id:000001* 2>/dev/null )" && {
+        test -n "$( ls out/default/crashes/id:000000* 2>/dev/null )" && {
           $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode compcov"
         } || {
           echo CUT------------------------------------------------------------------CUT
           cat errors
           echo CUT------------------------------------------------------------------CUT
           $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode compcov"
+          CODE=1
+        }
+        rm -rf out errors
+
+        printf '\x01\x01' > in/in
+        $ECHO "$GREY[*] running afl-fuzz for unicorn_mode cmplog, this will take approx 25 seconds"
+        {
+          ../afl-fuzz -m ${MEM_LIMIT} -V15 -U -i in -o out -d -c 0 -- "$PY" ../unicorn_mode/samples/compcov_x64/compcov_test_harness.py @@ >>errors 2>&1
+        } >>errors 2>&1
+        test -n "$( ls out/default/crashes/id:000000* 2>/dev/null )" && {
+          $ECHO "$GREEN[+] afl-fuzz is working correctly with unicorn_mode cmplog"
+        } || {
+          echo CUT------------------------------------------------------------------CUT
+          cat errors
+          echo CUT------------------------------------------------------------------CUT
+          $ECHO "$RED[!] afl-fuzz is not working correctly with unicorn_mode cmplog"
           CODE=1
         }
         rm -rf in out errors

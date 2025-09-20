@@ -10,6 +10,8 @@ import tempfile
 import json
 from pathlib import Path
 
+MINUMUM_RUSTC_TO_BUILD = (1, 87, 0)
+
 # https://stackoverflow.com/questions/1871549/how-to-determine-if-python-is-running-inside-a-virtualenv
 def in_venv():
     return sys.prefix != sys.base_prefix
@@ -42,6 +44,12 @@ def detect_from_env_or_file(target: str):
     else:
         return None
 
+def detect_rustc_version():
+    rustc_version = run_cmd("rustc --version", None, quiet=True).decode("utf-8").split(" ")[1]
+    major, minor, patch = rustc_version.split(".")
+    current = (int(major), int(minor), int(patch))
+    return current >= MINUMUM_RUSTC_TO_BUILD
+
 cwd = Path(__file__).parent
 
 libs_path = cwd / "lib"
@@ -59,15 +67,21 @@ if not (cwd.parent / "afl-showmap").exists():
     print("[!] Please compile AFL++ first.")
     exit(1)
 
+
 if not shutil.which("cargo"):
     print("[!] No cargo, please install Rust in advance.")
     print("[!] TLDR: `curl https://sh.rustup.rs -sSf | sh -s -- -y`")
-    exit(1)
+    exit(2)
 
+if not detect_rustc_version():
+    print("[!] Your rustc seems too old to build unicornafl and libafl")
+    print(f"[!] The minimum rustc version to build is {MINUMUM_RUSTC_TO_BUILD[0]}.{MINUMUM_RUSTC_TO_BUILD[1]}.{MINUMUM_RUSTC_TO_BUILD[2]}")
+    exit(3)
+        
 unicornafl_version = detect_from_env_or_file("UNICORNAFL_VERSION")
 if not unicornafl_version:
     print("[!] No valid UNICORNAFL_VERSION found")
-    exit(1)
+    exit(4)
 
 try:
     run_cmd("git status", cwd)
@@ -121,7 +135,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
         print(f"[*] Cool, it works =).")
     else:
         print(f"[!] Unicornafl can not fuzz a simplest case, please submit an issue.")
-        exit(-1)
+        exit(5)
 
 print(f"[*] Now building unicornafl C/C++ bindings")
 cargo_out = run_cmd(f"cargo build --release --features bindings --message-format=json", unicornafl_path, True)
@@ -157,6 +171,9 @@ if skip_venv:
 else:
     venv_prompt = f" and venv {venv_prefix}. Please do `source {Path(venv_prefix)/'bin'/'activate'}` first."
 
+
+
+
 print(f"""[*] All done! You have compiled unicornafl without any issue.
     You can now start using python bindings by `import unicornafl`. Please note the python bindings have been
     installed to with intepreter {py3}{venv_prompt}
@@ -168,6 +185,6 @@ print(f"""[*] All done! You have compiled unicornafl without any issue.
     to your Cargo.toml.
     
     Please also have a look at { (cwd / 'unicornafl' / 'docs').absolute() } which contains various hints and usages.
-    
+
     If you find an issue in unicornafl, please post to https://github.com/AFLplusplus/unicornafl
 """)
