@@ -28,7 +28,7 @@ test -d "$DIR" && {
       done
       if [ "0" = $EASY_INSTALL_FOUND ]; then
 
-        echo "[-] Error: Python setup-tools not found. Run 'sudo apt-get install python-setuptools'."
+        echo "[-] Error: Python setup-tools not found. Your venv is not set up correctly. Please reinstall unicornafl."
         PREREQ_NOTFOUND=1
 
       fi

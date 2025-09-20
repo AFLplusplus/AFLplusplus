@@ -112,8 +112,15 @@ elif not venv and skip_venv:
 
 print(f"[*] We will install unicornafl to venv at {venv_prefix} using {py3}")
 
+if not shutil.which("setuptools"):
+    print(f"[!] No setuptools, will install setuptools first")
+    if skip_venv:
+        run_cmd(f"{py3} -m pip install --user setuptools")
+    else:
+        run_cmd(f"{py3} -m pip install setuptools")
+
 if not shutil.which("maturin"):
-    print(f"[!] No maturin, will install maturin first")
+    print(f"[!] No maturin, will install maturin now")
     if skip_venv:
         run_cmd(f"{py3} -m pip install --user maturin")
     else:
