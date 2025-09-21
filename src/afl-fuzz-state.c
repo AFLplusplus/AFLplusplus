@@ -82,6 +82,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->shm.map_size = map_size ? map_size : MAP_SIZE;
 
   afl->smallest_favored = -1;
+  afl->afl_ijon_history_limit = 20;
   afl->w_init = 0.9;
   afl->w_end = 0.3;
   afl->g_max = 5000;
@@ -122,6 +123,14 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->clean_trace_custom = ck_alloc(map_size);
   afl->first_trace = ck_alloc(map_size);
   afl->map_tmp_buf = ck_alloc(map_size);
+
+  /* Initialize IJON max tracking state */
+  afl->ijon_state = NULL;
+  afl->ijon_bits = NULL;
+  afl->last_ijon_log_time = 0;
+  afl->ijon_input_data = NULL;
+  afl->ijon_input_len = 0;
+  afl->is_doing_ijon = 0;
 
   afl->fsrv.use_stdin = 1;
   afl->fsrv.map_size = map_size;
@@ -624,6 +633,19 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->max_length =
                 atoi((u8 *)get_afl_env(afl_environment_variables[i]));
 
+          } else if (!strncmp(env, "AFL_IJON_HISTORY_LIMIT",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_ijon_history_limit =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_ijon_history_limit < 0) {
+
+              afl->afl_ijon_history_limit = 0;
+
+            }
+
           } else if (!strncmp(env, "AFL_PIZZA_MODE",
 
                               afl_environment_variable_len)) {
@@ -885,6 +907,18 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->clean_trace_custom);
   ck_free(afl->first_trace);
   ck_free(afl->map_tmp_buf);
+
+  /* Free IJON max tracking state */
+  if (afl->ijon_state) {
+    destroy_ijon_min_state((ijon_min_state*)afl->ijon_state);
+    afl->ijon_state = NULL;
+    afl->ijon_bits = NULL;  // Just nullify pointer, don't free (it's shared memory)
+    if (afl->ijon_input_data) {
+      ck_free(afl->ijon_input_data);
+      afl->ijon_input_data = NULL;
+    }
+    afl->ijon_input_len = 0;
+  }
 
   ck_free(afl->skipdet_g->inf_prof);
   ck_free(afl->skipdet_g->virgin_det_bits);

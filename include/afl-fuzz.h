@@ -46,6 +46,8 @@
 #include "forkserver.h"
 #include "common.h"
 
+#include "afl-ijon-min.h"
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -474,7 +476,7 @@ typedef struct afl_env_vars {
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
-  s32 afl_pizza_mode;
+  s32 afl_pizza_mode, afl_ijon_history_limit;
 
   uid_t afl_forksrv_uid;
 
@@ -693,6 +695,7 @@ typedef struct afl_state {
   u32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
   s64 smallest_favored;                 /* smallest queue id favored        */
+  s32 afl_ijon_history_limit;           /* IJON history buffer limit        */
 
   u32 main_node_id, main_node_max;      /*   Main instance job splitting    */
 
@@ -886,7 +889,13 @@ typedef struct afl_state {
   FILE *introspection_file;
   u32   bitsmap_size;
 #endif
-
+  /* IJON max tracking state */
+  ijon_min_state *ijon_state;            /* IJON input management state */
+  u64          *ijon_bits;               /* Pointer to IJON max tracking map */
+  time_t        last_ijon_log_time;      /* Rate limiting for IJON UI output */
+  u8           *ijon_input_data;         /* Currently executed IJON input data */
+  u32           ijon_input_len;          /* Length of currently executed IJON input */
+  u8            is_doing_ijon;           /* Flag to track IJON execution state */
 } afl_state_t;
 
 struct custom_mutator {

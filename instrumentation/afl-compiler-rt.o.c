@@ -42,6 +42,13 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include "cmplog.h"
 #include "llvm-alternative-coverage.h"
 
+#include "afl-ijon-min.h"
+
+/* For backtrace() support in ijon_hashstack */
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+  #include <execinfo.h>
+#endif
+
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 #undef XXH_INLINE_ALL
@@ -66,6 +73,10 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #endif
 #include <sys/wait.h>
 #include <sys/types.h>
+
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+  #include <execinfo.h>
+#endif
 
 #ifdef __llvm__
   #include "llvm/Config/llvm-config.h"
@@ -121,12 +132,29 @@ int        __afl_sharedmem_fuzzing __attribute__((weak));
 
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
+u32 __afl_cov_map_size = MAP_SIZE;
 u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 u32 __afl_old_forkserver;
 
 u8 __afl_forkserver_setenv = 0;
+
+/* IJON max tracking globals */
+static u64  __afl_ijon_initial[MAP_SIZE_IJON_ENTRIES];
+u64        *__afl_ijon_bits = __afl_ijon_initial;  // Initial buffer, will point to shared memory at MAP_SIZE offset
+u32         __afl_ijon_map_size = MAP_SIZE_IJON_ENTRIES;
+u32         __afl_ijon_map_increased = 0;
+extern int  __afl_ijon_enabled __attribute__((weak));
+
+/* IJON state tracking globals */
+#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
+u32 __afl_ijon_state = 0;           // Current IJON state
+u32 __afl_ijon_state_log = 0;       // State history log
+#else
+__thread u32 __afl_ijon_state = 0;
+__thread u32 __afl_ijon_state_log = 0;
+#endif
 
 #ifdef __AFL_CODE_COVERAGE
 typedef struct afl_module_info_t afl_module_info_t;
@@ -380,11 +408,22 @@ static void __afl_map_shm(void) {
   // if we are not running in afl ensure the map exists
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
 
+  if (getenv("AFL_NO_IJON") && &__afl_ijon_enabled) {
+    __afl_ijon_enabled = 0;
+    __afl_ijon_map_increased = 1;
+  }
+
   char *id_str = getenv(SHM_ENV_VAR);
 
   if (__afl_final_loc) {
 
     __afl_map_size = __afl_final_loc + 1;  // as we count starting 0
+    __afl_cov_map_size = __afl_map_size;
+    
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled && !__afl_ijon_map_increased) {
+        __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;  // Fixed: add to __afl_map_size, not __afl_final_loc
+        __afl_ijon_map_increased = 1;
+    }
 
     if (getenv("AFL_DUMP_MAP_SIZE")) {
 
@@ -421,6 +460,13 @@ static void __afl_map_shm(void) {
 
     }
 
+  } else {
+
+    __afl_cov_map_size = __afl_map_size;
+    
+    // IJON SUPPORT: Defer expansion until __afl_final_loc is set by __sanitizer_cov_pcs_init
+    // This will be handled in __afl_map_shm_resize() when the actual coverage size is known
+  
   }
 
   if (getenv("AFL_DUMP_MAP_SIZE")) {
@@ -570,18 +616,32 @@ static void __afl_map_shm(void) {
     }
 
     __afl_area_ptr = shm_base;
+    /* DEFERRED IJON SETUP: Initialize on first use when actual map size is known */
+    /* This fixes PCGUARD mode where __afl_final_loc=0 at initialization time */
+    __afl_ijon_bits = NULL;  // Mark as uninitialized - will init on first ijon_max() call
+
+    /* IJON STATE RESET: Reset state for each execution */
+    ijon_reset_state();
 #else
     u32 shm_id = atoi(id_str);
 
     if (__afl_map_size && __afl_map_size > MAP_SIZE) {
 
-      u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
-      if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
+      u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");      
+      
+      // IJON SUPPORT: For IJON targets using new forkserver protocol, 
+      // skip this check as map size is communicated via FS_NEW_OPT_MAPSIZE
+      if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled) {
+        // Skip the check for IJON targets - let the fuzzer handle validation via forkserver protocol
+      } else {
+        // Original check for non-IJON targets
+        if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
 
-        fprintf(stderr, "FS_ERROR_MAP_SIZE\n");
-        send_forkserver_error(FS_ERROR_MAP_SIZE);
-        _exit(1);
+          fprintf(stderr, "FS_ERROR_MAP_SIZE\n");
+          send_forkserver_error(FS_ERROR_MAP_SIZE);
+          _exit(1);
 
+        }
       }
 
     }
@@ -604,6 +664,12 @@ static void __afl_map_shm(void) {
 
 #endif
 
+    /* DEFERRED IJON SETUP: Initialize on first use when actual map size is known */
+    /* This fixes PCGUARD mode where __afl_final_loc=0 at initialization time */
+    __afl_ijon_bits = NULL;  // Mark as uninitialized - will init on first ijon_max() call
+
+    /* IJON STATE RESET: Reset state for each execution */
+    ijon_reset_state();
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
 
@@ -908,6 +974,17 @@ static void __afl_start_forkserver(void) {
 
   void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
+  if (getenv("AFL_NO_IJON") && &__afl_ijon_enabled) {
+    __afl_ijon_enabled = 0;
+    __afl_ijon_map_increased = 1;
+  }
+
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled && !__afl_ijon_map_increased) {
+        __afl_cov_map_size = __afl_map_size;
+        __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
+        __afl_ijon_map_increased = 1;
+    } else  if (!__afl_cov_map_size) {  __afl_cov_map_size = __afl_map_size; }
+
   if (getenv("AFL_OLD_FORKSERVER")) {
 
     __afl_old_forkserver = 1;
@@ -934,7 +1011,19 @@ static void __afl_start_forkserver(void) {
      assume we're not running in forkserver mode and just execute program. */
 
   // return because possible non-forkserver usage
-  if (write(FORKSRV_FD + 1, msg, 4) != 4) { return; }
+  if (write(FORKSRV_FD + 1, msg, 4) != 4) { 
+  
+    if (&__afl_ijon_enabled != NULL) {
+      __afl_ijon_enabled = 0;
+      __afl_ijon_map_increased = 1;
+    }
+
+    return;
+  }
+
+  if (&__afl_ijon_enabled != NULL && !__afl_ijon_map_increased) {
+    __afl_ijon_enabled = 1;
+  }
 
   if (!__afl_old_forkserver) {
 
@@ -953,6 +1042,10 @@ static void __afl_start_forkserver(void) {
 
       status |= FS_NEW_OPT_AUTODICT;
 
+    }
+    /* Add IJON capability flag if IJON is enabled */
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled) {
+      status |= FS_OPT_IJON;
     }
 
     if (write(FORKSRV_FD + 1, msg, 4) != 4) {
@@ -1915,7 +2008,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       while (start < stop) {
 
         if (!ignore_dso_after_fs &&
-            (likely(inst_ratio == 100) || R(100) < inst_ratio)) {
+            (likely(inst_ratio == 100) || AFL_R(100) < inst_ratio)) {
 
           *(start++) = offset;
 
@@ -1945,7 +2038,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   while (start < stop) {
 
-    if (likely(inst_ratio == 100) || R(100) < inst_ratio) {
+    if (likely(inst_ratio == 100) || AFL_R(100) < inst_ratio) {
 
       *(start++) = ++__afl_final_loc;
 
@@ -1987,6 +2080,18 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   }
 
+  /*
+  // IJON SUPPORT: Apply deferred IJON expansion now that __afl_final_loc is known
+  if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled && __afl_final_loc > 0) {
+    u32 coverage_size = __afl_final_loc + 1;
+    
+    // If we're still using the default MAP_SIZE, update to actual coverage + IJON
+    if (__afl_map_size == MAP_SIZE) {
+      __afl_map_size = coverage_size + MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
+    }
+  }
+  */
+
   if (__afl_already_initialized_shm) {
 
     if (__afl_final_loc > __afl_map_size) {
@@ -2004,7 +2109,11 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     }
 
     __afl_map_size = __afl_final_loc + 1;
-
+    
+    // IJON SUPPORT: Re-apply IJON expansion after reinit
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled) {
+      __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
+    } 
   }
 
 }
@@ -2999,3 +3108,292 @@ void __afl_injection_xss(u8 *buf) {
 
 #undef write_error
 
+/* IJON max tracking runtime functions */
+
+#include <stdarg.h>
+#include <time.h>
+
+/* Supporting hash functions */
+uint64_t ijon_simple_hash(uint64_t x) {
+  const uint64_t golden_ratio = 0x9E3779B97F4A7C15ULL;
+  return x * golden_ratio;
+}
+
+uint32_t ijon_hashint(uint32_t old, uint32_t val) {
+  // PERFECT HASH: Bit-interleaving approach for coordinate pairs
+  // Guarantees no hash collisions for coordinates < 65536
+  // Interleave bits of x and y to create unique 32-bit hash
+
+
+  uint32_t x = old;
+  uint32_t y = val;
+  uint32_t result = 0;
+
+  // Interleave the lower 16 bits of x and y
+  for (int i = 0; i < 16; i++) {
+    result |= ((x & (1U << i)) << i) | ((y & (1U << i)) << (i + 1));
+  }
+
+  // Apply mixing for better distribution in coverage map
+  result ^= result >> 16;
+  result *= 0x85ebca6b;
+  result ^= result >> 13;
+  result *= 0xc2b2ae35;
+  result ^= result >> 16;
+
+  return result;
+}
+
+uint32_t ijon_hashstr(uint32_t old, char* val) {
+  return ijon_hashmem(old, val, strlen(val));
+}
+
+uint32_t ijon_hashmem(uint32_t old, char* val, size_t len) {
+  old = ijon_hashint(old, len);
+  for (size_t i = 0; i < len; i++) {
+      old = ijon_hashint(old, val[i]);
+  }
+  return old;
+}
+
+void ijon_max(uint32_t addr, u64 val) {
+
+  if (unlikely(&__afl_ijon_enabled == NULL || !__afl_ijon_enabled)) {
+    return;
+  }
+          
+  if (unlikely(__afl_ijon_bits == NULL && __afl_area_ptr)) {
+
+    u32 ijon_offset = __afl_map_size - 2*MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP;
+    
+    __afl_ijon_bits = (u64 *)(__afl_area_ptr + ijon_offset);
+    
+    
+    /* Clear IJON max area on first initialization to avoid processing uninitialized data */
+    memset(__afl_ijon_bits, 0, MAP_SIZE_IJON_ENTRIES * sizeof(u64));
+        
+  }
+
+  if (unlikely(!__afl_ijon_bits)) {
+    return;
+  }
+
+  u32 var_id = (u32)(ijon_simple_hash((uint64_t)addr) % MAP_SIZE_IJON_ENTRIES);
+  //u32 var_id = (u32)(addr % MAP_SIZE_IJON_ENTRIES);
+
+  if (__afl_ijon_bits[var_id] < val) {
+    __afl_ijon_bits[var_id] = val;
+  }
+}
+
+void ijon_min(uint32_t addr, u64 val) {
+  val = 0xffffffffffffffff - val;
+  ijon_max(addr, val);
+}
+
+void ijon_set(uint32_t loc_addr, uint32_t val) {
+
+  if (unlikely(&__afl_ijon_enabled == NULL || !__afl_ijon_enabled)) return;
+
+  // ORIGINAL IJON APPROACH: XOR location hash with value to create unique coverage point
+  // This follows the original: ijon_map_set(ijon_hashstr(__LINE__,__FILE__)^(x))
+  u32 combined_hash = loc_addr ^ val;
+  u32 coverage_id = combined_hash % MAP_SIZE_IJON_MAP;
+
+  __afl_area_ptr[__afl_final_loc + coverage_id] = 1;
+}
+
+void ijon_inc(uint32_t loc_addr, uint32_t val) {
+
+  if (unlikely(&__afl_ijon_enabled == NULL || !__afl_ijon_enabled)) return;
+
+  // ORIGINAL IJON APPROACH: XOR location hash with value to create unique coverage point
+  // This follows the original: ijon_map_set(ijon_hashstr(__LINE__,__FILE__)^(x))
+  uint32_t combined_hash = loc_addr ^ val;
+
+  u32 coverage_id = combined_hash % MAP_SIZE_IJON_MAP;
+
+  // Memory-safe: Use actual available shared memory size
+  // Use AFL's incremental coverage approach (same as __afl_trace)
+  __afl_area_ptr[__afl_final_loc + coverage_id] += 1;
+}
+
+/* Variadic runtime functions */
+void ijon_max_variadic(uint32_t addr, ...) {
+
+  va_list args;
+  va_start(args, addr);
+
+  u64 combined = 1;  // Start with 1 for Java-style hash
+  u64 value;
+  int arg_count = 0;
+
+  // Process all arguments until we hit the sentinel (0)
+  // Using Java-style hash: hash = 31 * hash + value
+  while ((value = va_arg(args, u64)) != 0) {
+      combined = combined * 31 + value;
+      arg_count++;
+
+      // CRITICAL: Prevent infinite loops if sentinel is missing
+      if (arg_count > 20) {
+        break;
+      }
+  }
+
+  va_end(args);
+
+  // Call the basic ijon_max function
+  ijon_max(addr, combined);
+}
+
+void ijon_min_variadic(uint32_t addr, ...) {
+
+  va_list args;
+  va_start(args, addr);
+
+  u64 combined = 1;  // Start with 1 for Java-style hash
+  u64 value;
+  int arg_count = 0;
+
+  // Process all arguments until we hit the sentinel (0)
+  // Using Java-style hash: hash = 31 * hash + value
+  while ((value = va_arg(args, u64)) != 0) {
+      combined = combined * 31 + value;
+      arg_count++;
+
+      // CRITICAL: Prevent infinite loops if sentinel is missing
+      if (arg_count > 20) {
+        break;
+      }
+  }
+
+  va_end(args);
+
+  // Call the basic ijon_min function
+  ijon_min(addr, combined);
+}
+
+/* IJON state management functions */
+
+void ijon_xor_state(uint32_t val) {
+  u32 state_modulo = MAP_SIZE_IJON_MAP;
+
+  __afl_ijon_state = (__afl_ijon_state ^ val) % state_modulo;
+
+}
+
+void ijon_reset_state(void) {
+  __afl_ijon_state = 0;
+  __afl_ijon_state_log = 0;
+}
+
+/* Cross-platform stack hashing using backtrace() - supports both 32-bit and 64-bit */
+uint32_t ijon_hashstack_backtrace(void) {
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+  void* buffer[16] = {0,};
+  int num = backtrace(buffer, 16);
+
+  // Ensure we don't exceed buffer size
+  if (num > 16) num = 16;
+  if (num <= 0) return 0;
+
+  uint64_t res = 0;
+  for (int i = 0; i < num; i++) {
+    // Cast pointer to appropriate integer type based on architecture
+    #if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64) || defined(__aarch64__) || defined(__arm64__)
+      // 64-bit architecture
+      res ^= ijon_simple_hash((uint64_t)(uintptr_t)buffer[i]);
+    #elif defined(__i386__) || defined(_M_IX86) || defined(__arm__)
+      // 32-bit architecture - mask to 32-bit to avoid issues
+      res ^= ijon_simple_hash((uint64_t)((uintptr_t)buffer[i] & 0xFFFFFFFF));
+    #else
+      // Generic fallback for other architectures
+      res ^= ijon_simple_hash((uint64_t)(uintptr_t)buffer[i]);
+    #endif
+
+  }
+
+  return (uint32_t)res;
+#else
+  // Fallback for systems without backtrace support
+  return 0;
+#endif
+}
+
+/* Alias for compatibility with existing IJON code */
+uint32_t ijon_hashstack(void) {
+  return ijon_hashstack_backtrace();
+}
+
+/* String and memory distance functions */
+
+uint32_t ijon_strdist(char* a, char* b) {
+  if (!a && !b) return 0;
+  if (!a) return strlen(b);
+  if (!b) return strlen(a);
+
+  size_t len_a = strlen(a);
+  size_t len_b = strlen(b);
+
+  return ijon_memdist(a, b, len_a > len_b ? len_a : len_b);
+}
+
+uint32_t ijon_memdist(char* a, char* b, size_t len) {
+  if (!a && !b) return 0;
+  if (!a || !b) return (uint32_t)len;
+  if (len == 0) return 0;
+
+  // For efficiency with large strings, use a bounded Levenshtein distance
+  // Limit the maximum distance calculation to avoid performance issues
+  size_t max_dist = len > 1024 ? 1024 : len;
+
+  // Use Levenshtein distance algorithm (edit distance)
+  // For memory efficiency, use a rolling array approach for large strings
+  if (max_dist <= 256) {
+    // Small strings: use full matrix approach
+    uint32_t matrix[257][257]; // max_dist + 1
+
+    // Initialize first row and column
+    for (size_t i = 0; i <= max_dist; i++) {
+      matrix[i][0] = i;
+      matrix[0][i] = i;
+    }
+
+    // Fill the matrix
+    for (size_t i = 1; i <= max_dist && i <= strlen(a); i++) {
+      for (size_t j = 1; j <= max_dist && j <= strlen(b); j++) {
+        uint32_t cost = (a[i-1] == b[j-1]) ? 0 : 1;
+
+        uint32_t deletion = matrix[i-1][j] + 1;
+        uint32_t insertion = matrix[i][j-1] + 1;
+        uint32_t substitution = matrix[i-1][j-1] + cost;
+
+        matrix[i][j] = deletion < insertion ?
+                      (deletion < substitution ? deletion : substitution) :
+                      (insertion < substitution ? insertion : substitution);
+      }
+    }
+
+    size_t actual_len_a = strlen(a) > max_dist ? max_dist : strlen(a);
+    size_t actual_len_b = strlen(b) > max_dist ? max_dist : strlen(b);
+
+    return matrix[actual_len_a][actual_len_b];
+  } else {
+    // Large strings: use simplified byte-by-byte comparison with early termination
+    uint32_t differences = 0;
+    size_t min_len = strlen(a) < strlen(b) ? strlen(a) : strlen(b);
+    size_t max_len = strlen(a) > strlen(b) ? strlen(a) : strlen(b);
+
+    // Count character differences up to min_len
+    for (size_t i = 0; i < min_len && i < max_dist; i++) {
+      if (a[i] != b[i]) {
+        differences++;
+      }
+    }
+
+    // Add length difference
+    differences += (uint32_t)(max_len - min_len);
+
+    return differences > max_dist ? max_dist : differences;
+  }
+}

@@ -915,10 +915,6 @@ void show_stats_normal(afl_state_t *afl) {
 
   if (unlikely(!afl->queue_cur)) { return; }
 
-  /* Compute some mildly useful bitmap stats. */
-
-  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
-
   /* Now, for the visuals... */
 
   if (afl->clear_screen) {
@@ -941,6 +937,10 @@ void show_stats_normal(afl_state_t *afl) {
     return;
 
   }
+
+  /* Compute some mildly useful bitmap stats. */
+
+  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
 
   /* Let's start by drawing a centered banner. */
   if (unlikely(!banner[0])) {
@@ -1453,6 +1453,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
+
   // if (afl->custom_mutators_count) {
 
   //
@@ -1740,10 +1741,6 @@ void show_stats_pizza(afl_state_t *afl) {
 
   if (unlikely(!afl->queue_cur)) { return; }
 
-  /* Compute some mildly useful bitmap stats. */
-
-  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
-
   /* Now, for the visuals... */
 
   if (afl->clear_screen) {
@@ -1767,6 +1764,10 @@ void show_stats_pizza(afl_state_t *afl) {
     return;
 
   }
+
+  /* Compute some mildly useful bitmap stats. */
+
+  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
 
   /* Let's start by drawing a centered banner. */
   if (unlikely(!banner[0])) {
