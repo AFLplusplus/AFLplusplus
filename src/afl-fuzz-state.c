@@ -910,14 +910,20 @@ void afl_state_deinit(afl_state_t *afl) {
 
   /* Free IJON max tracking state */
   if (afl->ijon_state) {
-    destroy_ijon_min_state((ijon_min_state*)afl->ijon_state);
+
+    destroy_ijon_min_state((ijon_min_state *)afl->ijon_state);
     afl->ijon_state = NULL;
-    afl->ijon_bits = NULL;  // Just nullify pointer, don't free (it's shared memory)
+    afl->ijon_bits =
+        NULL;  // Just nullify pointer, don't free (it's shared memory)
     if (afl->ijon_input_data) {
+
       ck_free(afl->ijon_input_data);
       afl->ijon_input_data = NULL;
+
     }
+
     afl->ijon_input_len = 0;
+
   }
 
   ck_free(afl->skipdet_g->inf_prof);

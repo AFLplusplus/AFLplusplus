@@ -114,30 +114,41 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
 
     /* Read input data from testcase file that was just executed */
     if (afl->fsrv.out_file) {
+
       struct stat st;
       if (stat(afl->fsrv.out_file, &st) == 0) {
 
         if (st.st_size > 0) {
+
           input_len = st.st_size;
           input_data = ck_alloc(input_len);
 
           int fd = open(afl->fsrv.out_file, O_RDONLY);
           if (fd >= 0) {
+
             ssize_t bytes_read = read(fd, input_data, input_len);
             close(fd);
 
             if (bytes_read != input_len) {
+
               ck_free(input_data);
               input_data = NULL;
               input_len = 0;
+
             }
+
           } else {
+
             ck_free(input_data);
             input_data = NULL;
             input_len = 0;
+
           }
+
         }
+
       }
+
     }
 
     if (input_data) {
@@ -145,27 +156,33 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
       /* Use saved state values in resume mode for perfect alignment */
       u32 effective_map_size = fsrv->map_size;
       u32 effective_real_map_size = fsrv->real_map_size;
-      
+
       if (has_saved_ijon_state() && afl->resuming_fuzz) {
-        ijon_fastresume_state_t* saved_state = get_saved_ijon_state();
+
+        ijon_fastresume_state_t *saved_state = get_saved_ijon_state();
         effective_map_size = saved_state->map_size;
         effective_real_map_size = saved_state->real_map_size;
-      }
-      
-      dynamic_shared_access_t *shared_access = setup_dynamic_shared_access(
-        fsrv->trace_bits, effective_map_size, effective_real_map_size);
 
-      ijon_update_max_dynamic(afl->ijon_state, shared_access, input_data, input_len);
-      
+      }
+
+      dynamic_shared_access_t *shared_access = setup_dynamic_shared_access(
+          fsrv->trace_bits, effective_map_size, effective_real_map_size);
+
+      ijon_update_max_dynamic(afl->ijon_state, shared_access, input_data,
+                              input_len);
+
       cleanup_dynamic_shared_access(shared_access);
+
     }
-    
+
     if (input_data) {
+
       ck_free(input_data);
       input_data = NULL;
-    }
-  }
 
+    }
+
+  }
 
 #ifdef PROFILING
   clock_gettime(CLOCK_REALTIME, &spec);
@@ -871,9 +888,13 @@ void check_sync_fuzzers(afl_state_t *afl) {
         if (max_fd >= 0) {
 
           --max_start_id;  // counting from 0
-          if (unlikely(write(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32))) {
+          if (unlikely(write(max_fd, &max_start_id, sizeof(u32)) !=
+                       sizeof(u32))) {
+
             /* Ignore write failure - sync will continue */
+
           }
+
           close(max_fd);
 
         }
@@ -1048,10 +1069,14 @@ void sync_fuzzers(afl_state_t *afl) {
     s32 max_fd = open(qd_synced_maxid, O_RDONLY, DEFAULT_PERMISSION);
 
     if (likely(max_fd >= 0)) {
+
       if (unlikely(read(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32))) {
+
         /* Use default value on read failure */
         max_start_id = 0;
+
       }
+
       close(max_fd);
       if (max_start_id < next_min_accept) { unlink(qd_synced_maxid); }
 

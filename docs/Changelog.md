@@ -5,6 +5,7 @@
 
 
 ### Version ++4.34a (dev)
+  - IJON integration by @vi3tL0u1s - thanks a lot!!
   - unicorn_mode:
     - UnicornAFL v3!! thanks to @wtdcode!
   - qemu_mode:

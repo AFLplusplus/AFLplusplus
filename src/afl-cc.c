@@ -3083,7 +3083,8 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
             "  AFL_LLVM_INJECTIONS_SQL: enables SQL injections hooking\n"
             "  AFL_LLVM_INJECTIONS_LDAP: enables LDAP injections hooking\n"
             "  AFL_LLVM_INJECTIONS_XSS: enables XSS injections hooking\n"
-            "  AFL_LLVM_IJON: enable IJON max tracking (auto-detects _USE_IJON)\n"
+            "  AFL_LLVM_IJON: enable IJON max tracking (auto-detects "
+            "_USE_IJON)\n"
             "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
@@ -3489,20 +3490,25 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
 }
 
 /* Helper function to extract source filename from compilation arguments */
-static const char* get_source_filename(u32 argc, char **argv) {
+static const char *get_source_filename(u32 argc, char **argv) {
 
   for (u32 i = 1; i < argc; i++) {
+
     char *arg = argv[i];
     if (arg && arg[0] != '-') {  // Not a flag
       char *ext = strrchr(arg, '.');
-      if (ext && (strcmp(ext, ".c") == 0 || strcmp(ext, ".cpp") == 0 || 
-                 strcmp(ext, ".cc") == 0 || strcmp(ext, ".cxx") == 0 ||
-                 strcmp(ext, ".C") == 0 || strcmp(ext, ".h") == 0 ||
-                 strcmp(ext, ".hpp") == 0 || strcmp(ext, ".hh") == 0 ||
-                 strcmp(ext, ".hxx") == 0 || strcmp(ext, ".H") == 0)) {
+      if (ext && (strcmp(ext, ".c") == 0 || strcmp(ext, ".cpp") == 0 ||
+                  strcmp(ext, ".cc") == 0 || strcmp(ext, ".cxx") == 0 ||
+                  strcmp(ext, ".C") == 0 || strcmp(ext, ".h") == 0 ||
+                  strcmp(ext, ".hpp") == 0 || strcmp(ext, ".hh") == 0 ||
+                  strcmp(ext, ".hxx") == 0 || strcmp(ext, ".H") == 0)) {
+
         return arg;
+
       }
+
     }
+
   }
 
   return NULL;
@@ -3510,43 +3516,37 @@ static const char* get_source_filename(u32 argc, char **argv) {
 }
 
 /* Check if source file contains IJON usage patterns */
-static u8 file_contains_ijon_usage(const char* source_file) {
+static u8 file_contains_ijon_usage(const char *source_file) {
 
   if (!source_file) return 0;
-  
+
   FILE *f = fopen(source_file, "r");
   if (!f) return 0;
-  
+
   char line[2048];
-  u8 found_ijon = 0;
-  
+  u8   found_ijon = 0;
+
   while (fgets(line, sizeof(line), f)) {
+
     // Look for IJON patterns
-    if (strstr(line, "#ifdef _USE_IJON") || 
-        strstr(line, "#if defined(_USE_IJON)") ||
-        strstr(line, "ijon_max(") ||
-        strstr(line, "ijon_min(") ||
-        strstr(line, "ijon_set(") ||
-        strstr(line, "ijon_inc(") ||
-        strstr(line, "ijon_xor_state(") ||
-        strstr(line, "ijon_reset_state(") ||
-        strstr(line, "IJON_MAX(") ||
-        strstr(line, "IJON_MIN(") ||
-        strstr(line, "IJON_SET(") ||
-        strstr(line, "IJON_INC(") ||
-        strstr(line, "IJON_STATE(") ||
-        strstr(line, "IJON_CTX(") ||
-        strstr(line, "IJON_MAX_AT(") ||
-        strstr(line, "IJON_MIN_AT(") ||
-        strstr(line, "IJON_BITS(") ||
-        strstr(line, "IJON_STRDIST(") ||
-        strstr(line, "IJON_DIST(") ||
-        strstr(line, "IJON_CMP(") ||
-        strstr(line, "IJON_STACK_MAX(") ||
+    if (strstr(line, "#ifdef _USE_IJON") ||
+        strstr(line, "#if defined(_USE_IJON)") || strstr(line, "ijon_max(") ||
+        strstr(line, "ijon_min(") || strstr(line, "ijon_set(") ||
+        strstr(line, "ijon_inc(") || strstr(line, "ijon_xor_state(") ||
+        strstr(line, "ijon_reset_state(") || strstr(line, "IJON_MAX(") ||
+        strstr(line, "IJON_MIN(") || strstr(line, "IJON_SET(") ||
+        strstr(line, "IJON_INC(") || strstr(line, "IJON_STATE(") ||
+        strstr(line, "IJON_CTX(") || strstr(line, "IJON_MAX_AT(") ||
+        strstr(line, "IJON_MIN_AT(") || strstr(line, "IJON_BITS(") ||
+        strstr(line, "IJON_STRDIST(") || strstr(line, "IJON_DIST(") ||
+        strstr(line, "IJON_CMP(") || strstr(line, "IJON_STACK_MAX(") ||
         strstr(line, "IJON_STACK_MIN(")) {
+
       found_ijon = 1;
       break;
+
     }
+
   }
 
   fclose(f);
@@ -3682,27 +3682,40 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     /* Include IJON header only for files that actually use IJON */
     if (getenv("AFL_LLVM_IJON")) {
 
-      const char* source_file = get_source_filename(argc, argv);
+      const char *source_file = get_source_filename(argc, argv);
 
       if (source_file && file_contains_ijon_usage(source_file)) {
 
         u8 *ijon_header = find_object(aflcc, "include/afl-ijon-min.h");
         if (ijon_header) {
+
           insert_param(aflcc, "-include");
           insert_param(aflcc, ijon_header);
           insert_param(aflcc, "-D_USE_IJON=1");  // Define the macro
 
           if (getenv("AFL_DEBUG")) {
+
             SAYF("Including IJON header for file: %s\n", source_file);
+
           }
+
         } else {
+
           WARNF("IJON header not found for file: %s", source_file);
+
         }
+
       } else {
+
         if (getenv("AFL_DEBUG") && source_file) {
-          SAYF("Skipping IJON header for file: %s (no IJON usage detected)\n", source_file);
+
+          SAYF("Skipping IJON header for file: %s (no IJON usage detected)\n",
+               source_file);
+
         }
+
       }
+
     }
 
   }

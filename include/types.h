@@ -210,7 +210,6 @@ typedef int128_t s128;
                                \
   }
 
-
 #ifdef AFL_LLVM_PASS
   #if defined(__linux__) || !defined(__ANDROID__)
     #define AFL_SR(s) (srandom(s))
