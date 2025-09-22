@@ -28,6 +28,8 @@
   - Building:
     - new NO_UNICORN and NO_QEMU and NO_FRIDA build options
     - build fixes for FreeBSD
+  - custom_mutators:
+    - added AIXCC Team Atlanta's zero-mq plugin to add testcases from remote
 
 
 ### Version ++4.33c (release)
