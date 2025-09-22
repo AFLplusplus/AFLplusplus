@@ -164,14 +164,14 @@ Test environment: Ubuntu 20.04, 16 GB RAM, 8 cores
 
 | Run | IJON AFL | IJON AFL++ |
 | ---- | -------- | ---------- |
-| 1 | 1 h 19 min | 15 min |
-| 2 | 50 min | 20 min |
-| 3 | 31 min | 21 min |
-| 4 | 1 h 22 min | 23 min |
-| 5 | 2 h 14 min | 25 min |
-| AVG | 1 h 16 min | 20.8 min |
+| 1 | 1 h 19 min | 30 min |
+| 2 | 50 min | 34 min |
+| 3 | 31 min | 36 min |
+| 4 | 1 h 22 min | 28 min |
+| 5 | 2 h 14 min | 28 min |
+| AVG | 1 h 16 min | 31.2 min |
 
-Overall, IJON AFL++ is ~3.7x faster on average (76.0 min -> 20.8 min).
+Overall, IJON AFL++ is ~2.4x faster on average (76.0 min -> 31.2 min).
 
 ## Performance (Maze, IJON_SET(ijon_hashint(x, y)))
 
@@ -179,17 +179,17 @@ Test environment: Ubuntu 20.04, 16 GB RAM, 8 cores
 
 | Run | Easy Small (AFL ijon) | Easy Small (AFL++ ijon) | Easy Big (AFL ijon) | Easy Big (AFL++ ijon) | Hard Small (AFL ijon) | Hard Small (AFL++ ijon) | Hard Big (AFL ijon) | Hard Big (AFL++ ijon) |
 | --- | ------------------------ | -------------------------- | ---------------------- | ------------------------ | ----------------------- | ------------------------- | --------------------- | ----------------------- |
-| 1 | 1 min 56 s | 26 s | 15 min 32 s | 54 s | 40 s | 8 s | 22 s | 35 s |
-| 2 | 1 min 21 s | 11 s | 10 min 56 s | 2 min 13 s | 25 s | 14 s | 11 min 6 s | 19 s |
-| 3 | 1 min 53 s | 42 s | 18 min 18 s | 48 s | 5 min 8 s | 11 s | 10 min 33 s | 53 s |
-| 4 | 3 min 25 s | 24 s | 29 min 32 s | 1 min 20 s | 1 min 12 s | 10 s | 2 min 11 s | 20 s |
-| 5 | 2 min 28 s | 21 s | 10 min 34 s | 49 s | 19 s | 9 s | 4 min 29 s | 26 s |
-| 6 | 2 min 30 s | 24 s | 11 min 49 s | 1 min 24 s | 2 min 37 s | 12 s | 11 min 16 s | 33 s |
-| 7 | 1 min 5 s | 22 s | 12 min 18 s | 4 min 6 s | 38 s | 8 s | 10 min 9 s | 32 s |
-| 8 | 42 s | 14 s | 11 min 41 s | 56 s | 52 s | 9 s | 5 min 47 s | 18 s |
-| 9 | 12 min 18 s | 37 s | 9 min 36 s | 2 min 36 s | 56 s | 9 s | 5 min 24 s | 19 s |
-| 10 | 1 min 32 s | 15 s | 12 min 7 s | 47 s | 1 min 5 s | 15 s | 17 min 10 s | 24 s |
-| AVG | 2 min 55 s | 23.6 s (x7.42) | 14 min 14 s | 1 min 35 s (x9) | 1 min 23 s | 10.5 s (x7.9) | 7 min 50 s | 27.9 s (x16.85) |
+| 1 | 1 min 56 s |  2 min 24 s | 15 min 32 s |  5 min 30 s | 40 s       | 16 s  | 22 s       |  1 min 40 s |
+| 2 | 1 min 21 s |  1 min 30 s | 10 min 56 s |  6 min 40 s | 25 s       | 18 s  | 11 min 6 s |  1 min 30 s |
+| 3 | 1 min 53 s |  2 min 10 s | 18 min 18 s |  9 min 44 s | 5 min 8 s  | 40 s  | 10 min 33 s|  59 s |
+| 4 | 3 min 25 s |  1 min 1 s  | 29 min 32 s |  6 min 3 s  | 1 min 12 s | 23 s  | 2 min 11 s |  1 min 5 s |
+| 5 | 2 min 28 s |  1 min 3 s  | 10 min 34 s |  11 min 6 s | 19 s       | 15 s  | 4 min 29 s |  2 min 23 s |
+| 6 | 2 min 30 s |  1 min 51 s | 11 min 49 s |  5 min 27 s | 2 min 37 s | 22 s  | 11 min 16 s|  1 min 32 s |
+| 7 | 1 min 5 s  |  1 min 49 s | 12 min 18 s |  6 min 10 s | 38 s       | 17 s  | 10 min 9 s |  1 min 12 s |
+| 8 | 42 s       |  1 min 12 s | 11 min 41 s |  6 min 30 s | 52 s       | 24 s  | 5 min 47 s |  2 min 28 s |
+| 9 | 12 min 18 s|  1 min 49 s | 9 min 36 s  |  8 min 36 s | 56 s       | 20 s  | 5 min 24 s |  1 min 57 s |
+| 10 | 1 min 32 s|  2 min 32 s | 12 min 7 s  |  11 min 50 s| 1 min 5 s  | 24 s  | 17 min 10 s|  1 min 42 s |
+| AVG| 2 min 55 s| 1 min 44 s (1.68x) | 14 min 14 s | 7 min 46 s (1.83x) | 1 min 23 s | 21.9 s (3.8x) | 7 min 51 s | 1 min 39 s (4.75x) |
 
 ## Implementation Details
 
