@@ -48,6 +48,11 @@ fairly broad use of environment variables instead:
     compilation tools, rather than the default 'clang', or 'gcc' binaries
     in your `$PATH`.
 
+  - Setting `AFL_COMPILER_LAUNCHER` lets you prepend a command to the compiler
+    invocation. This is useful for tools like `ccache` that can speed up
+    compilation by caching object files. For example, setting
+    `AFL_COMPILER_LAUNCHER=ccache` will prepend `ccache` to all compiler calls.
+
   - Most AFL tools do not print any output if stdout/stderr are redirected. If
     you want to get the output into a file, then set the `AFL_DEBUG` environment
     variable. This is sadly necessary for various build processes which fail
