@@ -195,18 +195,23 @@ u8 *find_object(aflcc_state_t *, u8 *obj);
 
 void find_built_deps(aflcc_state_t *);
 
-
 static inline void increment_cc_parameter_cnt(aflcc_state_t *aflcc) {
+
   aflcc->cc_par_cnt += 1;
   if (unlikely(aflcc->cc_par_cnt >= MAX_PARAMS_NUM)) {
-      FATAL("Too many command line parameters. Please increase MAX_PARAMS_NUM.");
+
+    FATAL("Too many command line parameters. Please increase MAX_PARAMS_NUM.");
+
   }
+
 }
 
 /* Insert param into the new argv, raise error if MAX_PARAMS_NUM exceeded. */
 static inline void insert_param(aflcc_state_t *aflcc, u8 *param) {
+
   aflcc->cc_params[aflcc->cc_par_cnt] = param;
   increment_cc_parameter_cnt(aflcc);
+
 }
 
 /*
@@ -1462,7 +1467,7 @@ void mode_notification(aflcc_state_t *aflcc) {
 void add_real_argv0(aflcc_state_t *aflcc) {
 
   static u8 llvm_fullpath[PATH_MAX];
-  u8 *compiler_path = NULL;
+  u8       *compiler_path = NULL;
 
   if (aflcc->plusplus_mode) {
 
@@ -1530,18 +1535,24 @@ void add_real_argv0(aflcc_state_t *aflcc) {
 
   u8 *cc_prefix = getenv("AFL_COMPILER_LAUNCHER");
   if (cc_prefix) {
+
     increment_cc_parameter_cnt(aflcc);
 
     // Shift all existing parameters to make room for the prefix
     for (u32 i = aflcc->cc_par_cnt; i > 0; i--) {
+
       aflcc->cc_params[i] = aflcc->cc_params[i - 1];
+
     }
 
     // Insert prefix as the first parameter
     aflcc->cc_params[0] = cc_prefix;
     aflcc->cc_params[1] = compiler_path;
+
   } else {
+
     aflcc->cc_params[0] = compiler_path;
+
   }
 
 }
@@ -3070,7 +3081,8 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
           "  AFL_USE_TSAN: activate thread sanitizer\n"
           "  AFL_USE_LSAN: activate leak-checker sanitizer\n"
           "  AFL_USE_RTSAN: activate realtime sanitizer\n"
-          "  AFL_COMPILER_LAUNCHER: prepend command to compiler invocations (e.g., ccache)\n");
+          "  AFL_COMPILER_LAUNCHER: prepend command to compiler invocations "
+          "(e.g., ccache)\n");
 
       if (aflcc->have_gcc_plugin)
         SAYF(
@@ -3879,3 +3891,4 @@ int main(int argc, char **argv, char **envp) {
   return 0;
 
 }
+

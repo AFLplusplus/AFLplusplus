@@ -18,6 +18,7 @@
     - fix -C parameter breakage introduced in v4.33c
   - afl-cc:
     - enabled LLVM 22
+    - new env: AFL_COMPILER_LAUNCHER to allow ccache usage (thanks to @nbars)
     - fix a offset calculation bug in AFL++ PCGUARD
     - make AFL_DUMP_MAP_SIZE work for CLASSIC modes
     - fix a crash when running with LLVM 20 when compiling PCGUARD with LTO
