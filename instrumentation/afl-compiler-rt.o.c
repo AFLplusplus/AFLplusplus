@@ -40,7 +40,6 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include "config.h"
 #include "types.h"
 #include "cmplog.h"
-#include "llvm-alternative-coverage.h"
 
 #include "afl-ijon-min.h"
 
@@ -81,12 +80,15 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #endif
 
 #ifdef __llvm__
-  #include "llvm/Config/llvm-config.h"
+  #include "llvm-alternative-coverage.h"
+  //#include "llvm/Config/llvm-config.h"
 #endif
 
+/*
 #ifdef __linux__
   #include "snapshot-inl.h"
 #endif
+*/
 
 /* This is a somewhat ugly hack for the experimental 'trace-pc-guard' mode.
    Basically, we need to make sure that the forkserver is initialized after
