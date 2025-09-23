@@ -40,7 +40,7 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include "config.h"
 #include "types.h"
 #include "cmplog.h"
-
+#include "llvm-alternative-coverage.h"
 #include "afl-ijon-min.h"
 
 /* For backtrace() support in ijon_hashstack */
@@ -79,10 +79,11 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
   #include <execinfo.h>
 #endif
 
+/*
 #ifdef __llvm__
-  #include "llvm-alternative-coverage.h"
-  //#include "llvm/Config/llvm-config.h"
+  #include "llvm/Config/llvm-config.h"
 #endif
+*/
 
 /*
 #ifdef __linux__
