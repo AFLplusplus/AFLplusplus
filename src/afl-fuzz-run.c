@@ -156,15 +156,16 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
       /* Use saved state values in resume mode for perfect alignment */
       u32 effective_map_size = fsrv->map_size;
       u32 effective_real_map_size = fsrv->real_map_size;
+      /*
+            if (has_saved_ijon_state() && afl->resuming_fuzz) {
 
-      if (has_saved_ijon_state() && afl->resuming_fuzz) {
+              ijon_fastresume_state_t *saved_state = get_saved_ijon_state();
+              effective_map_size = saved_state->map_size;
+              effective_real_map_size = saved_state->real_map_size;
 
-        ijon_fastresume_state_t *saved_state = get_saved_ijon_state();
-        effective_map_size = saved_state->map_size;
-        effective_real_map_size = saved_state->real_map_size;
+            }
 
-      }
-
+      */
       dynamic_shared_access_t *shared_access = setup_dynamic_shared_access(
           fsrv->trace_bits, effective_map_size, effective_real_map_size);
 

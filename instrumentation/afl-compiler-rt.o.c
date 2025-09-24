@@ -138,6 +138,7 @@ int        __afl_sharedmem_fuzzing __attribute__((weak));
 u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
 u32 __afl_cov_map_size = MAP_SIZE;
+u32 __afl_set_map_size = MAP_SIZE;
 u32 __afl_dictionary_len;
 u64 __afl_map_addr;
 u32 __afl_first_final_loc;
@@ -433,11 +434,12 @@ static void __afl_map_shm(void) {
       __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
       __afl_cov_map_size = __afl_map_size;
       __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
+      __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
       __afl_ijon_map_increased = 1;
 
     } else {
 
-      __afl_cov_map_size = __afl_map_size;
+      __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
 
     }
 
@@ -478,7 +480,7 @@ static void __afl_map_shm(void) {
 
   } else {
 
-    __afl_cov_map_size = __afl_map_size;
+    __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
 
     // IJON SUPPORT: Defer expansion until __afl_final_loc is set by
     // __sanitizer_cov_pcs_init This will be handled in __afl_map_shm_resize()
@@ -1013,11 +1015,12 @@ static void __afl_start_forkserver(void) {
     __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
     __afl_cov_map_size = __afl_map_size;
     __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
+    __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
     __afl_ijon_map_increased = 1;
 
   } else if (!__afl_cov_map_size) {
 
-    __afl_cov_map_size = __afl_map_size;
+    __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
 
   }
 
@@ -1314,7 +1317,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
        iteration, it's our job to erase any trace of whatever happened
        before the loop. */
 
-    memset(__afl_area_ptr, 0, __afl_map_size);
+    memset(__afl_area_ptr, 0, __afl_set_map_size);
     __afl_area_ptr[0] = 1;
     memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
@@ -2165,6 +2168,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
       __afl_cov_map_size = __afl_map_size;
       __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
+      __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
       __afl_ijon_map_increased = 1;
 
     }
@@ -3229,8 +3233,7 @@ void ijon_max(uint32_t addr, u64 val) {
 
   if (unlikely(__afl_ijon_bits == NULL && __afl_area_ptr)) {
 
-    __afl_ijon_bits =
-        (u64 *)(__afl_area_ptr + __afl_cov_map_size + MAP_SIZE_IJON_MAP);
+    __afl_ijon_bits = (u64 *)(__afl_area_ptr + __afl_set_map_size);
 
     /* Clear IJON max area on first initialization to avoid processing
      * uninitialized data */

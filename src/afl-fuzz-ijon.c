@@ -30,10 +30,11 @@ static int  afl_ijon_history_limit_global = 0;
 static bool afl_ijon_history_limit_initialized = false;
 
 /* Global comprehensive IJON state for fastresume save/load */
-static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
-static u8                      afl_ijon_fastresume_loaded = 0;
+// static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
+// static u8                      afl_ijon_fastresume_loaded = 0;
 
 /* Functions to save/load comprehensive IJON state for fastresume */
+/*
 void save_ijon_state_for_fastresume(u32 offset, u32 map_size, u32 real_map_size,
                                     u32 target_map_size) {
 
@@ -45,6 +46,7 @@ void save_ijon_state_for_fastresume(u32 offset, u32 map_size, u32 real_map_size,
   afl_ijon_fastresume_loaded = 1;
 
 }
+
 
 ijon_fastresume_state_t *get_saved_ijon_state(void) {
 
@@ -65,7 +67,7 @@ void clear_saved_ijon_state(void) {
 
 }
 
-/* Legacy functions for backward compatibility */
+// Legacy functions for backward compatibility
 void save_ijon_offset_for_fastresume(u32 offset) {
 
   afl_ijon_fastresume_state.ijon_offset = offset;
@@ -85,8 +87,9 @@ u8 has_saved_ijon_offset(void) {
 
 }
 
-/* Function prototypes */
+// Function prototypes
 void ijon_load_existing_state(ijon_min_state *self);
+*/
 
 /* Initialize global IJON history limit from environment variable */
 static void init_afl_ijon_history_limit(void) {
@@ -139,7 +142,7 @@ ijon_min_state *new_ijon_min_state(char *max_dir) {
   }
 
   /* Load existing max values from disk */
-  ijon_load_existing_state(self);
+  // ijon_load_existing_state(self);
 
   return self;
 
@@ -414,48 +417,18 @@ dynamic_shared_access_t *setup_dynamic_shared_access(u8 *trace_bits,
                                                      u32 map_size,
                                                      u32 real_map_size) {
 
+  (void)(real_map_size);
+
   dynamic_shared_access_t *access =
       (dynamic_shared_access_t *)ck_alloc(sizeof(dynamic_shared_access_t));
 
-  access->coverage_area = trace_bits;
-  access->coverage_size = map_size;
+  access->coverage_area = trace_bits;  // unnecessary
+  access->coverage_size = map_size;    // unnecessary
 
-  /* Calculate IJON offset to match target's __afl_map_size calculation
-   *
-   * Strategy:
-   * 1. If we have a saved offset from fastresume, use it (perfect alignment)
-   * 2. Otherwise, calculate normally and save it for future resume
-   */
-  u32 ijon_offset;
-
-  if (has_saved_ijon_state()) {
-
-    /* Resume mode: use the saved state from fastresume.bin */
-    ijon_fastresume_state_t *saved_state = get_saved_ijon_state();
-    ijon_offset = saved_state->ijon_offset;
-
-  } else {
-
-    /* Normal mode: calculate offset and save comprehensive state for future
-     * resume */
-    ijon_offset = real_map_size - MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP;
-
-    /* Save all critical values for perfect resume alignment - but only if not
-     * already saved */
-    if (!has_saved_ijon_state()) {
-
-      u32 target_map_size =
-          real_map_size + MAP_SIZE_IJON_BYTES + MAP_SIZE_IJON_MAP;
-      save_ijon_state_for_fastresume(ijon_offset, map_size, real_map_size,
-                                     target_map_size);
-
-    }
-
-  }
-
-  access->ijon_offset = ijon_offset;
-  access->ijon_max_area = (u64 *)(trace_bits + ijon_offset);
-  access->is_dynamic = 1;
+  /* Calculate IJON offset to match target's __afl_map_size calculation */
+  access->ijon_offset = map_size;  // unnecessary
+  access->ijon_max_area = (u64 *)(trace_bits + map_size);
+  access->is_dynamic = 1;  // unnessary
 
   return access;
 
