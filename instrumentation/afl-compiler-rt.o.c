@@ -426,15 +426,18 @@ static void __afl_map_shm(void) {
   if (__afl_final_loc) {
 
     __afl_map_size = __afl_final_loc + 1;  // as we count starting 0
-    __afl_cov_map_size = __afl_map_size;
 
     if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled &&
         !__afl_ijon_map_increased) {
 
-      __afl_map_size += MAP_SIZE_IJON_MAP +
-                        MAP_SIZE_IJON_BYTES;  // Fixed: add to __afl_map_size,
-                                              // not __afl_final_loc
+      __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
+      __afl_cov_map_size = __afl_map_size;
+      __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
       __afl_ijon_map_increased = 1;
+
+    } else {
+
+      __afl_cov_map_size = __afl_map_size;
 
     }
 
@@ -1007,6 +1010,7 @@ static void __afl_start_forkserver(void) {
   if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled &&
       !__afl_ijon_map_increased) {
 
+    __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
     __afl_cov_map_size = __afl_map_size;
     __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
     __afl_ijon_map_increased = 1;
@@ -2155,9 +2159,13 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     __afl_map_size = __afl_final_loc + 1;
 
     // IJON SUPPORT: Re-apply IJON expansion after reinit
-    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled) {
+    if (&__afl_ijon_enabled != NULL && __afl_ijon_enabled &&
+        !__afl_ijon_map_increased) {
 
+      __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
+      __afl_cov_map_size = __afl_map_size;
       __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
+      __afl_ijon_map_increased = 1;
 
     }
 
@@ -3221,10 +3229,8 @@ void ijon_max(uint32_t addr, u64 val) {
 
   if (unlikely(__afl_ijon_bits == NULL && __afl_area_ptr)) {
 
-    u32 ijon_offset =
-        __afl_map_size - 2 * MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP;
-
-    __afl_ijon_bits = (u64 *)(__afl_area_ptr + ijon_offset);
+    __afl_ijon_bits =
+        (u64 *)(__afl_area_ptr + __afl_cov_map_size + MAP_SIZE_IJON_MAP);
 
     /* Clear IJON max area on first initialization to avoid processing
      * uninitialized data */
@@ -3258,7 +3264,7 @@ void ijon_set(uint32_t loc_addr, uint32_t val) {
   u32 combined_hash = loc_addr ^ val;
   u32 coverage_id = combined_hash % MAP_SIZE_IJON_MAP;
 
-  __afl_area_ptr[__afl_final_loc + coverage_id] = 1;
+  __afl_area_ptr[__afl_cov_map_size + coverage_id] = 1;
 
 }
 
@@ -3275,7 +3281,7 @@ void ijon_inc(uint32_t loc_addr, uint32_t val) {
 
   // Memory-safe: Use actual available shared memory size
   // Use AFL's incremental coverage approach (same as __afl_trace)
-  __afl_area_ptr[__afl_final_loc + coverage_id] += 1;
+  __afl_area_ptr[__afl_cov_map_size + coverage_id] += 1;
 
 }
 
@@ -3340,9 +3346,7 @@ void ijon_min_variadic(uint32_t addr, ...) {
 
 void ijon_xor_state(uint32_t val) {
 
-  u32 state_modulo = MAP_SIZE_IJON_MAP;
-
-  __afl_ijon_state = (__afl_ijon_state ^ val) % state_modulo;
+  __afl_ijon_state = (__afl_ijon_state ^ val) % (u32)MAP_SIZE_IJON_MAP;
 
 }
 

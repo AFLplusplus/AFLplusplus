@@ -16,11 +16,11 @@ echo "5" > test-input/input3.txt
 echo "!" > test-input/input4.txt
 
 echo "1. Testing PCGUARD mode (default) with IJON..."
-AFL_LLVM_IJON=1 ../afl-clang-fast test-ijon-complete.c -o test-ijon-pcguard 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
+AFL_LLVM_IJON=1 ../afl-clang-fast -D_USE_IJON=1 test-ijon-complete.c -o test-ijon-pcguard 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
 echo "    Compiled with PCGUARD + IJON state-aware coverage"
 
 echo "2. Testing LTO mode with IJON..."
-AFL_LLVM_IJON=1 ../afl-clang-lto test-ijon-complete.c -o test-ijon-lto 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
+AFL_LLVM_IJON=1 ../afl-clang-lto -D_USE_IJON=1 test-ijon-complete.c -o test-ijon-lto 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
 echo "    Compiled with LTO + IJON state-aware coverage"
 
 echo "3. Compiling baseline without IJON ..."
@@ -70,6 +70,7 @@ echo "Generating coverage maps for state-aware analysis..."
 # Baseline (no IJON)
 ../afl-showmap -q -o suite_baseline_A.map ./test-ijon-legacy < test-input/input1.txt
 ../afl-showmap -q -o suite_baseline_a.map ./test-ijon-legacy < test-input/input2.txt
+../afl-showmap -q -o suite_baseline_5.map ./test-ijon-legacy < test-input/input3.txt
 
 # Function to get coverage IDs
 get_coverage_ids() {
@@ -102,6 +103,7 @@ echo
 echo "Baseline (no IJON):"
 echo "  Input 'A': $(count_edges suite_baseline_A.map) edges [$(get_coverage_ids suite_baseline_A.map)]"
 echo "  Input 'a': $(count_edges suite_baseline_a.map) edges [$(get_coverage_ids suite_baseline_a.map)]"
+echo "  Input '5': $(count_edges suite_baseline_5.map) edges [$(get_coverage_ids suite_baseline_5.map)]"
 
 echo
 echo "6. Testing coverage differences with different inputs..."
@@ -123,7 +125,7 @@ echo "Testing all IJON macros in the current test program..."
 
 # Check IJON macro counts in compilation output
 echo " Analyzing IJON macro usage:"
-pcguard_compile_output=$(AFL_LLVM_IJON=1 ../afl-clang-fast test-ijon-complete.c -o test-ijon-enhanced-check 2>&1)
+pcguard_compile_output=$(AFL_LLVM_IJON=1 ../afl-clang-fast -D_USE_IJON=1 test-ijon-complete.c -o test-ijon-enhanced-check 2>&1)
 
 # Extract macro counts
 ijon_max_calls=$(echo "$pcguard_compile_output" | grep -o "IJON_MAX: [0-9]*" | grep -o "[0-9]*" || echo "0")

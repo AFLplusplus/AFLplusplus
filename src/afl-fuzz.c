@@ -2635,67 +2635,29 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-    if (map_size <= 4 + MAP_SIZE_IJON_BYTES + MAP_SIZE_IJON_MAP) {
+    if (afl->fsrv.map_size <= 4 + MAP_SIZE_IJON_BYTES + MAP_SIZE_IJON_MAP) {
 
       FATAL("target forkserver reports too small map for IJON - BUG!");
 
     }
 
-    /* Skip map size reduction during fastresume - target already configured
-     * correctly */
-    if (!fast_resume) {
-
-      map_size -= MAP_SIZE_IJON_BYTES;
-      afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
-      afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES;
-
-    }
+    afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
+    afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES;
+    OKF("IJON map: coverage bytes %u, ijon map bytes %u, ijon max size %u",
+        (u32)(afl->fsrv.map_size - MAP_SIZE_IJON_MAP), (u32)MAP_SIZE_IJON_MAP,
+        (u32)MAP_SIZE_IJON_BYTES);
 
     /* Calculate IJON offset based on mode */
-    u32 ijon_offset;
-    if (!fast_resume) {
+    afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + afl->fsrv.map_size);
 
-      /* Normal mode: use reduced map_size */
-      ijon_offset = afl->fsrv.map_size;
-
-    } else {
-
-      /* FastResume mode: use saved offset from comprehensive state */
-      if (has_saved_ijon_state()) {
-
-        ijon_offset = get_saved_ijon_state()->ijon_offset;
-
-      } else {
-
-        /* Fallback: calculate from unreduced map_size */
-        ijon_offset = afl->fsrv.map_size - MAP_SIZE_IJON_BYTES;
-
-      }
-
-    }
-
-    afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + ijon_offset);
     char *max_dir = alloc_printf("%s/ijon_max", afl->out_dir);
-
     afl->ijon_state = new_ijon_min_state(max_dir);
     ck_free(max_dir);
 
-    if (!has_saved_ijon_state() && !fast_resume) {
+    setenv("AFL_NO_IJON", "1", 1);
 
-      u32 correct_ijon_offset =
-          afl->fsrv.real_map_size - MAP_SIZE_IJON_BYTES - MAP_SIZE_IJON_MAP;
-      u32 target_map_size =
-          afl->fsrv.real_map_size + MAP_SIZE_IJON_BYTES + MAP_SIZE_IJON_MAP;
-      save_ijon_state_for_fastresume(correct_ijon_offset, map_size,
-                                     afl->fsrv.real_map_size, target_map_size);
-
-    }
-
-    /* from here on out the other forkservers do not need IJON hence we disable
-     * it */
-    /* BUT: do not disable IJON during fast resume as we need it for continued
-     * fuzzing */
-    if (!fast_resume) { setenv("AFL_NO_IJON", "1", 1); }
+    fast_resume = 0;  // currently broken!
+    afl->afl_env.afl_no_fastresume = 1;
 
   }
 
@@ -2936,10 +2898,6 @@ int main(int argc, char **argv_orig, char **envp) {
           save_ijon_state_for_fastresume(
               saved_ijon_state.ijon_offset, saved_ijon_state.map_size,
               saved_ijon_state.real_map_size, saved_ijon_state.target_map_size);
-
-          /* Update afl->ijon_bits pointer with the correct saved offset */
-          afl->ijon_bits =
-              (u64 *)(afl->fsrv.trace_bits + saved_ijon_state.ijon_offset);
 
         }
 
