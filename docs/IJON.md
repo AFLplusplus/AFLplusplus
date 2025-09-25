@@ -108,7 +108,7 @@ When we fuzz a protocol, we want to reward different message types and states:
 ```c
 msg = parse_msg();
 state_log = (state_log << 8) + msg.type;
-IJON_SET(state_log); // reward new message sequences
+IJON_STATE(state_log); // reward new message sequences
 ```
 
 ## Usage Instructions

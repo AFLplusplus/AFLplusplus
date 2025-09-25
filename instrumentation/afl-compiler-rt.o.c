@@ -1310,7 +1310,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
   char tcase[PATH_MAX];
 #endif
 
-  if (first_pass) {
+  if (unlikely(first_pass)) {
 
     /* Make sure that every iteration of __AFL_LOOP() starts with a clean slate.
        On subsequent calls, the parent will take care of that, but on the first
@@ -1377,6 +1377,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     raise(SIGSTOP);
 
     __afl_area_ptr[0] = 1;
+    __afl_ijon_state = 0;
     memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
     __afl_selective_coverage_temp = 1;
 
