@@ -420,13 +420,9 @@ dynamic_shared_access_t *setup_dynamic_shared_access(u8 *trace_bits,
   dynamic_shared_access_t *access =
       (dynamic_shared_access_t *)ck_alloc(sizeof(dynamic_shared_access_t));
 
-  access->coverage_area = trace_bits;  // unnecessary
-  access->coverage_size = map_size;    // unnecessary
-
   /* Calculate IJON offset to match target's __afl_map_size calculation */
-  access->ijon_offset = map_size;  // unnecessary
+  access->ijon_offset = map_size;
   access->ijon_max_area = (u64 *)(trace_bits + map_size);
-  access->is_dynamic = 1;  // unnessary
 
   return access;
 
