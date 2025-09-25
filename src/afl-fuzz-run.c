@@ -1221,6 +1221,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   u8  needs_write = 0, fault = 0;
   u32 orig_len = q->len;
   u64 trim_start_us = get_cur_time_us();
+  afl->bytes_trim_in += orig_len;
+
   /* Custom mutator trimmer */
   if (afl->custom_mutators_count) {
 
@@ -1271,7 +1273,6 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   }
 
   afl->stage_name = afl->stage_name_buf;
-  afl->bytes_trim_in += q->len;
 
   /* Select initial chunk len, starting with large steps. */
 

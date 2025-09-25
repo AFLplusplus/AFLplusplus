@@ -462,7 +462,6 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
   u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
   afl->stage_name = afl->stage_name_buf;
-  afl->bytes_trim_in += q->len;
 
   /* Initialize trimming in the custom mutator */
   afl->stage_cur = 0;
@@ -655,7 +654,6 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 abort_trimming:
 
   if (out_buf) afl_free(out_buf);
-  afl->bytes_trim_out += q->len;
   return fault;
 
 }
