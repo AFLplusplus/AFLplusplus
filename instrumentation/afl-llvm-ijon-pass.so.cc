@@ -173,6 +173,14 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
       if (ijon_state_calls > 0) printf(" (IJON_STATE: %d)", ijon_state_calls);
       printf(".\n");
 
+      // Always create __afl_ijon_enabled for IJON memory allocation
+      IRBuilder<>     IRB(M.getContext());
+      Constant       *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
+      GlobalVariable *GV = new GlobalVariable(M, IRB.getInt32Ty(), 0,
+                                              GlobalValue::WeakODRLinkage,
+                                              One32, "__afl_ijon_enabled");
+      GV->setAlignment(Align(4));
+
     } else {
 
       printf("No IJON calls found to instrument.\n");
