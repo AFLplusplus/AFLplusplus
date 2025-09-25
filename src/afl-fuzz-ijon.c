@@ -30,11 +30,10 @@ static int  afl_ijon_history_limit_global = 0;
 static bool afl_ijon_history_limit_initialized = false;
 
 /* Global comprehensive IJON state for fastresume save/load */
-// static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
-// static u8                      afl_ijon_fastresume_loaded = 0;
+static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
+static u8                      afl_ijon_fastresume_loaded = 0;
 
 /* Functions to save/load comprehensive IJON state for fastresume */
-/*
 void save_ijon_state_for_fastresume(u32 offset, u32 map_size, u32 real_map_size,
                                     u32 target_map_size) {
 
@@ -89,7 +88,6 @@ u8 has_saved_ijon_offset(void) {
 
 // Function prototypes
 void ijon_load_existing_state(ijon_min_state *self);
-*/
 
 /* Initialize global IJON history limit from environment variable */
 static void init_afl_ijon_history_limit(void) {
