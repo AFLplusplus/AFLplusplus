@@ -2641,11 +2641,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    // Only adjust map_size if not doing fastresume (fastresume will handle map_size correctly)
+    // For fastresume: target already has full map allocated, use it as-is
+    // For fresh sessions: subtract IJON bytes from total map to get coverage map size
     if (!fast_resume) {
       afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
       afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES;
     }
+    
     OKF("IJON map: coverage bytes %u, ijon map bytes %u, ijon max size %u",
         (u32)(afl->fsrv.map_size - MAP_SIZE_IJON_MAP), (u32)MAP_SIZE_IJON_MAP,
         (u32)MAP_SIZE_IJON_BYTES);
@@ -2657,7 +2659,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->ijon_state = new_ijon_min_state(max_dir);
     ck_free(max_dir);
 
-    // setenv("AFL_NO_IJON", "1", 1);
+    setenv("AFL_NO_IJON", "1", 1);
 
     // Re-enabled fastresume with IJON fixes
     // fast_resume = 0;  // currently broken!
@@ -2897,8 +2899,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       if (saved_ijon_state.is_initialized) {
 
-        // Enable IJON for fastresume (will be confirmed by forkserver handshake later)
-        afl->fsrv.use_ijon = 1;
+        // IJON will be enabled after forkserver handshake confirms capability
 
         // Restore IJON state for consistent offset calculation
         save_ijon_state_for_fastresume(
@@ -3027,18 +3028,34 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    // For IJON fastresume: temporarily unset AFL_NO_IJON so target can allocate IJON map
+    u8 need_restore_no_ijon = 0;
+    if (has_saved_ijon_state()) {
+      if (getenv("AFL_NO_IJON")) {
+        unsetenv("AFL_NO_IJON");
+        need_restore_no_ijon = 1;
+      }
+    }
+    
     afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                    afl->afl_env.afl_debug_child);
+    
+    // Restore AFL_NO_IJON for subsequent processes (cmplog/asan)
+    if (need_restore_no_ijon) {
+      setenv("AFL_NO_IJON", "1", 1);
+    }
 
-    // Update IJON bits pointer after forkserver restart (for IJON fastresume)
+    // Enable IJON after forkserver handshake (for IJON fastresume)
     if (has_saved_ijon_state()) {
       ijon_fastresume_state_t *restored_state = get_saved_ijon_state();
       if (restored_state && restored_state->is_initialized) {
         
+        // Enable IJON now that forkserver handshake is complete
+        afl->fsrv.use_ijon = 1;
+        
         // Don't override the new forkserver map_size, just update ijon_bits pointer
         // Use the saved offset to maintain consistency
         afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + restored_state->ijon_offset);
-        
       }
     }
 

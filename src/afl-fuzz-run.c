@@ -156,22 +156,22 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
       /* Use saved state values in resume mode for perfect alignment */
       u32 effective_map_size = fsrv->map_size;
       u32 effective_real_map_size = fsrv->real_map_size;
-      // Use saved IJON offset directly during fastresume for consistent offset calculation  
-      dynamic_shared_access_t *shared_access;
-      if (has_saved_ijon_state()) {
-        ijon_fastresume_state_t *saved_state = get_saved_ijon_state();
-        if (saved_state && saved_state->is_initialized) {
-          
-          // Create shared_access manually with saved offset
-          shared_access = (dynamic_shared_access_t *)ck_alloc(sizeof(dynamic_shared_access_t));
-          shared_access->ijon_max_area = (u64 *)(fsrv->trace_bits + saved_state->ijon_offset);
-          
+        // Use saved IJON offset directly during fastresume for consistent offset calculation  
+        dynamic_shared_access_t *shared_access;
+        if (has_saved_ijon_state()) {
+          ijon_fastresume_state_t *saved_state = get_saved_ijon_state();
+          if (saved_state && saved_state->is_initialized) {
+            
+            // Create shared_access manually with saved offset
+            shared_access = (dynamic_shared_access_t *)ck_alloc(sizeof(dynamic_shared_access_t));
+            shared_access->ijon_max_area = (u64 *)(fsrv->trace_bits + saved_state->ijon_offset);
+            
+          } else {
+            shared_access = setup_dynamic_shared_access(fsrv->trace_bits, effective_map_size, effective_real_map_size);
+          }
         } else {
           shared_access = setup_dynamic_shared_access(fsrv->trace_bits, effective_map_size, effective_real_map_size);
         }
-      } else {
-        shared_access = setup_dynamic_shared_access(fsrv->trace_bits, effective_map_size, effective_real_map_size);
-      }
 
       ijon_update_max_dynamic(afl->ijon_state, shared_access, input_data,
                               input_len);
