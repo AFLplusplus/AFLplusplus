@@ -302,6 +302,28 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-persistent
+  AFL_LLVM_IJON=1 ../afl-clang-fast -o ijon-maze -fsanitize=fuzzer ijon-maze.c > /dev/null 2>&1
+  test -e ijon-maze && {
+    $ECHO "$GREY[*] running afl-fuzz with IJON maze, this will take approx 10 seconds"
+    {
+      mkdir -p in
+      echo 00000000000000000000000000000000 > in/in
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 ../afl-fuzz -Z -m none -V15 -i in -o out -- ./ijon-maze >>errors 2>&1
+    } >>errors 2>&1
+    test -n "$( ls out/default/crashes/* 2>/dev/null )" && {
+      $ECHO "$GREEN[+] afl-fuzz is working correctly with IJON"
+    } || {
+      echo CUT------------------------------------------------------------------CUT
+      cat errors
+      echo CUT------------------------------------------------------------------CUT
+      $ECHO "$RED[!] afl-fuzz is not working correctly with IJON"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] IJON maze compilation failed"
+    CODE=1
+  }
+  rm -f ijon-maze
 } || {
   $ECHO "$YELLOW[-] llvm_mode not compiled, cannot test"
   INCOMPLETE=1
