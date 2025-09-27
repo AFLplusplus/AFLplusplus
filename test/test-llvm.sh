@@ -308,7 +308,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       mkdir -p in
       echo 00000000000000000000000000000000 > in/in
-      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 ../afl-fuzz -Z -m none -V33 -i in -o out -- ./ijon-maze >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 ../afl-fuzz -Z -m none -V64 -i in -o out -- ./ijon-maze >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/default/crashes/* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with IJON"
