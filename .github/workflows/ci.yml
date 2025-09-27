@@ -31,7 +31,7 @@ jobs:
       - name: install packages
         run: sudo apt-get install -y -m -f build-essential git libtool libtool-bin automake flex bison libglib2.0-0 libc++-dev findutils libcmocka-dev python3-dev python3-setuptools ninja-build python3-pip gcc-12-plugin-dev
       - name: install llvm-tools
-        run: sudo apt install -y clang-${{ matrix.version }} llvm-${{ matrix.version }}
+        run: sudo apt install -y clang-${{ matrix.version }} llvm-${{ matrix.version }} llvm-${{ matrix.version }}-dev lld-${{ matrix.version }}
       - name: install clang-rt (for llvm 15)
         # because ubuntu-22.04 already has this package
         if: matrix.version != '15'
@@ -69,7 +69,7 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 200
       - name: install llvm-tools
         if: matrix.version < '20'
-        run: sudo apt install -y clang-${{ matrix.version }} llvm-${{ matrix.version }}
+        run: sudo apt install -y clang-${{ matrix.version }} llvm-${{ matrix.version }} llvm-${{ matrix.version }}-dev lld-${{ matrix.version }}
       - name: install clang-rt
         if: matrix.version < '20'
         run: sudo apt install -y libclang-${{ matrix.version }}-dev

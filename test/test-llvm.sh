@@ -323,7 +323,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$RED[!] IJON maze compilation failed"
     CODE=1
   }
-  rm -f ijon-maze
+  rm -rf ijon-maze in out errors
 } || {
   $ECHO "$YELLOW[-] llvm_mode not compiled, cannot test"
   INCOMPLETE=1
