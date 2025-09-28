@@ -64,6 +64,7 @@ typedef uint128_t         u128;
 #define FS_OPT_AUTODICT 0x10000000
 #define FS_OPT_SHDMEM_FUZZ 0x01000000
 #define FS_OPT_NEWCMPLOG 0x02000000
+#define FS_OPT_IJON 0x04000000
 #define FS_OPT_OLD_AFLPP_WORKAROUND 0x0f000000
 // FS_OPT_MAX_MAPSIZE is 8388608 = 0x800000 = 2^23 = 1 << 23
 #define FS_OPT_MAX_MAPSIZE ((0x00fffffeU >> 1) + 1)
@@ -220,10 +221,10 @@ typedef int128_t s128;
 #else
   #if defined(__linux__) || !defined(__ANDROID__)
     #define SR(s) (srandom(s))
-    #define R(x) (random() % (x))
+    #define AFL_R(x) (random() % (x))
   #else
     #define SR(s) ((void)s)
-    #define R(x) (arc4random_uniform(x))
+    #define AFL_R(x) (arc4random_uniform(x))
   #endif
 #endif                                                    /* ^AFL_LLVM_PASS */
 

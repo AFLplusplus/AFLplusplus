@@ -25,6 +25,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "afl-ijon-min.h"
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <signal.h>
@@ -99,6 +100,71 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
       }
 
     });
+
+  }
+
+  /* Check for new IJON max values after execution */
+  if (unlikely(fsrv->use_ijon && afl->ijon_state && afl->ijon_bits)) {
+
+    /* UNIFIED SHARED MEMORY ACCESS: Always use dynamic allocation */
+
+    // Get current input data for IJON processing
+    u8 *input_data = NULL;
+    u32 input_len = 0;
+
+    /* Read input data from testcase file that was just executed */
+    if (afl->fsrv.out_file) {
+
+      struct stat st;
+      if (stat(afl->fsrv.out_file, &st) == 0) {
+
+        if (st.st_size > 0) {
+
+          input_len = st.st_size;
+          input_data = ck_alloc(input_len);
+
+          int fd = open(afl->fsrv.out_file, O_RDONLY);
+          if (fd >= 0) {
+
+            ssize_t bytes_read = read(fd, input_data, input_len);
+            close(fd);
+
+            if (bytes_read != input_len) {
+
+              ck_free(input_data);
+              input_data = NULL;
+              input_len = 0;
+
+            }
+
+          } else {
+
+            ck_free(input_data);
+            input_data = NULL;
+            input_len = 0;
+
+          }
+
+        }
+
+      }
+
+    }
+
+    if (input_data) {
+
+      /* Use pre-initialized shared_access from afl state */
+      ijon_update_max_dynamic(afl->ijon_state, afl->ijon_shared_access,
+                              input_data, input_len);
+
+    }
+
+    if (input_data) {
+
+      ck_free(input_data);
+      input_data = NULL;
+
+    }
 
   }
 
@@ -806,7 +872,13 @@ void check_sync_fuzzers(afl_state_t *afl) {
         if (max_fd >= 0) {
 
           --max_start_id;  // counting from 0
-          write(max_fd, &max_start_id, sizeof(u32));
+          if (unlikely(write(max_fd, &max_start_id, sizeof(u32)) !=
+                       sizeof(u32))) {
+
+            /* Ignore write failure - sync will continue */
+
+          }
+
           close(max_fd);
 
         }
@@ -980,9 +1052,15 @@ void sync_fuzzers(afl_state_t *afl) {
     sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir, sd_ent->d_name);
     s32 max_fd = open(qd_synced_maxid, O_RDONLY, DEFAULT_PERMISSION);
 
-    if (max_fd >= 0) {
+    if (likely(max_fd >= 0)) {
 
-      read(max_fd, &max_start_id, sizeof(u32));
+      if (unlikely(read(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32))) {
+
+        /* Use default value on read failure */
+        max_start_id = 0;
+
+      }
+
       close(max_fd);
       if (max_start_id < next_min_accept) { unlink(qd_synced_maxid); }
 
@@ -1126,6 +1204,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   u8  needs_write = 0, fault = 0;
   u32 orig_len = q->len;
   u64 trim_start_us = get_cur_time_us();
+  afl->bytes_trim_in += orig_len;
+
   /* Custom mutator trimmer */
   if (afl->custom_mutators_count) {
 
@@ -1176,7 +1256,6 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   }
 
   afl->stage_name = afl->stage_name_buf;
-  afl->bytes_trim_in += q->len;
 
   /* Select initial chunk len, starting with large steps. */
 

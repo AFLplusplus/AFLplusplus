@@ -5,6 +5,7 @@
 
 
 ### Version ++4.34a (dev)
+  - IJON integration by @vi3tL0u1s - thanks a lot!!
   - unicorn_mode:
     - UnicornAFL v3!! thanks to @wtdcode!
   - qemu_mode:
@@ -17,6 +18,7 @@
     - fix -C parameter breakage introduced in v4.33c
   - afl-cc:
     - enabled LLVM 22
+    - new env: AFL_COMPILER_LAUNCHER to allow ccache usage (thanks to @nbars)
     - fix a offset calculation bug in AFL++ PCGUARD
     - make AFL_DUMP_MAP_SIZE work for CLASSIC modes
     - fix a crash when running with LLVM 20 when compiling PCGUARD with LTO
@@ -27,6 +29,8 @@
   - Building:
     - new NO_UNICORN and NO_QEMU and NO_FRIDA build options
     - build fixes for FreeBSD
+  - custom_mutators:
+    - added AIXCC Team Atlanta's zero-mq plugin to add testcases from remote
 
 
 ### Version ++4.33c (release)

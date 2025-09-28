@@ -503,6 +503,17 @@ We add 4 byte for one u32 length field. */
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
 
+/* IJON max tracking map configuration */
+
+/* Number of IJON slots (power-of-2 for efficient bitmasking) */
+#define MAP_SIZE_IJON_ENTRIES 512
+
+/* IJON map size for set/inc/xor */
+#define MAP_SIZE_IJON_MAP 65536
+
+/* IJON map footprint in bytes (64-bit values for legacy compatibility) */
+#define MAP_SIZE_IJON_BYTES (MAP_SIZE_IJON_ENTRIES * sizeof(u64))  // = 4096
+
 /* Maximum allocator request size (keep well under INT_MAX): */
 
 #define MAX_ALLOC 0x40000000

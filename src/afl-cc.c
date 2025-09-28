@@ -195,13 +195,22 @@ u8 *find_object(aflcc_state_t *, u8 *obj);
 
 void find_built_deps(aflcc_state_t *);
 
+static inline void increment_cc_parameter_cnt(aflcc_state_t *aflcc) {
+
+  aflcc->cc_par_cnt += 1;
+  if (unlikely(aflcc->cc_par_cnt >= MAX_PARAMS_NUM)) {
+
+    FATAL("Too many command line parameters. Please increase MAX_PARAMS_NUM.");
+
+  }
+
+}
+
 /* Insert param into the new argv, raise error if MAX_PARAMS_NUM exceeded. */
 static inline void insert_param(aflcc_state_t *aflcc, u8 *param) {
 
-  if (unlikely(aflcc->cc_par_cnt + 1 >= MAX_PARAMS_NUM))
-    FATAL("Too many command line parameters, please increase MAX_PARAMS_NUM.");
-
-  aflcc->cc_params[aflcc->cc_par_cnt++] = param;
+  aflcc->cc_params[aflcc->cc_par_cnt] = param;
+  increment_cc_parameter_cnt(aflcc);
 
 }
 
@@ -1452,10 +1461,13 @@ void mode_notification(aflcc_state_t *aflcc) {
   - gcc or clang
   - CLANG_BIN or LLVM_BINDIR/clang
   otherwise.
+
+  If AFL_COMPILER_LAUNCHER is set, prepend that command to the compiler.
 */
 void add_real_argv0(aflcc_state_t *aflcc) {
 
   static u8 llvm_fullpath[PATH_MAX];
+  u8       *compiler_path = NULL;
 
   if (aflcc->plusplus_mode) {
 
@@ -1484,7 +1496,7 @@ void add_real_argv0(aflcc_state_t *aflcc) {
 
     }
 
-    aflcc->cc_params[0] = alt_cxx;
+    compiler_path = alt_cxx;
 
   } else {
 
@@ -1517,7 +1529,29 @@ void add_real_argv0(aflcc_state_t *aflcc) {
 
     }
 
-    aflcc->cc_params[0] = alt_cc;
+    compiler_path = alt_cc;
+
+  }
+
+  u8 *cc_prefix = getenv("AFL_COMPILER_LAUNCHER");
+  if (cc_prefix) {
+
+    increment_cc_parameter_cnt(aflcc);
+
+    // Shift all existing parameters to make room for the prefix
+    for (u32 i = aflcc->cc_par_cnt; i > 0; i--) {
+
+      aflcc->cc_params[i] = aflcc->cc_params[i - 1];
+
+    }
+
+    // Insert prefix as the first parameter
+    aflcc->cc_params[0] = cc_prefix;
+    aflcc->cc_params[1] = compiler_path;
+
+  } else {
+
+    aflcc->cc_params[0] = compiler_path;
 
   }
 
@@ -3046,7 +3080,9 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
           "  AFL_USE_UBSAN: activate undefined behaviour sanitizer\n"
           "  AFL_USE_TSAN: activate thread sanitizer\n"
           "  AFL_USE_LSAN: activate leak-checker sanitizer\n"
-          "  AFL_USE_RTSAN: activate realtime sanitizer\n");
+          "  AFL_USE_RTSAN: activate realtime sanitizer\n"
+          "  AFL_COMPILER_LAUNCHER: prepend command to compiler invocations "
+          "(e.g., ccache)\n");
 
       if (aflcc->have_gcc_plugin)
         SAYF(
@@ -3083,6 +3119,8 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
             "  AFL_LLVM_INJECTIONS_SQL: enables SQL injections hooking\n"
             "  AFL_LLVM_INJECTIONS_LDAP: enables LDAP injections hooking\n"
             "  AFL_LLVM_INJECTIONS_XSS: enables XSS injections hooking\n"
+            "  AFL_LLVM_IJON: enable IJON max tracking (auto-detects "
+            "_USE_IJON)\n"
             "  AFL_LLVM_LAF_ALL: enables all LAF splits/transforms\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES: enable cascaded comparisons\n"
             "  AFL_LLVM_LAF_SPLIT_COMPARES_BITW: size limit (default 8)\n"
@@ -3487,6 +3525,71 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
 
 }
 
+/* Helper function to extract source filename from compilation arguments */
+static const char *get_source_filename(u32 argc, char **argv) {
+
+  for (u32 i = 1; i < argc; i++) {
+
+    char *arg = argv[i];
+    if (arg && arg[0] != '-') {  // Not a flag
+      char *ext = strrchr(arg, '.');
+      if (ext && (strcmp(ext, ".c") == 0 || strcmp(ext, ".cpp") == 0 ||
+                  strcmp(ext, ".cc") == 0 || strcmp(ext, ".cxx") == 0 ||
+                  strcmp(ext, ".C") == 0 || strcmp(ext, ".h") == 0 ||
+                  strcmp(ext, ".hpp") == 0 || strcmp(ext, ".hh") == 0 ||
+                  strcmp(ext, ".hxx") == 0 || strcmp(ext, ".H") == 0)) {
+
+        return arg;
+
+      }
+
+    }
+
+  }
+
+  return NULL;
+
+}
+
+/* Check if source file contains IJON usage patterns */
+static u8 file_contains_ijon_usage(const char *source_file) {
+
+  if (!source_file) return 0;
+
+  FILE *f = fopen(source_file, "r");
+  if (!f) return 0;
+
+  char line[2048];
+  u8   found_ijon = 0;
+
+  while (fgets(line, sizeof(line), f)) {
+
+    // Look for IJON patterns
+    if (strstr(line, "#ifdef _USE_IJON") ||
+        strstr(line, "#if defined(_USE_IJON)") || strstr(line, "ijon_max(") ||
+        strstr(line, "ijon_min(") || strstr(line, "ijon_set(") ||
+        strstr(line, "ijon_inc(") || strstr(line, "ijon_xor_state(") ||
+        strstr(line, "ijon_reset_state(") || strstr(line, "IJON_MAX(") ||
+        strstr(line, "IJON_MIN(") || strstr(line, "IJON_SET(") ||
+        strstr(line, "IJON_INC(") || strstr(line, "IJON_STATE(") ||
+        strstr(line, "IJON_CTX(") || strstr(line, "IJON_MAX_AT(") ||
+        strstr(line, "IJON_MIN_AT(") || strstr(line, "IJON_BITS(") ||
+        strstr(line, "IJON_STRDIST(") || strstr(line, "IJON_DIST(") ||
+        strstr(line, "IJON_CMP(") || strstr(line, "IJON_STACK_MAX(") ||
+        strstr(line, "IJON_STACK_MIN(")) {
+
+      found_ijon = 1;
+      break;
+
+    }
+
+  }
+
+  fclose(f);
+  return found_ijon;
+
+}
+
 /* Process each of the existing argv, also add a few new args. */
 static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
                         char **envp) {
@@ -3602,6 +3705,52 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
         getenv("AFL_LLVM_INJECTIONS_XSS")) {
 
       load_llvm_pass(aflcc, "injection-pass.so");
+
+    }
+
+    /* Load IJON instrumentation pass when AFL_LLVM_IJON is enabled */
+    if (getenv("AFL_LLVM_IJON")) {
+
+      load_llvm_pass(aflcc, "afl-llvm-ijon-pass.so");
+
+    }
+
+    /* Include IJON header only for files that actually use IJON */
+    if (getenv("AFL_LLVM_IJON")) {
+
+      const char *source_file = get_source_filename(argc, argv);
+
+      if (source_file && file_contains_ijon_usage(source_file)) {
+
+        u8 *ijon_header = find_object(aflcc, "include/afl-ijon-min.h");
+        if (ijon_header) {
+
+          insert_param(aflcc, "-include");
+          insert_param(aflcc, ijon_header);
+          insert_param(aflcc, "-D_USE_IJON=1");  // Define the macro
+
+          if (getenv("AFL_DEBUG")) {
+
+            SAYF("Including IJON header for file: %s\n", source_file);
+
+          }
+
+        } else {
+
+          WARNF("IJON header not found for file: %s", source_file);
+
+        }
+
+      } else {
+
+        if (getenv("AFL_DEBUG") && source_file) {
+
+          SAYF("Skipping IJON header for file: %s (no IJON usage detected)\n",
+               source_file);
+
+        }
+
+      }
 
     }
 

@@ -308,6 +308,9 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   /* exec related stuff */
   fsrv->child_pid = -1;
   fsrv->map_size = get_map_size();
+
+  /* IJON space allocation is handled by normal resize logic based on target's
+   * reported size */
   fsrv->real_map_size = fsrv->map_size;
   fsrv->use_fauxsrv = false;
   fsrv->last_run_timed_out = false;
@@ -1267,6 +1270,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+      if (status & FS_OPT_IJON) {
+
+        fsrv->use_ijon = 1;
+        if (!be_quiet) { ACTF("Using IJON feature."); }
+
+      }
+
       if (status & FS_NEW_OPT_AUTODICT) {
 
         // even if we do not need the dictionary we have to read it
@@ -1339,7 +1349,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       u32 status2;
       rlen = read(fsrv->fsrv_st_fd, &status2, 4);
 
-      if (status2 != keep) {
+      // Mask out expected capability flags when comparing handshake status
+      u32 expected_flags = 0;
+      if (fsrv->use_ijon) { expected_flags |= FS_OPT_IJON; }
+      if ((status2 & ~expected_flags) != keep) {
 
         FATAL("Error in forkserver communication (%08x=>%08x)", keep, status2);
 
@@ -2039,6 +2052,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     }
 
 #else
+    /* Clear shared memory for clean execution */
     memset(fsrv->trace_bits, 0, fsrv->map_size);
     MEM_BARRIER();
 #endif
