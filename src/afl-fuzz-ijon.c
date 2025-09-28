@@ -138,9 +138,6 @@ ijon_min_state *new_ijon_min_state(char *max_dir) {
 
   }
 
-  /* Load existing max values from disk */
-  // ijon_load_existing_state(self);
-
   return self;
 
 }
@@ -179,8 +176,6 @@ void ijon_load_existing_state(ijon_min_state *self) {
 u8 ijon_should_schedule(ijon_min_state *self) {
 
   if (self->num_entries > 0) {
-
-    // return 1;  // 100% chance to schedule IJON input for debugging
 
     /* 80% scheduling probability */
     if (random() % 100 < 80) {

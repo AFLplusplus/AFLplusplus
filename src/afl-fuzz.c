@@ -2664,9 +2664,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
     setenv("AFL_NO_IJON", "1", 1);
 
-    // Re-enabled fastresume with IJON fixes
-    // fast_resume = 0;  // currently broken!
-    // afl->afl_env.afl_no_fastresume = 1;
+    // Initialize IJON shared access for dynamic offset calculation
+    afl->ijon_shared_access = setup_dynamic_shared_access(
+        afl->fsrv.trace_bits, afl->fsrv.map_size, afl->fsrv.real_map_size);
 
   }
 
@@ -3060,6 +3060,13 @@ int main(int argc, char **argv_orig, char **envp) {
         // Don't override the new forkserver map_size, just update ijon_bits
         // pointer Use the saved offset to maintain consistency
         afl->ijon_bits =
+            (u64 *)(afl->fsrv.trace_bits + restored_state->ijon_offset);
+
+        // Initialize IJON shared access with saved offset for fastresume
+        afl->ijon_shared_access = (dynamic_shared_access_t *)ck_alloc(
+            sizeof(dynamic_shared_access_t));
+        afl->ijon_shared_access->ijon_offset = restored_state->ijon_offset;
+        afl->ijon_shared_access->ijon_max_area =
             (u64 *)(afl->fsrv.trace_bits + restored_state->ijon_offset);
 
       }
@@ -3704,9 +3711,6 @@ stop_fuzzing:
   #endif
 
   if (!afl->afl_env.afl_no_fastresume) {
-
-    // Fixed: Don't force-disable use_ijon during save
-    // afl->fsrv.use_ijon = 0;
 
     /* create fastresume.bin */
     u8 fr[PATH_MAX];
