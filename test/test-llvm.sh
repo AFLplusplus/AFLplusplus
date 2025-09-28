@@ -302,6 +302,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-persistent
+ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
   AFL_LLVM_IJON=1 ../afl-clang-fast -o ijon-maze -fsanitize=fuzzer ijon-maze.c > /dev/null 2>&1
   test -e ijon-maze && {
     $ECHO "$GREY[*] running afl-fuzz with IJON maze, this will take approx 10 seconds"
@@ -324,6 +325,10 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -rf ijon-maze in out errors
+ } || {
+  $ECHO "$YELLOW[-] IJON too slow to test in ARM CI, cannot test"
+  INCOMPLETE=1
+ }
 } || {
   $ECHO "$YELLOW[-] llvm_mode not compiled, cannot test"
   INCOMPLETE=1
