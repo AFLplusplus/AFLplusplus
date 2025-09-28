@@ -154,8 +154,8 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
     if (input_data) {
 
       /* Use pre-initialized shared_access from afl state */
-      ijon_update_max_dynamic(afl->ijon_state, afl->ijon_shared_access, input_data,
-                              input_len);
+      ijon_update_max_dynamic(afl->ijon_state, afl->ijon_shared_access,
+                              input_data, input_len);
 
     }
 
