@@ -921,6 +921,13 @@ void afl_state_deinit(afl_state_t *afl) {
 
     }
 
+    if (afl->ijon_shared_access) {
+
+      cleanup_dynamic_shared_access(afl->ijon_shared_access);
+      afl->ijon_shared_access = NULL;
+
+    }
+
     afl->ijon_input_len = 0;
 
   }

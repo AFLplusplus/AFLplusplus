@@ -896,6 +896,7 @@ typedef struct afl_state {
   u8             *ijon_input_data;    /* Currently executed IJON input data */
   u32             ijon_input_len; /* Length of currently executed IJON input */
   u8              is_doing_ijon;      /* Flag to track IJON execution state */
+  dynamic_shared_access_t *ijon_shared_access; /* IJON shared access for dynamic offset */
 
 } afl_state_t;
 

@@ -30,11 +30,10 @@ static int  afl_ijon_history_limit_global = 0;
 static bool afl_ijon_history_limit_initialized = false;
 
 /* Global comprehensive IJON state for fastresume save/load */
-// static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
-// static u8                      afl_ijon_fastresume_loaded = 0;
+static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
+static u8                      afl_ijon_fastresume_loaded = 0;
 
 /* Functions to save/load comprehensive IJON state for fastresume */
-/*
 void save_ijon_state_for_fastresume(u32 offset, u32 map_size, u32 real_map_size,
                                     u32 target_map_size) {
 
@@ -46,7 +45,6 @@ void save_ijon_state_for_fastresume(u32 offset, u32 map_size, u32 real_map_size,
   afl_ijon_fastresume_loaded = 1;
 
 }
-
 
 ijon_fastresume_state_t *get_saved_ijon_state(void) {
 
@@ -89,7 +87,6 @@ u8 has_saved_ijon_offset(void) {
 
 // Function prototypes
 void ijon_load_existing_state(ijon_min_state *self);
-*/
 
 /* Initialize global IJON history limit from environment variable */
 static void init_afl_ijon_history_limit(void) {
@@ -141,9 +138,6 @@ ijon_min_state *new_ijon_min_state(char *max_dir) {
 
   }
 
-  /* Load existing max values from disk */
-  // ijon_load_existing_state(self);
-
   return self;
 
 }
@@ -182,8 +176,6 @@ void ijon_load_existing_state(ijon_min_state *self) {
 u8 ijon_should_schedule(ijon_min_state *self) {
 
   if (self->num_entries > 0) {
-
-    // return 1;  // 100% chance to schedule IJON input for debugging
 
     /* 80% scheduling probability */
     if (random() % 100 < 80) {
@@ -422,13 +414,9 @@ dynamic_shared_access_t *setup_dynamic_shared_access(u8 *trace_bits,
   dynamic_shared_access_t *access =
       (dynamic_shared_access_t *)ck_alloc(sizeof(dynamic_shared_access_t));
 
-  access->coverage_area = trace_bits;  // unnecessary
-  access->coverage_size = map_size;    // unnecessary
-
   /* Calculate IJON offset to match target's __afl_map_size calculation */
-  access->ijon_offset = map_size;  // unnecessary
+  access->ijon_offset = map_size;
   access->ijon_max_area = (u64 *)(trace_bits + map_size);
-  access->is_dynamic = 1;  // unnessary
 
   return access;
 

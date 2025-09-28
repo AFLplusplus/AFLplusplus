@@ -51,11 +51,8 @@ typedef struct {
 // Dynamic shared memory access structure for all map sizes
 typedef struct {
 
-  u8  *coverage_area;  // Points to coverage start
   u64 *ijon_max_area;  // Points to IJON max start (dynamic offset)
-  u32  coverage_size;  // Actual coverage map size
   u32  ijon_offset;    // Where IJON data starts
-  u8   is_dynamic;     // Flag: always 1 (unified dynamic layout)
 
 } dynamic_shared_access_t;
 
