@@ -46,7 +46,6 @@ void save_ijon_state_for_fastresume(u32 offset, u32 map_size, u32 real_map_size,
 
 }
 
-
 ijon_fastresume_state_t *get_saved_ijon_state(void) {
 
   return afl_ijon_fastresume_loaded ? &afl_ijon_fastresume_state : NULL;

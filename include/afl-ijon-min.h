@@ -50,8 +50,10 @@ typedef struct {
 
 // Dynamic shared memory access structure for all map sizes
 typedef struct {
+
   u64 *ijon_max_area;  // Points to IJON max start (dynamic offset)
   u32  ijon_offset;    // Where IJON data starts
+
 } dynamic_shared_access_t;
 
 /* Function prototypes */
