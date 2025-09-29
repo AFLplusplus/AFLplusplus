@@ -20,6 +20,11 @@
 #include "llvm/Passes/OptimizationLevel.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Intrinsics.h"
+#if LLVM_MAJOR >= 16
+  #include "llvm/TargetParser/Triple.h"
+#else
+  #include "llvm/ADT/Triple.h"
+#endif
 
 // Now include AFL++ headers
 #include "afl-llvm-common.h"
@@ -176,9 +181,34 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
       // Always create __afl_ijon_enabled for IJON memory allocation
       IRBuilder<>     IRB(M.getContext());
       Constant       *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
-      GlobalVariable *GV = new GlobalVariable(M, IRB.getInt32Ty(), 0,
-                                              GlobalValue::WeakODRLinkage,
-                                              One32, "__afl_ijon_enabled");
+      GlobalVariable *GV;
+#if LLVM_MAJOR >= 16
+      llvm::Triple TT(M.getTargetTriple());
+      if (TT.isOSDarwin()) {
+
+#else
+      std::string triple = M.getTargetTriple();
+      if (Triple(triple).isOSDarwin()) {
+
+#endif
+
+        // macOS / Mach-O
+        GV = new GlobalVariable(M, IRB.getInt32Ty(),
+                                /*isConstant*/ false,
+                                GlobalValue::ExternalWeakLinkage, One32,
+                                "__afl_ijon_enabled");
+        GV->setDSOLocal(false);
+
+      } else {
+
+        // Linux / ELF and others
+        GV = new GlobalVariable(M, IRB.getInt32Ty(),
+                                /*isConstant*/ false,
+                                GlobalValue::WeakODRLinkage, One32,
+                                "__afl_ijon_enabled");
+
+      }
+
       GV->setAlignment(Align(4));
 
     } else {

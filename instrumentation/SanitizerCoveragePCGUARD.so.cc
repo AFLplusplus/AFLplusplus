@@ -537,9 +537,25 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
 
     // Always create __afl_ijon_enabled for IJON memory allocation
     Constant       *One32 = ConstantInt::get(Int32Ty, 1);
-    GlobalVariable *GV =
-        new GlobalVariable(M, Int32Ty, 0, GlobalValue::WeakODRLinkage, One32,
-                           "__afl_ijon_enabled");
+    GlobalVariable *GV;
+    if (Triple(TargetTriple).isOSDarwin()) {
+
+      // macOS / Mach-O
+      GV = new GlobalVariable(M, Int32Ty,
+                              /*isConstant*/ false,
+                              GlobalValue::ExternalWeakLinkage, One32,
+                              "__afl_ijon_enabled");
+      GV->setDSOLocal(false);
+
+    } else {
+
+      // Linux / ELF and others
+      GV = new GlobalVariable(M, Int32Ty,
+                              /*isConstant*/ false, GlobalValue::WeakODRLinkage,
+                              One32, "__afl_ijon_enabled");
+
+    }
+
     GV->setAlignment(Align(4));
 
     // Only create __afl_ijon_state if state-aware functions are used
