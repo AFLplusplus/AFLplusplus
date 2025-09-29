@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 // #include "llvm/IR/Verifier.h"
@@ -80,6 +79,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 
 #include "config.h"
 #include "debug.h"
@@ -537,23 +537,8 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
 
     // Always create __afl_ijon_enabled for IJON memory allocation
     Constant *One32 = ConstantInt::get(Int32Ty, 1);
-
-    auto *GV = new GlobalVariable(M, Int32Ty, true, GlobalValue::PrivateLinkage,
-                                  One32, "afl_ijon_marker");
-
-#if defined(__APPLE__)
-    GV->setSection("__DATA,__afl_ijon");  // Mach-O segment,section
-#else
-    GV->setSection("__afl_ijon");  // ELF section
-#endif
-
-    GV->setAlignment(Align(4));
-    GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-    GV->setVisibility(GlobalValue::DefaultVisibility);
-
-    // Keep from being stripped by optimizations and the linker (esp. Mach-O).
-    appendToCompilerUsed(M, {GV});
-    appendToUsed(M, {GV});
+    new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, One32,
+                       "__afl_ijon_enabled");
 
     // Only create __afl_ijon_state if state-aware functions are used
     if (uses_ijon_state) {

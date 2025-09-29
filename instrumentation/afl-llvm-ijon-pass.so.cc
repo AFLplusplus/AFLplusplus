@@ -184,24 +184,9 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
       // Always create __afl_ijon_enabled for IJON memory allocation
       IRBuilder<> IRB(M.getContext());
       Constant   *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
-
-      auto *GV = new GlobalVariable(M, IRB.getInt32Ty(), true,
-                                    GlobalValue::PrivateLinkage, One32,
-                                    "afl_ijon_marker");
-
-#if defined(__APPLE__)
-      GV->setSection("__DATA,__afl_ijon");  // Mach-O segment,section
-#else
-      GV->setSection("__afl_ijon");  // ELF section
-#endif
-
-      GV->setAlignment(Align(4));
-      GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-      GV->setVisibility(GlobalValue::DefaultVisibility);
-
-      // Keep from being stripped by optimizations and the linker (esp. Mach-O).
-      appendToCompilerUsed(M, {GV});
-      appendToUsed(M, {GV});
+      new GlobalVariable(M, IRB.getInt32Ty(), false,
+                         GlobalValue::ExternalLinkage, One32,
+                         "__afl_ijon_enabled");
 
     } else {
 
