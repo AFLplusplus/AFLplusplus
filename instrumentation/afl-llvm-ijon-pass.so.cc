@@ -25,6 +25,7 @@
 #else
   #include "llvm/ADT/Triple.h"
 #endif
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 // Now include AFL++ headers
 #include "afl-llvm-common.h"
@@ -167,8 +168,10 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
   } else {
 
     printf("IJON pass: Found %d functions to process\n", inst_blocks);
+
     int total_calls =
         ijon_max_calls + ijon_set_calls + ijon_inc_calls + ijon_state_calls;
+
     if (total_calls > 0) {
 
       printf("Instrumented %d IJON calls for tracking", total_calls);
@@ -179,37 +182,26 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
       printf(".\n");
 
       // Always create __afl_ijon_enabled for IJON memory allocation
-      IRBuilder<>     IRB(M.getContext());
-      Constant       *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
-      GlobalVariable *GV;
-#if LLVM_MAJOR >= 16
-      llvm::Triple TT(M.getTargetTriple());
-      if (TT.isOSDarwin()) {
+      IRBuilder<> IRB(M.getContext());
+      Constant   *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
 
+      auto *GV = new GlobalVariable(M, IRB.getInt32Ty(), true,
+                                    GlobalValue::PrivateLinkage, One32,
+                                    "afl_ijon_marker");
+
+#if defined(__APPLE__)
+      GV->setSection("__DATA,__afl_ijon");  // Mach-O segment,section
 #else
-      std::string triple = M.getTargetTriple();
-      if (Triple(triple).isOSDarwin()) {
-
+      GV->setSection("__afl_ijon");  // ELF section
 #endif
 
-        // macOS / Mach-O
-        GV = new GlobalVariable(M, IRB.getInt32Ty(),
-                                /*isConstant*/ false,
-                                GlobalValue::ExternalWeakLinkage, One32,
-                                "__afl_ijon_enabled");
-        GV->setDSOLocal(false);
-
-      } else {
-
-        // Linux / ELF and others
-        GV = new GlobalVariable(M, IRB.getInt32Ty(),
-                                /*isConstant*/ false,
-                                GlobalValue::WeakODRLinkage, One32,
-                                "__afl_ijon_enabled");
-
-      }
-
       GV->setAlignment(Align(4));
+      GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+      GV->setVisibility(GlobalValue::DefaultVisibility);
+
+      // Keep from being stripped by optimizations and the linker (esp. Mach-O).
+      appendToCompilerUsed(M, {GV});
+      appendToUsed(M, {GV});
 
     } else {
 
