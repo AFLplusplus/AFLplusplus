@@ -288,36 +288,36 @@ static void at_exit(int signal) {
 }
 
 #if defined(__APPLE__)
+__attribute__((section("__DATA,__afl_ijon"),
+               used)) static const char __afl_ijon_anchor_start = 0;
 
-/* Mach-O provides section boundary symbols with this naming:
-   section$start$SEGNAME$SECTNAME / section$end$SEGNAME$SECTNAME */
-extern char __start_afl_ijon[] __asm("section$start$__DATA$__afl_ijon");
-extern char __stop_afl_ijon[] __asm("section$end$__DATA$__afl_ijon");
-
-int __afl_is_ijon_enabled(void) {
-
-  return (void *)&__start_afl_ijon != (void *)&__stop_afl_ijon;
-
-}
-
+__attribute__((section("__DATA,__afl_ijon"),
+               used)) static const char __afl_ijon_anchor_end = 0;
 #else
+__attribute__((section("__afl_ijon"),
+               used)) static const char __afl_ijon_anchor_start = 0;
 
-/* Force section to exist even if no TU contributes. */
 __attribute__((section("__afl_ijon"),
                used)) static const char __afl_ijon_dummy = 0;
 
-/* ELF section bounds for section named "__afl_ijon" */
-extern char __start___afl_ijon[];
-extern char __stop___afl_ijon[];
+__attribute__((section("__afl_ijon"),
+               used)) static const char __afl_ijon_anchor_end = 0;
+#endif
+
+extern const char __afl_ijon_anchor_start;
+extern const char __afl_ijon_anchor_end;
+extern char       __start___afl_ijon[];
+extern char       __stop___afl_ijon[];
 
 int __afl_is_ijon_enabled(void) {
 
   size_t size = (uintptr_t)&__stop___afl_ijon - (uintptr_t)&__start___afl_ijon;
-  return size > 1;  // >1 means more than just the dummy byte
+  // If only anchors are present, size == 3.
+  // If markers were added, size > 3.
+  // fprintf(stderr, "size=%zu\n", size);
+  return size > 3;
 
 }
-
-#endif
 
 #define default_hash(a, b) XXH3_64bits(a, b)
 
@@ -1092,8 +1092,6 @@ static void __afl_start_forkserver(void) {
     return;
 
   }
-
-  if (!__afl_ijon_map_increased) { __afl_ijon_enabled = 1; }
 
   if (!__afl_old_forkserver) {
 
