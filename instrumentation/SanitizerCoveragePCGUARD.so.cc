@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 // #include "llvm/IR/Verifier.h"
@@ -80,6 +79,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 
 #include "config.h"
 #include "debug.h"

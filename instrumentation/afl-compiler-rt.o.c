@@ -282,38 +282,6 @@ static void at_exit(int signal) {
 
 }
 
-#if defined(__APPLE__)
-__attribute__((section("__DATA,__afl_ijon"),
-               used)) static const char __afl_ijon_anchor_start = 0;
-
-__attribute__((section("__DATA,__afl_ijon"),
-               used)) static const char __afl_ijon_anchor_end = 0;
-#else
-__attribute__((section("__afl_ijon"),
-               used)) static const char __afl_ijon_anchor_start = 0;
-
-__attribute__((section("__afl_ijon"),
-               used)) static const char __afl_ijon_dummy = 0;
-
-__attribute__((section("__afl_ijon"),
-               used)) static const char __afl_ijon_anchor_end = 0;
-#endif
-
-extern const char __afl_ijon_anchor_start;
-extern const char __afl_ijon_anchor_end;
-extern char       __start___afl_ijon[];
-extern char       __stop___afl_ijon[];
-
-int __afl_is_ijon_enabled(void) {
-
-  size_t size = (uintptr_t)&__stop___afl_ijon - (uintptr_t)&__start___afl_ijon;
-  // If only anchors are present, size == 3.
-  // If markers were added, size > 3.
-  // fprintf(stderr, "size=%zu\n", size);
-  return size > 3;
-
-}
-
 #define default_hash(a, b) XXH3_64bits(a, b)
 
 /* Uninspired gcc plugin instrumentation */
@@ -1511,8 +1479,6 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 
   if (__afl_already_initialized_second) return;
   __afl_already_initialized_second = 1;
-
-  __afl_ijon_enabled = __afl_is_ijon_enabled();
 
   if (getenv("AFL_DEBUG")) {
 
