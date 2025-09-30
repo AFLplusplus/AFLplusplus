@@ -47,6 +47,7 @@ def detect_from_env_or_file(target: str):
 def detect_rustc_version():
     rustc_version = run_cmd("rustc --version", None, quiet=True).decode("utf-8").split(" ")[1]
     major, minor, patch = rustc_version.split(".")
+    patch = patch.split("-", 1)[0] # remove "-nightly"
     current = (int(major), int(minor), int(patch))
     return current >= MINUMUM_RUSTC_TO_BUILD
 
