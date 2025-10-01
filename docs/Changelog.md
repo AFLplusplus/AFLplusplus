@@ -4,8 +4,9 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++4.34a (dev)
+### Version ++4.34c (release)
   - IJON integration by @vi3tL0u1s - thanks a lot!!
+    - see docs/IJON.md on how to use it
   - unicorn_mode:
     - UnicornAFL v3!! thanks to @wtdcode!
   - qemu_mode:

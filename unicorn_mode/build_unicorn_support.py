@@ -16,7 +16,10 @@ MINUMUM_RUSTC_TO_BUILD = (1, 87, 0)
 def in_venv():
     return sys.prefix != sys.base_prefix
 
-def run_cmd(cmd: str, cwd: Path = None, quiet: bool = False):
+def run_cmd(cmd: str, cwd: Path = None, quiet: bool = False, envs: dict = None):
+    if not envs:
+        envs = {}
+    passed_envs = dict(os.environ, **envs)
     if not cwd:
         cwd = Path(__file__).parent
     if quiet:
@@ -25,13 +28,13 @@ def run_cmd(cmd: str, cwd: Path = None, quiet: bool = False):
         print(f"[*] Running: \"{cmd}\" under workding directory {cwd}")
     if quiet:
         try:
-            out = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, cwd=cwd)
+            out = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, cwd=cwd, env=passed_envs)
         except subprocess.CalledProcessError as e:
             print(f"[!] Failed with:\n{e.stdout}\n{e.stderr}")
             raise e
         return out
     else:
-        subprocess.check_call(cmd, shell=True, cwd=cwd)
+        subprocess.check_call(cmd, shell=True, cwd=cwd, env=passed_envs)
         return None
 
 
@@ -47,6 +50,7 @@ def detect_from_env_or_file(target: str):
 def detect_rustc_version():
     rustc_version = run_cmd("rustc --version", None, quiet=True).decode("utf-8").split(" ")[1]
     major, minor, patch = rustc_version.split(".")
+    patch = patch.split("-", 1)[0] # remove "-nightly"
     current = (int(major), int(minor), int(patch))
     return current >= MINUMUM_RUSTC_TO_BUILD
 
@@ -130,7 +134,7 @@ print(f"[*] Now building unicornafl with maturin")
 if skip_venv:
     run_cmd(f"maturin develop --release", unicornafl_path, True)
 else:
-    run_cmd(f"{Path(venv_prefix) / 'bin' / 'maturin'} develop --release", unicornafl_path, True)
+    run_cmd(f"{Path(venv_prefix) / 'bin' / 'maturin'} develop --release", unicornafl_path, True, {"VIRTUAL_ENV": venv_prefix})
 print(f"[*] Python bindings built, now testing...")
 
 with tempfile.TemporaryDirectory() as tmpdir:
