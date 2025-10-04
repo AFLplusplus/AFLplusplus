@@ -44,8 +44,8 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include "afl-ijon-min.h"
 
 /* For backtrace() support in ijon_hashstack */
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || \
-    defined(__NetBSD__) || defined(__OpenBSD__)
+#if (defined(__linux__) && defined(__GLIBC__)) || defined(__APPLE__) || \
+    defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
   #include <execinfo.h>
 #endif
 
@@ -74,8 +74,8 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <sys/wait.h>
 #include <sys/types.h>
 
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || \
-    defined(__NetBSD__) || defined(__OpenBSD__)
+#if (defined(__linux__) && defined(__GLIBC__)) || defined(__APPLE__) || \
+    defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
   #include <execinfo.h>
 #endif
 
@@ -3338,8 +3338,8 @@ void ijon_reset_state(void) {
  * 64-bit */
 uint32_t ijon_hashstack_backtrace(void) {
 
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || \
-    defined(__NetBSD__) || defined(__OpenBSD__)
+#if (defined(__linux__) && defined(__GLIBC__)) || defined(__APPLE__) || \
+    defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
   void *buffer[16] = {
 
       0,
