@@ -28,8 +28,9 @@
 #ifndef __AFL_FORKSERVER_H
 #define __AFL_FORKSERVER_H
 
-#include <stdio.h>
+#include <fcntl.h> /*< provides mode_t */
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
