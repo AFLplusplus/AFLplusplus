@@ -45,11 +45,11 @@ void write_output(char *data, size_t len, int num) {
 
 int main(int nargs, char **argv) {
 
-  char * spath = argv[1];
+  char  *spath = argv[1];
   int    fd = open(spath, O_RDONLY, 0);
   size_t len;
-  char * input;
-  char * output;
+  char  *input;
+  char  *output;
   int    seed = 0;
   if (fd < 0) { fail("cannot open input file"); }
   len = filesize(spath);

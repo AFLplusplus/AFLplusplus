@@ -46,10 +46,10 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <poll.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
-#include <sys/select.h>
 #include <sys/stat.h>
 #include <grp.h>
 
@@ -308,6 +308,9 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   /* exec related stuff */
   fsrv->child_pid = -1;
   fsrv->map_size = get_map_size();
+
+  /* IJON space allocation is handled by normal resize logic based on target's
+   * reported size */
   fsrv->real_map_size = fsrv->map_size;
   fsrv->use_fauxsrv = false;
   fsrv->last_run_timed_out = false;
@@ -400,31 +403,28 @@ void afl_fsrv_setup_preload(afl_forkserver_t *fsrv, char *argv0) {
 
 }
 
-/* Wrapper for select() and read(), reading a 32 bit var.
+/* Wrapper for poll() and read(), reading a 32 bit var.
   Returns the time passed to read.
   If the wait times out, returns timeout_ms + 1;
   Returns 0 if an error occurred (fd closed, signal, ...); */
 static u32 __attribute__((hot)) read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
                                                volatile u8 *stop_soon_p) {
 
-  fd_set readfds;
-  FD_ZERO(&readfds);
-  FD_SET(fd, &readfds);
-  struct timeval timeout;
-  int            sret;
-  ssize_t        len_read;
+  int           pret;
+  ssize_t       len_read;
+  struct pollfd fds[1];
+  int           nfds = 1;
 
-  timeout.tv_sec = (timeout_ms / 1000);
-  timeout.tv_usec = (timeout_ms % 1000) * 1000;
-#if !defined(__linux__)
   u32 read_start = get_cur_time_us();
-#endif
+
+  memset(&fds, 0, sizeof(fds));
+  fds[0].fd = fd;
+  fds[0].events = POLLIN;
 
   /* set exceptfds as well to return when a child exited/closed the pipe. */
-restart_select:
-  sret = select(fd + 1, &readfds, NULL, NULL, &timeout);
-
-  if (likely(sret > 0)) {
+restart_poll:
+  pret = poll(fds, nfds, timeout_ms);
+  if (likely(pret > 0)) {
 
   restart_read:
     if (*stop_soon_p) {
@@ -438,13 +438,7 @@ restart_select:
 
     if (likely(len_read == 4)) {  // for speed we put this first
 
-#if defined(__linux__)
-      u32 exec_ms = MIN(
-          timeout_ms,
-          ((u64)timeout_ms - (timeout.tv_sec * 1000 + timeout.tv_usec / 1000)));
-#else
       u32 exec_ms = MIN(timeout_ms, (get_cur_time_us() - read_start) / 1000);
-#endif
 
       // ensure to report 1 ms has passed (0 is an error)
       return exec_ms > 0 ? exec_ms : 1;
@@ -459,14 +453,14 @@ restart_select:
 
     }
 
-  } else if (unlikely(!sret)) {
+  } else if (unlikely(!pret)) {
 
     *buf = -1;
     return timeout_ms + 1;
 
-  } else if (unlikely(sret < 0)) {
+  } else if (unlikely(pret < 0)) {
 
-    if (likely(errno == EINTR)) goto restart_select;
+    if (likely(errno == EINTR)) goto restart_poll;
 
     *buf = -1;
     return 0;
@@ -1276,6 +1270,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+      if (status & FS_OPT_IJON) {
+
+        fsrv->use_ijon = 1;
+        if (!be_quiet) { ACTF("Using IJON feature."); }
+
+      }
+
       if (status & FS_NEW_OPT_AUTODICT) {
 
         // even if we do not need the dictionary we have to read it
@@ -1348,7 +1349,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       u32 status2;
       rlen = read(fsrv->fsrv_st_fd, &status2, 4);
 
-      if (status2 != keep) {
+      // Mask out expected capability flags when comparing handshake status
+      u32 expected_flags = 0;
+      if (fsrv->use_ijon) { expected_flags |= FS_OPT_IJON; }
+      if ((status2 & ~expected_flags) != keep) {
 
         FATAL("Error in forkserver communication (%08x=>%08x)", keep, status2);
 
@@ -2048,6 +2052,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     }
 
 #else
+    /* Clear shared memory for clean execution */
     memset(fsrv->trace_bits, 0, fsrv->map_size);
     MEM_BARRIER();
 #endif

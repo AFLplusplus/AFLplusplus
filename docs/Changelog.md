@@ -4,6 +4,36 @@
   release of the tool. See README.md for the general instruction manual.
 
 
+### Version ++4.34c (release)
+  - IJON integration by @vi3tL0u1s - thanks a lot!!
+    - see docs/IJON.md on how to use it
+  - unicorn_mode:
+    - UnicornAFL v3!! thanks to @wtdcode!
+  - qemu_mode:
+    - fix compilation for a few platforms
+  - afl-fuzz
+    - larger improvements to CMPLOG, thanks to @am009
+    - scroll down before clearing the screen to not loose content
+    - minor bug fixes
+  - afl-showmap
+    - fix -C parameter breakage introduced in v4.33c
+  - afl-cc:
+    - enabled LLVM 22
+    - new env: AFL_COMPILER_LAUNCHER to allow ccache usage (thanks to @nbars)
+    - fix a offset calculation bug in AFL++ PCGUARD
+    - make AFL_DUMP_MAP_SIZE work for CLASSIC modes
+    - fix a crash when running with LLVM 20 when compiling PCGUARD with LTO
+    - fix deprecation warnings for LLVM 20+
+    - fix 128 bit support for cmplog-switches pass
+    - fix 32 bit cmplog support
+    - skip blocks for instrumentation that are already instrumented
+  - Building:
+    - new NO_UNICORN and NO_QEMU and NO_FRIDA build options
+    - build fixes for FreeBSD
+  - custom_mutators:
+    - added AIXCC Team Atlanta's zero-mq plugin to add testcases from remote
+
+
 ### Version ++4.33c (release)
   - afl-fuzz:
     - Use `AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT` if you use AFL_PRELOAD

@@ -6,12 +6,11 @@ $ECHO "$BLUE[*] Testing: nyx_mode"
 
 test "$CI" = "true" && {
   $ECHO "$YELLOW[-] nyx_mode cannot be tested in the Github CI, skipping ..."
-  exit 0
-}
+} || {
 
-unset AFL_CC
+ unset AFL_CC
 
-test -e ../libnyx.so && {
+ test -e ../libnyx.so && {
   ../afl-cc -o test-instr ../test-instr.c > errors 2>&1
   test -e test-instr && {
     {
@@ -71,9 +70,12 @@ test -e ../libnyx.so && {
     $ECHO "$RED[!] afl-cc compilation of test targets failed - what is going on??"
     CODE=1
   }
-} || {
+ } || {
   $ECHO "$YELLOW[-] nyx_mode is not compiled, cannot test"
   INCOMPLETE=1
+ }
+
 }
 
 . ./test-post.sh
+

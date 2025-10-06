@@ -156,7 +156,7 @@ u8 *unparse_walk(Array *input) {
 
   terminal *term_ptr;
   int       offset = 0;
-  u8 *      unparsed = (u8 *)malloc(input->inputlen + 1);
+  u8       *unparsed = (u8 *)malloc(input->inputlen + 1);
   term_ptr = &input->start[offset];
   strcpy(unparsed, term_ptr->symbol);
   offset += 1;
@@ -204,10 +204,10 @@ void write_input(Array *input, u8 *fn) {
 Array *parse_input(state *pda, FILE *fp) {
 
   terminal *term;
-  state *   state_ptr;
-  trigger * trigger;
+  state    *state_ptr;
+  trigger  *trigger;
   int       trigger_idx;
-  Array *   input = (Array *)calloc(1, sizeof(Array));
+  Array    *input = (Array *)calloc(1, sizeof(Array));
 
   // Read the length parameters
   fread(&input->used, sizeof(size_t), 1, fp);

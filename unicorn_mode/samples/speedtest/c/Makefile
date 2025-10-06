@@ -5,17 +5,17 @@
 UNAME_S =$(shell uname -s)# GNU make
 UNAME_S:sh=uname -s       # BSD make
 
-UNICORNAFL_LIB = ../../../unicornafl/build
-UNICORN_LIB = ../../../unicornafl/unicorn/build
+UNICORNAFL_LIB = ../../../lib
+UNICORN_LIB = ../../../lib
 BIN_EXT =
 AR_EXT = a
 
 # Verbose output?
 V ?= 0
 
-CFLAGS += -Wall -I../../../unicornafl/unicorn/include -I../../../unicornafl/include
+CFLAGS += -Wall -I../../../include -I../../../include
 
-LDFLAGS += -L$(UNICORNAFL_LIB) -L$(UNICORN_LIB) -lpthread -lm -lunicornafl -lunicorn -lc++
+LDFLAGS += -L$(UNICORNAFL_LIB) -L$(UNICORN_LIB) -lpthread -lm -lunicornafl -lunicorn
 
 ifeq ($(UNAME), Linux)
 # do something Linux-y
@@ -37,20 +37,20 @@ afl-fuzz: ../../../../afl-fuzz
 clean:
 	rm -rf *.o harness harness-debug
 
-../../../unicornafl/build/libunicornafl.a:
-	cd ../../.. && ./build_unicorn_support.sh
+../../../lib/libunicornafl.a:
+	cd ../../.. && ./build_unicorn_support.py
 
-harness.o: harness.c ../../../unicornafl/unicorn/include/unicorn/*.h
+harness.o: harness.c ../../../include/unicorn/*.h
 	${CC} ${CFLAGS} -O3 -c harness.c -o $@
 
-harness-debug.o: harness.c ../../../unicornafl/unicorn/include/unicorn/*.h
+harness-debug.o: harness.c ../../../include/unicorn/*.h
 	${CC} ${CFLAGS} -fsanitize=address -g -Og -c harness.c -o $@
 
 harness: harness.o
 	${CC} harness.o $(LDFLAGS) -o $@
 
 harness-debug: harness-debug.o
-	${CC} -fsanitize=address -g -Og harness-debug.o ../../../unicornafl/libunicornafl.a $(LDFLAGS) -o harness-debug
+	${CC} -fsanitize=address -g -Og harness-debug.o ../../../lib/libunicornafl.a $(LDFLAGS) -o harness-debug
 
 ../target:
 	$(MAKE) -C ..

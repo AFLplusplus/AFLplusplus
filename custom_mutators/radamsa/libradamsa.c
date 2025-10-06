@@ -3707,7 +3707,7 @@ typedef intptr_t     wdiff;
   1024 * 1024 * 8         /* static malloc'd heap size if used as a library */
 #define FBITS 24             /* bits in fixnum, on the way to 24 and beyond */
 #define FMAX                                                       \
-  ((1U << FBITS) - 1)  /* maximum fixnum (and most negative fixnum) \
+  ((1U << FBITS) - 1) /* maximum fixnum (and most negative fixnum) \
                        */
 #define MAXOBJ 0xffff                /* max words in tuple including header */
 #define MAXPAYL                                                \
@@ -3722,15 +3722,15 @@ typedef intptr_t     wdiff;
 #define make_header(size, type) ((hval)(size) << SPOS | (type) << TPOS | 2)
 #define BOOL(cval) ((cval) ? ITRUE : IFALSE)
 #define immval(desc) ((hval)(desc) >> IPOS)
-#define fixnump(desc) (((desc)&255) == 2)
+#define fixnump(desc) (((desc) & 255) == 2)
 #define NR \
   98     /* FIXME: should be ~32, see owl/register.scm:/define.n-registers/ */
 #define header(x) V(x)
 #define is_type(x, t) (((x) & (63 << TPOS | 2)) == ((t) << TPOS | 2))
 #define objsize(x) ((hval)(x) >> SPOS)
-#define immediatep(x) ((word)(x)&2)
+#define immediatep(x) ((word)(x) & 2)
 #define allocp(x) (!immediatep(x))
-#define rawp(hdr) ((hdr)&RAWBIT)
+#define rawp(hdr) ((hdr) & RAWBIT)
 #define NEXT(n) \
   ip += n;      \
   continue
@@ -3762,10 +3762,10 @@ typedef intptr_t     wdiff;
 #define FLAG 1
 #define cont(n) V((word)(n) & ~FLAG)
 #define flag(n) ((word)(n) ^ FLAG)
-#define flagged(n) ((word)(n)&FLAG)
+#define flagged(n) ((word)(n) & FLAG)
 #define flagged_or_raw(n) ((word)(n) & (RAWBIT | FLAG))
 #define TBIT 1024
-#define teardown_needed(hdr) ((word)(hdr)&TBIT)
+#define teardown_needed(hdr) ((word)(hdr) & TBIT)
 #define A0 R[*ip]
 #define A1 R[ip[1]]
 #define A2 R[ip[2]]
@@ -3803,11 +3803,11 @@ static word *memstart;
 static word *memend;
 static hval  max_heap_mb;                            /* max heap size in MB */
 static int
-                      breaked; /* set in signal handler, passed over to owl in thread switch */
+    breaked;  /* set in signal handler, passed over to owl in thread switch */
 static word           state; /* IFALSE | previous program state across runs */
-static const byte *   hp;
-static word *         fp;
-static byte *         file_heap;
+static const byte    *hp;
+static word          *fp;
+static byte          *file_heap;
 static struct termios tsettings;
 static uint64_t       nalloc;
 static size_t         maxheap;
@@ -4129,7 +4129,7 @@ static word mkraw(uint type, hval len) {
 static hval prim_connect(word *host, word port, word type) {
 
   int                sock;
-  byte *             ip = (byte *)host + W;
+  byte              *ip = (byte *)host + W;
   unsigned long      ipfull;
   struct sockaddr_in addr;
   char               udp = (immval(type) == 1);
@@ -4356,145 +4356,145 @@ static word prim_sys(word op, word a, word b, word c) {
     case 8: {                                    /* return system constants */
       static const word sysconst[] = {
 
-        S_IFMT,
-        W,
-        S_IFBLK,
-        S_IFCHR,
-        S_IFIFO,
-        S_IFREG,
-        S_IFDIR,
-        S_IFLNK,
-        S_IFSOCK,
-        E2BIG,
-        EACCES,
-        EADDRINUSE,
-        EADDRNOTAVAIL,
-        EAFNOSUPPORT,
-        EAGAIN,
-        EALREADY,
-        EBADF,
-        EBADMSG,
-        EBUSY,
-        ECANCELED,
-        ECHILD,
-        ECONNABORTED,
-        ECONNREFUSED,
-        ECONNRESET,
-        EDEADLK,
-        EDESTADDRREQ,
-        EDOM,
-        EDQUOT,
-        EEXIST,
-        EFAULT,
-        EFBIG,
-        EHOSTUNREACH,
-        EIDRM,
-        EILSEQ,
-        EINPROGRESS,
-        EINTR,
-        EINVAL,
-        EIO,
-        EISCONN,
-        EISDIR,
-        ELOOP,
-        EMFILE,
-        EMLINK,
-        EMSGSIZE,
-        EMULTIHOP,
-        ENAMETOOLONG,
-        ENETDOWN,
-        ENETRESET,
-        ENETUNREACH,
-        ENFILE,
-        ENOBUFS,
-        ENODATA,
-        ENODEV,
-        ENOENT,
-        ENOEXEC,
-        ENOLCK,
-        ENOLINK,
-        ENOMEM,
-        ENOMSG,
-        ENOPROTOOPT,
-        ENOSPC,
-        ENOSR,
-        ENOSTR,
-        ENOSYS,
-        ENOTCONN,
-        ENOTDIR,
-        ENOTEMPTY,
-        ENOTRECOVERABLE,
-        ENOTSOCK,
-        ENOTSUP,
-        ENOTTY,
-        ENXIO,
-        EOPNOTSUPP,
-        EOVERFLOW,
-        EOWNERDEAD,
-        EPERM,
-        EPIPE,
-        EPROTO,
-        EPROTONOSUPPORT,
-        EPROTOTYPE,
-        ERANGE,
-        EROFS,
-        ESPIPE,
-        ESRCH,
-        ESTALE,
-        ETIME,
-        ETIMEDOUT,
-        ETXTBSY,
-        EWOULDBLOCK,
-        EXDEV,
-        SEEK_SET,
-        SEEK_CUR,
-        SEEK_END,
-        O_EXEC,
-        O_RDONLY,
-        O_RDWR,
-        O_SEARCH,
-        O_WRONLY,
-        O_APPEND,
-        O_CLOEXEC,
-        O_CREAT,
+          S_IFMT,
+          W,
+          S_IFBLK,
+          S_IFCHR,
+          S_IFIFO,
+          S_IFREG,
+          S_IFDIR,
+          S_IFLNK,
+          S_IFSOCK,
+          E2BIG,
+          EACCES,
+          EADDRINUSE,
+          EADDRNOTAVAIL,
+          EAFNOSUPPORT,
+          EAGAIN,
+          EALREADY,
+          EBADF,
+          EBADMSG,
+          EBUSY,
+          ECANCELED,
+          ECHILD,
+          ECONNABORTED,
+          ECONNREFUSED,
+          ECONNRESET,
+          EDEADLK,
+          EDESTADDRREQ,
+          EDOM,
+          EDQUOT,
+          EEXIST,
+          EFAULT,
+          EFBIG,
+          EHOSTUNREACH,
+          EIDRM,
+          EILSEQ,
+          EINPROGRESS,
+          EINTR,
+          EINVAL,
+          EIO,
+          EISCONN,
+          EISDIR,
+          ELOOP,
+          EMFILE,
+          EMLINK,
+          EMSGSIZE,
+          EMULTIHOP,
+          ENAMETOOLONG,
+          ENETDOWN,
+          ENETRESET,
+          ENETUNREACH,
+          ENFILE,
+          ENOBUFS,
+          ENODATA,
+          ENODEV,
+          ENOENT,
+          ENOEXEC,
+          ENOLCK,
+          ENOLINK,
+          ENOMEM,
+          ENOMSG,
+          ENOPROTOOPT,
+          ENOSPC,
+          ENOSR,
+          ENOSTR,
+          ENOSYS,
+          ENOTCONN,
+          ENOTDIR,
+          ENOTEMPTY,
+          ENOTRECOVERABLE,
+          ENOTSOCK,
+          ENOTSUP,
+          ENOTTY,
+          ENXIO,
+          EOPNOTSUPP,
+          EOVERFLOW,
+          EOWNERDEAD,
+          EPERM,
+          EPIPE,
+          EPROTO,
+          EPROTONOSUPPORT,
+          EPROTOTYPE,
+          ERANGE,
+          EROFS,
+          ESPIPE,
+          ESRCH,
+          ESTALE,
+          ETIME,
+          ETIMEDOUT,
+          ETXTBSY,
+          EWOULDBLOCK,
+          EXDEV,
+          SEEK_SET,
+          SEEK_CUR,
+          SEEK_END,
+          O_EXEC,
+          O_RDONLY,
+          O_RDWR,
+          O_SEARCH,
+          O_WRONLY,
+          O_APPEND,
+          O_CLOEXEC,
+          O_CREAT,
 #if defined O_DIRECTORY
-        O_DIRECTORY,
+          O_DIRECTORY,
 #endif
-        O_DSYNC,
-        O_EXCL,
-        O_NOCTTY,
-        O_NOFOLLOW,
-        O_NONBLOCK,
-        O_RSYNC,
-        O_SYNC,
-        O_TRUNC,
-        O_TTY_INIT,
-        O_ACCMODE,
-        FD_CLOEXEC,
-        F_DUPFD,
-        F_DUPFD_CLOEXEC,
+          O_DSYNC,
+          O_EXCL,
+          O_NOCTTY,
+          O_NOFOLLOW,
+          O_NONBLOCK,
+          O_RSYNC,
+          O_SYNC,
+          O_TRUNC,
+          O_TTY_INIT,
+          O_ACCMODE,
+          FD_CLOEXEC,
+          F_DUPFD,
+          F_DUPFD_CLOEXEC,
 #if defined(F_DUP2FD)
-        F_DUP2FD,
-        F_DUP2FD_CLOEXEC,
+          F_DUP2FD,
+          F_DUP2FD_CLOEXEC,
 #endif
-        F_GETFD,
-        F_SETFD,
-        F_GETFL,
-        F_SETFL,
+          F_GETFD,
+          F_SETFD,
+          F_GETFL,
+          F_SETFL,
 #if !defined __HAIKU__
-        F_GETOWN,
-        F_SETOWN,
+          F_GETOWN,
+          F_SETOWN,
 #endif
-        F_GETLK,
-        F_SETLK,
-        F_SETLKW,
-        F_RDLCK,
-        F_UNLCK,
-        F_WRLCK,
-        CLOCK_MONOTONIC,
-        CLOCK_PROCESS_CPUTIME_ID,
-        CLOCK_REALTIME,
-        CLOCK_THREAD_CPUTIME_ID
+          F_GETLK,
+          F_SETLK,
+          F_SETLKW,
+          F_RDLCK,
+          F_UNLCK,
+          F_WRLCK,
+          CLOCK_MONOTONIC,
+          CLOCK_PROCESS_CPUTIME_ID,
+          CLOCK_REALTIME,
+          CLOCK_THREAD_CPUTIME_ID
 
       };
 
@@ -4503,16 +4503,13 @@ static word prim_sys(word op, word a, word b, word c) {
     }
 
     case 9:                                     /* return process variables */
-      return onum(a == F(0)
-                      ? errno
-                      : a == F(1)
-                            ? (uintptr_t)environ
-                            : a == F(8) ? nalloc + fp - memstart
-                                        : /* total allocated objects so far */
-                                  a == F(9)
-                                      ? maxheap
-                                      :  /* maximum heap size in a major gc */
-                                      max_heap_mb,
+      return onum(a == F(0)   ? errno
+                  : a == F(1) ? (uintptr_t)environ
+                  : a == F(8) ? nalloc + fp - memstart
+                              :           /* total allocated objects so far */
+                      a == F(9) ? maxheap
+                                :        /* maximum heap size in a major gc */
+                      max_heap_mb,
                   0);
     case 10: { /* receive-udp-packet sock → (ip-bvec . payload-bvec)| #false */
       struct sockaddr_in si_other;
@@ -4562,7 +4559,7 @@ static word prim_sys(word op, word a, word b, word c) {
     case 16:                                        /* getenv key → pointer */
       return onum(stringp(a) ? (uintptr_t)getenv((const char *)a + W) : 0, 0);
     case 17: {                                     /* exec[v] path argl ret */
-      char * path = (char *)a + W;
+      char  *path = (char *)a + W;
       int    nargs = llen((word *)b);
       char **argp, **args = realloc(NULL, (nargs + 1) * sizeof(char *));
       if (args == NULL) return IFALSE;
@@ -4634,7 +4631,7 @@ static word prim_sys(word op, word a, word b, word c) {
     case 24:                         /* mknod path (type . mode) dev → bool */
       if (stringp(a) && pairp(b)) {
 
-        const char * path = (const char *)a + W;
+        const char  *path = (const char *)a + W;
         const mode_t type = cnum(G(b, 1)), mode = immval(G(b, 2));
         if ((type == S_IFDIR ? mkdir(path, mode)
                              : mknod(path, type | mode, cnum(c))) == 0)
@@ -4672,7 +4669,7 @@ static word prim_sys(word op, word a, word b, word c) {
       int                sock = immval(a);
       int                port;
       struct sockaddr_in peer;
-      byte *             ip, *data = (byte *)c + W;
+      byte              *ip, *data = (byte *)c + W;
       size_t             len = payl_len(header(c));
       port = immval(G(b, 1));
       ip = (byte *)G(b, 2) + W;
@@ -4815,12 +4812,12 @@ static word prim_sys(word op, word a, word b, word c) {
       return IFALSE;
     case 41: {                                     /* peek mem nbytes → num */
       const word p = cnum(a);
-      return onum(
-          b == F(1) ? *(uint8_t *)p
-                    : b == F(2) ? *(uint16_t *)p
-                                : b == F(4) ? *(uint32_t *)p
-                                            : b == F(8) ? *(uint64_t *)p : V(p),
-          0);
+      return onum(b == F(1)   ? *(uint8_t *)p
+                  : b == F(2) ? *(uint16_t *)p
+                  : b == F(4) ? *(uint32_t *)p
+                  : b == F(8) ? *(uint64_t *)p
+                              : V(p),
+                  0);
 
     }
 
@@ -4843,7 +4840,7 @@ static word prim_sys(word op, word a, word b, word c) {
       return do_poll(a, b, c);
     case 44: {
 
-      char *           host = (char *)(word *)a + W;
+      char            *host = (char *)(word *)a + W;
       struct addrinfo *res;
       int              nth = immval(b);
       int              rv = getaddrinfo(host, NULL, NULL, &res);
@@ -4908,7 +4905,7 @@ static word prim_lraw(word wptr, word type) {
 static word do_poll(word a, word b, word c) {
 
   fd_set         rs, ws, es;
-  word *         cur;
+  word          *cur;
   hval           r1, r2;
   int            nfds = 1;
   struct timeval tv;
@@ -4987,7 +4984,7 @@ static word do_poll(word a, word b, word c) {
 
 static word vm(word *ob, word arg) {
 
-  byte *         ip;
+  byte          *ip;
   uint           bank = 0;
   uint           ticker = TICKS;
   unsigned short acc;

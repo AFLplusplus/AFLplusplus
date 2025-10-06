@@ -102,9 +102,13 @@ bool InjectionRoutines::hookRtns(Module &M) {
       Memcmp, Strcmp, Strncmp;
   LLVMContext &C = M.getContext();
 
-  Type        *VoidTy = Type::getVoidTy(C);
+  Type *VoidTy = Type::getVoidTy(C);
+#if LLVM_MAJOR >= 20
+  PointerType *i8PtrTy = PointerType::getUnqual(C);
+#else
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   PointerType *i8PtrTy = PointerType::get(Int8Ty, 0);
+#endif
 
   FunctionCallee c1 =
       M.getOrInsertFunction("__afl_injection_sql", VoidTy, i8PtrTy);
@@ -250,3 +254,4 @@ PreservedAnalyses InjectionRoutines::run(Module                &M,
     return PreservedAnalyses();
 
 }
+

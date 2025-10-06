@@ -92,6 +92,21 @@ static vector<u32> *s;  // the structure of the currently selected input
 
 // FUNCTIONS
 
+// dummy
+fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
+                                  u32 i) {
+
+  return FSRV_RUN_OK;
+
+}
+
+// dummy
+u32 write_to_testcase(afl_state_t *afl, void **mem, u32 a, u32 b) {
+
+  return 0;
+
+}
+
 /* This function is called once after everything is set up but before
    any fuzzing attempt has been performed.
    This is called in afl_custom_queue_get() */

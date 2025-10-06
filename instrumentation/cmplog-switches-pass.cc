@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include <iostream>
 #include <list>
@@ -122,6 +123,12 @@ bool CmplogSwitches::hookInstrs(Module &M) {
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
+#if LLVM_MAJOR >= 20
+  Type *PtrTy = PointerType::getUnqual(C);
+#else
+  Type *PtrTy = PointerType::get(Int8Ty, 0);
+#endif
+
   FunctionCallee c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy,
                                             Int8Ty, Int8Ty, Int8Ty);
   FunctionCallee cmplogHookIns1 = c1;
@@ -138,17 +145,26 @@ bool CmplogSwitches::hookInstrs(Module &M) {
                                             Int64Ty, Int64Ty, Int8Ty);
   FunctionCallee cmplogHookIns8 = c8;
 
+#if INTPTR_MAX != INT32_MAX
+  IntegerType   *Int128Ty = IntegerType::getInt128Ty(C);
+  FunctionCallee c16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy,
+                                             Int128Ty, Int128Ty, Int8Ty);
+  FunctionCallee cmplogHookIns16 = c16;
+  FunctionCallee cN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy,
+                                            Int128Ty, Int128Ty, Int8Ty, Int8Ty);
+  FunctionCallee cmplogHookInsN = cN;
+#endif
+
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
 
   if (!AFLCmplogPtr) {
 
-    AFLCmplogPtr = new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                                      GlobalValue::ExternalWeakLinkage, 0,
-                                      "__afl_cmp_map");
+    AFLCmplogPtr = new GlobalVariable(
+        M, PtrTy, false, GlobalValue::ExternalWeakLinkage, 0, "__afl_cmp_map");
 
   }
 
-  Constant *Null = Constant::getNullValue(PointerType::get(Int8Ty, 0));
+  Constant *Null = Constant::getNullValue(PtrTy);
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
@@ -200,9 +216,13 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       IRBuilder<> IRB2(SI->getParent());
       IRB2.SetInsertPoint(SI);
 
-      LoadInst *CmpPtr =
-          IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-      CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      LoadInst *CmpPtr = IRB2.CreateLoad(PtrTy, AFLCmplogPtr);
+      CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                          MDNode::get(C, {}));
+#else
+                          MDNode::get(C, None));
+#endif
       auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
       auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, SI, false);
 
@@ -295,7 +315,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
                 IRB.CreateCall(cmplogHookIns8, args);
                 break;
               case 128:
-#ifdef WORD_SIZE_64
+#if INTPTR_MAX != INT32_MAX
                 if (max_size == 128) {
 
                   IRB.CreateCall(cmplogHookIns16, args);

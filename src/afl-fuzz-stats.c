@@ -663,6 +663,19 @@ void plot_profile_data(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
+/* Scroll the terminal so when the stats clear the screen
+   we don't delete anything. */
+
+void make_space_for_stats() {
+
+  struct winsize ws;
+
+  if (ioctl(1, TIOCGWINSZ, &ws)) { return; }
+
+  SAYF("\x1b[%dS", ws.ws_row);
+
+}
+
 /* Check terminal dimensions after resize. */
 
 static void check_term_size(afl_state_t *afl) {
@@ -902,10 +915,6 @@ void show_stats_normal(afl_state_t *afl) {
 
   if (unlikely(!afl->queue_cur)) { return; }
 
-  /* Compute some mildly useful bitmap stats. */
-
-  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
-
   /* Now, for the visuals... */
 
   if (afl->clear_screen) {
@@ -928,6 +937,10 @@ void show_stats_normal(afl_state_t *afl) {
     return;
 
   }
+
+  /* Compute some mildly useful bitmap stats. */
+
+  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
 
   /* Let's start by drawing a centered banner. */
   if (unlikely(!banner[0])) {
@@ -1727,10 +1740,6 @@ void show_stats_pizza(afl_state_t *afl) {
 
   if (unlikely(!afl->queue_cur)) { return; }
 
-  /* Compute some mildly useful bitmap stats. */
-
-  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
-
   /* Now, for the visuals... */
 
   if (afl->clear_screen) {
@@ -1754,6 +1763,10 @@ void show_stats_pizza(afl_state_t *afl) {
     return;
 
   }
+
+  /* Compute some mildly useful bitmap stats. */
+
+  t_bits = (afl->fsrv.map_size << 3) - count_bits(afl, afl->virgin_bits);
 
   /* Let's start by drawing a centered banner. */
   if (unlikely(!banner[0])) {

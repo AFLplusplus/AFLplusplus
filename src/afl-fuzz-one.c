@@ -24,6 +24,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "afl-ijon-min.h"
 #include <string.h>
 #include <limits.h>
 #include "cmplog.h"
@@ -337,6 +338,28 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   u8  a_collect[MAX_AUTO_EXTRA];
   u32 a_len = 0;
+
+  /* IJON: If we're doing IJON, skip deterministic stages and go directly to
+   * havoc */
+  if (unlikely(afl->is_doing_ijon)) {
+
+    /* Use IJON input data that was set up in fuzz_one() */
+    len = afl->ijon_input_len;
+    in_buf = orig_in = afl->ijon_input_data;
+    out_buf = ck_alloc_nozero(len);
+    memcpy(out_buf, in_buf, len);
+
+    /* Setup variables for havoc stage */
+    temp_len = len;
+    orig_hit_cnt = afl->queued_items + afl->saved_crashes;
+    havoc_queued = afl->queued_items;
+    perf_score = 100;
+    orig_perf = perf_score;
+
+    /* Jump directly to havoc stage */
+    goto havoc_stage;
+
+  }
 
 #ifdef IGNORE_FINDS
 
@@ -2032,6 +2055,14 @@ havoc_stage:
 
   }
 
+  /* IJON stage name override */
+  if (unlikely(afl->is_doing_ijon)) {
+
+    afl->stage_name = "ijon-max";
+    afl->stage_short = "ijon-max";
+
+  }
+
   if (unlikely(afl->stage_max < HAVOC_MIN)) { afl->stage_max = HAVOC_MIN; }
 
   temp_len = len;
@@ -3430,13 +3461,22 @@ retry_splicing:
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
 
+  /* IJON queue protection only - memory cleanup handled normally */
+  if (unlikely(afl->is_doing_ijon)) {
+
+    /* Reset IJON flag - memory cleanup handled by normal flow */
+    afl->is_doing_ijon = 0;
+
+  }
+
   afl->splicing_with = -1;
 
   /* Update afl->pending_not_fuzzed count if we made it through the calibration
      cycle and have not seen this entry before. */
 
-  if (!afl->stop_soon && !afl->queue_cur->cal_failed &&
-      !afl->queue_cur->was_fuzzed && !afl->queue_cur->disabled) {
+  if (unlikely(!afl->is_doing_ijon && !afl->stop_soon &&
+               !afl->queue_cur->cal_failed && !afl->queue_cur->was_fuzzed &&
+               !afl->queue_cur->disabled)) {
 
     --afl->pending_not_fuzzed;
     afl->queue_cur->was_fuzzed = 1;
@@ -3450,7 +3490,7 @@ abandon_entry:
 
   }
 
-  ++afl->queue_cur->fuzz_level;
+  if (unlikely(!afl->is_doing_ijon)) { ++afl->queue_cur->fuzz_level; }
   orig_in = NULL;
   return ret_val;
 
@@ -6171,6 +6211,94 @@ void pso_updating(afl_state_t *afl) {
 u8 fuzz_one(afl_state_t *afl) {
 
   int key_val_lv_1 = -1, key_val_lv_2 = -1;
+
+  /* IJON execution path - variables for file handling */
+  u32 len = 0;
+  u8 *in_buf = NULL, *out_buf = NULL, *orig_in = NULL;
+  s32 fd = -1;
+
+  /* IJON max tracking: Check if we should use IJON input (80% chance) */
+  if (unlikely(afl->ijon_state &&
+               ijon_should_schedule((ijon_min_state *)afl->ijon_state))) {
+
+    ijon_input_info *ijon_input =
+        ijon_get_input((ijon_min_state *)afl->ijon_state);
+
+    if (likely(ijon_input && ijon_input->len > 0)) {
+
+      /* Open IJON input file directly */
+      fd = open(ijon_input->filename, O_RDONLY);
+      if (likely(fd >= 0)) {
+
+        len = ijon_input->len;
+
+        /* Map the IJON input file */
+        orig_in = in_buf =
+            mmap(0, len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+        if (likely(orig_in != MAP_FAILED)) {
+
+          close(fd);
+
+          /* Allocate output buffer for mutations */
+          out_buf = ck_alloc_nozero(len);
+          memcpy(out_buf, in_buf, len);
+
+          /* Store IJON input data for fuzz_one_original() */
+          if (afl->ijon_input_data) { ck_free(afl->ijon_input_data); }
+          afl->ijon_input_data = ck_alloc(len);
+          memcpy(afl->ijon_input_data, in_buf, len);
+          afl->ijon_input_len = len;
+
+          /* Set IJON execution flag */
+          afl->is_doing_ijon = 1;
+
+          /* Clean up temporary buffers */
+          ck_free(out_buf);
+          munmap(orig_in, len);
+
+          /* Call fuzz_one_original - it will handle IJON goto havoc_stage */
+          u8 result = fuzz_one_original(afl);
+
+          /* Reset IJON flag and cleanup */
+          afl->is_doing_ijon = 0;
+          if (afl->ijon_input_data) {
+
+            ck_free(afl->ijon_input_data);
+            afl->ijon_input_data = NULL;
+            afl->ijon_input_len = 0;
+
+          }
+
+          return result;
+
+        } else {
+
+          WARNF("Unable to mmap IJON input '%s'", ijon_input->filename);
+          close(fd);
+
+        }
+
+      } else {
+
+        WARNF("Unable to open IJON input '%s'", ijon_input->filename);
+
+      }
+
+    }
+
+  }
+
+  /* Clear IJON input data for normal fuzzing */
+  if (unlikely(afl->ijon_input_data)) {
+
+    ck_free(afl->ijon_input_data);
+    afl->ijon_input_data = NULL;
+    afl->ijon_input_len = 0;
+
+  }
+
+  /* Reset IJON flag for normal fuzzing */
+  afl->is_doing_ijon = 0;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
 

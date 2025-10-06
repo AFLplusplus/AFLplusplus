@@ -25,7 +25,7 @@ size_t MutationDispatcher::CrossOver(const uint8_t *Data1, size_t Size1,
   size_t         OutPos = 0;
   size_t         Pos1 = 0;
   size_t         Pos2 = 0;
-  size_t *       InPos = &Pos1;
+  size_t        *InPos = &Pos1;
   size_t         InSize = Size1;
   const uint8_t *Data = Data1;
   bool           CurrentlyUsingFirstData = true;

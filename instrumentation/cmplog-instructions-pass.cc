@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <cstdint>
 #include <iostream>
 #include <list>
 #include <string>
@@ -132,6 +132,12 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
 
+#if LLVM_MAJOR >= 20
+  Type *PtrTy = PointerType::getUnqual(C);
+#else
+  Type *PtrTy = PointerType::get(Int8Ty, 0);
+#endif
+
   /*
   #if LLVM_VERSION_MAJOR >= 9
     FunctionCallee
@@ -176,13 +182,12 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
 
   if (!AFLCmplogPtr) {
 
-    AFLCmplogPtr = new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                                      GlobalValue::ExternalWeakLinkage, 0,
-                                      "__afl_cmp_map");
+    AFLCmplogPtr = new GlobalVariable(
+        M, PtrTy, false, GlobalValue::ExternalWeakLinkage, 0, "__afl_cmp_map");
 
   }
 
-  Constant *Null = Constant::getNullValue(PointerType::get(Int8Ty, 0));
+  Constant *Null = Constant::getNullValue(PtrTy);
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
@@ -222,9 +227,13 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
 
       IRBuilder<> IRB2(selectcmpInst->getParent());
       IRB2.SetInsertPoint(selectcmpInst);
-      LoadInst *CmpPtr =
-          IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
-      CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      LoadInst *CmpPtr = IRB2.CreateLoad(PtrTy, AFLCmplogPtr);
+      CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                          MDNode::get(C, {}));
+#else
+                          MDNode::get(C, None));
+#endif
       auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
       auto ThenTerm =
           SplitBlockAndInsertIfThen(is_not_null, selectcmpInst, false);
@@ -383,19 +392,56 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
       }
 
       // do we need to cast?
+#if INTPTR_MAX == INT32_MAX
+      /* 32-bit code */
       switch (max_size) {
 
         case 8:
-        case 16:
-        case 32:
-        case 64:
+          break;
+        case 9 ... 16:
+          cast_size = 16;
+          break;
+        case 17 ... 32:
+          cast_size = 32;
+          break;
+        case 33 ... 64:
+          cast_size = 64;
+          break;
+        case 80:
+          break;
         case 128:
           cast_size = max_size;
           break;
         default:
           cast_size = 128;
+          break;
 
       }
+
+#else
+      /* original code */
+      switch (max_size) {
+
+        case 8:
+          break;
+        case 9 ... 16:
+          cast_size = 16;
+          break;
+        case 17 ... 32:
+          cast_size = 32;
+          break;
+        case 33 ... 64:
+          cast_size = 64;
+          break;
+        case 80:
+          break;
+        case 128:
+          cast_size = max_size;
+          break;
+
+      }
+
+#endif
 
       // XXX FIXME BUG TODO
       if (is_fp && vector_cnt) { continue; }
@@ -579,3 +625,4 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
     return PreservedAnalyses();
 
 }
+

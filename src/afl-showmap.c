@@ -1301,6 +1301,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (unicorn_mode) { FATAL("Multiple -U options not supported"); }
 
         unicorn_mode = true;
+        fsrv->unicorn_mode = true;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
@@ -1613,7 +1614,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       // only reinitialize when it makes sense
       if (map_size < new_map_size ||
-          (new_map_size < map_size && map_size - new_map_size > MAP_SIZE)) {
+          (new_map_size > map_size && new_map_size - map_size >= MAP_SIZE)) {
 
         if (!be_quiet)
           ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
@@ -1719,7 +1720,7 @@ int main(int argc, char **argv_orig, char **envp) {
     } else {
 
       if ((coverage_map = (u8 *)malloc(map_size + 64)) == NULL)
-        FATAL("could not grab memory");
+        FATAL("could not allocate memory");
       edges_only = false;
 
     }

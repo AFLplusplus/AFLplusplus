@@ -30,6 +30,8 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "types.h"
 
@@ -143,9 +145,13 @@ typedef struct afl_forkserver {
 
   bool support_shmem_fuzz;              /* set by afl-fuzz                  */
 
+  bool use_ijon;                        /* use IJON tracking feature        */
+
   bool use_fauxsrv;                     /* Fauxsrv for non-forking targets? */
 
   bool qemu_mode;                       /* if running in qemu mode or not   */
+
+  bool unicorn_mode;                    /* if running in unicorn mode or not*/
 
   bool frida_mode;                     /* if running in frida mode or not   */
 
