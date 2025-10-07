@@ -512,6 +512,7 @@ static void minimize(afl_forkserver_t *fsrv) {
 #endif
 
   // Custom mutator trimming
+  bool custom_trimmed = false;
   if (afl && afl->custom_mutators_count) {
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
@@ -520,6 +521,7 @@ static void minimize(afl_forkserver_t *fsrv) {
           el->afl_custom_post_trim) {
 
         ACTF("Performing custom trim with %s...", el->name);
+        custom_trimmed = true;
 
         // Initialize the trimmer
         s32 max_steps = el->afl_custom_init_trim(el->data, in_data, in_len);
@@ -633,7 +635,7 @@ static void minimize(afl_forkserver_t *fsrv) {
   }
 
   // Skip built-in minimization if in_len is too small
-  if (in_len <= 1) {
+  if (in_len <= 1 || custom_trimmed) {
 
     if (tmp_buf) { ck_free(tmp_buf); }
     return;
