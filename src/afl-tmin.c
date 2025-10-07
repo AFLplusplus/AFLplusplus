@@ -580,13 +580,14 @@ static void minimize(afl_forkserver_t *fsrv) {
                 "[Custom trim] But the testcase no longer reproduces - "
                 "skipping this reduction.\n");
             cur_step = el->afl_custom_post_trim(el->data, 0);
-            if (trimmed_buf != in_data) { ck_free(trimmed_buf); }
 
           } else {
 
             // Accept the reduction
             u8 *old_in_data = in_data;
-            in_data = trimmed_buf;
+            u8 *trimmed_copy = ck_alloc_nozero(trimmed_size);
+            memcpy(trimmed_copy, trimmed_buf, trimmed_size);
+            in_data = trimmed_copy;
             in_len = trimmed_size;
 
             trimmed_successfully = 1;
@@ -594,7 +595,7 @@ static void minimize(afl_forkserver_t *fsrv) {
 
             SAYF("[Custom trim] Successful reduction to %u bytes\n", in_len);
 
-            if (old_in_data != in_data && old_in_data != trimmed_buf) {
+            if (old_in_data) {
 
               ck_free(old_in_data);
 
