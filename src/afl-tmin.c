@@ -532,9 +532,13 @@ static void minimize(afl_forkserver_t *fsrv) {
 
         }
 
-        ACTF("Custom trimmer initialized, %d steps planned", max_steps);
+        if (afl->debug) {
 
-        u32 trim_rounds = 0;
+          ACTF("[Custom Trimming] START: Max %u iterations, %u bytes",
+               max_steps, in_len);
+
+        }
+
         u32 trimmed_successfully = 0;
 
         // Trim loop
@@ -556,10 +560,10 @@ static void minimize(afl_forkserver_t *fsrv) {
 
              Thus, we allow the custom mutator to generate the trimmed data that is
              larger than the original data. */
-          if (trimmed_size >= in_len) {
+          if (trimmed_size >= in_len && afl->debug) {
 
-            SAYF("[Custom trim] Round %u: no improvements over %u bytes.\n",
-                 trim_rounds, in_len);
+            WARNF("Trimmed data returned by custom mutator is larger than "
+                  "original data");
 
           }
 
@@ -575,11 +579,14 @@ static void minimize(afl_forkserver_t *fsrv) {
 
           // Test if the trimmed case still works
           if (!tmin_run_target(fsrv, trimmed_buf, trimmed_size, 0)) {
-
-            SAYF(
-                "[Custom trim] But the testcase no longer reproduces - "
-                "skipping this reduction.\n");
             cur_step = el->afl_custom_post_trim(el->data, 0);
+
+            if (afl->debug) {
+
+              SAYF("[Custom Trimming] FAILURE: %u/%u iterations",
+                   cur_step, max_steps);
+
+            }
 
           } else {
 
@@ -593,7 +600,12 @@ static void minimize(afl_forkserver_t *fsrv) {
             trimmed_successfully = 1;
             cur_step = el->afl_custom_post_trim(el->data, 1);
 
-            SAYF("[Custom trim] Successful reduction to %u bytes\n", in_len);
+            if (afl->debug) {
+
+              SAYF("[Custom trimming] SUCCESS: %u/%u iterations "
+                   "(now at %u bytes)\n", cur_step, max_steps, in_len);
+
+            }
 
             if (old_in_data) {
 
@@ -603,12 +615,9 @@ static void minimize(afl_forkserver_t *fsrv) {
 
           }
 
-          trim_rounds++;
-
         }
 
-        ACTF("Custom trimming with %s complete after %u rounds, reduced: %s",
-             el->name, trim_rounds, trimmed_successfully ? "yes" : "no");
+        ACTF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, in_len);
 
         if (trimmed_successfully) {
 
@@ -1484,6 +1493,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->shm = shm;
     afl->out_dir = dirname(in_file);
+    afl->debug = debug;
 
     setup_custom_mutators(afl);
 
