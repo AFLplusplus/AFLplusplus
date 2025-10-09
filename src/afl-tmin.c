@@ -1461,6 +1461,8 @@ int main(int argc, char **argv_orig, char **envp) {
     list_init(&afl->custom_mutator_list);
     afl->custom_mutators_count = 0;
 
+    memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
+
     afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
     if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
 
@@ -1470,8 +1472,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->shm = shm;
     afl->out_dir = dirname(in_file);
-
-    memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
 
     setup_custom_mutators(afl);
 
