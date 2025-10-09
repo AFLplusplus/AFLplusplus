@@ -534,8 +534,8 @@ static void minimize(afl_forkserver_t *fsrv) {
 
         if (afl->debug) {
 
-          ACTF("[Custom Trimming] START: Max %u iterations, %u bytes",
-               max_steps, in_len);
+          DEBUGF("[Custom Trimming] START: Max %u iterations, %u bytes\n",
+                 max_steps, in_len);
 
         }
 
@@ -583,8 +583,8 @@ static void minimize(afl_forkserver_t *fsrv) {
 
             if (afl->debug) {
 
-              SAYF("[Custom Trimming] FAILURE: %u/%u iterations",
-                   cur_step, max_steps);
+              DEBUGF("[Custom Trimming] FAILURE: %u/%u iterations\n",
+                     cur_step, max_steps);
 
             }
 
@@ -602,8 +602,8 @@ static void minimize(afl_forkserver_t *fsrv) {
 
             if (afl->debug) {
 
-              SAYF("[Custom trimming] SUCCESS: %u/%u iterations "
-                   "(now at %u bytes)\n", cur_step, max_steps, in_len);
+              DEBUGF("[Custom trim] SUCCESS: %u/%u iterations "
+                     "(now at %u bytes)\n", cur_step, max_steps, in_len);
 
             }
 
@@ -617,7 +617,7 @@ static void minimize(afl_forkserver_t *fsrv) {
 
         }
 
-        ACTF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, in_len);
+        OKF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, in_len);
 
         if (trimmed_successfully) {
 
