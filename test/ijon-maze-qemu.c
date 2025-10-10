@@ -8,6 +8,8 @@ Run afl-fuzz, the configuration file content needs to be modified:
 test.conf maybe like:
   0x40000012c8, ijon_set, edx, 4
   0x40000012c8, ijon_set, ecx, 4
+  # format is:
+  # code addr, ijon method, reg/mem addr, data len 
 
 The maze:
 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
