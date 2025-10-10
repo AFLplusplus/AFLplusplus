@@ -1360,9 +1360,14 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     raise(SIGSTOP);
 
     __afl_area_ptr[0] = 1;
-    __afl_ijon_state = 0;
+    if (unlikely(__afl_ijon_state)) { __afl_ijon_state = 0; }
+    if (unlikely(__afl_selective_coverage_temp)) {
+
+      __afl_selective_coverage_temp = 0;
+
+    }
+
     memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
-    __afl_selective_coverage_temp = 1;
 
     return 1;
 
