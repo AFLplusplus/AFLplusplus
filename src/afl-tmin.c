@@ -512,6 +512,7 @@ static void minimize(afl_forkserver_t *fsrv) {
 #endif
 
   // Custom mutator trimming
+  bool custom_trimmed = false;
   if (afl && afl->custom_mutators_count) {
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
@@ -520,26 +521,31 @@ static void minimize(afl_forkserver_t *fsrv) {
           el->afl_custom_post_trim) {
 
         ACTF("Performing custom trim with %s...", el->name);
+        custom_trimmed = true;
 
         // Initialize the trimmer
-        s32 initial_steps = el->afl_custom_init_trim(el->data, in_data, in_len);
+        s32 max_steps = el->afl_custom_init_trim(el->data, in_data, in_len);
 
-        if (initial_steps <= 0) {
+        if (max_steps < 0) {
 
           WARNF("Custom trimmer %s returned %d, skipping", el->name,
-                initial_steps);
+                max_steps);
           continue;
 
         }
 
-        ACTF("Custom trimmer initialized, %d steps planned", initial_steps);
+        if (afl->debug) {
 
-        u32 trim_rounds = 0;
+          DEBUGF("[Custom Trimming] START: Max %u iterations, %u bytes\n",
+                 max_steps, in_len);
+
+        }
+
         u32 trimmed_successfully = 0;
 
         // Trim loop
         s32 cur_step = 0;
-        while (cur_step < initial_steps) {
+        while (cur_step < max_steps) {
 
           u8    *trimmed_buf = NULL;
           size_t trimmed_size;
@@ -547,42 +553,63 @@ static void minimize(afl_forkserver_t *fsrv) {
           u8 *retbuf = NULL;
           trimmed_size = el->afl_custom_trim(el->data, &retbuf);
 
-          // If trimmed_size equals or exceeds original size, skip
-          if (trimmed_size >= in_len) {
+          /* Do not exit the fuzzer, even if the trimmed data returned by the custom
+             mutator is larger than the original data. For some use cases, like the
+             grammar mutator, the definition of "size" may have different meanings.
+             For example, the trimming function in a grammar mutator aims at
+             reducing the objects in a grammar structure, but does not guarantee to
+             generate a smaller binary buffer.
 
-            SAYF("[Custom trim] Round %u: no improvements over %u bytes.\n",
-                 trim_rounds, in_len);
-            el->afl_custom_post_trim(el->data, 0);
-            cur_step++;
-            trim_rounds++;
+             Thus, we allow the custom mutator to generate the trimmed data that is
+             larger than the original data. */
+          if (trimmed_size >= in_len && afl->debug) {
+
+            WARNF("Trimmed data returned by custom mutator is larger than "
+                  "original data");
+
+          }
+
+          /* Do not run the empty test case on the target. To keep the custom
+             trimming function running, we simply treat the empty test case as an
+             unsuccessful trimming and skip it, instead of aborting the trimming. */
+          if (trimmed_size == 0) {
+            cur_step = el->afl_custom_post_trim(el->data, 0);
             continue;
-
           }
 
           trimmed_buf = retbuf;
 
           // Test if the trimmed case still works
           if (!tmin_run_target(fsrv, trimmed_buf, trimmed_size, 0)) {
+            cur_step = el->afl_custom_post_trim(el->data, 0);
 
-            SAYF(
-                "[Custom trim] But the testcase no longer reproduces - "
-                "skipping this reduction.\n");
-            el->afl_custom_post_trim(el->data, 0);
-            if (trimmed_buf != in_data) { ck_free(trimmed_buf); }
+            if (afl->debug) {
+
+              DEBUGF("[Custom Trimming] FAILURE: %u/%u iterations\n",
+                     cur_step, max_steps);
+
+            }
 
           } else {
 
             // Accept the reduction
             u8 *old_in_data = in_data;
-            in_data = trimmed_buf;
+            u8 *trimmed_copy = ck_alloc_nozero(trimmed_size);
+            memcpy(trimmed_copy, trimmed_buf, trimmed_size);
+            in_data = trimmed_copy;
             in_len = trimmed_size;
 
             trimmed_successfully = 1;
-            el->afl_custom_post_trim(el->data, 1);
+            cur_step = el->afl_custom_post_trim(el->data, 1);
 
-            SAYF("[Custom trim] Successful reduction to %u bytes\n", in_len);
+            if (afl->debug) {
 
-            if (old_in_data != in_data && old_in_data != trimmed_buf) {
+              DEBUGF("[Custom trim] SUCCESS: %u/%u iterations "
+                     "(now at %u bytes)\n", cur_step, max_steps, in_len);
+
+            }
+
+            if (old_in_data) {
 
               ck_free(old_in_data);
 
@@ -590,13 +617,9 @@ static void minimize(afl_forkserver_t *fsrv) {
 
           }
 
-          cur_step++;
-          trim_rounds++;
-
         }
 
-        ACTF("Custom trimming with %s complete after %u rounds, reduced: %s",
-             el->name, trim_rounds, trimmed_successfully ? "yes" : "no");
+        OKF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, in_len);
 
         if (trimmed_successfully) {
 
@@ -612,7 +635,7 @@ static void minimize(afl_forkserver_t *fsrv) {
   }
 
   // Skip built-in minimization if in_len is too small
-  if (in_len <= 1) {
+  if (in_len <= 1 || custom_trimmed) {
 
     if (tmp_buf) { ck_free(tmp_buf); }
     return;
@@ -1461,6 +1484,8 @@ int main(int argc, char **argv_orig, char **envp) {
     list_init(&afl->custom_mutator_list);
     afl->custom_mutators_count = 0;
 
+    memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
+
     afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
     if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
 
@@ -1470,8 +1495,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->shm = shm;
     afl->out_dir = dirname(in_file);
-
-    memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
+    afl->debug = debug;
 
     setup_custom_mutators(afl);
 

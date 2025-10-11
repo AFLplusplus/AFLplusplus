@@ -478,8 +478,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
   if (afl->not_on_tty && afl->debug) {
 
-    SAYF("[Custom Trimming] START: Max %u iterations, %u bytes", afl->stage_max,
-         q->len);
+    DEBUGF("[Custom Trimming] START: Max %u iterations, %u bytes\n", afl->stage_max,
+           q->len);
 
   }
 
@@ -579,8 +579,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
       if (afl->not_on_tty && afl->debug) {
 
-        SAYF("[Custom Trimming] SUCCESS: %u/%u iterations (now at %u bytes)",
-             afl->stage_cur, afl->stage_max, out_len);
+        DEBUGF("[Custom Trimming] SUCCESS: %u/%u iterations (now at %u bytes)\n",
+               afl->stage_cur, afl->stage_max, out_len);
 
       }
 
@@ -600,8 +600,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
       if (afl->not_on_tty && afl->debug) {
 
-        SAYF("[Custom Trimming] FAILURE: %u/%u iterations", afl->stage_cur,
-             afl->stage_max);
+        DEBUGF("[Custom Trimming] FAILURE: %u/%u iterations\n", afl->stage_cur,
+               afl->stage_max);
 
       }
 
@@ -647,7 +647,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
   if (afl->not_on_tty && afl->debug) {
 
-    SAYF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, q->len);
+    OKF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, q->len);
 
   }
 
