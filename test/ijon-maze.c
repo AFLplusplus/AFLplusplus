@@ -1,6 +1,17 @@
 /*
-To compile:
+To source code instrumentation compile:
   AFL_LLVM_IJON=1 afl-clang-fast -fsanitize=fuzzer -o ijon-maze ijon-maze.c
+
+To qemu instrumentation compile:
+  clang -O0 -g -o ijon-maze-qemu ijon-maze.c ../utils/aflpp_driver/aflpp_qemu_driver.c
+Run afl-fuzz, the configuration file content needs to be modified:
+  AFL_QEMU_IJON=./test.conf  AFL_QEMU_DRIVER_NO_HOOK=1 afl-fuzz -i in -o out -Q -- './ijon-maze-qemu'
+
+test.conf maybe like:
+  0x40000012c8, ijon_set, edx, 4
+  0x40000012c8, ijon_set, ecx, 4
+  # format is:
+  # code addr, ijon method, reg/mem addr, data len 
 
 The maze:
 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -159,9 +170,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
       abort();  // crash when exit is reached
 
     }
-
+#ifdef IJON_SET
     IJON_SET(ijon_hashint(row, col));
-
+#endif
   }
 
   return 0;
