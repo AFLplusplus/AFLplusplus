@@ -782,11 +782,17 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - With `AFL_USE_QASAN`, you can enable QEMU AddressSanitizer for dynamically
     linked binaries.
 
+  - Using AFL_QEMU_IJON=test.conf allows qemu to call the ijon function, 
+    which allows aflpp to additionally gain awareness of 
+    changes in key variables of the target program, 
+    which is an excellent supplement to coverage-only feedback.(see
+    [qemu_mode/README.md](../qemu_mode/README.md) for more details).
+
   - The underlying QEMU binary will recognize any standard "user space
     emulation" variables (e.g., `QEMU_STACK_SIZE`), but there should be no
     reason to touch them.
 
-## 8) Settings for afl-frida-trace
+## 7) Settings for afl-frida-trace
 
 The FRIDA wrapper used to instrument binary-only code supports many of the same
 options as `afl-qemu-trace`, but also has a number of additional advanced
@@ -876,7 +882,7 @@ support.
   dump you must set a sufficient timeout (using `-t`) to avoid `afl-fuzz`
   killing the process whilst it is being dumped.
 
-## 9) Settings for afl-cmin
+## 8) Settings for afl-cmin
 
 The corpus minimization script offers very little customization:
 
@@ -894,7 +900,7 @@ The corpus minimization script offers very little customization:
   - `AFL_PRINT_FILENAMES` prints each filename to stdout, as it gets processed.
     This can help when embedding `afl-cmin` or `afl-showmap` in other scripts.
 
-## 10) Settings for afl-tmin
+## 9) Settings for afl-tmin
 
 Virtually nothing to play with. Well, in QEMU mode (`-Q`), `AFL_PATH` will be
 searched for afl-qemu-trace. In addition to this, `TMPDIR` may be used if a
@@ -905,12 +911,12 @@ to match when minimizing crashes. This will make minimization less useful, but
 may prevent the tool from "jumping" from one crashing condition to another in
 very buggy software. You probably want to combine it with the `-e` flag.
 
-## 11) Settings for afl-analyze
+## 10) Settings for afl-analyze
 
 You can set `AFL_ANALYZE_HEX` to get file offsets printed as hexadecimal instead
 of decimal.
 
-## 12) Settings for libdislocator
+## 11) Settings for libdislocator
 
 The library honors these environment variables:
 
@@ -932,12 +938,12 @@ The library honors these environment variables:
   - `AFL_LD_VERBOSE` causes the library to output some diagnostic messages that
     may be useful for pinpointing the cause of any observed issues.
 
-## 13) Settings for libtokencap
+## 12) Settings for libtokencap
 
 This library accepts `AFL_TOKEN_FILE` to indicate the location to which the
 discovered tokens should be written.
 
-## 14) Third-party variables set by afl-fuzz & other tools
+## 13) Third-party variables set by afl-fuzz & other tools
 
 Several variables are not directly interpreted by afl-fuzz, but are set to
 optimal values if not already present in the environment:

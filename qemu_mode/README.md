@@ -150,7 +150,64 @@ To enable it, you must pass on the command line of afl-fuzz:
 -c /path/to/your/target
 ```
 
-## 9) Wine mode
+## 9) Ijon mode
+
+qemu ijon allows information about variable changes to be transmitted to AFL++.
+Different ijon methods indicate the semantic meaning of the changed value.
+Enable the feature by setting the environment variable:
+
+`AFL_QEMU_IJON=/full/path/to/test.conf`
+
+The configuration file tells QEMU: when execution reaches a specified instruction address
+(`code_addr`), read the specified register or memory location and pass the read bytes
+to the chosen IJON method.
+
+One rule per line. Comments (lines starting with `#`) and blank lines are supported.
+Fields are comma-separated (spaces around commas are allowed):
+
+```
+# code_addr, ijon_method, memory_addr_or_register, data_len
+0x40000012c8, ijon_set, rdx, 8
+0x40000012c8, ijon_set, r10d, 4
+```
+
+Field descriptions:
+- `code_addr` — instruction address that triggers capture. Supports hexadecimal (`0x...`) or decimal.
+  Note: the target instruction address, which may be relocated when loaded into
+  QEMU and needs to be determined in advance
+- `ijon_method` — the ijon method/semantic to use (e.g. `ijon_set`, `ijon_inc`, `ijon_min`, `ijon_max`).
+- `memory_addr_or_register` — either a register name (e.g. `rax`, `eax`, `r8d` for x86, `r0` for ARM32,
+  `x0`/`w0` for aarch64; names are case-insensitive) or an absolute virtual memory address (e.g. `0x601050`).
+- `data_len` — number of bytes to read (only in 1 ... 8). 
+
+Examples:
+```
+# Read the lower 2 bytes of EDX when reaching 0x40000012c8
+0x40000012c8, ijon_set, edx, 2
+
+# Read 8 bytes from memory address 0x601050 when reaching 0x4000001300
+0x4000001300, ijon_set, 0x601050, 8
+```
+
+Debugging
+
+- Use `AFL_QEMU_DEBUG_MAPS=1` to view the memory layout after qemu loads the target program.
+You need to correct the address in the ijon configuration according to the displayed
+target program loading base address. After enabling the above, compute the effective 
+instruction address as: `load_base + file_offset`
+
+- The printing of the above messages requires setting `AFL_DEBUG=1`
+If your ijon configuration is correct, when the ijon function is triggered, 
+log information will be printed to show the read value and the called ijon method.
+
+Currently, the ijon method in QEMU mode supports the following methods: 
+`ijon_max, ijon_min, ijon_set, ijon_inc`.
+
+For a description of these methods, see [IJON.md](../docs/IJON.md)
+
+If you want to try out some examples, see [ijon-maze](../test/ijon-maze.c)
+
+## 10) Wine mode
 
 AFL++ QEMU can use Wine to fuzz Win32 PE binaries. Use the `-W` flag of
 afl-fuzz.
@@ -161,7 +218,7 @@ patched.
 For examples, look
 [here](https://github.com/andreafioraldi/WineAFLplusplusDEMO).
 
-## 10) Notes on linking
+## 11) Notes on linking
 
 The feature is supported only on Linux. Supporting BSD may amount to porting the
 changes made to linux-user/elfload.c and applying them to bsd-user/elfload.c,
@@ -181,7 +238,7 @@ practice, this means two things:
 Setting `AFL_INST_LIBS=1` can be used to circumvent the .text detection logic
 and instrument every basic block encountered.
 
-## 11) Benchmarking
+## 12) Benchmarking
 
 If you want to compare the performance of the QEMU instrumentation with that of
 afl-clang-fast compiled code against the same target, you need to build the
@@ -198,7 +255,7 @@ Comparative measurements of execution speed or instrumentation coverage will be
 fairly meaningless if the optimization levels or instrumentation scopes don't
 match.
 
-## 12) Coverage information
+## 13) Coverage information
 
 Coverage information about a run of a target binary can be obtained using a
 dedicated QEMU user mode plugin enabled at runtime: the `drcov.c` plugin
@@ -225,12 +282,12 @@ afl-qemu-trace -plugin qemuafl/build/contrib/plugins/libdrcov.so,arg=filename=/t
 This would execute the target binary with the provided arguments and, once done,
 would write coverage information at `/tmp/target.drcov.trace`.
 
-## 13) Other features
+## 14) Other features
 
 With `AFL_QEMU_FORCE_DFL`, you force QEMU to ignore the registered signal
 handlers of the target.
 
-## 14) Gotchas, feedback, bugs
+## 15) Gotchas, feedback, bugs
 
 If you need to fix up checksums or do other cleanups on mutated test cases, see
 `afl_custom_post_process` in custom_mutators/examples/example.c for a viable
@@ -249,7 +306,7 @@ program may be utilizing. In particular, it does not appear to have full support
 for AVX2/FMA3. Using binaries for older CPUs or recompiling them with
 `-march=core2`, can help.
 
-## 15) Alternatives: static rewriting
+## 16) Alternatives: static rewriting
 
 Statically rewriting binaries just once, instead of attempting to translate them
 at run time, can be a faster alternative. That said, static rewriting is fraught
