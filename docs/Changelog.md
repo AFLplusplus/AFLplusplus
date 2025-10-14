@@ -9,6 +9,8 @@
     - IJON fix to search for the necessary include
   - qemu_mode:
     - IJON support, thanks to @nj00001! see qemu_mode/README.md
+  - afl-tmin
+    - fix custom trimmings, thanks to @renatahodovan!
 
 
 ### Version ++4.34c (release)
