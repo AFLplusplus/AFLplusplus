@@ -21,6 +21,10 @@
   #define _GNU_SOURCE 1
 #endif
 
+#ifndef AFL_INCLUDE_PATH
+  #define AFL_INCLUDE_PATH "/usr/local/include/afl"
+#endif
+
 #include "common.h"
 #include "config.h"
 #include "types.h"
@@ -523,13 +527,43 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
   if (!access(tmp, R_OK)) { return tmp; }
 
   ck_free(tmp);
-  tmp = alloc_printf("./%s", obj);
 
-  if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+  if (strlen(obj) > 2 && obj[strlen(obj) - 1] == 'h' &&
+      obj[strlen(obj) - 2] == '.') {
 
-  if (!access(tmp, R_OK)) { return tmp; }
+    tmp = alloc_printf("%s/include/%s", afl_path, obj);
 
-  ck_free(tmp);
+    if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+    tmp = alloc_printf("%s/include/%s", AFL_PATH, obj);
+
+    if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+    tmp = alloc_printf("%s/%s", AFL_INCLUDE_PATH, obj);
+
+    if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+    tmp = alloc_printf("include/%s", obj);
+
+    if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+  }
 
   if (aflcc->debug) DEBUGF("Trying ... giving up\n");
 
@@ -3722,7 +3756,7 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
       if (source_file && file_contains_ijon_usage(source_file)) {
 
-        u8 *ijon_header = find_object(aflcc, "include/afl-ijon-min.h");
+        u8 *ijon_header = find_object(aflcc, "afl-ijon-min.h");
         if (ijon_header) {
 
           insert_param(aflcc, "-include");

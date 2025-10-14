@@ -5,7 +5,10 @@
 
 
 ### Version ++4.35a (dev)
-  - IJON support for qemu_mode, thanks to @nj00001! see qemu_mode/README.md
+  - afl-cc:
+    - IJON fix to search for the necessary include
+  - qemu_mode:
+    - IJON support, thanks to @nj00001! see qemu_mode/README.md
 
 
 ### Version ++4.34c (release)
