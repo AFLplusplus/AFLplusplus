@@ -3752,6 +3752,9 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     /* Include IJON header only for files that actually use IJON */
     if (getenv("AFL_LLVM_IJON")) {
 
+      insert_param(aflcc, "-fpermissive");
+      insert_param(aflcc, "-Wl,--allow-multiple-definition");
+
       const char *source_file = get_source_filename(argc, argv);
 
       if (source_file && file_contains_ijon_usage(source_file)) {
