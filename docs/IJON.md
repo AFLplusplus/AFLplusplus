@@ -142,6 +142,21 @@ make clean
 make LLVM_CONFIG=llvm-config-18 source-only
 ```
 
+### IJON mode debug build for afl-fuzz
+
+Note that this does not affect any ijon functionality, it just creates an extra file.
+
+```bash
+make clean
+CFLAGS="-DDUMP_IJON_STATE" make afl-fuzz
+```
+
+This will output non-zero values to the default/ijon_max/cur_state file whenever 
+the ijon max bitmap is updated. By looking at this file, you can see the maximum values
+of your max/min annotations so far, which can help you understand the current fuzzing progress. 
+
+For example, you can check Mario's current maximum y-axis position.
+
 ### Compiling Target Programs
 
 When using IJON instrumentation in AFL++, it is required to invoke `__AFL_INIT()` at the beginning of your target program’s `main()` function:
