@@ -1942,14 +1942,14 @@ custom_mutator_stage:
               el->afl_custom_fuzz(el->data, out_buf, len, &mutated_buf, new_buf,
                                   target_len, max_seed_size);
 
-          if (unlikely(!mutated_buf)) {
-
-            // FATAL("Error in custom_fuzz. Size returned: %zu", mutated_size);
-            break;
-
-          }
-
           if (mutated_size > 0) {
+
+            if (unlikely(!mutated_buf)) {
+
+              // FATAL("Error in custom_fuzz. Size returned: %zu", mutated_size);
+              break;
+
+            }
 
             if (common_fuzz_stuff(afl, mutated_buf, (u32)mutated_size)) {
 
