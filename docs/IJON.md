@@ -15,6 +15,8 @@ This is a complete implementation of all IJON features for source code instrumen
 Based on the research paper: [IJON: Exploring Deep State Spaces via Fuzzing](https://nyx-fuzz.com/papers/ijon.pdf)
 Test data and benchmarks available at: [IJON Data Repository](https://github.com/RUB-SysSec/ijon-data/tree/master/ijon-data)
 
+**NOTE** There is also an IJON implemenation for qemu_mode, see [qemu_mode/README.md](../qemu_mode/README.md)
+
 ## IMPORTANT: Linker parameters
 
 If your compiler does not use ld.bfd or lld or the linker is called directly by your build environment then linking the target binary will fail:

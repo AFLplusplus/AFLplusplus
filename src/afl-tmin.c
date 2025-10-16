@@ -528,8 +528,7 @@ static void minimize(afl_forkserver_t *fsrv) {
 
         if (max_steps < 0) {
 
-          WARNF("Custom trimmer %s returned %d, skipping", el->name,
-                max_steps);
+          WARNF("Custom trimmer %s returned %d, skipping", el->name, max_steps);
           continue;
 
         }
@@ -553,40 +552,45 @@ static void minimize(afl_forkserver_t *fsrv) {
           u8 *retbuf = NULL;
           trimmed_size = el->afl_custom_trim(el->data, &retbuf);
 
-          /* Do not exit the fuzzer, even if the trimmed data returned by the custom
-             mutator is larger than the original data. For some use cases, like the
-             grammar mutator, the definition of "size" may have different meanings.
-             For example, the trimming function in a grammar mutator aims at
-             reducing the objects in a grammar structure, but does not guarantee to
-             generate a smaller binary buffer.
+          /* Do not exit the fuzzer, even if the trimmed data returned by the
+             custom mutator is larger than the original data. For some use
+             cases, like the grammar mutator, the definition of "size" may have
+             different meanings. For example, the trimming function in a grammar
+             mutator aims at reducing the objects in a grammar structure, but
+             does not guarantee to generate a smaller binary buffer.
 
-             Thus, we allow the custom mutator to generate the trimmed data that is
-             larger than the original data. */
+             Thus, we allow the custom mutator to generate the trimmed data that
+             is larger than the original data. */
           if (trimmed_size >= in_len && afl->debug) {
 
-            WARNF("Trimmed data returned by custom mutator is larger than "
-                  "original data");
+            WARNF(
+                "Trimmed data returned by custom mutator is larger than "
+                "original data");
 
           }
 
           /* Do not run the empty test case on the target. To keep the custom
-             trimming function running, we simply treat the empty test case as an
-             unsuccessful trimming and skip it, instead of aborting the trimming. */
+             trimming function running, we simply treat the empty test case as
+             an unsuccessful trimming and skip it, instead of aborting the
+             trimming. */
           if (trimmed_size == 0) {
+
             cur_step = el->afl_custom_post_trim(el->data, 0);
             continue;
+
           }
 
           trimmed_buf = retbuf;
 
           // Test if the trimmed case still works
           if (!tmin_run_target(fsrv, trimmed_buf, trimmed_size, 0)) {
+
             cur_step = el->afl_custom_post_trim(el->data, 0);
 
             if (afl->debug) {
 
-              DEBUGF("[Custom Trimming] FAILURE: %u/%u iterations\n",
-                     cur_step, max_steps);
+              DEBUGF("[Custom Trimming] FAILURE: %u/%u iterations\n", cur_step,
+                     max_steps);
 
             }
 
@@ -604,16 +608,14 @@ static void minimize(afl_forkserver_t *fsrv) {
 
             if (afl->debug) {
 
-              DEBUGF("[Custom trim] SUCCESS: %u/%u iterations "
-                     "(now at %u bytes)\n", cur_step, max_steps, in_len);
+              DEBUGF(
+                  "[Custom trim] SUCCESS: %u/%u iterations "
+                  "(now at %u bytes)\n",
+                  cur_step, max_steps, in_len);
 
             }
 
-            if (old_in_data) {
-
-              ck_free(old_in_data);
-
-            }
+            if (old_in_data) { ck_free(old_in_data); }
 
           }
 

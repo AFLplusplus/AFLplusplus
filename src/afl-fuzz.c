@@ -2567,8 +2567,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->non_instrumented_mode ||
-      afl->fsrv.frida_mode || afl->fsrv.cs_mode || afl->unicorn_mode) {
+  if (afl->non_instrumented_mode || afl->fsrv.frida_mode || afl->fsrv.cs_mode ||
+      afl->unicorn_mode) {
 
     map_size = afl->fsrv.real_map_size = afl->fsrv.map_size = MAP_SIZE;
     afl_resize_map_buffers(afl, map_size, MAP_SIZE);
@@ -2581,8 +2581,8 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
                    afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
 
-  if (!afl->non_instrumented_mode &&
-      !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
+  if (!afl->non_instrumented_mode && !afl->unicorn_mode &&
+      !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
       !afl->afl_env.afl_skip_bin_check) {
 
     if (map_size <= DEFAULT_SHMEM_SIZE) {
