@@ -75,7 +75,7 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
-    printf("afl-llvm-ijon-pass" VERSION "1\n");
+    printf("afl-llvm-ijon-pass" VERSION "\n");
 
   } else if (getenv("AFL_QUIET"))
 
@@ -181,12 +181,16 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
       if (ijon_state_calls > 0) printf(" (IJON_STATE: %d)", ijon_state_calls);
       printf(".\n");
 
-      // Always create __afl_ijon_enabled for IJON memory allocation
-      IRBuilder<> IRB(M.getContext());
-      Constant   *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
-      new GlobalVariable(M, IRB.getInt32Ty(), false,
-                         GlobalValue::ExternalLinkage, One32,
-                         "__afl_ijon_enabled");
+      if (M.getGlobalVariable("__afl_ijon_enabled", true) == nullptr) {
+
+        // Always create __afl_ijon_enabled for IJON memory allocation
+        IRBuilder<> IRB(M.getContext());
+        Constant   *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
+        new GlobalVariable(M, IRB.getInt32Ty(), false,
+                           GlobalValue::ExternalLinkage, One32,
+                           "__afl_ijon_enabled");
+
+      }
 
     } else {
 

@@ -44,8 +44,8 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include "afl-ijon-min.h"
 
 /* For backtrace() support in ijon_hashstack */
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || \
-    defined(__NetBSD__) || defined(__OpenBSD__)
+#if (defined(__linux__) && defined(__GLIBC__)) || defined(__APPLE__) || \
+    defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
   #include <execinfo.h>
 #endif
 
@@ -74,8 +74,8 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <sys/wait.h>
 #include <sys/types.h>
 
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || \
-    defined(__NetBSD__) || defined(__OpenBSD__)
+#if (defined(__linux__) && defined(__GLIBC__)) || defined(__APPLE__) || \
+    defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
   #include <execinfo.h>
 #endif
 
@@ -1360,9 +1360,14 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     raise(SIGSTOP);
 
     __afl_area_ptr[0] = 1;
-    __afl_ijon_state = 0;
+    if (unlikely(__afl_ijon_state)) { __afl_ijon_state = 0; }
+    if (unlikely(__afl_selective_coverage_temp)) {
+
+      __afl_selective_coverage_temp = 0;
+
+    }
+
     memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
-    __afl_selective_coverage_temp = 1;
 
     return 1;
 
@@ -3338,8 +3343,8 @@ void ijon_reset_state(void) {
  * 64-bit */
 uint32_t ijon_hashstack_backtrace(void) {
 
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || \
-    defined(__NetBSD__) || defined(__OpenBSD__)
+#if (defined(__linux__) && defined(__GLIBC__)) || defined(__APPLE__) || \
+    defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
   void *buffer[16] = {
 
       0,

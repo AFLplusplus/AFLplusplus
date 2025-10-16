@@ -25,6 +25,7 @@ BIN_PATH    ?= $(PREFIX)/bin
 DOC_PATH    ?= $(PREFIX)/share/doc/afl
 MISC_PATH   ?= $(PREFIX)/share/afl
 MAN_PATH    ?= $(PREFIX)/share/man/man8
+INCLUDE_PATH := $(PREFIX)/include/afl
 
 BUILD_DATE  ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "+%Y-%m-%d" 2>/dev/null || date -u "+%Y-%m-%d")
 
@@ -420,7 +421,7 @@ instrumentation/afl-common.o: ./src/afl-common.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ $(LDFLAGS)
 
 ./afl-cc: src/afl-cc.c instrumentation/afl-common.o
-	$(CC) $(CLANG_CFL) $(CFLAGS) $(CPPFLAGS) $< instrumentation/afl-common.o -o $@ -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR) $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\" -lm
+	$(CC) $(CLANG_CFL) $(CFLAGS) $(CPPFLAGS) -DAFL_INCLUDE_PATH=\"$(INCLUDE_PATH)\" $< instrumentation/afl-common.o -o $@ -DLLVM_MINOR=$(LLVM_MINOR) -DLLVM_MAJOR=$(LLVM_MAJOR) $(LDFLAGS) -DCFLAGS_OPT=\"$(CFLAGS_OPT)\" -lm
 	@ln -sf afl-cc ./afl-c++
 	@ln -sf afl-cc ./afl-gcc
 	@ln -sf afl-cc ./afl-g++

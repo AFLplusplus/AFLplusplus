@@ -4,6 +4,15 @@
   release of the tool. See README.md for the general instruction manual.
 
 
+### Version ++4.35a (dev)
+  - afl-cc:
+    - IJON fix to search for the necessary include
+  - qemu_mode:
+    - IJON support, thanks to @nj00001! see qemu_mode/README.md
+  - afl-tmin
+    - fix custom trimmings, thanks to @renatahodovan!
+
+
 ### Version ++4.34c (release)
   - IJON integration by @vi3tL0u1s - thanks a lot!!
     - see docs/IJON.md on how to use it

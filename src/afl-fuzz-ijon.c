@@ -447,5 +447,39 @@ void ijon_update_max_dynamic(ijon_min_state          *self,
 
   }
 
-}
+#ifdef DUMP_IJON_STATE
 
+  static size_t last_num = 0;
+  if (last_num == self->num_updates) return;
+  last_num = self->num_updates;
+
+  u64   tmp_buf64[MAP_SIZE_IJON_ENTRIES];
+  char *file_path = (char *)tmp_buf64;
+
+  int n = snprintf(file_path, sizeof(tmp_buf64), "%s/cur_state", self->max_dir);
+  if (n < 0 || (size_t)n >= sizeof(tmp_buf64)) {
+
+    WARNF("state path too long or snprintf error");
+    return;
+
+  }
+
+  int fd = open(file_path, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+  if (fd < 0) {
+
+    WARNF("Failed to open IJON max state file %s: %s", file_path,
+          strerror(errno));
+    return;
+
+  }
+
+  int cnt = 0;
+  for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++)
+    if (self->max_map[i]) tmp_buf64[cnt++] = self->max_map[i];
+
+  write(fd, tmp_buf64, cnt * sizeof(u64));
+  close(fd);
+
+#endif
+
+}
