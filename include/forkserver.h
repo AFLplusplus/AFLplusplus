@@ -160,6 +160,8 @@ typedef struct afl_forkserver {
 
   bool cs_mode;                      /* if running in CoreSight mode or not */
 
+  bool gui_mode;                        /* if running in gui mode or not    */
+  
   bool use_stdin;                       /* use stdin for sending data       */
 
   bool no_unlink;                       /* do not unlink cur_input          */
