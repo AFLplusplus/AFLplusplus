@@ -2278,7 +2278,16 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
            WEXITSTATUS(fsrv->child_status) == LSAN_ERROR) ||
           /* the custom crash_exitcode was returned by the target */
           (fsrv->uses_crash_exitcode &&
-           WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
+           WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode)
+          #ifdef __linux__
+            ||
+            /* Explicitly ignore SIGINT/SIGTERM as a crash, since we use them to terminate the GUI's*/
+            (fsrv->gui_mode &&
+            WIFSIGNALED(fsrv->child_status) &&
+            WTERMSIG(fsrv->child_status) != SIGINT &&
+            WTERMSIG(fsrv->child_status) != SIGTERM)
+          #endif
+    )) {
 
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =
