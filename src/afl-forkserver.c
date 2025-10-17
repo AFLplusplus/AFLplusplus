@@ -2304,7 +2304,14 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   if (unlikely(
           /* A normal crash/abort */
-          (WIFSIGNALED(fsrv->child_status)) ||
+          (WIFSIGNALED(fsrv->child_status)
+  /* Explicitly ignore SIGINT/SIGTERM as a crash, since we use them to terminate the GUI's*/
+#ifdef __linux__
+         && (!fsrv->gui_mode ||
+             (WTERMSIG(fsrv->child_status) != SIGINT &&
+              WTERMSIG(fsrv->child_status) != SIGTERM))
+#endif
+        ) ||
           /* special handling for msan */
           ((fsrv->uses_asan & 4) &&
            WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
@@ -2313,16 +2320,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
            WEXITSTATUS(fsrv->child_status) == LSAN_ERROR) ||
           /* the custom crash_exitcode was returned by the target */
           (fsrv->uses_crash_exitcode &&
-           WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode)
-#ifdef __linux__
-          ||
-          /* Explicitly ignore SIGINT/SIGTERM as a crash, since we use them to
-             terminate the GUI's*/
-          (fsrv->gui_mode && WIFSIGNALED(fsrv->child_status) &&
-           WTERMSIG(fsrv->child_status) != SIGINT &&
-           WTERMSIG(fsrv->child_status) != SIGTERM)
-#endif
-              )) {
+           WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =
