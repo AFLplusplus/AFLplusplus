@@ -2137,7 +2137,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
       pid_t parent_pid = fsrv->child_pid;  // Get the current PID of this soon
                                            // to be GUI process
-      //ACTF("Forkserver cloning, with pid = %ld\n", (long)parent_pid);
+      // ACTF("Forkserver cloning, with pid = %ld\n", (long)parent_pid);
       fsrv->gui_python_pid = fork();
 
       if (fsrv->gui_python_pid < 0) { PFATAL("GUI mode fork failed."); }

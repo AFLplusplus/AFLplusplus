@@ -1550,14 +1550,19 @@ int main(int argc, char **argv_orig, char **envp) {
   #ifdef __linux__
       case 'K':                                                 /* GUI mode */
         if (afl->fsrv.gui_mode) { FATAL("Multiple -K options not supported"); }
-        if (!optarg) {
-          FATAL("No directory provided for GUI interaction script."
-                "Use custom_mutators/guifuzz/guifuzz_clicks.py");
-        }
-        else {
+        if (!optarg || optarg[0] == '-') {
+
+          FATAL(
+              "No directory provided for GUI interaction script. "
+              "Use custom_mutators/guifuzz/guifuzz_clicks.py");
+
+        } else {
+
           afl->fsrv.gui_python_dir = ck_strdup(optarg);
           afl->fsrv.gui_mode = 1;
+
         }
+
         break;
 
   #else
