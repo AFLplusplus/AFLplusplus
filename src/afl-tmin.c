@@ -1026,6 +1026,7 @@ static void usage(u8 *argv0) {
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n"
       "  -X            - use Nyx mode\n"
+      "  -K dir        - use python script to interact with GUI (GUI mode)\n"
 #endif
       "\n"
 
@@ -1084,7 +1085,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHhK:")) > 0) {
 
     switch (opt) {
 
@@ -1316,6 +1317,31 @@ int main(int argc, char **argv_orig, char **envp) {
         usage(argv[0]);
         return -1;
         break;
+
+#ifdef __linux__
+      case 'K':                                                 /* GUI mode */
+        if (afl->fsrv.gui_mode) { FATAL("Multiple -K options not supported"); }
+        if (!optarg || optarg[0] == '-') {
+
+          FATAL(
+              "No directory provided for GUI interaction script. "
+              "Use custom_mutators/guifuzz/guifuzz_clicks.py");
+
+        } else {
+
+          afl->fsrv.gui_python_dir = ck_strdup(optarg);
+          afl->fsrv.gui_mode = 1;
+
+        }
+
+        break;
+
+#else
+      case 'K':
+        FATAL("GUI mode is only available on linux...")
+        break;
+
+#endif
 
       default:
         usage(argv[0]);
