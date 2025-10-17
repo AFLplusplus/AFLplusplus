@@ -18,16 +18,12 @@ Envvars:
 import datetime
 import pyautogui
 import time
-import random
-import sys
 import signal
 import os
 from multiprocessing import Process
 import math
 import subprocess
-import chardet
 import re
-import traceback
 import argparse
 import gi
 gi.require_version('Atspi', '2.0')
@@ -117,7 +113,6 @@ if args.outfile:
 if args.pid:
     gui_pid = args.pid[0]
     log("DEBUG", f"Setting GUI pid to: {int(args.pid[0])}")
-    print(f"Setting GUI pid to: {int(args.pid[0])}")
 
 try:
     log("INFO", "GUI Script Launched")
@@ -345,12 +340,12 @@ try:
 
         global gdb_proc
         if gdb_proc is not None and gdb_proc.poll() is None:
-            print("Cleaning up running process...")
+            #print("Cleaning up running process...")
             gdb_proc.terminate()
             try:
                 gdb_proc.wait(timeout=WINDOW_WAIT_TIMEOUT)
             except subprocess.TimeoutExpired:
-                print("Force killing...")
+                #print("Force killing...")
                 gdb_proc.kill()
             exit(0)
 
@@ -361,7 +356,6 @@ try:
         log("CLEANUP", f"Cleaning up windows")
         log("CLEANUP", f"Initial windows {initial_windows}")
         log("CLEANUP", f"Detected new windows {new_windows}")
-        print("CLEANUP")
         if not new_windows or SIMPLE_MODE:
             log("CLEANUP", f"No new windows detected, killing top application")
             gracefully_kill_active_application()
@@ -455,7 +449,7 @@ try:
 
     def get_all_atspi_elements(types):
         "Get all atspi elements of a certain type"
-        print("THIS IS TOO SLOW")
+        # This is slow, disable AT-SPI for more speed, but less precision.
         all_elements = []
         frame_element = get_active_window_for_app(app)
         find_all_interactable_elements(frame_element, all_elements, types)

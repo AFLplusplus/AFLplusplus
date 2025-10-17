@@ -349,5 +349,4 @@ def post_trim(success):
         failed_removals += 1
 
     current_step += 1
-    print("trim 6")
     return current_step 
