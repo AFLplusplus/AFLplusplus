@@ -561,26 +561,38 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
       /* GUI mode */
 
-      #ifdef __linux__
-        if(unlikely(fsrv->gui_mode)) {
-          pid_t python_pid;
-          pid_t parent_pid = getpid(); // Get the current PID of this soon to be GUI process
-          python_pid = fork();
+#ifdef __linux__
+      if (unlikely(fsrv->gui_mode)) {
 
-          if (python_pid < 0) {PFATAL("GUI mode fork failed.");}
+        pid_t python_pid;
+        pid_t parent_pid =
+            getpid();  // Get the current PID of this soon to be GUI process
+        python_pid = fork();
 
-          if (!python_pid) { // New python interactor
-            ACTF("Non-forkserver exec'ing, with PID = %ld\n", (long) parent_pid);
-            char parent_pid_str[16];
-            sprintf(parent_pid_str, "%d", (int)parent_pid); // Convert pid_t to a string
-            
-            char *pargs[] = {"/usr/bin/python3", fsrv->gui_python_dir, "-o", fsrv->out_file, "-p", parent_pid_str, NULL};
-            execv("/usr/bin/python3", pargs);
+        if (python_pid < 0) { PFATAL("GUI mode fork failed."); }
 
-            exit(0);
-          }
+        if (!python_pid) {  // New python interactor
+          ACTF("Non-forkserver exec'ing, with PID = %ld\n", (long)parent_pid);
+          char parent_pid_str[16];
+          sprintf(parent_pid_str, "%d",
+                  (int)parent_pid);  // Convert pid_t to a string
+
+          char *pargs[] = {"/usr/bin/python3",
+                           fsrv->gui_python_dir,
+                           "-o",
+                           fsrv->out_file,
+                           "-p",
+                           parent_pid_str,
+                           NULL};
+          execv("/usr/bin/python3", pargs);
+
+          exit(0);
+
         }
-      #endif
+
+      }
+
+#endif
 
       // finally: exec...
       execv(fsrv->target_path, argv);
@@ -1854,9 +1866,17 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
   afl_nyx_runner_kill(fsrv);
 
   if (fsrv->gui_mode) {
-    if (fsrv->gui_python_pid > 0) { kill(fsrv->gui_python_pid, fsrv->child_kill_signal); }
+
+    if (fsrv->gui_python_pid > 0) {
+
+      kill(fsrv->gui_python_pid, fsrv->child_kill_signal);
+
+    }
+
     fsrv->gui_python_pid = -1;
+
   }
+
 #endif
 
 }
@@ -2110,27 +2130,42 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   }
 
-  #ifdef __linux__
-    if (unlikely(fsrv->gui_mode)) {
-      if (!fsrv->use_fauxsrv) {
-        pid_t parent_pid = fsrv->child_pid; // Get the current PID of this soon to be GUI process
-        printf("Forkserver cloning, with pid = %ld\n", (long) parent_pid);
-        fsrv->gui_python_pid = fork();
-        
-        if (fsrv->gui_python_pid < 0) {PFATAL("GUI mode fork failed.");}
-        
-        if (!fsrv->gui_python_pid) {
-          char child_pid_str[16];
-          sprintf(child_pid_str, "%d", (int)fsrv->child_pid); // Convert pid_t to a string
-          
-          char *pargs[] = {"/usr/bin/python3", fsrv->gui_python_dir, "-o", fsrv->out_file, "-p", child_pid_str, NULL};
-          execv("/usr/bin/python3", pargs);
-        
-          exit(0);
-        }
+#ifdef __linux__
+  if (unlikely(fsrv->gui_mode)) {
+
+    if (!fsrv->use_fauxsrv) {
+
+      pid_t parent_pid = fsrv->child_pid;  // Get the current PID of this soon
+                                           // to be GUI process
+      printf("Forkserver cloning, with pid = %ld\n", (long)parent_pid);
+      fsrv->gui_python_pid = fork();
+
+      if (fsrv->gui_python_pid < 0) { PFATAL("GUI mode fork failed."); }
+
+      if (!fsrv->gui_python_pid) {
+
+        char child_pid_str[16];
+        sprintf(child_pid_str, "%d",
+                (int)fsrv->child_pid);  // Convert pid_t to a string
+
+        char *pargs[] = {"/usr/bin/python3",
+                         fsrv->gui_python_dir,
+                         "-o",
+                         fsrv->out_file,
+                         "-p",
+                         child_pid_str,
+                         NULL};
+        execv("/usr/bin/python3", pargs);
+
+        exit(0);
+
       }
+
     }
-  #endif
+
+  }
+
+#endif
 
 #ifdef AFL_PERSISTENT_RECORD
   // end of persistent loop?
@@ -2279,15 +2314,15 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
           /* the custom crash_exitcode was returned by the target */
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode)
-          #ifdef __linux__
-            ||
-            /* Explicitly ignore SIGINT/SIGTERM as a crash, since we use them to terminate the GUI's*/
-            (fsrv->gui_mode &&
-            WIFSIGNALED(fsrv->child_status) &&
-            WTERMSIG(fsrv->child_status) != SIGINT &&
-            WTERMSIG(fsrv->child_status) != SIGTERM)
-          #endif
-    )) {
+#ifdef __linux__
+          ||
+          /* Explicitly ignore SIGINT/SIGTERM as a crash, since we use them to
+             terminate the GUI's*/
+          (fsrv->gui_mode && WIFSIGNALED(fsrv->child_status) &&
+           WTERMSIG(fsrv->child_status) != SIGINT &&
+           WTERMSIG(fsrv->child_status) != SIGTERM)
+#endif
+              )) {
 
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =

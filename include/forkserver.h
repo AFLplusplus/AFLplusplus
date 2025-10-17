@@ -159,7 +159,7 @@ typedef struct afl_forkserver {
   bool frida_asan;                    /* if running with asan in frida mode */
 
   bool cs_mode;                      /* if running in CoreSight mode or not */
-  
+
   bool use_stdin;                       /* use stdin for sending data       */
 
   bool no_unlink;                       /* do not unlink cur_input          */
@@ -234,9 +234,9 @@ typedef struct afl_forkserver {
   s32                   nyx_log_fd;
   u64                   nyx_target_hash64;
 
-  bool                  gui_mode;        /* if running in GUI mode or not    */
-  s32                  *gui_python_pid;  /* PID of python interactor         */
-  u8                   *gui_python_dir;  /* location of python interactor    */
+  bool gui_mode;                        /* if running in GUI mode or not    */
+  s32 *gui_python_pid;                  /* PID of python interactor         */
+  u8  *gui_python_dir;                  /* location of python interactor    */
 
 #endif
 
