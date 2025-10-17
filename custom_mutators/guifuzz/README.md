@@ -1,5 +1,7 @@
 # GUIFuzz++: Grey-box fuzzing for desktop GUI apps
 
+Original authors [@dotto44](https://github.com/dotto44), [@trowlett0](https://github.com/Trowlett0), and [@stevenagy](https://github.com/stevenagy).
+
 This directory contains a custom mutator `guifuzz_mutator.py` and a GUI interaction script `guifuzz_clicks.py`.
 
 GUIFuzz++ interprets AFL++ random bytes as interactions with the target GUI application.
