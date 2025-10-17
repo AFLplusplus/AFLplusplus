@@ -2305,13 +2305,13 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   if (unlikely(
           /* A normal crash/abort */
           (WIFSIGNALED(fsrv->child_status)
-  /* Explicitly ignore SIGINT/SIGTERM as a crash, since we use them to terminate the GUI's*/
+  /* Explicitly ignore SIGINT/SIGTERM as a crash, since we use them to terminate
+   * the GUI's*/
 #ifdef __linux__
-         && (!fsrv->gui_mode ||
-             (WTERMSIG(fsrv->child_status) != SIGINT &&
-              WTERMSIG(fsrv->child_status) != SIGTERM))
+           && (!fsrv->gui_mode || (WTERMSIG(fsrv->child_status) != SIGINT &&
+                                   WTERMSIG(fsrv->child_status) != SIGTERM))
 #endif
-        ) ||
+               ) ||
           /* special handling for msan */
           ((fsrv->uses_asan & 4) &&
            WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
