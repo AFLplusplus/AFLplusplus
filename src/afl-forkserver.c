@@ -1852,6 +1852,11 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
 #ifdef __linux__
   afl_nyx_runner_kill(fsrv);
+
+  if (fsrv->gui_mode) {
+    if (fsrv->gui_python_pid > 0) { kill(fsrv->gui_python_pid, fsrv->child_kill_signal); }
+    fsrv->gui_python_pid = -1;
+  }
 #endif
 
 }
