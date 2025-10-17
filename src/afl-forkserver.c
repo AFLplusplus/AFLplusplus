@@ -2110,6 +2110,28 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   }
 
+  #ifdef __linux__
+    if (unlikely(fsrv->gui_mode)) {
+      if (!fsrv->use_fauxsrv) {
+        pid_t parent_pid = fsrv->child_pid; // Get the current PID of this soon to be GUI process
+        printf("Forkserver cloning, with pid = %ld\n", (long) parent_pid);
+        fsrv->gui_python_pid = fork();
+        
+        if (fsrv->gui_python_pid < 0) {PFATAL("GUI mode fork failed.");}
+        
+        if (!fsrv->gui_python_pid) {
+          char child_pid_str[16];
+          sprintf(child_pid_str, "%d", (int)fsrv->child_pid); // Convert pid_t to a string
+          
+          char *pargs[] = {"/usr/bin/python3", fsrv->gui_python_dir, "-o", fsrv->out_file, "-p", child_pid_str, NULL};
+          execv("/usr/bin/python3", pargs);
+        
+          exit(0);
+        }
+      }
+    }
+  #endif
+
 #ifdef AFL_PERSISTENT_RECORD
   // end of persistent loop?
   if (unlikely(fsrv->persistent_record &&
