@@ -230,7 +230,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -Y            - use VM fuzzing (NYX mode - multiple instances mode)\n"
 #endif
 #if defined(__linux__)
-      "  -K            - use python script to interact with GUI (GUI mode)\n"
+      "  -K dir        - use python script to interact with GUI (GUI mode)\n"
 #endif
       "\n"
 
@@ -1550,8 +1550,14 @@ int main(int argc, char **argv_orig, char **envp) {
   #ifdef __linux__
       case 'K':                                                 /* GUI mode */
         if (afl->fsrv.gui_mode) { FATAL("Multiple -K options not supported"); }
-        afl->fsrv.gui_python_dir = ck_strdup(optarg);
-        afl->fsrv.gui_mode = 1;
+        if (!optarg) {
+          FATAL("No directory provided for GUI interaction script."
+                "Use custom_mutators/guifuzz/guifuzz_clicks.py");
+        }
+        else {
+          afl->fsrv.gui_python_dir = ck_strdup(optarg);
+          afl->fsrv.gui_mode = 1;
+        }
         break;
 
   #else
