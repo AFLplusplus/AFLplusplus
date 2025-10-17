@@ -235,8 +235,8 @@ typedef struct afl_forkserver {
   u64                   nyx_target_hash64;
 
   bool                  gui_mode;        /* if running in gui mode or not    */
-  s32                   *python_pid;     /* PID of python interactor         */
-  u8                    *gui_py_dir;     /* location of python interactor    */
+  s32                  *python_pid;      /* PID of python interactor         */
+  u8                   *gui_py_dir;      /* location of python interactor    */
 
 #endif
 
