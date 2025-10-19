@@ -1567,7 +1567,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #else
       case 'K':
-        FATAL("GUI mode is only available on linux...")
+        FATAL("GUI mode is only available on linux...");
         break;
 
   #endif
