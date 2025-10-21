@@ -229,6 +229,9 @@ static void usage(u8 *argv0, int more_help) {
       "  -X            - use VM fuzzing (NYX mode - standalone mode)\n"
       "  -Y            - use VM fuzzing (NYX mode - multiple instances mode)\n"
 #endif
+#if defined(__linux__)
+      "  -K dir        - use python script to interact with GUI (GUI mode)\n"
+#endif
       "\n"
 
       "Mutator settings:\n"
@@ -669,11 +672,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  // still available: HjJkKqrv
-  while (
-      (opt = getopt(argc, argv,
-                    "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
-                    "uUV:w:WXx:YzZ")) > 0) {
+  // still available: HjJkqrv
+  while ((opt = getopt(
+              argc, argv,
+              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
+              "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
 
@@ -1543,6 +1546,31 @@ int main(int argc, char **argv_orig, char **envp) {
             "(custom_mutators/radamsa/).");
 
         break;
+
+  #ifdef __linux__
+      case 'K':                                                 /* GUI mode */
+        if (afl->fsrv.gui_mode) { FATAL("Multiple -K options not supported"); }
+        if (!optarg || optarg[0] == '-') {
+
+          FATAL(
+              "No directory provided for GUI interaction script. "
+              "Use custom_mutators/guifuzz/guifuzz_clicks.py");
+
+        } else {
+
+          afl->fsrv.gui_python_dir = ck_strdup(optarg);
+          afl->fsrv.gui_mode = 1;
+
+        }
+
+        break;
+
+  #else
+      case 'K':
+        FATAL("GUI mode is only available on linux...");
+        break;
+
+  #endif
 
       default:
         if (!show_help) { show_help = 1; }

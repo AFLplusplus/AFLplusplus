@@ -276,6 +276,10 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->nyx_tmp_workdir_path = NULL;
   fsrv->nyx_log_fd = -1;
   fsrv->nyx_target_hash64 = 0;
+
+  fsrv->gui_mode = 0;
+  fsrv->gui_python_dir = NULL;
+  fsrv->gui_python_pid = -1;
 #endif
 
   // this structure needs default so we initialize it if this was not done
@@ -554,6 +558,41 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
         }
 
       }
+
+      /* GUI mode */
+
+#ifdef __linux__
+      if (unlikely(fsrv->gui_mode)) {
+
+        pid_t python_pid;
+        pid_t parent_pid =
+            getpid();  // Get the current PID of this soon to be GUI process
+        python_pid = fork();
+
+        if (python_pid < 0) { PFATAL("GUI mode fork failed."); }
+
+        if (!python_pid) {  // New python interactor
+          ACTF("Non-forkserver exec'ing, with PID = %ld\n", (long)parent_pid);
+          char parent_pid_str[16];
+          sprintf(parent_pid_str, "%d",
+                  (int)parent_pid);  // Convert pid_t to a string
+
+          char *pargs[] = {"/usr/bin/python3",
+                           fsrv->gui_python_dir,
+                           "-o",
+                           fsrv->out_file,
+                           "-p",
+                           parent_pid_str,
+                           NULL};
+          execv("/usr/bin/python3", pargs);
+
+          exit(0);
+
+        }
+
+      }
+
+#endif
 
       // finally: exec...
       execv(fsrv->target_path, argv);
@@ -1825,6 +1864,19 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
 #ifdef __linux__
   afl_nyx_runner_kill(fsrv);
+
+  if (fsrv->gui_mode) {
+
+    if (fsrv->gui_python_pid > 0) {
+
+      kill(fsrv->gui_python_pid, fsrv->child_kill_signal);
+
+    }
+
+    fsrv->gui_python_pid = -1;
+
+  }
+
 #endif
 
 }
@@ -2078,6 +2130,43 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   }
 
+#ifdef __linux__
+  if (unlikely(fsrv->gui_mode)) {
+
+    if (!fsrv->use_fauxsrv) {
+
+      pid_t parent_pid = fsrv->child_pid;  // Get the current PID of this soon
+                                           // to be GUI process
+      // ACTF("Forkserver cloning, with pid = %ld\n", (long)parent_pid);
+      fsrv->gui_python_pid = fork();
+
+      if (fsrv->gui_python_pid < 0) { PFATAL("GUI mode fork failed."); }
+
+      if (!fsrv->gui_python_pid) {
+
+        char child_pid_str[16];
+        sprintf(child_pid_str, "%d",
+                (int)fsrv->child_pid);  // Convert pid_t to a string
+
+        char *pargs[] = {"/usr/bin/python3",
+                         fsrv->gui_python_dir,
+                         "-o",
+                         fsrv->out_file,
+                         "-p",
+                         child_pid_str,
+                         NULL};
+        execv("/usr/bin/python3", pargs);
+
+        exit(0);
+
+      }
+
+    }
+
+  }
+
+#endif
+
 #ifdef AFL_PERSISTENT_RECORD
   // end of persistent loop?
   if (unlikely(fsrv->persistent_record &&
@@ -2215,7 +2304,14 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   if (unlikely(
           /* A normal crash/abort */
-          (WIFSIGNALED(fsrv->child_status)) ||
+          (WIFSIGNALED(fsrv->child_status)
+  /* Explicitly ignore SIGINT/SIGTERM as a crash, since we use them to terminate
+   * the GUI's*/
+#ifdef __linux__
+           && (!fsrv->gui_mode || (WTERMSIG(fsrv->child_status) != SIGINT &&
+                                   WTERMSIG(fsrv->child_status) != SIGTERM))
+#endif
+               ) ||
           /* special handling for msan */
           ((fsrv->uses_asan & 4) &&
            WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
