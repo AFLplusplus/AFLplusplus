@@ -2135,8 +2135,8 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
     if (!fsrv->use_fauxsrv) {
 
-      pid_t parent_pid = fsrv->child_pid;  // Get the current PID of this soon
-                                           // to be GUI process
+      //pid_t parent_pid = fsrv->child_pid;  // Get the current PID of this soon
+      //                                     // to be GUI process
       // ACTF("Forkserver cloning, with pid = %ld\n", (long)parent_pid);
       fsrv->gui_python_pid = fork();
 
