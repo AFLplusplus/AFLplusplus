@@ -35,6 +35,7 @@ sudo apt-get install -y wget curl # for Frida mode
 sudo apt-get install -y python3-pip # for Unicorn mode
 git clone https://github.com/AFLplusplus/AFLplusplus
 cd AFLplusplus
+git submodule update --init
 make distrib
 sudo make install
 ```
