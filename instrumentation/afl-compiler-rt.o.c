@@ -113,6 +113,16 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
   #include "afl-persistent-replay.h"
 #endif
 
+#pragma once
+#if defined(__GLIBC__)
+extern void *__libc_memset(void *, int, size_t);
+  #define memset(d, c, n) \
+    __libc_memset((d), (c), (n))  // bypass ASan interceptor
+#else
+  #define memset(d, c, n) \
+    __builtin_memset((d), (c), (n))  // inline, no lib call
+#endif
+
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */

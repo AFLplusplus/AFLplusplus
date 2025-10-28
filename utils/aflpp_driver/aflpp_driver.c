@@ -74,6 +74,16 @@ extern "C" {
     __attribute__((used, retain)) __attribute__((section(".rodata")))
 #endif
 
+#pragma once
+#if defined(__GLIBC__)
+extern void *__libc_memset(void *, int, size_t);
+  #define memset(d, c, n) \
+    __libc_memset((d), (c), (n))  // bypass ASan interceptor
+#else
+  #define memset(d, c, n) \
+    __builtin_memset((d), (c), (n))  // inline, no lib call
+#endif
+
 // AFL++ shared memory fuzz cases
 int                   __afl_sharedmem_fuzzing = 1;
 extern unsigned int  *__afl_fuzz_len;
