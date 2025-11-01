@@ -76,38 +76,40 @@ extern "C" {
 #endif
 
 #if !defined(__has_attribute)
-#  define __has_attribute(x) 0
+  #define __has_attribute(x) 0
 #endif
 
 /* Portable "no ASan" attribute */
 #if defined(__clang__)
-#  if __has_attribute(no_sanitize)
-#    define NOASAN __attribute__((no_sanitize("address")))
-#  elif __has_attribute(no_sanitize_address)
-#    define NOASAN __attribute__((no_sanitize_address))
-#  else
-#    define NOASAN
-#  endif
+  #if __has_attribute(no_sanitize)
+    #define NOASAN __attribute__((no_sanitize("address")))
+  #elif __has_attribute(no_sanitize_address)
+    #define NOASAN __attribute__((no_sanitize_address))
+  #else
+    #define NOASAN
+  #endif
 #elif defined(__GNUC__)
-/* GCC: uses no_sanitize_address */
-#  if __has_attribute(no_sanitize_address) || (__GNUC__ >= 5)
-#    define NOASAN __attribute__((no_sanitize_address))
-#  else
-#    define NOASAN
-#  endif
+  /* GCC: uses no_sanitize_address */
+  #if __has_attribute(no_sanitize_address) || (__GNUC__ >= 5)
+    #define NOASAN __attribute__((no_sanitize_address))
+  #else
+    #define NOASAN
+  #endif
 #else
-#  define NOASAN
+  #define NOASAN
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#  define FORCEINLINE __attribute__((always_inline)) inline
+  #define FORCEINLINE __attribute__((always_inline)) inline
 #else
-#  define FORCEINLINE inline
+  #define FORCEINLINE inline
 #endif
 
 // lowers to inline memset, no libc call to interpose
 static FORCEINLINE NOASAN void *memset_noasan(void *dst, int c, size_t n) {
-    return __builtin_memset(dst, c, n);
+
+  return __builtin_memset(dst, c, n);
+
 }
 
 // AFL++ shared memory fuzz cases

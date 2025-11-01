@@ -114,38 +114,40 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #endif
 
 #if !defined(__has_attribute)
-#  define __has_attribute(x) 0
+  #define __has_attribute(x) 0
 #endif
 
 /* Portable "no ASan" attribute */
 #if defined(__clang__)
-#  if __has_attribute(no_sanitize)
-#    define NOASAN __attribute__((no_sanitize("address")))
-#  elif __has_attribute(no_sanitize_address)
-#    define NOASAN __attribute__((no_sanitize_address))
-#  else
-#    define NOASAN
-#  endif
+  #if __has_attribute(no_sanitize)
+    #define NOASAN __attribute__((no_sanitize("address")))
+  #elif __has_attribute(no_sanitize_address)
+    #define NOASAN __attribute__((no_sanitize_address))
+  #else
+    #define NOASAN
+  #endif
 #elif defined(__GNUC__)
-/* GCC: uses no_sanitize_address */
-#  if __has_attribute(no_sanitize_address) || (__GNUC__ >= 5)
-#    define NOASAN __attribute__((no_sanitize_address))
-#  else
-#    define NOASAN
-#  endif
+  /* GCC: uses no_sanitize_address */
+  #if __has_attribute(no_sanitize_address) || (__GNUC__ >= 5)
+    #define NOASAN __attribute__((no_sanitize_address))
+  #else
+    #define NOASAN
+  #endif
 #else
-#  define NOASAN
+  #define NOASAN
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#  define FORCEINLINE __attribute__((always_inline)) inline
+  #define FORCEINLINE __attribute__((always_inline)) inline
 #else
-#  define FORCEINLINE inline
+  #define FORCEINLINE inline
 #endif
 
 // lowers to inline memset, no libc call to interpose
 static FORCEINLINE NOASAN void *memset_noasan(void *dst, int c, size_t n) {
-    return __builtin_memset(dst, c, n);
+
+  return __builtin_memset(dst, c, n);
+
 }
 
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
@@ -3097,7 +3099,11 @@ void __afl_coverage_discard() {
   memset_noasan(__afl_area_ptr_backup, 0, __afl_map_size);
   __afl_area_ptr_backup[0] = 1;
 
-  if (__afl_cmp_map) { memset_noasan(__afl_cmp_map, 0, sizeof(struct cmp_map)); }
+  if (__afl_cmp_map) {
+
+    memset_noasan(__afl_cmp_map, 0, sizeof(struct cmp_map));
+
+  }
 
 }
 
