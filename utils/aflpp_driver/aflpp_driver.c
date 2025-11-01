@@ -44,6 +44,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -74,15 +75,40 @@ extern "C" {
     __attribute__((used, retain)) __attribute__((section(".rodata")))
 #endif
 
-#pragma once
-#if defined(__GLIBC__)
-extern void *__libc_memset(void *, int, size_t);
-  #define memset(d, c, n) \
-    __libc_memset((d), (c), (n))  // bypass ASan interceptor
-#else
-  #define memset(d, c, n) \
-    __builtin_memset((d), (c), (n))  // inline, no lib call
+#if !defined(__has_attribute)
+#  define __has_attribute(x) 0
 #endif
+
+/* Portable "no ASan" attribute */
+#if defined(__clang__)
+#  if __has_attribute(no_sanitize)
+#    define NOASAN __attribute__((no_sanitize("address")))
+#  elif __has_attribute(no_sanitize_address)
+#    define NOASAN __attribute__((no_sanitize_address))
+#  else
+#    define NOASAN
+#  endif
+#elif defined(__GNUC__)
+/* GCC: uses no_sanitize_address */
+#  if __has_attribute(no_sanitize_address) || (__GNUC__ >= 5)
+#    define NOASAN __attribute__((no_sanitize_address))
+#  else
+#    define NOASAN
+#  endif
+#else
+#  define NOASAN
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+#  define FORCEINLINE __attribute__((always_inline)) inline
+#else
+#  define FORCEINLINE inline
+#endif
+
+// lowers to inline memset, no libc call to interpose
+static FORCEINLINE NOASAN void *memset_noasan(void *dst, int c, size_t n) {
+    return __builtin_memset(dst, c, n);
+}
 
 // AFL++ shared memory fuzz cases
 int                   __afl_sharedmem_fuzzing = 1;
@@ -436,7 +462,7 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
 
         if (unlikely(callback(__afl_fuzz_ptr, length) == -1)) {
 
-          memset(__afl_area_ptr, 0, __afl_map_size);
+          memset_noasan(__afl_area_ptr, 0, __afl_map_size);
           __afl_area_ptr[0] = 1;
 
         }
@@ -451,7 +477,7 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
 
       if (unlikely(callback(__afl_fuzz_ptr, *__afl_fuzz_len) == -1)) {
 
-        memset(__afl_area_ptr, 0, __afl_map_size);
+        memset_noasan(__afl_area_ptr, 0, __afl_map_size);
         __afl_area_ptr[0] = 1;
 
       }

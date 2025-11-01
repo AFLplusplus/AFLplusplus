@@ -113,15 +113,40 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
   #include "afl-persistent-replay.h"
 #endif
 
-#pragma once
-#if defined(__GLIBC__)
-extern void *__libc_memset(void *, int, size_t);
-  #define memset(d, c, n) \
-    __libc_memset((d), (c), (n))  // bypass ASan interceptor
-#else
-  #define memset(d, c, n) \
-    __builtin_memset((d), (c), (n))  // inline, no lib call
+#if !defined(__has_attribute)
+#  define __has_attribute(x) 0
 #endif
+
+/* Portable "no ASan" attribute */
+#if defined(__clang__)
+#  if __has_attribute(no_sanitize)
+#    define NOASAN __attribute__((no_sanitize("address")))
+#  elif __has_attribute(no_sanitize_address)
+#    define NOASAN __attribute__((no_sanitize_address))
+#  else
+#    define NOASAN
+#  endif
+#elif defined(__GNUC__)
+/* GCC: uses no_sanitize_address */
+#  if __has_attribute(no_sanitize_address) || (__GNUC__ >= 5)
+#    define NOASAN __attribute__((no_sanitize_address))
+#  else
+#    define NOASAN
+#  endif
+#else
+#  define NOASAN
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+#  define FORCEINLINE __attribute__((always_inline)) inline
+#else
+#  define FORCEINLINE inline
+#endif
+
+// lowers to inline memset, no libc call to interpose
+static FORCEINLINE NOASAN void *memset_noasan(void *dst, int c, size_t n) {
+    return __builtin_memset(dst, c, n);
+}
 
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
    is used for instrumentation output before __afl_map_shm() has a chance to
@@ -1310,9 +1335,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
        iteration, it's our job to erase any trace of whatever happened
        before the loop. */
 
-    memset(__afl_area_ptr, 0, __afl_set_map_size);
+    memset_noasan(__afl_area_ptr, 0, __afl_set_map_size);
     __afl_area_ptr[0] = 1;
-    memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+    memset_noasan(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
     first_pass = 0;
     __afl_selective_coverage_temp = 1;
@@ -1377,7 +1402,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     }
 
-    memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+    memset_noasan(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
 
     return 1;
 
@@ -3069,10 +3094,10 @@ void __afl_coverage_on() {
 // discard all coverage up to this point
 void __afl_coverage_discard() {
 
-  memset(__afl_area_ptr_backup, 0, __afl_map_size);
+  memset_noasan(__afl_area_ptr_backup, 0, __afl_map_size);
   __afl_area_ptr_backup[0] = 1;
 
-  if (__afl_cmp_map) { memset(__afl_cmp_map, 0, sizeof(struct cmp_map)); }
+  if (__afl_cmp_map) { memset_noasan(__afl_cmp_map, 0, sizeof(struct cmp_map)); }
 
 }
 
@@ -3226,7 +3251,7 @@ void ijon_max(uint32_t addr, u64 val) {
 
     /* Clear IJON max area on first initialization to avoid processing
      * uninitialized data */
-    memset(__afl_ijon_bits, 0, MAP_SIZE_IJON_ENTRIES * sizeof(u64));
+    memset_noasan(__afl_ijon_bits, 0, MAP_SIZE_IJON_ENTRIES * sizeof(u64));
 
   }
 
