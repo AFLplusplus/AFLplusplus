@@ -2103,9 +2103,9 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     python_pid = fork();
 
     if (python_pid < 0) { PFATAL("GUI mode fork failed."); }
-
+    fsrv->gui_python_pid = python_pid;
     if (python_pid == 0) {  // child that will perform GUI interactions
-      ACTF("Non-forkserver exec'ing, with PID = %ld\n", (long)fsrv->child_pid);
+      ACTF("Non-forkserver exec'ing, with PID = %ld\n", (long)getpid());
       char gui_pid_str[16];
       sprintf(gui_pid_str, "%d",
               (int)fsrv->child_pid);  // Convert pid_t to a string
