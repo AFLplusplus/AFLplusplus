@@ -2104,7 +2104,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
     if (python_pid < 0) { PFATAL("GUI mode fork failed."); }
 
-    if (!python_pid) {  // shell script launching python interactions
+    if (python_pid == 0) {  // child that will perform GUI interactions
       ACTF("Non-forkserver exec'ing, with PID = %ld\n", (long)fsrv->child_pid);
       char gui_pid_str[16];
       sprintf(gui_pid_str, "%d",
@@ -2113,7 +2113,8 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
       execl(fsrv->gui_python_dir, fsrv->gui_python_dir, fsrv->out_file,
             gui_pid_str, NULL);
 
-      exit(0);
+      PFATAL("execl failed for %s", fsrv->gui_python_dir);
+      exit(1);
 
     }
 

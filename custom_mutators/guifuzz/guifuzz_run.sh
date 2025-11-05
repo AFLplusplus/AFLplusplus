@@ -1,14 +1,19 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # separate launcher for guifuzz_clicks.py
 
 # resolve the directory of this script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
-# check for python3 or python in PATH
-PYTHON=$(command -v python3 || command -v python)
-if [ -z "$PYTHON" ]; then
-    echo "Python not found in PATH. Aborting."
+# require python3 explicitly
+PYTHON=$(command -v python3) || {
+    echo "python3 not found in PATH." >&2
     exit 1
+}
+
+# check session type, GUIFuzz requires X11
+if [ -n "${XDG_SESSION_TYPE:-}" ] && [ "${XDG_SESSION_TYPE}" != "x11" ]; then
+    echo "GUIFuzz requires an X11 session (XDG_SESSION_TYPE='${XDG_SESSION_TYPE}')." >&2
+    exit 2
 fi
 
 # args passed from forkserver
