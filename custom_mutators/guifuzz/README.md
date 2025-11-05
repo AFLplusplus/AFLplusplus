@@ -48,9 +48,9 @@ echo "$XDG_SESSION_TYPE"
 # GUIFuzz++ uses a 3-byte interpreter structure, so use seeds whose size is divisible by 3.
 head -c 300 /dev/urandom > in/seed
 
-# Run afl-fuzz with the -K option (provide the path to the interaction script)
+# Run afl-fuzz with the -K option (provide the path to the launch script)
 # Move the mouse to a screen corner to stop interaction.
-afl-fuzz -K ~/AFLplusplus/custom_mutators/guifuzz/guifuzz_clicks.py -t 100000 -i in -o out -- /path/to/app
+afl-fuzz -K ~/AFLplusplus/custom_mutators/guifuzz/guifuzz_run.sh -t 100000 -i in -o out -- /path/to/app
 
 # Adjust -t as needed. Fuzzing GUIs is VERY SLOW; 100 seconds is a reasonable starting timeout.
 ```

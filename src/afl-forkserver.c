@@ -559,41 +559,6 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
       }
 
-      /* GUI mode */
-
-#ifdef __linux__
-      if (unlikely(fsrv->gui_mode)) {
-
-        pid_t python_pid;
-        pid_t parent_pid =
-            getpid();  // Get the current PID of this soon to be GUI process
-        python_pid = fork();
-
-        if (python_pid < 0) { PFATAL("GUI mode fork failed."); }
-
-        if (!python_pid) {  // New python interactor
-          ACTF("Non-forkserver exec'ing, with PID = %ld\n", (long)parent_pid);
-          char parent_pid_str[16];
-          sprintf(parent_pid_str, "%d",
-                  (int)parent_pid);  // Convert pid_t to a string
-
-          char *pargs[] = {"/usr/bin/python3",
-                           fsrv->gui_python_dir,
-                           "-o",
-                           fsrv->out_file,
-                           "-p",
-                           parent_pid_str,
-                           NULL};
-          execv("/usr/bin/python3", pargs);
-
-          exit(0);
-
-        }
-
-      }
-
-#endif
-
       // finally: exec...
       execv(fsrv->target_path, argv);
 
@@ -2130,37 +2095,26 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   }
 
+  // GUI Mode
 #ifdef __linux__
   if (unlikely(fsrv->gui_mode)) {
 
-    if (!fsrv->use_fauxsrv) {
+    pid_t python_pid;
+    python_pid = fork();
 
-      // pid_t parent_pid = fsrv->child_pid;  // Get the current PID of this
-      // soon
-      //                                      // to be GUI process
-      //  ACTF("Forkserver cloning, with pid = %ld\n", (long)parent_pid);
-      fsrv->gui_python_pid = fork();
+    if (python_pid < 0) { PFATAL("GUI mode fork failed."); }
+    fsrv->gui_python_pid = python_pid;
+    if (python_pid == 0) {  // child that will perform GUI interactions
+      ACTF("Non-forkserver exec'ing, with PID = %ld\n", (long)getpid());
+      char gui_pid_str[16];
+      sprintf(gui_pid_str, "%d",
+              (int)fsrv->child_pid);  // Convert pid_t to a string
 
-      if (fsrv->gui_python_pid < 0) { PFATAL("GUI mode fork failed."); }
+      execl(fsrv->gui_python_dir, fsrv->gui_python_dir, fsrv->out_file,
+            gui_pid_str, NULL);
 
-      if (!fsrv->gui_python_pid) {
-
-        char child_pid_str[16];
-        sprintf(child_pid_str, "%d",
-                (int)fsrv->child_pid);  // Convert pid_t to a string
-
-        char *pargs[] = {"/usr/bin/python3",
-                         fsrv->gui_python_dir,
-                         "-o",
-                         fsrv->out_file,
-                         "-p",
-                         child_pid_str,
-                         NULL};
-        execv("/usr/bin/python3", pargs);
-
-        exit(0);
-
-      }
+      PFATAL("execl failed for %s", fsrv->gui_python_dir);
+      exit(1);
 
     }
 
