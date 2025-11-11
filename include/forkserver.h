@@ -233,6 +233,11 @@ typedef struct afl_forkserver {
   char                 *nyx_tmp_workdir_path;
   s32                   nyx_log_fd;
   u64                   nyx_target_hash64;
+
+  bool gui_mode;                        /* if running in GUI mode or not    */
+  s32  gui_python_pid;                  /* PID of python interactor         */
+  u8  *gui_python_dir;                  /* location of python interactor    */
+
 #endif
 
 #ifdef __AFL_CODE_COVERAGE

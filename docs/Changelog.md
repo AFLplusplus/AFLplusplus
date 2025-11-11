@@ -5,6 +5,9 @@
 
 
 ### Version ++4.35a (dev)
+  - GUIFuzz++ merged: Unleashing Grey-box Fuzzing on Desktop Graphical User
+                      Interfacing Applications
+    https://futures.cs.utah.edu/papers/25ASE.pdf
   - afl-cc:
     - IJON fix to search for the necessary include
   - qemu_mode:

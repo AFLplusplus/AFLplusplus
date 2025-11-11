@@ -483,3 +483,4 @@ void ijon_update_max_dynamic(ijon_min_state          *self,
 #endif
 
 }
+
