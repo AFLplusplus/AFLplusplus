@@ -121,6 +121,7 @@ static void at_exit() {
   ptr = getenv("__AFL_TARGET_PID2");
   if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) {
 
+    /* cmplog fsrv (pid2) was not deinit'ed, so using getpgid(pid2) is fine. */
     pgrp = getpgid(pid2);
     if (pgrp > 0) { killpg(pgrp, SIGTERM); }
     kill(pid2, SIGTERM);
@@ -130,8 +131,9 @@ static void at_exit() {
   ptr = getenv("__AFL_TARGET_PID1");
   if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) {
 
-    pgrp = getpgid(pid1);
-    if (pgrp > 0) { killpg(pgrp, SIGTERM); }
+    /* forkserver (pid1) was deinit'ed by afl_fsrv_deinit,
+     so getpgid(pid1) would fail; use pid1 directly as pgid. */
+    killpg(pid1, SIGTERM);
     kill(pid1, SIGTERM);
 
   }
@@ -167,8 +169,7 @@ static void at_exit() {
 
   if (pid1 > 0) {
 
-    pgrp = getpgid(pid1);
-    if (pgrp > 0) { killpg(pgrp, kill_signal); }
+    killpg(pid1, kill_signal);
     kill(pid1, kill_signal);
 
   }
