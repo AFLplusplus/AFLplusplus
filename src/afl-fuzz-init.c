@@ -1230,6 +1230,13 @@ void perform_dry_run(afl_state_t *afl) {
           u8  crash_fn[PATH_MAX];
           u8 *use_name = strstr(q->fname, ",orig:");
 
+          if (!use_name) {
+
+            use_name = strstr(q->fname, ",sync:");
+            if (!use_name) { use_name = q->fname; }
+
+          }
+
           afl->stage_name = "dry_run";
           afl->stage_short = "dry_run";
 
