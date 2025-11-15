@@ -1233,7 +1233,7 @@ void perform_dry_run(afl_state_t *afl) {
           if (!use_name) {
 
             use_name = strstr(q->fname, ",sync:");
-            if (!use_name) { use_name = q->fname; }
+            if (!use_name) { use_name = q->fname + strlen(q->fname); }
 
           }
 
