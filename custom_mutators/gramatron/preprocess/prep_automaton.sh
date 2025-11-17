@@ -1,10 +1,11 @@
 #!/bin/bash
+set -e
 
 # This scipt creates a FSA describing the input grammar *.g4
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ ! "$#" -lt 4 ]; then
-  echo "Usage: ./prep_pda.sh <grammar_file> <start> [stack_limit]"         
+if [ "$#" -ne 2 ] && [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <grammar_file> <start> [stack_limit]"
   exit 1
 fi
 
