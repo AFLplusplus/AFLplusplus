@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# This script creates a FSA describing the input grammar *.g4
+# This scipt creates a FSA describing the input grammar *.g4
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ ! "$#" -lt 4 ]; then
   echo "Usage: ./prep_pda.sh <grammar_file> <start> [stack_limit]"         
@@ -20,15 +21,15 @@ echo "Name:$FILENAME"
 
 
 # Create the GNF form of the grammar
-CMD="python gnf_converter.py --gf $GRAMMAR_FILE --out ${FILENAME}.json --start $START"
+CMD="python ${DIR}/gnf_converter.py --gf $GRAMMAR_FILE --out ${FILENAME}.json --start $START"
 $CMD
 
 # Generate grammar automaton 
 # Check if user provided a stack limit
 if [ -z "${STACK_LIMIT}" ]; then
-CMD="python3 construct_automata.py --gf ${FILENAME}.json" 
+CMD="python3 ${DIR}/construct_automata.py --gf ${FILENAME}.json"
 else
-CMD="python construct_automata.py --gf ${FILENAME}.json --limit ${STACK_LIMIT}" 
+CMD="python ${DIR}/construct_automata.py --gf ${FILENAME}.json --limit ${STACK_LIMIT}"
 fi
 echo $CMD
 $CMD
