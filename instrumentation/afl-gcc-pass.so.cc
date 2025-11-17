@@ -124,8 +124,7 @@
 */
 
 #include "afl-gcc-common.h"
-#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= \
-    60200                                               /* >= version 6.2.0 */
+#if defined(__has_include) && __has_include("memmodel.h")
   #include "memmodel.h"
 #endif
 
