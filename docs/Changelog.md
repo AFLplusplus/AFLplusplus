@@ -9,8 +9,8 @@
                       Interfacing Applications
     https://futures.cs.utah.edu/papers/25ASE.pdf
   - afl-fuzz:
-    - crash fix for sync'ed filenames that trigger a target crash
     - fix syncing issues with crashes and custom mutators by @AndyH-1
+    - another attempt to kill every client, thanks to @leonasdev
   - afl-cc:
     - IJON fix to search for the necessary include
     - Allow compiling the gcc plugin with LLVM, thanks to @exoosh
