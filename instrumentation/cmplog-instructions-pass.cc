@@ -408,8 +408,6 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
          
       }
 
-#endif
-
       // XXX FIXME BUG TODO
       if (is_fp && vector_cnt) { continue; }
 
