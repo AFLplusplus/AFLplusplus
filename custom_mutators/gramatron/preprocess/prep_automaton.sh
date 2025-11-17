@@ -1,7 +1,7 @@
 #!/bin/bash
+# This scipt creates a FSA describing the input grammar *.g4
 set -e
 
-# This scipt creates a FSA describing the input grammar *.g4
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$#" -ne 2 ] && [ "$#" -ne 3 ]; then
@@ -25,7 +25,7 @@ echo "Name:$FILENAME"
 CMD="python ${DIR}/gnf_converter.py --gf $GRAMMAR_FILE --out ${FILENAME}.json --start $START"
 $CMD
 
-# Generate grammar automaton 
+# Generate grammar automaton
 # Check if user provided a stack limit
 if [ -z "${STACK_LIMIT}" ]; then
 CMD="python3 ${DIR}/construct_automata.py --gf ${FILENAME}.json"
@@ -37,4 +37,4 @@ $CMD
 
 # Move PDA to the source dir of the grammar
 echo "Copying ${FILENAME}_automata.json to $GRAMMAR_DIR"
-mv "${FILENAME}_automata.json" $GRAMMAR_DIR/  
+mv "${FILENAME}_automata.json" $GRAMMAR_DIR/
