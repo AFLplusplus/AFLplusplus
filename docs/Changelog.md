@@ -10,14 +10,18 @@
     https://futures.cs.utah.edu/papers/25ASE.pdf
   - afl-fuzz:
     - crash fix for sync'ed filenames that trigger a target crash
+    - fix syncing issues with crashes and custom mutators by @AndyH-1
   - afl-cc:
     - IJON fix to search for the necessary include
+    - Allow compiling the gcc plugin with LLVM, thanks to @exoosh
+    - Fix for unusual bit sizes in cmplog-instructions-pass by @forzafedor
   - qemu_mode:
     - IJON support, thanks to @nj00001! see qemu_mode/README.md
     - leaner, less warnings, thanks to @McSinyx!
   - afl-tmin
     - fix custom trimmings, thanks to @renatahodovan!
-
+  - custom mutators:
+    - fix for Gramatron script by @jubnzv
 
 ### Version ++4.34c (release)
   - IJON integration by @vi3tL0u1s - thanks a lot!!

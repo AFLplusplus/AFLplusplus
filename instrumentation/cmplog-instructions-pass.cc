@@ -393,7 +393,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
 
       // do we need to cast?
       switch (max_size) {
-         
+
         case 16:
           cast_size = 16;
           break;
@@ -405,7 +405,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
           break;
         default:
           cast_size = 128;
-         
+
       }
 
       // XXX FIXME BUG TODO

@@ -584,6 +584,7 @@ checks or alter some of the more exotic semantics of the tool:
 
   - `AFL_SHA1_FILENAMES` causes AFL++ to generate files named by the SHA1 hash
     of their contents, rather than use the standard `id:000000,...` names.
+    Warning: this disables any syncing to any AFL instances!
 
   - `AFL_SHUFFLE_QUEUE` randomly reorders the input queue on startup. Requested
     by some users for unorthodox parallelized fuzzing setups, but not advisable

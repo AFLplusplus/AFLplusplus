@@ -3150,6 +3150,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->afl_env.afl_sha1_filenames) {
+
+    WARNF(
+        "Using AFL_SHA1_FILENAMES disables any syncing to other AFL "
+        "instances!");
+
+  }
+
   cull_queue(afl);
 
   // ensure we have at least one seed that is not disabled.
