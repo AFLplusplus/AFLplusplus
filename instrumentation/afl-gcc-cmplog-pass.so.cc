@@ -245,7 +245,7 @@ struct afl_cmplog_pass : afl_base_pass {
 
       tree s = make_ssa_name(t);
       auto g = gimple_build_assign(s, VIEW_CONVERT_EXPR,
-                                     build1(VIEW_CONVERT_EXPR, t, lhs));
+                                   build1(VIEW_CONVERT_EXPR, t, lhs));
       lhs = s;
       gsi_insert_before(&gsi, g, GSI_SAME_STMT);
 
@@ -282,7 +282,7 @@ struct afl_cmplog_pass : afl_base_pass {
 
     /* Insert the call.  */
     tree   att = build_int_cst(t8u, attr);
-    gcall* call;
+    gcall *call;
     if (pass_n)
       call = gimple_build_call(fn, 4, lhs, rhs, att,
                                build_int_cst(t8u, sz / 8 - 1));
