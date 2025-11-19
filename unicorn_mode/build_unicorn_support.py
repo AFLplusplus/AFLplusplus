@@ -172,7 +172,10 @@ for ln in lns:
             if "linked_libs" in ln_json and any(["unicorn" in x for x in ln_json['linked_libs']]):
                 if "out_dir" in ln_json:
                     out_dir = Path(ln_json['out_dir'])
-                    shutil.copytree(out_dir / "lib", libs_path, dirs_exist_ok=True)
+                    try:
+                        shutil.copytree(out_dir / "lib", libs_path, dirs_exist_ok=True)
+                    except FileNotFoundError:
+                        shutil.copytree(out_dir / "lib64", libs_path, dirs_exist_ok=True)
                     shutil.copytree(out_dir / "include", include_path, dirs_exist_ok=True)
                     print(f"[*] Copied from {out_dir.absolute()}")
 
