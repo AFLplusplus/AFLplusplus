@@ -134,7 +134,7 @@ test -e json-c/.libs/libjson-c.a || {
   sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
   git checkout "$JSONC_VERSION" || exit 1
   sh autogen.sh || exit 1
-  export CFLAGS=-fPIC
+  export CFLAGS="-fPIC -Wno-error=calloc-transposed-args"
   ./configure --disable-shared || exit 1
   make || exit 1
   cd ..
