@@ -43,6 +43,11 @@
 #include <algorithm>
 #include <fnmatch.h>
 
+#if defined(__clang__)
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wmismatched-tags"
+#endif
+
 #include <gcc-plugin.h>
 #include <plugin-version.h>
 #include <toplev.h>
@@ -57,15 +62,21 @@
 #include <gimple-iterator.h>
 #include <stringpool.h>
 #include <gimple-ssa.h>
-#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= \
-    60200                                               /* >= version 6.2.0 */
+#if defined(__has_include) && __has_include(<tree-vrp.h>)
   #include <tree-vrp.h>
+#endif
+#if defined(__has_include) && __has_include(<value-range.h>)
+  #include <value-range.h>
 #endif
 #include <tree-ssanames.h>
 #include <tree-phinodes.h>
 #include <ssa-iterators.h>
 
 #include <intl.h>
+
+#if defined(__clang__)
+  #pragma clang diagnostic pop
+#endif
 
 namespace {
 

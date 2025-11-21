@@ -392,13 +392,9 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
       }
 
       // do we need to cast?
-#if INTPTR_MAX == INT32_MAX
-      /* 32-bit code */
       switch (max_size) {
 
-        case 8:
-          break;
-        case 9 ... 16:
+        case 16:
           cast_size = 16;
           break;
         case 17 ... 32:
@@ -406,42 +402,11 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
           break;
         case 33 ... 64:
           cast_size = 64;
-          break;
-        case 80:
-          break;
-        case 128:
-          cast_size = max_size;
           break;
         default:
           cast_size = 128;
-          break;
 
       }
-
-#else
-      /* original code */
-      switch (max_size) {
-
-        case 8:
-          break;
-        case 9 ... 16:
-          cast_size = 16;
-          break;
-        case 17 ... 32:
-          cast_size = 32;
-          break;
-        case 33 ... 64:
-          cast_size = 64;
-          break;
-        case 80:
-          break;
-        case 128:
-          cast_size = max_size;
-          break;
-
-      }
-
-#endif
 
       // XXX FIXME BUG TODO
       if (is_fp && vector_cnt) { continue; }
