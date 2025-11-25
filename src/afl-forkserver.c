@@ -329,6 +329,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->uid_set = 0;
   fsrv->gid_set = 0;
 
+  fsrv->perm = DEFAULT_PERMISSION;
+
   fsrv->init_child_func = fsrv_exec_child;
   list_append(&fsrv_list, fsrv);
 
