@@ -132,6 +132,9 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->ijon_input_len = 0;
   afl->is_doing_ijon = 0;
 
+  afl->perm = DEFAULT_PERMISSION;
+  afl->dir_perm = DEFAULT_DIRS_PERMISSION;
+
   afl->fsrv.use_stdin = 1;
   afl->fsrv.map_size = map_size;
   // afl_state_t is not available in forkserver.c
