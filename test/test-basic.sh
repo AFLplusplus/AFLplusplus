@@ -11,6 +11,7 @@ $ECHO "$BLUE[*] Testing: ${AFL_COMPILER}, afl-showmap, afl-fuzz, afl-cmin and af
    AFL_HARDEN=1 ../${AFL_COMPILER} -o test-compcov.harden test-compcov.c > /dev/null 2>&1
    test -e test-instr.plain && {
     $ECHO "$GREEN[+] ${AFL_COMPILER} compilation succeeded"
+    # Test if different inputs in stdin mode produce different coverage.
     echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
     test -e test-instr.plain.0 -a -e test-instr.plain.1 && {
@@ -25,6 +26,59 @@ $ECHO "$BLUE[*] Testing: ${AFL_COMPILER}, afl-showmap, afl-fuzz, afl-cmin and af
       CODE=1
     }
     rm -f test-instr.plain.0 test-instr.plain.1
+    # Test that same input via stdin produces same coverage
+    echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.same0 -r -- ./test-instr.plain > /dev/null 2>&1
+    echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.same1 -r -- ./test-instr.plain > /dev/null 2>&1
+    test -e test-instr.plain.same0 -a -e test-instr.plain.same1 && {
+      diff test-instr.plain.same0 test-instr.plain.same1 > /dev/null 2>&1 && {
+        $ECHO "$GREEN[+] ${AFL_COMPILER} same input produces same coverage"
+      } || {
+        $ECHO "$RED[!] ${AFL_COMPILER} same input should produce same coverage but does not"
+        CODE=1
+      }
+    } || {
+      $ECHO "$RED[!] ${AFL_COMPILER} afl-showmap failed to generate same coverage for same input test"
+      CODE=1
+    }
+    rm -f test-instr.plain.same0 test-instr.plain.same1
+    # Test whether afl-showmap actually processes the input file by checking if different inputs produce different coverage (issue #2602)
+    # Note that this is using -i and @@, and not stdin as above.
+    mkdir -p .test-input0 .test-input1 .test-output0 .test-output1
+    echo 0 > .test-input0/in
+    echo 1 > .test-input1/in
+    AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -i .test-input0 -o .test-output0 -r -- ./test-instr.plain -f @@ > /dev/null 2>&1
+    AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -i .test-input1 -o .test-output1 -r -- ./test-instr.plain -f @@ > /dev/null 2>&1
+    test -e .test-output0/in -a -e .test-output1/in && {
+      diff .test-output0/in .test-output1/in > /dev/null 2>&1 && {
+        $ECHO "$RED[!] ${AFL_COMPILER} afl-showmap failed to produce different coverage for different input files"
+        CODE=1
+      } || {
+        $ECHO "$GREEN[+] ${AFL_COMPILER} afl-showmap correctly produced different coverage for different input files"
+      }
+    } || {
+      $ECHO "$RED[!] ${AFL_COMPILER} afl-showmap correctly produced different coverage for different input files"
+      CODE=1
+    }
+    rm -rf .test-input0 .test-input1 .test-output0 .test-output1
+    # Test that same input files result in same coverage.
+    # Note that this is using -i and @@, and not stdin as above.
+    mkdir -p .test-input-same0 .test-input-same1 .test-output-same0 .test-output-same1
+    echo 0 > .test-input-same0/in
+    echo 0 > .test-input-same1/in
+    AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -i .test-input-same0 -o .test-output-same0 -r -- ./test-instr.plain -f @@ > /dev/null 2>&1
+    AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -i .test-input-same1 -o .test-output-same1 -r -- ./test-instr.plain -f @@ > /dev/null 2>&1
+    test -e .test-output-same0/in -a -e .test-output-same1/in && {
+      diff .test-output-same0/in .test-output-same1/in > /dev/null 2>&1 && {
+        $ECHO "$GREEN[+] ${AFL_COMPILER} afl-showmap correctly produced same coverage for same input files via -i"
+      } || {
+        $ECHO "$RED[!] ${AFL_COMPILER} afl-showmap should produce same coverage for same input files but does not"
+        CODE=1
+      }
+    } || {
+      $ECHO "$RED[!] ${AFL_COMPILER} afl-showmap failed to generate coverage for same input files test via -i"
+      CODE=1
+    }
+    rm -rf .test-input-same0 .test-input-same1 .test-output-same0 .test-output-same1
     SKIP=
     TUPLES=`echo 1|AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-instr.plain 2>&1 | grep Captur | awk '{print$3}'`
     test "$TUPLES" -gt 1 -a "$TUPLES" -lt 22 && {
