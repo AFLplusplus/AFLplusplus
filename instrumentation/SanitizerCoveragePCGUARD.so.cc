@@ -199,8 +199,7 @@ class ModuleSanitizerCoverageAFL
 
   SanitizerCoverageOptions Options;
 
-  uint32_t instr = 0, selects = 0, hidden = 0, unhandled = 0, skippedbb = 0,
-           dump_cc = 0;
+  uint32_t instr = 0, selects = 0, unhandled = 0, skippedbb = 0, dump_cc = 0;
   GlobalVariable *AFLMapPtr = NULL;
   GlobalVariable *AFLCovMapSize = NULL;
   GlobalVariable *AFLIJONState = NULL;
@@ -854,7 +853,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
 
       OKF("Instrumented %u locations with no collisions (%s mode) of which are "
           "%u handled and %u unhandled special instructions.%s",
-          instr, modeline, selects + hidden, unhandled, buf);
+          instr, modeline, selects, unhandled, buf);
 
       if (getenv("AFL_LLVM_IJON")) {
 
@@ -1051,8 +1050,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   if (AllBlocks.empty()) return false;
 
-  uint32_t cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0, cnt_hidden_sel = 0,
-           cnt_hidden_sel_inc = 0, skip_blocks = 0;
+  uint32_t cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0, skip_blocks = 0,
+           cnt_special = 0;
   static uint32_t first = 1;
 
   for (auto &BB : F) {
@@ -1087,6 +1086,14 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           block_is_instrumented = true;
 
         }
+
+      }
+
+      // Check for AFL coverage interesting calls first
+      if (shouldInstrumentInstruction(IN)) {
+
+        cnt_special++;
+        continue;
 
       }
 
@@ -1177,9 +1184,9 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   }
 
   uint32_t xtra = 0;
-  if (skip_blocks < first + cnt_cov + cnt_sel_inc + cnt_hidden_sel_inc) {
+  if (skip_blocks < first + cnt_cov + cnt_sel_inc + cnt_special) {
 
-    xtra = first + cnt_cov + cnt_sel_inc + cnt_hidden_sel_inc - skip_blocks;
+    xtra = first + cnt_cov + cnt_sel_inc + cnt_special - skip_blocks;
 
   }
 
@@ -1195,7 +1202,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   if (first) { first = 0; }
   selects += cnt_sel;
-  hidden += cnt_hidden_sel;
 
   uint32_t special = 0, local_selects = 0, skip_select = 0, skip_icmp = 0;
 
@@ -1410,14 +1416,6 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 #endif
   if (EntryLoc) IRB.SetCurrentDebugLocation(EntryLoc);
   if (Options.TracePCGuard) {
-
-    /*
-      auto GuardPtr = IRB.CreateIntToPtr(
-          IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                        ConstantInt::get(IntptrTy, Idx * 4)),
-          Int32PtrTy);
-      IRB.CreateCall(SanCovTracePCGuard, GuardPtr)->setCannotMerge();
-    */
 
     /* Get CurLoc */
 
