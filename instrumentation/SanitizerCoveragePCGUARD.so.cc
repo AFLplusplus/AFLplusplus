@@ -152,10 +152,7 @@ class ModuleSanitizerCoverageAFL
   void setupEnvironmentVariables();
   std::pair<bool, bool> detectIJONUsage(Module &M);
   void                  setupIJONSymbols(Module &M);
-  void   injectCoverageForInstruction(Instruction &IN, IRBuilder<> &IRB,
-                                      uint32_t &local_selects, uint32_t &special,
-                                      ArrayRef<BasicBlock *> AllBlocks);
-  Value *createGuardPointer(IRBuilder<> &IRB, uint32_t index);
+  Value                *createGuardPointer(IRBuilder<> &IRB, uint32_t index);
   void   updateCoverageBitmap(IRBuilder<> &IRB, Value *CoverageIndex,
                               LoadInst *MapPtr);
   void   printDebugInfo(Instruction &IN);
