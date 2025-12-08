@@ -12,7 +12,6 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-// #include "llvm/IR/Verifier.h"
 #if LLVM_VERSION_MAJOR >= 15
   #if LLVM_VERSION_MAJOR < 17
     #include "llvm/ADT/Triple.h"
@@ -91,12 +90,11 @@ using namespace llvm;
 
 // Constants
 static const uint64_t SanCtorAndDtorPriority = 2;
-
-const char SanCovTracePCName[] = "__sanitizer_cov_trace_pc";
-const char SanCovTraceCmp1[] = "__sanitizer_cov_trace_cmp1";
-const char SanCovTraceCmp2[] = "__sanitizer_cov_trace_cmp2";
-const char SanCovTraceCmp4[] = "__sanitizer_cov_trace_cmp4";
-const char SanCovTraceCmp8[] = "__sanitizer_cov_trace_cmp8";
+const char            SanCovTracePCName[] = "__sanitizer_cov_trace_pc";
+const char            SanCovTraceCmp1[] = "__sanitizer_cov_trace_cmp1";
+const char            SanCovTraceCmp2[] = "__sanitizer_cov_trace_cmp2";
+const char            SanCovTraceCmp4[] = "__sanitizer_cov_trace_cmp4";
+const char            SanCovTraceCmp8[] = "__sanitizer_cov_trace_cmp8";
 const char SanCovTraceConstCmp1[] = "__sanitizer_cov_trace_const_cmp1";
 const char SanCovTraceConstCmp2[] = "__sanitizer_cov_trace_const_cmp2";
 const char SanCovTraceConstCmp4[] = "__sanitizer_cov_trace_const_cmp4";
@@ -125,7 +123,6 @@ namespace {
 SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
 
   Options.CoverageType = SanitizerCoverageOptions::SCK_Edge;
-  // Options.NoPrune = true;
   Options.TracePCGuard = true;  // TracePCGuard is default.
   return Options;
 
@@ -214,10 +211,7 @@ class ModuleSanitizerCoverageAFL
   LLVMContext      *C;
   const DataLayout *DL;
 
-  GlobalVariable *FunctionGuardArray;        // for trace-pc-guard.
-  GlobalVariable *Function8bitCounterArray;  // for inline-8bit-counters.
-  GlobalVariable *FunctionBoolArray;         // for inline-bool-flag.
-  GlobalVariable *FunctionPCsArray;          // for pc-table.
+  GlobalVariable                *FunctionGuardArray;  // for trace-pc-guard.
   SmallVector<GlobalValue *, 20> GlobalsToAppendToUsed;
   SmallVector<GlobalValue *, 20> GlobalsToAppendToCompilerUsed;
 
@@ -334,8 +328,6 @@ std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
   if (!TargetTriple.isOSBinFormatCOFF())
     return std::make_pair(SecStart, SecEnd);
 
-    // Account for the fact that on windows-msvc __start_* symbols actually
-    // point to a uint64_t before the start of the array.
 #if LLVM_VERSION_MAJOR >= 19
   auto GEP =
       IRB.CreatePtrAdd(SecStart, ConstantInt::get(IntptrTy, sizeof(uint64_t)));
@@ -609,10 +601,8 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
   auto      SecStart = SecStartEnd.first;
   auto      SecEnd = SecStartEnd.second;
   Function *CtorFunc;
-  // Type     *PtrTy = PointerType::getUnqual(Ty);
   std::tie(CtorFunc, std::ignore) = createSanitizerCtorAndInitFunctions(
       M, CtorName, InitFunctionName, {PtrTy, PtrTy}, {SecStart, SecEnd});
-  // assert(CtorFunc->getName() == CtorName);
 
   if (TargetTriple.supportsCOMDAT()) {
 
@@ -747,9 +737,6 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   CurModuleUniqueId = getUniqueModuleId(CurModule);
   TargetTriple = Triple(M.getTargetTriple());
   FunctionGuardArray = nullptr;
-  Function8bitCounterArray = nullptr;
-  FunctionBoolArray = nullptr;
-  FunctionPCsArray = nullptr;
   // Initialize basic types
   IntptrTy = Type::getIntNTy(*C, DL->getPointerSizeInBits());
   Type       *VoidTy = Type::getVoidTy(*C);
@@ -977,33 +964,11 @@ static bool IsBackEdge(BasicBlock *From, BasicBlock *To,
 
 #endif
 
-// Prunes uninteresting Cmp instrumentation:
-//   * CMP instructions that feed into loop backedge branch.
-//
-// Note that Cmp pruning is controlled by the same flag as the
-// BB pruning.
-#if 0
-static bool IsInterestingCmp(ICmpInst *CMP, const DominatorTree *DT,
-                             const SanitizerCoverageOptions &Options) {
-
-  if (!Options.NoPrune)
-    if (CMP->hasOneUse())
-      if (auto BR = dyn_cast<BranchInst>(CMP->user_back()))
-        for (BasicBlock *B : BR->successors())
-          if (IsBackEdge(BR->getParent(), B, DT))
-            return false;
-  return true;
-
-}
-
-#endif
-
 void ModuleSanitizerCoverageAFL::instrumentFunction(
     Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
   if (F.empty()) return;
   if (!isInInstrumentList(&F, FMNAME)) return;
-  // if (F.getName().find(".module_ctor") != std::string::npos)
   if (F.getName().contains(".module_ctor"))
     return;  // Should not instrument sanitizer init functions.
 #if LLVM_VERSION_MAJOR >= 18
@@ -1072,8 +1037,6 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
   }
 
   InjectCoverage(F, BlocksToInstrument, IsLeafFunc);
-  // InjectTraceForCmp(F, CmpTraceTargets);
-  // InjectTraceForSwitch(F, SwitchTraceTargets);
 
   if (dump_cc) { calcCyclomaticComplexity(&F); }
 
@@ -1317,7 +1280,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   hidden += cnt_hidden_sel;
 
   uint32_t special = 0, local_selects = 0, skip_select = 0, skip_icmp = 0;
-  // uint32_t skip_phi = 0;
 
   for (auto &BB : F) {
 
@@ -1353,7 +1315,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         Value      *result = nullptr;
         uint32_t    vector_cnt = 0;
         SelectInst *selectInst;
-        // PHINode    *phi = nullptr, *newPhi = nullptr;
         IRBuilder<> IRB(IN.getNextNode());
 
         ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
@@ -1767,7 +1728,6 @@ void ModuleSanitizerCoverageAFL::InjectTraceForCmp(
                              : TypeSize == 64 ? 3
                                               : -1;
       if (CallbackIdx < 0) continue;
-      // __sanitizer_cov_trace_cmp((type_size << 32) | predicate, A0, A1);
       auto CallbackFunc = SanCovTraceCmpFunction[CallbackIdx];
       bool FirstIsConst = isa<ConstantInt>(A0);
       bool SecondIsConst = isa<ConstantInt>(A1);
@@ -1873,8 +1833,6 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 
     // done :)
 
-    //    IRB.CreateCall(SanCovTracePCGuard, Offset)->setCannotMerge();
-    //    IRB.CreateCall(SanCovTracePCGuard, GuardPtr)->setCannotMerge();
     ++instr;
 
   }
