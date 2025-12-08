@@ -91,15 +91,6 @@ using namespace llvm;
 // Constants
 static const uint64_t SanCtorAndDtorPriority = 2;
 const char            SanCovTracePCName[] = "__sanitizer_cov_trace_pc";
-const char            SanCovTraceCmp1[] = "__sanitizer_cov_trace_cmp1";
-const char            SanCovTraceCmp2[] = "__sanitizer_cov_trace_cmp2";
-const char            SanCovTraceCmp4[] = "__sanitizer_cov_trace_cmp4";
-const char            SanCovTraceCmp8[] = "__sanitizer_cov_trace_cmp8";
-const char SanCovTraceConstCmp1[] = "__sanitizer_cov_trace_const_cmp1";
-const char SanCovTraceConstCmp2[] = "__sanitizer_cov_trace_const_cmp2";
-const char SanCovTraceConstCmp4[] = "__sanitizer_cov_trace_const_cmp4";
-const char SanCovTraceConstCmp8[] = "__sanitizer_cov_trace_const_cmp8";
-const char SanCovTraceSwitchName[] = "__sanitizer_cov_trace_switch";
 
 const char SanCovModuleCtorTracePcGuardName[] =
     "sancov.module_ctor_trace_pc_guard";
@@ -147,21 +138,16 @@ class ModuleSanitizerCoverageAFL
                                      PostDomTreeCallback PDTCallback);
 
  private:
-  void instrumentFunction(Function &F, DomTreeCallback DTCallback,
-                          PostDomTreeCallback PDTCallback);
-  void InjectTraceForCmp(Function &F, ArrayRef<Instruction *> CmpTraceTargets);
-  void InjectTraceForSwitch(Function               &F,
-                            ArrayRef<Instruction *> SwitchTraceTargets);
-  bool InjectCoverage(Function &F, ArrayRef<BasicBlock *> AllBlocks,
-                      bool IsLeafFunc = true);
+  void            instrumentFunction(Function &F, DomTreeCallback DTCallback,
+                                     PostDomTreeCallback PDTCallback);
+  bool            InjectCoverage(Function &F, ArrayRef<BasicBlock *> AllBlocks);
   GlobalVariable *CreateFunctionLocalArrayInSection(size_t    NumElements,
                                                     Function &F, Type *Ty,
                                                     const char *Section);
   GlobalVariable *CreatePCArray(Function &F, ArrayRef<BasicBlock *> AllBlocks);
   void CreateFunctionLocalArrays(Function &F, ArrayRef<BasicBlock *> AllBlocks,
                                  uint32_t special);
-  void InjectCoverageAtBlock(Function &F, BasicBlock &BB, size_t Idx,
-                             bool IsLeafFunc = true);
+  void InjectCoverageAtBlock(Function &F, BasicBlock &BB, size_t Idx);
   Function *CreateInitCallsForSections(Module &M, const char *CtorName,
                                        const char *InitFunctionName, Type *Ty,
                                        const char *Section);
@@ -199,9 +185,6 @@ class ModuleSanitizerCoverageAFL
   std::string     getSectionStart(const std::string &Section) const;
   std::string     getSectionEnd(const std::string &Section) const;
   FunctionCallee  SanCovTracePC, SanCovTracePCGuard;
-  FunctionCallee  SanCovTraceCmpFunction[4];
-  FunctionCallee  SanCovTraceConstCmpFunction[4];
-  FunctionCallee  SanCovTraceSwitchFunction;
   GlobalVariable *SanCovLowestStack;
   Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
       *Int16Ty, *Int8Ty, *Int8PtrTy, *Int1Ty, *Int1PtrTy, *PtrTy;
@@ -764,38 +747,6 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   // Initialize IJON symbols based on what functions are used
   if (ijon_enabled) { setupIJONSymbols(M); }
 
-  // Make sure smaller parameters are zero-extended to i64 if required by the
-  // target ABI.
-  AttributeList SanCovTraceCmpZeroExtAL;
-  SanCovTraceCmpZeroExtAL =
-      SanCovTraceCmpZeroExtAL.addParamAttribute(*C, 0, Attribute::ZExt);
-  SanCovTraceCmpZeroExtAL =
-      SanCovTraceCmpZeroExtAL.addParamAttribute(*C, 1, Attribute::ZExt);
-
-  SanCovTraceCmpFunction[0] =
-      M.getOrInsertFunction(SanCovTraceCmp1, SanCovTraceCmpZeroExtAL, VoidTy,
-                            IRB.getInt8Ty(), IRB.getInt8Ty());
-  SanCovTraceCmpFunction[1] =
-      M.getOrInsertFunction(SanCovTraceCmp2, SanCovTraceCmpZeroExtAL, VoidTy,
-                            IRB.getInt16Ty(), IRB.getInt16Ty());
-  SanCovTraceCmpFunction[2] =
-      M.getOrInsertFunction(SanCovTraceCmp4, SanCovTraceCmpZeroExtAL, VoidTy,
-                            IRB.getInt32Ty(), IRB.getInt32Ty());
-  SanCovTraceCmpFunction[3] =
-      M.getOrInsertFunction(SanCovTraceCmp8, VoidTy, Int64Ty, Int64Ty);
-
-  SanCovTraceConstCmpFunction[0] = M.getOrInsertFunction(
-      SanCovTraceConstCmp1, SanCovTraceCmpZeroExtAL, VoidTy, Int8Ty, Int8Ty);
-  SanCovTraceConstCmpFunction[1] = M.getOrInsertFunction(
-      SanCovTraceConstCmp2, SanCovTraceCmpZeroExtAL, VoidTy, Int16Ty, Int16Ty);
-  SanCovTraceConstCmpFunction[2] = M.getOrInsertFunction(
-      SanCovTraceConstCmp4, SanCovTraceCmpZeroExtAL, VoidTy, Int32Ty, Int32Ty);
-  SanCovTraceConstCmpFunction[3] =
-      M.getOrInsertFunction(SanCovTraceConstCmp8, VoidTy, Int64Ty, Int64Ty);
-
-  SanCovTraceSwitchFunction =
-      M.getOrInsertFunction(SanCovTraceSwitchName, VoidTy, Int64Ty, Int64PtrTy);
-
   Constant *SanCovLowestStackConstant =
       M.getOrInsertGlobal(SanCovLowestStackName, IntptrTy);
   SanCovLowestStack = dyn_cast<GlobalVariable>(SanCovLowestStackConstant);
@@ -945,25 +896,6 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
 
 }
 
-// Returns true iff From->To is a backedge.
-// A twist here is that we treat From->To as a backedge if
-//   * To dominates From or
-//   * To->UniqueSuccessor dominates From
-#if 0
-static bool IsBackEdge(BasicBlock *From, BasicBlock *To,
-                       const DominatorTree *DT) {
-
-  if (DT->dominates(To, From))
-    return true;
-  if (auto Next = To->getUniqueSuccessor())
-    if (DT->dominates(Next, From))
-      return true;
-  return false;
-
-}
-
-#endif
-
 void ModuleSanitizerCoverageAFL::instrumentFunction(
     Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
@@ -999,33 +931,14 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
     SplitAllCriticalEdges(
         F, CriticalEdgeSplittingOptions().setIgnoreUnreachableDests());
   SmallVector<BasicBlock *, 16> BlocksToInstrument;
-  SmallVector<Instruction *, 8> CmpTraceTargets;
-  SmallVector<Instruction *, 8> SwitchTraceTargets;
 
   const DominatorTree     *DT = DTCallback(F);
   const PostDominatorTree *PDT = PDTCallback(F);
-  bool                     IsLeafFunc = true;
 
   for (auto &BB : F) {
 
     if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
       BlocksToInstrument.push_back(&BB);
-    /*
-        for (auto &Inst : BB) {
-
-          if (Options.TraceCmp) {
-
-            if (ICmpInst *CMP = dyn_cast<ICmpInst>(&Inst))
-              if (IsInterestingCmp(CMP, DT, Options))
-                CmpTraceTargets.push_back(&Inst);
-            if (isa<SwitchInst>(&Inst))
-              SwitchTraceTargets.push_back(&Inst);
-
-          }
-
-        }
-
-    */
 
   }
 
@@ -1036,7 +949,7 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 
   }
 
-  InjectCoverage(F, BlocksToInstrument, IsLeafFunc);
+  InjectCoverage(F, BlocksToInstrument);
 
   if (dump_cc) { calcCyclomaticComplexity(&F); }
 
@@ -1129,7 +1042,7 @@ void ModuleSanitizerCoverageAFL::CreateFunctionLocalArrays(
 }
 
 bool ModuleSanitizerCoverageAFL::InjectCoverage(
-    Function &F, ArrayRef<BasicBlock *> AllBlocks, bool IsLeafFunc) {
+    Function &F, ArrayRef<BasicBlock *> AllBlocks) {
 
   if (AllBlocks.empty()) return false;
 
@@ -1626,11 +1539,10 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       if (instr->getMetadata("skipinstrument")) {
 
         skipped++;
-        // fprintf(stderr, "Skipped!\n");
 
       } else {
 
-        InjectCoverageAtBlock(F, *AllBlocks[i], i - skipped, IsLeafFunc);
+        InjectCoverageAtBlock(F, *AllBlocks[i], i - skipped);
 
       }
 
@@ -1640,121 +1552,13 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   skippedbb += skipped;
 
-  /*
-      if (verifyFunction(F, &errs())) {
-
-        errs() << "Broken function after instrumentation\n";
-        F.print(errs(), nullptr);
-        report_fatal_error("Invalid IR");
-
-      }
-
-  */
-
   return true;
-
-}
-
-// For every switch statement we insert a call:
-// __sanitizer_cov_trace_switch(CondValue,
-//      {NumCases, ValueSizeInBits, Case0Value, Case1Value, Case2Value, ... })
-
-void ModuleSanitizerCoverageAFL::InjectTraceForSwitch(
-    Function &, ArrayRef<Instruction *> SwitchTraceTargets) {
-
-  for (auto I : SwitchTraceTargets) {
-
-    if (SwitchInst *SI = dyn_cast<SwitchInst>(I)) {
-
-      IRBuilder<>                 IRB(I);
-      SmallVector<Constant *, 16> Initializers;
-      Value                      *Cond = SI->getCondition();
-      if (Cond->getType()->getScalarSizeInBits() >
-          Int64Ty->getScalarSizeInBits())
-        continue;
-      Initializers.push_back(ConstantInt::get(Int64Ty, SI->getNumCases()));
-      Initializers.push_back(
-          ConstantInt::get(Int64Ty, Cond->getType()->getScalarSizeInBits()));
-      if (Cond->getType()->getScalarSizeInBits() <
-          Int64Ty->getScalarSizeInBits())
-        Cond = IRB.CreateIntCast(Cond, Int64Ty, false);
-      for (auto It : SI->cases()) {
-
-        Constant *C = It.getCaseValue();
-        if (C->getType()->getScalarSizeInBits() <
-            Int64Ty->getScalarSizeInBits())
-          C = ConstantExpr::getCast(CastInst::ZExt, It.getCaseValue(), Int64Ty);
-        Initializers.push_back(C);
-
-      }
-
-      llvm::sort(drop_begin(Initializers, 2),
-                 [](const Constant *A, const Constant *B) {
-
-                   return cast<ConstantInt>(A)->getLimitedValue() <
-                          cast<ConstantInt>(B)->getLimitedValue();
-
-                 });
-
-      ArrayType *ArrayOfInt64Ty = ArrayType::get(Int64Ty, Initializers.size());
-      GlobalVariable *GV = new GlobalVariable(
-          *CurModule, ArrayOfInt64Ty, false, GlobalVariable::InternalLinkage,
-          ConstantArray::get(ArrayOfInt64Ty, Initializers),
-          "__sancov_gen_cov_switch_values");
-      IRB.CreateCall(SanCovTraceSwitchFunction,
-                     {Cond, IRB.CreatePointerCast(GV, Int64PtrTy)});
-
-    }
-
-  }
-
-}
-
-void ModuleSanitizerCoverageAFL::InjectTraceForCmp(
-    Function &, ArrayRef<Instruction *> CmpTraceTargets) {
-
-  for (auto I : CmpTraceTargets) {
-
-    if (ICmpInst *ICMP = dyn_cast<ICmpInst>(I)) {
-
-      IRBuilder<> IRB(ICMP);
-      Value      *A0 = ICMP->getOperand(0);
-      Value      *A1 = ICMP->getOperand(1);
-      if (!A0->getType()->isIntegerTy()) continue;
-      uint64_t TypeSize = DL->getTypeStoreSizeInBits(A0->getType());
-      int      CallbackIdx = TypeSize == 8    ? 0
-                             : TypeSize == 16 ? 1
-                             : TypeSize == 32 ? 2
-                             : TypeSize == 64 ? 3
-                                              : -1;
-      if (CallbackIdx < 0) continue;
-      auto CallbackFunc = SanCovTraceCmpFunction[CallbackIdx];
-      bool FirstIsConst = isa<ConstantInt>(A0);
-      bool SecondIsConst = isa<ConstantInt>(A1);
-      // If both are const, then we don't need such a comparison.
-      if (FirstIsConst && SecondIsConst) continue;
-      // If only one is const, then make it the first callback argument.
-      if (FirstIsConst || SecondIsConst) {
-
-        CallbackFunc = SanCovTraceConstCmpFunction[CallbackIdx];
-        if (SecondIsConst) std::swap(A0, A1);
-
-      }
-
-      auto Ty = Type::getIntNTy(*C, TypeSize);
-      IRB.CreateCall(CallbackFunc, {IRB.CreateIntCast(A0, Ty, true),
-                                    IRB.CreateIntCast(A1, Ty, true)});
-
-    }
-
-  }
 
 }
 
 void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
                                                        BasicBlock &BB,
-                                                       size_t      Idx,
-                                                       bool        IsLeafFunc) {
+                                                       size_t      Idx) {
 
   BasicBlock::iterator IP = BB.getFirstInsertionPt();
   bool                 IsEntryBB = &BB == &F.getEntryBlock();
