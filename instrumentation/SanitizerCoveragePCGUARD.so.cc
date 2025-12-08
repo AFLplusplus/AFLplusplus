@@ -159,6 +159,7 @@ class ModuleSanitizerCoverageAFL
   Value *instrumentVectorSelect(IRBuilder<> &IRB, Value *condition,
                                 FixedVectorType *tt, uint32_t &local_selects,
                                 uint32_t cnt_cov, uint32_t skip_blocks,
+                                uint32_t               special,
                                 ArrayRef<BasicBlock *> AllBlocks);
   void   updateCoverageForSelect(IRBuilder<> &IRB, Value *result,
                                  LoadInst *MapPtr, uint32_t &vector_cnt,
@@ -480,7 +481,7 @@ void ModuleSanitizerCoverageAFL::printDebugInfo(Instruction &IN) {
 Value *ModuleSanitizerCoverageAFL::instrumentVectorSelect(
     IRBuilder<> &IRB, Value *condition, FixedVectorType *tt,
     uint32_t &local_selects, uint32_t cnt_cov, uint32_t skip_blocks,
-    ArrayRef<BasicBlock *> AllBlocks) {
+    uint32_t special, ArrayRef<BasicBlock *> AllBlocks) {
 
   uint32_t elements = tt->getElementCount().getFixedValue();
   if (!elements) return nullptr;
@@ -489,24 +490,24 @@ Value *ModuleSanitizerCoverageAFL::instrumentVectorSelect(
   FixedVectorType *GuardPtr2Type = FixedVectorType::get(Int32PtrTy, elements);
 
   // Create first vector element
-  Value *val1 = createGuardPointer(
-      IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+  Value *val1 = createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                            AllBlocks.size() - skip_blocks);
   Value *x = IRB.CreateInsertElement(GuardPtr1Type, val1, (uint64_t)0);
 
   // Create second vector element
-  Value *val2 = createGuardPointer(
-      IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+  Value *val2 = createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                            AllBlocks.size() - skip_blocks);
   Value *y = IRB.CreateInsertElement(GuardPtr2Type, val2, (uint64_t)0);
 
   // Fill remaining elements
   for (uint64_t i = 1; i < elements; i++) {
 
-    val1 = createGuardPointer(
-        IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+    val1 = createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                       AllBlocks.size() - skip_blocks);
     x = IRB.CreateInsertElement(x, val1, i);
 
-    val2 = createGuardPointer(
-        IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+    val2 = createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                       AllBlocks.size() - skip_blocks);
     y = IRB.CreateInsertElement(y, val2, i);
 
   }
@@ -1215,8 +1216,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         IRBuilder<> IRB(&IN);
 #endif
 
-        Value *GuardPtr =
-            createGuardPointer(IRB, special++ + AllBlocks.size() - skip_blocks);
+        Value *GuardPtr = createGuardPointer(
+            IRB, special++ + local_selects + AllBlocks.size() - skip_blocks);
         LoadInst *Idx = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
         SetNoSanitizeMetadata(Idx);
 
@@ -1255,10 +1256,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           if (debug) printDebugInfo(IN);
 
           auto   res = icmp;
-          Value *GuardPtr1 = createGuardPointer(
-              IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
-          Value *GuardPtr2 = createGuardPointer(
-              IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+          Value *GuardPtr1 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
+          Value *GuardPtr2 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
           // fprintf(stderr, "Icmp!\n");
@@ -1270,10 +1273,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           if (debug) printDebugInfo(IN);
 
           auto   res = fcmp;
-          Value *GuardPtr1 = createGuardPointer(
-              IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
-          Value *GuardPtr2 = createGuardPointer(
-              IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+          Value *GuardPtr1 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
+          Value *GuardPtr2 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
           // fprintf(stderr, "Fcmp!\n");
@@ -1297,10 +1302,10 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           if (t->getTypeID() == llvm::Type::IntegerTyID) {
 
             Value *GuardPtr1 =
-                createGuardPointer(IRB, cnt_cov + local_selects++ +
+                createGuardPointer(IRB, cnt_cov + special + local_selects++ +
                                             AllBlocks.size() - skip_blocks);
             Value *GuardPtr2 =
-                createGuardPointer(IRB, cnt_cov + local_selects++ +
+                createGuardPointer(IRB, cnt_cov + special + local_selects++ +
                                             AllBlocks.size() - skip_blocks);
             result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
             skip_select = 1;
@@ -1314,7 +1319,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
               vector_cnt = tt->getElementCount().getFixedValue();
               result = instrumentVectorSelect(IRB, condition, tt, local_selects,
-                                              cnt_cov, skip_blocks, AllBlocks);
+                                              cnt_cov, skip_blocks, special,
+                                              AllBlocks);
               skip_select = 1;
 
             }
@@ -1353,9 +1359,11 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   uint32_t skipped = 0;
 
+  if (AllBlocks.size() < skipped) { abort(); }  // assert
+
   if (!AllBlocks.empty()) {
 
-    for (size_t i = 0, N = AllBlocks.size(); i < N; i++) {
+    for (size_t i = 0, N = AllBlocks.size() - skipped; i < N; i++) {
 
       auto instr = AllBlocks[i]->begin();
       if (instr->getMetadata("skipinstrument")) {
@@ -1364,7 +1372,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       } else {
 
-        InjectCoverageAtBlock(F, *AllBlocks[i], i - skipped);
+        InjectCoverageAtBlock(F, *AllBlocks[i], i);
 
       }
 
