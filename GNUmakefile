@@ -591,6 +591,18 @@ unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
 endif
 
+.PHONY: llvm-test
+llvm-test:
+	set -e; \
+	for ver in /usr/bin/llvm-config-*; do \
+		rm -f SanitizerCoveragePCGUARD.so; \
+		echo "LLVM Version: $$ver"; \
+		LLVM_CONFIG="$$ver" $(MAKE) -f GNUmakefile.llvm SanitizerCoveragePCGUARD.so; \
+		echo "LLVM Version: $$ver"; \
+		test -e SanitizerCoveragePCGUARD.so || exit 1; \
+		rm -f SanitizerCoveragePCGUARD.so; \
+	done
+
 .PHONY: code-format
 code-format:
 	./.custom-format.py -i src/*.c

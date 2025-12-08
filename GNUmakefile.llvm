@@ -100,8 +100,8 @@ ifeq "$(LLVM_MAJOR)" "9"
 endif
 
 ifeq "$(LLVM_NEW_API)" "1"
-  $(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
-  LLVM_STDCXX = c++14
+  #$(info [+] llvm_mode detected llvm 10+, enabling neverZero implementation and c++14)
+  LLVM_STDCXX = c++17
   LLVM_TOO_OLD=0
 endif
 

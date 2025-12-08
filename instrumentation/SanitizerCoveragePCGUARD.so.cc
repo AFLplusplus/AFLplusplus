@@ -10,6 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if defined(__clang__)
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wdeprecated-copy-with-dtor"
+#elif defined(__GNUC__)
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-copy"
+  #pragma GCC diagnostic ignored "-Wformat-truncation="
+#endif
+
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
@@ -36,7 +45,9 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 // Version-specific includes
-#if LLVM_VERSION_MAJOR < 15
+#if LLVM_MAJOR < 15
+  #include "llvm/Analysis/EHPersonalities.h"
+  #include "llvm/InitializePasses.h"
   #include "llvm/IR/CFG.h"
   #include "llvm/IR/DebugInfo.h"
   #include "llvm/IR/InlineAsm.h"
@@ -44,20 +55,19 @@
   #include "llvm/IR/Mangler.h"
   #include "llvm/Support/raw_ostream.h"
   #include "llvm/Transforms/Instrumentation.h"
-  #include "llvm/InitializePasses.h"
-#elif LLVM_VERSION_MAJOR < 17
+#elif LLVM_MAJOR < 17
   #include "llvm/ADT/Triple.h"
+  #include "llvm/Analysis/EHPersonalities.h"
   #include "llvm/IR/Constants.h"
   #include "llvm/IR/ValueSymbolTable.h"
-  #include "llvm/TargetParser/Triple.h"
-#elif LLVM_VERSION_MAJOR >= 17
+#elif LLVM_MAJOR >= 17
   #include "llvm/IR/EHPersonalities.h"
   #include "llvm/TargetParser/Triple.h"
 #else
   #include "llvm/Analysis/EHPersonalities.h"
 #endif
 
-#if LLVM_VERSION_MAJOR >= 20
+#if LLVM_MAJOR >= 20
   #include "llvm/Transforms/Utils/Instrumentation.h"
 #endif
 
@@ -125,7 +135,6 @@ class ModuleSanitizerCoverageAFL
   GlobalVariable *CreateFunctionLocalArrayInSection(size_t    NumElements,
                                                     Function &F, Type *Ty,
                                                     const char *Section);
-  GlobalVariable *CreatePCArray(Function &F, ArrayRef<BasicBlock *> AllBlocks);
   void CreateFunctionLocalArrays(Function &F, ArrayRef<BasicBlock *> AllBlocks,
                                  uint32_t special);
   void InjectCoverageAtBlock(Function &F, BasicBlock &BB, size_t Idx);
@@ -160,9 +169,9 @@ class ModuleSanitizerCoverageAFL
 
   void SetNoSanitizeMetadata(Instruction *I) {
 
-#if LLVM_VERSION_MAJOR >= 19
+#if LLVM_MAJOR >= 19
     I->setNoSanitizeMetadata();
-#elif LLVM_VERSION_MAJOR >= 16
+#elif LLVM_MAJOR >= 16
     I->setMetadata(LLVMContext::MD_nosanitize, MDNode::get(*C, std::nullopt));
 #else
     I->setMetadata(I->getModule()->getMDKindID("nosanitize"),
@@ -208,16 +217,16 @@ llvmGetPassPluginInfo() {
   return {LLVM_PLUGIN_API_VERSION, "SanitizerCoveragePCGUARD", "v0.2",
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR >= 16
+#if LLVM_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback([](ModulePassManager &MPM,
                                                    OptimizationLevel  OL
-  #if LLVM_VERSION_MAJOR >= 20
+  #if LLVM_MAJOR >= 20
                                                    ,
                                                    ThinOrFullLTOPhase Phase
   #endif
                                                 ) {
 
-  #if LLVM_VERSION_MAJOR >= 20
+  #if LLVM_MAJOR >= 20
               // Only add the pass for non-LTO phases to avoid conflicts
               if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink &&
                   Phase != ThinOrFullLTOPhase::FullLTOPreLink) {
@@ -301,7 +310,7 @@ std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
   if (!TargetTriple.isOSBinFormatCOFF())
     return std::make_pair(SecStart, SecEnd);
 
-#if LLVM_VERSION_MAJOR >= 19
+#if LLVM_MAJOR >= 19
   auto GEP =
       IRB.CreatePtrAdd(SecStart, ConstantInt::get(IntptrTy, sizeof(uint64_t)));
   return std::make_pair(GEP, SecEnd);
@@ -607,7 +616,7 @@ std::pair<bool, bool> ModuleSanitizerCoverageAFL::detectIJONUsage(Module &M) {
         if (calledFunc) {
 
           StringRef funcName = calledFunc->getName();
-#if LLVM_VERSION_MAJOR >= 18
+#if LLVM_MAJOR >= 18
           if (!funcName.starts_with("ijon_")) continue;
 #else
           if (!funcName.startswith("ijon_")) continue;
@@ -634,7 +643,7 @@ std::pair<bool, bool> ModuleSanitizerCoverageAFL::detectIJONUsage(Module &M) {
           }
 
           // Ignore helper functions (ijon_hash*, ijon_strdist, etc.)
-#if LLVM_VERSION_MAJOR >= 18
+#if LLVM_MAJOR >= 18
           if (funcName.starts_with("ijon_hash") || funcName == "ijon_strdist") {
 
 #else
@@ -939,7 +948,7 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
   if (!isInInstrumentList(&F, FMNAME)) return;
   if (F.getName().contains(".module_ctor"))
     return;  // Should not instrument sanitizer init functions.
-#if LLVM_VERSION_MAJOR >= 18
+#if LLVM_MAJOR >= 18
   if (F.getName().starts_with("__sanitizer_"))
 #else
   if (F.getName().startswith("__sanitizer_"))
@@ -960,7 +969,7 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
       isAsynchronousEHPersonality(classifyEHPersonality(F.getPersonalityFn())))
     return;
   if (F.hasFnAttribute(Attribute::NoSanitizeCoverage)) return;
-#if LLVM_VERSION_MAJOR >= 19
+#if LLVM_MAJOR >= 19
   if (F.hasFnAttribute(Attribute::DisableSanitizerInstrumentation)) return;
 #endif
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
@@ -1004,7 +1013,7 @@ GlobalVariable *ModuleSanitizerCoverageAFL::CreateFunctionLocalArrayInSection(
     if (auto Comdat = getOrCreateFunctionComdat(F, TargetTriple))
       Array->setComdat(Comdat);
   Array->setSection(getSectionName(Section));
-#if LLVM_VERSION_MAJOR >= 16
+#if LLVM_MAJOR >= 16
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedValue()));
 #else
   Array->setAlignment(Align(DL->getTypeStoreSize(Ty).getFixedSize()));
@@ -1025,46 +1034,6 @@ GlobalVariable *ModuleSanitizerCoverageAFL::CreateFunctionLocalArrayInSection(
     GlobalsToAppendToUsed.push_back(Array);
 
   return Array;
-
-}
-
-GlobalVariable *ModuleSanitizerCoverageAFL::CreatePCArray(
-    Function &F, ArrayRef<BasicBlock *> AllBlocks) {
-
-  size_t N = AllBlocks.size();
-  assert(N);
-  SmallVector<Constant *, 32> PCs;
-  IRBuilder<>                 IRB(&*F.getEntryBlock().getFirstInsertionPt());
-  for (size_t i = 0; i < N; i++) {
-
-    if (&F.getEntryBlock() == AllBlocks[i]) {
-
-      PCs.push_back((Constant *)IRB.CreatePointerCast(&F, PtrTy));
-      PCs.push_back(
-          (Constant *)IRB.CreateIntToPtr(ConstantInt::get(IntptrTy, 1), PtrTy));
-
-    } else {
-
-      PCs.push_back((Constant *)IRB.CreatePointerCast(
-          BlockAddress::get(AllBlocks[i]), PtrTy));
-#if LLVM_VERSION_MAJOR >= 16
-      PCs.push_back(Constant::getNullValue(PtrTy));
-#else
-      PCs.push_back((Constant *)IRB.CreateIntToPtr(
-          ConstantInt::get(IntptrTy, 0), IntptrPtrTy));
-#endif
-
-    }
-
-  }
-
-  auto *PCArray =
-      CreateFunctionLocalArrayInSection(N * 2, F, PtrTy, SanCovPCsSectionName);
-  PCArray->setInitializer(
-      ConstantArray::get(ArrayType::get(PtrTy, N * 2), PCs));
-  PCArray->setConstant(true);
-
-  return PCArray;
 
 }
 
@@ -1237,7 +1206,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       // Check for AFL coverage interesting calls first
       if (shouldInstrumentInstruction(IN)) {
 
-#if LLVM_VERSION_MAJOR >= 20
+#if LLVM_MAJOR >= 20
         InstrumentationIRBuilder IRB(&IN);
 #else
         IRBuilder<> IRB(&IN);
@@ -1422,7 +1391,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
     // if we aren't splitting the block, it's nice for allocas to be before
     // calls.
     IP = PrepareToSplitEntryBlock(BB, IP);
-#if LLVM_VERSION_MAJOR < 15
+#if LLVM_MAJOR < 15
 
   } else {
 
@@ -1434,7 +1403,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 
   }
 
-#if LLVM_VERSION_MAJOR >= 16
+#if LLVM_MAJOR >= 16
   InstrumentationIRBuilder IRB(&*IP);
 #else
   IRBuilder<> IRB(&*IP);
