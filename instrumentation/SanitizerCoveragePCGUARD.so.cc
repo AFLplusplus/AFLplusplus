@@ -89,6 +89,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sancov"
 
+// Constants
 static const uint64_t SanCtorAndDtorPriority = 2;
 
 const char SanCovTracePCName[] = "__sanitizer_cov_trace_pc";
@@ -169,6 +170,20 @@ class ModuleSanitizerCoverageAFL
                                        const char *Section);
   std::pair<Value *, Value *> CreateSecStartEnd(Module &M, const char *Section,
                                                 Type *Ty);
+
+  // Helper functions for cleaner code
+  bool   isInstructionInteresting(Instruction &IN, bool &usedInBranch,
+                                  bool &usedInSelectDecision);
+  bool   shouldInstrumentInstruction(Instruction &IN);
+  void   initializeVersionSpecificTypes(IRBuilder<> &IRB);
+  void   setupEnvironmentVariables();
+  void   setupIJONSymbols(Module &M);
+  void   injectCoverageForInstruction(Instruction &IN, IRBuilder<> &IRB,
+                                      uint32_t &local_selects, uint32_t &special,
+                                      ArrayRef<BasicBlock *> AllBlocks);
+  Value *createGuardPointer(IRBuilder<> &IRB, uint32_t index);
+  void   updateCoverageBitmap(IRBuilder<> &IRB, Value *CoverageIndex,
+                              LoadInst *MapPtr);
 
   void SetNoSanitizeMetadata(Instruction *I) {
 
@@ -335,6 +350,257 @@ std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
 
 }
 
+// Helper function implementations
+
+bool ModuleSanitizerCoverageAFL::isInstructionInteresting(
+    Instruction &IN, bool &usedInBranch, bool &usedInSelectDecision) {
+
+  usedInBranch = false;
+  usedInSelectDecision = false;
+
+  ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
+  FCmpInst *fcmp = dyn_cast<FCmpInst>(&IN);
+
+  if (!(icmp || fcmp || isa<SelectInst>(&IN))) { return false; }
+
+  // Check how this instruction is used
+  for (auto *U : IN.users()) {
+
+    if (isa<BranchInst>(U)) {
+
+      usedInBranch = true;
+      break;
+
+    }
+
+    if (auto *sel = dyn_cast<SelectInst>(U)) {
+
+      if ((icmp && sel->getCondition() == icmp) ||
+          (fcmp && sel->getCondition() == fcmp)) {
+
+        usedInSelectDecision = true;
+        break;
+
+      }
+
+    }
+
+  }
+
+  return !usedInBranch && !usedInSelectDecision;
+
+}
+
+bool ModuleSanitizerCoverageAFL::shouldInstrumentInstruction(Instruction &IN) {
+
+  CallInst *callInst = dyn_cast<CallInst>(&IN);
+  if (!callInst) return false;
+
+  Function *Callee = callInst->getCalledFunction();
+  if (!Callee) return false;
+  if (callInst->getCallingConv() != llvm::CallingConv::C) return false;
+
+  StringRef FuncName = Callee->getName();
+  return !FuncName.compare(StringRef("__afl_coverage_interesting"));
+
+}
+
+void ModuleSanitizerCoverageAFL::initializeVersionSpecificTypes(
+    IRBuilder<> &IRB) {
+
+  PtrTy = PointerType::getUnqual(*C);
+#if LLVM_MAJOR >= 20
+  IntptrPtrTy = Int64PtrTy = Int32PtrTy = Int8PtrTy = Int1PtrTy = PtrTy;
+#else
+  IntptrPtrTy = PointerType::getUnqual(IntptrTy);
+  Int64PtrTy = PointerType::getUnqual(IRB.getInt64Ty());
+  Int32PtrTy = PointerType::getUnqual(IRB.getInt32Ty());
+  Int8PtrTy = PointerType::getUnqual(IRB.getInt8Ty());
+  Int1PtrTy = PointerType::getUnqual(IRB.getInt1Ty());
+#endif
+
+}
+
+void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
+
+  setvbuf(stdout, NULL, _IONBF, 0);
+
+  if (getenv("AFL_DEBUG")) { debug = 1; }
+  if (getenv("AFL_DUMP_CYCLOMATIC_COMPLEXITY")) { dump_cc = 1; }
+
+  if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
+
+    SAYF(cCYA "SanitizerCoveragePCGUARD" VERSION cRST "\n");
+
+  } else {
+
+    be_quiet = 1;
+
+  }
+
+  skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
+  use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
+  ijon_enabled = getenv("AFL_LLVM_IJON");
+
+}
+
+Value *ModuleSanitizerCoverageAFL::createGuardPointer(IRBuilder<> &IRB,
+                                                      uint32_t     index) {
+
+  return IRB.CreateIntToPtr(
+      IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                    ConstantInt::get(IntptrTy, index * 4)),
+      Int32PtrTy);
+
+}
+
+void ModuleSanitizerCoverageAFL::updateCoverageBitmap(IRBuilder<> &IRB,
+                                                      Value    *CoverageIndex,
+                                                      LoadInst *MapPtr) {
+
+  Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CoverageIndex);
+
+  if (use_threadsafe_counters) {
+
+    IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+                        llvm::MaybeAlign(1), llvm::AtomicOrdering::Monotonic);
+
+  } else {
+
+    LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
+    SetNoSanitizeMetadata(Counter);
+
+    Value *Incr = IRB.CreateAdd(Counter, One);
+
+    if (skip_nozero == NULL) {
+
+      auto cf = IRB.CreateICmpEQ(Incr, Zero);
+      auto carry = IRB.CreateZExt(cf, Int8Ty);
+      Incr = IRB.CreateAdd(Incr, carry);
+
+    }
+
+    StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
+    SetNoSanitizeMetadata(StoreCtx);
+
+  }
+
+}
+
+void ModuleSanitizerCoverageAFL::setupIJONSymbols(Module &M) {
+
+  bool uses_ijon_functions = false;
+  bool uses_ijon_state = false;
+
+  // Scan for IJON function calls to determine if we need IJON symbols
+  for (auto &F : M) {
+
+    for (auto &BB : F) {
+
+      for (auto &I : BB) {
+
+        Function *calledFunc = nullptr;
+        StringRef funcName;
+
+        // Check both CallInst and InvokeInst
+        if (auto *call = dyn_cast<CallInst>(&I)) {
+
+          Value *calledValue = call->getCalledOperand();
+          calledFunc = dyn_cast<Function>(calledValue);
+
+        } else if (auto *invoke = dyn_cast<InvokeInst>(&I)) {
+
+          Value *calledValue = invoke->getCalledOperand();
+          calledFunc = dyn_cast<Function>(calledValue);
+
+        }
+
+        if (calledFunc) {
+
+          funcName = calledFunc->getName();
+#if LLVM_VERSION_MAJOR >= 18
+          if (funcName.starts_with("ijon_")) {
+
+#else
+          if (funcName.startswith("ijon_")) {
+
+#endif
+            // Check for state-aware functions (only ijon_xor_state)
+            if (funcName == "ijon_xor_state") {
+
+              uses_ijon_functions = true;
+              uses_ijon_state = true;
+              break;
+
+            }
+
+            // Check for other IJON functions (max/min/set/inc)
+            else if (funcName == "ijon_max" || funcName == "ijon_min" ||
+                     funcName == "ijon_set" || funcName == "ijon_inc" ||
+                     funcName == "ijon_max_variadic" ||
+                     funcName == "ijon_min_variadic") {
+
+              uses_ijon_functions = true;
+              // Don't break - keep looking for ijon_xor_state
+
+            }
+
+            // Ignore helper functions (ijon_hash*, ijon_strdist, etc.)
+#if LLVM_VERSION_MAJOR >= 18
+            else if (funcName.starts_with("ijon_hash") ||
+                     funcName == "ijon_strdist") {
+
+#else
+            else if (funcName.startswith("ijon_hash") ||
+                     funcName == "ijon_strdist") {
+
+#endif
+              // These are helper functions, not instrumentation functions
+
+            }
+
+          }
+
+        }
+
+      }
+
+      if (uses_ijon_state) break;
+
+    }
+
+    if (uses_ijon_state) break;
+
+  }
+
+  if (!uses_ijon_functions) {
+
+    ijon_enabled = nullptr;
+    return;
+
+  }
+
+  // Always create __afl_ijon_enabled for IJON memory allocation
+  Constant *One32 = ConstantInt::get(Int32Ty, 1);
+  new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, One32,
+                     "__afl_ijon_enabled");
+
+  // Only create __afl_ijon_state if state-aware functions are used
+  if (uses_ijon_state) {
+
+#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
+    AFLIJONState = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state");
+#else
+    AFLIJONState = new GlobalVariable(
+        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state",
+        0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
+
+  }
+
+}
+
 Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
     Module &M, const char *CtorName, const char *InitFunctionName, Type *Ty,
     const char *Section) {
@@ -379,27 +645,7 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
 bool ModuleSanitizerCoverageAFL::instrumentModule(
     Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
-  setvbuf(stdout, NULL, _IONBF, 0);
-
-  if (getenv("AFL_DEBUG")) { debug = 1; }
-
-  if (getenv("AFL_DUMP_CYCLOMATIC_COMPLEXITY")) { dump_cc = 1; }
-
-  if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
-
-    SAYF(cCYA "SanitizerCoveragePCGUARD" VERSION cRST "\n");
-
-  } else {
-
-    be_quiet = 1;
-
-  }
-
-  skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
-  use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
-
-  // Check if IJON state-aware coverage is enabled
-  ijon_enabled = getenv("AFL_LLVM_IJON");
+  setupEnvironmentVariables();
 
   // If IJON is enabled, check if the module actually uses any IJON functions
   bool uses_ijon_functions = false;
@@ -504,19 +750,15 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   Function8bitCounterArray = nullptr;
   FunctionBoolArray = nullptr;
   FunctionPCsArray = nullptr;
+  // Initialize basic types
   IntptrTy = Type::getIntNTy(*C, DL->getPointerSizeInBits());
   Type       *VoidTy = Type::getVoidTy(*C);
   IRBuilder<> IRB(*C);
-  PtrTy = PointerType::getUnqual(*C);
-#if LLVM_MAJOR >= 20
-  IntptrPtrTy = Int64PtrTy = Int32PtrTy = Int8PtrTy = Int1PtrTy = PtrTy;
-#else
-  IntptrPtrTy = PointerType::getUnqual(IntptrTy);
-  Int64PtrTy = PointerType::getUnqual(IRB.getInt64Ty());
-  Int32PtrTy = PointerType::getUnqual(IRB.getInt32Ty());
-  Int8PtrTy = PointerType::getUnqual(IRB.getInt8Ty());
-  Int1PtrTy = PointerType::getUnqual(IRB.getInt1Ty());
-#endif
+
+  // Initialize version-specific types
+  initializeVersionSpecificTypes(IRB);
+
+  // Initialize integer types
   Int64Ty = IRB.getInt64Ty();
   Int32Ty = IRB.getInt32Ty();
   Int16Ty = IRB.getInt16Ty();
@@ -533,30 +775,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
 
   // Initialize IJON symbols based on what functions are used
-  if (ijon_enabled) {
-
-    // Always create __afl_ijon_enabled for IJON memory allocation
-    Constant *One32 = ConstantInt::get(Int32Ty, 1);
-    new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, One32,
-                       "__afl_ijon_enabled");
-
-    // Only create __afl_ijon_state if state-aware functions are used
-    if (uses_ijon_state) {
-
-#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
-      AFLIJONState =
-          new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
-                             "__afl_ijon_state");
-#else
-      AFLIJONState =
-          new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
-                             "__afl_ijon_state", 0,
-                             GlobalVariable::GeneralDynamicTLSModel, 0, false);
-#endif
-
-    }
-
-  }
+  if (ijon_enabled) { setupIJONSymbols(M); }
 
   // Make sure smaller parameters are zero-extended to i64 if required by the
   // target ABI.
@@ -961,13 +1180,13 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
     for (auto &IN : BB) {
 
-      CallInst *callInst = nullptr;
-
-      if ((callInst = dyn_cast<CallInst>(&IN))) {
+      // Check for dlopen warnings
+      if (auto *callInst = dyn_cast<CallInst>(&IN)) {
 
         Function *Callee = callInst->getCalledFunction();
         if (!Callee) continue;
         if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+
         StringRef FuncName = Callee->getName();
         if (!FuncName.compare(StringRef("dlopen")) ||
             !FuncName.compare(StringRef("_dlopen"))) {
@@ -990,52 +1209,17 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       }
 
-      bool      instrumentInst = false;
-      ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
-      FCmpInst *fcmp = dyn_cast<FCmpInst>(&IN);
-
-      if (icmp || fcmp || isa<SelectInst>(&IN)) {
-
-        bool usedInBranch = false, usedInSelectDecision = false;
-
-        for (auto *U : IN.users()) {
-
-          if (isa<BranchInst>(U)) {
-
-            usedInBranch = true;
-            break;
-
-          }
-
-          if (auto *sel = dyn_cast<SelectInst>(U)) {
-
-            if (icmp && sel->getCondition() == icmp) {
-
-              usedInSelectDecision = true;
-
-            } else if (fcmp && sel->getCondition() == fcmp) {
-
-              usedInSelectDecision = true;
-
-            }
-
-          }
-
-        }
-
-        if (!usedInBranch && !usedInSelectDecision) {
-
-          // errs() << "Instrument! " << *(&IN) << "\n";
-          instrumentInst = true;
-
-        }
-
-      }
+      bool usedInBranch, usedInSelectDecision;
+      bool instrumentInst =
+          isInstructionInteresting(IN, usedInBranch, usedInSelectDecision);
 
       if (instrumentInst) {
 
         block_is_instrumented = true;
         SelectInst *selectInst;
+
+        ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
+        FCmpInst *fcmp = dyn_cast<FCmpInst>(&IN);
 
         if (icmp) {
 
@@ -1137,86 +1321,32 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   for (auto &BB : F) {
 
-    // errs() << *(&BB) << "\n";
-
     for (auto &IN : BB) {
 
-      // errs() << *(&IN) << "\n";
-      CallInst *callInst = nullptr;
-
-      if ((callInst = dyn_cast<CallInst>(&IN))) {
-
-        Function *Callee = callInst->getCalledFunction();
-        if (!Callee) continue;
-        if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
-        StringRef FuncName = Callee->getName();
-        if (FuncName.compare(StringRef("__afl_coverage_interesting"))) continue;
+      // Check for AFL coverage interesting calls first
+      if (shouldInstrumentInstruction(IN)) {
 
 #if LLVM_VERSION_MAJOR >= 20
-        // test canary
-        InstrumentationIRBuilder IRB(callInst);
+        InstrumentationIRBuilder IRB(&IN);
 #else
-        IRBuilder<> IRB(callInst);
+        IRBuilder<> IRB(&IN);
 #endif
 
-        Value *GuardPtr = IRB.CreateIntToPtr(
-            IRB.CreateAdd(
-                IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                ConstantInt::get(
-                    IntptrTy,
-                    (special++ + AllBlocks.size() - skip_blocks) * 4)),
-            Int32PtrTy);
-
+        Value *GuardPtr =
+            createGuardPointer(IRB, special++ + AllBlocks.size() - skip_blocks);
         LoadInst *Idx = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
-        ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(Idx);
+        SetNoSanitizeMetadata(Idx);
 
+        auto *callInst = dyn_cast<CallInst>(&IN);
         callInst->setOperand(1, Idx);
+        continue;
 
       }
 
-      bool      instrumentInst = false;
-      ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
-      FCmpInst *fcmp = dyn_cast<FCmpInst>(&IN);
-
-      if (icmp || fcmp || isa<SelectInst>(&IN)) {
-
-        bool usedInBranch = false, usedInSelectDecision = false;
-
-        for (auto *U : IN.users()) {
-
-          if (isa<BranchInst>(U)) {
-
-            usedInBranch = true;
-            break;
-
-          }
-
-          if (auto *sel = dyn_cast<SelectInst>(U)) {
-
-            if (icmp && sel->getCondition() == icmp) {
-
-              usedInSelectDecision = true;
-              break;
-
-            } else if (fcmp && sel->getCondition() == fcmp) {
-
-              usedInSelectDecision = true;
-              break;
-
-            }
-
-          }
-
-        }
-
-        if (!usedInBranch && !usedInSelectDecision) {
-
-          // errs() << "Instrument! " << *(&IN) << "\n";
-          instrumentInst = true;
-
-        }
-
-      }
+      // Check if we should instrument this instruction for coverage
+      bool usedInBranch, usedInSelectDecision;
+      bool instrumentInst =
+          isInstructionInteresting(IN, usedInBranch, usedInSelectDecision);
 
       if (instrumentInst) {
 
@@ -1225,6 +1355,9 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         SelectInst *selectInst;
         // PHINode    *phi = nullptr, *newPhi = nullptr;
         IRBuilder<> IRB(IN.getNextNode());
+
+        ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
+        FCmpInst *fcmp = dyn_cast<FCmpInst>(&IN);
 
         if (icmp) {
 
@@ -1726,44 +1859,17 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
     if (ijon_enabled && AFLIJONState) {
 
       LoadInst *IJONStateVal = IRB.CreateLoad(Int32Ty, AFLIJONState);
-      ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(IJONStateVal);
+      SetNoSanitizeMetadata(IJONStateVal);
       // Apply IJON formula: state XOR coverage_index
       Value *XorResult = IRB.CreateXor(IJONStateVal, CoverageIndex);
       // Ensure result stays within map bounds to prevent buffer overruns
       LoadInst *CovMapSize = IRB.CreateLoad(Int32Ty, AFLCovMapSize);
-      ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(CovMapSize);
+      SetNoSanitizeMetadata(CovMapSize);
       CoverageIndex = IRB.CreateURem(XorResult, CovMapSize);
 
     }
 
-    Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CoverageIndex);
-
-    if (use_threadsafe_counters) {
-
-      IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-                          llvm::MaybeAlign(1), llvm::AtomicOrdering::Monotonic);
-
-    } else {
-
-      LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
-      ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(Counter);
-
-      /* Update bitmap */
-
-      Value *Incr = IRB.CreateAdd(Counter, One);
-
-      if (skip_nozero == NULL) {
-
-        auto cf = IRB.CreateICmpEQ(Incr, Zero);
-        auto carry = IRB.CreateZExt(cf, Int8Ty);
-        Incr = IRB.CreateAdd(Incr, carry);
-
-      }
-
-      StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
-      ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(StoreCtx);
-
-    }
+    updateCoverageBitmap(IRB, CoverageIndex, MapPtr);
 
     // done :)
 
