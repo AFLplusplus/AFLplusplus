@@ -12,73 +12,54 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#if LLVM_VERSION_MAJOR >= 15
-  #if LLVM_VERSION_MAJOR < 17
-    #include "llvm/ADT/Triple.h"
-  #endif
-#endif
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/PostDominators.h"
-#if LLVM_VERSION_MAJOR < 15
-  #include "llvm/IR/CFG.h"
-#endif
 #include "llvm/IR/Constant.h"
-#if LLVM_VERSION_MAJOR >= 20
-  #include "llvm/IR/Constants.h"
-  #include "llvm/IR/ValueSymbolTable.h"
-#endif
 #include "llvm/IR/DataLayout.h"
-#if LLVM_VERSION_MAJOR < 15
-  #include "llvm/IR/DebugInfo.h"
-#endif
 #include "llvm/IR/Dominators.h"
-#if LLVM_VERSION_MAJOR >= 17
-  #include "llvm/IR/EHPersonalities.h"
-#else
-  #include "llvm/Analysis/EHPersonalities.h"
-#endif
 #include "llvm/IR/Function.h"
-#if LLVM_VERSION_MAJOR >= 16
-  #include "llvm/IR/GlobalVariable.h"
-#endif
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR < 15
-  #include "llvm/IR/InlineAsm.h"
-#endif
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
-#if LLVM_VERSION_MAJOR < 15
-  #include "llvm/IR/MDBuilder.h"
-  #include "llvm/IR/Mangler.h"
-#endif
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
-#include "llvm/IR/Type.h"
-#if LLVM_VERSION_MAJOR < 17
-  #include "llvm/InitializePasses.h"
-#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/SpecialCaseList.h"
 #include "llvm/Support/VirtualFileSystem.h"
-#if LLVM_VERSION_MAJOR < 15
-  #include "llvm/Support/raw_ostream.h"
-#endif
-#if LLVM_VERSION_MAJOR < 20
-  #if LLVM_VERSION_MAJOR < 17
-    #include "llvm/Transforms/Instrumentation.h"
-  #else
-    #include "llvm/TargetParser/Triple.h"
-  #endif
-#else
-  #include "llvm/Transforms/Utils/Instrumentation.h"
-#endif
+#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
+
+// Version-specific includes
+#if LLVM_VERSION_MAJOR < 15
+  #include "llvm/IR/CFG.h"
+  #include "llvm/IR/DebugInfo.h"
+  #include "llvm/IR/InlineAsm.h"
+  #include "llvm/IR/MDBuilder.h"
+  #include "llvm/IR/Mangler.h"
+  #include "llvm/Support/raw_ostream.h"
+  #include "llvm/Transforms/Instrumentation.h"
+  #include "llvm/InitializePasses.h"
+#elif LLVM_VERSION_MAJOR < 17
+  #include "llvm/ADT/Triple.h"
+  #include "llvm/IR/Constants.h"
+  #include "llvm/IR/ValueSymbolTable.h"
+  #include "llvm/TargetParser/Triple.h"
+#elif LLVM_VERSION_MAJOR >= 17
+  #include "llvm/IR/EHPersonalities.h"
+  #include "llvm/TargetParser/Triple.h"
+#else
+  #include "llvm/Analysis/EHPersonalities.h"
+#endif
+
+#if LLVM_VERSION_MAJOR >= 20
+  #include "llvm/Transforms/Utils/Instrumentation.h"
+#endif
 
 #include "config.h"
 #include "debug.h"
@@ -155,18 +136,27 @@ class ModuleSanitizerCoverageAFL
                                                 Type *Ty);
 
   // Helper functions for cleaner code
-  bool   isInstructionInteresting(Instruction &IN, bool &usedInBranch,
-                                  bool &usedInSelectDecision);
-  bool   shouldInstrumentInstruction(Instruction &IN);
-  void   initializeVersionSpecificTypes(IRBuilder<> &IRB);
-  void   setupEnvironmentVariables();
-  void   setupIJONSymbols(Module &M);
+  bool isInstructionInteresting(Instruction &IN, bool &usedInBranch,
+                                bool &usedInSelectDecision);
+  bool shouldInstrumentInstruction(Instruction &IN);
+  void initializeVersionSpecificTypes(IRBuilder<> &IRB);
+  void setupEnvironmentVariables();
+  std::pair<bool, bool> detectIJONUsage(Module &M);
+  void                  setupIJONSymbols(Module &M);
   void   injectCoverageForInstruction(Instruction &IN, IRBuilder<> &IRB,
                                       uint32_t &local_selects, uint32_t &special,
                                       ArrayRef<BasicBlock *> AllBlocks);
   Value *createGuardPointer(IRBuilder<> &IRB, uint32_t index);
   void   updateCoverageBitmap(IRBuilder<> &IRB, Value *CoverageIndex,
                               LoadInst *MapPtr);
+  void   printDebugInfo(Instruction &IN);
+  Value *instrumentVectorSelect(IRBuilder<> &IRB, Value *condition,
+                                FixedVectorType *tt, uint32_t &local_selects,
+                                uint32_t cnt_cov, uint32_t skip_blocks,
+                                ArrayRef<BasicBlock *> AllBlocks);
+  void   updateCoverageForSelect(IRBuilder<> &IRB, Value *result,
+                                 LoadInst *MapPtr, uint32_t &vector_cnt,
+                                 uint32_t &skip_icmp);
 
   void SetNoSanitizeMetadata(Instruction *I) {
 
@@ -462,7 +452,134 @@ void ModuleSanitizerCoverageAFL::updateCoverageBitmap(IRBuilder<> &IRB,
 
 }
 
-void ModuleSanitizerCoverageAFL::setupIJONSymbols(Module &M) {
+void ModuleSanitizerCoverageAFL::printDebugInfo(Instruction &IN) {
+
+  if (DILocation *Loc = IN.getDebugLoc()) {
+
+    llvm::errs() << "DEBUG " << Loc->getFilename() << ":" << Loc->getLine()
+                 << ":";
+    std::string path =
+        Loc->getDirectory().str() + "/" + Loc->getFilename().str();
+    std::ifstream sourceFile(path);
+    std::string   lineContent;
+    for (unsigned line = 1; line <= Loc->getLine(); ++line)
+      std::getline(sourceFile, lineContent);
+    llvm::errs() << lineContent << "\n";
+
+  }
+
+  errs() << *(&IN) << "\n";
+
+}
+
+Value *ModuleSanitizerCoverageAFL::instrumentVectorSelect(
+    IRBuilder<> &IRB, Value *condition, FixedVectorType *tt,
+    uint32_t &local_selects, uint32_t cnt_cov, uint32_t skip_blocks,
+    ArrayRef<BasicBlock *> AllBlocks) {
+
+  uint32_t elements = tt->getElementCount().getFixedValue();
+  if (!elements) return nullptr;
+
+  FixedVectorType *GuardPtr1Type = FixedVectorType::get(Int32PtrTy, elements);
+  FixedVectorType *GuardPtr2Type = FixedVectorType::get(Int32PtrTy, elements);
+
+  // Create first vector element
+  Value *val1 = createGuardPointer(
+      IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+  Value *x = IRB.CreateInsertElement(GuardPtr1Type, val1, (uint64_t)0);
+
+  // Create second vector element
+  Value *val2 = createGuardPointer(
+      IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+  Value *y = IRB.CreateInsertElement(GuardPtr2Type, val2, (uint64_t)0);
+
+  // Fill remaining elements
+  for (uint64_t i = 1; i < elements; i++) {
+
+    val1 = createGuardPointer(
+        IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+    x = IRB.CreateInsertElement(x, val1, i);
+
+    val2 = createGuardPointer(
+        IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+    y = IRB.CreateInsertElement(y, val2, i);
+
+  }
+
+  return IRB.CreateSelect(condition, x, y);
+
+}
+
+void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
+                                                         Value       *result,
+                                                         LoadInst    *MapPtr,
+                                                         uint32_t &vector_cnt,
+                                                         uint32_t &skip_icmp) {
+
+  uint32_t vector_cur = 0;
+
+  while (true) {
+
+    Value *MapPtrIdx = nullptr;
+
+    if (!vector_cnt) {
+
+      LoadInst *CurLoc = IRB.CreateLoad(IRB.getInt32Ty(), result);
+      SetNoSanitizeMetadata(CurLoc);
+      MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CurLoc);
+
+    } else {
+
+      auto element = IRB.CreateExtractElement(result, vector_cur++);
+      auto elementptr = IRB.CreateIntToPtr(element, Int32PtrTy);
+      auto elementld = IRB.CreateLoad(IRB.getInt32Ty(), elementptr);
+      SetNoSanitizeMetadata(elementld);
+      MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, elementld);
+
+    }
+
+    if (use_threadsafe_counters) {
+
+      IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+                          llvm::MaybeAlign(1), llvm::AtomicOrdering::Monotonic);
+
+    } else {
+
+      LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
+      SetNoSanitizeMetadata(Counter);
+
+      Value *Incr = IRB.CreateAdd(Counter, One);
+
+      if (skip_nozero == NULL) {
+
+        auto cf = IRB.CreateICmpEQ(Incr, Zero);
+        auto carry = IRB.CreateZExt(cf, Int8Ty);
+        Incr = IRB.CreateAdd(Incr, carry);
+        skip_icmp++;
+
+      }
+
+      StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
+      SetNoSanitizeMetadata(StoreCtx);
+
+    }
+
+    if (!vector_cnt) {
+
+      vector_cnt = 2;
+      break;
+
+    } else if (vector_cnt == vector_cur) {
+
+      break;
+
+    }
+
+  }
+
+}
+
+std::pair<bool, bool> ModuleSanitizerCoverageAFL::detectIJONUsage(Module &M) {
 
   bool uses_ijon_functions = false;
   bool uses_ijon_state = false;
@@ -475,64 +592,56 @@ void ModuleSanitizerCoverageAFL::setupIJONSymbols(Module &M) {
       for (auto &I : BB) {
 
         Function *calledFunc = nullptr;
-        StringRef funcName;
 
         // Check both CallInst and InvokeInst
         if (auto *call = dyn_cast<CallInst>(&I)) {
 
-          Value *calledValue = call->getCalledOperand();
-          calledFunc = dyn_cast<Function>(calledValue);
+          calledFunc = dyn_cast<Function>(call->getCalledOperand());
 
         } else if (auto *invoke = dyn_cast<InvokeInst>(&I)) {
 
-          Value *calledValue = invoke->getCalledOperand();
-          calledFunc = dyn_cast<Function>(calledValue);
+          calledFunc = dyn_cast<Function>(invoke->getCalledOperand());
 
         }
 
         if (calledFunc) {
 
-          funcName = calledFunc->getName();
+          StringRef funcName = calledFunc->getName();
 #if LLVM_VERSION_MAJOR >= 18
-          if (funcName.starts_with("ijon_")) {
+          if (!funcName.starts_with("ijon_")) continue;
+#else
+          if (!funcName.startswith("ijon_")) continue;
+#endif
+
+          // Check for state-aware functions (only ijon_xor_state)
+          if (funcName == "ijon_xor_state") {
+
+            uses_ijon_functions = true;
+            uses_ijon_state = true;
+            break;
+
+          }
+
+          // Check for other IJON functions (max/min/set/inc)
+          if (funcName == "ijon_max" || funcName == "ijon_min" ||
+              funcName == "ijon_set" || funcName == "ijon_inc" ||
+              funcName == "ijon_max_variadic" ||
+              funcName == "ijon_min_variadic") {
+
+            uses_ijon_functions = true;
+            // Don't break - keep looking for ijon_xor_state
+
+          }
+
+          // Ignore helper functions (ijon_hash*, ijon_strdist, etc.)
+#if LLVM_VERSION_MAJOR >= 18
+          if (funcName.starts_with("ijon_hash") || funcName == "ijon_strdist") {
 
 #else
-          if (funcName.startswith("ijon_")) {
+          if (funcName.startswith("ijon_hash") || funcName == "ijon_strdist") {
 
 #endif
-            // Check for state-aware functions (only ijon_xor_state)
-            if (funcName == "ijon_xor_state") {
-
-              uses_ijon_functions = true;
-              uses_ijon_state = true;
-              break;
-
-            }
-
-            // Check for other IJON functions (max/min/set/inc)
-            else if (funcName == "ijon_max" || funcName == "ijon_min" ||
-                     funcName == "ijon_set" || funcName == "ijon_inc" ||
-                     funcName == "ijon_max_variadic" ||
-                     funcName == "ijon_min_variadic") {
-
-              uses_ijon_functions = true;
-              // Don't break - keep looking for ijon_xor_state
-
-            }
-
-            // Ignore helper functions (ijon_hash*, ijon_strdist, etc.)
-#if LLVM_VERSION_MAJOR >= 18
-            else if (funcName.starts_with("ijon_hash") ||
-                     funcName == "ijon_strdist") {
-
-#else
-            else if (funcName.startswith("ijon_hash") ||
-                     funcName == "ijon_strdist") {
-
-#endif
-              // These are helper functions, not instrumentation functions
-
-            }
+            // These are helper functions, not instrumentation functions
 
           }
 
@@ -547,6 +656,14 @@ void ModuleSanitizerCoverageAFL::setupIJONSymbols(Module &M) {
     if (uses_ijon_state) break;
 
   }
+
+  return {uses_ijon_functions, uses_ijon_state};
+
+}
+
+void ModuleSanitizerCoverageAFL::setupIJONSymbols(Module &M) {
+
+  auto [uses_ijon_functions, uses_ijon_state] = detectIJONUsage(M);
 
   if (!uses_ijon_functions) {
 
@@ -625,88 +742,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   bool uses_ijon_state = false;
   if (ijon_enabled) {
 
-    // Scan for IJON function calls to determine if we need IJON symbols
-    for (auto &F : M) {
-
-      for (auto &BB : F) {
-
-        for (auto &I : BB) {
-
-          Function *calledFunc = nullptr;
-          StringRef funcName;
-
-          // Check both CallInst and InvokeInst
-          if (auto *call = dyn_cast<CallInst>(&I)) {
-
-            Value *calledValue = call->getCalledOperand();
-            calledFunc = dyn_cast<Function>(calledValue);
-
-          } else if (auto *invoke = dyn_cast<InvokeInst>(&I)) {
-
-            Value *calledValue = invoke->getCalledOperand();
-            calledFunc = dyn_cast<Function>(calledValue);
-
-          }
-
-          if (calledFunc) {
-
-            funcName = calledFunc->getName();
-#if LLVM_VERSION_MAJOR >= 18
-            if (funcName.starts_with("ijon_")) {
-
-#else
-            if (funcName.startswith("ijon_")) {
-
-#endif
-              // Check for state-aware functions (only ijon_xor_state)
-              if (funcName == "ijon_xor_state") {
-
-                uses_ijon_functions = true;
-                uses_ijon_state = true;
-                break;
-
-              }
-
-              // Check for other IJON functions (max/min/set/inc)
-              else if (funcName == "ijon_max" || funcName == "ijon_min" ||
-                       funcName == "ijon_set" || funcName == "ijon_inc" ||
-                       funcName == "ijon_max_variadic" ||
-                       funcName == "ijon_min_variadic") {
-
-                uses_ijon_functions = true;
-                // Don't break - keep looking for ijon_xor_state
-
-              }
-
-              // Ignore helper functions (ijon_hash*, ijon_strdist, etc.)
-#if LLVM_VERSION_MAJOR >= 18
-              else if (funcName.starts_with("ijon_hash") ||
-                       funcName == "ijon_strdist") {
-
-#else
-              else if (funcName.startswith("ijon_hash") ||
-                       funcName == "ijon_strdist") {
-
-#endif
-                // These are helper functions, not instrumentation functions
-
-              }
-
-            }
-
-          }
-
-        }
-
-        if (uses_ijon_state)
-          break;  // Found state function, no need to continue
-
-      }
-
-      if (uses_ijon_state) break;
-
-    }
-
+    std::tie(uses_ijon_functions, uses_ijon_state) = detectIJONUsage(M);
     if (!uses_ijon_functions) { ijon_enabled = nullptr; }
 
   }
@@ -1244,39 +1280,13 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           }
 
-          if (debug) {
+          if (debug) printDebugInfo(IN);
 
-            if (DILocation *Loc = IN.getDebugLoc()) {
-
-              llvm::errs() << "DEBUG " << Loc->getFilename() << ":"
-                           << Loc->getLine() << ":";
-              std::string path =
-                  Loc->getDirectory().str() + "/" + Loc->getFilename().str();
-              std::ifstream sourceFile(path);
-              std::string   lineContent;
-              for (unsigned line = 1; line <= Loc->getLine(); ++line)
-                std::getline(sourceFile, lineContent);
-              llvm::errs() << lineContent << "\n";
-
-            }
-
-            errs() << *(&IN) << "\n";
-
-          }
-
-          auto res = icmp;
-          auto GuardPtr1 = IRB.CreateInBoundsGEP(
-              FunctionGuardArray->getValueType(), FunctionGuardArray,
-              {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() -
-                             skip_blocks))});
-
-          auto GuardPtr2 = IRB.CreateInBoundsGEP(
-              FunctionGuardArray->getValueType(), FunctionGuardArray,
-              {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() -
-                             skip_blocks))});
-
+          auto   res = icmp;
+          Value *GuardPtr1 = createGuardPointer(
+              IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+          Value *GuardPtr2 = createGuardPointer(
+              IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
           // fprintf(stderr, "Icmp!\n");
@@ -1285,39 +1295,13 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           if (!fcmp->getType()->isIntegerTy(1)) { continue; }
 
-          if (debug) {
+          if (debug) printDebugInfo(IN);
 
-            if (DILocation *Loc = IN.getDebugLoc()) {
-
-              llvm::errs() << "DEBUG " << Loc->getFilename() << ":"
-                           << Loc->getLine() << ":";
-              std::string path =
-                  Loc->getDirectory().str() + "/" + Loc->getFilename().str();
-              std::ifstream sourceFile(path);
-              std::string   lineContent;
-              for (unsigned line = 1; line <= Loc->getLine(); ++line)
-                std::getline(sourceFile, lineContent);
-              llvm::errs() << lineContent << "\n";
-
-            }
-
-            errs() << *(&IN) << "\n";
-
-          }
-
-          auto res = fcmp;
-          auto GuardPtr1 = IRB.CreateInBoundsGEP(
-              FunctionGuardArray->getValueType(), FunctionGuardArray,
-              {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() -
-                             skip_blocks))});
-
-          auto GuardPtr2 = IRB.CreateInBoundsGEP(
-              FunctionGuardArray->getValueType(), FunctionGuardArray,
-              {IRB.getInt64(0),
-               IRB.getInt32((cnt_cov + local_selects++ + AllBlocks.size() -
-                             skip_blocks))});
-
+          auto   res = fcmp;
+          Value *GuardPtr1 = createGuardPointer(
+              IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
+          Value *GuardPtr2 = createGuardPointer(
+              IRB, cnt_cov + local_selects++ + AllBlocks.size() - skip_blocks);
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           skip_select = 1;
           // fprintf(stderr, "Fcmp!\n");
@@ -1340,24 +1324,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           if (t->getTypeID() == llvm::Type::IntegerTyID) {
 
-            auto GuardPtr1 = IRB.CreateIntToPtr(
-                IRB.CreateAdd(
-                    IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                    ConstantInt::get(IntptrTy,
-                                     (cnt_cov + local_selects++ +
-                                      AllBlocks.size() - skip_blocks) *
-                                         4)),
-                Int32PtrTy);
-
-            auto GuardPtr2 = IRB.CreateIntToPtr(
-                IRB.CreateAdd(
-                    IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                    ConstantInt::get(IntptrTy,
-                                     (cnt_cov + local_selects++ +
-                                      AllBlocks.size() - skip_blocks) *
-                                         4)),
-                Int32PtrTy);
-
+            Value *GuardPtr1 =
+                createGuardPointer(IRB, cnt_cov + local_selects++ +
+                                            AllBlocks.size() - skip_blocks);
+            Value *GuardPtr2 =
+                createGuardPointer(IRB, cnt_cov + local_selects++ +
+                                            AllBlocks.size() - skip_blocks);
             result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
             skip_select = 1;
 
@@ -1366,67 +1338,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
               if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
 
             FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
-
             if (tt) {
 
-              uint32_t elements = tt->getElementCount().getFixedValue();
-              vector_cnt = elements;
-              if (elements) {
-
-                FixedVectorType *GuardPtr1 =
-                    FixedVectorType::get(Int32PtrTy, elements);
-                FixedVectorType *GuardPtr2 =
-                    FixedVectorType::get(Int32PtrTy, elements);
-                Value *x, *y;
-
-                Value *val1 = IRB.CreateIntToPtr(
-                    IRB.CreateAdd(
-                        IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                        ConstantInt::get(IntptrTy,
-                                         (cnt_cov + local_selects++ +
-                                          AllBlocks.size() - skip_blocks) *
-                                             4)),
-                    Int32PtrTy);
-                x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
-
-                Value *val2 = IRB.CreateIntToPtr(
-                    IRB.CreateAdd(
-                        IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                        ConstantInt::get(IntptrTy,
-                                         (cnt_cov + local_selects++ +
-                                          AllBlocks.size() - skip_blocks) *
-                                             4)),
-                    Int32PtrTy);
-                y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
-
-                for (uint64_t i = 1; i < elements; i++) {
-
-                  val1 = IRB.CreateIntToPtr(
-                      IRB.CreateAdd(
-                          IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                          ConstantInt::get(IntptrTy,
-                                           (cnt_cov + local_selects++ +
-                                            AllBlocks.size() - skip_blocks) *
-                                               4)),
-                      Int32PtrTy);
-                  x = IRB.CreateInsertElement(x, val1, i);
-
-                  val2 = IRB.CreateIntToPtr(
-                      IRB.CreateAdd(
-                          IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                          ConstantInt::get(IntptrTy,
-                                           (cnt_cov + local_selects++ +
-                                            AllBlocks.size() - skip_blocks) *
-                                               4)),
-                      Int32PtrTy);
-                  y = IRB.CreateInsertElement(y, val2, i);
-
-                }
-
-                result = IRB.CreateSelect(condition, x, y);
-                skip_select = 1;
-
-              }
+              vector_cnt = tt->getElementCount().getFixedValue();
+              result = instrumentVectorSelect(IRB, condition, tt, local_selects,
+                                              cnt_cov, skip_blocks, AllBlocks);
+              skip_select = 1;
 
             }
 
@@ -1447,78 +1364,11 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         }
 
-        uint32_t vector_cur = 0;
-
-        /* Load SHM pointer */
-
+        // Load SHM pointer and update coverage bitmap
         LoadInst *MapPtr = IRB.CreateLoad(PtrTy, AFLMapPtr);
-        ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(MapPtr);
+        SetNoSanitizeMetadata(MapPtr);
 
-        while (1) {
-
-          /* Get CurLoc */
-          LoadInst *CurLoc = nullptr;
-          Value    *MapPtrIdx = nullptr;
-
-          /* Load counter for CurLoc */
-          if (!vector_cnt) {
-
-            CurLoc = IRB.CreateLoad(IRB.getInt32Ty(), result);
-            ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(CurLoc);
-            MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CurLoc);
-
-          } else {
-
-            auto element = IRB.CreateExtractElement(result, vector_cur++);
-            auto elementptr = IRB.CreateIntToPtr(element, Int32PtrTy);
-            auto elementld = IRB.CreateLoad(IRB.getInt32Ty(), elementptr);
-            ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(elementld);
-            MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, elementld);
-
-          }
-
-          if (use_threadsafe_counters) {
-
-            IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-                                llvm::MaybeAlign(1),
-                                llvm::AtomicOrdering::Monotonic);
-
-          } else {
-
-            LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
-            ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(Counter);
-
-            /* Update bitmap */
-
-            Value *Incr = IRB.CreateAdd(Counter, One);
-
-            if (skip_nozero == NULL) {
-
-              auto cf = IRB.CreateICmpEQ(Incr, Zero);
-              auto carry = IRB.CreateZExt(cf, Int8Ty);
-              Incr = IRB.CreateAdd(Incr, carry);
-              skip_icmp++;
-
-            }
-
-            StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
-            ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(StoreCtx);
-
-          }
-
-          if (!vector_cnt) {
-
-            vector_cnt = 2;
-            break;
-
-          } else if (vector_cnt == vector_cur) {
-
-            break;
-
-          }
-
-        }
-
+        updateCoverageForSelect(IRB, result, MapPtr, vector_cnt, skip_icmp);
         instr += vector_cnt;
 
       }
@@ -1602,10 +1452,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 
     /* Get CurLoc */
 
-    Value *GuardPtr = IRB.CreateIntToPtr(
-        IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                      ConstantInt::get(IntptrTy, Idx * 4)),
-        Int32PtrTy);
+    Value *GuardPtr = createGuardPointer(IRB, Idx);
 
     LoadInst *CurLoc = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
     ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(CurLoc);
