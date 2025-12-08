@@ -1227,6 +1227,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       }
 
+      // printDebugInfo(IN);
+
       // Check if we should instrument this instruction for coverage
       bool usedInBranch, usedInSelectDecision;
       bool instrumentInst =
@@ -1246,10 +1248,23 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           if (!icmp->getType()->isIntegerTy(1)) { continue; }
 
-          if (skip_icmp) {
+          bool a = false, b = false;
 
-            skip_icmp--;
-            continue;
+          if (skip_icmp && isInstructionInteresting(IN, a, b)) {
+
+            llvm::Value *Op = icmp->getOperand(1);
+
+            if (auto *CI = llvm::dyn_cast<llvm::ConstantInt>(Op)) {
+
+              if (CI->isZero() && CI->getType()->isIntegerTy(8)) {
+
+                // fprintf(stderr, "skip ^^^ icmp\n");
+                skip_icmp--;
+                continue;
+
+              }
+
+            }
 
           }
 
@@ -1288,6 +1303,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           if (skip_select) {
 
             skip_select = 0;
+            // fprintf(stderr, "skip ^^^ select\n");
             continue;
 
           } else {
