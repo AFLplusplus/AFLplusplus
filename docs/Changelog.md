@@ -12,8 +12,10 @@
     - fix syncing issues with crashes and custom mutators by @AndyH-1
     - another attempt to kill every client, thanks to @leonasdev
   - afl-cc:
+    - Huge refactor for default pcguard instrumentation, several minor and
+      medium bug fixes
     - IJON fix to search for the necessary include
-    - Allow compiling the gcc plugin with LLVM, thanks to @exoosh
+    - Allow compiling the gcc plugin with clang++, thanks to @exoosh
     - Fix for unusual bit sizes in cmplog-instructions-pass by @forzafedor
   - qemu_mode:
     - IJON support, thanks to @nj00001! see qemu_mode/README.md

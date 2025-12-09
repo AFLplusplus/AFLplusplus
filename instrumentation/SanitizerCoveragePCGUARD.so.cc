@@ -854,7 +854,8 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
       char buf[32] = "";
       if (skippedbb) {
 
-        snprintf(buf, sizeof(buf), " %u instrumentations saved.", skippedbb);
+        snprintf(buf, sizeof(buf), " %u instrumentation%s saved.", skippedbb,
+                 skippedbb == 1 ? "" : "s");
 
       }
 
@@ -1091,6 +1092,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           cnt_cov++;
           block_is_instrumented = true;
+          continue;
 
         }
 
@@ -1110,7 +1112,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       if (instrumentInst) {
 
-        block_is_instrumented = true;
         SelectInst *selectInst;
 
         ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
@@ -1120,6 +1121,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           if (icmp->getType()->isIntegerTy(1)) {
 
+            block_is_instrumented = true;
             cnt_sel++;
             cnt_sel_inc += 2;
 
@@ -1133,6 +1135,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           if (fcmp->getType()->isIntegerTy(1)) {
 
+            block_is_instrumented = true;
             cnt_sel++;
             cnt_sel_inc += 2;
 
@@ -1148,6 +1151,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           auto   t = c->getType();
           if (t->getTypeID() == llvm::Type::IntegerTyID) {
 
+            block_is_instrumented = true;
             cnt_sel++;
             cnt_sel_inc += 2;
 
@@ -1156,6 +1160,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
             FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
             if (tt) {
 
+              block_is_instrumented = true;
               cnt_sel++;
               cnt_sel_inc += (tt->getElementCount().getKnownMinValue() * 2);
 
@@ -1177,7 +1182,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
     }
 
-    if (block_is_instrumented && &BB != &BB.getParent()->getEntryBlock() &&
+    if (block_is_instrumented && /*&BB != &BB.getParent()->getEntryBlock() &&*/
         llvm::is_contained(AllBlocks, &BB)) {
 
       Instruction *instr = &*BB.begin();
@@ -1377,7 +1382,9 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   if (!AllBlocks.empty()) {
 
-    for (size_t i = 0, N = AllBlocks.size() - skipped; i < N; i++) {
+    size_t counter = 0;
+
+    for (size_t i = 0, N = AllBlocks.size(); i < N; i++) {
 
       auto instr = AllBlocks[i]->begin();
       if (instr->getMetadata("skipinstrument")) {
@@ -1386,7 +1393,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
       } else {
 
-        InjectCoverageAtBlock(F, *AllBlocks[i], i);
+        InjectCoverageAtBlock(F, *AllBlocks[i], counter++);
 
       }
 
