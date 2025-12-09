@@ -145,11 +145,10 @@ class ModuleSanitizerCoverageAFL
                                                 Type *Ty);
 
   // Helper functions for cleaner code
-  bool isInstructionInteresting(Instruction &IN, bool &usedInBranch,
-                                bool &usedInSelectDecision);
-  bool shouldInstrumentInstruction(Instruction &IN);
-  void initializeVersionSpecificTypes(IRBuilder<> &IRB);
-  void setupEnvironmentVariables();
+  bool                  isInstructionInteresting(Instruction &IN);
+  bool                  isAflInterestingCall(Instruction &IN);
+  void                  initializeVersionSpecificTypes(IRBuilder<> &IRB);
+  void                  setupEnvironmentVariables();
   std::pair<bool, bool> detectIJONUsage(Module &M);
   void                  setupIJONSymbols(Module &M);
   Value                *createGuardPointer(IRBuilder<> &IRB, uint32_t index);
@@ -324,11 +323,10 @@ std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
 
 // We look here for instructions that make decisions without creating new basic
 // blocks in the LLVM IR - this is hidden control flow we want to instrument.
-bool ModuleSanitizerCoverageAFL::isInstructionInteresting(
-    Instruction &IN, bool &usedInBranch, bool &usedInSelectDecision) {
+bool ModuleSanitizerCoverageAFL::isInstructionInteresting(Instruction &IN) {
 
-  usedInBranch = false;
-  usedInSelectDecision = false;
+  bool usedInBranch = false;
+  bool usedInSelectDecision = false;
 
   ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
   FCmpInst *fcmp = dyn_cast<FCmpInst>(&IN);
@@ -365,7 +363,7 @@ bool ModuleSanitizerCoverageAFL::isInstructionInteresting(
 
 }
 
-bool ModuleSanitizerCoverageAFL::shouldInstrumentInstruction(Instruction &IN) {
+bool ModuleSanitizerCoverageAFL::isAflInterestingCall(Instruction &IN) {
 
   CallInst *callInst = dyn_cast<CallInst>(&IN);
   if (!callInst) return false;
@@ -1099,16 +1097,14 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       }
 
       // Check for AFL coverage interesting calls first
-      if (shouldInstrumentInstruction(IN)) {
+      if (isAflInterestingCall(IN)) {
 
         cnt_special++;
         continue;
 
       }
 
-      bool usedInBranch, usedInSelectDecision;
-      bool instrumentInst =
-          isInstructionInteresting(IN, usedInBranch, usedInSelectDecision);
+      bool instrumentInst = isInstructionInteresting(IN);
 
       if (instrumentInst) {
 
@@ -1229,7 +1225,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       }
 
       // Check for AFL coverage interesting calls first
-      if (shouldInstrumentInstruction(IN)) {
+      if (isAflInterestingCall(IN)) {
 
 #if LLVM_MAJOR >= 20
         InstrumentationIRBuilder IRB(&IN);
@@ -1251,9 +1247,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       // printDebugInfo(IN);
 
       // Check if we should instrument this instruction for coverage
-      bool usedInBranch, usedInSelectDecision;
-      bool instrumentInst =
-          isInstructionInteresting(IN, usedInBranch, usedInSelectDecision);
+      bool instrumentInst = isInstructionInteresting(IN);
 
       if (instrumentInst) {
 
