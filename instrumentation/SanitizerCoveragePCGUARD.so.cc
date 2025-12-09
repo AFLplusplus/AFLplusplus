@@ -358,6 +358,7 @@ static bool isDecisionUse(const Value *Cond) {
       } else if (const auto *SW = dyn_cast<SwitchInst>(U)) {
 
         if (SW->getCondition() == V) return true;
+
         /*
 
               } else if (const auto *CB = dyn_cast<CallBase>(U)) {
@@ -427,16 +428,34 @@ bool ModuleSanitizerCoverageAFL::isInstructionInteresting(Instruction &I) {
 
     }
 
-      /*
-        case Instruction::AtomicCmpXchg:
-        case Instruction::AtomicRMW: {
+    case Instruction::AtomicCmpXchg: {
 
-          // allways instrumented
+      // allways instrumented
+      return true;
+
+    }
+
+    case Instruction::AtomicRMW: {
+
+      AtomicRMWInst *RMW = dyn_cast<AtomicRMWInst>(&I);
+      if (RMW) {
+
+        AtomicRMWInst::BinOp Op = RMW->getOperation();
+
+        if (Op == AtomicRMWInst::Min || Op == AtomicRMWInst::Max ||
+            Op == AtomicRMWInst::UMin || Op == AtomicRMWInst::UMax) {
+
           return true;
+
+        } else {
+
+          return false;
 
         }
 
-      */
+      }
+
+    }
 
     default:
       return false;
@@ -559,8 +578,13 @@ void ModuleSanitizerCoverageAFL::updateCoverageBitmap(IRBuilder<> &IRB,
 
   if (use_threadsafe_counters) {
 
-    IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-                        llvm::MaybeAlign(1), llvm::AtomicOrdering::Monotonic);
+    auto instr = IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx,
+                                     One, llvm::MaybeAlign(1),
+                                     llvm::AtomicOrdering::Monotonic);
+    auto        *INSTR = llvm::cast<llvm::Instruction>(instr);
+    LLVMContext &Ctx = INSTR->getContext();
+    MDNode      *Tag = MDNode::get(Ctx, {});
+    INSTR->setMetadata("afl.skip", Tag);
 
   } else {
 
@@ -675,8 +699,13 @@ void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
 
     if (use_threadsafe_counters) {
 
-      IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
-                          llvm::MaybeAlign(1), llvm::AtomicOrdering::Monotonic);
+      auto         instr = IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
+                                               MapPtrIdx, One, llvm::MaybeAlign(1),
+                                               llvm::AtomicOrdering::Monotonic);
+      auto        *INSTR = llvm::cast<llvm::Instruction>(instr);
+      LLVMContext &Ctx = INSTR->getContext();
+      MDNode      *Tag = MDNode::get(Ctx, {});
+      INSTR->setMetadata("afl.skip", Tag);
 
     } else {
 
@@ -1235,8 +1264,10 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         SelectInst *selectInst;
 
-        ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
-        FCmpInst *fcmp = dyn_cast<FCmpInst>(&IN);
+        ICmpInst          *icmp = dyn_cast<ICmpInst>(&IN);
+        FCmpInst          *fcmp = dyn_cast<FCmpInst>(&IN);
+        AtomicCmpXchgInst *cxchg = dyn_cast<AtomicCmpXchgInst>(&IN);
+        AtomicRMWInst     *rmw = dyn_cast<AtomicRMWInst>(&IN);
 
         if (icmp) {
 
@@ -1255,6 +1286,34 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         } else if (fcmp) {
 
           if (fcmp->getType()->isIntegerTy(1)) {
+
+            block_is_instrumented = true;
+            cnt_sel++;
+            cnt_sel_inc += 2;
+
+          } else {
+
+            unhandled++;
+
+          }
+
+        } else if (cxchg) {
+
+          if (cxchg->getType()->isIntegerTy(1)) {
+
+            block_is_instrumented = true;
+            cnt_sel++;
+            cnt_sel_inc += 2;
+
+          } else {
+
+            unhandled++;
+
+          }
+
+        } else if (rmw) {
+
+          if (rmw->getType()->isIntegerTy(1)) {
 
             block_is_instrumented = true;
             cnt_sel++;
@@ -1381,8 +1440,10 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         SelectInst *selectInst;
         IRBuilder<> IRB(IN.getNextNode());
 
-        ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
-        FCmpInst *fcmp = dyn_cast<FCmpInst>(&IN);
+        ICmpInst          *icmp = dyn_cast<ICmpInst>(&IN);
+        FCmpInst          *fcmp = dyn_cast<FCmpInst>(&IN);
+        AtomicCmpXchgInst *cxchg = dyn_cast<AtomicCmpXchgInst>(&IN);
+        AtomicRMWInst     *rmw = dyn_cast<AtomicRMWInst>(&IN);
 
         if (icmp) {
 
@@ -1425,6 +1486,91 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           MDNode      *Tag = MDNode::get(Ctx, {});
           RES->setMetadata("afl.skip", Tag);
           // fprintf(stderr, "Fcmp!\n");
+
+        } else if (cxchg) {
+
+          if (!cxchg->getType()->isIntegerTy(1)) { continue; }
+
+          if (debug) printDebugInfo(IN);
+
+          Value      *pair = cxchg;
+          IRBuilder<> IRB(cxchg->getNextNode());
+          Value      *res = IRB.CreateExtractValue(pair, 1);
+          Value      *GuardPtr1 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
+          Value *GuardPtr2 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
+          result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
+          auto        *RES = llvm::cast<llvm::Instruction>(result);
+          LLVMContext &Ctx = RES->getContext();
+          MDNode      *Tag = MDNode::get(Ctx, {});
+          RES->setMetadata("afl.skip", Tag);
+          // fprintf(stderr, "Cxchg!\n");
+
+        } else if (rmw) {
+
+          AtomicRMWInst::BinOp Op = rmw->getOperation();
+          if (Op != AtomicRMWInst::Min && Op != AtomicRMWInst::Max &&
+              Op != AtomicRMWInst::UMin && Op != AtomicRMWInst::UMax)
+            continue;
+
+          IRBuilder<> IRB(rmw->getNextNode());
+          Value      *OldVal = rmw;  // result of atomicrmw: old value
+          Value *NewVal = rmw->getValOperand();  // value passed to atomicrmw
+
+          if (OldVal->getType() != NewVal->getType()) {
+
+            // should not be needed
+            if (NewVal->getType()->isIntegerTy() &&
+                OldVal->getType()->isIntegerTy()) {
+
+              unsigned OldBW = OldVal->getType()->getIntegerBitWidth();
+              unsigned NewBW = NewVal->getType()->getIntegerBitWidth();
+              if (NewBW < OldBW)
+                NewVal = IRB.CreateSExt(NewVal, OldVal->getType(), "rmw.ext");
+              else if (NewBW > OldBW)
+                NewVal =
+                    IRB.CreateTrunc(NewVal, OldVal->getType(), "rmw.trunc");
+
+            }
+
+          }
+
+          CmpInst::Predicate Pred;
+          switch (Op) {
+
+            case AtomicRMWInst::Min:
+              Pred = CmpInst::ICMP_SLT;  // NewVal < OldVal  -> update
+              break;
+            case AtomicRMWInst::Max:
+              Pred = CmpInst::ICMP_SGT;  // NewVal > OldVal  -> update
+              break;
+            case AtomicRMWInst::UMin:
+              Pred = CmpInst::ICMP_ULT;  // NewVal <_u OldVal -> update
+              break;
+            case AtomicRMWInst::UMax:
+              Pred = CmpInst::ICMP_UGT;  // NewVal >_u OldVal -> update
+              break;
+            default:
+              continue;
+
+          }
+
+          Value *res = IRB.CreateICmp(Pred, NewVal, OldVal, "rmw.cov");
+          Value *GuardPtr1 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
+          Value *GuardPtr2 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
+          result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
+          auto        *RES = llvm::cast<llvm::Instruction>(result);
+          LLVMContext &Ctx = RES->getContext();
+          MDNode      *Tag = MDNode::get(Ctx, {});
+          RES->setMetadata("afl.skip", Tag);
+          // fprintf(stderr, "Rmw!\n");
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
