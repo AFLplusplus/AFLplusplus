@@ -20,6 +20,7 @@
 #endif
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -29,10 +30,15 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+// #include "llvm/IR/IntrinsicInst.h"
+// #include "llvm/IR/IntrinsicEnums.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -323,6 +329,123 @@ std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
 
 // We look here for instructions that make decisions without creating new basic
 // blocks in the LLVM IR - this is hidden control flow we want to instrument.
+
+// Is the icmp/fcmp used in a basic block traversing instructions?
+// if yes - return true (will not be instrumented)
+// if no - return false (will be instrumented)
+static bool isDecisionUse(const Value *Cond) {
+
+  SmallVector<const Value *, 8> Worklist;
+  SmallPtrSet<const Value *, 8> Visited;
+
+  Worklist.push_back(Cond);
+
+  while (!Worklist.empty()) {
+
+    const Value *V = Worklist.pop_back_val();
+    if (!Visited.insert(V).second) continue;
+
+    for (const User *U : V->users()) {
+
+      if (const auto *BI = dyn_cast<BranchInst>(U)) {
+
+        if (BI->isConditional() && BI->getCondition() == V) return true;
+
+      } else if (const auto *SI = dyn_cast<SelectInst>(U)) {
+
+        if (SI->getCondition() == V) return true;
+
+      } else if (const auto *SW = dyn_cast<SwitchInst>(U)) {
+
+        if (SW->getCondition() == V) return true;
+        /*
+
+              } else if (const auto *CB = dyn_cast<CallBase>(U)) {
+
+                const Function *F = CB->getCalledFunction();
+                if (!F)
+                  continue;
+                Intrinsic::ID IID = F->getIntrinsicID();
+                if (IID == Intrinsic::assume ||
+                    IID == Intrinsic::experimental_guard ||
+                    IID == Intrinsic::expect)
+                  return true;
+        */
+
+      } else if (const auto *BO = dyn_cast<BinaryOperator>(U)) {
+
+        if (BO->getType()->isIntegerTy(1)) Worklist.push_back(BO);
+
+      } else if (const auto *PN = dyn_cast<PHINode>(U)) {
+
+        if (PN->getType()->isIntegerTy(1)) return true;
+
+      } else if (const auto *Cast = dyn_cast<CastInst>(U)) {
+
+        if (Cast->getDestTy()->isIntegerTy(1) ||
+            Cast->getSrcTy()->isIntegerTy(1))
+          Worklist.push_back(Cast);
+
+      } else if (const auto *FI = dyn_cast<FreezeInst>(U)) {
+
+        if (FI->getType()->isIntegerTy(1)) Worklist.push_back(FI);
+
+      }
+
+    }
+
+  }
+
+  return false;
+
+}
+
+bool ModuleSanitizerCoverageAFL::isInstructionInteresting(Instruction &I) {
+
+  switch (I.getOpcode()) {
+
+    case Instruction::ICmp:
+    case Instruction::FCmp: {
+
+      const Value *Cond = &I;
+      Type        *Ty = Cond->getType();
+      if (Ty->isIntegerTy(1) ||
+          (Ty->isVectorTy() && Ty->getScalarType()->isIntegerTy(1))) {
+
+        if (isDecisionUse(Cond)) return false;
+
+      }
+
+      return true;
+
+    }
+
+    case Instruction::Select: {
+
+      // allways instrumented
+      return true;
+
+    }
+
+      /*
+        case Instruction::AtomicCmpXchg:
+        case Instruction::AtomicRMW: {
+
+          // allways instrumented
+          return true;
+
+        }
+
+      */
+
+    default:
+      return false;
+
+  }
+
+}
+
+#if 0
 bool ModuleSanitizerCoverageAFL::isInstructionInteresting(Instruction &IN) {
 
   bool usedInBranch = false;
@@ -362,6 +485,8 @@ bool ModuleSanitizerCoverageAFL::isInstructionInteresting(Instruction &IN) {
   return !usedInBranch && !usedInSelectDecision;
 
 }
+
+#endif
 
 bool ModuleSanitizerCoverageAFL::isAflInterestingCall(Instruction &IN) {
 
