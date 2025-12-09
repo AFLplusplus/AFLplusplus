@@ -162,8 +162,7 @@ class ModuleSanitizerCoverageAFL
                                 uint32_t               special,
                                 ArrayRef<BasicBlock *> AllBlocks);
   void   updateCoverageForSelect(IRBuilder<> &IRB, Value *result,
-                                 LoadInst *MapPtr, uint32_t &vector_cnt,
-                                 uint32_t &skip_icmp);
+                                 LoadInst *MapPtr, uint32_t &vector_cnt);
 
   void SetNoSanitizeMetadata(Instruction *I) {
 
@@ -323,6 +322,8 @@ std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
 
 // Helper function implementations
 
+// We look here for instructions that make decisions without creating new basic
+// blocks in the LLVM IR - this is hidden control flow we want to instrument.
 bool ModuleSanitizerCoverageAFL::isInstructionInteresting(
     Instruction &IN, bool &usedInBranch, bool &usedInSelectDecision) {
 
@@ -340,17 +341,19 @@ bool ModuleSanitizerCoverageAFL::isInstructionInteresting(
     if (isa<BranchInst>(U)) {
 
       usedInBranch = true;
-      break;
+      continue;
 
     }
 
     if (auto *sel = dyn_cast<SelectInst>(U)) {
 
-      if ((icmp && sel->getCondition() == icmp) ||
-          (fcmp && sel->getCondition() == fcmp)) {
+      if ((icmp &&
+           (sel->getTrueValue() == icmp || sel->getFalseValue() == icmp)) ||
+          (fcmp &&
+           (sel->getTrueValue() == fcmp || sel->getFalseValue() == fcmp))) {
 
         usedInSelectDecision = true;
-        break;
+        continue;
 
       }
 
@@ -445,7 +448,11 @@ void ModuleSanitizerCoverageAFL::updateCoverageBitmap(IRBuilder<> &IRB,
 
     if (skip_nozero == NULL) {
 
-      auto cf = IRB.CreateICmpEQ(Incr, Zero);
+      auto         cf = IRB.CreateICmpEQ(Incr, Zero);
+      auto        *CF = llvm::cast<llvm::Instruction>(cf);
+      LLVMContext &Ctx = CF->getContext();
+      MDNode      *Tag = MDNode::get(Ctx, {});
+      CF->setMetadata("afl.skip", Tag);
       auto carry = IRB.CreateZExt(cf, Int8Ty);
       Incr = IRB.CreateAdd(Incr, carry);
 
@@ -519,8 +526,7 @@ Value *ModuleSanitizerCoverageAFL::instrumentVectorSelect(
 void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
                                                          Value       *result,
                                                          LoadInst    *MapPtr,
-                                                         uint32_t &vector_cnt,
-                                                         uint32_t &skip_icmp) {
+                                                         uint32_t &vector_cnt) {
 
   uint32_t vector_cur = 0;
 
@@ -558,10 +564,13 @@ void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
 
       if (skip_nozero == NULL) {
 
-        auto cf = IRB.CreateICmpEQ(Incr, Zero);
+        auto         cf = IRB.CreateICmpEQ(Incr, Zero);
+        auto        *CF = llvm::cast<llvm::Instruction>(cf);
+        LLVMContext &Ctx = CF->getContext();
+        MDNode      *Tag = MDNode::get(Ctx, {});
+        CF->setMetadata("afl.skip", Tag);
         auto carry = IRB.CreateZExt(cf, Int8Ty);
         Incr = IRB.CreateAdd(Incr, carry);
-        skip_icmp++;
 
       }
 
@@ -1201,11 +1210,18 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   if (first) { first = 0; }
   selects += cnt_sel;
 
-  uint32_t special = 0, local_selects = 0, skip_select = 0, skip_icmp = 0;
+  uint32_t special = 0, local_selects = 0;
 
   for (auto &BB : F) {
 
     for (auto &IN : BB) {
+
+      if (IN.getMetadata("afl.skip")) {
+
+        // This is a synthetic AFL code we need to ignore
+        continue;
+
+      }
 
       // Check for AFL coverage interesting calls first
       if (shouldInstrumentInstruction(IN)) {
@@ -1248,26 +1264,6 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           if (!icmp->getType()->isIntegerTy(1)) { continue; }
 
-          bool a = false, b = false;
-
-          if (skip_icmp && isInstructionInteresting(IN, a, b)) {
-
-            llvm::Value *Op = icmp->getOperand(1);
-
-            if (auto *CI = llvm::dyn_cast<llvm::ConstantInt>(Op)) {
-
-              if (CI->isZero() && CI->getType()->isIntegerTy(8)) {
-
-                // fprintf(stderr, "skip ^^^ icmp\n");
-                skip_icmp--;
-                continue;
-
-              }
-
-            }
-
-          }
-
           if (debug) printDebugInfo(IN);
 
           auto   res = icmp;
@@ -1277,8 +1273,13 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           Value *GuardPtr2 =
               createGuardPointer(IRB, cnt_cov + special + local_selects++ +
                                           AllBlocks.size() - skip_blocks);
+          continue;
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
-          skip_select = 1;
+
+          auto        *RES = llvm::cast<llvm::Instruction>(result);
+          LLVMContext &Ctx = RES->getContext();
+          MDNode      *Tag = MDNode::get(Ctx, {});
+          RES->setMetadata("afl.skip", Tag);
           // fprintf(stderr, "Icmp!\n");
 
         } else if (fcmp) {
@@ -1295,22 +1296,13 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
               createGuardPointer(IRB, cnt_cov + special + local_selects++ +
                                           AllBlocks.size() - skip_blocks);
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
-          skip_select = 1;
+          auto        *RES = llvm::cast<llvm::Instruction>(result);
+          LLVMContext &Ctx = RES->getContext();
+          MDNode      *Tag = MDNode::get(Ctx, {});
+          RES->setMetadata("afl.skip", Tag);
           // fprintf(stderr, "Fcmp!\n");
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
-
-          if (skip_select) {
-
-            skip_select = 0;
-            // fprintf(stderr, "skip ^^^ select\n");
-            continue;
-
-          } else {
-
-            // fprintf(stderr, "Select!\n");
-
-          }
 
           Value *condition = selectInst->getCondition();
           auto   t = condition->getType();
@@ -1324,7 +1316,10 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
                 createGuardPointer(IRB, cnt_cov + special + local_selects++ +
                                             AllBlocks.size() - skip_blocks);
             result = IRB.CreateSelect(condition, GuardPtr1, GuardPtr2);
-            skip_select = 1;
+            auto        *RES = llvm::cast<llvm::Instruction>(result);
+            LLVMContext &Ctx = RES->getContext();
+            MDNode      *Tag = MDNode::get(Ctx, {});
+            RES->setMetadata("afl.skip", Tag);
 
           } else
 
@@ -1337,7 +1332,10 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
               result = instrumentVectorSelect(IRB, condition, tt, local_selects,
                                               cnt_cov, skip_blocks, special,
                                               AllBlocks);
-              skip_select = 1;
+              auto        *RES = llvm::cast<llvm::Instruction>(result);
+              LLVMContext &Ctx = RES->getContext();
+              MDNode      *Tag = MDNode::get(Ctx, {});
+              RES->setMetadata("afl.skip", Tag);
 
             }
 
@@ -1362,7 +1360,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         LoadInst *MapPtr = IRB.CreateLoad(PtrTy, AFLMapPtr);
         SetNoSanitizeMetadata(MapPtr);
 
-        updateCoverageForSelect(IRB, result, MapPtr, vector_cnt, skip_icmp);
+        updateCoverageForSelect(IRB, result, MapPtr, vector_cnt);
         instr += vector_cnt;
 
       }
