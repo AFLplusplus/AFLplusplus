@@ -2,7 +2,7 @@
 
 #define _GRAMFUZZ_H
 
-#include <json-c/json.h>
+#include "cJSON/cJSON.h"
 #include <unistd.h>
 #include "hashmap.h"
 #include "uthash.h"
@@ -192,7 +192,7 @@ void   concatPrefixFeatureBench(Array *, Array *);
 Array *carve(Array *, int, int);
 int    fact(int);
 
-void                add_to_corpus(struct json_object *, Array *);
+void                add_to_corpus(struct cJSON *, Array *);
 struct json_object *term_to_json(terminal *);
 
 /* Gramatron specific prototypes */
