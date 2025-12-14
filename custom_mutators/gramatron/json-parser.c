@@ -1,4 +1,4 @@
-#include "json_parser.h"
+#include "json-parser.h"
 
 cJSON *load_json_file(u8 *automation_file) {
   FILE *f = fopen(automation_file, "rb");

@@ -1,15 +1,10 @@
 // This simple example just creates random buffer <= 100 filled with 'A'
 // needs -I /path/to/AFLplusplus/include
 // #include "custom_mutator_helpers.h"
-
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-
 #include "afl-fuzz.h"
 #include "gramfuzz.h"
 
+#include "gramfuzz-rng.h"
 #define MUTATORS 4  // Specify the total number of mutators
 
 typedef struct my_mutator {
@@ -35,6 +30,8 @@ typedef struct my_mutator {
 
 } my_mutator_t;
 
+
+
 state *create_pda(u8 *automaton_file) {
   // changed from json_object to cJSON
   cJSON       *parsed_json;
@@ -45,7 +42,10 @@ state *create_pda(u8 *automaton_file) {
   printf("\n[GF] Automaton file passed:%s", automaton_file);
   // parsed_json =
   // json_object_from_file("./gramfuzz/php_gnf_processed_full.json");
-  parsed_json = cJSON_Parse(automaton_file);
+  parsed_json = load_json_file(automaton_file);
+  if (!parsed_json) {
+    PFATAL("Failed to load automaton JSON from '%s'", automaton_file);
+  }
 
   // Getting final state
   source_obj = cJSON_GetObjectItem(parsed_json, "final_state");
@@ -61,13 +61,11 @@ state *create_pda(u8 *automaton_file) {
 
   // Getting number of states
   source_obj = cJSON_GetObjectItem(parsed_json, "numstates");
-  numstates = atoi(source_obj->valuestring) + 1;
+  numstates = source_obj->valueint + 1;
   printf("\tNumStates=%d\n", numstates);
 
   // Allocate state space for each pda state
-  pda = (state *)calloc(atoi(source_obj->valuestring) + 1,
-                        sizeof(state));
-
+  pda = (state *)calloc(numstates,sizeof(state));
   // Getting PDA representation
   source_obj = cJSON_GetObjectItem(parsed_json, "pda");
   cJSON * state_item;
@@ -162,6 +160,12 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   // data->mutator_buf = NULL;
 
   char *automaton_file = getenv("GRAMATRON_AUTOMATION");
+  fprintf(stderr,
+        "[GF] automaton_file ptr=%p, value='%s'\n",
+        (void *)automaton_file,
+        automaton_file ? automaton_file : "(null)");
+  fflush(stderr);
+
   if (automaton_file) {
 
     pda = create_pda(automaton_file);
@@ -213,7 +217,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
   } else if (data->mut_idx == 2) {  // Perform splice mutation
 
     // we cannot use the supplied splice data so choose a new random file
-    u32                 tid = rand_below(global_afl, data->afl->queued_items);
+    u32                 tid = gf_rand_below(global_afl, data->afl->queued_items);
     struct queue_entry *q = data->afl->queue_buf[tid];
 
     // Read the input representation for the splice candidate
