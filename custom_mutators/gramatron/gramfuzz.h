@@ -2,11 +2,18 @@
 
 #define _GRAMFUZZ_H
 
-#include <json-c/json.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include "cJSON/cJSON.h"
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include "hashmap.h"
 #include "uthash.h"
 #include "utarray.h"
+#include "json-parser.h"
 
 #define INIT_INPUTS 100  // No. of initial inputs to be generated
 
@@ -23,7 +30,7 @@
   3600  // Inputs that gave new coverage will be dumped every FLUSH_INTERVAL
         // seconds
 
-afl_state_t *global_afl;
+extern afl_state_t *global_afl;
 
 typedef struct trigger {
 
@@ -57,10 +64,10 @@ typedef struct buckethash {
 
 } buckethash;
 
-int init_state;
-int curr_state;
-int final_state;
-int numstates;
+extern int init_state;
+extern int curr_state;
+extern int final_state;
+extern int numstates;
 
 /*****************
 / DYNAMIC ARRAY FOR WALKS
@@ -125,7 +132,7 @@ typedef struct {
 } SpliceCandArray;
 
 // Initialize dynamic array for potential splice points
-SpliceCand potential[SPLICE_CORPUS];
+extern SpliceCand potential[SPLICE_CORPUS];
 
 typedef struct {
 
@@ -192,7 +199,7 @@ void   concatPrefixFeatureBench(Array *, Array *);
 Array *carve(Array *, int, int);
 int    fact(int);
 
-void                add_to_corpus(struct json_object *, Array *);
+void                add_to_corpus(struct cJSON *, Array *);
 struct json_object *term_to_json(terminal *);
 
 /* Gramatron specific prototypes */
@@ -201,7 +208,7 @@ Array *performSpliceGF(state *, Array *, afl_state_t *);
 void   dump_input(u8 *, char *, int *);
 void   write_input(Array *, u8 *);
 Array *read_input(state *, u8 *);
-state *pda;
+extern state *pda;
 
 // // AFL-specific struct
 // typedef uint8_t  u8;
