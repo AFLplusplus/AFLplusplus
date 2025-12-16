@@ -1,32 +1,26 @@
 #![cfg(unix)]
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     cell::{RefCell, UnsafeCell},
     collections::HashMap,
     ffi::CStr,
 };
 
-use custom_mutator::{afl_state, export_mutator, CustomMutator};
-
+use custom_mutator::{CustomMutator, afl_state, export_mutator};
 use libafl::{
-    bolts::{rands::StdRand, serdeany::SerdeAnyMap, tuples::Merge},
-    corpus::{Corpus, Testcase},
-    inputs::{BytesInput, HasBytesVec},
+    Error, HasMetadata,
+    corpus::{Corpus, CorpusId, Testcase},
+    inputs::BytesInput,
     mutators::{
-        scheduled::{havoc_mutations, tokens_mutations, StdScheduledMutator, Tokens},
-        Mutator,
+        HavocScheduledMutator, Mutator, Tokens, havoc_mutations::havoc_mutations, tokens_mutations,
     },
-    prelude::UsesInput,
-    state::{HasCorpus, HasMaxSize, HasMetadata, HasRand, State, UsesState},
-    Error,
+    state::{HasMaxSize, StdState},
 };
-
-#[allow(clippy::identity_op)]
-const MAX_FILE: usize = 1 * 1024 * 1024;
+use libafl_bolts::{rands::StdRand, tuples::Merge};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 static mut AFL: Option<&'static afl_state> = None;
-static mut CURRENT_ENTRY: Option<usize> = None;
+static mut CURRENT_ENTRY: Option<CorpusId> = None;
 
 fn afl() -> &'static afl_state {
     unsafe { AFL.unwrap() }
@@ -65,42 +59,39 @@ impl<'de> Deserialize<'de> for AFLCorpus {
     }
 }
 
-impl UsesState for AFLCorpus {
-    type State = AFLState;
-}
-
-impl Corpus for AFLCorpus {
+impl Corpus<BytesInput> for AFLCorpus {
     #[inline]
     fn count(&self) -> usize {
         afl().queued_items as usize
     }
 
     #[inline]
-    fn add(&mut self, _testcase: Testcase<BytesInput>) -> Result<usize, Error> {
+    fn add(&mut self, _testcase: Testcase<BytesInput>) -> Result<CorpusId, Error> {
         unimplemented!();
     }
 
     #[inline]
     fn replace(
         &mut self,
-        _idx: usize,
+        _idx: CorpusId,
         _testcase: Testcase<BytesInput>,
-    ) -> Result<Testcase<Self::Input>, Error> {
+    ) -> Result<Testcase<BytesInput>, Error> {
         unimplemented!();
     }
 
     #[inline]
-    fn remove(&mut self, _idx: usize) -> Result<Option<Testcase<BytesInput>>, Error> {
+    fn remove(&mut self, _idx: CorpusId) -> Result<Testcase<BytesInput>, Error> {
         unimplemented!();
     }
 
     #[inline]
-    fn get(&self, idx: usize) -> Result<&RefCell<Testcase<BytesInput>>, Error> {
+    fn get(&self, idx: CorpusId) -> Result<&RefCell<Testcase<BytesInput>>, Error> {
+        let idx_usize: usize = idx.into();
         unsafe {
             let entries = self.entries.get().as_mut().unwrap();
-            entries.entry(idx).or_insert_with(|| {
+            entries.entry(idx_usize).or_insert_with(|| {
                 let queue_buf = std::slice::from_raw_parts_mut(afl().queue_buf, self.count());
-                let entry = queue_buf[idx].as_mut().unwrap();
+                let entry = queue_buf[idx_usize].as_mut().unwrap();
                 let fname = CStr::from_ptr((entry.fname.cast::<i8>()).as_ref().unwrap())
                     .to_str()
                     .unwrap()
@@ -109,102 +100,75 @@ impl Corpus for AFLCorpus {
                 *testcase.input_mut() = None;
                 RefCell::new(testcase)
             });
-            Ok(&self.entries.get().as_ref().unwrap()[&idx])
+            Ok(&self.entries.get().as_ref().unwrap()[&idx_usize])
         }
     }
 
     #[inline]
-    fn current(&self) -> &Option<usize> {
+    #[allow(static_mut_refs)]
+    fn current(&self) -> &Option<CorpusId> {
         unsafe {
-            CURRENT_ENTRY = Some(afl().current_entry as usize);
+            CURRENT_ENTRY = Some(CorpusId::from(afl().current_entry as usize));
             &CURRENT_ENTRY
         }
     }
 
     #[inline]
-    fn current_mut(&mut self) -> &mut Option<usize> {
+    fn current_mut(&mut self) -> &mut Option<CorpusId> {
         unimplemented!();
     }
-}
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct AFLState {
-    rand: StdRand,
-    corpus: AFLCorpus,
-    metadata: SerdeAnyMap,
-    max_size: usize,
-}
-
-impl AFLState {
-    #[must_use]
-    pub fn new(seed: u32) -> Self {
-        Self {
-            rand: StdRand::with_seed(u64::from(seed)),
-            corpus: AFLCorpus::default(),
-            metadata: SerdeAnyMap::new(),
-            max_size: MAX_FILE,
-        }
-    }
-}
-
-impl State for AFLState {}
-
-impl HasRand for AFLState {
-    type Rand = StdRand;
-
-    #[inline]
-    fn rand(&self) -> &Self::Rand {
-        &self.rand
+    fn next(&self, _idx: CorpusId) -> Option<CorpusId> {
+        todo!()
     }
 
-    #[inline]
-    fn rand_mut(&mut self) -> &mut Self::Rand {
-        &mut self.rand
-    }
-}
-
-impl UsesInput for AFLState {
-    type Input = BytesInput;
-}
-
-impl HasCorpus for AFLState {
-    type Corpus = AFLCorpus;
-
-    #[inline]
-    fn corpus(&self) -> &Self::Corpus {
-        &self.corpus
+    fn prev(&self, _idx: CorpusId) -> Option<CorpusId> {
+        todo!()
     }
 
-    #[inline]
-    fn corpus_mut(&mut self) -> &mut Self::Corpus {
-        &mut self.corpus
-    }
-}
-
-impl HasMetadata for AFLState {
-    #[inline]
-    fn metadata(&self) -> &SerdeAnyMap {
-        &self.metadata
+    fn first(&self) -> Option<CorpusId> {
+        todo!()
     }
 
-    #[inline]
-    fn metadata_mut(&mut self) -> &mut SerdeAnyMap {
-        &mut self.metadata
-    }
-}
-
-impl HasMaxSize for AFLState {
-    fn max_size(&self) -> usize {
-        self.max_size
+    fn last(&self) -> Option<CorpusId> {
+        todo!()
     }
 
-    fn set_max_size(&mut self, max_size: usize) {
-        self.max_size = max_size;
+    fn peek_free_id(&self) -> CorpusId {
+        todo!()
+    }
+
+    fn get_from_all(&self, _id: CorpusId) -> Result<&RefCell<Testcase<BytesInput>>, Error> {
+        todo!()
+    }
+
+    fn count_all(&self) -> usize {
+        self.count()
+    }
+
+    fn count_disabled(&self) -> usize {
+        0
+    }
+
+    fn add_disabled(&mut self, _testcase: Testcase<BytesInput>) -> Result<CorpusId, Error> {
+        todo!()
+    }
+
+    fn nth_from_all(&self, _nth: usize) -> CorpusId {
+        todo!()
+    }
+
+    fn load_input_into(&self, _testcase: &mut Testcase<BytesInput>) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn store_input_from(&self, _testcase: &Testcase<BytesInput>) -> Result<(), Error> {
+        todo!()
     }
 }
 
 struct LibAFLBaseCustomMutator {
-    state: AFLState,
+    state: StdState<AFLCorpus, BytesInput, StdRand, AFLCorpus>,
     input: BytesInput,
 }
 
@@ -214,7 +178,13 @@ impl CustomMutator for LibAFLBaseCustomMutator {
     fn init(afl: &'static afl_state, seed: u32) -> Result<Self, Self::Error> {
         unsafe {
             AFL = Some(afl);
-            let mut state = AFLState::new(seed);
+            let rand = StdRand::with_seed(u64::from(seed));
+            let corpus = AFLCorpus::default();
+            let solutions = AFLCorpus::default();
+            let mut feedback = ();
+            let mut objective = ();
+            let mut state = StdState::new(rand, corpus, solutions, &mut feedback, &mut objective)?;
+
             let extras = std::slice::from_raw_parts(afl.extras, afl.extras_cnt as usize);
             let mut tokens = vec![];
             for extra in extras {
@@ -240,12 +210,11 @@ impl CustomMutator for LibAFLBaseCustomMutator {
         self.state.set_max_size(max_size);
 
         // TODO avoid copy
-        self.input.bytes_mut().clear();
-        self.input.bytes_mut().extend_from_slice(buffer);
+        self.input = BytesInput::new(buffer.to_vec());
 
-        let mut mutator = StdScheduledMutator::new(havoc_mutations().merge(tokens_mutations()));
-        mutator.mutate(&mut self.state, &mut self.input, 0)?;
-        Ok(Some(self.input.bytes()))
+        let mut mutator = HavocScheduledMutator::new(havoc_mutations().merge(tokens_mutations()));
+        mutator.mutate(&mut self.state, &mut self.input)?;
+        Ok(Some(self.input.as_ref()))
     }
 }
 
