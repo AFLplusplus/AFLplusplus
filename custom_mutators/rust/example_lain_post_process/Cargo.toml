@@ -2,8 +2,8 @@
 name = "example_lain_post_process"
 version = "0.1.0"
 authors = [
-    "Julius Hohnerlein <julihoh@users.noreply.github.com>",
-    "jma <94166787+jma-qb@users.noreply.github.com>",
+  "Julius Hohnerlein <julihoh@users.noreply.github.com>",
+  "jma <94166787+jma-qb@users.noreply.github.com>",
 ]
 edition = "2021"
 

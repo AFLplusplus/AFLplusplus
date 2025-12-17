@@ -1,0 +1,25 @@
+[package]
+name = "libafl_nautilus"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libafl = { version = "0.15.4", features = ["std", "nautilus"] }
+libafl_bolts = { version = "0.15.4", features = ["std"] }
+custom_mutator = { path = "../rust/custom_mutator", features = [
+  "afl_internals",
+] }
+libafl_base = { path = "../libafl_base", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["alloc"] }
+serde_json = { version = "1.0", optional = true }
+postcard = { version = "1.0", features = ["alloc"] }
+clap = { version = "4.5", features = ["derive"] }
+
+[features]
+default = []
+json = ["dep:serde_json", "libafl_base/json"]
+
+[lib]
+crate-type = ["cdylib"]

@@ -5,11 +5,23 @@ edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["mutator"]
+mutator = []
+json = ["dep:serde_json"]
+
 [dependencies]
 libafl = { version = "0.15.4", features = ["prelude"] }
 libafl_bolts = { version = "0.15.4" }
-custom_mutator = { path = "../rust/custom_mutator", features = ["afl_internals"] }
-serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
+custom_mutator = { path = "../rust/custom_mutator", features = [
+  "afl_internals",
+] }
+serde = { version = "1.0", default-features = false, features = [
+  "alloc",
+] } # serialization lib
+lru = "0.12"
+postcard = { version = "1.0", features = ["alloc"] }
+serde_json = { version = "1.0", optional = true, features = ["alloc"] }
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]

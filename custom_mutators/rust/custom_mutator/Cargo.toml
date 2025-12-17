@@ -10,4 +10,4 @@ edition = "2021"
 afl_internals = ["custom_mutator-sys"]
 
 [dependencies]
-custom_mutator-sys = { path = "../custom_mutator-sys", optional=true }
+custom_mutator-sys = { path = "../custom_mutator-sys", optional = true }
