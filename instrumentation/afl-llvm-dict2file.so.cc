@@ -238,8 +238,17 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
         if ((cmpInst = dyn_cast<CmpInst>(&IN))) {
 
+          /* Check both operands for constants since LLVM may place the
+             constant in either operand depending on the comparison
+             direction and optimization level */
           Value       *op = cmpInst->getOperand(1);
           ConstantInt *ilen = dyn_cast<ConstantInt>(op);
+          if (!ilen) {
+
+            op = cmpInst->getOperand(0);
+            ilen = dyn_cast<ConstantInt>(op);
+
+          }
 
           /* We skip > 64 bit integers. why? first because their value is
              difficult to obtain, and second because clang does not support
