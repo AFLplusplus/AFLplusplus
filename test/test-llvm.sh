@@ -294,6 +294,15 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   INCOMPLETE=1
  }
   rm -rf errors test-cmplog in core.*
+  # Test cmplog back-edge/loop detection
+  test -e test-cmplog-loops.sh && {
+    ./test-cmplog-loops.sh > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] cmplog loop back-edge detection test passed"
+    } || {
+      $ECHO "$RED[!] cmplog loop back-edge detection test failed"
+      CODE=1
+    }
+  }
   ../afl-clang-fast -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
