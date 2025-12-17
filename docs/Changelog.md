@@ -23,7 +23,8 @@
   - afl-tmin
     - fix custom trimmings, thanks to @renatahodovan!
   - custom mutators:
-    - fix for Gramatron script by @jubnzv
+    - Gramatron: fixes + cjson switch by @CarvedCoder, fix by @jubnzv
+
 
 ### Version ++4.34c (release)
   - IJON integration by @vi3tL0u1s - thanks a lot!!
