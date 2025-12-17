@@ -366,8 +366,11 @@ void scanForDangerousFunctions(llvm::Module *M) {
 
           if (CS->getNumOperands() >= 2) {
 
-            if (CS->getOperand(1)->isNullValue())
-              break;  // Found a null terminator, stop here.
+            // Skip null entries - these can appear when constructor functions
+            // are removed by optimization passes (e.g., GlobalDCE) or during
+            // LTO linking without the array being compacted.
+            // See LLVM's CtorUtils.cpp which also uses continue for null entries.
+            if (CS->getOperand(1)->isNullValue()) continue;
 
             ConstantInt *CI = dyn_cast<ConstantInt>(CS->getOperand(0));
             int          Priority = CI ? CI->getSExtValue() : 0;
