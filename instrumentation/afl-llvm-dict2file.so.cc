@@ -249,8 +249,8 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
             u64 val2 = 0, val = ilen->getZExtValue();
             u32 len = 0;
-            if (val > 0x10000 && val < 0xffffffff) len = 4;
-            if (val > 0x100000001 && val < 0xffffffffffffffff) len = 8;
+            if (val >= 0x10000 && val <= 0xffffffff) len = 4;
+            if (val > 0xffffffff && val < 0xffffffffffffffff) len = 8;
 
             if (len) {
 
