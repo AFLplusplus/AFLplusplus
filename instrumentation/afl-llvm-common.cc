@@ -369,7 +369,8 @@ void scanForDangerousFunctions(llvm::Module *M) {
             // Skip null entries - these can appear when constructor functions
             // are removed by optimization passes (e.g., GlobalDCE) or during
             // LTO linking without the array being compacted.
-            // See LLVM's CtorUtils.cpp which also uses continue for null entries.
+            // See LLVM's CtorUtils.cpp which also uses continue for null
+            // entries.
             if (CS->getOperand(1)->isNullValue()) continue;
 
             ConstantInt *CI = dyn_cast<ConstantInt>(CS->getOperand(0));
