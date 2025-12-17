@@ -294,6 +294,22 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   INCOMPLETE=1
  }
   rm -rf errors test-cmplog in core.*
+  # Test cmplog buffer over-read fix
+  test -e test-cmplog-overread.c && {
+    AFL_LLVM_CMPLOG=1 ../afl-clang-fast -O0 -o test-cmplog-overread test-cmplog-overread.c > /dev/null 2>&1
+    test -e test-cmplog-overread && {
+      ./test-cmplog-overread > /dev/null 2>&1 && {
+        $ECHO "$GREEN[+] cmplog buffer over-read test passed"
+      } || {
+        $ECHO "$RED[!] cmplog buffer over-read test failed (binary crashed)"
+        CODE=1
+      }
+      rm -f test-cmplog-overread
+    } || {
+      $ECHO "$RED[!] cmplog buffer over-read test compilation failed"
+      CODE=1
+    }
+  }
   ../afl-clang-fast -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
