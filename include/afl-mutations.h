@@ -2512,7 +2512,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         }
 
         char numbuf[32];
-        snprintf(numbuf, sizeof(buf), "%" PRId64, val);
+        snprintf(numbuf, sizeof(numbuf), "%" PRId64, val);
         u32 old_len = off2 - off;
         u32 new_len = strlen(numbuf);
 
