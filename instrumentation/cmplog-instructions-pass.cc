@@ -26,6 +26,7 @@
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
@@ -114,8 +115,57 @@ Iterator Unique(Iterator first, Iterator last) {
 bool IsBackEdge(BasicBlock *From, BasicBlock *To, const DominatorTree *DT) {
 
   if (DT->dominates(To, From)) return true;
-  if (auto Next = To->getUniqueSuccessor())
-    if (DT->dominates(Next, From)) return true;
+
+  // Follow chain of unique successors through "empty" blocks (blocks that only
+  // contain PHI nodes and an unconditional branch) to find back-edges through
+  // blocks inserted by sanitizer coverage instrumentation.
+  SmallPtrSet<BasicBlock *, 8> Visited;
+  BasicBlock                  *Current = To;
+  while (Current && Visited.insert(Current).second) {
+
+    if (auto Next = Current->getUniqueSuccessor()) {
+
+      if (DT->dominates(Next, From)) return true;
+
+      // Only continue through "empty" blocks (just PHIs + branch)
+      // to avoid following through actual code blocks
+      bool IsEmptyBlock = true;
+      for (Instruction &I : *Current) {
+
+        if (!isa<PHINode>(I) && !isa<BranchInst>(I)) {
+
+          IsEmptyBlock = false;
+          break;
+
+        }
+
+      }
+
+      if (!IsEmptyBlock) break;
+      Current = Next;
+
+    } else {
+
+      break;
+
+    }
+
+  }
+
+  return false;
+
+}
+
+// Check if a block is a loop header by looking for incoming back-edges
+bool IsLoopHeader(BasicBlock *BB, const DominatorTree *DT) {
+
+  for (BasicBlock *Pred : predecessors(BB)) {
+
+    // If BB dominates a predecessor, that's a back-edge into BB
+    if (DT->dominates(BB, Pred)) return true;
+
+  }
+
   return false;
 
 }
@@ -202,11 +252,34 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
         CmpInst *selectcmpInst = nullptr;
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
 
-          // skip loop comparisons
-          if (selectcmpInst->hasOneUse())
-            if (auto BR = dyn_cast<BranchInst>(selectcmpInst->user_back()))
+          // skip loop comparisons (back-edges)
+          bool dominated = false;
+          if (selectcmpInst->hasOneUse()) {
+
+            if (auto BR = dyn_cast<BranchInst>(selectcmpInst->user_back())) {
+
+              // Check if any successor leads to a back-edge
               for (BasicBlock *B : BR->successors())
-                if (IsBackEdge(BR->getParent(), B, DT)) continue;
+                if (IsBackEdge(BR->getParent(), B, DT)) {
+
+                  dominated = true;
+                  break;
+
+                }
+
+              // Also check if the compare's block is a loop header
+              // (has incoming back-edges), indicating this is a loop condition
+              if (!dominated && IsLoopHeader(BR->getParent(), DT)) {
+
+                dominated = true;
+
+              }
+
+            }
+
+          }
+
+          if (dominated) continue;
 
           icomps.push_back(selectcmpInst);
 
