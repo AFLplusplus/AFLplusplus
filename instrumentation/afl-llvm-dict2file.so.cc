@@ -264,8 +264,8 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
                 case CmpInst::ICMP_SGT:
 
                   // signed comparison and it is a negative constant
-                  if ((len == 4 && (val & 80000000)) ||
-                      (len == 8 && (val & 8000000000000000))) {
+                  if ((len == 4 && (val & 0x80000000)) ||
+                      (len == 8 && (val & 0x8000000000000000))) {
 
                     if ((val & 0xffff) != 1) val2 = val - 1;
                     break;
@@ -287,8 +287,8 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
                 case CmpInst::ICMP_SGE:
 
                   // signed comparison and it is a negative constant
-                  if ((len == 4 && (val & 80000000)) ||
-                      (len == 8 && (val & 8000000000000000))) {
+                  if ((len == 4 && (val & 0x80000000)) ||
+                      (len == 8 && (val & 0x8000000000000000))) {
 
                     if ((val & 0xffff) != 1) val2 = val - 1;
                     break;
