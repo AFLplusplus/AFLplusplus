@@ -452,29 +452,31 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
           std::string Str1, Str2;
           StringRef   TmpStr;
           bool        HasStr1;
-          getConstantStringInfo(Str1P, TmpStr);
 
-          if (isStrstr || TmpStr.empty()) {
-
-            HasStr1 = false;
-
-          } else {
+          /* Use return value of getConstantStringInfo rather than checking
+             TmpStr.empty() - the StringRef may not be cleared on failure,
+             causing false positives when the same TmpStr is reused */
+          if (getConstantStringInfo(Str1P, TmpStr) && !TmpStr.empty() &&
+              !isStrstr) {
 
             HasStr1 = true;
             Str1 = TmpStr.str();
 
+          } else {
+
+            HasStr1 = false;
+
           }
 
           bool HasStr2;
-          getConstantStringInfo(Str2P, TmpStr);
-          if (TmpStr.empty()) {
-
-            HasStr2 = false;
-
-          } else {
+          if (getConstantStringInfo(Str2P, TmpStr) && !TmpStr.empty()) {
 
             HasStr2 = true;
             Str2 = TmpStr.str();
+
+          } else {
+
+            HasStr2 = false;
 
           }
 
