@@ -14,6 +14,7 @@
   - afl-cc:
     - Huge refactor for default pcguard instrumentation, several minor and
       medium bug fixes
+    - Various small fixes by @nbars, thanks!
     - IJON fix to search for the necessary include
     - Allow compiling the gcc plugin with clang++, thanks to @exoosh
     - Fix for unusual bit sizes in cmplog-instructions-pass by @forzafedor
