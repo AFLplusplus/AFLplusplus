@@ -422,6 +422,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
   BlockList.clear();
   valueMap.clear();
   dictionary.clear();
+  GlobalsToAppendToUsed.clear();
+  GlobalsToAppendToCompilerUsed.clear();
   C = &(M.getContext());
   DL = &M.getDataLayout();
   CurModule = &M;
