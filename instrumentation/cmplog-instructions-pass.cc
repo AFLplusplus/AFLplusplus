@@ -580,7 +580,7 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
                                           ModuleAnalysisManager &MAM) {
 
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto  LICallback = [&FAM](Function &F) -> LoopInfo * {
+  auto  LICallback = [&FAM](Function &F) -> LoopInfo  *{
 
     return &FAM.getResult<LoopAnalysis>(F);
 
