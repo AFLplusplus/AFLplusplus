@@ -26,7 +26,6 @@
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
@@ -39,6 +38,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Passes/OptimizationLevel.h"
+#include "llvm/Analysis/LoopInfo.h"
 
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/DebugInfo.h"
@@ -51,7 +51,7 @@ using namespace llvm;
 
 namespace {
 
-using DomTreeCallback = function_ref<const DominatorTree *(Function &F)>;
+using LoopInfoCallback = function_ref<LoopInfo *(Function &F)>;
 
 class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
 
@@ -65,7 +65,7 @@ class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
  private:
-  bool hookInstrs(Module &M, DomTreeCallback DTCallback);
+  bool hookInstrs(Module &M, LoopInfoCallback LICallback);
 
 };
 
@@ -112,43 +112,19 @@ Iterator Unique(Iterator first, Iterator last) {
 
 }
 
-bool IsBackEdge(BasicBlock *From, BasicBlock *To, const DominatorTree *DT) {
+// Check if a compare instruction is a loop condition that should be skipped.
+// Returns true if the branch is part of loop control flow (latch, header, or
+// exiting block) for any containing loop.
+static bool IsLoopCondition(BranchInst *BR, LoopInfo *LI) {
 
-  if (DT->dominates(To, From)) return true;
+  BasicBlock *BranchBB = BR->getParent();
 
-  // Follow chain of unique successors through "empty" blocks (blocks that only
-  // contain PHI nodes and an unconditional branch) to find back-edges through
-  // blocks inserted by sanitizer coverage instrumentation.
-  SmallPtrSet<BasicBlock *, 8> Visited;
-  BasicBlock                  *Current = To;
-  while (Current && Visited.insert(Current).second) {
+  // Check all loops containing this block (innermost to outermost)
+  for (Loop *L = LI->getLoopFor(BranchBB); L; L = L->getParentLoop()) {
 
-    if (auto Next = Current->getUniqueSuccessor()) {
-
-      if (DT->dominates(Next, From)) return true;
-
-      // Only continue through "empty" blocks (just PHIs + branch)
-      // to avoid following through actual code blocks
-      bool IsEmptyBlock = true;
-      for (Instruction &I : *Current) {
-
-        if (!isa<PHINode>(I) && !isa<BranchInst>(I)) {
-
-          IsEmptyBlock = false;
-          break;
-
-        }
-
-      }
-
-      if (!IsEmptyBlock) break;
-      Current = Next;
-
-    } else {
-
-      break;
-
-    }
+    if (L->isLoopLatch(BranchBB)) return true;    // Back-edge source
+    if (L->getHeader() == BranchBB) return true;  // Loop header condition
+    if (L->isLoopExiting(BranchBB)) return true;  // Loop exit condition
 
   }
 
@@ -156,21 +132,7 @@ bool IsBackEdge(BasicBlock *From, BasicBlock *To, const DominatorTree *DT) {
 
 }
 
-// Check if a block is a loop header by looking for incoming back-edges
-bool IsLoopHeader(BasicBlock *BB, const DominatorTree *DT) {
-
-  for (BasicBlock *Pred : predecessors(BB)) {
-
-    // If BB dominates a predecessor, that's a back-edge into BB
-    if (DT->dominates(BB, Pred)) return true;
-
-  }
-
-  return false;
-
-}
-
-bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
+bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
   std::vector<Instruction *> icomps;
   LLVMContext               &C = M.getContext();
@@ -243,7 +205,6 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
   for (auto &F : M) {
 
     if (!isInInstrumentList(&F, MNAME)) continue;
-    const DominatorTree *DT = DTCallback(F);
 
     for (auto &BB : F) {
 
@@ -252,34 +213,10 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
         CmpInst *selectcmpInst = nullptr;
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
 
-          // skip loop comparisons (back-edges)
-          bool dominated = false;
-          if (selectcmpInst->hasOneUse()) {
-
-            if (auto BR = dyn_cast<BranchInst>(selectcmpInst->user_back())) {
-
-              // Check if any successor leads to a back-edge
-              for (BasicBlock *B : BR->successors())
-                if (IsBackEdge(BR->getParent(), B, DT)) {
-
-                  dominated = true;
-                  break;
-
-                }
-
-              // Also check if the compare's block is a loop header
-              // (has incoming back-edges), indicating this is a loop condition
-              if (!dominated && IsLoopHeader(BR->getParent(), DT)) {
-
-                dominated = true;
-
-              }
-
-            }
-
-          }
-
-          if (dominated) continue;
+          // skip loop comparisons using LoopInfo for robust detection
+          if (selectcmpInst->hasOneUse())
+            if (auto BR = dyn_cast<BranchInst>(selectcmpInst->user_back()))
+              if (IsLoopCondition(BR, LICallback(F))) continue;
 
           icomps.push_back(selectcmpInst);
 
@@ -643,9 +580,9 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
                                           ModuleAnalysisManager &MAM) {
 
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
+  auto  LICallback = [&FAM](Function &F) -> LoopInfo * {
 
-    return &FAM.getResult<DominatorTreeAnalysis>(F);
+    return &FAM.getResult<LoopAnalysis>(F);
 
   };
 
@@ -654,7 +591,7 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
   else
     be_quiet = 1;
 
-  bool ret = hookInstrs(M, DTCallback);
+  bool ret = hookInstrs(M, LICallback);
   verifyModule(M);
 
   if (ret == false)
