@@ -127,4 +127,8 @@ utils/plot_ui/afl-plot-ui
 vuln_prog
 argv_fuzz_demo
 argv_fuzz_persistent_demo
+<<<<<<< HEAD
 test/test-nautilus-target
+=======
+target
+>>>>>>> 6acccfde (Move to external corpus and keep afl corpus alive)

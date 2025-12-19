@@ -24,17 +24,15 @@ make
 ## Usage
 
 To run AFL++ with this mutator, you need to:
-1.  Set `AFL_CUSTOM_MUTATOR_LIBRARY` to the path of the compiled shared library.
-2.  Set `AFL_POST_PROCESS_KEEP_ORIGINAL=1` to ensure AFL++ stores the serialized tree in the queue, not the unparsed bytes.
-3.  Set `NAUTILUS_GRAMMAR_FILE` to the path of your grammar JSON file.
+-  Set `AFL_CUSTOM_MUTATOR_LIBRARY` to the path of the compiled shared library.
+-  Set `NAUTILUS_GRAMMAR_FILE` to the path of your grammar JSON file.
 
 ```sh
 export NAUTILUS_GRAMMAR_FILE=/path/to/grammar.json
 export AFL_CUSTOM_MUTATOR_LIBRARY=target/release/liblibafl_nautilus.so
-export AFL_POST_PROCESS_KEEP_ORIGINAL=1
 
 # Run AFL++ (add -n if you don't want deterministic fuzzing, usually good for grammar)
-afl-fuzz -i in -o out -n -- ./target @@
+afl-fuzz -i in -o out -- ./target @@
 ```
 
 ## Tools

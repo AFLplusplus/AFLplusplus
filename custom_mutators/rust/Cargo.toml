@@ -7,3 +7,7 @@ members = [
   # "example_lain",
   # "example_lain_post_process",
 ]
+exclude = [
+  "example_lain",
+  "example_lain_post_process",
+]

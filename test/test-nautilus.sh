@@ -30,6 +30,32 @@ if [ ! -f "$LIB_PATH" ]; then
     exit 1
 fi
 
+<<<<<<< HEAD
+=======
+$ECHO "$BLUE[*] Running libafl_nautilus unit tests"
+(cd "$CUSTOM_MUTATOR_PATH" && cargo test) || exit 1
+
+  # Create the vulnerable program
+  cat > test-nautilus-target.c <<EOF
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+int main(int argc, char** argv) {
+  char buf[1024];
+  int len = read(0, buf, 1024);
+  if (len < 0) return 1;
+  buf[len] = 0;
+  if (strstr(buf, "test_custom_mutator") != NULL) {
+    abort();
+  }
+  return 0;
+}
+EOF
+
+  unset AFL_CC
+>>>>>>> 6acccfde (Move to external corpus and keep afl corpus alive)
   # Compile the vulnerable program
   ../afl-cc -o test-nautilus-target test-nautilus-target.c > compilation_errors 2>&1
 

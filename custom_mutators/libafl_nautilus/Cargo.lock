@@ -203,6 +203,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812e12b5285cc515a9c72a5c1d3b6d46a19dac5acfef5265968c166106e31dd3"
 
 [[package]]
+name = "build_id2"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "ahash",
+ "rustversion",
+ "uuid",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -337,6 +347,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "core_affinity2"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "libafl_core",
+ "libc",
+ "rustversion",
+ "serde",
+ "windows",
+]
+
+[[package]]
 name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -420,6 +442,31 @@ dependencies = [
  "serde",
  "serde_core",
  "typeid",
+]
+
+[[package]]
+name = "exceptional"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "libafl_core",
+ "libc",
+ "log",
+ "nix",
+ "num_enum",
+ "rustversion",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
+name = "fast_rands"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "rand_core",
+ "rustversion",
+ "serde",
 ]
 
 [[package]]
@@ -577,9 +624,8 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libafl"
-version = "0.15.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81e13655171e69ad9094dd1be1948950a36d228f01a7cb9f6d8477090d98c6e4"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
 dependencies = [
  "ahash",
  "arbitrary-int 2.0.0",
@@ -592,12 +638,15 @@ dependencies = [
  "fs2",
  "hashbrown 0.16.1",
  "libafl_bolts",
+ "libafl_core",
  "libafl_derive",
  "libc",
  "libm",
+ "ll_mp",
  "log",
  "meminterval",
  "nix",
+ "no_std_time",
  "num-traits",
  "postcard",
  "regex",
@@ -607,6 +656,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "tuple_list",
+ "tuple_list_ex",
  "typed-builder",
  "uuid",
  "wait-timeout",
@@ -624,52 +674,69 @@ dependencies = [
  "lru",
  "postcard",
  "serde",
- "serde_json",
 ]
 
 [[package]]
 name = "libafl_bolts"
-version = "0.15.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52cbae44f69156f035ae2196b135ad27ea95020767e6787bfe45e8c2438c67b9"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
 dependencies = [
  "ahash",
  "backtrace",
- "ctor",
+ "build_id2",
+ "core_affinity2",
  "erased-serde",
+ "exceptional",
+ "fast_rands",
  "hashbrown 0.16.1",
  "hostname",
+ "libafl_core",
  "libafl_derive",
  "libc",
+ "ll_mp",
  "log",
  "mach2",
+ "minibsod",
  "miniz_oxide",
  "nix",
+ "no_std_time",
  "num_enum",
- "once_cell",
+ "ownedref",
  "postcard",
- "rand_core",
  "rustversion",
  "serde",
+ "serde_anymap",
  "serial_test",
+ "shmem_providers",
  "static_assertions",
  "tuple_list",
+ "tuple_list_ex",
  "typeid",
  "uds",
- "uuid",
  "wide",
  "winapi",
  "windows",
- "windows-core",
  "windows-result",
  "xxhash-rust",
 ]
 
 [[package]]
+name = "libafl_core"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "backtrace",
+ "nix",
+ "postcard",
+ "rustversion",
+ "serde",
+ "windows-result",
+]
+
+[[package]]
 name = "libafl_derive"
-version = "0.15.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61adf76899bffdcd15ae7fea42b978e7df7cf9213aacdd8cdcda89e4bb3bc32d"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -685,9 +752,9 @@ dependencies = [
  "libafl",
  "libafl_base",
  "libafl_bolts",
+ "lru",
  "postcard",
  "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -711,6 +778,26 @@ name = "libm"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
+
+[[package]]
+name = "ll_mp"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "exceptional",
+ "hostname",
+ "libafl_core",
+ "log",
+ "miniz_oxide",
+ "nix",
+ "no_std_time",
+ "postcard",
+ "rustversion",
+ "serde",
+ "serial_test",
+ "shmem_providers",
+ "tuple_list",
+]
 
 [[package]]
 name = "lock_api"
@@ -739,12 +826,9 @@ dependencies = [
 
 [[package]]
 name = "mach2"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a1b95cd5421ec55b445b5ae102f5ea0e768de1f82bd3001e11f426c269c3aea"
-dependencies = [
- "libc",
-]
+checksum = "dae608c151f68243f2b000364e1f7b186d9c29845f7d2d85bd31b9ad77ad552b"
 
 [[package]]
 name = "memchr"
@@ -769,6 +853,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "minibsod"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "exceptional",
+ "libc",
+ "mach2",
+ "rustversion",
+ "windows",
 ]
 
 [[package]]
@@ -797,6 +893,14 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "memoffset",
+]
+
+[[package]]
+name = "no_std_time"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]
@@ -859,6 +963,16 @@ name = "once_cell_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
+
+[[package]]
+name = "ownedref"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "libafl_core",
+ "rustversion",
+ "serde",
+]
 
 [[package]]
 name = "parking_lot"
@@ -1005,9 +1119,9 @@ checksum = "7b4b9743ed687d4b4bcedf9ff5eaa7398495ae14e61cba0a295704edbc7decde"
 
 [[package]]
 name = "safe_arch"
-version = "0.7.4"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96b02de82ddbe1b636e6170c21be622223aea188ef2e139be0a5b219ec215323"
+checksum = "1f7caad094bd561859bcd467734a720c3c1f5d1f338995351fefe2190c45efed"
 dependencies = [
  "bytemuck",
 ]
@@ -1047,6 +1161,22 @@ checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde_anymap"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "ahash",
+ "ctor",
+ "erased-serde",
+ "hashbrown 0.16.1",
+ "libafl_core",
+ "postcard",
+ "rustversion",
+ "serde",
+ "static_assertions",
 ]
 
 [[package]]
@@ -1111,6 +1241,26 @@ name = "shlex"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
+
+[[package]]
+name = "shmem_providers"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "fast_rands",
+ "hashbrown 0.16.1",
+ "libafl_core",
+ "libc",
+ "log",
+ "nix",
+ "postcard",
+ "rustversion",
+ "serde",
+ "serial_test",
+ "uds",
+ "uuid",
+ "windows",
+]
 
 [[package]]
 name = "siphasher"
@@ -1200,19 +1350,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "141fb9f71ee586d956d7d6e4d5a9ef8e946061188520140f7591b668841d502e"
 
 [[package]]
+name = "tuple_list_ex"
+version = "0.16.0"
+source = "git+https://github.com/AFLplusplus/LibAFL?rev=67f7474#67f7474a7504597aa466efbddc456ded7f90d649"
+dependencies = [
+ "libafl_core",
+ "ownedref",
+ "rustversion",
+ "serde",
+ "tuple_list",
+ "typeid",
+]
+
+[[package]]
 name = "typed-builder"
-version = "0.22.0"
+version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "398a3a3c918c96de527dc11e6e846cd549d4508030b8a33e1da12789c856b81a"
+checksum = "31aa81521b70f94402501d848ccc0ecaa8f93c8eb6999eb9747e72287757ffda"
 dependencies = [
  "typed-builder-macro",
 ]
 
 [[package]]
 name = "typed-builder-macro"
-version = "0.22.0"
+version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e48cea23f68d1f78eb7bc092881b6bb88d3d6b5b7e6234f6f9c911da1ffb221"
+checksum = "076a02dc54dd46795c2e9c8282ed40bcfb1e22747e955de9389a1de28190fb26"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1364,9 +1527,9 @@ dependencies = [
 
 [[package]]
 name = "wide"
-version = "0.7.33"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ce5da8ecb62bcd8ec8b7ea19f69a51275e91299be594ea5cc6ef7819e16cd03"
+checksum = "8afd0e867c652e7c27e88620e1fbf073ad060a919235f50b64f273d9d4092931"
 dependencies = [
  "bytemuck",
  "safe_arch",

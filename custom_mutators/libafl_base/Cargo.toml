@@ -8,20 +8,19 @@ edition = "2024"
 [features]
 default = ["mutator"]
 mutator = []
-json = ["dep:serde_json"]
 
 [dependencies]
-libafl = { version = "0.15.4", features = ["prelude"] }
-libafl_bolts = { version = "0.15.4" }
+libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev = "67f7474", features = ["prelude"] }
+libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev = "67f7474" }
 custom_mutator = { path = "../rust/custom_mutator", features = [
   "afl_internals",
 ] }
 serde = { version = "1.0", default-features = false, features = [
   "alloc",
 ] } # serialization lib
-lru = "0.12"
+
 postcard = { version = "1.0", features = ["alloc"] }
-serde_json = { version = "1.0", optional = true, features = ["alloc"] }
+lru = "0.12"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -5,7 +5,10 @@ use std::{
 };
 
 use clap::Parser;
-use libafl::{generators::NautilusContext, inputs::NautilusInput};
+use libafl::{
+    generators::NautilusContext,
+    inputs::{FromTargetBytes, NautilusBytesConverter, NautilusInput},
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -67,27 +70,18 @@ fn process_file(path: &Path, output_dir: &Path, context: &NautilusContext) {
     let input = match input_res {
         Ok(i) => i,
         Err(_) => {
-            // Try JSON if enabled
-            #[cfg(feature = "json")]
-            {
-                match serde_json::from_slice::<NautilusInput>(&content) {
-                    Ok(i) => i,
-                    Err(_) => {
-                        eprintln!(
-                            "Skipping {}: Failed to deserialize as Postcard or JSON",
-                            path.display()
-                        );
-                        return;
-                    }
+            // Try raw bytes
+            let mut converter = NautilusBytesConverter::new(context);
+            match converter.from_target_bytes(&content) {
+                Ok(i) => i,
+                Err(e) => {
+                    eprintln!(
+                        "Skipping {}: Failed to deserialize as Postcard or Raw: {}",
+                        path.display(),
+                        e
+                    );
+                    return;
                 }
-            }
-            #[cfg(not(feature = "json"))]
-            {
-                eprintln!(
-                    "Skipping {}: Failed to deserialize as Postcard (JSON feature disabled)",
-                    path.display()
-                );
-                return;
             }
         }
     };
