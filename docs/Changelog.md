@@ -12,8 +12,12 @@
     - fix syncing issues with crashes and custom mutators by @AndyH-1
     - another attempt to kill every client, thanks to @leonasdev
   - afl-cc:
+    - Huge refactor for default pcguard instrumentation, several minor and
+      medium bug fixes, complete hidden decision coverage
+    - LTO: also added complete hidden decision coverage
+    - Various small fixes by @nbars, thanks!
     - IJON fix to search for the necessary include
-    - Allow compiling the gcc plugin with LLVM, thanks to @exoosh
+    - Allow compiling the gcc plugin with clang++, thanks to @exoosh
     - Fix for unusual bit sizes in cmplog-instructions-pass by @forzafedor
   - qemu_mode:
     - IJON support, thanks to @nj00001! see qemu_mode/README.md
@@ -21,7 +25,8 @@
   - afl-tmin
     - fix custom trimmings, thanks to @renatahodovan!
   - custom mutators:
-    - fix for Gramatron script by @jubnzv
+    - Gramatron: fixes + cjson switch by @CarvedCoder, fix by @jubnzv
+
 
 ### Version ++4.34c (release)
   - IJON integration by @vi3tL0u1s - thanks a lot!!

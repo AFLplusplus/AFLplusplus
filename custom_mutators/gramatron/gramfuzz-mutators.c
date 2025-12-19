@@ -4,7 +4,7 @@
 #include <assert.h>
 #include "afl-fuzz.h"
 #include "gramfuzz.h"
-
+#include "gramfuzz-rng.h"
 Array *performRandomMutation(state *pda, Array *input) {
 
   terminal *term_ptr;
@@ -13,7 +13,7 @@ Array *performRandomMutation(state *pda, Array *input) {
   Array *sliced;
 
   // Get offset at which to generate new input and slice it
-  int idx = rand_below(global_afl, input->used);
+  int idx = gf_rand_below(global_afl, input->used);
   sliced = slice(input, idx);
   // print_repr(sliced, "Slice");
 
@@ -59,7 +59,7 @@ Array *performSpliceOne(Array *originput, IdxMap_new *statemap_orig,
     if (length) {
 
       int *splice_idx =
-          (int *)utarray_eltptr(stateptr, rand_below(global_afl, length));
+          (int *)utarray_eltptr(stateptr, gf_rand_below(global_afl, length));
       ip.orig_idx = *splice_idx;
       ip.splice_idx = x;
       utarray_push_back(pairs, &ip);
@@ -70,7 +70,7 @@ Array *performSpliceOne(Array *originput, IdxMap_new *statemap_orig,
 
   // Pick a random pair
   int length = utarray_len(pairs);
-  cand = (intpair_t *)utarray_eltptr(pairs, rand_below(global_afl, length));
+  cand = (intpair_t *)utarray_eltptr(pairs, gf_rand_below(global_afl, length));
   // printf("\n Orig_idx:%d Splice_idx:%d", cand->orig_idx, cand->splice_idx);
 
   // Perform the splicing
@@ -163,7 +163,7 @@ UT_array **get_dupes(Array *input, int *recur_len) {
 Array *doMult(Array *input, UT_array **recur, int recurlen) {
 
   int       offset = 0;
-  int       idx = rand_below(global_afl, recurlen);
+  int       idx = gf_rand_below(global_afl, recurlen);
   UT_array *recurMap = recur[idx];
   UT_array *recurPtr;
   Array    *prefix;
@@ -226,7 +226,7 @@ void getTwoIndices(UT_array *recur, int recurlen, int *firstIdx,
   for (int i = offset - 1; i > 0; i--) {
 
     // Pick a random index from 0 to i
-    int j = rand_below(global_afl, i + 1);
+    int j = gf_rand_below(global_afl, i + 1);
 
     // Swap arr[i] with the element at random index
     swap(&ArrayRecurIndices[i], &ArrayRecurIndices[j]);

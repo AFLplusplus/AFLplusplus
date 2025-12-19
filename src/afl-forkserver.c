@@ -1592,9 +1592,18 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       } else {
 
-        // The binary is most likely instrumented using AFL's tool, and we will
-        // set map_size to MAP_SIZE.
-        fsrv->real_map_size = fsrv->map_size = MAP_SIZE;
+        // if AFL_MAP_SIZE is set, use this map size
+        if (getenv("AFL_MAP_SIZE") || getenv("AFL_MAPSIZE")) {
+
+          fsrv->real_map_size = fsrv->map_size = get_map_size();
+
+        } else {
+
+          // Otherwise the binary is most likely instrumented using AFL's tool,
+          // and we will set map_size to MAP_SIZE.
+          fsrv->real_map_size = fsrv->map_size = MAP_SIZE;
+
+        }
 
       }
 

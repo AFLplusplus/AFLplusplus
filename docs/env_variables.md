@@ -269,7 +269,6 @@ combined.
   - `AFL_LLVM_MAP_ADDR` sets the fixed map address to a different address than
     the default `0x10000`. A value of 0 or empty sets the map address to be
     dynamic (the original AFL way, which is slower).
-  - `AFL_LLVM_MAP_DYNAMIC` sets the shared memory address to be dynamic.
   - `AFL_LLVM_LTO_SKIPINIT` skips adding initialization code. Some global vars
     (e.g. the highest location ID) are not injected. Needed to instrument with
     [WAFL](https://github.com/fgsect/WAFL.git).

@@ -3424,7 +3424,7 @@ retry_splicing:
     len = target->len;
     afl->in_scratch_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len);
     memcpy(afl->in_scratch_buf, in_buf, split_at);
-    memcpy(afl->in_scratch_buf + split_at, new_buf, len - split_at);
+    memcpy(afl->in_scratch_buf + split_at, new_buf + split_at, len - split_at);
     in_buf = afl->in_scratch_buf;
     afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
 
@@ -5908,7 +5908,8 @@ pacemaker_fuzzing:
         len = target->len;
         afl->in_scratch_buf = afl_realloc(AFL_BUF_PARAM(in_scratch), len);
         memcpy(afl->in_scratch_buf, in_buf, split_at);
-        memcpy(afl->in_scratch_buf + split_at, new_buf, len - split_at);
+        memcpy(afl->in_scratch_buf + split_at, new_buf + split_at,
+               len - split_at);
         in_buf = afl->in_scratch_buf;
         afl_swap_bufs(AFL_BUF_PARAM(in), AFL_BUF_PARAM(in_scratch));
 

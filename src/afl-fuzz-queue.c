@@ -568,7 +568,7 @@ u8 check_if_text_buf(u8 *buf, u32 len) {
 
 static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
-  if (q->len < AFL_TXT_MIN_LEN || q->len < AFL_TXT_MAX_LEN) return 0;
+  if (q->len < AFL_TXT_MIN_LEN || q->len > AFL_TXT_MAX_LEN) return 0;
 
   u8     *buf;
   int     fd;

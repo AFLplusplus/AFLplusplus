@@ -2644,12 +2644,8 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   int len0 = MIN(len, 32);
 
   int len1 = strnlen(ptr1, len0);
-  if (len1 <= 32) len1 = area_is_valid(ptr1, len1 + 1);
-  if (len1 > __afl_cmplog_max_len) len1 = 0;
 
   int len2 = strnlen(ptr2, len0);
-  if (len2 <= 32) len2 = area_is_valid(ptr2, len2 + 1);
-  if (len2 > __afl_cmplog_max_len) len2 = 0;
 
   int l;
   if (!len1)
@@ -2658,6 +2654,11 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
     l = len1;
   else
     l = MAX(len1, len2);
+
+  l = area_is_valid(ptr1, l + 1);
+  l = area_is_valid(ptr2, l + 1);
+
+  if (l > 32) l = 32;
   if (l < 2) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
@@ -2689,8 +2690,8 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
   cmpfn[hits].v0_len = 0x80 + l;
   cmpfn[hits].v1_len = 0x80 + l;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, 32);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, 32);
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
 // fprintf(stderr, "RTN3\n");
 #ifdef __linux__
   u8 attr1 = get_prog_addr_attr(ptr1);
@@ -2708,8 +2709,7 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   if (unlikely(!ptr1 || !ptr2)) return;
   int len1 = strnlen(ptr1, 31) + 1;
   int len2 = strnlen(ptr2, 31) + 1;
-  if (len1 > __afl_cmplog_max_len) len1 = 0;
-  if (len2 > __afl_cmplog_max_len) len2 = 0;
+
   int l;
   if (!len1)
     l = len2;
@@ -2717,6 +2717,10 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
     l = len1;
   else
     l = MAX(len1, len2);
+  l = area_is_valid(ptr1, l + 1);
+  l = area_is_valid(ptr2, l + 1);
+
+  if (l > 32) l = 32;
   if (l < 2) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
@@ -2748,8 +2752,8 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
   cmpfn[hits].v0_len = 0x80 + len1;
   cmpfn[hits].v1_len = 0x80 + len2;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, 32);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, 32);
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
 // fprintf(stderr, "RTN3\n");
 #ifdef __linux__
   u8 attr1 = get_prog_addr_attr(ptr1);
@@ -2812,8 +2816,8 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
   cmpfn[hits].v0_len = len;
   cmpfn[hits].v1_len = len;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, 32);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, 32);
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
 // fprintf(stderr, "RTN3\n");
 #ifdef __linux__
   u8 attr1 = get_prog_addr_attr(ptr1);
@@ -2852,8 +2856,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   if ((l1 = area_is_valid(ptr1, l)) <= 0 || (l2 = area_is_valid(ptr2, l)) <= 0)
     return;
 
-  len = MIN(l1, l2);
-  if (len > __afl_cmplog_max_len) return;
+  len = MIN(MIN(l,__afl_cmplog_max_len), MIN(l1, l2));
 
   // fprintf(stderr, "RTN2 %u\n", l);
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
@@ -2865,7 +2868,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = l - 1;
+    __afl_cmp_map->headers[k].shape = len - 1;
     hits = 0;
 
   } else {
@@ -2874,7 +2877,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
     if (__afl_cmp_map->headers[k].shape < l) {
 
-      __afl_cmp_map->headers[k].shape = l - 1;
+      __afl_cmp_map->headers[k].shape = len - 1;
 
     }
 
@@ -2883,10 +2886,10 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
   hits &= CMP_MAP_RTN_H - 1;
 
-  cmpfn[hits].v0_len = l;
-  cmpfn[hits].v1_len = l;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, 32);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, 32);
+  cmpfn[hits].v0_len = len;
+  cmpfn[hits].v1_len = len;
+  __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
+  __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
   // fprintf(stderr, "RTN3\n");
   #ifdef __linux__
   u8 attr1 = get_prog_addr_attr(ptr1);
