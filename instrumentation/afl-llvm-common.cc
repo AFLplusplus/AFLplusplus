@@ -15,6 +15,10 @@
 #include <cmath>
 
 #include <llvm/Support/raw_ostream.h>
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/ADT/StringRef.h"
 
 #define IS_EXTERN extern
 #include "afl-llvm-common.h"
@@ -634,6 +638,227 @@ unsigned long long int calculateCollisions(uint32_t edges) {
   unsigned long long int empty = step4;
   unsigned long long int collisions = edges - (MAP_SIZE - empty);
   return collisions;
+
+}
+
+bool isDecisionUse(const Value *Cond) {
+
+  SmallVector<const Value *, 8> Worklist;
+  SmallPtrSet<const Value *, 8> Visited;
+
+  Worklist.push_back(Cond);
+
+  while (!Worklist.empty()) {
+
+    const Value *V = Worklist.pop_back_val();
+    if (!Visited.insert(V).second) continue;
+
+    for (const User *U : V->users()) {
+
+      if (const auto *BI = dyn_cast<BranchInst>(U)) {
+
+        if (BI->isConditional() && BI->getCondition() == V) return true;
+
+      } else if (const auto *SI = dyn_cast<SelectInst>(U)) {
+
+        if (SI->getCondition() == V) return true;
+
+      } else if (const auto *SW = dyn_cast<SwitchInst>(U)) {
+
+        if (SW->getCondition() == V) return true;
+
+        /*
+
+              } else if (const auto *CB = dyn_cast<CallBase>(U)) {
+
+                const Function *F = CB->getCalledFunction();
+                if (!F)
+                  continue;
+                Intrinsic::ID IID = F->getIntrinsicID();
+                if (IID == Intrinsic::assume ||
+                    IID == Intrinsic::experimental_guard ||
+                    IID == Intrinsic::expect)
+                  return true;
+        */
+
+      } else if (const auto *BO = dyn_cast<BinaryOperator>(U)) {
+
+        if (BO->getType()->isIntegerTy(1)) Worklist.push_back(BO);
+
+      } else if (const auto *PN = dyn_cast<PHINode>(U)) {
+
+        if (PN->getType()->isIntegerTy(1)) return true;
+
+      } else if (const auto *Cast = dyn_cast<CastInst>(U)) {
+
+        if (Cast->getDestTy()->isIntegerTy(1) ||
+            Cast->getSrcTy()->isIntegerTy(1))
+          Worklist.push_back(Cast);
+
+      } else if (const auto *FI = dyn_cast<FreezeInst>(U)) {
+
+        if (FI->getType()->isIntegerTy(1)) Worklist.push_back(FI);
+
+      }
+
+    }
+
+  }
+
+  return false;
+
+}
+
+bool isAflCovInterestingInstruction(Instruction &I) {
+
+  switch (I.getOpcode()) {
+
+    case Instruction::ICmp:
+    case Instruction::FCmp: {
+
+      const Value *Cond = &I;
+      Type        *Ty = Cond->getType();
+      if (Ty->isIntegerTy(1) ||
+          (Ty->isVectorTy() && Ty->getScalarType()->isIntegerTy(1))) {
+
+        if (isDecisionUse(Cond)) return false;
+
+      }
+
+      return true;
+
+    }
+
+    case Instruction::Select:
+      return true;
+
+    case Instruction::AtomicCmpXchg:
+      return true;
+
+    case Instruction::AtomicRMW: {
+
+      auto *RMW = dyn_cast<AtomicRMWInst>(&I);
+      if (!RMW) return false;
+
+      AtomicRMWInst::BinOp Op = RMW->getOperation();
+
+      return Op == AtomicRMWInst::Min || Op == AtomicRMWInst::Max ||
+             Op == AtomicRMWInst::UMin || Op == AtomicRMWInst::UMax;
+
+    }
+
+    default:
+      return false;
+
+  }
+
+}
+
+std::pair<bool, bool> detectIJONUsage(Module &M) {
+
+  bool uses_ijon_functions = false;
+  bool uses_ijon_state = false;
+
+  // Scan for IJON function calls to determine if we need IJON symbols
+  for (auto &F : M) {
+
+    for (auto &BB : F) {
+
+      for (auto &I : BB) {
+
+        Function *calledFunc = nullptr;
+
+        // Check both CallInst and InvokeInst
+        if (auto *call = dyn_cast<CallInst>(&I)) {
+
+          calledFunc = dyn_cast<Function>(call->getCalledOperand());
+
+        } else if (auto *invoke = dyn_cast<InvokeInst>(&I)) {
+
+          calledFunc = dyn_cast<Function>(invoke->getCalledOperand());
+
+        }
+
+        if (!calledFunc) continue;
+
+        StringRef funcName = calledFunc->getName();
+#if LLVM_VERSION_MAJOR >= 18
+        if (!funcName.starts_with("ijon_")) continue;
+#else
+        if (!funcName.startswith("ijon_")) continue;
+#endif
+
+        // Check for state-aware functions (only ijon_xor_state)
+        if (funcName == "ijon_xor_state") {
+
+          uses_ijon_functions = true;
+          uses_ijon_state = true;
+          break;
+
+        }
+
+        // Check for other IJON functions (max/min/set/inc)
+        if (funcName == "ijon_max" || funcName == "ijon_min" ||
+            funcName == "ijon_set" || funcName == "ijon_inc" ||
+            funcName == "ijon_max_variadic" ||
+            funcName == "ijon_min_variadic") {
+
+          uses_ijon_functions = true;
+          // Don't break - keep looking for ijon_xor_state
+          continue;
+
+        }
+
+        // Ignore helper functions (ijon_hash*, ijon_strdist, etc.)
+#if LLVM_VERSION_MAJOR >= 18
+        if (funcName.starts_with("ijon_hash") || funcName == "ijon_strdist") {
+
+#else
+        if (funcName.startswith("ijon_hash") || funcName == "ijon_strdist") {
+
+#endif
+          continue;
+
+        }
+
+      }
+
+      if (uses_ijon_state) break;
+
+    }
+
+    if (uses_ijon_state) break;
+
+  }
+
+  return {uses_ijon_functions, uses_ijon_state};
+
+}
+
+void createIJONEnabledGlobal(Module &M, Type *Int32Ty) {
+
+  if (M.getNamedGlobal("__afl_ijon_enabled")) return;
+  Constant *One32 = ConstantInt::get(Int32Ty, 1);
+  new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, One32,
+                     "__afl_ijon_enabled");
+
+}
+
+GlobalVariable *createIJONStateGlobal(Module &M, Type *Int32Ty,
+                                      bool uses_ijon_state) {
+
+  if (!uses_ijon_state) return nullptr;
+
+  if (auto *Existing = M.getNamedGlobal("__afl_ijon_state")) return Existing;
+
+#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
+  return new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
+                            "__afl_ijon_state");
+#else
+  return new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, 0,
+                            "__afl_ijon_state", 0,
+                            GlobalVariable::GeneralDynamicTLSModel, 0, false);
+#endif
 
 }
 

@@ -13,7 +13,8 @@
     - another attempt to kill every client, thanks to @leonasdev
   - afl-cc:
     - Huge refactor for default pcguard instrumentation, several minor and
-      medium bug fixes
+      medium bug fixes, complete hidden decision coverage
+    - LTO: also added complete hidden decision coverage
     - Various small fixes by @nbars, thanks!
     - IJON fix to search for the necessary include
     - Allow compiling the gcc plugin with clang++, thanks to @exoosh

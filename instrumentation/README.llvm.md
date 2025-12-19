@@ -7,7 +7,7 @@ For the GCC-based instrumentation, see
 
 ## 1) Introduction
 
-! llvm_mode works with llvm versions 3.8 up to 17 - but 13+ is recommended !
+! llvm_mode works with llvm versions 14 up to 21 - but 18+ is recommended !
 
 The code in this directory allows you to instrument programs for AFL++ using
 true compiler-level instrumentation, instead of the more crude assembly-level
@@ -39,7 +39,7 @@ The idea and much of the initial implementation came from Laszlo Szekeres.
 Set the `LLVM_CONFIG` variable to the clang version you want to use, e.g.:
 
 ```
-LLVM_CONFIG=llvm-config-9 make
+LLVM_CONFIG=llvm-config-21 make
 ```
 
 In case you have your own compiled llvm version specify the full path:
@@ -53,7 +53,7 @@ old c++ libraries. In this case usually switching to gcc/g++ to compile
 llvm_mode will work:
 
 ```
-LLVM_CONFIG=llvm-config-7 REAL_CC=gcc REAL_CXX=g++ make
+LLVM_CONFIG=llvm-config-21 REAL_CC=gcc REAL_CXX=g++ make
 ```
 
 It is highly recommended to use the newest clang version you can put your hands
