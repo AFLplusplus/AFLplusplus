@@ -62,26 +62,25 @@ fn visit_dirs(dir: &Path, output_base: &Path, context: &NautilusContext) {
 }
 
 fn process_file(path: &Path, output_dir: &Path, context: &NautilusContext) {
-    let content = fs::read(path).expect("Failed to read file");
+    let file_content = fs::read(path).expect("Failed to read file");
 
     // Try Postcard first
-    let input_res = postcard::from_bytes::<NautilusInput>(&content);
+    let input_res = postcard::from_bytes::<NautilusInput>(&file_content);
 
-    let input = match input_res {
-        Ok(i) => i,
-        Err(_) => {
-            // Try raw bytes
-            let mut converter = NautilusBytesConverter::new(context);
-            match converter.from_target_bytes(&content) {
-                Ok(i) => i,
-                Err(e) => {
-                    eprintln!(
-                        "Skipping {}: Failed to deserialize as Postcard or Raw: {}",
-                        path.display(),
-                        e
-                    );
-                    return;
-                }
+    let input = if let Ok(i) = input_res {
+        i
+    } else {
+        // Try raw bytes
+        let mut converter = NautilusBytesConverter::new(context);
+        match converter.from_target_bytes(&file_content) {
+            Ok(i) => i,
+            Err(e) => {
+                eprintln!(
+                    "Skipping {}: Failed to deserialize as Postcard or Raw: {}",
+                    path.display(),
+                    e
+                );
+                return;
             }
         }
     };

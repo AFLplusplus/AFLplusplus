@@ -5,7 +5,6 @@
 $ECHO "$BLUE[*] Testing: nautilus mutator"
 
 # normalize path
-# normalize path
 CUSTOM_MUTATOR_PATH=$(cd $(pwd)/../custom_mutators/libafl_nautilus;pwd)
 
 # OS detection
@@ -30,10 +29,12 @@ if [ ! -f "$LIB_PATH" ]; then
     exit 1
 fi
 
-<<<<<<< HEAD
-=======
 $ECHO "$BLUE[*] Running libafl_nautilus unit tests"
 (cd "$CUSTOM_MUTATOR_PATH" && cargo test) || exit 1
+
+LIBAFL_BASE_PATH=$(cd $(pwd)/../custom_mutators/libafl_base;pwd)
+$ECHO "$BLUE[*] Running libafl_base unit tests"
+(cd "$LIBAFL_BASE_PATH" && cargo test --features=mutator) || exit 1
 
   # Create the vulnerable program
   cat > test-nautilus-target.c <<EOF
@@ -55,7 +56,6 @@ int main(int argc, char** argv) {
 EOF
 
   unset AFL_CC
->>>>>>> 6acccfde (Move to external corpus and keep afl corpus alive)
   # Compile the vulnerable program
   ../afl-cc -o test-nautilus-target test-nautilus-target.c > compilation_errors 2>&1
 
@@ -78,7 +78,7 @@ EOF
   # We use -V 20 to run for 20 seconds (should be enough to crash)
   $ECHO "$GREY[*] running afl-fuzz for the Nautilus mutator, this will take approx 20 seconds"
   export NAUTILUS_GRAMMAR_FILE="$(pwd)/test-nautilus-grammar.json"
-  AFL_NO_UI=1 AFL_CUSTOM_MUTATOR_LIBRARY="$LIB_PATH" AFL_CUSTOM_MUTATOR_ONLY=1 AFL_POST_PROCESS_KEEP_ORIGINAL=1 ../afl-fuzz -V 20 -m ${MEM_LIMIT} -i in-nautilus -o out-nautilus -d -- ./test-nautilus-target >> errors 2>&1
+  AFL_NO_UI=1 AFL_CUSTOM_MUTATOR_LIBRARY="$LIB_PATH" AFL_CUSTOM_MUTATOR_ONLY=1 ../afl-fuzz -V 20 -m ${MEM_LIMIT} -i in-nautilus -o out-nautilus -d -- ./test-nautilus-target >> errors 2>&1
   unset NAUTILUS_GRAMMAR_FILE
 
   # Check if afl-fuzz ran successfully and loaded the mutator
@@ -114,6 +114,13 @@ EOF
   # Check if queue or crashes contains files
   if ls out-nautilus/default/queue/id* >/dev/null 2>&1 || ls out-nautilus/default/crashes/id* >/dev/null 2>&1; then
       $ECHO "$GREEN[+] Queue/Crashes contains files."
+      # Verify shadow corpus exists and has files
+      if ls out-nautilus/shadow_corpus/* >/dev/null 2>&1; then
+         $ECHO "$GREEN[+] Shadow corpus populated."
+      else
+         $ECHO "$RED[!] Shadow corpus empty or missing!"
+         CODE=1
+      fi
   else
       $ECHO "$RED[!] Queue/Crashes is empty. Post-process persistence might be failing or afl-fuzz aborted."
       echo CUT------------------------------------------------------------------CUT

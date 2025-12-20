@@ -1,29 +1,23 @@
-#![cfg(unix)]
-
 use custom_mutator::{afl_state, export_mutator, CustomMutator};
 use libafl::{
     corpus::{Corpus, NopCorpus},
     feedbacks::nautilus::NautilusChunksMetadata,
     generators::{Generator, NautilusContext, NautilusGenerator},
-    inputs::{FromTargetBytes, NautilusBytesConverter, NautilusInput},
+    inputs::{NautilusBytesConverter, NautilusInput},
     mutators::{
         nautilus::{NautilusRandomMutator, NautilusRecursionMutator, NautilusSpliceMutator},
         scheduled::HavocScheduledMutator,
-        Mutator,
     },
+    prelude::*,
     state::{HasCorpus, HasMaxSize, StdState},
     Error, HasMetadata,
 };
 use libafl_base::AflCorpus;
 use libafl_bolts::{
-    nonzero,
     rands::StdRand,
     tuples::{tuple_list, tuple_list_type},
+    AsSlice,
 };
-use lru::LruCache;
-use serde::{de::DeserializeOwned, Serialize};
-use std::sync::OnceLock;
-static CONTEXT: OnceLock<NautilusContext> = OnceLock::new();
 
 type NautilusMutators = tuple_list_type!(
     NautilusRandomMutator<'static>,
@@ -31,160 +25,162 @@ type NautilusMutators = tuple_list_type!(
     NautilusSpliceMutator<'static>
 );
 
+static mut NAUTILUS_CONTEXT: Option<&'static NautilusContext> = None;
+
+type NautilusCorpus<'a> = AflCorpus<NautilusInput, NautilusBytesConverter<'a>>;
+
 struct NautilusCustomMutator<C>
 where
     C: Corpus<NautilusInput>,
 {
     state: StdState<C, NautilusInput, StdRand, NopCorpus<NautilusInput>>,
     generator: NautilusGenerator<'static>,
-    context: &'static NautilusContext,
     mutator: HavocScheduledMutator<NautilusMutators>,
-    serialized_buf: Vec<u8>,
-    cache: LruCache<Vec<u8>, NautilusInput>,
+    unparsed_buf: Vec<u8>,
+    tmp_input: Option<NautilusInput>,
 }
 
-impl<C> NautilusCustomMutator<C>
-where
-    C: Corpus<NautilusInput> + Serialize + DeserializeOwned,
-{
-    fn fuzz_logic<'b, 's: 'b>(
+impl CustomMutator for NautilusCustomMutator<NautilusCorpus<'static>> {
+    type Error = libafl::Error;
+
+    fn init(afl: &'static afl_state, seed: u32) -> Result<Self, libafl::Error> {
+        // Load grammar from grammar.json
+        let grammar_path =
+            std::env::var("NAUTILUS_GRAMMAR_FILE").unwrap_or_else(|_| "grammar.json".to_string());
+
+        let context = Box::new(NautilusContext::from_file(10, &grammar_path).map_err(|e| {
+            let msg = format!("Failed to load grammar from {grammar_path}: {e}");
+            Error::unknown(msg)
+        })?);
+        let context_ref = Box::leak(context);
+        unsafe {
+            NAUTILUS_CONTEXT = Some(context_ref);
+        }
+
+        let rand = StdRand::with_seed(u64::from(seed));
+
+        let work_dir = std::env::current_dir().unwrap().join("out-nautilus");
+        let shadow_corpus_path = work_dir.join("shadow_corpus");
+        std::fs::create_dir_all(&shadow_corpus_path).ok();
+        eprintln!("Nautilus: Shadow corpus path: {:?}", shadow_corpus_path);
+
+        let converter = NautilusBytesConverter::new(context_ref);
+        let corpus =
+            NautilusCorpus::with_converter(afl, Some(&shadow_corpus_path), 4096, converter)?;
+        let solutions = NopCorpus::new();
+        let mut feedback = ();
+        let mut objective = ();
+        let state = StdState::new(rand, corpus, solutions, &mut feedback, &mut objective)?;
+
+        let mut state = state;
+        state.add_metadata(NautilusChunksMetadata::new(
+            work_dir.to_string_lossy().to_string(),
+        ));
+
+        let generator = NautilusGenerator::new(context_ref);
+
+        let mutator = HavocScheduledMutator::new(tuple_list!(
+            NautilusRandomMutator::new(context_ref),
+            NautilusRecursionMutator::new(context_ref),
+            NautilusSpliceMutator::new(context_ref)
+        ));
+
+        Ok(NautilusCustomMutator {
+            state,
+            generator,
+            mutator,
+            unparsed_buf: Vec::new(),
+            tmp_input: None,
+        })
+    }
+
+    fn fuzz<'b, 's: 'b>(
         &'s mut self,
-        buffer: &'b mut [u8],
+        _buffer: &'b mut [u8],
         _add_buff: Option<&[u8]>,
         max_size: usize,
     ) -> Result<Option<&'b [u8]>, libafl::Error> {
         self.state.set_max_size(max_size);
 
-        // 1. Check cache
-        let mut input = if let Some(cached) = self.cache.get(buffer) {
-            cached.clone()
+        let mut input = if let Some(input) = self.tmp_input.take() {
+            input
         } else {
-            // 2. Try to parse
-            let mut converter = NautilusBytesConverter::new(self.context);
-            if let Ok(parsed) = converter.from_target_bytes(buffer) {
-                self.cache.put(buffer.to_vec(), parsed.clone());
-                parsed
-            } else {
-                // 3. Fallback to corpus or generate
-                if let Some(id) = self.state.corpus().current() {
-                    self.state
-                        .corpus()
-                        .get(*id)?
-                        .borrow()
-                        .input()
-                        .clone()
-                        .unwrap()
-                } else {
-                    self.generator.generate(&mut self.state)?
-                }
-            }
+            self.generator.generate(&mut self.state)?
         };
 
-        // Mutate the input
         self.mutator.mutate(&mut self.state, &mut input)?;
 
-        // Serialize the mutated input
-        self.serialized_buf.clear();
-        input.unparse(self.context, &mut self.serialized_buf);
-        self.cache.put(self.serialized_buf.clone(), input.clone());
+        let bytes = self
+            .state
+            .corpus()
+            .target_byte_converter()
+            .borrow_mut()
+            .to_target_bytes(&input);
+        self.unparsed_buf.clear();
+        self.unparsed_buf.extend_from_slice(bytes.as_slice());
+        self.tmp_input = Some(input);
 
-        Ok(Some(&self.serialized_buf))
+        Ok(Some(&self.unparsed_buf))
     }
-}
 
-impl CustomMutator
-    for NautilusCustomMutator<AflCorpus<NautilusInput, NautilusBytesConverter<'static>>>
-{
-    type Error = libafl::Error;
-
-    fn init(afl: &'static afl_state, seed: u32) -> Result<Self, Self::Error> {
-        unsafe {
-            libafl_base::set_afl_state(afl);
-
-            // Load grammar from grammar.json in current directory or from env var
-            let context_ref = CONTEXT.get_or_init(|| {
-                let grammar_path = std::env::var("NAUTILUS_GRAMMAR_FILE")
-                    .unwrap_or_else(|_| "grammar.json".to_string());
-                NautilusContext::from_file(10, &grammar_path)
-                    .map_err(|e| {
-                        let err_msg = format!("Failed to load grammar from {grammar_path}: {e}");
-                        Error::unknown(err_msg)
-                    })
-                    .expect("Failed to load grammar")
-            });
-
-            let rand = StdRand::with_seed(u64::from(seed));
-
-            let work_dir = std::env::current_dir().unwrap().join("out-nautilus");
-            let corpus_dir = work_dir.join("corpus");
-            std::fs::create_dir_all(&corpus_dir)
-                .map_err(|e| Error::unknown(format!("Failed to create corpus dir: {}", e)))?;
-
-            let converter = NautilusBytesConverter::new(context_ref);
-            let corpus = AflCorpus::new(Some(&corpus_dir), 4096, converter)?;
-            let solutions = NopCorpus::new();
-            let mut feedback = ();
-            let mut objective = ();
-            let mut state = StdState::new(rand, corpus, solutions, &mut feedback, &mut objective)?;
-
-            state.add_metadata(NautilusChunksMetadata::new(
-                work_dir.to_string_lossy().to_string(),
-            ));
-
-            let generator = NautilusGenerator::new(context_ref);
-
-            let mutator = HavocScheduledMutator::new(tuple_list!(
-                NautilusRandomMutator::new(context_ref),
-                NautilusRecursionMutator::new(context_ref),
-                NautilusSpliceMutator::new(context_ref)
-            ));
-
-            Ok(Self {
-                state,
-                generator,
-                context: context_ref,
-                mutator,
-                serialized_buf: Vec::new(),
-                cache: LruCache::new(nonzero!(1024)),
-            })
+    fn queue_new_entry(
+        &mut self,
+        _filename_new_queue: &std::path::Path,
+        _filename_orig_queue: Option<&std::path::Path>,
+    ) -> Result<bool, libafl::Error> {
+        eprintln!("Nautilus: queue_new_entry called");
+        if let Some(input) = self.tmp_input.take() {
+            eprintln!("Nautilus: Adding input to corpus");
+            let testcase = Testcase::new(input.clone());
+            self.state.corpus_mut().add(testcase)?;
+        } else {
+            eprintln!("Nautilus: No tmp_input to add");
         }
+        Ok(false)
     }
-
-    fn fuzz<'b, 's: 'b>(
-        &'s mut self,
-        buffer: &'b mut [u8],
-        add_buff: Option<&[u8]>,
-        max_size: usize,
-    ) -> Result<Option<&'b [u8]>, Self::Error> {
-        self.fuzz_logic(buffer, add_buff, max_size)
-    }
-
-
 }
 
-type ConcreteNautilusMutator =
-    NautilusCustomMutator<AflCorpus<NautilusInput, NautilusBytesConverter<'static>>>;
+type ConcreteNautilusMutator = NautilusCustomMutator<NautilusCorpus<'static>>;
 export_mutator!(ConcreteNautilusMutator);
 
 #[cfg(test)]
 mod tests {
-
     use libafl::{
         corpus::{Corpus, Testcase},
         generators::NautilusContext,
+        inputs::ToTargetBytes,
         state::HasCorpus,
     };
+    use libafl_bolts::rands::Rand;
 
     use super::*;
+
+    fn create_test_context() -> &'static NautilusContext {
+        let rules = vec![
+            ("START", "{DATA}".as_bytes()),
+            ("DATA", "A".as_bytes()),
+            ("DATA", "B".as_bytes()),
+        ];
+        let context = NautilusContext::with_rules(10, &rules).unwrap();
+        Box::leak(Box::new(context))
+    }
 
     fn create_test_mutator(
         context_ref: &'static NautilusContext,
         dir: &std::path::Path,
-    ) -> NautilusCustomMutator<AflCorpus<NautilusInput, NautilusBytesConverter<'static>>> {
+    ) -> NautilusCustomMutator<NautilusCorpus<'static>> {
         let rand = StdRand::with_seed(0);
         std::fs::create_dir_all(dir).unwrap();
+
         let converter = NautilusBytesConverter::new(context_ref);
-        let corpus = AflCorpus::new(Some(dir), 100, converter).unwrap();
+
+        let layout = std::alloc::Layout::new::<afl_state>();
+        // Safety: We crate an empty afl struct for testing... Don't try this at home..
+        #[allow(clippy::cast_ptr_alignment)]
+        let ptr = unsafe { std::alloc::alloc_zeroed(layout) }.cast::<afl_state>();
+        let afl = unsafe { &*ptr };
+
+        let corpus = NautilusCorpus::with_converter(afl, None, 4096, converter).unwrap();
         let solutions = NopCorpus::new();
         let mut feedback = ();
         let mut objective = ();
@@ -192,7 +188,7 @@ mod tests {
             StdState::new(rand, corpus, solutions, &mut feedback, &mut objective).unwrap();
 
         state.add_metadata(NautilusChunksMetadata::new(
-            "/tmp/nautilus-test".to_string(),
+            dir.to_string_lossy().to_string(),
         ));
 
         let mutator_instance = HavocScheduledMutator::new(tuple_list!(
@@ -204,65 +200,90 @@ mod tests {
         NautilusCustomMutator {
             state,
             generator: NautilusGenerator::new(context_ref),
-            context: context_ref,
             mutator: mutator_instance,
-            serialized_buf: Vec::new(),
-            cache: LruCache::new(nonzero!(128)),
+            unparsed_buf: Vec::new(),
+            tmp_input: None,
         }
     }
 
     #[test]
     fn test_splicing() {
-        let rules = vec![("START", "{DATA}".as_bytes()), ("DATA", "TEST".as_bytes())];
-        let context = NautilusContext::with_rules(10, &rules).unwrap();
-        let context_ref = Box::leak(Box::new(context));
-
+        let context_ref = create_test_context();
         let dir = std::env::temp_dir().join("nautilus_test_splicing");
-        let _ = std::fs::remove_dir_all(&dir); // Clean up previous run
+        let _ = std::fs::remove_dir_all(&dir);
         let mut mutator = create_test_mutator(context_ref, &dir);
 
-        // Generate an input
-        let mut input = mutator.generator.generate(&mut mutator.state).unwrap();
+        // Generate two distinct inputs to ensure splicing has variety
+        // With seeds 0 and 1, we hopefully get different trees (A and B)
+        let input1 = mutator.generator.generate(&mut mutator.state).unwrap();
 
-        // Add input to corpus so splicing has something to use
-        let testcase = Testcase::new(input.clone());
-        mutator.state.corpus_mut().add(testcase).unwrap();
+        // Force a different random state for the second generation if needed,
+        // but generator uses state's rand.
+        // We can just loop until we get a different one or just add multiple.
+        mutator.state.rand_mut().set_seed(1);
+        let input2 = mutator.generator.generate(&mut mutator.state).unwrap();
+
+        let testcase1 = Testcase::new(input1.clone());
+        let testcase2 = Testcase::new(input2.clone());
+        mutator.state.corpus_mut().add(testcase1).unwrap();
+        mutator.state.corpus_mut().add(testcase2).unwrap();
 
         // Try to splice
         let mut splice_mutator = NautilusSpliceMutator::new(context_ref);
-        let result = splice_mutator.mutate(&mut mutator.state, &mut input);
 
-        // Splicing should succeed
+        // We need to mutate one of them.
+        let mut input_to_splice = input1.clone();
+        let result = splice_mutator.mutate(&mut mutator.state, &mut input_to_splice);
+
         assert!(result.is_ok());
+
+        // Ensure the result is valid by unparsing
+        let mut buf = Vec::new();
+        input_to_splice.unparse(context_ref, &mut buf);
+        assert!(!buf.is_empty());
+        let s = String::from_utf8_lossy(&buf);
+        assert!(s == "A" || s == "B");
     }
 
     #[test]
-    fn test_fuzz_fallback() {
-        let rules = vec![("START", "{DATA}".as_bytes()), ("DATA", "TEST".as_bytes())];
-        let context = NautilusContext::with_rules(10, &rules).unwrap();
-        let context_ref = Box::leak(Box::new(context));
-
-        let dir = std::env::temp_dir().join("nautilus_test_fallback");
-        let _ = std::fs::remove_dir_all(&dir); // Clean up previous run
+    fn test_fuzz_integration() {
+        let context_ref = create_test_context();
+        let dir = std::env::temp_dir().join("nautilus_test_fuzz");
+        let _ = std::fs::remove_dir_all(&dir);
         let mut mutator = create_test_mutator(context_ref, &dir);
+        let mut converter = NautilusBytesConverter::new(context_ref);
 
-        // Case 1: Valid input buffer, not in corpus
+        // Case 1: Fuzzing with valid input
+        // Generate valid initial bytes
         let input = mutator.generator.generate(&mut mutator.state).unwrap();
-        let bytes = postcard::to_allocvec(&input).unwrap();
-        let mut buffer = bytes.clone();
+        let mut buffer = converter.to_target_bytes(&input).to_vec();
 
-        let mutated = mutator.fuzz_logic(&mut buffer, None, 1024).unwrap();
+        // Run fuzz
+        let mutated = mutator.fuzz(&mut buffer, None, 1024).unwrap();
         assert!(mutated.is_some());
 
-        // Case 2: Invalid input buffer, should generate new
-        let mut buffer = b"INVALID".to_vec();
-        let mutated = mutator.fuzz_logic(&mut buffer, None, 1024).unwrap();
-        assert!(mutated.is_some());
-
-        // Verify that the mutated output is not empty
         let mutated_bytes = mutated.unwrap();
         assert!(!mutated_bytes.is_empty());
-        // We can't easily verify it's a valid NautilusInput since we don't have the parser here
-        // and it's raw bytes now, not postcard.
+
+        // Verify output is a valid Nautilus input
+        let deserialized = converter.from_target_bytes(mutated_bytes);
+        assert!(
+            deserialized.is_ok(),
+            "Fuzzed output should be deserializable"
+        );
+
+        // Case 2: Fuzzing with invalid input (should trigger fresh generation)
+        let mut invalid_buffer = b"INVALID_GARBAGE".to_vec();
+        let generated = mutator.fuzz(&mut invalid_buffer, None, 1024).unwrap();
+        assert!(generated.is_some());
+
+        let generated_bytes = generated.unwrap();
+        assert!(!generated_bytes.is_empty());
+
+        let deserialized_gen = converter.from_target_bytes(generated_bytes);
+        assert!(
+            deserialized_gen.is_ok(),
+            "Generated output from invalid input should be deserializable"
+        );
     }
 }

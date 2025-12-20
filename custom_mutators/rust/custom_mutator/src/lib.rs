@@ -28,7 +28,7 @@ use std::{fmt::Debug, path::Path};
 
 #[cfg(feature = "afl_internals")]
 #[doc(hidden)]
-pub use custom_mutator_sys::afl_state;
+pub use custom_mutator_sys::{afl_state, queue_entry};
 
 #[allow(unused_variables)]
 #[doc(hidden)]

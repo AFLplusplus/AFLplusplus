@@ -10,8 +10,11 @@ default = ["mutator"]
 mutator = []
 
 [dependencies]
-libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev = "67f7474", features = ["prelude"] }
-libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev = "67f7474" }
+libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev = "12c2bb4", features = [
+  "prelude",
+  "std",
+] }
+libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev = "12c2bb4" }
 custom_mutator = { path = "../rust/custom_mutator", features = [
   "afl_internals",
 ] }

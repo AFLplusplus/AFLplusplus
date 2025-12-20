@@ -22,6 +22,8 @@
 
 . ./test-nyx-mode.sh
 
+. ./test-nautilus.sh
+
 . ./test-unittests.sh
 
 . ./test-post.sh
