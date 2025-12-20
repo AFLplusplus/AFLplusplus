@@ -593,7 +593,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
             StoreInst *RestoreCtx;
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
             if (ctx_k)
-              RestoreCtx = IRB.CreateStore(PrevCaller, AFLPrevCaller);
+              RestoreCtx = Post_IRB.CreateStore(PrevCaller, AFLPrevCaller);
             else
 #endif
               RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
@@ -789,7 +789,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
           StoreInst *RestoreCtx;
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
           if (ctx_k)
-            RestoreCtx = IRB.CreateStore(PrevCaller, AFLPrevCaller);
+            RestoreCtx = Post_IRB.CreateStore(PrevCaller, AFLPrevCaller);
           else
 #endif
             RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);

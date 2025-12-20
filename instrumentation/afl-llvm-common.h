@@ -23,6 +23,8 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #if LLVM_VERSION_MAJOR < 17
@@ -48,6 +50,13 @@ bool  isInInstrumentList(llvm::Function *F, std::string Filename);
 unsigned long long int calculateCollisions(uint32_t edges);
 void                   scanForDangerousFunctions(llvm::Module *M);
 unsigned int           calcCyclomaticComplexity(llvm::Function *F);
+bool                   isAflCovInterestingInstruction(llvm::Instruction &I);
+bool                   isDecisionUse(const llvm::Value *Cond);
+std::pair<bool, bool>  detectIJONUsage(llvm::Module &M);
+void createIJONEnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
+llvm::GlobalVariable *createIJONStateGlobal(llvm::Module &M,
+                                            llvm::Type   *Int32Ty,
+                                            bool          uses_ijon_state);
 
 #ifndef IS_EXTERN
   #define IS_EXTERN

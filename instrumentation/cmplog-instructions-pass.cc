@@ -38,6 +38,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Passes/OptimizationLevel.h"
+#include "llvm/Analysis/LoopInfo.h"
 
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/DebugInfo.h"
@@ -50,7 +51,7 @@ using namespace llvm;
 
 namespace {
 
-using DomTreeCallback = function_ref<const DominatorTree *(Function &F)>;
+using LoopInfoCallback = function_ref<LoopInfo *(Function &F)>;
 
 class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
 
@@ -64,7 +65,7 @@ class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
  private:
-  bool hookInstrs(Module &M, DomTreeCallback DTCallback);
+  bool hookInstrs(Module &M, LoopInfoCallback LICallback);
 
 };
 
@@ -111,16 +112,27 @@ Iterator Unique(Iterator first, Iterator last) {
 
 }
 
-bool IsBackEdge(BasicBlock *From, BasicBlock *To, const DominatorTree *DT) {
+// Check if a compare instruction is a loop condition that should be skipped.
+// Returns true if the branch is part of loop control flow (latch, header, or
+// exiting block) for any containing loop.
+static bool IsLoopCondition(BranchInst *BR, LoopInfo *LI) {
 
-  if (DT->dominates(To, From)) return true;
-  if (auto Next = To->getUniqueSuccessor())
-    if (DT->dominates(Next, From)) return true;
+  BasicBlock *BranchBB = BR->getParent();
+
+  // Check all loops containing this block (innermost to outermost)
+  for (Loop *L = LI->getLoopFor(BranchBB); L; L = L->getParentLoop()) {
+
+    if (L->isLoopLatch(BranchBB)) return true;    // Back-edge source
+    if (L->getHeader() == BranchBB) return true;  // Loop header condition
+    if (L->isLoopExiting(BranchBB)) return true;  // Loop exit condition
+
+  }
+
   return false;
 
 }
 
-bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
+bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
   std::vector<Instruction *> icomps;
   LLVMContext               &C = M.getContext();
@@ -193,7 +205,6 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
   for (auto &F : M) {
 
     if (!isInInstrumentList(&F, MNAME)) continue;
-    const DominatorTree *DT = DTCallback(F);
 
     for (auto &BB : F) {
 
@@ -202,11 +213,10 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
         CmpInst *selectcmpInst = nullptr;
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
 
-          // skip loop comparisons
+          // skip loop comparisons using LoopInfo for robust detection
           if (selectcmpInst->hasOneUse())
             if (auto BR = dyn_cast<BranchInst>(selectcmpInst->user_back()))
-              for (BasicBlock *B : BR->successors())
-                if (IsBackEdge(BR->getParent(), B, DT)) continue;
+              if (IsLoopCondition(BR, LICallback(F))) continue;
 
           icomps.push_back(selectcmpInst);
 
@@ -570,9 +580,9 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
                                           ModuleAnalysisManager &MAM) {
 
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
+  auto  LICallback = [&FAM](Function &F) -> LoopInfo  *{
 
-    return &FAM.getResult<DominatorTreeAnalysis>(F);
+    return &FAM.getResult<LoopAnalysis>(F);
 
   };
 
@@ -581,7 +591,7 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
   else
     be_quiet = 1;
 
-  bool ret = hookInstrs(M, DTCallback);
+  bool ret = hookInstrs(M, LICallback);
   verifyModule(M);
 
   if (ret == false)

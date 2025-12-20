@@ -137,7 +137,7 @@ options are available:
   mode (with `-c 0`), however this will result in a performance loss of about
   20%.
   It is therefore better to compile a specific CMPLOG target with
-  `AFL_LLVM_ONLY_FSRV=1 AFL_LLVM_CMPLOG=1` and pass this binary name via
+  `AFL_LLVM_CMPLOG=1` and pass this binary name via
   `-c cmplog-fuzzing-target` and compile target again normally with `afl-cc`
    and use this is the fuzzing target as usual.
   You can read more about this in

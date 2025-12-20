@@ -238,8 +238,17 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
         if ((cmpInst = dyn_cast<CmpInst>(&IN))) {
 
+          /* Check both operands for constants since LLVM may place the
+             constant in either operand depending on the comparison
+             direction and optimization level */
           Value       *op = cmpInst->getOperand(1);
           ConstantInt *ilen = dyn_cast<ConstantInt>(op);
+          if (!ilen) {
+
+            op = cmpInst->getOperand(0);
+            ilen = dyn_cast<ConstantInt>(op);
+
+          }
 
           /* We skip > 64 bit integers. why? first because their value is
              difficult to obtain, and second because clang does not support
@@ -249,8 +258,8 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
             u64 val2 = 0, val = ilen->getZExtValue();
             u32 len = 0;
-            if (val > 0x10000 && val < 0xffffffff) len = 4;
-            if (val > 0x100000001 && val < 0xffffffffffffffff) len = 8;
+            if (val >= 0x10000 && val <= 0xffffffff) len = 4;
+            if (val > 0xffffffff && val < 0xffffffffffffffff) len = 8;
 
             if (len) {
 
@@ -264,8 +273,8 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
                 case CmpInst::ICMP_SGT:
 
                   // signed comparison and it is a negative constant
-                  if ((len == 4 && (val & 80000000)) ||
-                      (len == 8 && (val & 8000000000000000))) {
+                  if ((len == 4 && (val & 0x80000000)) ||
+                      (len == 8 && (val & 0x8000000000000000))) {
 
                     if ((val & 0xffff) != 1) val2 = val - 1;
                     break;
@@ -287,8 +296,8 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
                 case CmpInst::ICMP_SGE:
 
                   // signed comparison and it is a negative constant
-                  if ((len == 4 && (val & 80000000)) ||
-                      (len == 8 && (val & 8000000000000000))) {
+                  if ((len == 4 && (val & 0x80000000)) ||
+                      (len == 8 && (val & 0x8000000000000000))) {
 
                     if ((val & 0xffff) != 1) val2 = val - 1;
                     break;
@@ -443,29 +452,31 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
           std::string Str1, Str2;
           StringRef   TmpStr;
           bool        HasStr1;
-          getConstantStringInfo(Str1P, TmpStr);
 
-          if (isStrstr || TmpStr.empty()) {
-
-            HasStr1 = false;
-
-          } else {
+          /* Use return value of getConstantStringInfo rather than checking
+             TmpStr.empty() - the StringRef may not be cleared on failure,
+             causing false positives when the same TmpStr is reused */
+          if (getConstantStringInfo(Str1P, TmpStr) && !TmpStr.empty() &&
+              !isStrstr) {
 
             HasStr1 = true;
             Str1 = TmpStr.str();
 
+          } else {
+
+            HasStr1 = false;
+
           }
 
           bool HasStr2;
-          getConstantStringInfo(Str2P, TmpStr);
-          if (TmpStr.empty()) {
-
-            HasStr2 = false;
-
-          } else {
+          if (getConstantStringInfo(Str2P, TmpStr) && !TmpStr.empty()) {
 
             HasStr2 = true;
             Str2 = TmpStr.str();
+
+          } else {
+
+            HasStr2 = false;
 
           }
 

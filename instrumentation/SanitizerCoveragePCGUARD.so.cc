@@ -151,13 +151,12 @@ class ModuleSanitizerCoverageAFL
                                                 Type *Ty);
 
   // Helper functions for cleaner code
-  bool                  isInstructionInteresting(Instruction &IN);
-  bool                  isAflInterestingCall(Instruction &IN);
-  void                  initializeVersionSpecificTypes(IRBuilder<> &IRB);
-  void                  setupEnvironmentVariables();
-  std::pair<bool, bool> detectIJONUsage(Module &M);
-  void                  setupIJONSymbols(Module &M);
-  Value                *createGuardPointer(IRBuilder<> &IRB, uint32_t index);
+  bool   isInstructionInteresting(Instruction &IN);
+  bool   isAflInterestingCall(Instruction &IN);
+  void   initializeVersionSpecificTypes(IRBuilder<> &IRB);
+  void   setupEnvironmentVariables();
+  void   setupIJONSymbols(Module &M, bool uses_ijon_state);
+  Value *createGuardPointer(IRBuilder<> &IRB, uint32_t index);
   void   updateCoverageBitmap(IRBuilder<> &IRB, Value *CoverageIndex,
                               LoadInst *MapPtr);
   void   printDebugInfo(Instruction &IN);
@@ -325,187 +324,11 @@ std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
 
 }
 
-// Helper function implementations
-
-// We look here for instructions that make decisions without creating new basic
-// blocks in the LLVM IR - this is hidden control flow we want to instrument.
-
-// Is the icmp/fcmp used in a basic block traversing instructions?
-// if yes - return true (will not be instrumented)
-// if no - return false (will be instrumented)
-static bool isDecisionUse(const Value *Cond) {
-
-  SmallVector<const Value *, 8> Worklist;
-  SmallPtrSet<const Value *, 8> Visited;
-
-  Worklist.push_back(Cond);
-
-  while (!Worklist.empty()) {
-
-    const Value *V = Worklist.pop_back_val();
-    if (!Visited.insert(V).second) continue;
-
-    for (const User *U : V->users()) {
-
-      if (const auto *BI = dyn_cast<BranchInst>(U)) {
-
-        if (BI->isConditional() && BI->getCondition() == V) return true;
-
-      } else if (const auto *SI = dyn_cast<SelectInst>(U)) {
-
-        if (SI->getCondition() == V) return true;
-
-      } else if (const auto *SW = dyn_cast<SwitchInst>(U)) {
-
-        if (SW->getCondition() == V) return true;
-
-        /*
-
-              } else if (const auto *CB = dyn_cast<CallBase>(U)) {
-
-                const Function *F = CB->getCalledFunction();
-                if (!F)
-                  continue;
-                Intrinsic::ID IID = F->getIntrinsicID();
-                if (IID == Intrinsic::assume ||
-                    IID == Intrinsic::experimental_guard ||
-                    IID == Intrinsic::expect)
-                  return true;
-        */
-
-      } else if (const auto *BO = dyn_cast<BinaryOperator>(U)) {
-
-        if (BO->getType()->isIntegerTy(1)) Worklist.push_back(BO);
-
-      } else if (const auto *PN = dyn_cast<PHINode>(U)) {
-
-        if (PN->getType()->isIntegerTy(1)) return true;
-
-      } else if (const auto *Cast = dyn_cast<CastInst>(U)) {
-
-        if (Cast->getDestTy()->isIntegerTy(1) ||
-            Cast->getSrcTy()->isIntegerTy(1))
-          Worklist.push_back(Cast);
-
-      } else if (const auto *FI = dyn_cast<FreezeInst>(U)) {
-
-        if (FI->getType()->isIntegerTy(1)) Worklist.push_back(FI);
-
-      }
-
-    }
-
-  }
-
-  return false;
-
-}
-
 bool ModuleSanitizerCoverageAFL::isInstructionInteresting(Instruction &I) {
 
-  switch (I.getOpcode()) {
-
-    case Instruction::ICmp:
-    case Instruction::FCmp: {
-
-      const Value *Cond = &I;
-      Type        *Ty = Cond->getType();
-      if (Ty->isIntegerTy(1) ||
-          (Ty->isVectorTy() && Ty->getScalarType()->isIntegerTy(1))) {
-
-        if (isDecisionUse(Cond)) return false;
-
-      }
-
-      return true;
-
-    }
-
-    case Instruction::Select: {
-
-      // allways instrumented
-      return true;
-
-    }
-
-    case Instruction::AtomicCmpXchg: {
-
-      // allways instrumented
-      return true;
-
-    }
-
-    case Instruction::AtomicRMW: {
-
-      AtomicRMWInst *RMW = dyn_cast<AtomicRMWInst>(&I);
-      if (RMW) {
-
-        AtomicRMWInst::BinOp Op = RMW->getOperation();
-
-        if (Op == AtomicRMWInst::Min || Op == AtomicRMWInst::Max ||
-            Op == AtomicRMWInst::UMin || Op == AtomicRMWInst::UMax) {
-
-          return true;
-
-        } else {
-
-          return false;
-
-        }
-
-      }
-
-    }
-
-    default:
-      return false;
-
-  }
+  return isAflCovInterestingInstruction(I);
 
 }
-
-#if 0
-bool ModuleSanitizerCoverageAFL::isInstructionInteresting(Instruction &IN) {
-
-  bool usedInBranch = false;
-  bool usedInSelectDecision = false;
-
-  ICmpInst *icmp = dyn_cast<ICmpInst>(&IN);
-  FCmpInst *fcmp = dyn_cast<FCmpInst>(&IN);
-
-  if (!(icmp || fcmp || isa<SelectInst>(&IN))) { return false; }
-
-  // Check how this instruction is used
-  for (auto *U : IN.users()) {
-
-    if (isa<BranchInst>(U)) {
-
-      usedInBranch = true;
-      continue;
-
-    }
-
-    if (auto *sel = dyn_cast<SelectInst>(U)) {
-
-      if ((icmp &&
-           (sel->getTrueValue() == icmp || sel->getFalseValue() == icmp)) ||
-          (fcmp &&
-           (sel->getTrueValue() == fcmp || sel->getFalseValue() == fcmp))) {
-
-        usedInSelectDecision = true;
-        continue;
-
-      }
-
-    }
-
-  }
-
-  return !usedInBranch && !usedInSelectDecision;
-
-}
-
-#endif
 
 bool ModuleSanitizerCoverageAFL::isAflInterestingCall(Instruction &IN) {
 
@@ -746,117 +569,11 @@ void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
 
 }
 
-std::pair<bool, bool> ModuleSanitizerCoverageAFL::detectIJONUsage(Module &M) {
+void ModuleSanitizerCoverageAFL::setupIJONSymbols(Module &M,
+                                                  bool    uses_ijon_state) {
 
-  bool uses_ijon_functions = false;
-  bool uses_ijon_state = false;
-
-  // Scan for IJON function calls to determine if we need IJON symbols
-  for (auto &F : M) {
-
-    for (auto &BB : F) {
-
-      for (auto &I : BB) {
-
-        Function *calledFunc = nullptr;
-
-        // Check both CallInst and InvokeInst
-        if (auto *call = dyn_cast<CallInst>(&I)) {
-
-          calledFunc = dyn_cast<Function>(call->getCalledOperand());
-
-        } else if (auto *invoke = dyn_cast<InvokeInst>(&I)) {
-
-          calledFunc = dyn_cast<Function>(invoke->getCalledOperand());
-
-        }
-
-        if (calledFunc) {
-
-          StringRef funcName = calledFunc->getName();
-#if LLVM_MAJOR >= 18
-          if (!funcName.starts_with("ijon_")) continue;
-#else
-          if (!funcName.startswith("ijon_")) continue;
-#endif
-
-          // Check for state-aware functions (only ijon_xor_state)
-          if (funcName == "ijon_xor_state") {
-
-            uses_ijon_functions = true;
-            uses_ijon_state = true;
-            break;
-
-          }
-
-          // Check for other IJON functions (max/min/set/inc)
-          if (funcName == "ijon_max" || funcName == "ijon_min" ||
-              funcName == "ijon_set" || funcName == "ijon_inc" ||
-              funcName == "ijon_max_variadic" ||
-              funcName == "ijon_min_variadic") {
-
-            uses_ijon_functions = true;
-            // Don't break - keep looking for ijon_xor_state
-
-          }
-
-          // Ignore helper functions (ijon_hash*, ijon_strdist, etc.)
-#if LLVM_MAJOR >= 18
-          if (funcName.starts_with("ijon_hash") || funcName == "ijon_strdist") {
-
-#else
-          if (funcName.startswith("ijon_hash") || funcName == "ijon_strdist") {
-
-#endif
-            // These are helper functions, not instrumentation functions
-
-          }
-
-        }
-
-      }
-
-      if (uses_ijon_state) break;
-
-    }
-
-    if (uses_ijon_state) break;
-
-  }
-
-  return {uses_ijon_functions, uses_ijon_state};
-
-}
-
-void ModuleSanitizerCoverageAFL::setupIJONSymbols(Module &M) {
-
-  auto [uses_ijon_functions, uses_ijon_state] = detectIJONUsage(M);
-
-  if (!uses_ijon_functions) {
-
-    ijon_enabled = nullptr;
-    return;
-
-  }
-
-  // Always create __afl_ijon_enabled for IJON memory allocation
-  Constant *One32 = ConstantInt::get(Int32Ty, 1);
-  new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, One32,
-                     "__afl_ijon_enabled");
-
-  // Only create __afl_ijon_state if state-aware functions are used
-  if (uses_ijon_state) {
-
-#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
-    AFLIJONState = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state");
-#else
-    AFLIJONState = new GlobalVariable(
-        M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_ijon_state",
-        0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
-#endif
-
-  }
+  createIJONEnabledGlobal(M, Int32Ty);
+  AFLIJONState = createIJONStateGlobal(M, Int32Ty, uses_ijon_state);
 
 }
 
@@ -948,7 +665,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
 
   // Initialize IJON symbols based on what functions are used
-  if (ijon_enabled) { setupIJONSymbols(M); }
+  if (ijon_enabled) { setupIJONSymbols(M, uses_ijon_state); }
 
   Constant *SanCovLowestStackConstant =
       M.getOrInsertGlobal(SanCovLowestStackName, IntptrTy);

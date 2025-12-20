@@ -111,7 +111,7 @@ $CC -O3 -g -fPIC -Wno-unused-result -Wno-pointer-sign \
     -I. \
     -IcJSON \
     -o gramatron.so -shared \
-    gramfuzz.c gramfuzz-helpers.c gramfuzz-mutators.c gramfuzz-util.c hashmap.c json_parser.c cJSON/cJSON.c \
+    gramfuzz.c gramfuzz-helpers.c gramfuzz-mutators.c gramfuzz-util.c hashmap.c json-parser.c cJSON/cJSON.c \
     afl-performance-custom.o || exit 1
 
 # Clean up
