@@ -1,0 +1,12 @@
+#
+# AFL dictionary for ASCII STL
+# ----------------------------
+#
+
+"solid"
+"facet normal"
+"outer loop"
+"vertex"
+"endloop"
+"endfacet"
+"endsolid"
