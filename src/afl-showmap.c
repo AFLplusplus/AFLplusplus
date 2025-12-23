@@ -87,7 +87,12 @@ static u32 tcnt, highest;              /* tuple content information         */
 
 static u32 in_len;                     /* Input data length                 */
 
-static u32 map_size = MAP_SIZE, timed_out = 0;
+static u32 map_size = MAP_SIZE;
+
+/* Timeout flag for non-forkserver mode. In forkserver mode,
+   fsrv->last_run_timed_out is used instead. Use run_timed_out()
+   to check for timeouts in either mode. */
+static u32 no_forkserver_timed_out = 0;
 
 static bool quiet_mode,                /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
@@ -109,6 +114,14 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 static sharedmem_t       shm;
 static afl_forkserver_t *fsrv;
 static sharedmem_t      *shm_fuzz;
+
+/* Check if the last run timed out, considering both forkserver and
+   non-forkserver modes. */
+static inline bool run_timed_out(void) {
+
+  return no_forkserver_timed_out || fsrv->last_run_timed_out;
+
+}
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -138,7 +151,7 @@ static const u8 count_class_binary[256] = {
 static void kill_child(int signal) {
 
   (void)signal;
-  timed_out = 1;
+  no_forkserver_timed_out = 1;
   if (fsrv->child_pid > 0) {
 
     kill(fsrv->child_pid, fsrv->child_kill_signal);
@@ -275,7 +288,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
   }
 
   if (cmin_mode &&
-      (fsrv->last_run_timed_out || (!caa && child_crashed != cco))) {
+      (run_timed_out() || (!caa && child_crashed != cco))) {
 
     if (strcmp(outfile, "-")) {
 
@@ -423,12 +436,10 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   if (!quiet_mode) { SAYF("-- Program output begins --\n" cRST); }
 
-  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
-      FSRV_RUN_ERROR) {
+  fsrv_run_result_t run_result =
+      afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon);
 
-    FATAL("Error running target");
-
-  }
+  if (run_result == FSRV_RUN_ERROR) { FATAL("Error running target"); }
 
   if (fsrv->trace_bits[0]) {
 
@@ -445,23 +456,14 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
-  if (!fsrv->last_run_timed_out && !stop_soon &&
-      WIFSIGNALED(fsrv->child_status)) {
-
-    child_crashed = true;
-
-  } else {
-
-    child_crashed = false;
-
-  }
+  child_crashed = (run_result == FSRV_RUN_CRASH);
 
   if (!quiet_mode) {
 
-    if (timed_out || fsrv->last_run_timed_out) {
+    if (run_timed_out()) {
 
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
-      timed_out = 0;
+      no_forkserver_timed_out = 0;
 
     } else if (stop_soon) {
 
@@ -701,6 +703,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
   if (fsrv->exec_tmout) {
 
     fsrv->last_run_timed_out = 0;
+    no_forkserver_timed_out = 0;
     it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
     it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
@@ -742,7 +745,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
-  if (!fsrv->last_run_timed_out && !stop_soon && WIFSIGNALED(status)) {
+  if (!run_timed_out() && !stop_soon && WIFSIGNALED(status)) {
 
     child_crashed = true;
 
@@ -750,10 +753,10 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   if (!quiet_mode) {
 
-    if (timed_out || fsrv->last_run_timed_out) {
+    if (run_timed_out()) {
 
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
-      timed_out = 0;
+      no_forkserver_timed_out = 0;
 
     } else if (stop_soon) {
 
@@ -1838,11 +1841,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (cmin_mode && !!getenv("AFL_CMIN_CRASHES_ONLY")) {
 
-    ret = fsrv->last_run_timed_out;
+    ret = run_timed_out();
 
   } else {
 
-    ret = child_crashed * 2 + fsrv->last_run_timed_out;
+    ret = child_crashed * 2 + run_timed_out();
 
   }
 
