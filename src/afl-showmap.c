@@ -287,8 +287,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
   }
 
-  if (cmin_mode &&
-      (run_timed_out() || (!caa && child_crashed != cco))) {
+  if (cmin_mode && (run_timed_out() || (!caa && child_crashed != cco))) {
 
     if (strcmp(outfile, "-")) {
 

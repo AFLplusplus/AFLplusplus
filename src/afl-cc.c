@@ -2108,7 +2108,7 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
     if (getenv("AFL_USE_TSAN") || aflcc->have_tsan)
       FATAL("TSAN and LSAN are mutually exclusive");
-    
+
     insert_param(aflcc, "-fsanitize=leak");
     add_defs_lsan_ctrl(aflcc);
     aflcc->have_lsan = 1;
