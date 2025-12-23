@@ -6,15 +6,16 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["mutator"]
+default = []
+## Build the libafl_base example mutator
 mutator = []
 
 [dependencies]
-libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev = "12c2bb4", features = [
+libafl = { git = "https://github.com/AFLplusplus/LibAFL", rev = "b39fb72", features = [
   "prelude",
   "std",
 ] }
-libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev = "12c2bb4" }
+libafl_bolts = { git = "https://github.com/AFLplusplus/LibAFL", rev = "b39fb72" }
 custom_mutator = { path = "../rust/custom_mutator", features = [
   "afl_internals",
 ] }
@@ -24,6 +25,9 @@ serde = { version = "1.0", default-features = false, features = [
 
 postcard = { version = "1.0", features = ["alloc"] }
 lru = "0.12"
+serde_json = "1.0.145"
+log = "0.4"
+
 
 [lib]
 crate-type = ["cdylib", "rlib"]

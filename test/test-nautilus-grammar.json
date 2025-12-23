@@ -1,15 +1,18 @@
 [
     [
       "START",
-      "PW_SAFE"
+      "{DATA}"
     ],
     [
-      "START",
-      "P_SAFE"
+      "DATA",
+      "AAAA"
     ],
     [
-      "START",
-      "SAFE"
+      "DATA",
+      "BBBB"
     ],
-    ["START", "test_custom_mutator"]
+    [
+      "DATA",
+      "CCCC"
+    ]
 ]

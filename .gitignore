@@ -130,3 +130,7 @@ argv_fuzz_persistent_demo
 test/test-nautilus-target
 target
 test/errors
+test/test_input
+test/manual_errors
+test/resume_log.txt
+out-*
