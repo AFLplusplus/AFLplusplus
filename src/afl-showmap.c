@@ -1592,15 +1592,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
     u32 save_be_quiet = be_quiet;
     be_quiet = !debug;
-    if (map_size > 4194304) {
+    if (map_size <= DEFAULT_SHMEM_SIZE) {
 
-      fsrv->map_size = map_size;
+      fsrv->map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
 
     } else {
 
-      fsrv->map_size = 4194304;  // dummy temporary value
+      validate_map_size(map_size);
+      fsrv->map_size = map_size;
 
     }
+
+    char vbuf[16];
+    snprintf(vbuf, sizeof(vbuf), "%u", fsrv->map_size);
+    setenv("AFL_MAP_SIZE", vbuf, 1);
 
     u32 new_map_size =
         afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
