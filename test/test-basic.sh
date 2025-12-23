@@ -89,6 +89,43 @@ $ECHO "$BLUE[*] Testing: ${AFL_COMPILER}, afl-showmap, afl-fuzz, afl-cmin and af
     }
     test "$TUPLES" -lt 3 && SKIP=1
     true  # this is needed because of the test above
+    # Test afl-showmap exit codes for normal/timeout/crash
+    ../${AFL_COMPILER} -o test-showmap-exit.plain test-showmap-exit.c > /dev/null 2>&1
+    test -e test-showmap-exit.plain && {
+      # Test normal exit (should be 0)
+      echo "normal" > .test-exit-input
+      ../afl-showmap -m ${MEM_LIMIT} -t 1000 -q -o /dev/null -- ./test-showmap-exit.plain .test-exit-input > /dev/null 2>&1
+      EXITCODE=$?
+      test "$EXITCODE" -eq 0 && {
+        $ECHO "$GREEN[+] afl-showmap exit code for normal execution is 0"
+      } || {
+        $ECHO "$RED[!] afl-showmap exit code for normal execution should be 0 but got $EXITCODE"
+        CODE=1
+      }
+      # Test timeout (should be 1)
+      echo "HANG" > .test-exit-input
+      ../afl-showmap -m ${MEM_LIMIT} -t 100 -q -o /dev/null -- ./test-showmap-exit.plain .test-exit-input > /dev/null 2>&1
+      EXITCODE=$?
+      test "$EXITCODE" -eq 1 && {
+        $ECHO "$GREEN[+] afl-showmap exit code for timeout is 1"
+      } || {
+        $ECHO "$RED[!] afl-showmap exit code for timeout should be 1 but got $EXITCODE"
+        CODE=1
+      }
+      # Test crash (should be 2)
+      echo "BOOM" > .test-exit-input
+      ../afl-showmap -m ${MEM_LIMIT} -t 1000 -q -o /dev/null -- ./test-showmap-exit.plain .test-exit-input > /dev/null 2>&1
+      EXITCODE=$?
+      test "$EXITCODE" -eq 2 && {
+        $ECHO "$GREEN[+] afl-showmap exit code for crash is 2"
+      } || {
+        $ECHO "$RED[!] afl-showmap exit code for crash should be 2 but got $EXITCODE"
+        CODE=1
+      }
+      rm -f .test-exit-input test-showmap-exit.plain
+    } || {
+      $ECHO "$YELLOW[-] could not compile test-showmap-exit.c, skipping exit code tests"
+    }
    } || {
     $ECHO "$RED[!] ${AFL_COMPILER} failed"
     echo CUT------------------------------------------------------------------CUT
