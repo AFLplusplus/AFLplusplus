@@ -23,11 +23,8 @@ for script in test-*.sh; do
     # Restore directory in case the sourced script changed it
     cd "$TEST_DIR"
   else
-    # Scripts that don't source test-pre.sh should be executed
-    # We source test-pre.sh and test-post.sh here to ensure they are counted
-    # in the global test statistics.
-    . ./test-pre.sh
     echo "Running $script independently..."
+    . ./test-pre.sh
     if [ -x "./$script" ]; then
       "./$script"
     else
