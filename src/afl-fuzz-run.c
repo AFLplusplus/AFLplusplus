@@ -520,6 +520,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   u8 fault = 0, new_bits = 0, var_detected = 0, hnb = 0,
      first_run = (q->exec_cksum == 0);
   u64 start_us, stop_us, diff_us;
+  u64 max_exec_us = 0;
   s32 old_sc = afl->stage_cur, old_sm = afl->stage_max;
   u32 use_tmout = afl->fsrv.exec_tmout;
   u8 *old_sn = afl->stage_name;
@@ -625,9 +626,22 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     u64 cksum;
 
+    u64 run_start_us = get_cur_time_us();
+    
     (void)write_to_testcase(afl, (void **)&use_mem, q->len, 1);
 
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
+
+    u64 run_stop_us = get_cur_time_us();
+    u64 run_diff_us = run_stop_us - run_start_us;
+
+    if (unlikely(!run_diff_us)) { ++run_diff_us; }
+    
+    if (run_diff_us > max_exec_us) { 
+    
+      max_exec_us = run_diff_us; 
+    
+    }
 
     // update the time spend in calibration after each execution, as those may
     // be slow
@@ -709,6 +723,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   if (unlikely(afl->fixed_seed)) {
 
     diff_us = (u64)(afl->fsrv.exec_tmout - 1) * (u64)afl->stage_max;
+    q->exec_us = (u64)(afl->fsrv.exec_tmout - 1);
 
   } else {
 
@@ -716,6 +731,10 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     diff_us = stop_us - start_us;
     if (unlikely(!diff_us)) { ++diff_us; }
 
+    u64 avg_exec_us = diff_us / afl->stage_max;
+    q->exec_us = (max_exec_us > avg_exec_us) ? max_exec_us : avg_exec_us;
+    if (unlikely(!q->exec_us)) { q->exec_us = 1; }
+    
   }
 
   afl->total_cal_us += diff_us;
@@ -731,7 +750,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
-  q->exec_us = diff_us / afl->stage_max;
   if (unlikely(!q->exec_us)) { q->exec_us = 1; }
 
   q->bitmap_size = count_bytes(afl, afl->fsrv.trace_bits);
