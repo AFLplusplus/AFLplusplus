@@ -288,6 +288,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->out_dir_fd = -1;
   fsrv->dev_null_fd = -1;
   fsrv->dev_urandom_fd = -1;
+  fsrv->fsrv_ctl_fd = -1;
+  fsrv->fsrv_st_fd = -1;
 
   /* Settings */
   fsrv->use_stdin = true;
@@ -517,9 +519,9 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     if (!child_pid) {  // New child
 
-      close(fsrv->out_dir_fd);
-      close(fsrv->dev_null_fd);
-      close(fsrv->dev_urandom_fd);
+      if (fsrv->out_dir_fd >= 0) close(fsrv->out_dir_fd);
+      if (fsrv->dev_null_fd >= 0) close(fsrv->dev_null_fd);
+      if (fsrv->dev_urandom_fd >= 0) close(fsrv->dev_urandom_fd);
 
       if (fsrv->plot_file != NULL) {
 
@@ -1059,7 +1061,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     } else {
 
       dup2(fsrv->out_fd, 0);
-      close(fsrv->out_fd);
+      if (fsrv->out_fd >= 0) close(fsrv->out_fd);
 
     }
 
@@ -1073,9 +1075,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     close(st_pipe[0]);
     close(st_pipe[1]);
 
-    close(fsrv->out_dir_fd);
-    close(fsrv->dev_null_fd);
-    close(fsrv->dev_urandom_fd);
+    if (fsrv->out_dir_fd >= 0) close(fsrv->out_dir_fd);
+    if (fsrv->dev_null_fd >= 0) close(fsrv->dev_null_fd);
+    if (fsrv->dev_urandom_fd >= 0) close(fsrv->dev_urandom_fd);
 
     if (fsrv->plot_file != NULL) {
 
@@ -1833,8 +1835,19 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
   }
 
-  close(fsrv->fsrv_ctl_fd);
-  close(fsrv->fsrv_st_fd);
+  if (fsrv->fsrv_ctl_fd >= 0) {
+
+    close(fsrv->fsrv_ctl_fd);
+    fsrv->fsrv_ctl_fd = -1;
+
+  }
+
+  if (fsrv->fsrv_st_fd >= 0) {
+
+    close(fsrv->fsrv_st_fd);
+    fsrv->fsrv_st_fd = -1;
+
+  }
   fsrv->fsrv_pid = -1;
   fsrv->child_pid = -1;
 
