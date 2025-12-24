@@ -1,29 +1,22 @@
 #!/bin/sh
 
+# cd to the directory of the script to ensure paths are correct
+cd "$(dirname "$0")"
+
 . ./test-pre.sh
 
-. ./test-basic.sh
+# Dynamically run all test scripts matching test-*.sh
+for script in test-*.sh; do
+  # Skip exclusions
+  if [ "$script" = "test-pre.sh" ] || \
+     [ "$script" = "test-post.sh" ] || \
+     [ "$script" = "test-all.sh" ]; then
+    continue
+  fi
 
-. ./test-llvm.sh
-
-. ./test-llvm-lto.sh
-
-. ./test-gcc-plugin.sh
-
-. ./test-libextensions.sh
-
-. ./test-qemu-mode.sh
-
-. ./test-frida-mode.sh
-
-. ./test-unicorn-mode.sh
-
-. ./test-custom-mutators.sh
-
-. ./test-nyx-mode.sh
-
-. ./test-unittests.sh
+  if [ -r "$script" ]; then
+    . "./$script"
+  fi
+done
 
 . ./test-post.sh
-
-exit 0
