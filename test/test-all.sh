@@ -4,6 +4,7 @@
 cd "$(dirname "$0")"
 
 . ./test-pre.sh
+TEST_DIR=$(pwd)
 
 # Dynamically run all test scripts matching test-*.sh
 for script in test-*.sh; do
@@ -14,8 +15,28 @@ for script in test-*.sh; do
     continue
   fi
 
-  if [ -r "$script" ]; then
-    . "./$script"
+# Check if script is meant to be sourced (sources test-pre.sh)
+  if grep -q "test-pre.sh" "$script"; then
+    if [ -r "$script" ]; then
+      . "./$script"
+    fi
+    # Restore directory in case the sourced script changed it
+    cd "$TEST_DIR"
+  else
+    # Scripts that don't source test-pre.sh should be executed
+    # We source test-pre.sh and test-post.sh here to ensure they are counted
+    # in the global test statistics.
+    . ./test-pre.sh
+    echo "Running $script independently..."
+    if [ -x "./$script" ]; then
+      "./$script"
+    else
+      sh "./$script"
+    fi
+    if [ $? -ne 0 ]; then
+      CODE=1
+    fi
+    . ./test-post.sh
   fi
 done
 
