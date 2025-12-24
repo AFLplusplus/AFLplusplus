@@ -93,7 +93,7 @@ where
         }
 
         let raw_filename = unsafe { (*queue_cur).fname }.cast::<i8>();
-        let c_filename = unsafe { CStr::from_ptr(raw_filename) };
+        let c_filename = unsafe { CStr::from_ptr(raw_filename.cast_const()) };
         let filename_str = c_filename.to_string_lossy();
 
         let id_str = if let Some(stripped) = filename_str.strip_prefix("id:") {
@@ -182,7 +182,7 @@ where
         let queue_buf: &[*mut queue_entry] =
             unsafe { std::slice::from_raw_parts(afl.queue_buf, afl_count) };
         let entry = unsafe { queue_buf[i].as_ref().unwrap() };
-        let fname_cstr = unsafe { CStr::from_ptr(entry.fname.cast::<i8>()) };
+        let fname_cstr = unsafe { CStr::from_ptr(entry.fname.cast::<i8>().cast_const()) };
         let filename_str = fname_cstr.to_str().unwrap();
         let fname = std::path::Path::new(filename_str)
             .file_name()
@@ -230,7 +230,7 @@ where
         let queue_buf: &[*mut queue_entry] =
             unsafe { std::slice::from_raw_parts(afl.queue_buf, afl_count) };
         let entry = unsafe { queue_buf[i].as_ref().unwrap() };
-        let fname_cstr = unsafe { CStr::from_ptr(entry.fname.cast::<i8>()) };
+        let fname_cstr = unsafe { CStr::from_ptr(entry.fname.cast::<i8>().cast_const()) };
         let filename_str = fname_cstr.to_str().unwrap();
         let fname = std::path::Path::new(filename_str)
             .file_name()

@@ -55,9 +55,12 @@ fn visit_dirs(dir: &Path, output_base: &Path, context: &NautilusContext) {
                 fs::create_dir_all(&new_output_dir).expect("Failed to create subdirectory");
                 visit_dirs(&path, &new_output_dir, context);
             } else {
-                // Ignore metadata and hidden files
+                // Ignore metadata, hidden files, and internal AFL files
                 if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                    if file_name.starts_with('.') || file_name.ends_with(".metadata") {
+                    if file_name.starts_with('.')
+                        || file_name.ends_with(".metadata")
+                        || file_name == "is_main_node"
+                    {
                         continue;
                     }
                 }
@@ -70,13 +73,17 @@ fn visit_dirs(dir: &Path, output_base: &Path, context: &NautilusContext) {
 fn process_file(path: &Path, output_dir: &Path, context: &NautilusContext) {
     // Expect the file to be a valid serialized Input (JSON/Postcard) or fail.
     // We rely on Input::from_file to match how it was saved.
-    let input = NautilusInput::from_file(path).unwrap_or_else(|e| {
-        panic!(
-            "Failed to deserialize {} as Input (JSON/Postcard): {}",
-            path.display(),
-            e
-        );
-    });
+    let input = match NautilusInput::from_file(path) {
+        Ok(i) => i,
+        Err(e) => {
+            eprintln!(
+                "Warning: Failed to deserialize {} as Input (JSON/Postcard): {}. Skipping.",
+                path.display(),
+                e
+            );
+            return;
+        }
+    };
 
     let mut unparsed = Vec::new();
     input.unparse(context, &mut unparsed);
