@@ -4,7 +4,11 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++4.35a (dev)
+### Version ++4.36a (dev)
+  - ...
+
+
+### Version ++4.35a (release)
   - GUIFuzz++ merged: Unleashing Grey-box Fuzzing on Desktop Graphical User
                       Interfacing Applications
     https://futures.cs.utah.edu/papers/25ASE.pdf
