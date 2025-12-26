@@ -1370,10 +1370,10 @@ u8 *u_simplestring_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 /* Validate map size, returns validated size or FATALs if invalid */
 u32 validate_map_size(u32 map_size) {
 
-  if (!map_size || map_size > (1U << 29)) {
+  if (!map_size || map_size >= (1U << 29)) {
 
-    FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 64U,
-          1U << 29);
+    FATAL("illegal AFL_MAP_SIZE %u, must be between 64 <= %u < %u", map_size,
+          64U, 1U << 29);
 
   }
 
