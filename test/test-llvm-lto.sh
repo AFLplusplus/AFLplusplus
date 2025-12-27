@@ -13,8 +13,11 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
     fi
   }
 
+  rm -f test-instr.plain
   ../afl-clang-lto -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   test -e test-instr.plain && {
+    chmod +x test-instr.plain
+    ls -l test-instr.plain
     $ECHO "$GREEN[+] llvm_mode LTO compilation succeeded"
     echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1

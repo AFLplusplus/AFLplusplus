@@ -6,9 +6,12 @@ $ECHO "$BLUE[*] Testing: gcc_plugin"
 test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
   SAVE_AFL_CC=${AFL_CC}
   export AFL_CC=`command -v gcc`
+  rm -f test-instr.plain.gccpi
   ../afl-gcc-fast -o test-instr.plain.gccpi ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-gcc-fast -o test-compcov.harden.gccpi test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain.gccpi && {
+    chmod +x test-instr.plain.gccpi
+    ls -l test-instr.plain.gccpi
     $ECHO "$GREEN[+] gcc_plugin compilation succeeded"
     echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain.gccpi > /dev/null 2>&1
     AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain.gccpi < /dev/null > /dev/null 2>&1
