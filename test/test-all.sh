@@ -6,8 +6,12 @@ cd "$(dirname "$0")"
 . ./test-pre.sh
 TEST_DIR=$(pwd)
 
+
+ALL_CODE=0
+
 # Dynamically run all test scripts matching test-*.sh
 for script in test-*.sh; do
+  CODE=0
   # Skip exclusions
   if [ "$script" = "test-pre.sh" ] || \
      [ "$script" = "test-post.sh" ] || \
@@ -35,6 +39,13 @@ for script in test-*.sh; do
     fi
     . ./test-post.sh
   fi
+
+  if [ "$CODE" = "1" ]; then
+    echo "$RED[!] Test script $script failed!$RESET"
+    ALL_CODE=1
+  fi
 done
+
+CODE=$ALL_CODE
 
 . ./test-post.sh
