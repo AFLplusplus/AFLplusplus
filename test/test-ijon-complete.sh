@@ -16,9 +16,11 @@ echo "5" > test-input/input3.txt
 echo "!" > test-input/input4.txt
 
 echo "1. Testing PCGUARD mode (default) with IJON..."
+rm -f test-ijon-pcguard
 if AFL_LLVM_IJON=1 ../afl-clang-fast -D_USE_IJON=1 test-ijon-complete.c -o test-ijon-pcguard >compilation.log 2>&1; then
     grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" compilation.log || echo "    Compilation succeeded but no IJON instrumentation reported"
     echo "    Compiled with PCGUARD + IJON state-aware coverage"
+    chmod +x test-ijon-pcguard
 else
     echo "    Compilation FAILED"
     cat compilation.log
@@ -26,21 +28,21 @@ else
 fi
 
 echo "2. Testing LTO mode with IJON..."
+rm -f test-ijon-lto
 if AFL_LLVM_IJON=1 ../afl-clang-lto -D_USE_IJON=1 test-ijon-complete.c -o test-ijon-lto >compilation.log 2>&1; then
     grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" compilation.log || echo "    Compilation succeeded but no IJON instrumentation reported"
     echo "    Compiled with LTO + IJON state-aware coverage"
+    chmod +x test-ijon-lto
 else
     echo "    Compilation FAILED (LTO mode)"
-    # LTO might not be available, warn instead of fail hard?
-    # Context: User wants to test it. If LTO is missing, maybe we should skip LTO tests?
-    # But for now, let's show the error.
     cat compilation.log
-    # Don't exit 1 for LTO if it's just missing, but checking failure is better than "Program not found"
 fi
 
 echo "3. Compiling baseline without IJON ..."
+rm -f test-ijon-legacy
 if ../afl-clang-fast test-ijon-complete.c -o test-ijon-legacy >compilation.log 2>&1; then
     echo "    Compiled baseline successfully"
+    chmod +x test-ijon-legacy
 else
     echo "    Baseline compilation FAILED"
     cat compilation.log
