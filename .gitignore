@@ -132,3 +132,9 @@ out-check-crash
 test_input
 test-input
 test.out
+test/test-custom-mutator
+test/test-ijon-legacy
+test/test-ijon-pcguard
+test/test-instr.plain.mycheck
+test/test-multiple-mutators
+
