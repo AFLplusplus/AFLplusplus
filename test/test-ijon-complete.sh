@@ -16,16 +16,39 @@ echo "5" > test-input/input3.txt
 echo "!" > test-input/input4.txt
 
 echo "1. Testing PCGUARD mode (default) with IJON..."
-AFL_LLVM_IJON=1 ../afl-clang-fast -D_USE_IJON=1 test-ijon-complete.c -o test-ijon-pcguard 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
-echo "    Compiled with PCGUARD + IJON state-aware coverage"
+rm -f test-ijon-pcguard
+if AFL_LLVM_IJON=1 ../afl-clang-fast -D_USE_IJON=1 test-ijon-complete.c -o test-ijon-pcguard >compilation.log 2>&1; then
+    grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" compilation.log || echo "    Compilation succeeded but no IJON instrumentation reported"
+    echo "    Compiled with PCGUARD + IJON state-aware coverage"
+    chmod +x test-ijon-pcguard
+else
+    echo "    Compilation FAILED"
+    cat compilation.log
+    exit 1
+fi
 
 echo "2. Testing LTO mode with IJON..."
-AFL_LLVM_IJON=1 ../afl-clang-lto -D_USE_IJON=1 test-ijon-complete.c -o test-ijon-lto 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
-echo "    Compiled with LTO + IJON state-aware coverage"
+rm -f test-ijon-lto
+if AFL_LLVM_IJON=1 ../afl-clang-lto -D_USE_IJON=1 test-ijon-complete.c -o test-ijon-lto >compilation.log 2>&1; then
+    grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" compilation.log || echo "    Compilation succeeded but no IJON instrumentation reported"
+    echo "    Compiled with LTO + IJON state-aware coverage"
+    chmod +x test-ijon-lto
+else
+    echo "    Compilation FAILED (LTO mode)"
+    cat compilation.log
+fi
 
 echo "3. Compiling baseline without IJON ..."
-../afl-clang-fast test-ijon-complete.c -o test-ijon-legacy 2>&1 | grep -E "(IJON_MAX:|IJON_SET:|IJON_INC:|IJON_STATE:)" || echo "    Compilation complete"
-echo "    Compiled with LTO + IJON state-aware coverage"
+rm -f test-ijon-legacy
+if ../afl-clang-fast test-ijon-complete.c -o test-ijon-legacy >compilation.log 2>&1; then
+    echo "    Compiled baseline successfully"
+    chmod +x test-ijon-legacy
+else
+    echo "    Baseline compilation FAILED"
+    cat compilation.log
+    exit 1
+fi
+rm -f compilation.log
 
 echo
 echo "4. Testing coverage ID differentiation..."
@@ -43,10 +66,14 @@ echo "    Input 'A': [$(cut -d: -f1 coverage-pcguard-A.map | tr '\n' ',' | sed '
 echo "    Input 'a': [$(cut -d: -f1 coverage-pcguard-a.map | tr '\n' ',' | sed 's/,$//')] ($(wc -l < coverage-pcguard-a.map) edges)"
 
 echo "  LTO + IJON coverage with different inputs:"
-../afl-showmap -q -o coverage-lto-A.map ./test-ijon-lto < test-input/input1.txt
-../afl-showmap -q -o coverage-lto-a.map ./test-ijon-lto < test-input/input2.txt
-echo "    Input 'A': [$(cut -d: -f1 coverage-lto-A.map | tr '\n' ',' | sed 's/,$//')] ($(wc -l < coverage-lto-A.map) edges)"
-echo "    Input 'a': [$(cut -d: -f1 coverage-lto-a.map | tr '\n' ',' | sed 's/,$//')] ($(wc -l < coverage-lto-a.map) edges)"
+if [ -f "./test-ijon-lto" ]; then
+    ../afl-showmap -q -o coverage-lto-A.map ./test-ijon-lto < test-input/input1.txt
+    ../afl-showmap -q -o coverage-lto-a.map ./test-ijon-lto < test-input/input2.txt
+    echo "    Input 'A': [$(cut -d: -f1 coverage-lto-A.map | tr '\n' ',' | sed 's/,$//')] ($(wc -l < coverage-lto-A.map) edges)"
+    echo "    Input 'a': [$(cut -d: -f1 coverage-lto-a.map | tr '\n' ',' | sed 's/,$//')] ($(wc -l < coverage-lto-a.map) edges)"
+else
+    echo "    LTO binary missing, skipping LTO coverage test"
+fi
 
 echo
 echo "5. IJON_STATE verification test..."
@@ -58,19 +85,31 @@ echo "5" > test-input/input3.txt
 echo "Generating coverage maps for state-aware analysis..."
 
 # PCGUARD + IJON
-../afl-showmap -q -o suite_pcguard_A.map ./test-ijon-pcguard < test-input/input1.txt
-../afl-showmap -q -o suite_pcguard_a.map ./test-ijon-pcguard < test-input/input2.txt
-../afl-showmap -q -o suite_pcguard_5.map ./test-ijon-pcguard < test-input/input3.txt
+if [ -f "./test-ijon-pcguard" ]; then
+    ../afl-showmap -q -o suite_pcguard_A.map ./test-ijon-pcguard < test-input/input1.txt
+    ../afl-showmap -q -o suite_pcguard_a.map ./test-ijon-pcguard < test-input/input2.txt
+    ../afl-showmap -q -o suite_pcguard_5.map ./test-ijon-pcguard < test-input/input3.txt
+else
+    echo "PCGUARD binary missing, skipping"
+fi
 
 # LTO + IJON
-../afl-showmap -q -o suite_lto_A.map ./test-ijon-lto < test-input/input1.txt
-../afl-showmap -q -o suite_lto_a.map ./test-ijon-lto < test-input/input2.txt
-../afl-showmap -q -o suite_lto_5.map ./test-ijon-lto < test-input/input3.txt
+if [ -f "./test-ijon-lto" ]; then
+    ../afl-showmap -q -o suite_lto_A.map ./test-ijon-lto < test-input/input1.txt
+    ../afl-showmap -q -o suite_lto_a.map ./test-ijon-lto < test-input/input2.txt
+    ../afl-showmap -q -o suite_lto_5.map ./test-ijon-lto < test-input/input3.txt
+else
+    echo "LTO binary missing, skipping"
+fi
 
 # Baseline (no IJON)
-../afl-showmap -q -o suite_baseline_A.map ./test-ijon-legacy < test-input/input1.txt
-../afl-showmap -q -o suite_baseline_a.map ./test-ijon-legacy < test-input/input2.txt
-../afl-showmap -q -o suite_baseline_5.map ./test-ijon-legacy < test-input/input3.txt
+if [ -f "./test-ijon-legacy" ]; then
+    ../afl-showmap -q -o suite_baseline_A.map ./test-ijon-legacy < test-input/input1.txt
+    ../afl-showmap -q -o suite_baseline_a.map ./test-ijon-legacy < test-input/input2.txt
+    ../afl-showmap -q -o suite_baseline_5.map ./test-ijon-legacy < test-input/input3.txt
+else
+    echo "Baseline binary missing, skipping"
+fi
 
 # Function to get coverage IDs
 get_coverage_ids() {
@@ -111,6 +150,10 @@ echo "   Creating coverage maps for each input..."
 
 for mode in pcguard lto legacy; do
     echo "   Testing $mode mode..."
+    if [ ! -f "./test-ijon-${mode}" ]; then
+        echo "     Skipping (binary missing)"
+        continue
+    fi
     for i in 1 2 3 4; do
         ../afl-showmap -q -m none -o coverage-${mode}-input${i}.map ./test-ijon-${mode} < test-input/input${i}.txt
         edges=$(wc -l < coverage-${mode}-input${i}.map)
