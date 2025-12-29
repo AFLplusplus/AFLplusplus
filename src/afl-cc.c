@@ -2089,6 +2089,9 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
   if (getenv("AFL_USE_TSAN") || aflcc->have_tsan) {
 
+    if (getenv("AFL_USE_ASAN") || aflcc->have_asan)
+      FATAL("ASAN and TSAN are mutually exclusive");
+
     if (!aflcc->have_fp) {
 
       insert_param(aflcc, "-fno-omit-frame-pointer");
@@ -2102,6 +2105,9 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
   }
 
   if (getenv("AFL_USE_LSAN") && !aflcc->have_lsan) {
+
+    if (getenv("AFL_USE_TSAN") || aflcc->have_tsan)
+      FATAL("TSAN and LSAN are mutually exclusive");
 
     insert_param(aflcc, "-fsanitize=leak");
     add_defs_lsan_ctrl(aflcc);
@@ -2496,7 +2502,9 @@ void add_lto_passes(aflcc_state_t *aflcc) {
   insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
 #endif
 
+#ifndef __APPLE__
   insert_param(aflcc, "-Wl,--allow-multiple-definition");
+#endif
 
 }
 
@@ -3753,7 +3761,9 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     if (getenv("AFL_LLVM_IJON")) {
 
       insert_param(aflcc, "-fpermissive");
+#ifndef __APPLE__
       insert_param(aflcc, "-Wl,--allow-multiple-definition");
+#endif
 
       const char *source_file = get_source_filename(argc, argv);
 
