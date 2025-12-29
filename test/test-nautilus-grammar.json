@@ -1,18 +1,18 @@
 [
     [
       "START",
-      "{DATA}"
+    "AFL_does_not_know_this_{DATA}"
+    ],
+    [
+    "START",
+    "SIMPLE"
     ],
     [
       "DATA",
-      "AAAA"
+    "token_1"
     ],
     [
       "DATA",
-      "BBBB"
-    ],
-    [
-      "DATA",
-      "CCCC"
+    "specific_grammar_magic_string"
     ]
 ]
