@@ -10,12 +10,12 @@ build:
 	@echo trying to use GNU make...
 	@gmake build || echo please install GNUmake
 
-patch:
+debug:
 	@echo trying to use GNU make...
-	@gmake patch || echo please install GNUmake
+	@gmake debug || echo please install GNUmake
 
 clean:
 	@echo trying to use GNU make...
 	@gmake clean || echo please install GNUmake
 
-.PHONY: all build patch clean
+.PHONY: all build debug clean
