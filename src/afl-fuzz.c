@@ -1352,9 +1352,10 @@ int main(int argc, char **argv_orig, char **envp) {
             afl->probability_now[tmp_swarm][j] = 0.0;
             afl->v_now[tmp_swarm][j] =
                 afl->w_now * afl->v_now[tmp_swarm][j] +
-                RAND_C *
+                rand_next_percent(afl) *
                     (afl->L_best[tmp_swarm][j] - afl->x_now[tmp_swarm][j]) +
-                RAND_C * (afl->G_best[j] - afl->x_now[tmp_swarm][j]);
+                rand_next_percent(afl) *
+                    (afl->G_best[j] - afl->x_now[tmp_swarm][j]);
 
             afl->x_now[tmp_swarm][j] += afl->v_now[tmp_swarm][j];
 

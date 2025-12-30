@@ -5286,6 +5286,7 @@ void pso_updating(afl_state_t *afl) {
   u64 temp_operator_finds_puppet = 0;
 
   if (unlikely(++afl->g_now > afl->g_max)) { afl->g_now = 0; }
+
   afl->w_now =
       (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) / (afl->g_max) +
       afl->w_end;
@@ -5325,9 +5326,11 @@ void pso_updating(afl_state_t *afl) {
       afl->probability_now[tmp_swarm][i] = 0.0;
       afl->v_now[tmp_swarm][i] =
           afl->w_now * afl->v_now[tmp_swarm][i] +
-          RAND_C * (afl->L_best[tmp_swarm][i] - afl->x_now[tmp_swarm][i]) +
-          RAND_C * (afl->G_best[i] - afl->x_now[tmp_swarm][i]);
+          rand_next_percent(afl) *
+              (afl->L_best[tmp_swarm][i] - afl->x_now[tmp_swarm][i]) +
+          rand_next_percent(afl) * (afl->G_best[i] - afl->x_now[tmp_swarm][i]);
       afl->x_now[tmp_swarm][i] += afl->v_now[tmp_swarm][i];
+
       if (afl->x_now[tmp_swarm][i] > V_MAX) {
 
         afl->x_now[tmp_swarm][i] = V_MAX;

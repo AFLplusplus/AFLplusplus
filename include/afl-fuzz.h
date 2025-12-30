@@ -348,7 +348,6 @@ enum {
 #define SWARM_NUM 5
 #define PERIOD_CORE 500000
 #define PERIOD_PILOT 50000
-#define RAND_C (rand() % 1000 * 0.001)
 #define V_MAX 1
 #define V_MIN 0.05
 #define SPLICE_CYCLES_puppet_up 25
