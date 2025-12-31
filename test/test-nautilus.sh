@@ -74,7 +74,7 @@ export AFL_DISABLE_TRIM=1
 export AFL_MAP_SIZE=65536
 export AFL_DRIVER_DONT_DEFER=1
 
-timeout 30s ../afl-fuzz -V 30 -m ${MEM_LIMIT} -i in-nautilus -o out-nautilus-neg -d -- ./test-nautilus-target >/dev/null 2>&1
+timeout 30s ../afl-fuzz -V 30 -m ${MEM_LIMIT} -i in-nautilus -o out-nautilus-neg -- ./test-nautilus-target >/dev/null 2>&1
 
 if ls out-nautilus-neg/default/crashes/id* >/dev/null 2>&1; then
   $ECHO "$RED[!] [A/B] Unexpected test result: AFL++ found a crash WITHOUT Nautilus."

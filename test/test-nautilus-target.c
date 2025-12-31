@@ -13,12 +13,12 @@ int main(int argc, char **argv) {
   else
     buf[len] = 0;
 
-  if (!strstr(buf, "AFL_does_not_know_this_")) {
-    if (!strstr(buf, "AFL_does_not_know_this_token_0")) { abort(); }
+  if (strstr(buf, "AFL_does_not_know_this_token_0")) {
+    abort();
+  }
 
-    if (!strstr(buf, "AFL_does_not_know_this_specific_grammar_magic_string")) {
-      abort();
-    }
+  if (strstr(buf, "AFL_does_not_know_this_specific_grammar_magic_string")) {
+    abort();
   }
 
   return 0;
