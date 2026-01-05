@@ -31,7 +31,11 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Passes/PassPlugin.h"
+#if LLVM_MAJOR >= 22
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"

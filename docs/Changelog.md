@@ -5,7 +5,8 @@
 
 
 ### Version ++4.36a (dev)
-  - ...
+  - afl-cc:
+    - LLVM 22 support (they are again switching around include files ...)
 
 
 ### Version ++4.35a (release)

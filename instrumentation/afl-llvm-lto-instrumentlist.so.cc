@@ -39,7 +39,11 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 // #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#if LLVM_MAJOR >= 22
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/CFG.h"
