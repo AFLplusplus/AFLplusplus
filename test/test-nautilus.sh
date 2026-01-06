@@ -115,7 +115,7 @@ else
 fi
 
 # Check for pure grammar crash
-if grep -r "AFL_does_not_know_this_specific_grammar_magic_string" out-nautilus/default/crashes/id* >/dev/null 2>&1; then
+if grep -r "Nautilus_Grammar_Crash" out-nautilus/default/crashes/id* >/dev/null 2>&1; then
   $ECHO "$GREEN[+] [A/B] Positive test passed: Nautilus found the pure GRAMMAR crash!"
 else
   $ECHO "$RED[!] [A/B] Positive test failed: Nautilus did NOT find the pure GRAMMAR crash!"
@@ -123,11 +123,12 @@ else
 fi
 
 # Check if we found Grammar + Normal Mutation crash
-if grep -r "AFL_does_not_know_this_token_0" out-nautilus/default/crashes/id* >/dev/null 2>&1; then
+if grep -r "Nautilus_Token_0" out-nautilus/default/crashes/id* >/dev/null 2>&1; then
   $ECHO "$GREEN[+] [A/B] Positive test passed: Nautilus found the HYBRID crash (Grammar+Normal)!"
 else
-  $ECHO "$RED[!] [A/B] Positive test failed: Nautilus did NOT find the HYBRID crash ('...token_0') in 30s."
+  $ECHO "$RED[!] [A/B] Positive test failed: Nautilus did NOT find the HYBRID crash ('...Token_0') in 30s."
   $ECHO "$RED[!] Check 'errors' file for details."
+  cat errors
   exit 1
 fi
 

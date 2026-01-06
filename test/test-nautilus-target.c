@@ -13,11 +13,16 @@ int main(int argc, char **argv) {
   else
     buf[len] = 0;
 
-  if (strstr(buf, "AFL_does_not_know_this_token_0")) {
+  if (strstr(buf, "Nautilus_Token_1")) {
+      // ensure we save this to corpus
+      asm("");
+  }
+
+  if (strstr(buf, "Nautilus_Token_0")) {
     abort();
   }
 
-  if (strstr(buf, "AFL_does_not_know_this_specific_grammar_magic_string")) {
+  if (strstr(buf, "Nautilus_Grammar_Crash")) {
     abort();
   }
 

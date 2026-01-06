@@ -1,18 +1,22 @@
 [
     [
       "START",
-    "AFL_does_not_know_this_{DATA}"
+      "Nautilus_{DATA}"
     ],
     [
-    "START",
-    "SIMPLE"
-    ],
-    [
-      "DATA",
-    "token_1"
+      "START",
+      "SIMPLE"
     ],
     [
       "DATA",
-    "specific_grammar_magic_string"
+      "Token_1"
+    ],
+    [
+      "DATA",
+      "Token_2"
+    ],
+    [
+      "DATA",
+      "Grammar_Crash"
     ]
 ]
