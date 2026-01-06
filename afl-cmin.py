@@ -212,6 +212,14 @@ tuple_index_type_code = "I"
 file_index_type_code = None
 
 
+def get_asan_options():
+    asan_options = "abort_on_error=1:symbolize=0:detect_leaks=0"
+    user_options = os.environ.get("ASAN_OPTIONS")
+    if user_options:
+        asan_options += ":" + user_options
+    return asan_options
+
+
 def search_binary(name):
     searches = [
         None,
@@ -396,7 +404,7 @@ def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False):
 
     env = os.environ.copy()
     env["AFL_QUIET"] = "1"
-    env["ASAN_OPTIONS"] = "detect_leaks=0"
+    env["ASAN_OPTIONS"] = get_asan_options()
     if first:
         logger.debug("run command line: %s", subprocess.list2cmdline(cmd))
         env["AFL_CMIN_ALLOW_ANY"] = "1"
@@ -647,7 +655,7 @@ def main():
         output = subprocess.run(
             [args.exe],
             capture_output=True,
-            env={**os.environ, "AFL_DUMP_MAP_SIZE": "1", "ASAN_OPTIONS": "detect_leaks=0"},
+            env={**os.environ, "AFL_DUMP_MAP_SIZE": "1", "ASAN_OPTIONS": get_asan_options()},
         ).stdout
         afl_map_size = int(output)
         logger.info("Setting AFL_MAP_SIZE=%d", afl_map_size)
