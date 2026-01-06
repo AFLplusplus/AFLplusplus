@@ -1,7 +1,6 @@
 extern crate bindgen;
 
-use std::env;
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 // this code is largely taken straight from the handbook: https://github.com/fitzgen/bindgen-tutorial-bzip2-sys
 fn main() {

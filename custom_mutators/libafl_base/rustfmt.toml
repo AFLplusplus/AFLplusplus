@@ -1,0 +1,6 @@
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
+newline_style = "Unix"
+format_code_in_doc_comments = true
+format_macro_bodies = true
+format_macro_matchers = true

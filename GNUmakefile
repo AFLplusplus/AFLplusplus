@@ -625,6 +625,9 @@ code-format:
 	./.custom-format.py -i qemu_mode/libcompcov/*.h
 	./.custom-format.py -i qemu_mode/libqasan/*.c
 	./.custom-format.py -i qemu_mode/libqasan/*.h
+	-cargo +nightly fmt --manifest-path custom_mutators/rust/Cargo.toml --all
+	-cargo +nightly fmt --manifest-path custom_mutators/libafl_base/Cargo.toml
+	-cargo +nightly fmt --manifest-path custom_mutators/libafl_nautilus/Cargo.toml
 
 
 .PHONY: test_build
