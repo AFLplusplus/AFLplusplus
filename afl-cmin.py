@@ -459,7 +459,7 @@ def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False):
     else:
         values = []
         # split by newline to avoid issues with Nyx mode
-        for line in out.split(b'\n'):
+        for line in out.split(b"\n"):
             if not line.isdigit():
                 continue
             values.append(int(line))
@@ -663,7 +663,11 @@ def main():
         output = subprocess.run(
             [args.exe],
             capture_output=True,
-            env={**os.environ, "AFL_DUMP_MAP_SIZE": "1", "ASAN_OPTIONS": get_asan_options()},
+            env={
+                **os.environ,
+                "AFL_DUMP_MAP_SIZE": "1",
+                "ASAN_OPTIONS": get_asan_options(),
+            },
         ).stdout
         afl_map_size = int(output)
         logger.info("Setting AFL_MAP_SIZE=%d", afl_map_size)
