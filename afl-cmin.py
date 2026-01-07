@@ -88,7 +88,15 @@ except ImportError:
             pass
 
 
-parser = argparse.ArgumentParser()
+class HelpFormatter(argparse.HelpFormatter):
+    def __init__(self, prog, *args, **kargs):
+        super().__init__(prog, *args, **kargs)
+        self.add_text("corpus minimization tool for AFL++ (python version)")
+        self.add_text("")
+        self.add_text("%s" % prog)
+
+
+parser = argparse.ArgumentParser(formatter_class=HelpFormatter)
 
 cpu_count = multiprocessing.cpu_count()
 group = parser.add_argument_group("Required parameters")
