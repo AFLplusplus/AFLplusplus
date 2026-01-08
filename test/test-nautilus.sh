@@ -6,7 +6,7 @@ TEST_DIR=$(pwd)
 #$ECHO "$BLUE[*] Testing: nautilus mutator"
 
 #temp block
-$ECHO "$BLUE[*] Testing: nautilus mutator $RED DISABLED"
+$ECHO "$BLUE[*] Testing: nautilus mutator $RED DISABLED$WHITE"
 . ./test-post.sh
 exit 0
 

@@ -5,6 +5,8 @@
 
 
 ### Version ++4.36a (dev)
+  - afl-cmin:
+    - new implementation in C by @kcwu - thanks!
   - afl-cc:
     - LLVM 22 support (they are again switching around include files ...)
 
