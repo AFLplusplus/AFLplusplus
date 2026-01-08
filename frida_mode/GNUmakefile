@@ -327,7 +327,7 @@ $(JS_OBJ): $(JS_SRC) GNUmakefile
 ############################# SOURCE ###########################################
 
 define BUILD_SOURCE
-$(2): $(1) $(INCLUDES) $(GUM_DEVIT_HEADER) | $(OBJ_DIR)
+$(2): $(1) $(INCLUDES) $(GUM_DEVIT_HEADER) $(GUM_DEVIT_LIBRARY) | $(OBJ_DIR)
 	$(TARGET_CC) \
 		$(CFLAGS) \
 		-I $(ROOT)include \
@@ -368,7 +368,7 @@ $(FRIDA_TRACE_LIB): $(GUM_DEVIT_LIBRARY) $(GUM_DEVIT_HEADER) $(OBJS) $(JS_OBJ) $
 
 ############################# HOOK #############################################
 
-$(AFLPP_FRIDA_DRIVER_HOOK_OBJ): $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(GUM_DEVIT_HEADER) | $(BUILD_DIR)
+$(AFLPP_FRIDA_DRIVER_HOOK_OBJ): $(AFLPP_FRIDA_DRIVER_HOOK_SRC) $(GUM_DEVIT_HEADER) $(GUM_DEVIT_LIBRARY) | $(BUILD_DIR)
 	$(TARGET_CC) $(CFLAGS) $(LDFLAGS) -I $(FRIDA_BUILD_DIR) $< -o $@
 ifdef IS_IOS
 	@ldid -S../entitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }

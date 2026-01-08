@@ -733,7 +733,7 @@ endif
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 ifndef NO_FRIDA
-	-$(MAKE) -C frida_mode
+	-$(MAKE) -C frida_mode -j1
 endif
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
@@ -765,7 +765,7 @@ endif
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 ifndef NO_FRIDA
-	-$(MAKE) -C frida_mode
+	-$(MAKE) -C frida_mode -j1
 endif
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
