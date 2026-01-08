@@ -1681,7 +1681,12 @@ static void write_crash_files(void) {
     snprintf(new_path, sizeof(new_path), "%s/%s", out_dir, name);
 
     u8 *src_path = alloc_printf("%s/%s", files[i]->dir, files[i]->name);
-    link(src_path, new_path);
+    if (link(src_path, new_path) != 0) {
+
+      WARNF("Cannot add %s to minimization", src_path);
+
+    }
+
     ck_free(src_path);
     count++;
 
