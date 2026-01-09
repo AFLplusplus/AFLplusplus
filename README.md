@@ -47,6 +47,32 @@ Here is some information to get you started:
   default configuration on Google's
   [fuzzbench](https://github.com/google/fuzzbench/tree/master/fuzzers/aflplusplus).
 
+
+## Instrumentation Modes (Beginner Overview)
+
+AFL++ relies on instrumentation to observe program execution and guide fuzzing
+toward new code paths.
+
+Depending on your setup and access to source code, AFL++ supports multiple
+instrumentation modes:
+
+### Compiler-based Instrumentation (Default)
+* Recommended for most users
+* Requires access to the target’s source code
+* Provides the fastest and most accurate coverage feedback
+
+### QEMU Mode
+* Designed for binary-only targets
+* Does not require recompilation
+* Slower than compiler-based instrumentation but highly flexible
+
+### Unicorn Mode
+* Intended for emulation and firmware-like targets
+* Useful for fuzzing isolated functions or embedded code
+* Requires additional configuration and advanced setup
+
+
+
 ## Building and installing AFL++
 
 To have AFL++ easily available with everything compiled, pull the image directly
