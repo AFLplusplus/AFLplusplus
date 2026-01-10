@@ -110,6 +110,8 @@ Step-by-step quick start:
    If the program takes input from a file, you can put `@@` in the program's
    command line; AFL++ will put an auto-generated file name in there for you.
 
+   Note: AFL++ is planning to support customizable input placeholders (e.g., `%%`, `{{input}}`) instead of the default `@@`. See [Issue #2608](https://github.com/AFLplusplus/AFLplusplus/issues/2608).
+
 4. Investigate anything shown in red in the fuzzer UI by promptly consulting
    [docs/afl-fuzz_approach.md#understanding-the-status-screen](docs/afl-fuzz_approach.md#understanding-the-status-screen).
 
