@@ -23,9 +23,9 @@ def run_cmd(cmd: str, cwd: Path = None, quiet: bool = False, envs: dict = None):
     if not cwd:
         cwd = Path(__file__).parent
     if quiet:
-        print(f"[*] Running quietly: \"{cmd}\" under workding directory {cwd}")
+        print(f"[*] Running quietly: \"{cmd}\" under working directory {cwd}")
     else:
-        print(f"[*] Running: \"{cmd}\" under workding directory {cwd}")
+        print(f"[*] Running: \"{cmd}\" under working directory {cwd}")
     if quiet:
         try:
             out = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, cwd=cwd, env=passed_envs)
