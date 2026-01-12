@@ -357,7 +357,7 @@ def get_nyx_map_size(target_dir):
     return map_size
 
 
-def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False):
+def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False, args):
     assert input_path or batch
     # yapf: disable
     cmd = [
@@ -486,13 +486,14 @@ class JobDispatcher(multiprocessing.Process):
 
 class Worker(multiprocessing.Process):
 
-    def __init__(self, idx, afl_map_size, q_in, p_out, r_out):
+    def __init__(self, idx, afl_map_size, q_in, p_out, r_out, args):
         super().__init__()
         self.idx = idx
         self.afl_map_size = afl_map_size
         self.q_in = q_in
         self.p_out = p_out
         self.r_out = r_out
+        self.args = args
 
     def run(self):
         map_size = self.afl_map_size or 65536
@@ -502,7 +503,7 @@ class Worker(multiprocessing.Process):
         counter = collections.Counter()
         crashes = []
 
-        pack_name = os.path.join(args.output, ".traces", f"{self.idx}.pack")
+        pack_name = os.path.join(self.args.output, ".traces", f"{self.idx}.pack")
         pack_pos = 0
         with open(pack_name, "wb") as trace_pack:
             while True:
@@ -511,7 +512,7 @@ class Worker(multiprocessing.Process):
                     break
 
                 for idx, r, crash in afl_showmap(
-                    batch=batch, afl_map_size=self.afl_map_size
+                    batch=batch, afl_map_size=self.afl_map_size, args=self.args
                 ):
                     counter.update(r)
 
@@ -524,7 +525,7 @@ class Worker(multiprocessing.Process):
                     # the same as other inputs. However, unless AFL_CMIN_ALLOW_ANY=1,
                     # afl_showmap will not return any coverage for crashes so they will
                     # never be retained.
-                    if not crash or not args.crash_dir:
+                    if not crash or not self.args.crash_dir:
                         for t in r:
                             if idx < m[t]:
                                 m[t] = idx
@@ -567,7 +568,7 @@ def hash_file(path):
     return m.digest()
 
 
-def dedup(files):
+def dedup(files, args):
     with multiprocessing.Pool(args.workers) as pool:
         seen_hash = set()
         result = []
@@ -637,7 +638,7 @@ def main():
     logger.info("Found %d input files in %d directories", len(files), len(args.input))
 
     if not args.no_dedup:
-        files, hash_list = dedup(files)
+        files, hash_list = dedup(files, args)
         logger.info("Remain %d files after dedup", len(files))
     else:
         logger.info("Skipping file deduplication.")
@@ -677,7 +678,7 @@ def main():
         tuple_index_type_code = detect_type_code(afl_map_size * 9)
 
     logger.info("Testing the target binary")
-    tuples, _ = afl_showmap(files[0], afl_map_size=afl_map_size, first=True)
+    tuples, _ = afl_showmap(files[0], afl_map_size=afl_map_size, first=True, args=args)
     if tuples:
         logger.info("ok, %d tuples recorded", len(tuples))
     else:
@@ -690,7 +691,7 @@ def main():
 
     workers = []
     for i in range(args.workers):
-        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue)
+        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue, args)
         p.start()
         workers.append(p)
 
@@ -820,7 +821,7 @@ def main():
         if args.no_dedup:
             # Unless we deduped previously, we have to dedup the crash files
             # now.
-            crash_files, hash_list = dedup(crash_files)
+            crash_files, hash_list = dedup(crash_files, args)
 
         for idx, crash_path in enumerate(crash_files):
             fn = base64.b16encode(hash_list[idx]).decode("utf8").lower()
