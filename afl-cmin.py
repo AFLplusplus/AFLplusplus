@@ -216,9 +216,6 @@ group.add_argument(
     return parser.parse_args()
 
 
-afl_showmap_bin = None
-
-
 def get_asan_options():
     asan_options = "abort_on_error=1:symbolize=0:detect_leaks=0"
     user_options = os.environ.get("ASAN_OPTIONS")
@@ -272,9 +269,6 @@ def init(args, logger):
         if not os.path.isdir(dn) and not glob.glob(dn):
             logger.error('directory "%s" not found', dn)
             sys.exit(1)
-
-    global afl_showmap_bin
-    afl_showmap_bin = search_binary("afl-showmap")
 
     trace_dir = os.path.join(args.output, ".traces")
     shutil.rmtree(trace_dir, ignore_errors=True)
@@ -349,7 +343,7 @@ def get_nyx_map_size(target_dir):
     return map_size
 
 
-def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False, args):
+def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False, args, afl_showmap_bin):
     assert input_path or batch
     # yapf: disable
     cmd = [
@@ -478,7 +472,7 @@ class JobDispatcher(multiprocessing.Process):
 
 class Worker(multiprocessing.Process):
 
-    def __init__(self, idx, afl_map_size, q_in, p_out, r_out, args, file_index_type_code):
+    def __init__(self, idx, afl_map_size, q_in, p_out, r_out, args, file_index_type_code, afl_showmap_bin):
         super().__init__()
         self.idx = idx
         self.afl_map_size = afl_map_size
@@ -487,6 +481,7 @@ class Worker(multiprocessing.Process):
         self.r_out = r_out
         self.args = args
         self.file_index_type_code = file_index_type_code
+        self.afl_showmap_bin = afl_showmap_bin
 
     def run(self):
         map_size = self.afl_map_size or 65536
@@ -505,7 +500,7 @@ class Worker(multiprocessing.Process):
                     break
 
                 for idx, r, crash in afl_showmap(
-                    batch=batch, afl_map_size=self.afl_map_size, args=self.args
+                    batch=batch, afl_map_size=self.afl_map_size, args=self.args, afl_showmap_bin=self.afl_showmap_bin
                 ):
                     counter.update(r)
 
@@ -623,6 +618,7 @@ def collect_files(args):
 
 
 def main():
+    afl_showmap_bin = None
     file_index_type_code = None
     logger = None
     tuple_index_type_code = "I"
@@ -636,6 +632,8 @@ def main():
     logger = logging.getLogger(__name__)
 
     init(args, logger)
+
+    afl_showmap_bin = search_binary("afl-showmap")
 
     files = collect_files(args)
     if len(files) == 0:
@@ -682,7 +680,7 @@ def main():
         tuple_index_type_code = detect_type_code(afl_map_size * 9)
 
     logger.info("Testing the target binary")
-    tuples, _ = afl_showmap(files[0], afl_map_size=afl_map_size, first=True, args=args)
+    tuples, _ = afl_showmap(files[0], afl_map_size=afl_map_size, first=True, args=args, afl_showmap_bin=afl_showmap_bin)
     if tuples:
         logger.info("ok, %d tuples recorded", len(tuples))
     else:
@@ -695,7 +693,7 @@ def main():
 
     workers = []
     for i in range(args.workers):
-        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue, args, file_index_type_code)
+        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue, args, file_index_type_code, afl_showmap_bin)
         p.start()
         workers.append(p)
 
