@@ -216,8 +216,6 @@ parser.add_argument("args", nargs="*")
 args = parser.parse_args()
 logger = None
 afl_showmap_bin = None
-tuple_index_type_code = "I"
-file_index_type_code = None
 
 
 def get_asan_options():
@@ -486,7 +484,7 @@ class JobDispatcher(multiprocessing.Process):
 
 class Worker(multiprocessing.Process):
 
-    def __init__(self, idx, afl_map_size, q_in, p_out, r_out, args):
+    def __init__(self, idx, afl_map_size, q_in, p_out, r_out, args, file_index_type_code):
         super().__init__()
         self.idx = idx
         self.afl_map_size = afl_map_size
@@ -494,12 +492,13 @@ class Worker(multiprocessing.Process):
         self.p_out = p_out
         self.r_out = r_out
         self.args = args
+        self.file_index_type_code = file_index_type_code
 
     def run(self):
         map_size = self.afl_map_size or 65536
         max_tuple = map_size * 9
-        max_file_index = 256 ** array.array(file_index_type_code).itemsize - 1
-        m = array.array(file_index_type_code, [max_file_index] * max_tuple)
+        max_file_index = 256 ** array.array(self.file_index_type_code).itemsize - 1
+        m = array.array(self.file_index_type_code, [max_file_index] * max_tuple)
         counter = collections.Counter()
         crashes = []
 
@@ -544,11 +543,12 @@ class Worker(multiprocessing.Process):
 
 class CombineTraceWorker(multiprocessing.Process):
 
-    def __init__(self, pack_name, jobs, r_out):
+    def __init__(self, pack_name, jobs, r_out, tuple_index_type_code):
         super().__init__()
         self.pack_name = pack_name
         self.jobs = jobs
         self.r_out = r_out
+        self.tuple_index_type_code
 
     def run(self):
         already_have = set()
@@ -629,6 +629,9 @@ def collect_files(input_paths):
 
 
 def main():
+    file_index_type_code = None
+    tuple_index_type_code = "I"
+
     init()
 
     files = collect_files(args.input)
@@ -643,7 +646,6 @@ def main():
     else:
         logger.info("Skipping file deduplication.")
 
-    global file_index_type_code
     file_index_type_code = detect_type_code(len(files))
 
     logger.info("Sorting files.")
@@ -674,7 +676,6 @@ def main():
         logger.info("Setting AFL_MAP_SIZE=%d", afl_map_size)
 
     if afl_map_size:
-        global tuple_index_type_code
         tuple_index_type_code = detect_type_code(afl_map_size * 9)
 
     logger.info("Testing the target binary")
@@ -691,7 +692,7 @@ def main():
 
     workers = []
     for i in range(args.workers):
-        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue, args)
+        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue, args, file_index_type_code)
         p.start()
         workers.append(p)
 
@@ -787,7 +788,7 @@ def main():
         trace_f = open(pack_name, "rb")
         trace_packs.append(trace_f)
 
-        p = CombineTraceWorker(pack_name, jobs[i], result_queue)
+        p = CombineTraceWorker(pack_name, jobs[i], result_queue, tuple_index_type_code)
         p.start()
         workers.append(p)
 
