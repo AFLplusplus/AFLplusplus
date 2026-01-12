@@ -96,124 +96,126 @@ class HelpFormatter(argparse.HelpFormatter):
         self.add_text("%s" % prog)
 
 
-parser = argparse.ArgumentParser(formatter_class=HelpFormatter)
+def init_args():
+    parser = argparse.ArgumentParser(formatter_class=HelpFormatter)
 
-cpu_count = multiprocessing.cpu_count()
-group = parser.add_argument_group("Required parameters")
-group.add_argument(
-    "-i",
-    dest="input",
-    action="append",
-    metavar="dir",
-    required=True,
-    help="input directory with the starting corpus",
+    cpu_count = multiprocessing.cpu_count()
+    group = parser.add_argument_group("Required parameters")
+    group.add_argument(
+        "-i",
+        dest="input",
+        action="append",
+        metavar="dir",
+        required=True,
+        help="input directory with the starting corpus",
 )
-group.add_argument(
-    "-o",
-    dest="output",
-    metavar="dir",
-    required=True,
-    help="output directory for minimized files",
-)
+    group.add_argument(
+        "-o",
+        dest="output",
+        metavar="dir",
+        required=True,
+        help="output directory for minimized files",
+    )
 
-group = parser.add_argument_group("Execution control settings")
-group.add_argument(
-    "-f",
-    dest="stdin_file",
-    metavar="file",
-    help="location read by the fuzzed program (stdin)",
-)
-group.add_argument(
-    "-m",
-    dest="memory_limit",
-    default="none",
-    metavar="megs",
-    type=lambda x: x if x == "none" else int(x),
-    help="memory limit for child process (default: %(default)s)",
-)
-group.add_argument(
-    "-t",
-    dest="time_limit",
-    default=5000,
-    metavar="msec",
-    type=lambda x: x if x == "none" else int(x),
-    help="timeout for each run (default: %(default)s)",
-)
-group.add_argument(
-    "-O",
-    dest="frida_mode",
-    action="store_true",
-    default=False,
-    help="use binary-only instrumentation (FRIDA mode)",
-)
-group.add_argument(
-    "-Q",
-    dest="qemu_mode",
-    action="store_true",
-    default=False,
-    help="use binary-only instrumentation (QEMU mode)",
-)
-group.add_argument(
-    "-U",
-    dest="unicorn_mode",
-    action="store_true",
-    default=False,
-    help="use unicorn-based instrumentation (Unicorn mode)",
-)
-group.add_argument(
-    "-X", dest="nyx_mode", action="store_true", default=False, help="use Nyx mode"
-)
+    group = parser.add_argument_group("Execution control settings")
+    group.add_argument(
+        "-f",
+        dest="stdin_file",
+        metavar="file",
+        help="location read by the fuzzed program (stdin)",
+    )
+    group.add_argument(
+        "-m",
+        dest="memory_limit",
+        default="none",
+        metavar="megs",
+        type=lambda x: x if x == "none" else int(x),
+        help="memory limit for child process (default: %(default)s)",
+    )
+    group.add_argument(
+        "-t",
+        dest="time_limit",
+        default=5000,
+        metavar="msec",
+        type=lambda x: x if x == "none" else int(x),
+        help="timeout for each run (default: %(default)s)",
+    )
+    group.add_argument(
+        "-O",
+        dest="frida_mode",
+        action="store_true",
+        default=False,
+        help="use binary-only instrumentation (FRIDA mode)",
+    )
+    group.add_argument(
+        "-Q",
+        dest="qemu_mode",
+        action="store_true",
+        default=False,
+        help="use binary-only instrumentation (QEMU mode)",
+    )
+    group.add_argument(
+        "-U",
+        dest="unicorn_mode",
+        action="store_true",
+        default=False,
+        help="use unicorn-based instrumentation (Unicorn mode)",
+    )
+    group.add_argument(
+        "-X", dest="nyx_mode", action="store_true", default=False, help="use Nyx mode"
+    )
 
-group = parser.add_argument_group("Minimization settings")
-group.add_argument(
-    "--crash-dir",
-    dest="crash_dir",
-    metavar="dir",
-    default=None,
-    help="move crashes to a separate dir, always deduplicated",
-)
-group.add_argument(
-    "-A",
-    dest="allow_any",
-    action="store_true",
-    help="allow crashes and timeouts (not recommended)",
-)
-group.add_argument(
-    "-C",
-    dest="crash_only",
-    action="store_true",
-    help="keep crashing inputs, reject everything else",
-)
-group.add_argument(
-    "-e",
-    dest="edge_mode",
-    action="store_true",
-    default=False,
-    help="solve for edge coverage only, ignore hit counts",
-)
+    group = parser.add_argument_group("Minimization settings")
+    group.add_argument(
+        "--crash-dir",
+        dest="crash_dir",
+        metavar="dir",
+        default=None,
+        help="move crashes to a separate dir, always deduplicated",
+    )
+    group.add_argument(
+        "-A",
+        dest="allow_any",
+        action="store_true",
+        help="allow crashes and timeouts (not recommended)",
+    )
+    group.add_argument(
+        "-C",
+        dest="crash_only",
+        action="store_true",
+        help="keep crashing inputs, reject everything else",
+    )
+    group.add_argument(
+        "-e",
+        dest="edge_mode",
+        action="store_true",
+        default=False,
+        help="solve for edge coverage only, ignore hit counts",
+    )
 
-group = parser.add_argument_group("Misc")
-group.add_argument(
-    "-T",
-    dest="workers",
-    type=lambda x: cpu_count if x == "all" else int(x),
-    default=1,
-    help="number of concurrent worker (default: %(default)d)",
-)
-group.add_argument(
-    "--as_queue",
-    action="store_true",
-    help='output file name like "id:000000,hash:value"',
-)
+    group = parser.add_argument_group("Misc")
+    group.add_argument(
+        "-T",
+        dest="workers",
+        type=lambda x: cpu_count if x == "all" else int(x),
+        default=1,
+        help="number of concurrent worker (default: %(default)d)",
+    )
+    group.add_argument(
+        "--as_queue",
+        action="store_true",
+        help='output file name like "id:000000,hash:value"',
+    )
 group.add_argument(
     "--no-dedup", action="store_true", help="skip deduplication step for corpus files"
-)
-group.add_argument("--debug", action="store_true")
+    )
+    group.add_argument("--debug", action="store_true")
 
-parser.add_argument("exe", metavar="/path/to/target_app")
-parser.add_argument("args", nargs="*")
+    parser.add_argument("exe", metavar="/path/to/target_app")
+    parser.add_argument("args", nargs="*")
+    return parser.parse_args()
 
-args = parser.parse_args()
+
 logger = None
 afl_showmap_bin = None
 
@@ -243,7 +245,7 @@ def search_binary(name):
     sys.exit(1)
 
 
-def init():
+def init(args):
     global logger
     log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(
@@ -601,9 +603,9 @@ def is_afl_dir(dirnames, filenames):
     )
 
 
-def collect_files(input_paths):
+def collect_files(args):
     paths = []
-    for s in input_paths:
+    for s in args.input:
         paths += glob.glob(s)
 
     files = []
@@ -632,9 +634,10 @@ def main():
     file_index_type_code = None
     tuple_index_type_code = "I"
 
-    init()
+    args = init_args()
+    init(args)
 
-    files = collect_files(args.input)
+    files = collect_files(args)
     if len(files) == 0:
         logger.error("no inputs in the target directory - nothing to be done")
         sys.exit(1)
