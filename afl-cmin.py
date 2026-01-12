@@ -216,7 +216,6 @@ group.add_argument(
     return parser.parse_args()
 
 
-logger = None
 afl_showmap_bin = None
 
 
@@ -245,14 +244,7 @@ def search_binary(name):
     sys.exit(1)
 
 
-def init(args):
-    global logger
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(
-        level=log_level, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
-    logger = logging.getLogger(__name__)
-
+def init(args, logger):
     if args.stdin_file and args.workers > 1:
         logger.error("-f is only supported with one worker (-T 1)")
         sys.exit(1)
@@ -632,10 +624,18 @@ def collect_files(args):
 
 def main():
     file_index_type_code = None
+    logger = None
     tuple_index_type_code = "I"
 
     args = init_args()
-    init(args)
+
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(
+        level=log_level, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+    logger = logging.getLogger(__name__)
+
+    init(args, logger)
 
     files = collect_files(args)
     if len(files) == 0:
