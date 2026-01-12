@@ -747,7 +747,7 @@ ifndef NO_NYX
 endif
 endif
 ifndef NO_QEMU
-	-cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
 endif
 ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
@@ -779,7 +779,7 @@ ifndef NO_NYX
 endif
 endif
 ifndef NO_QEMU
-	-cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
 endif
 ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
