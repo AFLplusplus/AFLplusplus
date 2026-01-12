@@ -7,15 +7,14 @@ Currently the following hardware boards are supported:
 * NVIDIA Jetson TX2 (NVIDIA Parker)
 * NVIDIA Jetson Nano (NVIDIA Tegra X1)
 * GIGABYTE R181-T90 (Marvell ThunderX2 CN99XX)
+* TaiShan 2280 (Hi1616)
 
 ## Getting started
 
 Please read the [RICSec/coresight-trace README](https://github.com/RICSecLab/coresight-trace/blob/master/README.md) and check the prerequisites (capstone) before getting started.
 
 CoreSight mode supports the AFL++ fork server mode to reduce `exec` system call
-overhead. To support it for binary-only fuzzing, it needs to modify the target
-ELF binary to re-link to the patched glibc. We employ this design from
-[PTrix](https://github.com/junxzm1990/afl-pt).
+overhead. To support fuzzing in binary format only, you must use the shared library libforksrv, which implements the forkserver by intercepting the system call __libc_start_main.
 
 Check out all the git submodules in the `cs_mode` directory:
 
@@ -30,18 +29,14 @@ There are some notes on building coresight-trace. Refer to the [README](https://
 ```bash
 make build
 ```
+or
+
+```bash
+make debug
+```
 
 Make sure `cs-proxy` is placed in the AFL++ root directory as `afl-cs-proxy`.
 
-### Patch COTS binary
-
-The fork server mode requires patchelf and the patched glibc. The dependency build can be done by just run make:
-
-```bash
-make patch TARGET=$BIN
-```
-
-The above make command builds and installs the dependencies to `$PREFIX` (default to `$PWD/.local`) at the first time. Then, it runs `patchelf` to `$BIN` with output `$OUTPUT` (`$BIN.patched` by default).
 
 ### Run afl-fuzz
 
@@ -60,9 +55,17 @@ There are AFL++ CoreSight mode-specific environment variables for run-time confi
 * `AFLCS_COV` specifies coverage type on CoreSight trace decoding. `edge` and `path` is supported. The default value is `edge`.
 * `AFLCS_UDMABUF` is the u-dma-buf device number used to store trace data in the DMA region. The default value is `0`.
 
+* `AFLCS_NO_DECODER` indicates that the afl-cs-proxy is running without a decoder. Needed for performance measurement purposes.
+
+* `CS_LD_PRELOAD` the same as LD_PRELOAD but only for target binary.
+
+* `CS_LD_LIBRARY_PATH` the same as LD_LIBRARY_PATH but only for target binary.
+
+* `CS_TRACE_LIB` specifies which library from the shared libraries should be included in coverage tracking.
+
 ## TODO List
 
-* Eliminate modified glibc dependency
+* The problem with overflow packets appearing in the trace stream (the specificity of coresight at high CPU frequencies)
 * Support parallel fuzzing
 
 ## Acknowledgements
