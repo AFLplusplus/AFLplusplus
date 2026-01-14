@@ -96,128 +96,124 @@ class HelpFormatter(argparse.HelpFormatter):
         self.add_text("%s" % prog)
 
 
-parser = argparse.ArgumentParser(formatter_class=HelpFormatter)
+def init_args():
+    parser = argparse.ArgumentParser(formatter_class=HelpFormatter)
 
-cpu_count = multiprocessing.cpu_count()
-group = parser.add_argument_group("Required parameters")
-group.add_argument(
-    "-i",
-    dest="input",
-    action="append",
-    metavar="dir",
-    required=True,
-    help="input directory with the starting corpus",
+    cpu_count = multiprocessing.cpu_count()
+    group = parser.add_argument_group("Required parameters")
+    group.add_argument(
+        "-i",
+        dest="input",
+        action="append",
+        metavar="dir",
+        required=True,
+        help="input directory with the starting corpus",
 )
-group.add_argument(
-    "-o",
-    dest="output",
-    metavar="dir",
-    required=True,
-    help="output directory for minimized files",
-)
+    group.add_argument(
+        "-o",
+        dest="output",
+        metavar="dir",
+        required=True,
+        help="output directory for minimized files",
+    )
 
-group = parser.add_argument_group("Execution control settings")
-group.add_argument(
-    "-f",
-    dest="stdin_file",
-    metavar="file",
-    help="location read by the fuzzed program (stdin)",
-)
-group.add_argument(
-    "-m",
-    dest="memory_limit",
-    default="none",
-    metavar="megs",
-    type=lambda x: x if x == "none" else int(x),
-    help="memory limit for child process (default: %(default)s)",
-)
-group.add_argument(
-    "-t",
-    dest="time_limit",
-    default=5000,
-    metavar="msec",
-    type=lambda x: x if x == "none" else int(x),
-    help="timeout for each run (default: %(default)s)",
-)
-group.add_argument(
-    "-O",
-    dest="frida_mode",
-    action="store_true",
-    default=False,
-    help="use binary-only instrumentation (FRIDA mode)",
-)
-group.add_argument(
-    "-Q",
-    dest="qemu_mode",
-    action="store_true",
-    default=False,
-    help="use binary-only instrumentation (QEMU mode)",
-)
-group.add_argument(
-    "-U",
-    dest="unicorn_mode",
-    action="store_true",
-    default=False,
-    help="use unicorn-based instrumentation (Unicorn mode)",
-)
-group.add_argument(
-    "-X", dest="nyx_mode", action="store_true", default=False, help="use Nyx mode"
-)
+    group = parser.add_argument_group("Execution control settings")
+    group.add_argument(
+        "-f",
+        dest="stdin_file",
+        metavar="file",
+        help="location read by the fuzzed program (stdin)",
+    )
+    group.add_argument(
+        "-m",
+        dest="memory_limit",
+        default="none",
+        metavar="megs",
+        type=lambda x: x if x == "none" else int(x),
+        help="memory limit for child process (default: %(default)s)",
+    )
+    group.add_argument(
+        "-t",
+        dest="time_limit",
+        default=5000,
+        metavar="msec",
+        type=lambda x: x if x == "none" else int(x),
+        help="timeout for each run (default: %(default)s)",
+    )
+    group.add_argument(
+        "-O",
+        dest="frida_mode",
+        action="store_true",
+        default=False,
+        help="use binary-only instrumentation (FRIDA mode)",
+    )
+    group.add_argument(
+        "-Q",
+        dest="qemu_mode",
+        action="store_true",
+        default=False,
+        help="use binary-only instrumentation (QEMU mode)",
+    )
+    group.add_argument(
+        "-U",
+        dest="unicorn_mode",
+        action="store_true",
+        default=False,
+        help="use unicorn-based instrumentation (Unicorn mode)",
+    )
+    group.add_argument(
+        "-X", dest="nyx_mode", action="store_true", default=False, help="use Nyx mode"
+    )
 
-group = parser.add_argument_group("Minimization settings")
-group.add_argument(
-    "--crash-dir",
-    dest="crash_dir",
-    metavar="dir",
-    default=None,
-    help="move crashes to a separate dir, always deduplicated",
-)
-group.add_argument(
-    "-A",
-    dest="allow_any",
-    action="store_true",
-    help="allow crashes and timeouts (not recommended)",
-)
-group.add_argument(
-    "-C",
-    dest="crash_only",
-    action="store_true",
-    help="keep crashing inputs, reject everything else",
-)
-group.add_argument(
-    "-e",
-    dest="edge_mode",
-    action="store_true",
-    default=False,
-    help="solve for edge coverage only, ignore hit counts",
-)
+    group = parser.add_argument_group("Minimization settings")
+    group.add_argument(
+        "--crash-dir",
+        dest="crash_dir",
+        metavar="dir",
+        default=None,
+        help="move crashes to a separate dir, always deduplicated",
+    )
+    group.add_argument(
+        "-A",
+        dest="allow_any",
+        action="store_true",
+        help="allow crashes and timeouts (not recommended)",
+    )
+    group.add_argument(
+        "-C",
+        dest="crash_only",
+        action="store_true",
+        help="keep crashing inputs, reject everything else",
+    )
+    group.add_argument(
+        "-e",
+        dest="edge_mode",
+        action="store_true",
+        default=False,
+        help="solve for edge coverage only, ignore hit counts",
+    )
 
-group = parser.add_argument_group("Misc")
-group.add_argument(
-    "-T",
-    dest="workers",
-    type=lambda x: cpu_count if x == "all" else int(x),
-    default=1,
-    help="number of concurrent worker (default: %(default)d)",
-)
-group.add_argument(
-    "--as_queue",
-    action="store_true",
-    help='output file name like "id:000000,hash:value"',
-)
+    group = parser.add_argument_group("Misc")
+    group.add_argument(
+        "-T",
+        dest="workers",
+        type=lambda x: cpu_count if x == "all" else int(x),
+        default=1,
+        help="number of concurrent worker (default: %(default)d)",
+    )
+    group.add_argument(
+        "--as_queue",
+        action="store_true",
+        help='output file name like "id:000000,hash:value"',
+    )
 group.add_argument(
     "--no-dedup", action="store_true", help="skip deduplication step for corpus files"
-)
-group.add_argument("--debug", action="store_true")
+    )
+    group.add_argument("--debug", action="store_true")
 
-parser.add_argument("exe", metavar="/path/to/target_app")
-parser.add_argument("args", nargs="*")
-
-args = parser.parse_args()
-logger = None
-afl_showmap_bin = None
-tuple_index_type_code = "I"
-file_index_type_code = None
+    parser.add_argument("exe", metavar="/path/to/target_app")
+    parser.add_argument("args", nargs="*")
+    return parser.parse_args()
 
 
 def get_asan_options():
@@ -245,14 +241,7 @@ def search_binary(name):
     sys.exit(1)
 
 
-def init():
-    global logger
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(
-        level=log_level, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
-    logger = logging.getLogger(__name__)
-
+def init(args, logger):
     if args.stdin_file and args.workers > 1:
         logger.error("-f is only supported with one worker (-T 1)")
         sys.exit(1)
@@ -280,9 +269,6 @@ def init():
         if not os.path.isdir(dn) and not glob.glob(dn):
             logger.error('directory "%s" not found', dn)
             sys.exit(1)
-
-    global afl_showmap_bin
-    afl_showmap_bin = search_binary("afl-showmap")
 
     trace_dir = os.path.join(args.output, ".traces")
     shutil.rmtree(trace_dir, ignore_errors=True)
@@ -357,7 +343,7 @@ def get_nyx_map_size(target_dir):
     return map_size
 
 
-def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False):
+def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False, args, afl_showmap_bin):
     assert input_path or batch
     # yapf: disable
     cmd = [
@@ -486,23 +472,26 @@ class JobDispatcher(multiprocessing.Process):
 
 class Worker(multiprocessing.Process):
 
-    def __init__(self, idx, afl_map_size, q_in, p_out, r_out):
+    def __init__(self, idx, afl_map_size, q_in, p_out, r_out, args, file_index_type_code, afl_showmap_bin):
         super().__init__()
         self.idx = idx
         self.afl_map_size = afl_map_size
         self.q_in = q_in
         self.p_out = p_out
         self.r_out = r_out
+        self.args = args
+        self.file_index_type_code = file_index_type_code
+        self.afl_showmap_bin = afl_showmap_bin
 
     def run(self):
         map_size = self.afl_map_size or 65536
         max_tuple = map_size * 9
-        max_file_index = 256 ** array.array(file_index_type_code).itemsize - 1
-        m = array.array(file_index_type_code, [max_file_index] * max_tuple)
+        max_file_index = 256 ** array.array(self.file_index_type_code).itemsize - 1
+        m = array.array(self.file_index_type_code, [max_file_index] * max_tuple)
         counter = collections.Counter()
         crashes = []
 
-        pack_name = os.path.join(args.output, ".traces", f"{self.idx}.pack")
+        pack_name = os.path.join(self.args.output, ".traces", f"{self.idx}.pack")
         pack_pos = 0
         with open(pack_name, "wb") as trace_pack:
             while True:
@@ -511,7 +500,7 @@ class Worker(multiprocessing.Process):
                     break
 
                 for idx, r, crash in afl_showmap(
-                    batch=batch, afl_map_size=self.afl_map_size
+                    batch=batch, afl_map_size=self.afl_map_size, args=self.args, afl_showmap_bin=self.afl_showmap_bin
                 ):
                     counter.update(r)
 
@@ -524,7 +513,7 @@ class Worker(multiprocessing.Process):
                     # the same as other inputs. However, unless AFL_CMIN_ALLOW_ANY=1,
                     # afl_showmap will not return any coverage for crashes so they will
                     # never be retained.
-                    if not crash or not args.crash_dir:
+                    if not crash or not self.args.crash_dir:
                         for t in r:
                             if idx < m[t]:
                                 m[t] = idx
@@ -543,11 +532,12 @@ class Worker(multiprocessing.Process):
 
 class CombineTraceWorker(multiprocessing.Process):
 
-    def __init__(self, pack_name, jobs, r_out):
+    def __init__(self, pack_name, jobs, r_out, tuple_index_type_code):
         super().__init__()
         self.pack_name = pack_name
         self.jobs = jobs
         self.r_out = r_out
+        self.tuple_index_type_code
 
     def run(self):
         already_have = set()
@@ -567,7 +557,7 @@ def hash_file(path):
     return m.digest()
 
 
-def dedup(files):
+def dedup(files, args):
     with multiprocessing.Pool(args.workers) as pool:
         seen_hash = set()
         result = []
@@ -600,9 +590,9 @@ def is_afl_dir(dirnames, filenames):
     )
 
 
-def collect_files(input_paths):
+def collect_files(args):
     paths = []
-    for s in input_paths:
+    for s in args.input:
         paths += glob.glob(s)
 
     files = []
@@ -628,21 +618,35 @@ def collect_files(input_paths):
 
 
 def main():
-    init()
+    afl_showmap_bin = None
+    file_index_type_code = None
+    logger = None
+    tuple_index_type_code = "I"
 
-    files = collect_files(args.input)
+    args = init_args()
+
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(
+        level=log_level, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+    logger = logging.getLogger(__name__)
+
+    init(args, logger)
+
+    afl_showmap_bin = search_binary("afl-showmap")
+
+    files = collect_files(args)
     if len(files) == 0:
         logger.error("no inputs in the target directory - nothing to be done")
         sys.exit(1)
     logger.info("Found %d input files in %d directories", len(files), len(args.input))
 
     if not args.no_dedup:
-        files, hash_list = dedup(files)
+        files, hash_list = dedup(files, args)
         logger.info("Remain %d files after dedup", len(files))
     else:
         logger.info("Skipping file deduplication.")
 
-    global file_index_type_code
     file_index_type_code = detect_type_code(len(files))
 
     logger.info("Sorting files.")
@@ -673,11 +677,10 @@ def main():
         logger.info("Setting AFL_MAP_SIZE=%d", afl_map_size)
 
     if afl_map_size:
-        global tuple_index_type_code
         tuple_index_type_code = detect_type_code(afl_map_size * 9)
 
     logger.info("Testing the target binary")
-    tuples, _ = afl_showmap(files[0], afl_map_size=afl_map_size, first=True)
+    tuples, _ = afl_showmap(files[0], afl_map_size=afl_map_size, first=True, args=args, afl_showmap_bin=afl_showmap_bin)
     if tuples:
         logger.info("ok, %d tuples recorded", len(tuples))
     else:
@@ -690,7 +693,7 @@ def main():
 
     workers = []
     for i in range(args.workers):
-        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue)
+        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue, args, file_index_type_code, afl_showmap_bin)
         p.start()
         workers.append(p)
 
@@ -786,7 +789,7 @@ def main():
         trace_f = open(pack_name, "rb")
         trace_packs.append(trace_f)
 
-        p = CombineTraceWorker(pack_name, jobs[i], result_queue)
+        p = CombineTraceWorker(pack_name, jobs[i], result_queue, tuple_index_type_code)
         p.start()
         workers.append(p)
 
@@ -820,7 +823,7 @@ def main():
         if args.no_dedup:
             # Unless we deduped previously, we have to dedup the crash files
             # now.
-            crash_files, hash_list = dedup(crash_files)
+            crash_files, hash_list = dedup(crash_files, args)
 
         for idx, crash_path in enumerate(crash_files):
             fn = base64.b16encode(hash_list[idx]).decode("utf8").lower()
