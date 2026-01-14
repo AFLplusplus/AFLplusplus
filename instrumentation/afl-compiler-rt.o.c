@@ -1932,6 +1932,24 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
 
     }
 
+    // If PC filter is active and module doesn't match, disable all guards
+    if (__afl_filter_pcs && mod_info->start && mod_info->stop &&
+        !strstr(mod_info->name, __afl_filter_pcs_module)) {
+
+      if (__afl_debug)
+        fprintf(stderr,
+                "DEBUG: Disabling all %u guards for non-matching module: %s\n",
+                *(mod_info->stop) - *(mod_info->start) + 1, mod_info->name);
+
+      // Null out all guards for this module
+      for (u32 *guard = mod_info->start; guard <= mod_info->stop; guard++) {
+
+        *guard = 0;
+
+      }
+
+    }
+
   }
 
 }
