@@ -206,7 +206,7 @@ def init_args():
         action="store_true",
         help='output file name like "id:000000,hash:value"',
     )
-group.add_argument(
+    group.add_argument(
     "--no-dedup", action="store_true", help="skip deduplication step for corpus files"
     )
     group.add_argument("--debug", action="store_true")
@@ -343,7 +343,7 @@ def get_nyx_map_size(target_dir):
     return map_size
 
 
-def afl_showmap(input_path=None, batch=None, afl_map_size=None, first=False, args, afl_showmap_bin):
+def afl_showmap(args, afl_showmap_bin, logger, tuple_index_type_code, input_path=None, batch=None, afl_map_size=None, first=False):
     assert input_path or batch
     # yapf: disable
     cmd = [
@@ -472,7 +472,7 @@ class JobDispatcher(multiprocessing.Process):
 
 class Worker(multiprocessing.Process):
 
-    def __init__(self, idx, afl_map_size, q_in, p_out, r_out, args, file_index_type_code, afl_showmap_bin):
+    def __init__(self, idx, afl_map_size, q_in, p_out, r_out, args, file_index_type_code, afl_showmap_bin, logger):
         super().__init__()
         self.idx = idx
         self.afl_map_size = afl_map_size
@@ -482,6 +482,7 @@ class Worker(multiprocessing.Process):
         self.args = args
         self.file_index_type_code = file_index_type_code
         self.afl_showmap_bin = afl_showmap_bin
+        self.logger = logger
 
     def run(self):
         map_size = self.afl_map_size or 65536
@@ -500,7 +501,7 @@ class Worker(multiprocessing.Process):
                     break
 
                 for idx, r, crash in afl_showmap(
-                    batch=batch, afl_map_size=self.afl_map_size, args=self.args, afl_showmap_bin=self.afl_showmap_bin
+                    self.args, self.afl_showmap_bin, self.logger, batch=batch, afl_map_size=self.afl_map_size, tuple_index_type_code=self.file_index_type_code
                 ):
                     counter.update(r)
 
@@ -537,14 +538,14 @@ class CombineTraceWorker(multiprocessing.Process):
         self.pack_name = pack_name
         self.jobs = jobs
         self.r_out = r_out
-        self.tuple_index_type_code
+        self.tuple_index_type_code = tuple_index_type_code
 
     def run(self):
         already_have = set()
         with open(self.pack_name, "rb") as f:
             for pos, tuple_count in self.jobs:
                 f.seek(pos)
-                result = array.array(tuple_index_type_code)
+                result = array.array(self.tuple_index_type_code)
                 result.fromfile(f, tuple_count)
                 already_have.update(result)
         self.r_out.put(already_have)
@@ -680,7 +681,7 @@ def main():
         tuple_index_type_code = detect_type_code(afl_map_size * 9)
 
     logger.info("Testing the target binary")
-    tuples, _ = afl_showmap(files[0], afl_map_size=afl_map_size, first=True, args=args, afl_showmap_bin=afl_showmap_bin)
+    tuples, _ = afl_showmap(args, afl_showmap_bin, logger, input_path=files[0], afl_map_size=afl_map_size, first=True, tuple_index_type_code=tuple_index_type_code)
     if tuples:
         logger.info("ok, %d tuples recorded", len(tuples))
     else:
@@ -693,7 +694,7 @@ def main():
 
     workers = []
     for i in range(args.workers):
-        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue, args, file_index_type_code, afl_showmap_bin)
+        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue, args, file_index_type_code, afl_showmap_bin , logger)
         p.start()
         workers.append(p)
 
