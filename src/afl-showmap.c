@@ -508,12 +508,12 @@ static ssize_t read_all(int fd, void *buf, size_t n) {
 }
 
 /* Streaming mode exit status (lower 2 bits of status field) */
-#define STREAMING_STATUS_EXITED  0
+#define STREAMING_STATUS_EXITED 0
 #define STREAMING_STATUS_TIMEOUT 1
-#define STREAMING_STATUS_CRASH   2
+#define STREAMING_STATUS_CRASH 2
 
-/* Input streaming loop - reads test cases from stdin, writes coverage to stdout.
-   Protocol (LV = length-value format):
+/* Input streaming loop - reads test cases from stdin, writes coverage to
+   stdout. Protocol (LV = length-value format):
    - Input:  [u32 length][u8 data[length]] (length=0 signals EOF)
    - Output: [u16 status][u32 edge_count][{u32 edge_idx, u8 hit_ctr}*]
              [u32 stdout_len][u8 stdout_data*][u32 stderr_len][u8 stderr_data*]
@@ -1161,7 +1161,8 @@ static void usage(u8 *argv0) {
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
       "Required parameters:\n"
-      "  -o file    - file to write the trace data to (not required with -S)\n\n"
+      "  -o file    - file to write the trace data to (not required with "
+      "-S)\n\n"
 
       "Execution control settings:\n"
       "  -t msec    - timeout for each run (default: 1000ms)\n"
@@ -1180,7 +1181,8 @@ static void usage(u8 *argv0) {
 #endif
       "\n"
       "Other settings:\n"
-      "  -S         - streaming mode: read test cases from stdin, write coverage\n"
+      "  -S         - streaming mode: read test cases from stdin, write "
+      "coverage\n"
       "               to stdout using a length-value protocol. Allows using\n"
       "               afl-showmap as a coverage proxy to leverage the AFL++\n"
       "               forkserver without implementing it.\n"
@@ -1528,11 +1530,15 @@ int main(int argc, char **argv_orig, char **envp) {
   if (in_dir && in_filelist) { FATAL("you can only specify either -i or -I"); }
 
   if (streaming_mode && (in_dir || in_filelist)) {
+
     FATAL("-S streaming mode is incompatible with -i/-I input options");
+
   }
 
   if (streaming_mode && out_file) {
+
     FATAL("-S streaming mode is incompatible with -o output option");
+
   }
 
   if (in_dir || in_filelist) {
@@ -2021,7 +2027,7 @@ showmap_done:
 
   if (streaming_mode) {
 
-    ret = 0;  /* Streaming mode exits 0 on success, FATAL on error */
+    ret = 0;           /* Streaming mode exits 0 on success, FATAL on error */
 
   } else if (cmin_mode && !!getenv("AFL_CMIN_CRASHES_ONLY")) {
 
@@ -2046,3 +2052,4 @@ showmap_done:
   exit(ret);
 
 }
+
