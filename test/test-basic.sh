@@ -178,6 +178,7 @@ $ECHO "$BLUE[*] Testing: ${AFL_COMPILER}, afl-showmap, afl-fuzz, afl-cmin and af
     export AFL_QUIET=1
     echo 000000000000000000000000 > in/in2
     echo 111 > in/in3
+    rm -rf in2
     ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
     CNT=`ls in2/* 2>/dev/null | wc -l`
     case "$CNT" in
@@ -186,12 +187,10 @@ $ECHO "$BLUE[*] Testing: ${AFL_COMPILER}, afl-showmap, afl-fuzz, afl-cmin and af
           CODE=1
           ;;
     esac
-    rm -f in2/in*
+    rm -rf in2
     test "$OS" = "Darwin" && {
       $ECHO "$GREY[*] afl-cmin.py not available on macOS, cannot test afl-cmin"
     } || {
-      rm -rf in2
-      mkdir -p in2
       ../afl-cmin.py -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
@@ -200,8 +199,8 @@ $ECHO "$BLUE[*] Testing: ${AFL_COMPILER}, afl-showmap, afl-fuzz, afl-cmin and af
             CODE=1
             ;;
       esac
-      rm -f in2/in*
     }
+    rm -rf in2
     if command -v bash >/dev/null ; then {
       ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
       CNT=`ls in2/* 2>/dev/null | wc -l`
@@ -215,6 +214,8 @@ $ECHO "$BLUE[*] Testing: ${AFL_COMPILER}, afl-showmap, afl-fuzz, afl-cmin and af
       $ECHO "$GREY[*] no bash available, cannot test afl-cmin.bash"
     }
     fi
+    rm -rf in2
+    mkdir -p in2
     ../afl-tmin -m ${MEM_LIMIT} -i in/in2 -o in2/in2 -- ./test-instr.plain > /dev/null 2>&1
     SIZE=`ls -l in2/in2 2>/dev/null | awk '{print$5}'`
     test "$SIZE" = 1 && $ECHO "$GREEN[+] afl-tmin correctly minimized the testcase"
