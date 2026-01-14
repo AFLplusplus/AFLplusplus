@@ -175,23 +175,33 @@ $ECHO "$BLUE[*] Testing: ${AFL_COMPILER}, afl-showmap, afl-fuzz, afl-cmin and af
         CODE=1
       }
     }
+    export AFL_QUIET=1
     echo 000000000000000000000000 > in/in2
     echo 111 > in/in3
+    ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+    CNT=`ls in2/* 2>/dev/null | wc -l`
+    case "$CNT" in
+      *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
+      *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+          CODE=1
+          ;;
+    esac
+    rm -f in2/in*
     test "$OS" = "Darwin" && {
-      $ECHO "$GREY[*] afl-cmin not available on macOS, cannot test afl-cmin"
+      $ECHO "$GREY[*] afl-cmin.py not available on macOS, cannot test afl-cmin"
     } || {
+      rm -rf in2
       mkdir -p in2
-      ../afl-cmin -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
+      ../afl-cmin.py -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null 2>&1 # why is afl-forkserver writing to stderr?
       CNT=`ls in2/* 2>/dev/null | wc -l`
       case "$CNT" in
-        *2) $ECHO "$GREEN[+] afl-cmin correctly minimized the number of testcases" ;;
-        *)  $ECHO "$RED[!] afl-cmin did not correctly minimize the number of testcases ($CNT)"
+        *2) $ECHO "$GREEN[+] afl-cmin.py correctly minimized the number of testcases" ;;
+        *)  $ECHO "$RED[!] afl-cmin.py did not correctly minimize the number of testcases ($CNT)"
             CODE=1
             ;;
       esac
       rm -f in2/in*
     }
-    export AFL_QUIET=1
     if command -v bash >/dev/null ; then {
       ../afl-cmin.bash -m ${MEM_LIMIT} -i in -o in2 -- ./test-instr.plain >/dev/null
       CNT=`ls in2/* 2>/dev/null | wc -l`
