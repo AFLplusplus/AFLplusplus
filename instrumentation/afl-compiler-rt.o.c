@@ -1836,31 +1836,36 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
 
     while (start < end) {
 
-      if (*mod_info->start + in_module_index >= __afl_map_size) {
-
-        fprintf(stderr,
-                "ERROR: __sanitizer_cov_pcs_init out of bounds?! Start: %u "
-                "Stop: %u Map Size: %u (%s)\n",
-                *mod_info->start, *mod_info->stop, __afl_map_size,
-                mod_info->name);
-        abort();
-
-      }
-
-      u32 orig_start_index = *mod_info->start;
-
       uintptr_t PC = start->PC;
-
-      // This is what `GetPreviousInstructionPc` in sanitizer runtime does
-      // for x86/x86-64. Needs more work for ARM and other archs.
-      PC = PC - 1;
 
       // Calculate relative offset in module
       PC = PC - mod_info->base_address;
 
+      // Read the guard value at this position
+      u32 guard_val = *(mod_info->start + in_module_index);
+
+      // Map edge ID to PC (pcmap)
       if (__afl_pcmap_ptr) {
 
-        __afl_pcmap_ptr[orig_start_index + in_module_index] = PC;
+        // Skip guards that are disabled (set to 0)
+        if (guard_val != 0) {
+
+          if (guard_val < __afl_map_size) {
+
+            __afl_pcmap_ptr[guard_val] = PC;
+
+          } else {
+
+            fprintf(
+                stderr,
+                "ERROR: __sanitizer_cov_pcs_init guard value %u >= map_size "
+                "%u at in_module_index %u (pcmap) (%s)\n",
+                guard_val, __afl_map_size, in_module_index, mod_info->name);
+            abort();
+
+          }
+
+        }
 
       }
 
@@ -1878,8 +1883,7 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
             fprintf(
                 stderr,
                 "DEBUG: Selective instrumentation match: %s (PC %p Index %u)\n",
-                PcDescr, (void *)start->PC,
-                *(mod_info->start + in_module_index));
+                PcDescr, (void *)start->PC, guard_val);
           // No change to guard needed
 
         } else {
@@ -1925,6 +1929,24 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
               "DEBUG: __sanitizer_cov_pcs_init successfully mapped %s with %u "
               "PCs\n",
               mod_info->name, in_module_index);
+
+    }
+
+    // If PC filter is active and module doesn't match, disable all guards
+    if (__afl_filter_pcs && mod_info->start && mod_info->stop &&
+        !strstr(mod_info->name, __afl_filter_pcs_module)) {
+
+      if (__afl_debug)
+        fprintf(stderr,
+                "DEBUG: Disabling all %u guards for non-matching module: %s\n",
+                *(mod_info->stop) - *(mod_info->start) + 1, mod_info->name);
+
+      // Null out all guards for this module
+      for (u32 *guard = mod_info->start; guard <= mod_info->stop; guard++) {
+
+        *guard = 0;
+
+      }
 
     }
 
