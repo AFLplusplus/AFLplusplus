@@ -123,7 +123,13 @@ static char *afl_environment_variables[] = {
     "AFL_NO_FASTRESUME", "AFL_SAN_ABSTRACTION", "AFL_LLVM_ONLY_FSRV",
     "AFL_GCC_ONLY_FRSV", "AFL_SAN_RECOVER",
     "AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT", "AFL_FORKSRV_UID",
-    "AFL_FORKSRV_GID", "AFL_COMPILER_LAUNCHER", NULL};
+    "AFL_FORKSRV_GID", "AFL_COMPILER_LAUNCHER",
+#ifdef __AFL_CODE_COVERAGE
+    "AFL_DUMP_PC_MAP",
+#endif
+    NULL
+
+};
 
 extern char *afl_environment_variables[];
 
