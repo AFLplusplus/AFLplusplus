@@ -33,6 +33,8 @@ import uuid
 # https://more-itertools.readthedocs.io/en/stable/_modules/more_itertools/recipes.html#batched
 from sys import hexversion
 
+logger = logging.getLogger(__name__)
+
 
 def _batched(iterable, n, *, strict=False):
     """Batch data into tuples of length *n*. If the number of items in
@@ -88,6 +90,13 @@ except ImportError:
             pass
 
 
+def init_logger(args):
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(
+        level=log_level, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+
+
 class HelpFormatter(argparse.HelpFormatter):
     def __init__(self, prog, *args, **kargs):
         super().__init__(prog, *args, **kargs)
@@ -108,7 +117,7 @@ def init_args():
         metavar="dir",
         required=True,
         help="input directory with the starting corpus",
-)
+    )
     group.add_argument(
         "-o",
         dest="output",
@@ -207,7 +216,9 @@ def init_args():
         help='output file name like "id:000000,hash:value"',
     )
     group.add_argument(
-    "--no-dedup", action="store_true", help="skip deduplication step for corpus files"
+        "--no-dedup",
+        action="store_true",
+        help="skip deduplication step for corpus files",
     )
     group.add_argument("--debug", action="store_true")
 
@@ -241,7 +252,7 @@ def search_binary(name):
     sys.exit(1)
 
 
-def init(args, logger):
+def init(args):
     if args.stdin_file and args.workers > 1:
         logger.error("-f is only supported with one worker (-T 1)")
         sys.exit(1)
@@ -343,7 +354,15 @@ def get_nyx_map_size(target_dir):
     return map_size
 
 
-def afl_showmap(args, afl_showmap_bin, logger, tuple_index_type_code, input_path=None, batch=None, afl_map_size=None, first=False):
+def afl_showmap(
+    args,
+    afl_showmap_bin,
+    tuple_index_type_code,
+    input_path=None,
+    batch=None,
+    afl_map_size=None,
+    first=False,
+):
     assert input_path or batch
     # yapf: disable
     cmd = [
@@ -459,12 +478,14 @@ def afl_showmap(args, afl_showmap_bin, logger, tuple_index_type_code, input_path
 
 class JobDispatcher(multiprocessing.Process):
 
-    def __init__(self, job_queue, jobs):
+    def __init__(self, args, job_queue, jobs):
         super().__init__()
+        self.args = args
         self.job_queue = job_queue
         self.jobs = jobs
 
     def run(self):
+        init_logger(self.args)
         for job in self.jobs:
             self.job_queue.put(job)
         self.job_queue.close()
@@ -472,19 +493,29 @@ class JobDispatcher(multiprocessing.Process):
 
 class Worker(multiprocessing.Process):
 
-    def __init__(self, idx, afl_map_size, q_in, p_out, r_out, args, file_index_type_code, afl_showmap_bin, logger):
+    def __init__(
+        self,
+        args,
+        idx,
+        afl_map_size,
+        q_in,
+        p_out,
+        r_out,
+        file_index_type_code,
+        afl_showmap_bin,
+    ):
         super().__init__()
+        self.args = args
         self.idx = idx
         self.afl_map_size = afl_map_size
         self.q_in = q_in
         self.p_out = p_out
         self.r_out = r_out
-        self.args = args
         self.file_index_type_code = file_index_type_code
         self.afl_showmap_bin = afl_showmap_bin
-        self.logger = logger
 
     def run(self):
+        init_logger(self.args)
         map_size = self.afl_map_size or 65536
         max_tuple = map_size * 9
         max_file_index = 256 ** array.array(self.file_index_type_code).itemsize - 1
@@ -501,7 +532,11 @@ class Worker(multiprocessing.Process):
                     break
 
                 for idx, r, crash in afl_showmap(
-                    self.args, self.afl_showmap_bin, self.logger, batch=batch, afl_map_size=self.afl_map_size, tuple_index_type_code=self.file_index_type_code
+                    self.args,
+                    self.afl_showmap_bin,
+                    batch=batch,
+                    afl_map_size=self.afl_map_size,
+                    tuple_index_type_code=self.file_index_type_code,
                 ):
                     counter.update(r)
 
@@ -533,14 +568,16 @@ class Worker(multiprocessing.Process):
 
 class CombineTraceWorker(multiprocessing.Process):
 
-    def __init__(self, pack_name, jobs, r_out, tuple_index_type_code):
+    def __init__(self, args, pack_name, jobs, r_out, tuple_index_type_code):
         super().__init__()
+        self.args = args
         self.pack_name = pack_name
         self.jobs = jobs
         self.r_out = r_out
         self.tuple_index_type_code = tuple_index_type_code
 
     def run(self):
+        init_logger(self.args)
         already_have = set()
         with open(self.pack_name, "rb") as f:
             for pos, tuple_count in self.jobs:
@@ -558,8 +595,10 @@ def hash_file(path):
     return m.digest()
 
 
-def dedup(files, args):
-    with multiprocessing.Pool(args.workers) as pool:
+def dedup(args, files):
+    with multiprocessing.Pool(
+        args.workers, initializer=init_logger, initargs=(args,)
+    ) as pool:
         seen_hash = set()
         result = []
         hash_list = []
@@ -621,18 +660,12 @@ def collect_files(args):
 def main():
     afl_showmap_bin = None
     file_index_type_code = None
-    logger = None
     tuple_index_type_code = "I"
 
     args = init_args()
 
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(
-        level=log_level, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
-    logger = logging.getLogger(__name__)
-
-    init(args, logger)
+    init_logger(args)
+    init(args)
 
     afl_showmap_bin = search_binary("afl-showmap")
 
@@ -643,7 +676,7 @@ def main():
     logger.info("Found %d input files in %d directories", len(files), len(args.input))
 
     if not args.no_dedup:
-        files, hash_list = dedup(files, args)
+        files, hash_list = dedup(args, files)
         logger.info("Remain %d files after dedup", len(files))
     else:
         logger.info("Skipping file deduplication.")
@@ -651,7 +684,9 @@ def main():
     file_index_type_code = detect_type_code(len(files))
 
     logger.info("Sorting files.")
-    with multiprocessing.Pool(args.workers) as pool:
+    with multiprocessing.Pool(
+        args.workers, initializer=init_logger, initargs=(args,)
+    ) as pool:
         chunksize = max(1, min(512, len(files) // args.workers))
         size_list = list(pool.map(os.path.getsize, files, chunksize))
     idxes = sorted(range(len(files)), key=lambda x: size_list[x])
@@ -681,7 +716,14 @@ def main():
         tuple_index_type_code = detect_type_code(afl_map_size * 9)
 
     logger.info("Testing the target binary")
-    tuples, _ = afl_showmap(args, afl_showmap_bin, logger, input_path=files[0], afl_map_size=afl_map_size, first=True, tuple_index_type_code=tuple_index_type_code)
+    tuples, _ = afl_showmap(
+        args,
+        afl_showmap_bin,
+        input_path=files[0],
+        afl_map_size=afl_map_size,
+        first=True,
+        tuple_index_type_code=tuple_index_type_code,
+    )
     if tuples:
         logger.info("ok, %d tuples recorded", len(tuples))
     else:
@@ -694,7 +736,16 @@ def main():
 
     workers = []
     for i in range(args.workers):
-        p = Worker(i, afl_map_size, job_queue, progress_queue, result_queue, args, file_index_type_code, afl_showmap_bin , logger)
+        p = Worker(
+            args,
+            i,
+            afl_map_size,
+            job_queue,
+            progress_queue,
+            result_queue,
+            file_index_type_code,
+            afl_showmap_bin,
+        )
         p.start()
         workers.append(p)
 
@@ -702,7 +753,7 @@ def main():
     jobs = list(batched(enumerate(files), chunk))
     jobs += [None] * args.workers  # sentinel
 
-    dispatcher = JobDispatcher(job_queue, jobs)
+    dispatcher = JobDispatcher(args, job_queue, jobs)
     dispatcher.start()
 
     logger.info("Processing traces")
@@ -790,7 +841,9 @@ def main():
         trace_f = open(pack_name, "rb")
         trace_packs.append(trace_f)
 
-        p = CombineTraceWorker(pack_name, jobs[i], result_queue, tuple_index_type_code)
+        p = CombineTraceWorker(
+            args, pack_name, jobs[i], result_queue, tuple_index_type_code
+        )
         p.start()
         workers.append(p)
 
@@ -824,7 +877,7 @@ def main():
         if args.no_dedup:
             # Unless we deduped previously, we have to dedup the crash files
             # now.
-            crash_files, hash_list = dedup(crash_files, args)
+            crash_files, hash_list = dedup(args, crash_files)
 
         for idx, crash_path in enumerate(crash_files):
             fn = base64.b16encode(hash_list[idx]).decode("utf8").lower()
