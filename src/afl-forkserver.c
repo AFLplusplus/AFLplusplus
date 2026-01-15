@@ -2249,12 +2249,18 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   /* Report outcome to caller. */
 
-  /* Was the run unsuccessful? */
-  if (unlikely(*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)) {
+/* Was the run unsuccessful? */
+if (unlikely(*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)) {
 
-    return FSRV_RUN_ERROR;
+  WARNF(
+      "Target called exec*() inside an instrumented binary. "
+      "This breaks AFL++ forkserver assumptions. "
+      "Please fuzz the final executable or disable the forkserver.");
 
-  }
+  return FSRV_RUN_ERROR;
+
+}
+
 
   /* Did we timeout? */
   if (unlikely(fsrv->last_run_timed_out)) {
