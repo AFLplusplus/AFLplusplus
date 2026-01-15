@@ -248,7 +248,7 @@ def search_binary(name):
         binary = shutil.which(name, path=search)
         if binary:
             return binary
-    logger.fatal(f"cannot find {name}, please set AFL_PATH")
+    logger.fatal("cannot find %s, please set AFL_PATH", name)
     sys.exit(1)
 
 
@@ -367,9 +367,9 @@ def afl_showmap(
     # yapf: disable
     cmd = [
         afl_showmap_bin,
-        '-m', str(args.memory_limit),
-        '-t', str(args.time_limit),
-        '-Z', # cmin mode
+        "-m", str(args.memory_limit),
+        "-t", str(args.time_limit),
+        "-Z",  # cmin mode
     ]
     # yapf: enable
     found_atat = False
@@ -708,6 +708,7 @@ def main():
                 "AFL_DUMP_MAP_SIZE": "1",
                 "ASAN_OPTIONS": get_asan_options(),
             },
+            check=False,
         ).stdout
         afl_map_size = int(output)
         logger.info("Setting AFL_MAP_SIZE=%d", afl_map_size)
