@@ -1181,6 +1181,7 @@ static void usage(u8 *argv0) {
 #endif
       "\n"
       "Other settings:\n"
+      "  -f file    - input file read by the tested program\n"
       "  -S         - streaming mode: read test cases from stdin, write "
       "coverage\n"
       "               to stdout using a length-value protocol. Allows using\n"
@@ -1357,12 +1358,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       break;
 
-      case 'f':  // only in here to avoid a compiler warning for use_stdin
+      case 'f':
 
-        FATAL("Option -f is not supported in afl-showmap");
-        // currently not reached:
-        fsrv->use_stdin = 0;
-        fsrv->out_file = strdup(optarg);
+        if (at_file) { FATAL("Multiple -f/-H options not supported"); }
+        at_file = ck_strdup(optarg);
 
         break;
 
