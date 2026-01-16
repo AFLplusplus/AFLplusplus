@@ -3344,10 +3344,9 @@ int main(int argc, char **argv_orig, char **envp) {
       /* If we had a full queue cycle with no new finds, try
          recombination strategies next. */
 
-      if (unlikely(afl->queued_items == prev_queued
-                   /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
-                      3600 */
-                   )) {
+      if (unlikely(afl->queued_items == prev_queued &&
+                   (afl->expand_havoc ||
+                    (get_cur_time() - afl->start_time) >= 3600000))) {
 
         ++afl->cycles_wo_finds;
 
