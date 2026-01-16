@@ -5,10 +5,12 @@
 
 
 ### Version ++4.36a (dev)
-  - afl-cmin:
-    - new implementation in C by @kcwu - thanks!
   - afl-cc:
     - LLVM 22 support (they are again switching around include files ...)
+  - afl-cmin:
+    - new implementation in C by @kcwu - thanks!
+  - afl-showmap:
+    - -f support added by Prajwal-kp-18 - thanks!
 
 
 ### Version ++4.35a (release)
