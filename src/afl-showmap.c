@@ -1547,6 +1547,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (at_file && !in_dir && !in_filelist) {
+
+    WARNF("Using -f without -i or -I has no effect");
+
+  }
+
   if (fsrv->qemu_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_QEMU; }
   if (unicorn_mode && !mem_limit_given) { fsrv->mem_limit = MEM_LIMIT_UNICORN; }
 
