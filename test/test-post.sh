@@ -12,3 +12,5 @@ test "$CODE" = "0" || $ECHO "$RED[!] failure in tests :-($RESET"
 exit $CODE
 
 fi
+
+unset_afl_env

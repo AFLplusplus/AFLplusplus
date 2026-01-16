@@ -28,7 +28,7 @@ use std::{fmt::Debug, path::Path};
 
 #[cfg(feature = "afl_internals")]
 #[doc(hidden)]
-pub use custom_mutator_sys::afl_state;
+pub use custom_mutator_sys::{afl_state, queue_entry};
 
 #[allow(unused_variables)]
 #[doc(hidden)]
@@ -87,12 +87,9 @@ pub trait RawCustomMutator {
 /// These wrappers are not intended to be used directly, rather export_mutator will use them to publish the custom mutator C API.
 #[doc(hidden)]
 pub mod wrappers {
-    #[cfg(feature = "afl_internals")]
-    use custom_mutator_sys::afl_state;
-
     use std::{
         any::Any,
-        ffi::{c_void, CStr, OsStr},
+        ffi::{CStr, OsStr, c_void},
         mem::ManuallyDrop,
         os::{raw::c_char, unix::ffi::OsStrExt},
         panic::catch_unwind,
@@ -101,6 +98,9 @@ pub mod wrappers {
         ptr::null,
         slice,
     };
+
+    #[cfg(feature = "afl_internals")]
+    use custom_mutator_sys::afl_state;
 
     use crate::RawCustomMutator;
 
@@ -197,29 +197,31 @@ pub mod wrappers {
         add_buf_size: usize,
         max_size: usize,
     ) -> usize {
-        match catch_unwind(|| {
-            let mut context = FFIContext::<M>::from(data);
+        unsafe {
+            match catch_unwind(|| {
+                let mut context = FFIContext::<M>::from(data);
 
-            assert!(!buf.is_null(), "null buf passed to afl_custom_fuzz");
-            assert!(!out_buf.is_null(), "null out_buf passed to afl_custom_fuzz");
+                assert!(!buf.is_null(), "null buf passed to afl_custom_fuzz");
+                assert!(!out_buf.is_null(), "null out_buf passed to afl_custom_fuzz");
 
-            let buff_slice = slice::from_raw_parts_mut(buf, buf_size);
-            let add_buff_slice = if add_buf.is_null() {
-                None
-            } else {
-                Some(slice::from_raw_parts(add_buf, add_buf_size))
-            };
-            if let Some(buffer) = context.mutator.fuzz(buff_slice, add_buff_slice, max_size) {
-                *out_buf = buffer.as_ptr();
-                buffer.len()
-            } else {
-                // return the input buffer with 0-length to let AFL skip this mutation attempt
-                *out_buf = buf;
-                0
+                let buff_slice = slice::from_raw_parts_mut(buf, buf_size);
+                let add_buff_slice = if add_buf.is_null() {
+                    None
+                } else {
+                    Some(slice::from_raw_parts(add_buf, add_buf_size))
+                };
+                if let Some(buffer) = context.mutator.fuzz(buff_slice, add_buff_slice, max_size) {
+                    *out_buf = buffer.as_ptr();
+                    buffer.len()
+                } else {
+                    // return the input buffer with 0-length to let AFL skip this mutation attempt
+                    *out_buf = buf;
+                    0
+                }
+            }) {
+                Ok(ret) => ret,
+                Err(err) => panic_handler("afl_custom_fuzz", &err),
             }
-        }) {
-            Ok(ret) => ret,
-            Err(err) => panic_handler("afl_custom_fuzz", &err),
         }
     }
 
@@ -233,18 +235,20 @@ pub mod wrappers {
         buf: *const u8,
         buf_size: usize,
     ) -> u32 {
-        match catch_unwind(|| {
-            let mut context = FFIContext::<M>::from(data);
-            assert!(!buf.is_null(), "null buf passed to afl_custom_fuzz");
+        unsafe {
+            match catch_unwind(|| {
+                let mut context = FFIContext::<M>::from(data);
+                assert!(!buf.is_null(), "null buf passed to afl_custom_fuzz");
 
-            let buf_slice = slice::from_raw_parts(buf, buf_size);
-            // see https://doc.rust-lang.org/nomicon/borrow-splitting.html
-            let ctx = &mut **context;
-            let mutator = &mut ctx.mutator;
-            mutator.fuzz_count(buf_slice)
-        }) {
-            Ok(ret) => ret,
-            Err(err) => panic_handler("afl_custom_fuzz_count", &err),
+                let buf_slice = slice::from_raw_parts(buf, buf_size);
+                // see https://doc.rust-lang.org/nomicon/borrow-splitting.html
+                let ctx = &mut **context;
+                let mutator = &mut ctx.mutator;
+                mutator.fuzz_count(buf_slice)
+            }) {
+                Ok(ret) => ret,
+                Err(err) => panic_handler("afl_custom_fuzz_count", &err),
+            }
         }
     }
 
@@ -363,23 +367,25 @@ pub mod wrappers {
         buf_size: usize,
         out_buf: *mut *const u8,
     ) -> usize {
-        match catch_unwind(|| {
-            let mut context = FFIContext::<M>::from(data);
+        unsafe {
+            match catch_unwind(|| {
+                let mut context = FFIContext::<M>::from(data);
 
-            assert!(!buf.is_null(), "null buf passed to afl_custom_post_process");
-            assert!(
-                !out_buf.is_null(),
-                "null out_buf passed to afl_custom_post_process"
-            );
-            let buff_slice = slice::from_raw_parts_mut(buf, buf_size);
-            if let Some(buffer) = context.mutator.post_process(buff_slice) {
-                *out_buf = buffer.as_ptr();
-                return buffer.len();
+                assert!(!buf.is_null(), "null buf passed to afl_custom_post_process");
+                assert!(
+                    !out_buf.is_null(),
+                    "null out_buf passed to afl_custom_post_process"
+                );
+                let buff_slice = slice::from_raw_parts_mut(buf, buf_size);
+                if let Some(buffer) = context.mutator.post_process(buff_slice) {
+                    *out_buf = buffer.as_ptr();
+                    return buffer.len();
+                }
+                0
+            }) {
+                Ok(ret) => ret,
+                Err(err) => panic_handler("afl_custom_post_process", &err),
             }
-            0
-        }) {
-            Ok(ret) => ret,
-            Err(err) => panic_handler("afl_custom_post_process", &err),
         }
     }
 }
@@ -389,7 +395,7 @@ pub mod wrappers {
 #[macro_export]
 macro_rules! _define_afl_custom_init {
     ($mutator_type:ty) => {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn afl_custom_init(
             afl: ::std::option::Option<&'static $crate::afl_state>,
             seed: ::std::os::raw::c_uint,
@@ -404,7 +410,7 @@ macro_rules! _define_afl_custom_init {
 #[macro_export]
 macro_rules! _define_afl_custom_init {
     ($mutator_type:ty) => {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn afl_custom_init(
             _afl: *const ::std::os::raw::c_void,
             seed: ::std::os::raw::c_uint,
@@ -439,7 +445,7 @@ macro_rules! export_mutator {
     ($mutator_type:ty) => {
         $crate::_define_afl_custom_init!($mutator_type);
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub unsafe extern "C" fn afl_custom_fuzz_count(
             data: *mut ::std::os::raw::c_void,
             buf: *const u8,
@@ -448,7 +454,7 @@ macro_rules! export_mutator {
             $crate::wrappers::afl_custom_fuzz_count_::<$mutator_type>(data, buf, buf_size)
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub unsafe extern "C" fn afl_custom_fuzz(
             data: *mut ::std::os::raw::c_void,
             buf: *mut u8,
@@ -469,7 +475,7 @@ macro_rules! export_mutator {
             )
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub unsafe extern "C" fn afl_custom_queue_new_entry(
             data: *mut ::std::os::raw::c_void,
             filename_new_queue: *const ::std::os::raw::c_char,
@@ -482,7 +488,7 @@ macro_rules! export_mutator {
             )
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub unsafe extern "C" fn afl_custom_queue_get(
             data: *mut ::std::os::raw::c_void,
             filename: *const ::std::os::raw::c_char,
@@ -490,14 +496,14 @@ macro_rules! export_mutator {
             $crate::wrappers::afl_custom_queue_get_::<$mutator_type>(data, filename)
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn afl_custom_introspection(
             data: *mut ::std::os::raw::c_void,
         ) -> *const ::std::os::raw::c_char {
             $crate::wrappers::afl_custom_introspection_::<$mutator_type>(data)
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn afl_custom_describe(
             data: *mut ::std::os::raw::c_void,
             max_description_len: usize,
@@ -505,12 +511,12 @@ macro_rules! export_mutator {
             $crate::wrappers::afl_custom_describe_::<$mutator_type>(data, max_description_len)
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub unsafe extern "C" fn afl_custom_deinit(data: *mut ::std::os::raw::c_void) {
             $crate::wrappers::afl_custom_deinit_::<$mutator_type>(data)
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub unsafe extern "C" fn afl_custom_post_process(
             data: *mut ::std::os::raw::c_void,
             buf: *mut u8,
@@ -527,8 +533,7 @@ macro_rules! export_mutator {
 mod sanity_test {
     #[cfg(feature = "afl_internals")]
     use super::afl_state;
-
-    use super::{export_mutator, RawCustomMutator};
+    use super::{RawCustomMutator, export_mutator};
 
     struct ExampleMutator;
 

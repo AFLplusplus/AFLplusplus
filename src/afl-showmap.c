@@ -111,6 +111,9 @@ static bool quiet_mode,                /* Hide non-essential messages?      */
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
 
+/* Streaming of inputs and coverage via stdin &stdout  */
+static bool streaming_mode;
+
 static sharedmem_t       shm;
 static afl_forkserver_t *fsrv;
 static sharedmem_t      *shm_fuzz;
@@ -481,6 +484,141 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
     SAYF(cRST cLRD "\n+++ afl-showmap folder mode aborted by user +++\n" cRST);
     exit(1);
+
+  }
+
+}
+
+/* Helper to read exactly n bytes from fd */
+static ssize_t read_all(int fd, void *buf, size_t n) {
+
+  size_t  done = 0;
+  ssize_t r;
+
+  while (done < n) {
+
+    r = read(fd, (u8 *)buf + done, n - done);
+    if (r <= 0) { return done ? (ssize_t)done : r; }
+    done += r;
+
+  }
+
+  return (ssize_t)done;
+
+}
+
+/* Streaming mode exit status (lower 2 bits of status field) */
+#define STREAMING_STATUS_EXITED 0
+#define STREAMING_STATUS_TIMEOUT 1
+#define STREAMING_STATUS_CRASH 2
+
+/* Input streaming loop - reads test cases from stdin, writes coverage to
+   stdout. Protocol (LV = length-value format):
+   - Input:  [u32 length][u8 data[length]] (length=0 signals EOF)
+   - Output: [u16 status][u32 edge_count][{u32 edge_idx, u8 hit_ctr}*]
+             [u32 stdout_len][u8 stdout_data*][u32 stderr_len][u8 stderr_data*]
+   Status field:
+     bits 0-1:  exit status (0=exited, 1=timeout, 2=crash)
+     bits 2-7:  reserved (must be 0)
+     bits 8-15: signal number (only valid when status=crash)
+   Note: stdout_len and stderr_len are currently always 0 (not implemented).
+         These fields are reserved for future use to capture target output.
+*/
+static void streaming_loop(void) {
+
+  static u8 tc_buffer[MAX_FILE];
+  u32       tc_length;
+
+  while (read_all(STDIN_FILENO, &tc_length, 4) == 4 && tc_length > 0) {
+
+    if (tc_length > MAX_FILE) {
+
+      FATAL("Test case too large (%u > %lu)", tc_length, MAX_FILE);
+
+    }
+
+    /* Read test case */
+    if (read_all(STDIN_FILENO, tc_buffer, tc_length) != (ssize_t)tc_length) {
+
+      FATAL("Short read on input (expected %u bytes)", tc_length);
+
+    }
+
+    /* Execute via fork server */
+    showmap_run_target_forkserver(fsrv, tc_buffer, tc_length);
+
+    /* Determine exit status (bits 0-1) and signal number (bits 8-15) */
+    u16 status;
+    if (fsrv->last_run_timed_out) {
+
+      status = STREAMING_STATUS_TIMEOUT;
+
+    } else if (child_crashed) {
+
+      /* Encode signal number in bits 8-15 */
+      status = STREAMING_STATUS_CRASH | (WTERMSIG(fsrv->child_status) << 8);
+
+    } else {
+
+      status = STREAMING_STATUS_EXITED;
+
+    }
+
+    /* Write status */
+    if (write(STDOUT_FILENO, &status, 2) != 2) {
+
+      FATAL("Failed to write status");
+
+    }
+
+    /* Count hit edges */
+    u32 edge_count = 0;
+    for (u32 i = 0; i < map_size; i++) {
+
+      if (fsrv->trace_bits[i]) { edge_count++; }
+
+    }
+
+    /* Write edge count */
+    if (write(STDOUT_FILENO, &edge_count, 4) != 4) {
+
+      FATAL("Failed to write edge count");
+
+    }
+
+    /* Write edges: (edge_idx:u32, hit_ctr:u8) pairs */
+    for (u32 i = 0; i < map_size; i++) {
+
+      if (fsrv->trace_bits[i]) {
+
+        u32 offset = i;
+        u8  count = fsrv->trace_bits[i];
+        if (write(STDOUT_FILENO, &offset, 4) != 4 ||
+            write(STDOUT_FILENO, &count, 1) != 1) {
+
+          FATAL("Failed to write edge data");
+
+        }
+
+      }
+
+    }
+
+    /* Write stdout LV field (length=0, not implemented) */
+    u32 stdout_len = 0;
+    if (write(STDOUT_FILENO, &stdout_len, 4) != 4) {
+
+      FATAL("Failed to write stdout length");
+
+    }
+
+    /* Write stderr LV field (length=0, not implemented) */
+    u32 stderr_len = 0;
+    if (write(STDOUT_FILENO, &stderr_len, 4) != 4) {
+
+      FATAL("Failed to write stderr length");
+
+    }
 
   }
 
@@ -1023,7 +1161,8 @@ static void usage(u8 *argv0) {
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
       "Required parameters:\n"
-      "  -o file    - file to write the trace data to\n\n"
+      "  -o file    - file to write the trace data to (not required with "
+      "-S)\n\n"
 
       "Execution control settings:\n"
       "  -t msec    - timeout for each run (default: 1000ms)\n"
@@ -1043,6 +1182,19 @@ static void usage(u8 *argv0) {
       "\n"
       "Other settings:\n"
       "  -f file    - input file read by the tested program\n"
+      "  -S         - streaming mode: read test cases from stdin, write "
+      "coverage\n"
+      "               to stdout using a length-value protocol. Allows using\n"
+      "               afl-showmap as a coverage proxy to leverage the AFL++\n"
+      "               forkserver without implementing it.\n"
+      "               Protocol: Input  [u32 len][data]\n"
+      "                         Output [u16 status][u32 edges][(u32,u8)*]\n"
+      "                                [u32 stdout_len][stdout_data*]\n"
+      "                                [u32 stderr_len][stderr_data*]\n"
+      "               Status: bits 0-1 = exit (0=ok, 1=timeout, 2=crash),\n"
+      "                       bits 2-7 = reserved (0), bits 8-15 = signal\n"
+      "               Note: stdout_len/stderr_len are currently always 0\n"
+      "                     (output capture not yet implemented)\n"
       "  -i dir     - process all files below this directory, must be combined "
       "with -o.\n"
       "               With -C, -o is a file, without -C it must be a "
@@ -1123,7 +1275,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:I:o:f:m:t:AeqCZOH:QUWbcrshXY")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:I:o:f:m:t:AeqCZOH:QUWbcrshSXY")) > 0) {
 
     switch (opt) {
 
@@ -1351,6 +1503,13 @@ int main(int argc, char **argv_orig, char **envp) {
         raw_instr_output = true;
         break;
 
+      case 'S':
+
+        if (streaming_mode) { FATAL("Multiple -S options not supported"); }
+        streaming_mode = true;
+        quiet_mode = true;
+        break;
+
       case 'h':
         usage(argv[0]);
         return -1;
@@ -1365,9 +1524,21 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (collect_coverage) { binary_mode = false; }  // ensure this
 
-  if (optind == argc || !out_file) { usage(argv[0]); }
+  if (optind == argc || (!out_file && !streaming_mode)) { usage(argv[0]); }
 
   if (in_dir && in_filelist) { FATAL("you can only specify either -i or -I"); }
+
+  if (streaming_mode && (in_dir || in_filelist)) {
+
+    FATAL("-S streaming mode is incompatible with -i/-I input options");
+
+  }
+
+  if (streaming_mode && out_file) {
+
+    FATAL("-S streaming mode is incompatible with -o output option");
+
+  }
 
   if (in_dir || in_filelist) {
 
@@ -1429,7 +1600,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (in_dir || in_filelist) {
+  if (in_dir || in_filelist || streaming_mode) {
 
     /* If we don't have a file name chosen yet, use a safe default. */
     u8 *use_dir = ".";
@@ -1659,6 +1830,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  /* Input streaming mode - read inputs from stdin, write coverage to stdout */
+  if (streaming_mode) {
+
+    map_size = fsrv->map_size;
+    streaming_loop();
+    goto showmap_done;
+
+  }
+
   if (in_dir || in_filelist) {
 
     afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
@@ -1836,13 +2016,19 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+showmap_done:
+
   remove_shm = false;
   afl_shm_deinit(&shm);
   if (fsrv->use_shmem_fuzz) { shm_fuzz = deinit_shmem(fsrv, shm_fuzz); }
 
   u32 ret;
 
-  if (cmin_mode && !!getenv("AFL_CMIN_CRASHES_ONLY")) {
+  if (streaming_mode) {
+
+    ret = 0;           /* Streaming mode exits 0 on success, FATAL on error */
+
+  } else if (cmin_mode && !!getenv("AFL_CMIN_CRASHES_ONLY")) {
 
     ret = run_timed_out();
 

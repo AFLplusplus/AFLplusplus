@@ -2,6 +2,8 @@
 
 Bindings to create custom mutators in Rust.
 
+Instead of writing a raw AFL++ mutator, you can write a higher-level LibAFL mutator that can be shared between AFL++ and other fuzzers, see [libafl_nautilus](../libafl_nautilus/README.md) for an example.
+
 These bindings are documented with rustdoc. To view the documentation run
 ```cargo doc -p custom_mutator --open```.
 

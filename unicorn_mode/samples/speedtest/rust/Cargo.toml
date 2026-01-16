@@ -11,5 +11,5 @@ panic = "abort"
 
 [dependencies]
 unicornafl = { path = "../../../unicornafl" }
-capstone="0.11.0"
-libc="0.2.66"
+capstone = "0.11.0"
+libc = "0.2.66"

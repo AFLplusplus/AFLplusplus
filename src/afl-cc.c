@@ -2502,7 +2502,9 @@ void add_lto_passes(aflcc_state_t *aflcc) {
   insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
 #endif
 
+#ifndef __APPLE__
   insert_param(aflcc, "-Wl,--allow-multiple-definition");
+#endif
 
 }
 
@@ -3759,7 +3761,9 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     if (getenv("AFL_LLVM_IJON")) {
 
       insert_param(aflcc, "-fpermissive");
+#ifndef __APPLE__
       insert_param(aflcc, "-Wl,--allow-multiple-definition");
+#endif
 
       const char *source_file = get_source_filename(argc, argv);
 

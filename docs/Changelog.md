@@ -4,7 +4,14 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++4.35a (dev)
+### Version ++4.36a (dev)
+  - afl-cmin:
+    - new implementation in C by @kcwu - thanks!
+  - afl-cc:
+    - LLVM 22 support (they are again switching around include files ...)
+
+
+### Version ++4.35a (release)
   - GUIFuzz++ merged: Unleashing Grey-box Fuzzing on Desktop Graphical User
                       Interfacing Applications
     https://futures.cs.utah.edu/papers/25ASE.pdf

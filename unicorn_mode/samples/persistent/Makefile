@@ -13,7 +13,7 @@ AR_EXT = a
 # Verbose output?
 V ?= 0
 
-CFLAGS += -Wall -Werror -I../../include
+CFLAGS += -Wall -I../../include
 
 LDFLAGS += -L$(UNICORNAFL_LIB) -L$(UNICORN_LIB) -lunicornafl -lunicorn -lpthread -lm -lstdc++
 

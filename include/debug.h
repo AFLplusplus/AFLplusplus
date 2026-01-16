@@ -33,9 +33,9 @@
  * Terminal colors *
  *******************/
 
-#ifndef MESSAGES_TO_STDOUT
-  #define MESSAGES_TO_STDOUT
-#endif
+/* Define MESSAGES_TO_STDOUT to send diagnostic messages to stdout.
+   By default, messages go to stderr (correct Unix convention).
+   afl-fuzz defines this in afl-fuzz.h for its TUI. */
 
 #ifdef USE_COLOR
 

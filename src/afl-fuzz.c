@@ -2610,6 +2610,17 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
                    afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
 
+  #ifdef __AFL_CODE_COVERAGE
+  // Initialize pcmap and modmap before any forkserver starts
+  if (getenv("AFL_DUMP_PC_MAP")) {
+
+    afl_pcmap_init(afl, afl->fsrv.map_size);
+    afl_modmap_init(afl);
+
+  }
+
+  #endif
+
   if (!afl->non_instrumented_mode && !afl->unicorn_mode &&
       !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
       !afl->afl_env.afl_skip_bin_check) {
@@ -2640,6 +2651,11 @@ int main(int argc, char **argv_orig, char **envp) {
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
+
+  #ifdef __AFL_CODE_COVERAGE
+      if (getenv("AFL_DUMP_PC_MAP")) { afl_pcmap_resize(afl, new_map_size); }
+  #endif
+
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
 
@@ -2855,6 +2871,11 @@ int main(int argc, char **argv_orig, char **envp) {
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+
+  #ifdef __AFL_CODE_COVERAGE
+      if (getenv("AFL_DUMP_PC_MAP")) { afl_pcmap_resize(afl, new_map_size); }
+  #endif
+
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
       afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
@@ -3659,6 +3680,13 @@ stop_fuzzing:
     // map in length.
     fwrite(afl->fsrv.persistent_trace_bits, 1, afl->fsrv.real_map_size, cov_fd);
     fclose(cov_fd);
+
+  }
+
+  if (getenv("AFL_DUMP_PC_MAP")) {
+
+    afl_dump_pc_map(afl);
+    afl_dump_module_map(afl);
 
   }
 

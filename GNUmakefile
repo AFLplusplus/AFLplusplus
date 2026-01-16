@@ -30,8 +30,8 @@ INCLUDE_PATH = $(PREFIX)/include/afl
 PROGNAME    = afl
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
-PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
-SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-cmin.py afl-whatsup afl-addseeds afl-system-config afl-persistent-config afl-cc
+PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze afl-cmin
+SH_PROGS    = afl-plot afl-cmin.awk afl-cmin.bash afl-cmin.py afl-whatsup afl-addseeds afl-system-config afl-persistent-config afl-cc
 HEADERS     = include/afl-fuzz.h include/afl-mutations.h include/afl-persistent-replay.h include/afl-prealloc.h include/afl-record-compat.h include/alloc-inl.h include/android-ashmem.h include/cmplog.h include/common.h include/config.h include/coverage-32.h include/coverage-64.h include/debug.h include/envs.h include/forkserver.h include/hash.h include/list.h include/sharedmem.h include/snapshot-inl.h include/t1ha.h include/t1ha0_ia32aes_b.h include/t1ha_bits.h include/t1ha_selfcheck.h include/types.h include/xxhash.h include/afl-ijon-min.h
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 ASAN_OPTIONS=detect_leaks=0
@@ -501,6 +501,12 @@ ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
+afl-cmin: src/afl-cmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
+
 afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o -o $@ $(PYFLAGS) $(LDFLAGS)
 ifdef IS_IOS
@@ -625,6 +631,9 @@ code-format:
 	./.custom-format.py -i qemu_mode/libcompcov/*.h
 	./.custom-format.py -i qemu_mode/libqasan/*.c
 	./.custom-format.py -i qemu_mode/libqasan/*.h
+	-cargo +nightly fmt --manifest-path custom_mutators/rust/Cargo.toml --all
+	-cargo +nightly fmt --manifest-path custom_mutators/libafl_base/Cargo.toml
+	-cargo +nightly fmt --manifest-path custom_mutators/libafl_nautilus/Cargo.toml
 
 
 .PHONY: test_build
@@ -724,7 +733,7 @@ endif
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 ifndef NO_FRIDA
-	-$(MAKE) -C frida_mode
+	-$(MAKE) -C frida_mode -j1
 endif
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
@@ -738,7 +747,7 @@ ifndef NO_NYX
 endif
 endif
 ifndef NO_QEMU
-	-cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
 endif
 ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
@@ -756,7 +765,7 @@ endif
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 ifndef NO_FRIDA
-	-$(MAKE) -C frida_mode
+	-$(MAKE) -C frida_mode -j1
 endif
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
@@ -770,7 +779,7 @@ ifndef NO_NYX
 endif
 endif
 ifndef NO_QEMU
-	-cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
 endif
 ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py

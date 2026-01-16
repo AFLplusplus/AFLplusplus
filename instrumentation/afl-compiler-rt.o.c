@@ -237,6 +237,9 @@ afl_module_info_t *__afl_module_info = NULL;
 u32        __afl_pcmap_size = 0;
 uintptr_t *__afl_pcmap_ptr = NULL;
 
+u32             __afl_modmap_size = 0;
+module_entry_t *__afl_modmap_ptr = NULL;
+
 typedef struct {
 
   uintptr_t start;
@@ -906,6 +909,25 @@ static void __afl_map_shm(void) {
 
   }
 
+  char *modmap_id_str = getenv("__AFL_MODMAP_SHM_ID");
+
+  if (modmap_id_str) {
+
+    // Allocate space for module_entry_t array
+    __afl_modmap_size = MAX_AFL_MODULES;
+    u32 shm_id = atoi(modmap_id_str);
+
+    __afl_modmap_ptr = (module_entry_t *)shmat(shm_id, NULL, 0);
+
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: Received %p via shmat for modmap (%u entries)\n",
+              __afl_modmap_ptr, __afl_modmap_size);
+
+    }
+
+  }
+
 #endif  // __AFL_CODE_COVERAGE
 
   if (!__afl_cmp_map && getenv("AFL_CMPLOG_DEBUG")) {
@@ -935,6 +957,14 @@ static void __afl_unmap_shm(void) {
     shmdt((void *)__afl_pcmap_ptr);
     __afl_pcmap_ptr = NULL;
     __afl_pcmap_size = 0;
+
+  }
+
+  if (__afl_modmap_size) {
+
+    shmdt((void *)__afl_modmap_ptr);
+    __afl_modmap_ptr = NULL;
+    __afl_modmap_size = 0;
 
   }
 
@@ -1737,6 +1767,70 @@ u32 locate_in_pcs(uintptr_t needle, u32 *index) {
 
 }
 
+/* Write a single module's info to the modmap shared memory */
+
+static void afl_write_mod_map(const char *name, u32 start_id, u32 stop_id) {
+
+  if (!__afl_modmap_ptr || !__afl_modmap_size) { return; }
+
+  // First, check if module already exists
+  for (u32 i = 0; i < __afl_modmap_size; i++) {
+
+    if (__afl_modmap_ptr[i].loaded &&
+        strcmp(__afl_modmap_ptr[i].name, name) == 0) {
+
+      // Module already exists, skip adding
+      if (__afl_debug) {
+
+        fprintf(
+            stderr,
+            "DEBUG: Module already in modmap, skipping: %s (existing: %u-%u, "
+            "new: %u-%u)\n",
+            name, __afl_modmap_ptr[i].start_id, __afl_modmap_ptr[i].stop_id,
+            start_id, stop_id);
+
+      }
+
+      return;
+
+    }
+
+  }
+
+  // Find first empty slot
+  for (u32 i = 0; i < __afl_modmap_size; i++) {
+
+    if (!__afl_modmap_ptr[i].loaded) {
+
+      // Copy module info to this slot
+      strncpy(__afl_modmap_ptr[i].name, name,
+              sizeof(__afl_modmap_ptr[i].name) - 1);
+      __afl_modmap_ptr[i].name[sizeof(__afl_modmap_ptr[i].name) - 1] = '\0';
+      __afl_modmap_ptr[i].start_id = start_id;
+      __afl_modmap_ptr[i].stop_id = stop_id;
+      __afl_modmap_ptr[i].loaded = 1;
+
+      if (__afl_debug) {
+
+        fprintf(stderr, "DEBUG: Added module to modmap[%u]: %s %u %u\n", i,
+                name, start_id, stop_id);
+
+      }
+
+      return;
+
+    }
+
+  }
+
+  // No empty slots available
+  fprintf(stderr,
+          "ERROR: Module map is full (%u entries). Cannot add module: %s\n",
+          __afl_modmap_size, name);
+  abort();
+
+}
+
 void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
                               const uintptr_t *pcs_end) {
 
@@ -1832,35 +1926,44 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
 
     if (!*mod_info->stop) { continue; }
 
+    // Save the module edge IDs in case they are nulled out by filtering
+    u32 mod_start_id = *mod_info->start;
+    u32 mod_stop_id = *mod_info->stop;
+
     u32 in_module_index = 0;
 
     while (start < end) {
 
-      if (*mod_info->start + in_module_index >= __afl_map_size) {
-
-        fprintf(stderr,
-                "ERROR: __sanitizer_cov_pcs_init out of bounds?! Start: %u "
-                "Stop: %u Map Size: %u (%s)\n",
-                *mod_info->start, *mod_info->stop, __afl_map_size,
-                mod_info->name);
-        abort();
-
-      }
-
-      u32 orig_start_index = *mod_info->start;
-
       uintptr_t PC = start->PC;
-
-      // This is what `GetPreviousInstructionPc` in sanitizer runtime does
-      // for x86/x86-64. Needs more work for ARM and other archs.
-      PC = PC - 1;
 
       // Calculate relative offset in module
       PC = PC - mod_info->base_address;
 
+      // Read the guard value at this position
+      u32 guard_val = *(mod_info->start + in_module_index);
+
+      // Map edge ID to PC (pcmap)
       if (__afl_pcmap_ptr) {
 
-        __afl_pcmap_ptr[orig_start_index + in_module_index] = PC;
+        // Skip guards that are disabled (set to 0)
+        if (guard_val != 0) {
+
+          if (guard_val < __afl_map_size) {
+
+            __afl_pcmap_ptr[guard_val] = PC;
+
+          } else {
+
+            fprintf(
+                stderr,
+                "ERROR: __sanitizer_cov_pcs_init guard value %u >= map_size "
+                "%u at in_module_index %u (pcmap) (%s)\n",
+                guard_val, __afl_map_size, in_module_index, mod_info->name);
+            abort();
+
+          }
+
+        }
 
       }
 
@@ -1878,8 +1981,7 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
             fprintf(
                 stderr,
                 "DEBUG: Selective instrumentation match: %s (PC %p Index %u)\n",
-                PcDescr, (void *)start->PC,
-                *(mod_info->start + in_module_index));
+                PcDescr, (void *)start->PC, guard_val);
           // No change to guard needed
 
         } else {
@@ -1917,7 +2019,17 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
 
     }
 
+    // Mark as mapped when pcmap buffer is ready
     if (__afl_pcmap_ptr) { mod_info->mapped = 1; }
+
+    // Write modmap only if module is marked as mapped (i.e., fully processed)
+    // Use original edge IDs before filtering modified them
+    if (mod_info->mapped && __afl_modmap_ptr && __afl_modmap_size &&
+        mod_info->stop) {
+
+      afl_write_mod_map(mod_info->name, mod_start_id, mod_stop_id);
+
+    }
 
     if (__afl_debug) {
 
@@ -1925,6 +2037,24 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
               "DEBUG: __sanitizer_cov_pcs_init successfully mapped %s with %u "
               "PCs\n",
               mod_info->name, in_module_index);
+
+    }
+
+    // If PC filter is active and module doesn't match, disable all guards
+    if (__afl_filter_pcs && mod_info->start && mod_info->stop &&
+        !strstr(mod_info->name, __afl_filter_pcs_module)) {
+
+      if (__afl_debug)
+        fprintf(stderr,
+                "DEBUG: Disabling all %u guards for non-matching module: %s\n",
+                *(mod_info->stop) - *(mod_info->start) + 1, mod_info->name);
+
+      // Null out all guards for this module
+      for (u32 *guard = mod_info->start; guard <= mod_info->stop; guard++) {
+
+        *guard = 0;
+
+      }
 
     }
 
