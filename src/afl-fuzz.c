@@ -3345,8 +3345,7 @@ int main(int argc, char **argv_orig, char **envp) {
          recombination strategies next. */
 
       if (unlikely(afl->queued_items == prev_queued &&
-                   (afl->expand_havoc ||
-                    (get_cur_time() - afl->start_time) >= 3600000))) {
+                   (get_cur_time() - afl->start_time) >= 3600000)) {
 
         ++afl->cycles_wo_finds;
 
