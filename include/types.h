@@ -249,5 +249,20 @@ typedef int128_t s128;
   #endif
 #endif
 
+/* Module map entry for tracking loaded modules and their edge ranges */
+#ifdef __AFL_CODE_COVERAGE
+  #define MAX_AFL_MODULES 256
+
+typedef struct module_entry {
+
+  char name[4096];                                    /* Module name (path) */
+  u32  start_id;                                           /* First edge ID */
+  u32  stop_id;                                             /* Last edge ID */
+  u8   loaded;                                          /* Module is loaded */
+
+} module_entry_t;
+
+#endif                                               /* __AFL_CODE_COVERAGE */
+
 #endif                                                   /* ! _HAVE_TYPES_H */
 

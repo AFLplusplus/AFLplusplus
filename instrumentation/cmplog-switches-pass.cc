@@ -29,7 +29,11 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#if LLVM_MAJOR >= 22
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Module.h"

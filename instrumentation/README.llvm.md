@@ -32,11 +32,15 @@ properties:
   will *not* work with GCC (see ../gcc_plugin/ for an alternative once it is
   available).
 
+For clarity, note that this approach _replaces_ using the variable
+[`AFL_INST_RATIO`](https://aflplus.plus/docs/env_variables/).
+
 The idea and much of the initial implementation came from Laszlo Szekeres.
 
 ## 2a) How to use this - short
 
-Set the `LLVM_CONFIG` variable to the clang version you want to use, e.g.:
+Rebuild afl++ with the `LLVM_CONFIG` variable set to the clang version
+you want to use, e.g.:
 
 ```
 LLVM_CONFIG=llvm-config-21 make
@@ -59,7 +63,8 @@ LLVM_CONFIG=llvm-config-21 REAL_CC=gcc REAL_CXX=g++ make
 It is highly recommended to use the newest clang version you can put your hands
 on :)
 
-Then look at [README.persistent_mode.md](README.persistent_mode.md).
+Then look at [README.persistent_mode.md](README.persistent_mode.md).  It's worth
+checking whether your current build has already been built appropriately.
 
 ## 2b) How to use this - long
 

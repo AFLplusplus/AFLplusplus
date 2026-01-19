@@ -6,12 +6,6 @@ FILE=$AFL_PERFORMANCE_FILE
 # otherwise we use ~/.afl_performance
 test -z "$FILE" && FILE=.afl_performance
 
-test -e $FILE || {
-  echo Warning: This script measure the performance of AFL++ and saves the result for future comparisons into $FILE
-  echo Press ENTER to continue or CONTROL-C to abort
-  read IN
-}
-
 test -e ./test-performance.sh || { echo Error: this script must be run from the directory in which it lies. ; exit 1 ; }
 
 export AFL_QUIET=1

@@ -15,7 +15,11 @@
 
 // Include LLVM headers first to avoid macro conflicts
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#if LLVM_MAJOR >= 22
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/OptimizationLevel.h"
 #include "llvm/Support/raw_ostream.h"

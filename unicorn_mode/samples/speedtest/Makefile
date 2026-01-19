@@ -1,4 +1,4 @@
-CFLAGS += -Wall -Werror -Wextra -Wpedantic -Og -g -fPIE
+CFLAGS += -Wall -Wextra -Og -g -fPIE
 
 .PHONY: all clean
 

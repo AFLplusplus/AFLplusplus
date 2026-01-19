@@ -173,7 +173,7 @@ tracer implementation available in `coresight_mode/` which is faster than QEMU,
 however, cannot run in parallel. Currently, only one process can be traced, it
 is WIP.
 
-Fore more information, see
+For more information, see
 [coresight_mode/README.md](../coresight_mode/README.md).
 
 ## Binary rewriters

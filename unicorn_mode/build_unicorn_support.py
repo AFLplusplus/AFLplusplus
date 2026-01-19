@@ -23,9 +23,9 @@ def run_cmd(cmd: str, cwd: Path = None, quiet: bool = False, envs: dict = None):
     if not cwd:
         cwd = Path(__file__).parent
     if quiet:
-        print(f"[*] Running quietly: \"{cmd}\" under workding directory {cwd}")
+        print(f"[*] Running quietly: \"{cmd}\" under working directory {cwd}")
     else:
-        print(f"[*] Running: \"{cmd}\" under workding directory {cwd}")
+        print(f"[*] Running: \"{cmd}\" under working directory {cwd}")
     if quiet:
         try:
             out = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, cwd=cwd, env=passed_envs)
@@ -116,7 +116,9 @@ elif not venv and skip_venv:
 
 print(f"[*] We will install unicornafl to venv at {venv_prefix} using {py3}")
 
-if not shutil.which("setuptools"):
+try:
+  run_cmd(f"{py3} -c 'import setuptools'")
+except subprocess.CalledProcessError:
     print(f"[!] No setuptools, will install setuptools first")
     if skip_venv:
         run_cmd(f"{py3} -m pip install --user setuptools")

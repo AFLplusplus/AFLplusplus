@@ -1,12 +1,6 @@
 #!/usr/bin/env sh
 THISPATH=`dirname ${0}`
 
-# call afl-cmin.py if it can be executed successfully.
-if $THISPATH/afl-cmin.py --help > /dev/null 2>&1; then
-  test "$1" = "-h" -o "$1" = "-hh" && { echo afl-cmin.py; echo; }
-  exec $THISPATH/afl-cmin.py "$@"
-fi
-
 SYS=$(uname -s)
 test "$SYS" = "Darwin" && {
   echo Error: afl-cmin does not work on Apple currently. please use afl-cmin.bash instead.
