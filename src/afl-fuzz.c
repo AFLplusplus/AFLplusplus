@@ -43,13 +43,27 @@
 #endif
 #ifdef HAVE_ZLIB
 
-  #define ck_gzread(fd, buf, len, fn)                            \
-    do {                                                         \
-                                                                 \
-      s32 _len = (s32)(len);                                     \
-      s32 _res = gzread(fd, buf, _len);                          \
-      if (_res != _len) RPFATAL(_res, "Short read from %s", fn); \
-                                                                 \
+  #define ck_gzread(fd, buf, len, fn)                                       \
+    do {                                                                    \
+                                                                            \
+      s32 _len = (s32)(len);                                                \
+      s32 _res = gzread(fd, buf, _len);                                     \
+      if (_res != _len) {                                                   \
+                                                                            \
+        if (afl->afl_env.afl_force_fastresume) {                            \
+                                                                            \
+          FATAL(                                                            \
+              "cannot force loading fastresume.bin due different coverage " \
+              "map sizes");                                                 \
+                                                                            \
+        } else {                                                            \
+                                                                            \
+          RPFATAL(_res, "Short read from %s", fn);                          \
+                                                                            \
+        }                                                                   \
+                                                                            \
+      }                                                                     \
+                                                                            \
     } while (0)
 
   #define ck_gzwrite(fd, buf, len, fn)                                    \
@@ -410,6 +424,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
       "                        supported formats: dogstatsd, librato, signalfx, influxdb\n"
+      "AFL_FORCE_FASTRESUME: force loading a fast resume file even if the target changed.\n"
       "AFL_NO_FASTRESUME: do not read or write a fast resume file\n"
       "AFL_NO_SYNC: disables all syncing\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
@@ -2357,7 +2372,8 @@ int main(int argc, char **argv_orig, char **envp) {
   s32 fr_fd = -1;
   #endif
 
-  if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
+  if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume &&
+      !afl->afl_env.afl_force_fastresume) {
 
     u8 fn[PATH_MAX], buf[32];
     snprintf(fn, PATH_MAX, "%s/target_hash", afl->out_dir);
@@ -2380,26 +2396,34 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
 
-  #ifdef __linux__
     u64 target_hash = 0;
-    if (afl->fsrv.nyx_mode) {
 
-      nyx_load_target_hash(&afl->fsrv);
-      target_hash = afl->fsrv.nyx_target_hash64;
+    if (!afl->afl_env.afl_force_fastresume) {
 
-    } else {
+  #ifdef __linux__
+      if (afl->fsrv.nyx_mode) {
 
+        nyx_load_target_hash(&afl->fsrv);
+        target_hash = afl->fsrv.nyx_target_hash64;
+
+      } else {
+
+        target_hash = get_binary_hash(afl->fsrv.target_path);
+
+      }
+
+  #else
       target_hash = get_binary_hash(afl->fsrv.target_path);
+  #endif
 
     }
 
-  #else
-    u64 target_hash = get_binary_hash(afl->fsrv.target_path);
-  #endif
+    if ((!target_hash || prev_target_hash != target_hash) &&
+        !afl->afl_env.afl_force_fastresume) {
 
-    if (!target_hash || prev_target_hash != target_hash) {
-
-      ACTF("Target binary is different, cannot perform FAST RESUME!");
+      ACTF(
+          "Target binary is different, cannot perform FAST RESUME! You can set "
+          "'AFL_FORCE_FASTRESUME=1' to override this next time.");
 
     } else {
 
@@ -3053,14 +3077,34 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (!all_zeros || trailing_bytes > 4) {
 
-          FATAL("invalid trailing data in fastresume.bin");
+          if (afl->afl_env.afl_force_fastresume) {
+
+            FATAL(
+                "cannot force loading fastresume.bin due different coverage "
+                "map sizes");
+
+          } else {
+
+            FATAL("invalid trailing data in fastresume.bin");
+
+          }
 
         }
 
       } else {
 
-        // Non-IJON mode - strict check, no tolerance for trailing data
-        FATAL("invalid trailing data in fastresume.bin");
+        if (afl->afl_env.afl_force_fastresume) {
+
+          FATAL(
+              "cannot force loading fastresume.bin due different coverage map "
+              "sizes");
+
+        } else {
+
+          // Non-IJON mode - strict check, no tolerance for trailing data
+          FATAL("invalid trailing data in fastresume.bin");
+
+        }
 
       }
 
