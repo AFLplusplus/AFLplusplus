@@ -44,12 +44,12 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
-#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
+#if LLVM_MAJOR >= 14                /* how about stable interfaces? */
   #include "llvm/Passes/OptimizationLevel.h"
 #endif
 
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
+#if LLVM_MAJOR >= 4 || \
+    (LLVM_MAJOR == 3 && LLVM_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
 #else
@@ -91,7 +91,7 @@ class CompareTransform : public ModulePass {
   }
 
 #if LLVM_MAJOR < 11
-  #if LLVM_VERSION_MAJOR >= 4
+  #if LLVM_MAJOR >= 4
   StringRef getPassName() const override {
 
   #else
@@ -130,16 +130,16 @@ llvmGetPassPluginInfo() {
           [](PassBuilder &PB) {
 
   #if 1
-    #if LLVM_VERSION_MAJOR <= 13
+    #if LLVM_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
     #endif
-    #if LLVM_VERSION_MAJOR >= 16
+    #if LLVM_MAJOR >= 16
             PB.registerOptimizerEarlyEPCallback(
     #else
             PB.registerOptimizerLastEPCallback(
     #endif
                 [](ModulePassManager &MPM, OptimizationLevel OL
-    #if LLVM_VERSION_MAJOR >= 20
+    #if LLVM_MAJOR >= 20
                    ,
                    ThinOrFullLTOPhase Phase
     #endif
@@ -193,25 +193,25 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
   IntegerType                     *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType                     *Int64Ty = IntegerType::getInt64Ty(C);
 
-#if LLVM_VERSION_MAJOR >= 9
+#if LLVM_MAJOR >= 9
   FunctionCallee tolowerFn;
 #else
   Function *tolowerFn;
 #endif
   {
 
-#if LLVM_VERSION_MAJOR >= 9
+#if LLVM_MAJOR >= 9
     FunctionCallee
 #else
     Constant *
 #endif
         c = M.getOrInsertFunction("tolower", Int32Ty, Int32Ty
-#if LLVM_VERSION_MAJOR < 5
+#if LLVM_MAJOR < 5
                                   ,
                                   NULL
 #endif
         );
-#if LLVM_VERSION_MAJOR >= 9
+#if LLVM_MAJOR >= 9
     tolowerFn = c;
 #else
     tolowerFn = cast<Function>(c);
@@ -652,13 +652,13 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
       next_lenchk_bb =
           BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
-      BranchInst::Create(end_bb, next_lenchk_bb);
+      // This will be handled by the loop
 
     }
 
     BasicBlock *next_cmp_bb =
         BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
-    BranchInst::Create(end_bb, next_cmp_bb);
+    // This will be handled by the loop
     first_cmp_bb = next_lenchk_bb ? next_lenchk_bb : next_cmp_bb;
 
     // Add NULL pointer check for xml/curl/g_ functions
@@ -666,22 +666,19 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
       null_check_bb =
           BasicBlock::Create(C, "null_check", end_bb->getParent(), end_bb);
-      BranchInst::Create(end_bb, null_check_bb);
       
-      IRBuilder<> null_check_IRB(&*(null_check_bb->getFirstInsertionPt()));
+      IRBuilder<> null_check_IRB(null_check_bb);
       
       // Compare VarStr against NULL
       Value *null_ptr = ConstantPointerNull::get(
           cast<PointerType>(VarStr->getType()));
       Value *is_null = null_check_IRB.CreateICmpEQ(VarStr, null_ptr, "is_null");
       
-      // Erase placeholder terminator and add real conditional branch
-      null_check_bb->getTerminator()->eraseFromParent();
       // NULL returns 0(equal) - prevents SIGSEGV and allows fuzzer to continue
       null_check_IRB.CreateCondBr(is_null, end_bb, first_cmp_bb);
     }
 
-#if LLVM_VERSION_MAJOR >= 8
+#if LLVM_MAJOR >= 8
     Instruction *term = bb->getTerminator();
 #else
     TerminatorInst *term = bb->getTerminator();
@@ -708,10 +705,12 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
       if (cur_lenchk_bb) {
 
-        IRBuilder<> cur_lenchk_IRB(&*(cur_lenchk_bb->getFirstInsertionPt()));
+        IRBuilder<> cur_lenchk_IRB(cur_lenchk_bb);
         Value      *icmp = cur_lenchk_IRB.CreateICmpEQ(
             sizedValue, ConstantInt::get(sizedValue->getType(), i));
-        cur_lenchk_bb->getTerminator()->eraseFromParent();
+        if (cur_lenchk_bb->getTerminator()) {
+          cur_lenchk_bb->getTerminator()->eraseFromParent();
+        }
         cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
 
         PN->addIncoming(ConstantInt::get(Int32Ty, 0), cur_lenchk_bb);
@@ -723,16 +722,16 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       else
         c = (unsigned char)ConstStr[i];
 
-      IRBuilder<> cur_cmp_IRB(&*(cur_cmp_bb->getFirstInsertionPt()));
+      IRBuilder<> cur_cmp_IRB(cur_cmp_bb);
 
       Value *v = ConstantInt::get(Int64Ty, i);
       Value *ele = cur_cmp_IRB.CreateInBoundsGEP(
-#if LLVM_VERSION_MAJOR >= 14
+#if LLVM_MAJOR >= 14
           Int8Ty,
 #endif
           VarStr, v, "empty");
       Value *load = cur_cmp_IRB.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
+#if LLVM_MAJOR >= 14
           Int8Ty,
 #endif
           ele);
@@ -771,23 +770,31 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
           next_lenchk_bb =
               BasicBlock::Create(C, "len_check", end_bb->getParent(), end_bb);
-          BranchInst::Create(end_bb, next_lenchk_bb);
+
+        } else {
+
+          next_lenchk_bb = NULL;
 
         }
 
         next_cmp_bb =
             BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
-        BranchInst::Create(end_bb, next_cmp_bb);
 
         Value *icmp =
             cur_cmp_IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
-        cur_cmp_bb->getTerminator()->eraseFromParent();
+        if (cur_cmp_bb->getTerminator()) {
+          cur_cmp_bb->getTerminator()->eraseFromParent();
+        }
         cur_cmp_IRB.CreateCondBr(
             icmp, next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, end_bb);
 
       } else {
 
-        // IRB.CreateBr(end_bb);
+        // Last iteration - add terminator to current block
+        if (cur_cmp_bb->getTerminator()) {
+          cur_cmp_bb->getTerminator()->eraseFromParent();
+        }
+        BranchInst::Create(end_bb, cur_cmp_bb);
 
       }
 
@@ -873,7 +880,7 @@ static RegisterStandardPasses RegisterCompTransPass(
 static RegisterStandardPasses RegisterCompTransPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerCompTransPass);
 
-  #if LLVM_VERSION_MAJOR >= 11
+  #if LLVM_MAJOR >= 11
 static RegisterStandardPasses RegisterCompTransPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast, registerCompTransPass);
   #endif
