@@ -32,6 +32,7 @@ afl-clang-lto
 afl-clang-lto++
 afl-clang-lto++.8
 afl-clang-lto.8
+afl-cmin
 afl-cmin.8
 afl-cmin.bash.8
 afl-cmin.py.8
