@@ -502,6 +502,7 @@ class Worker(multiprocessing.Process):
         p_out,
         r_out,
         file_index_type_code,
+        tuple_index_type_code,
         afl_showmap_bin,
     ):
         super().__init__()
@@ -512,6 +513,7 @@ class Worker(multiprocessing.Process):
         self.p_out = p_out
         self.r_out = r_out
         self.file_index_type_code = file_index_type_code
+        self.tuple_index_type_code = tuple_index_type_code
         self.afl_showmap_bin = afl_showmap_bin
 
     def run(self):
@@ -536,7 +538,7 @@ class Worker(multiprocessing.Process):
                     self.afl_showmap_bin,
                     batch=batch,
                     afl_map_size=self.afl_map_size,
-                    tuple_index_type_code=self.file_index_type_code,
+                    tuple_index_type_code=self.tuple_index_type_code,
                 ):
                     counter.update(r)
 
@@ -596,12 +598,28 @@ def hash_file(path):
 
 
 def dedup(args, files):
+    seen_hash = set()
+    result = []
+    hash_list = []
+    if args.workers <= 1:
+        for i, h in enumerate(
+            tqdm(
+                map(hash_file, files),
+                desc="dedup",
+                total=len(files),
+                ncols=0,
+                leave=(len(files) > 100000),
+            )
+        ):
+            if h in seen_hash:
+                continue
+            seen_hash.add(h)
+            result.append(files[i])
+            hash_list.append(h)
+        return result, hash_list
     with multiprocessing.Pool(
         args.workers, initializer=init_logger, initargs=(args,)
     ) as pool:
-        seen_hash = set()
-        result = []
-        hash_list = []
         # use large chunksize to reduce multiprocessing overhead
         chunksize = max(1, min(256, len(files) // args.workers))
         for i, h in enumerate(
@@ -684,11 +702,14 @@ def main():
     file_index_type_code = detect_type_code(len(files))
 
     logger.info("Sorting files.")
-    with multiprocessing.Pool(
-        args.workers, initializer=init_logger, initargs=(args,)
-    ) as pool:
-        chunksize = max(1, min(512, len(files) // args.workers))
-        size_list = list(pool.map(os.path.getsize, files, chunksize))
+    if args.workers <= 1:
+        size_list = list(map(os.path.getsize, files))
+    else:
+        with multiprocessing.Pool(
+            args.workers, initializer=init_logger, initargs=(args,)
+        ) as pool:
+            chunksize = max(1, min(512, len(files) // args.workers))
+            size_list = list(pool.map(os.path.getsize, files, chunksize))
     idxes = sorted(range(len(files)), key=lambda x: size_list[x])
     files = [files[idx] for idx in idxes]
     hash_list = [hash_list[idx] for idx in idxes]
@@ -745,6 +766,7 @@ def main():
             progress_queue,
             result_queue,
             file_index_type_code,
+            tuple_index_type_code,
             afl_showmap_bin,
         )
         p.start()
