@@ -47,6 +47,7 @@
 #include "common.h"
 
 #include "afl-ijon-min.h"
+#include "afl-env.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -451,40 +452,7 @@ typedef struct MOpt_globals {
 
 extern char *power_names[POWER_SCHEDULES_NUM];
 
-typedef struct afl_env_vars {
-
-  u8 afl_skip_cpufreq, afl_exit_when_done, afl_no_affinity, afl_skip_bin_check,
-      afl_dumb_forksrv, afl_import_first, afl_custom_mutator_only,
-      afl_custom_mutator_late_send, afl_no_ui, afl_force_ui,
-      afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
-      afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
-      afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
-      afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
-      afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
-      afl_no_startup_calibration, afl_no_warn_instability,
-      afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
-      afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
-      afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
-      afl_forksrv_uid_set, afl_forksrv_gid_set;
-
-  u16 afl_forksrv_nb_supl_gids;
-
-  u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
-      *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
-      *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
-      *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
-      *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
-      *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
-
-  s32 afl_pizza_mode, afl_ijon_history_limit;
-
-  uid_t afl_forksrv_uid;
-
-  gid_t afl_forksrv_gid;
-
-  gid_t *afl_forksrv_supl_gids;
-
-} afl_env_vars_t;
+/* afl_env_vars_t is now defined in afl-env.h for broader reusability */
 
 struct afl_pass_stat {
 
