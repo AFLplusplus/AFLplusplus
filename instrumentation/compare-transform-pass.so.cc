@@ -245,38 +245,38 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
           StringRef FuncName = Callee->getName();
           isStrcmp &=
-              (!FuncName.compare("strcmp") /*|| !FuncName.compare("xmlStrcmp") ||
+              (!FuncName.compare("strcmp") || !FuncName.compare("xmlStrcmp") ||
                !FuncName.compare("xmlStrEqual") ||
                !FuncName.compare("curl_strequal") ||
                !FuncName.compare("strcsequal") ||
-               !FuncName.compare("g_strcmp0")*/);
+               !FuncName.compare("g_strcmp0"));
           isMemcmp &=
               (!FuncName.compare("memcmp") || !FuncName.compare("bcmp") ||
                !FuncName.compare("CRYPTO_memcmp") ||
                !FuncName.compare("OPENSSL_memcmp") ||
                !FuncName.compare("memcmp_const_time") ||
                !FuncName.compare("memcmpct"));
-          isStrncmp &= (!FuncName.compare("strncmp")/* ||
+          isStrncmp &= (!FuncName.compare("strncmp") ||
                         !FuncName.compare("curl_strnequal") ||
-                        !FuncName.compare("xmlStrncmp")*/);
+                        !FuncName.compare("xmlStrncmp"));
           isStrcasecmp &= (!FuncName.compare("strcasecmp") ||
                            !FuncName.compare("stricmp") ||
                            !FuncName.compare("ap_cstr_casecmp") ||
                            !FuncName.compare("OPENSSL_strcasecmp") ||
-                           /*!FuncName.compare("xmlStrcasecmp") ||
+                           !FuncName.compare("xmlStrcasecmp") ||
                            !FuncName.compare("g_strcasecmp") ||
                            !FuncName.compare("g_ascii_strcasecmp") ||
                            !FuncName.compare("Curl_strcasecompare") ||
-                           !FuncName.compare("Curl_safe_strcasecompare") ||*/
+                           !FuncName.compare("Curl_safe_strcasecompare") ||
                            !FuncName.compare("cmsstrcasecmp"));
           isStrncasecmp &= (!FuncName.compare("strncasecmp") ||
                             !FuncName.compare("strnicmp") ||
                             !FuncName.compare("ap_cstr_casecmpn") ||
-                            !FuncName.compare("OPENSSL_strncasecmp") /*||
+                            !FuncName.compare("OPENSSL_strncasecmp") ||
                             !FuncName.compare("xmlStrncasecmp") ||
                             !FuncName.compare("g_ascii_strncasecmp") ||
                             !FuncName.compare("Curl_strncasecompare") ||
-                            !FuncName.compare("g_strncasecmp")*/);
+                            !FuncName.compare("g_strncasecmp"));
           isIntMemcpy &= !FuncName.compare("llvm.memcpy.p0i8.p0i8.i64");
 
           if (!isStrcmp && !isMemcmp && !isStrncmp && !isStrcasecmp &&
@@ -633,12 +633,20 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     else
       unrollLen = constStrLen;
 
+    // Validate VarStr is a pointer before CFG modification
+    if (nullCheck && !VarStr->getType()->isPointerTy()) {
+      if (getenv("AFL_DEBUG"))
+        errs() << "Skipping null check for non-pointer VarStr in function "
+               << callInst->getParent()->getParent()->getName() << "\n";
+      continue;
+    }
+
     /* split before the call instruction */
     BasicBlock *bb = callInst->getParent();
     BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(callInst));
     BasicBlock *next_lenchk_bb = NULL;
-
-    if (nullCheck) { fprintf(stderr, "TODO: null check\n"); }
+    BasicBlock *null_check_bb = NULL;
+    BasicBlock *first_cmp_bb = NULL;
 
     if (isSizedcmp && !isConstSized) {
 
@@ -651,16 +659,43 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     BasicBlock *next_cmp_bb =
         BasicBlock::Create(C, "cmp_added", end_bb->getParent(), end_bb);
     BranchInst::Create(end_bb, next_cmp_bb);
-    PHINode *PN = PHINode::Create(
-        Int32Ty, (next_lenchk_bb ? 2 : 1) * unrollLen + 1, "cmp_phi");
+    first_cmp_bb = next_lenchk_bb ? next_lenchk_bb : next_cmp_bb;
+
+    // Add NULL pointer check for xml/curl/g_ functions
+    if (nullCheck) {
+
+      null_check_bb =
+          BasicBlock::Create(C, "null_check", end_bb->getParent(), first_cmp_bb);
+      IRBuilder<> null_check_IRB(null_check_bb);
+      
+      // Compare VarStr against NULL
+      Value *null_ptr = ConstantPointerNull::get(
+          cast<PointerType>(VarStr->getType()));
+      Value *is_null = null_check_IRB.CreateICmpEQ(VarStr, null_ptr, "is_null");
+      
+      // NULL returns 0(equal) - prevents SIGSEGV and allows fuzzer to continue
+      null_check_IRB.CreateCondBr(is_null, end_bb, first_cmp_bb);
+    }
 
 #if LLVM_VERSION_MAJOR >= 8
     Instruction *term = bb->getTerminator();
 #else
     TerminatorInst *term = bb->getTerminator();
 #endif
-    BranchInst::Create(next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, bb);
+    // Entry: null_check (if enabled) -> len_check (if exists) -> cmp_block
+    BasicBlock *entry_bb = nullCheck ? null_check_bb :
+                           (next_lenchk_bb ? next_lenchk_bb : next_cmp_bb);
+    // Replace original branch with entry to our instrumentation
     term->eraseFromParent();
+    BranchInst::Create(entry_bb, bb);
+
+    // Create PHI node WITHOUT inserting it
+    PHINode *PN = PHINode::Create(Int32Ty, 0, "cmp_phi");
+
+    // Add NULL check result (returns 0 to indicate "equal")
+    if (nullCheck) {
+      PN->addIncoming(ConstantInt::get(Int32Ty, 0), null_check_bb);
+    }
 
     for (uint64_t i = 0; i < unrollLen; i++) {
 
@@ -672,8 +707,8 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
         IRBuilder<> cur_lenchk_IRB(&*(cur_lenchk_bb->getFirstInsertionPt()));
         Value      *icmp = cur_lenchk_IRB.CreateICmpEQ(
             sizedValue, ConstantInt::get(sizedValue->getType(), i));
-        cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
         cur_lenchk_bb->getTerminator()->eraseFromParent();
+        cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
 
         PN->addIncoming(ConstantInt::get(Int32Ty, 0), cur_lenchk_bb);
 
@@ -742,9 +777,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
         Value *icmp =
             cur_cmp_IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
+        cur_cmp_bb->getTerminator()->eraseFromParent();
         cur_cmp_IRB.CreateCondBr(
             icmp, next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, end_bb);
-        cur_cmp_bb->getTerminator()->eraseFromParent();
 
       } else {
 
