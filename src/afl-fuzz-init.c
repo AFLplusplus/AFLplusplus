@@ -32,9 +32,6 @@
 
 #ifdef HAVE_AFFINITY
 
-  /*defines*/
-  #define HASH_LENGTH 20
-
 /* bind process to a specific cpu. Returns 0 on failure. */
 
 static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
@@ -1792,7 +1789,7 @@ static u8 delete_files(u8 *path, u8 *prefix) {
     if ((d_ent->d_name[0] != '.' &&
          (!prefix || !strncmp(d_ent->d_name, prefix, strlen(prefix))))
         /* heiko: don't forget the SHA1 files */
-        || strspn(d_ent->d_name, "0123456789abcdef") == 2 * HASH_LENGTH) {
+        || strspn(d_ent->d_name, "0123456789abcdef") == 2 * 20) {
 
       u8 *fname = alloc_printf("%s/%s", path, d_ent->d_name);
       if (unlink(fname)) { PFATAL("Unable to delete '%s'", fname); }
