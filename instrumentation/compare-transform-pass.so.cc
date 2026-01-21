@@ -666,13 +666,17 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
       null_check_bb =
           BasicBlock::Create(C, "null_check", end_bb->getParent(), end_bb);
-      IRBuilder<> null_check_IRB(null_check_bb);
+      BranchInst::Create(end_bb, null_check_bb);
+      
+      IRBuilder<> null_check_IRB(&*(null_check_bb->getFirstInsertionPt()));
       
       // Compare VarStr against NULL
       Value *null_ptr = ConstantPointerNull::get(
           cast<PointerType>(VarStr->getType()));
       Value *is_null = null_check_IRB.CreateICmpEQ(VarStr, null_ptr, "is_null");
       
+      // Erase placeholder terminator and add real conditional branch
+      null_check_bb->getTerminator()->eraseFromParent();
       // NULL returns 0(equal) - prevents SIGSEGV and allows fuzzer to continue
       null_check_IRB.CreateCondBr(is_null, end_bb, first_cmp_bb);
     }
