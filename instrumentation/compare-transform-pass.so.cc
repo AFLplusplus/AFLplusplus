@@ -665,7 +665,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     if (nullCheck) {
 
       null_check_bb =
-          BasicBlock::Create(C, "null_check", end_bb->getParent(), first_cmp_bb);
+          BasicBlock::Create(C, "null_check", end_bb->getParent(), end_bb);
       IRBuilder<> null_check_IRB(null_check_bb);
       
       // Compare VarStr against NULL
