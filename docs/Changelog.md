@@ -5,6 +5,10 @@
 
 
 ### Version ++4.36a (dev)
+  - afl-fuzz:
+    - added `AFL_FORCE_FASTRESUME` which will ignore the saved hash of the
+      target - but note it will only work if the coverage map size did not
+      change
   - afl-cc:
     - LLVM 22 support (they are again switching around include files ...)
   - afl-cmin:
