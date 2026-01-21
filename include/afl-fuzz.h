@@ -182,6 +182,58 @@ struct havoc_profile {
 
 };
 
+/* Frameshift */
+
+// A single frameshift relation field.
+typedef struct fs_relation {
+
+  // Dynamic values:
+  u64 pos;
+  u64 val;
+  u64 anchor;
+  u64 insert;
+
+  // Backup to perform revert.
+  u64 _old_pos;
+  u64 _old_val;
+  u64 _old_anchor;
+  u64 _old_insert;
+
+  // Fixed values:
+  u8 size;
+  u8 le;
+  u8 enabled;
+
+} fs_relation_t;
+
+typedef struct fs_idx_vec {
+
+  u32 *idx;
+  u32  count;
+  u32  capacity;
+
+} fs_idx_vec_t;
+
+// Per-input metadata.
+typedef struct fs_meta {
+
+  fs_relation_t *relations;
+  u32            rel_count;
+  u32            rel_capacity;
+
+  u8 *blocked_points_map;               /* bitmap of blocked points         */
+
+} fs_meta_t;
+
+struct frameshift_stats {
+
+  u32 searched;
+  u32 found;
+  u64 search_tests;
+  u64 total_time_ms;
+
+};
+
 struct skipdet_entry {
 
   u8  continue_inf, done_eff;
@@ -258,6 +310,11 @@ struct queue_entry {
   u8                 *cmplog_colorinput; /* the result buf of colorization   */
   struct tainted     *taint;             /* Taint information from CmpLog    */
   struct skipdet_entry *skipdet_e;
+
+  u8 fs_status;                         /* Frameshift status                */
+                      /*   0: unexplored                  */
+                      /*   1: explored                    */
+  fs_meta_t *fs_meta;                   /* Frameshift metadata              */
 
 };
 
@@ -465,7 +522,7 @@ typedef struct afl_env_vars {
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
       afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
-      afl_forksrv_uid_set, afl_forksrv_gid_set;
+      afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_enabled;
 
   u16 afl_forksrv_nb_supl_gids;
 
@@ -483,6 +540,8 @@ typedef struct afl_env_vars {
   gid_t afl_forksrv_gid;
 
   gid_t *afl_forksrv_supl_gids;
+
+  double afl_frameshift_max_overhead;           /* 0.0 to 1.0, default 0.10 */
 
 } afl_env_vars_t;
 
@@ -882,6 +941,10 @@ typedef struct afl_state {
 
   /* Global Profile Data for deterministic/havoc-splice stage */
   struct havoc_profile *havoc_prof;
+
+  struct frameshift_stats fs_stats;
+  u32       *frameshift_index_buffer;        /* Buffer for frameshift index */
+  fs_meta_t *fs_curr_meta;    /* Metadata for the current input (full copy) */
 
   struct skipdet_global *skipdet_g;
 
@@ -1367,6 +1430,15 @@ u8 skip_deterministic_stage(afl_state_t *, u8 *, u8 *, u32, u64);
 u8 is_det_timeout(u64, u8);
 
 void plot_profile_data(afl_state_t *, struct queue_entry *);
+
+/* Frameshift functions */
+void frameshift_stage(afl_state_t *);
+void fs_sanitize(fs_meta_t *, u8 *buf);
+void fs_save(fs_meta_t *meta);
+void fs_restore(fs_meta_t *meta);
+int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size, u8 ignore_invalid);
+void fs_track_delete(fs_meta_t *meta, u64 idx, u64 data_size);
+void fs_clone_meta(afl_state_t *afl);
 
 /**** Inline routines ****/
 
