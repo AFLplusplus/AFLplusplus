@@ -99,7 +99,8 @@ static u32 in_dir_cnt,                 /* number of input directories       */
     allow_any,                         /* allow any termination status?     */
     edges_only,                        /* coverage only?                    */
     no_dedup,                          /* skip deduplication?               */
-    as_queue;                          /* save as queue?                    */
+    as_queue,                          /* save as queue?                    */
+    sha1fn;                            /* save sha1 filenames?              */
 
 static u8 debug_mode,                  /* debug mode                        */
     frida_mode,                        /* Frida mode                        */
@@ -1588,7 +1589,7 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
     cmin_file_t *f = files[best_idx];
     u8          *out_name;
 
-    if (no_dedup) {
+    if (no_dedup || !sha1fn) {
 
       if (as_queue)
         out_name = alloc_printf("%s/id:%06u,orig:%s", out_dir, written_cnt - 1,
@@ -1877,9 +1878,11 @@ static void usage(u8 *argv0) {
 
       "Misc:\n"
       "  -T workers  - number of concurrent workers (default: 1)\n"
-      "  --as_queue  - output file name like \"id:000000,hash:value\"\n"
+      "  --as_queue  - output file name like \"id:000000,hash:filename\"\n"
       "  --no-dedup  - skip deduplication step for corpus files\n"
       "  --debug     - debug mode\n\n"
+
+      "afl-cmin honors the 'AFL_SHA1_FILENAMES' environment variable.\n\n"
 
       "For additional help, consult %s/README.md.\n\n",
 
@@ -2096,6 +2099,7 @@ int main(int argc, char **argv) {
 
   s32 opt;
   int option_index = 0;
+  if (getenv("AFL_SHA1_FILENAMES")) { sha1fn = 1; }
 
   static struct option long_options[] = {{"crash-dir", required_argument, 0, 0},
                                          {"as_queue", no_argument, 0, 0},
