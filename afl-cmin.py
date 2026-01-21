@@ -822,19 +822,32 @@ def main():
     logger.info("Processing candidates and writing output")
     already_have = set()
     count = 0
+    use_sha1_filenames = bool(os.environ.get("AFL_SHA1_FILENAMES"))
+    hash_cache = {}
+
+    def get_sha1(idx, input_path):
+        if not args.no_dedup:
+            return hash_list[idx]
+        if idx in hash_cache:
+            return hash_cache[idx]
+        h = hash_file(input_path)
+        hash_cache[idx] = h
+        return h
 
     def save_file(idx):
         input_path = files[idx]
-        fn = (
-            base64.b16encode(hash_list[idx]).decode("utf8").lower()
-            if not args.no_dedup
-            else os.path.basename(input_path)
-        )
+        if use_sha1_filenames:
+            fn = base64.b16encode(get_sha1(idx, input_path)).decode("utf8").lower()
+        else:
+            fn = os.path.basename(input_path)
         if args.as_queue:
             if args.no_dedup:
                 fn = "id:%06d,orig:%s" % (count, fn)
             else:
-                fn = "id:%06d,hash:%s" % (count, fn)
+                if use_sha1_filenames:
+                    fn = "id:%06d,hash:%s" % (count, fn)
+                else:
+                    fn = "id:%06d,orig:%s" % (count, fn)
         output_path = os.path.join(args.output, fn)
         try:
             os.link(input_path, output_path)
@@ -903,7 +916,10 @@ def main():
             crash_files, hash_list = dedup(args, crash_files)
 
         for idx, crash_path in enumerate(crash_files):
-            fn = base64.b16encode(hash_list[idx]).decode("utf8").lower()
+            if use_sha1_filenames:
+                fn = base64.b16encode(hash_list[idx]).decode("utf8").lower()
+            else:
+                fn = os.path.basename(crash_path)
             output_path = os.path.join(args.crash_dir, fn)
             try:
                 os.link(crash_path, output_path)
