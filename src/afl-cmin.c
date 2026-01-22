@@ -253,6 +253,26 @@ static void queue_write(const void *src, u32 len, u32 *tail) {
 
 }
 
+static u8 *unique_out_name(const u8 *name) {
+
+  u8 *candidate = alloc_printf("%s/%s", out_dir, name);
+  if (access(candidate, F_OK) != 0) { return candidate; }
+
+  ck_free(candidate);
+
+  for (u32 i = 0; i < 10000; i++) {
+
+    u32 prefix = (AFL_R(0x10000) << 16) | AFL_R(0x10000);
+    candidate = alloc_printf("%s/%08x_%s", out_dir, prefix, name);
+    if (access(candidate, F_OK) != 0) { return candidate; }
+    ck_free(candidate);
+
+  }
+
+  FATAL("Unable to find unique output name for '%s'", name);
+
+}
+
 static void queue_read(void *dst, u32 len, u32 *head) {
 
   u32 part1 = queue->capacity - *head;
@@ -1588,14 +1608,19 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
     // Link/Copy file
     cmin_file_t *f = files[best_idx];
     u8          *out_name;
+    u8           use_orig_name = 0;
 
     if (no_dedup || !sha1fn) {
 
       if (as_queue)
         out_name = alloc_printf("%s/id:%06u,orig:%s", out_dir, written_cnt - 1,
                                 f->name);
-      else
-        out_name = alloc_printf("%s/%s", out_dir, f->name);
+      else {
+
+        out_name = unique_out_name(f->name);
+        use_orig_name = 1;
+
+      }
 
     } else {
 
@@ -1612,7 +1637,15 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
     }
 
     u8 *src_path = alloc_printf("%s/%s", f->dir, f->name);
-    if (link(src_path, out_name) < 0) {
+    while (link(src_path, out_name) < 0) {
+
+      if (errno == EEXIST && use_orig_name) {
+
+        ck_free(out_name);
+        out_name = unique_out_name(f->name);
+        continue;
+
+      }
 
       if (errno == EEXIST) unlink(out_name);
       if (link(src_path, out_name) < 0) {
@@ -1632,6 +1665,8 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
         close(dst);
 
       }
+
+      break;
 
     }
 
@@ -1677,18 +1712,17 @@ static void write_crash_files(void) {
     if (!files[i]->is_crash) continue;
 
     u8 *name = files[i]->name;
-    u8  new_path[PATH_MAX];
-    // Crashes don't strictly follow as_queue or not? Usually flat.
-    snprintf(new_path, sizeof(new_path), "%s/%s", out_dir, name);
+    u8 *out_name = unique_out_name(name);
 
     u8 *src_path = alloc_printf("%s/%s", files[i]->dir, files[i]->name);
-    if (link(src_path, new_path) != 0) {
+    if (link(src_path, out_name) != 0) {
 
       WARNF("Cannot add %s to minimization", src_path);
 
     }
 
     ck_free(src_path);
+    ck_free(out_name);
     count++;
 
   }
@@ -2096,6 +2130,7 @@ static int compare_files(const void *a, const void *b) {
 int main(int argc, char **argv) {
 
   progname = argv[0];
+  SR(getpid() ^ (u32)time(NULL));
 
   s32 opt;
   int option_index = 0;

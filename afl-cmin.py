@@ -19,12 +19,14 @@ import array
 import base64
 import collections
 import ctypes
+import errno
 import glob
 import hashlib
 import itertools
 import logging
 import multiprocessing
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -392,9 +394,20 @@ def afl_showmap(
     if batch:
         input_from_file = True
         filelist = os.path.join(args.output, f".filelist.{os.getpid()}")
+        temp_dir = os.path.join(args.output, f".filelist.{os.getpid()}.d")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_entries = []
         with open(filelist, "w") as f:
             for _, path in batch:
-                f.write(path + "\n")
+                base = os.path.basename(path)
+                unique = f"{random.getrandbits(32):08x}_{base}"
+                temp_path = os.path.join(temp_dir, unique)
+                try:
+                    os.link(path, temp_path)
+                except OSError:
+                    shutil.copy(path, temp_path)
+                temp_entries.append((_, unique))
+                f.write(temp_path + "\n")
         cmd += ["-I", filelist]
         output_path = os.path.join(args.output, f".showmap.{os.getpid()}")
         cmd += ["-o", output_path]
@@ -443,11 +456,10 @@ def afl_showmap(
 
     if batch:
         result = []
-        for idx, input_path in batch:
-            basename = os.path.basename(input_path)
+        for idx, unique in temp_entries:
             values = []
             try:
-                trace_file = os.path.join(output_path, basename)
+                trace_file = os.path.join(output_path, unique)
                 with open(trace_file, "r") as f:
                     values = list(map(int, f))
                 crashed = len(values) == 0
@@ -460,6 +472,12 @@ def afl_showmap(
             result.append((idx, a, crashed))
         os.unlink(filelist)
         os.rmdir(output_path)
+        for _, unique in temp_entries:
+            try:
+                os.unlink(os.path.join(temp_dir, unique))
+            except FileNotFoundError:
+                pass
+        os.rmdir(temp_dir)
         return result
     else:
         values = []
@@ -824,6 +842,20 @@ def main():
     count = 0
     use_sha1_filenames = bool(os.environ.get("AFL_SHA1_FILENAMES"))
     hash_cache = {}
+    used_output_names = set()
+
+    def unique_output_path(base_name):
+        output_path = os.path.join(args.output, base_name)
+        if output_path not in used_output_names and not os.path.exists(output_path):
+            used_output_names.add(output_path)
+            return output_path
+        for _ in range(10000):
+            prefix = f"{random.getrandbits(32):08x}"
+            candidate = os.path.join(args.output, f"{prefix}_{base_name}")
+            if candidate not in used_output_names and not os.path.exists(candidate):
+                used_output_names.add(candidate)
+                return candidate
+        raise RuntimeError(f'Unable to find unique output name for "{base_name}"')
 
     def get_sha1(idx, input_path):
         if not args.no_dedup:
@@ -849,10 +881,21 @@ def main():
                 else:
                     fn = "id:%06d,orig:%s" % (count, fn)
         output_path = os.path.join(args.output, fn)
-        try:
-            os.link(input_path, output_path)
-        except OSError:
-            shutil.copy(input_path, output_path)
+        use_orig_name = not use_sha1_filenames and not args.as_queue
+        if use_orig_name:
+            output_path = unique_output_path(fn)
+        while True:
+            try:
+                os.link(input_path, output_path)
+                break
+            except OSError as exc:
+                if use_orig_name and exc.errno == errno.EEXIST:
+                    output_path = unique_output_path(fn)
+                    continue
+                if use_orig_name and os.path.exists(output_path):
+                    output_path = unique_output_path(fn)
+                shutil.copy(input_path, output_path)
+                break
 
     jobs = [[] for i in range(args.workers)]
     saved = set()
