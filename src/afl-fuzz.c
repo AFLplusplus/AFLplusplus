@@ -24,6 +24,9 @@
 
  */
 
+char *input_placeholder = "@@";
+
+
 #include "afl-fuzz.h"
 #include "afl-ijon-min.h"
 #include "alloc-inl.h"

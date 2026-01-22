@@ -228,35 +228,47 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
   u32 i = 0;
   u8  cwd[PATH_MAX];
-  if (getcwd(cwd, (size_t)sizeof(cwd)) == NULL) { PFATAL("getcwd() failed"); }
+
+  if (getcwd(cwd, (size_t)sizeof(cwd)) == NULL) {
+    PFATAL("getcwd() failed");
+  }
 
   /* we are working with libc-heap-allocated argvs. So do not mix them with
    * other allocation APIs like ck_alloc. That would disturb the free() calls.
    */
   while (argv[i]) {
 
-    u8 *aa_loc = strstr(argv[i], "@@");
+    u8 *aa_loc = strstr(argv[i], input_placeholder);
 
     if (aa_loc) {
 
-      if (!prog_in) { FATAL("@@ syntax is not supported by this tool."); }
+      if (!prog_in) {
+        FATAL("@@ syntax is not supported by this tool.");
+      }
 
       *use_stdin = false;
 
-      /* Be sure that we're always using fully-qualified paths. */
-
+      /* Cut the argument at placeholder position */
       *aa_loc = 0;
 
-      /* Construct a replacement argv value. */
+      size_t ph_len = strlen(input_placeholder);
       u8 *n_arg;
 
+      /* Construct a replacement argv value */
       if (prog_in[0] == '/') {
 
-        n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
+        n_arg = alloc_printf("%s%s%s",
+                             argv[i],
+                             prog_in,
+                             aa_loc + ph_len);
 
       } else {
 
-        n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
+        n_arg = alloc_printf("%s%s/%s%s",
+                             argv[i],
+                             cwd,
+                             prog_in,
+                             aa_loc + ph_len);
 
       }
 
@@ -269,9 +281,11 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
   }
 
+}
+
+
   /* argvs are automatically freed at exit. */
 
-}
 
 /* duplicate the system argv so that
   we can edit (and free!) it later */

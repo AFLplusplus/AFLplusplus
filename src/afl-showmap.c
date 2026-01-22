@@ -1279,6 +1279,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
     switch (opt) {
 
+      case 'I':
+        if (!optarg || !strlen(optarg)) {
+          FATAL("Empty input placeholder");
+        }
+        input_placeholder = optarg;
+        break;
+
+
       case 's':
         no_classify = true;
         break;
