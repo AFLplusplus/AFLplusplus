@@ -646,7 +646,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     BasicBlock *end_bb = bb->splitBasicBlock(BasicBlock::iterator(callInst));
     BasicBlock *next_lenchk_bb = NULL;
     BasicBlock *null_check_bb = NULL;
+    BasicBlock *null_call_bb = NULL;
     BasicBlock *first_cmp_bb = NULL;
+    Value      *orig_call_result = NULL;
 
     if (isSizedcmp && !isConstSized) {
 
@@ -667,6 +669,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       null_check_bb =
           BasicBlock::Create(C, "null_check", end_bb->getParent(), end_bb);
       
+      null_call_bb =
+          BasicBlock::Create(C, "null_call_original", end_bb->getParent(), end_bb);
+      
       IRBuilder<> null_check_IRB(null_check_bb);
       
       // Compare VarStr against NULL
@@ -674,8 +679,25 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
           cast<PointerType>(VarStr->getType()));
       Value *is_null = null_check_IRB.CreateICmpEQ(VarStr, null_ptr, "is_null");
       
-      // NULL returns 0(equal) - prevents SIGSEGV and allows fuzzer to continue
-      null_check_IRB.CreateCondBr(is_null, end_bb, first_cmp_bb);
+      // If NULL, call original function; otherwise do byte-by-byte comparison
+      null_check_IRB.CreateCondBr(is_null, null_call_bb, first_cmp_bb);
+      
+      // In null_call_bb, call the original function to preserve correct semantics
+      IRBuilder<> null_call_IRB(null_call_bb);
+      
+      // Prepare arguments for original function call
+      std::vector<Value *> args;
+      args.push_back(Str1P);
+      args.push_back(Str2P);
+      if (isSizedcmp && sizedValue) {
+        args.push_back(sizedValue);
+      }
+      
+      // Call original function
+      orig_call_result = null_call_IRB.CreateCall(Callee, args);
+      
+      // Branch to end_bb
+      null_call_IRB.CreateBr(end_bb);
     }
 
 #if LLVM_MAJOR >= 8
@@ -693,9 +715,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     // Create PHI node WITHOUT inserting it
     PHINode *PN = PHINode::Create(Int32Ty, 0, "cmp_phi");
 
-    // Add NULL check result (returns 0 to indicate "equal")
+    // Add NULL check
     if (nullCheck) {
-      PN->addIncoming(ConstantInt::get(Int32Ty, 0), null_check_bb);
+      PN->addIncoming(orig_call_result, null_call_bb);
     }
 
     for (uint64_t i = 0; i < unrollLen; i++) {
