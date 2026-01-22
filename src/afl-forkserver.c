@@ -969,14 +969,22 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* TODO: Come up with some nice way to initialize this all */
 
-    if (fsrv->init_child_func != fsrv_exec_child) {
+    if (fsrv->init_child_func == afl_fauxsrv_execv) {
+
+      if (!be_quiet) { ACTF("Faux forkserver already initialized"); }
+
+    }
+    else if (fsrv->init_child_func != fsrv_exec_child) {
 
       FATAL("Different forkserver not compatible with fauxserver");
 
+    } else {
+
+      fsrv->init_child_func = afl_fauxsrv_execv;
+      
     }
 
     if (!be_quiet) { ACTF("Using AFL++ faux forkserver..."); }
-    fsrv->init_child_func = afl_fauxsrv_execv;
 
   }
 
