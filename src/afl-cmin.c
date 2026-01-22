@@ -1616,8 +1616,10 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
         out_name = alloc_printf("%s/id:%06u,orig:%s", out_dir, written_cnt - 1,
                                 f->name);
       else {
+
         out_name = unique_out_name(f->name);
         use_orig_name = 1;
+
       }
 
     } else {
@@ -2471,3 +2473,4 @@ int main(int argc, char **argv) {
   return 0;
 
 }
+
