@@ -374,9 +374,10 @@ def afl_showmap(
         "-Z",  # cmin mode
     ]
     # yapf: enable
+    placeholder = os.environ.get("AFL_INPUT_PLACEHOLDER", "@@")
     found_atat = False
     for arg in args.args:
-        if "@@" in arg:
+        if placeholder in arg:
             found_atat = True
 
     if args.stdin_file:

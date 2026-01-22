@@ -2527,10 +2527,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->fsrv.out_file) {
 
+    char *placeholder = (char *)get_afl_env("AFL_INPUT_PLACEHOLDER");
+    if (!placeholder || !*placeholder) placeholder = (char *)"@@";
+
     u32 j = optind + 1;
     while (argv[j]) {
 
-      u8 *aa_loc = strstr(argv[j], "@@");
+      char *aa_loc = strstr(argv[j], placeholder);
 
       if (aa_loc && !afl->fsrv.out_file) {
 
