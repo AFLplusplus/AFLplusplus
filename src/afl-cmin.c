@@ -922,11 +922,15 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
   char **argv = (char **)target_args;
   u8     has_at = 0;
 
-  // We need to scan args for @@ to know if we need to copy them
+  char *placeholder = (char *)get_afl_env("AFL_INPUT_PLACEHOLDER");
+  if (!placeholder || !*placeholder) placeholder = (char *)"@@";
+  size_t placeholder_len = strlen(placeholder);
+
+  // We need to scan args for placeholder to know if we need to copy them
   u32 argc = scan_args((u8 **)argv);
   for (u32 i = 0; i < argc; i++) {
 
-    if (strstr(argv[i], "@@")) {
+    if (strstr(argv[i], placeholder)) {
 
       has_at = 1;
       break;
@@ -937,7 +941,7 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
 
   if (has_at) {
 
-    // If we have @@, we MUST copy argv because we modify it
+    // If we have placeholder, we MUST copy argv because we modify it
     u8 **new_argv = ck_alloc((sizeof(char *) * (argc + 2)));
     memcpy(new_argv, target_args, sizeof(char *) * (argc + 1));
     argv = (char **)new_argv;
@@ -972,11 +976,11 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
     fsrv->use_stdin = 0;
     for (u32 i = 0; i < argc; i++) {
 
-      char *ret = strstr(argv[i], "@@");
+      char *ret = strstr(argv[i], placeholder);
       if (ret) {
 
         u8 *new_arg = alloc_printf("%.*s%s%s", (int)(ret - argv[i]), argv[i],
-                                   fsrv->out_file, ret + 2);
+                                   fsrv->out_file, ret + placeholder_len);
         argv[i] = (char *)new_arg;
 
       }

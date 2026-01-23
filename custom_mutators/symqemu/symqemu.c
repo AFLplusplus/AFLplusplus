@@ -105,6 +105,9 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
   u8 *tmp = NULL;
   if ((tmp = getenv("AFL_CUSTOM_INFO_PROGRAM_ARGV")) && *tmp) {
+    char *placeholder = (char *) get_afl_env("AFL_INPUT_PLACEHOLDER");
+    if (!placeholder || !*placeholder) 
+      placeholder = (char *)"@@";
 
     int argc = 0, index = 2;
     for (u32 i = 0; i < strlen(tmp); ++i)
@@ -126,7 +129,7 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
 
       }
 
-      if (strcmp(data->argv[index], "@@") == 0) {
+      if (strcmp((char *)data->argv[index], placeholder) == 0) {
 
         if (!data->input_file) {
 

@@ -85,6 +85,12 @@ fairly broad use of environment variables instead:
 
     Note that this is an outdated variable. Only LLVM CLASSIC pass can use this.
 
+  - Setting `AFL_INPUT_PLACEHOLDER` to a string allows you to use that string 
+    as a placeholder instead of "@@" in the target command line arguments.
+    Use this when "@@" conflicts with the parameters of your program.
+    For eg. `AFL_INPUT_PLACEHOLDER=NEW_PLACEHOLDER afl-fuzz -i in -o out --
+    ./targetProgram NEW_PLACEHOLDER`
+
   - `AFL_NO_BUILTIN` causes the compiler to generate code suitable for use with
     libtokencap.so (but perhaps running a bit slower than without the flag).
 
