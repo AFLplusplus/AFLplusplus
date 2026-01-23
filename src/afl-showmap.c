@@ -1766,75 +1766,12 @@ int main(int argc, char **argv_orig, char **envp) {
                                  ? SIGKILL
                                  : SIGTERM);
 
-  if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
+  u32 save_be_quiet = be_quiet;
+  be_quiet = !debug;
 
-    u32 save_be_quiet = be_quiet;
-    be_quiet = !debug;
-    if (map_size <= DEFAULT_SHMEM_SIZE) {
+  afl_fsrv_resize_mapsize(fsrv, &shm, use_argv, map_size, &stop_soon, unicorn_mode);
 
-      fsrv->map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
-
-    } else {
-
-      validate_map_size(map_size);
-      fsrv->map_size = map_size;
-
-    }
-
-    char vbuf[16];
-    snprintf(vbuf, sizeof(vbuf), "%u", fsrv->map_size);
-    setenv("AFL_MAP_SIZE", vbuf, 1);
-
-    u32 new_map_size =
-        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
-                             (get_afl_env("AFL_DEBUG_CHILD") ||
-                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                                 ? 1
-                                 : 0);
-    be_quiet = save_be_quiet;
-
-    if (new_map_size) {
-
-      // only reinitialize when it makes sense
-      if (map_size < new_map_size ||
-          (new_map_size > map_size && new_map_size - map_size >= MAP_SIZE)) {
-
-        if (!be_quiet)
-          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
-
-#ifdef __linux__
-        /* no need to terminate the nyx runner */
-        if (!fsrv->nyx_mode) {
-
-#endif
-          afl_shm_deinit(&shm);
-          afl_fsrv_kill(fsrv);
-          fsrv->map_size = new_map_size;
-          fsrv->trace_bits =
-              afl_shm_init(&shm, new_map_size, 0, DEFAULT_PERMISSION, -1);
-#ifdef __linux__
-
-        }
-
-#endif
-
-      }
-
-      map_size = new_map_size;
-
-    }
-
-    fsrv->map_size = map_size;
-
-  } else {
-
-    afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                   (get_afl_env("AFL_DEBUG_CHILD") ||
-                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                       ? 1
-                       : 0);
-
-  }
+  be_quiet = save_be_quiet;
 
   /* Input streaming mode - read inputs from stdin, write coverage to stdout */
   if (streaming_mode) {
@@ -2057,4 +1994,3 @@ showmap_done:
   exit(ret);
 
 }
-
