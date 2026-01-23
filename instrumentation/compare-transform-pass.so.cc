@@ -44,12 +44,11 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
-#if LLVM_MAJOR >= 14                /* how about stable interfaces? */
+#if LLVM_MAJOR >= 14                        /* how about stable interfaces? */
   #include "llvm/Passes/OptimizationLevel.h"
 #endif
 
-#if LLVM_MAJOR >= 4 || \
-    (LLVM_MAJOR == 3 && LLVM_MINOR > 4)
+#if LLVM_MAJOR >= 4 || (LLVM_MAJOR == 3 && LLVM_MINOR > 4)
   #include "llvm/IR/Verifier.h"
   #include "llvm/IR/DebugInfo.h"
 #else
@@ -635,10 +634,12 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
     // Validate VarStr is a pointer before CFG modification
     if (nullCheck && !VarStr->getType()->isPointerTy()) {
+
       if (getenv("AFL_DEBUG"))
         errs() << "Skipping null check for non-pointer VarStr in function "
                << callInst->getParent()->getParent()->getName() << "\n";
       continue;
+
     }
 
     /* split before the call instruction */
@@ -668,36 +669,36 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
       null_check_bb =
           BasicBlock::Create(C, "null_check", end_bb->getParent(), end_bb);
-      
-      null_call_bb =
-          BasicBlock::Create(C, "null_call_original", end_bb->getParent(), end_bb);
-      
+
+      null_call_bb = BasicBlock::Create(C, "null_call_original",
+                                        end_bb->getParent(), end_bb);
+
       IRBuilder<> null_check_IRB(null_check_bb);
-      
+
       // Compare VarStr against NULL
-      Value *null_ptr = ConstantPointerNull::get(
-          cast<PointerType>(VarStr->getType()));
+      Value *null_ptr =
+          ConstantPointerNull::get(cast<PointerType>(VarStr->getType()));
       Value *is_null = null_check_IRB.CreateICmpEQ(VarStr, null_ptr, "is_null");
-      
+
       // If NULL, call original function; otherwise do byte-by-byte comparison
       null_check_IRB.CreateCondBr(is_null, null_call_bb, first_cmp_bb);
-      
-      // In null_call_bb, call the original function to preserve correct semantics
+
+      // In null_call_bb, call the original function to preserve correct
+      // semantics
       IRBuilder<> null_call_IRB(null_call_bb);
-      
+
       // Prepare arguments for original function call
       std::vector<Value *> args;
       args.push_back(Str1P);
       args.push_back(Str2P);
-      if (isSizedcmp && sizedValue) {
-        args.push_back(sizedValue);
-      }
-      
+      if (isSizedcmp && sizedValue) { args.push_back(sizedValue); }
+
       // Call original function
       orig_call_result = null_call_IRB.CreateCall(Callee, args);
-      
+
       // Branch to end_bb
       null_call_IRB.CreateBr(end_bb);
+
     }
 
 #if LLVM_MAJOR >= 8
@@ -706,8 +707,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     TerminatorInst *term = bb->getTerminator();
 #endif
     // Entry: null_check (if enabled) -> len_check (if exists) -> cmp_block
-    BasicBlock *entry_bb = nullCheck ? null_check_bb :
-                           (next_lenchk_bb ? next_lenchk_bb : next_cmp_bb);
+    BasicBlock *entry_bb =
+        nullCheck ? null_check_bb
+                  : (next_lenchk_bb ? next_lenchk_bb : next_cmp_bb);
     // Replace original branch with entry to our instrumentation
     term->eraseFromParent();
     BranchInst::Create(entry_bb, bb);
@@ -716,9 +718,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
     PHINode *PN = PHINode::Create(Int32Ty, 0, "cmp_phi");
 
     // Add NULL check
-    if (nullCheck) {
-      PN->addIncoming(orig_call_result, null_call_bb);
-    }
+    if (nullCheck) { PN->addIncoming(orig_call_result, null_call_bb); }
 
     for (uint64_t i = 0; i < unrollLen; i++) {
 
@@ -731,8 +731,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
         Value      *icmp = cur_lenchk_IRB.CreateICmpEQ(
             sizedValue, ConstantInt::get(sizedValue->getType(), i));
         if (cur_lenchk_bb->getTerminator()) {
+
           cur_lenchk_bb->getTerminator()->eraseFromParent();
+
         }
+
         cur_lenchk_IRB.CreateCondBr(icmp, end_bb, cur_cmp_bb);
 
         PN->addIncoming(ConstantInt::get(Int32Ty, 0), cur_lenchk_bb);
@@ -805,8 +808,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
         Value *icmp =
             cur_cmp_IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
         if (cur_cmp_bb->getTerminator()) {
+
           cur_cmp_bb->getTerminator()->eraseFromParent();
+
         }
+
         cur_cmp_IRB.CreateCondBr(
             icmp, next_lenchk_bb ? next_lenchk_bb : next_cmp_bb, end_bb);
 
@@ -814,8 +820,11 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
         // Last iteration - add terminator to current block
         if (cur_cmp_bb->getTerminator()) {
+
           cur_cmp_bb->getTerminator()->eraseFromParent();
+
         }
+
         BranchInst::Create(end_bb, cur_cmp_bb);
 
       }
