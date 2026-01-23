@@ -65,7 +65,7 @@ if shutil.which(CLANG_FORMAT_BIN) is None:
 if shutil.which(CLANG_FORMAT_BIN) is None \
         and CLANG_FORMAT_PIP is False:
     print(f"[!] clang-format-{CURRENT_LLVM} is needed. Aborted.")
-    print(f"Run `pip3 install \"clang-format=={CURRENT_LLVM}.*\"` \
+    print(f"Run `pip3 install --break-system-packages \"clang-format=={CURRENT_LLVM}.*\"` \
 to install via pip.")
     exit(1)
 
