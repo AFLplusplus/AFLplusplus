@@ -1769,7 +1769,8 @@ int main(int argc, char **argv_orig, char **envp) {
   u32 save_be_quiet = be_quiet;
   be_quiet = !debug;
 
-  afl_fsrv_resize_mapsize(fsrv, &shm, use_argv, map_size, &stop_soon, unicorn_mode);
+  afl_fsrv_resize_mapsize(fsrv, &shm, use_argv, map_size, &stop_soon,
+                          unicorn_mode);
 
   be_quiet = save_be_quiet;
 
@@ -1994,3 +1995,4 @@ showmap_done:
   exit(ret);
 
 }
+
