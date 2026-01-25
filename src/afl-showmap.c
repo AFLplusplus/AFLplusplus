@@ -1239,6 +1239,7 @@ static void usage(u8 *argv0) {
       "size the\n"
       "              target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_INPUT_PLACEHOLDER: custom placeholder for input file (default: @@)\n"
       "AFL_PRINT_FILENAMES: Print the queue entry currently processed will to "
       "stdout\n"
       "AFL_QUIET: do not print extra informational output\n"
