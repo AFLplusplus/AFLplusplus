@@ -1926,7 +1926,7 @@ static void usage(u8 *argv0) {
 
       argv0, DOC_PATH);
 
-  exit(1);
+  exit(0);
 
 }
 
