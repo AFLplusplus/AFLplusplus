@@ -748,6 +748,7 @@ static void usage(u8 *argv0) {
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_INPUT_PLACEHOLDER: custom placeholder for input file (default: @@)\n"
       "AFL_SKIP_BIN_CHECK: skip checking the location of and the target\n"
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
