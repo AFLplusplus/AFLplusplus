@@ -1050,6 +1050,7 @@ static void usage(u8 *argv0) {
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_INPUT_PLACEHOLDER: custom placeholder for input file (default: @@)\n"
       "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "ASAN_OPTIONS: custom settings for ASAN\n"
@@ -1535,52 +1536,13 @@ int main(int argc, char **argv_orig, char **envp) {
   (void)check_binary_signatures(fsrv->target_path);
 #endif
 
-  if (!fsrv->qemu_mode && !unicorn_mode) {
+  u32 save_be_quiet = be_quiet;
+  be_quiet = !debug;
 
-    fsrv->map_size = 4194304;  // dummy temporary value
-    u32 new_map_size =
-        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
-                             (get_afl_env("AFL_DEBUG_CHILD") ||
-                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                                 ? 1
-                                 : 0);
+  afl_fsrv_resize_mapsize(fsrv, &shm, use_argv, map_size, &stop_soon,
+                          unicorn_mode);
 
-    if (new_map_size) {
-
-      if (map_size < new_map_size ||
-          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
-
-        if (!be_quiet)
-          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
-
-        afl_shm_deinit(&shm);
-        afl_fsrv_kill(fsrv);
-        fsrv->map_size = new_map_size;
-        fsrv->trace_bits =
-            afl_shm_init(&shm, new_map_size, 0, DEFAULT_PERMISSION, -1);
-        afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                       (get_afl_env("AFL_DEBUG_CHILD") ||
-                        get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                           ? 1
-                           : 0);
-
-      }
-
-      map_size = new_map_size;
-
-    }
-
-    fsrv->map_size = map_size;
-
-  } else {
-
-    afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                   (get_afl_env("AFL_DEBUG_CHILD") ||
-                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                       ? 1
-                       : 0);
-
-  }
+  be_quiet = save_be_quiet;
 
   if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
     shm_fuzz = deinit_shmem(fsrv, shm_fuzz);

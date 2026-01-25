@@ -375,6 +375,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
+      "AFL_INPUT_PLACEHOLDER: custom placeholder string for input file arguments (default: @@)\n"
+      "                      use this when @@ conflicts with your target program's arguments\n"
       "AFL_PIZZA_MODE: 1 - enforce pizza mode, -1 - disable for April 1st,\n"
       "                0 (default) - activate on April 1st\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc.\n"
@@ -2527,10 +2529,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->fsrv.out_file) {
 
+    char *placeholder = (char *)get_afl_env("AFL_INPUT_PLACEHOLDER");
+    if (!placeholder || !*placeholder) placeholder = (char *)"@@";
+
     u32 j = optind + 1;
     while (argv[j]) {
 
-      u8 *aa_loc = strstr(argv[j], "@@");
+      char *aa_loc = strstr(argv[j], placeholder);
 
       if (aa_loc && !afl->fsrv.out_file) {
 

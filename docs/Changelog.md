@@ -11,8 +11,12 @@
       change
   - afl-cc:
     - LLVM 22 support (they are again switching around include files ...)
+    - g_/curl_/xml_ string support for COMPCOV, thanks to @Prajwal-kp-18
   - afl-cmin:
-    - new implementation in C by @kcwu - thanks!
+    - new implementation in C by @kcwu - thanks! (it is the default now)
+    - afl-cmin.py was changing behaviour to hash the original filenames,
+      this was reverted.
+    - afl-cmin and afl-cmin.py honor `AFL_SHA1_FILENAMES` now
   - afl-showmap:
     - -f support added by Prajwal-kp-18 - thanks!
 
