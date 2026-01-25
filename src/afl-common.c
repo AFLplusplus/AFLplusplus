@@ -229,10 +229,8 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
   u32 i = 0;
   u8  cwd[PATH_MAX];
   if (getcwd(cwd, (size_t)sizeof(cwd)) == NULL) { PFATAL("getcwd() failed"); }
-  char *placeholder = (char *) get_afl_env("AFL_INPUT_PLACEHOLDER");
-  if (!placeholder || !*placeholder) {
-    placeholder = (char *)"@@";
-  }
+  char *placeholder = (char *)get_afl_env("AFL_INPUT_PLACEHOLDER");
+  if (!placeholder || !*placeholder) { placeholder = (char *)"@@"; }
   size_t placeholder_len = strlen(placeholder);
 
   /* we are working with libc-heap-allocated argvs. So do not mix them with
@@ -245,7 +243,9 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
     if (aa_loc) {
 
       if (!prog_in) {
+
         FATAL("%s syntax is not supported by this tool.", placeholder);
+
       }
 
       *use_stdin = false;
@@ -259,12 +259,13 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
       if (prog_in[0] == '/') {
 
-        n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + placeholder_len);
+        n_arg =
+            alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + placeholder_len);
 
       } else {
 
         n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in,
-                            aa_loc + placeholder_len);
+                             aa_loc + placeholder_len);
 
       }
 
