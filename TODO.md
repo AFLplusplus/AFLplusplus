@@ -3,7 +3,6 @@
 ## Must
 
  - afl_fsrv_deinit cmplog
- - ijon support?
  - hardened_usercopy=0 page_alloc.shuffle=0
  - add value_profile but only enable after 15 minutes without finds
  - cmplog max items env?
