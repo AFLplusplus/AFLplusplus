@@ -860,6 +860,25 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
   const DominatorTree     *DT = DTCallback(F);
   const PostDominatorTree *PDT = PDTCallback(F);
 
+
+  // AFL++ START
+  FunctionCallee AbortFn = F.getParent()->getOrInsertFunction(
+      "abort", AttributeList{}, Type::getVoidTy(*C));
+  for (auto &BB : F) {
+
+    for (auto &IN : BB) {
+
+      if (isExecCall(&IN)) {
+
+        IRBuilder<> IRB(&IN);
+        IRB.CreateCall(AbortFn);
+
+      }
+
+    }
+
+  }
+  // AFL++ END
   for (auto &BB : F) {
 
     if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))

@@ -754,6 +754,27 @@ bool isAflCovInterestingInstruction(Instruction &I) {
 
 }
 
+
+bool isExecCall(llvm::Instruction *IN) {
+
+  llvm::CallInst *callInst = llvm::dyn_cast<llvm::CallInst>(IN);
+  if (!callInst) return false;
+
+  llvm::Function *Callee = callInst->getCalledFunction();
+  if (!Callee) return false;
+
+  if (!Callee->hasName()) return false;
+
+  llvm::StringRef FuncName = Callee->getName();
+  return (FuncName == "execve" || FuncName == "execl" || FuncName == "execlp" ||
+          FuncName == "execle" || FuncName == "execv" || FuncName == "execvp" ||
+          FuncName == "execvP" || FuncName == "execvpe" || FuncName == "execlpe" ||
+          FuncName == "fexecve" || FuncName == "execveat" ||
+          FuncName == "posix_spawn" || FuncName == "posix_spawnp" ||
+          FuncName == "system" || FuncName == "popen");
+
+}
+
 std::pair<bool, bool> detectIJONUsage(Module &M) {
 
   bool uses_ijon_functions = false;

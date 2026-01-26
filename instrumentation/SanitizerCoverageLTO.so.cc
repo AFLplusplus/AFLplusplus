@@ -1445,6 +1445,25 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
     // we have to set __afl_ctx 0 for all indirect calls in all functions, even
     // those not to be instrumented.
+
+    // AFL++ START
+    FunctionCallee AbortFn = F.getParent()->getOrInsertFunction(
+        "abort", AttributeList{}, Type::getVoidTy(Context));
+    for (auto &BB : F) {
+
+      for (auto &IN : BB) {
+
+        if (isExecCall(&IN)) {
+
+          IRBuilder<> IRB(&IN);
+          IRB.CreateCall(AbortFn);
+
+        }
+
+      }
+
+    }
+    // AFL++ END
     for (auto &BB : F) {
 
       for (auto &IN : BB) {
