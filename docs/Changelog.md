@@ -9,6 +9,8 @@
     - added `AFL_FORCE_FASTRESUME` which will ignore the saved hash of the
       target - but note it will only work if the coverage map size did not
       change
+    - prevent further executed instrumented programs by the fuzz target to
+      manipulate the coverage
   - afl-cc:
     - LLVM 22 support (they are again switching around include files ...)
     - g_/curl_/xml_ string support for COMPCOV, thanks to @Prajwal-kp-18
