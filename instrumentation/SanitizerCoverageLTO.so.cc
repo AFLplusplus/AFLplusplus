@@ -1447,22 +1447,27 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
     // those not to be instrumented.
 
     // AFL++ START
-    FunctionCallee AbortFn = F.getParent()->getOrInsertFunction(
-        "abort", AttributeList{}, Type::getVoidTy(Context));
-    for (auto &BB : F) {
+    if (getenv("AFL_LLVM_DENY_EXEC")) {
 
-      for (auto &IN : BB) {
+      FunctionCallee AbortFn = F.getParent()->getOrInsertFunction(
+          "abort", AttributeList{}, Type::getVoidTy(Context));
+      for (auto &BB : F) {
 
-        if (isExecCall(&IN)) {
+        for (auto &IN : BB) {
 
-          IRBuilder<> IRB(&IN);
-          IRB.CreateCall(AbortFn);
+          if (isExecCall(&IN)) {
+
+            IRBuilder<> IRB(&IN);
+            IRB.CreateCall(AbortFn);
+
+          }
 
         }
 
       }
 
     }
+
     // AFL++ END
     for (auto &BB : F) {
 
