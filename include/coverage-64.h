@@ -124,7 +124,7 @@ inline u32 skim(const u64 *virgin, const u64 *current, const u64 *current_end) {
     /* All bytes are zero. */
     if (likely(mask == 0xff)) continue;
 
-      /* Look for nonzero bytes and check for new bits. */
+        /* Look for nonzero bytes and check for new bits. */
   #define UNROLL(x)                                                            \
     if (unlikely(!(mask & (1 << x)) && classify_word(current[x]) & virgin[x])) \
     return 1

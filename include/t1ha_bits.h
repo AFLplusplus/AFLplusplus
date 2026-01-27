@@ -461,9 +461,9 @@ typedef struct {
                                                 unaligned_##bits)))   \
            ->unaligned_##bits)
   #elif defined(_MSC_VER)
-    #pragma warning(disable                                              \
-                    : 4235) /* nonstandard extension used: '__unaligned' \
-                             * keyword not supported on this architecture */
+    #pragma warning(                                                 \
+        disable : 4235) /* nonstandard extension used: '__unaligned' \
+                         * keyword not supported on this architecture */
     #define read_unaligned(ptr, bits) \
       (*(const __unaligned uint##bits##_t *)(ptr))
   #else
@@ -498,7 +498,8 @@ typedef struct {
   #elif __has_attribute(__assume_aligned__)
 
 static __always_inline const uint16_t *__attribute__((
-    __assume_aligned__(ALIGNMENT_16))) cast_aligned_16(const void *ptr) {
+    __assume_aligned__(ALIGNMENT_16)))
+cast_aligned_16(const void *ptr) {
 
   return (const uint16_t *)ptr;
 

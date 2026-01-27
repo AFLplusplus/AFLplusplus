@@ -360,11 +360,11 @@ int recv_testcase(int s, void **buf) {
     if (libdeflate_deflate_decompress(decompressor, buf2, clen, (char *)*buf,
                                       size, &received) != LIBDEFLATE_SUCCESS)
       FATAL("decompression failed");
-    // fprintf(stderr, "DECOMPRESS (%u->%u):\n", clen, received);
-    // for (u32 i = 0; i < clen; i++) fprintf(stderr, "%02x", buf2[i]);
-    // fprintf(stderr, "\n");
-    // for (u32 i = 0; i < received; i++) fprintf(stderr, "%02x",
-    // ((u8*)(*buf))[i]); fprintf(stderr, "\n");
+      // fprintf(stderr, "DECOMPRESS (%u->%u):\n", clen, received);
+      // for (u32 i = 0; i < clen; i++) fprintf(stderr, "%02x", buf2[i]);
+      // fprintf(stderr, "\n");
+      // for (u32 i = 0; i < received; i++) fprintf(stderr, "%02x",
+      // ((u8*)(*buf))[i]); fprintf(stderr, "\n");
 #else
     FATAL("Received compressed data but not compiled with compression support");
 #endif
