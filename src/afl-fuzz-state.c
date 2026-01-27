@@ -139,7 +139,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->fsrv.map_size = map_size;
   // afl_state_t is not available in forkserver.c
   afl->fsrv.afl_ptr = (void *)afl;
-  afl->fsrv.add_extra_func = (void (*)(void *, u8 *, u32)) & add_extra;
+  afl->fsrv.add_extra_func = (void (*)(void *, u8 *, u32))&add_extra;
   afl->fsrv.exec_tmout = EXEC_TIMEOUT;
   afl->fsrv.mem_limit = MEM_LIMIT;
   afl->fsrv.dev_urandom_fd = -1;

@@ -113,9 +113,11 @@ static const char *ijon_enabled;
 namespace {
 
 SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
+
   Options.CoverageType = SanitizerCoverageOptions::SCK_Edge;
   Options.TracePCGuard = true;  // TracePCGuard is default.
   return Options;
+
 }
 
 using DomTreeCallback = function_ref<const DominatorTree *(Function &F)>;
@@ -124,10 +126,12 @@ using PostDomTreeCallback =
 
 class ModuleSanitizerCoverageAFL
     : public PassInfoMixin<ModuleSanitizerCoverageAFL> {
+
  public:
   ModuleSanitizerCoverageAFL(
       const SanitizerCoverageOptions &Options = SanitizerCoverageOptions())
       : Options(OverrideFromCL(Options)) {
+
   }
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
@@ -169,6 +173,7 @@ class ModuleSanitizerCoverageAFL
                                  LoadInst *MapPtr, uint32_t &vector_cnt);
 
   void SetNoSanitizeMetadata(Instruction *I) {
+
 #if LLVM_MAJOR >= 19
     I->setNoSanitizeMetadata();
 #elif LLVM_MAJOR >= 16
@@ -177,6 +182,7 @@ class ModuleSanitizerCoverageAFL
     I->setMetadata(I->getModule()->getMDKindID("nosanitize"),
                    MDNode::get(*C, None));
 #endif
+
   }
 
   std::string     getSectionName(const std::string &Section) const;
@@ -205,12 +211,14 @@ class ModuleSanitizerCoverageAFL
   ConstantInt    *One = NULL;
   ConstantInt    *Zero = NULL;
   bool            deny_exec = false;
+
 };
 
 }  // namespace
 
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
+
   return {LLVM_PLUGIN_API_VERSION, "SanitizerCoveragePCGUARD", "v0.2",
           [](PassBuilder &PB) {
 
@@ -227,52 +235,69 @@ llvmGetPassPluginInfo() {
               // Only add the pass for non-LTO phases to avoid conflicts
               if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink &&
                   Phase != ThinOrFullLTOPhase::FullLTOPreLink) {
+
                 MPM.addPass(ModuleSanitizerCoverageAFL());
+
               }
 
   #else
               MPM.addPass(ModuleSanitizerCoverageAFL());
   #endif
+
             });
 
 #else
             PB.registerOptimizerLastEPCallback(
                 [](ModulePassManager &MPM, OptimizationLevel OL) {
+
                   MPM.addPass(ModuleSanitizerCoverageAFL());
+
                 });
 
 #endif
+
           }};
+
 }
 
 PreservedAnalyses ModuleSanitizerCoverageAFL::run(Module                &M,
                                                   ModuleAnalysisManager &MAM) {
+
   ModuleSanitizerCoverageAFL ModuleSancov(Options);
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
+
     return &FAM.getResult<DominatorTreeAnalysis>(F);
+
   };
 
   auto PDTCallback = [&FAM](Function &F) -> const PostDominatorTree * {
+
     return &FAM.getResult<PostDominatorTreeAnalysis>(F);
+
   };
 
   // TODO: Support LTO or llvm classic?
   // Note we still need afl-compiler-rt so we just disable the instrumentation
   // here.
   if (!getenv("AFL_LLVM_ONLY_FSRV")) {
+
     if (ModuleSancov.instrumentModule(M, DTCallback, PDTCallback))
       return PreservedAnalyses::none();
 
   } else {
+
     if (getenv("AFL_DEBUG")) { DEBUGF("Instrumentation disabled\n"); }
+
   }
 
   return PreservedAnalyses::all();
+
 }
 
 std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
     Module &M, const char *Section, Type *Ty) {
+
   // Use ExternalWeak so that if all sections are discarded due to section
   // garbage collection, the linker will not report undefined symbol errors.
   // Windows defines the start/stop symbols in compiler-rt so no need for
@@ -301,13 +326,17 @@ std::pair<Value *, Value *> ModuleSanitizerCoverageAFL::CreateSecStartEnd(
   return std::make_pair(IRB.CreatePointerCast(GEP, PointerType::getUnqual(Ty)),
                         SecEnd);
 #endif
+
 }
 
 bool ModuleSanitizerCoverageAFL::isInstructionInteresting(Instruction &I) {
+
   return isAflCovInterestingInstruction(I);
+
 }
 
 bool ModuleSanitizerCoverageAFL::isAflInterestingCall(Instruction &IN) {
+
   CallInst *callInst = dyn_cast<CallInst>(&IN);
   if (!callInst) return false;
 
@@ -317,10 +346,12 @@ bool ModuleSanitizerCoverageAFL::isAflInterestingCall(Instruction &IN) {
 
   StringRef FuncName = Callee->getName();
   return !FuncName.compare(StringRef("__afl_coverage_interesting"));
+
 }
 
 void ModuleSanitizerCoverageAFL::initializeVersionSpecificTypes(
     IRBuilder<> &IRB) {
+
   PtrTy = PointerType::getUnqual(*C);
 #if LLVM_MAJOR >= 20
   IntptrPtrTy = Int64PtrTy = Int32PtrTy = Int8PtrTy = Int1PtrTy = PtrTy;
@@ -331,41 +362,51 @@ void ModuleSanitizerCoverageAFL::initializeVersionSpecificTypes(
   Int8PtrTy = PointerType::getUnqual(IRB.getInt8Ty());
   Int1PtrTy = PointerType::getUnqual(IRB.getInt1Ty());
 #endif
+
 }
 
 void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
+
   setvbuf(stdout, NULL, _IONBF, 0);
 
   if (getenv("AFL_DEBUG")) { debug = 1; }
   if (getenv("AFL_DUMP_CYCLOMATIC_COMPLEXITY")) { dump_cc = 1; }
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
+
     SAYF(cCYA "SanitizerCoveragePCGUARD" VERSION cRST "\n");
 
   } else {
+
     be_quiet = 1;
+
   }
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
   ijon_enabled = getenv("AFL_LLVM_IJON");
   if (getenv("AFL_LLVM_DENY_EXEC")) { deny_exec = true; }
+
 }
 
 Value *ModuleSanitizerCoverageAFL::createGuardPointer(IRBuilder<> &IRB,
                                                       uint32_t     index) {
+
   return IRB.CreateIntToPtr(
       IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                     ConstantInt::get(IntptrTy, index * 4)),
       Int32PtrTy);
+
 }
 
 void ModuleSanitizerCoverageAFL::updateCoverageBitmap(IRBuilder<> &IRB,
                                                       Value    *CoverageIndex,
                                                       LoadInst *MapPtr) {
+
   Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CoverageIndex);
 
   if (use_threadsafe_counters) {
+
     auto instr = IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx,
                                      One, llvm::MaybeAlign(1),
                                      llvm::AtomicOrdering::Monotonic);
@@ -375,12 +416,14 @@ void ModuleSanitizerCoverageAFL::updateCoverageBitmap(IRBuilder<> &IRB,
     INSTR->setMetadata("afl.skip", Tag);
 
   } else {
+
     LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
     SetNoSanitizeMetadata(Counter);
 
     Value *Incr = IRB.CreateAdd(Counter, One);
 
     if (skip_nozero == NULL) {
+
       auto         cf = IRB.CreateICmpEQ(Incr, Zero);
       auto        *CF = llvm::cast<llvm::Instruction>(cf);
       LLVMContext &Ctx = CF->getContext();
@@ -388,15 +431,20 @@ void ModuleSanitizerCoverageAFL::updateCoverageBitmap(IRBuilder<> &IRB,
       CF->setMetadata("afl.skip", Tag);
       auto carry = IRB.CreateZExt(cf, Int8Ty);
       Incr = IRB.CreateAdd(Incr, carry);
+
     }
 
     StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
     SetNoSanitizeMetadata(StoreCtx);
+
   }
+
 }
 
 void ModuleSanitizerCoverageAFL::printDebugInfo(Instruction &IN) {
+
   if (DILocation *Loc = IN.getDebugLoc()) {
+
     llvm::errs() << "DEBUG " << Loc->getFilename() << ":" << Loc->getLine()
                  << ":";
     std::string path =
@@ -406,15 +454,18 @@ void ModuleSanitizerCoverageAFL::printDebugInfo(Instruction &IN) {
     for (unsigned line = 1; line <= Loc->getLine(); ++line)
       std::getline(sourceFile, lineContent);
     llvm::errs() << lineContent << "\n";
+
   }
 
   errs() << *(&IN) << "\n";
+
 }
 
 Value *ModuleSanitizerCoverageAFL::instrumentVectorSelect(
     IRBuilder<> &IRB, Value *condition, FixedVectorType *tt,
     uint32_t &local_selects, uint32_t cnt_cov, uint32_t skip_blocks,
     uint32_t special, ArrayRef<BasicBlock *> AllBlocks) {
+
   uint32_t elements = tt->getElementCount().getFixedValue();
   if (!elements) return nullptr;
 
@@ -433,6 +484,7 @@ Value *ModuleSanitizerCoverageAFL::instrumentVectorSelect(
 
   // Fill remaining elements
   for (uint64_t i = 1; i < elements; i++) {
+
     val1 = createGuardPointer(IRB, cnt_cov + special + local_selects++ +
                                        AllBlocks.size() - skip_blocks);
     x = IRB.CreateInsertElement(x, val1, i);
@@ -440,34 +492,42 @@ Value *ModuleSanitizerCoverageAFL::instrumentVectorSelect(
     val2 = createGuardPointer(IRB, cnt_cov + special + local_selects++ +
                                        AllBlocks.size() - skip_blocks);
     y = IRB.CreateInsertElement(y, val2, i);
+
   }
 
   return IRB.CreateSelect(condition, x, y);
+
 }
 
 void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
                                                          Value       *result,
                                                          LoadInst    *MapPtr,
                                                          uint32_t &vector_cnt) {
+
   uint32_t vector_cur = 0;
 
   while (true) {
+
     Value *MapPtrIdx = nullptr;
 
     if (!vector_cnt) {
+
       LoadInst *CurLoc = IRB.CreateLoad(IRB.getInt32Ty(), result);
       SetNoSanitizeMetadata(CurLoc);
       MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, CurLoc);
 
     } else {
+
       auto element = IRB.CreateExtractElement(result, vector_cur++);
       auto elementptr = IRB.CreateIntToPtr(element, Int32PtrTy);
       auto elementld = IRB.CreateLoad(IRB.getInt32Ty(), elementptr);
       SetNoSanitizeMetadata(elementld);
       MapPtrIdx = IRB.CreateGEP(Int8Ty, MapPtr, elementld);
+
     }
 
     if (use_threadsafe_counters) {
+
       auto         instr = IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
                                                MapPtrIdx, One, llvm::MaybeAlign(1),
                                                llvm::AtomicOrdering::Monotonic);
@@ -477,12 +537,14 @@ void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
       INSTR->setMetadata("afl.skip", Tag);
 
     } else {
+
       LoadInst *Counter = IRB.CreateLoad(IRB.getInt8Ty(), MapPtrIdx);
       SetNoSanitizeMetadata(Counter);
 
       Value *Incr = IRB.CreateAdd(Counter, One);
 
       if (skip_nozero == NULL) {
+
         auto         cf = IRB.CreateICmpEQ(Incr, Zero);
         auto        *CF = llvm::cast<llvm::Instruction>(cf);
         LLVMContext &Ctx = CF->getContext();
@@ -490,31 +552,41 @@ void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
         CF->setMetadata("afl.skip", Tag);
         auto carry = IRB.CreateZExt(cf, Int8Ty);
         Incr = IRB.CreateAdd(Incr, carry);
+
       }
 
       StoreInst *StoreCtx = IRB.CreateStore(Incr, MapPtrIdx);
       SetNoSanitizeMetadata(StoreCtx);
+
     }
 
     if (!vector_cnt) {
+
       vector_cnt = 2;
       break;
 
     } else if (vector_cnt == vector_cur) {
+
       break;
+
     }
+
   }
+
 }
 
 void ModuleSanitizerCoverageAFL::setupIJONSymbols(Module &M,
                                                   bool    uses_ijon_state) {
+
   createIJONEnabledGlobal(M, Int32Ty);
   AFLIJONState = createIJONStateGlobal(M, Int32Ty, uses_ijon_state);
+
 }
 
 Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
     Module &M, const char *CtorName, const char *InitFunctionName, Type *Ty,
     const char *Section) {
+
   auto      SecStartEnd = CreateSecStartEnd(M, Section, Ty);
   auto      SecStart = SecStartEnd.first;
   auto      SecEnd = SecStartEnd.second;
@@ -523,15 +595,19 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
       M, CtorName, InitFunctionName, {PtrTy, PtrTy}, {SecStart, SecEnd});
 
   if (TargetTriple.supportsCOMDAT()) {
+
     // Use comdat to dedup CtorFunc.
     CtorFunc->setComdat(M.getOrInsertComdat(CtorName));
     appendToGlobalCtors(M, CtorFunc, SanCtorAndDtorPriority, CtorFunc);
 
   } else {
+
     appendToGlobalCtors(M, CtorFunc, SanCtorAndDtorPriority);
+
   }
 
   if (TargetTriple.isOSBinFormatCOFF()) {
+
     // In COFF files, if the constructors are set as COMDAT (they are because
     // COFF supports COMDAT) and the linker flag /OPT:REF (strip unreferenced
     // functions and data) is used, the constructors get stripped. To prevent
@@ -539,21 +615,26 @@ Function *ModuleSanitizerCoverageAFL::CreateInitCallsForSections(
     // to include the sancov constructor. This way the linker can deduplicate
     // the constructors but always leave one copy.
     CtorFunc->setLinkage(GlobalValue::WeakODRLinkage);
+
   }
 
   return CtorFunc;
+
 }
 
 bool ModuleSanitizerCoverageAFL::instrumentModule(
     Module &M, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
+
   setupEnvironmentVariables();
 
   // If IJON is enabled, check if the module actually uses any IJON functions
   bool uses_ijon_functions = false;
   bool uses_ijon_state = false;
   if (ijon_enabled) {
+
     std::tie(uses_ijon_functions, uses_ijon_state) = detectIJONUsage(M);
     if (!uses_ijon_functions) { ijon_enabled = nullptr; }
+
   }
 
   initInstrumentList();
@@ -596,9 +677,11 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
       M.getOrInsertGlobal(SanCovLowestStackName, IntptrTy);
   SanCovLowestStack = dyn_cast<GlobalVariable>(SanCovLowestStackConstant);
   if (!SanCovLowestStack || SanCovLowestStack->getValueType() != IntptrTy) {
+
     C->emitError(StringRef("'") + SanCovLowestStackName +
                  "' should not be declared by the user");
     return true;
+
   }
 
   SanCovLowestStack->setThreadLocalMode(
@@ -619,17 +702,22 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
                                       SanCovGuardsSectionName);
 
   if (Ctor && debug) {
+
     fprintf(stderr, "SANCOV: installed pcguard_init in ctor\n");
+
   }
 
   appendToUsed(M, GlobalsToAppendToUsed);
   appendToCompilerUsed(M, GlobalsToAppendToCompilerUsed);
 
   if (!be_quiet) {
+
     if (!instr) {
+
       WARNF("No instrumentation targets found.");
 
     } else {
+
       char modeline[128];
       snprintf(modeline, sizeof(modeline), "%s%s%s%s%s%s",
                getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
@@ -640,8 +728,10 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
       char buf[32] = "";
       if (skippedbb) {
+
         snprintf(buf, sizeof(buf), " %u instrumentation%s saved.", skippedbb,
                  skippedbb == 1 ? "" : "s");
+
       }
 
       OKF("Instrumented %u locations with no collisions (%s mode) of which are "
@@ -649,50 +739,70 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
           instr, modeline, selects, unhandled, buf);
 
       if (getenv("AFL_LLVM_IJON")) {
+
         if (ijon_enabled) {
+
           if (uses_ijon_state) {
+
             OKF("IJON state-aware coverage enabled for all instrumented "
                 "locations (IJON_STATE detected).");
 
           } else {
+
             OKF("IJON data tracking enabled for instrumented locations "
                 "(IJON_DATA detected, no state-aware coverage).");
+
           }
 
         } else {
+
           OKF("IJON enabled but no IJON calls detected - using regular "
               "coverage.");
+
         }
+
       }
+
     }
+
   }
 
   return true;
+
 }
 
 // True if block has successors and it dominates all of them.
 static bool isFullDominator(const BasicBlock *BB, const DominatorTree *DT) {
+
   if (succ_empty(BB)) return false;
 
   return llvm::all_of(successors(BB), [&](const BasicBlock *SUCC) {
+
     return DT->dominates(BB, SUCC);
+
   });
+
 }
 
 // True if block has predecessors and it postdominates all of them.
 static bool isFullPostDominator(const BasicBlock        *BB,
                                 const PostDominatorTree *PDT) {
+
   if (pred_empty(BB)) return false;
 
   return llvm::all_of(predecessors(BB), [&](const BasicBlock *PRED) {
+
     return PDT->dominates(BB, PRED);
+
   });
+
 }
 
 static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
                                   const DominatorTree            *DT,
                                   const PostDominatorTree        *PDT,
                                   const SanitizerCoverageOptions &Options) {
+
   // Don't insert coverage for blocks containing nothing but unreachable: we
   // will never call __sanitizer_cov() for them, so counting them in
   // NumberOfInstrumentedBlocks() might complicate calculation of code coverage
@@ -710,10 +820,12 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
   // predecessors.
   return !isFullDominator(BB, DT) &&
          !(isFullPostDominator(BB, PDT) && !BB->getSinglePredecessor());
+
 }
 
 void ModuleSanitizerCoverageAFL::instrumentFunction(
     Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
+
   if (F.empty()) return;
   if (!isInInstrumentList(&F, FMNAME)) return;
   if (F.getName().contains(".module_ctor"))
@@ -752,36 +864,50 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 
   // AFL++ START
   if (deny_exec) {
+
     FunctionCallee AbortFn = F.getParent()->getOrInsertFunction(
         "abort", AttributeList{}, Type::getVoidTy(*C));
     for (auto &BB : F) {
+
       for (auto &IN : BB) {
+
         if (isExecCall(&IN)) {
+
           IRBuilder<> IRB(&IN);
           IRB.CreateCall(AbortFn);
+
         }
+
       }
+
     }
+
   }
 
   // AFL++ END
   for (auto &BB : F) {
+
     if (shouldInstrumentBlock(F, &BB, DT, PDT, Options))
       BlocksToInstrument.push_back(&BB);
+
   }
 
   if (debug) {
+
     fprintf(stderr, "SanitizerCoveragePCGUARD: instrumenting %s in %s\n",
             F.getName().str().c_str(), F.getParent()->getName().str().c_str());
+
   }
 
   InjectCoverage(F, BlocksToInstrument);
 
   if (dump_cc) { calcCyclomaticComplexity(&F); }
+
 }
 
 GlobalVariable *ModuleSanitizerCoverageAFL::CreateFunctionLocalArrayInSection(
     size_t NumElements, Function &F, Type *Ty, const char *Section) {
+
   ArrayType *ArrayTy = ArrayType::get(Ty, NumElements);
   auto       Array = new GlobalVariable(
       *CurModule, ArrayTy, false, GlobalVariable::PrivateLinkage,
@@ -813,17 +939,21 @@ GlobalVariable *ModuleSanitizerCoverageAFL::CreateFunctionLocalArrayInSection(
     GlobalsToAppendToUsed.push_back(Array);
 
   return Array;
+
 }
 
 void ModuleSanitizerCoverageAFL::CreateFunctionLocalArrays(
     Function &F, ArrayRef<BasicBlock *> AllBlocks, uint32_t special) {
+
   if (Options.TracePCGuard)
     FunctionGuardArray = CreateFunctionLocalArrayInSection(
         AllBlocks.size() + special, F, Int32Ty, SanCovGuardsSectionName);
+
 }
 
 bool ModuleSanitizerCoverageAFL::InjectCoverage(
     Function &F, ArrayRef<BasicBlock *> AllBlocks) {
+
   if (AllBlocks.empty()) return false;
 
   uint32_t cnt_cov = 0, cnt_sel = 0, cnt_sel_inc = 0, skip_blocks = 0,
@@ -831,11 +961,14 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   static uint32_t first = 1;
 
   for (auto &BB : F) {
+
     bool block_is_instrumented = false;
 
     for (auto &IN : BB) {
+
       // Check for dlopen warnings
       if (auto *callInst = dyn_cast<CallInst>(&IN)) {
+
         Function *Callee = callInst->getCalledFunction();
         if (!Callee) continue;
         if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
@@ -843,30 +976,38 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         StringRef FuncName = Callee->getName();
         if (!FuncName.compare(StringRef("dlopen")) ||
             !FuncName.compare(StringRef("_dlopen"))) {
+
           WARNF(
               "dlopen() detected. To have coverage for a library that your "
               "target dlopen()'s this must either happen before __AFL_INIT() "
               "or you must use AFL_PRELOAD to preload all dlopen()'ed "
               "libraries!\n");
           continue;
+
         }
 
         if (!FuncName.compare(StringRef("__afl_coverage_interesting"))) {
+
           cnt_cov++;
           block_is_instrumented = true;
           continue;
+
         }
+
       }
 
       // Check for AFL coverage interesting calls first
       if (isAflInterestingCall(IN)) {
+
         cnt_special++;
         continue;
+
       }
 
       bool instrumentInst = isInstructionInteresting(IN);
 
       if (instrumentInst) {
+
         SelectInst *selectInst;
 
         ICmpInst          *icmp = dyn_cast<ICmpInst>(&IN);
@@ -875,91 +1016,126 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         AtomicRMWInst     *rmw = dyn_cast<AtomicRMWInst>(&IN);
 
         if (icmp) {
+
           if (icmp->getType()->isIntegerTy(1)) {
+
             block_is_instrumented = true;
             cnt_sel++;
             cnt_sel_inc += 2;
 
           } else {
+
             unhandled++;
+
           }
 
         } else if (fcmp) {
+
           if (fcmp->getType()->isIntegerTy(1)) {
+
             block_is_instrumented = true;
             cnt_sel++;
             cnt_sel_inc += 2;
 
           } else {
+
             unhandled++;
+
           }
 
         } else if (cxchg) {
+
           if (cxchg->getType()->isIntegerTy(1)) {
+
             block_is_instrumented = true;
             cnt_sel++;
             cnt_sel_inc += 2;
 
           } else {
+
             unhandled++;
+
           }
 
         } else if (rmw) {
+
           if (rmw->getType()->isIntegerTy(1)) {
+
             block_is_instrumented = true;
             cnt_sel++;
             cnt_sel_inc += 2;
 
           } else {
+
             unhandled++;
+
           }
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+
           Value *c = selectInst->getCondition();
           auto   t = c->getType();
           if (t->getTypeID() == llvm::Type::IntegerTyID) {
+
             block_is_instrumented = true;
             cnt_sel++;
             cnt_sel_inc += 2;
 
           } else if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
             FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
             if (tt) {
+
               block_is_instrumented = true;
               cnt_sel++;
               cnt_sel_inc += (tt->getElementCount().getKnownMinValue() * 2);
+
             }
 
           } else {
+
             if (!be_quiet) {
+
               WARNF("unknown select ID type: %u\n", t->getTypeID());
+
             }
+
           }
+
         }
+
       }
+
     }
 
     if (block_is_instrumented && /*&BB != &BB.getParent()->getEntryBlock() &&*/
         llvm::is_contained(AllBlocks, &BB)) {
+
       Instruction *instr = &*BB.begin();
       LLVMContext &Ctx = BB.getContext();
       MDNode      *md = MDNode::get(Ctx, MDString::get(Ctx, "skipinstrument"));
       instr->setMetadata("skipinstrument", md);
       skip_blocks++;
+
     }
+
   }
 
   uint32_t xtra = 0;
   if (skip_blocks < first + cnt_cov + cnt_sel_inc + cnt_special) {
+
     xtra = first + cnt_cov + cnt_sel_inc + cnt_special - skip_blocks;
+
   }
 
   CreateFunctionLocalArrays(F, AllBlocks, xtra);
 
   if (!FunctionGuardArray) {
+
     WARNF(
         "SANCOV: FunctionGuardArray is NULL, failed to emit instrumentation.");
     return false;
+
   }
 
   if (first) { first = 0; }
@@ -968,14 +1144,19 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   uint32_t special = 0, local_selects = 0;
 
   for (auto &BB : F) {
+
     for (auto &IN : BB) {
+
       if (IN.getMetadata("afl.skip")) {
+
         // This is a synthetic AFL code we need to ignore
         continue;
+
       }
 
       // Check for AFL coverage interesting calls first
       if (isAflInterestingCall(IN)) {
+
 #if LLVM_MAJOR >= 20
         InstrumentationIRBuilder IRB(&IN);
 #else
@@ -990,6 +1171,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         auto *callInst = dyn_cast<CallInst>(&IN);
         callInst->setOperand(1, Idx);
         continue;
+
       }
 
       // printDebugInfo(IN);
@@ -998,6 +1180,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       bool instrumentInst = isInstructionInteresting(IN);
 
       if (instrumentInst) {
+
         Value      *result = nullptr;
         uint32_t    vector_cnt = 0;
         SelectInst *selectInst;
@@ -1009,6 +1192,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
         AtomicRMWInst     *rmw = dyn_cast<AtomicRMWInst>(&IN);
 
         if (icmp) {
+
           if (!icmp->getType()->isIntegerTy(1)) { continue; }
 
           if (debug) printDebugInfo(IN);
@@ -1030,6 +1214,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           // fprintf(stderr, "Icmp!\n");
 
         } else if (fcmp) {
+
           if (!fcmp->getType()->isIntegerTy(1)) { continue; }
 
           if (debug) printDebugInfo(IN);
@@ -1049,6 +1234,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           // fprintf(stderr, "Fcmp!\n");
 
         } else if (cxchg) {
+
           if (!cxchg->getType()->isIntegerTy(1)) { continue; }
 
           if (debug) printDebugInfo(IN);
@@ -1070,6 +1256,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           // fprintf(stderr, "Cxchg!\n");
 
         } else if (rmw) {
+
           AtomicRMWInst::BinOp Op = rmw->getOperation();
           if (Op != AtomicRMWInst::Min && Op != AtomicRMWInst::Max &&
               Op != AtomicRMWInst::UMin && Op != AtomicRMWInst::UMax)
@@ -1080,9 +1267,11 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           Value *NewVal = rmw->getValOperand();  // value passed to atomicrmw
 
           if (OldVal->getType() != NewVal->getType()) {
+
             // should not be needed
             if (NewVal->getType()->isIntegerTy() &&
                 OldVal->getType()->isIntegerTy()) {
+
               unsigned OldBW = OldVal->getType()->getIntegerBitWidth();
               unsigned NewBW = NewVal->getType()->getIntegerBitWidth();
               if (NewBW < OldBW)
@@ -1090,11 +1279,14 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
               else if (NewBW > OldBW)
                 NewVal =
                     IRB.CreateTrunc(NewVal, OldVal->getType(), "rmw.trunc");
+
             }
+
           }
 
           CmpInst::Predicate Pred;
           switch (Op) {
+
             case AtomicRMWInst::Min:
               Pred = CmpInst::ICMP_SLT;  // NewVal < OldVal  -> update
               break;
@@ -1109,6 +1301,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
               break;
             default:
               continue;
+
           }
 
           Value *res = IRB.CreateICmp(Pred, NewVal, OldVal, "rmw.cov");
@@ -1126,10 +1319,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           // fprintf(stderr, "Rmw!\n");
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
+
           Value *condition = selectInst->getCondition();
           auto   t = condition->getType();
 
           if (t->getTypeID() == llvm::Type::IntegerTyID) {
+
             Value *GuardPtr1 =
                 createGuardPointer(IRB, cnt_cov + special + local_selects++ +
                                             AllBlocks.size() - skip_blocks);
@@ -1145,8 +1340,10 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           } else
 
               if (t->getTypeID() == llvm::Type::FixedVectorTyID) {
+
             FixedVectorType *tt = dyn_cast<FixedVectorType>(t);
             if (tt) {
+
               vector_cnt = tt->getElementCount().getFixedValue();
               result = instrumentVectorSelect(IRB, condition, tt, local_selects,
                                               cnt_cov, skip_blocks, special,
@@ -1155,18 +1352,24 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
               LLVMContext &Ctx = RES->getContext();
               MDNode      *Tag = MDNode::get(Ctx, {});
               RES->setMetadata("afl.skip", Tag);
+
             }
 
           } else
 
           {
+
             if (!be_quiet) {
+
               WARNF("Warning: Unhandled ID type: %u\n", t->getTypeID());
+
             }
 
             unhandled++;
             continue;
+
           }
+
         }
 
         // Load SHM pointer and update coverage bitmap
@@ -1175,8 +1378,11 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         updateCoverageForSelect(IRB, result, MapPtr, vector_cnt);
         instr += vector_cnt;
+
       }
+
     }
+
   }
 
   if (AllBlocks.empty() && !special && !local_selects) return false;
@@ -1186,32 +1392,42 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   if (AllBlocks.size() < skipped) { abort(); }  // assert
 
   if (!AllBlocks.empty()) {
+
     size_t counter = 0;
 
     for (size_t i = 0, N = AllBlocks.size(); i < N; i++) {
+
       auto instr = AllBlocks[i]->begin();
       if (instr->getMetadata("skipinstrument")) {
+
         skipped++;
 
       } else {
+
         InjectCoverageAtBlock(F, *AllBlocks[i], counter++);
+
       }
+
     }
+
   }
 
   skippedbb += skipped;
 
   return true;
+
 }
 
 void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
                                                        BasicBlock &BB,
                                                        size_t      Idx) {
+
   BasicBlock::iterator IP = BB.getFirstInsertionPt();
   bool                 IsEntryBB = &BB == &F.getEntryBlock();
   DebugLoc             EntryLoc;
 
   if (IsEntryBB) {
+
     if (auto SP = F.getSubprogram())
       EntryLoc = DILocation::get(SP->getContext(), SP->getScopeLine(), 0, SP);
     // Keep static allocas and llvm.localescape calls in the entry block.  Even
@@ -1221,11 +1437,13 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 #if LLVM_MAJOR < 15
 
   } else {
+
     EntryLoc = IP->getDebugLoc();
     if (!EntryLoc)
       if (auto *SP = F.getSubprogram())
         EntryLoc = DILocation::get(SP->getContext(), 0, 0, SP);
 #endif
+
   }
 
 #if LLVM_MAJOR >= 16
@@ -1235,6 +1453,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 #endif
   if (EntryLoc) IRB.SetCurrentDebugLocation(EntryLoc);
   if (Options.TracePCGuard) {
+
     /* Get CurLoc */
 
     Value *GuardPtr = createGuardPointer(IRB, Idx);
@@ -1253,6 +1472,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 
     // Apply IJON state-aware coverage if enabled
     if (ijon_enabled && AFLIJONState) {
+
       LoadInst *IJONStateVal = IRB.CreateLoad(Int32Ty, AFLIJONState);
       SetNoSanitizeMetadata(IJONStateVal);
       // Apply IJON formula: state XOR coverage_index
@@ -1261,6 +1481,7 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
       LoadInst *CovMapSize = IRB.CreateLoad(Int32Ty, AFLCovMapSize);
       SetNoSanitizeMetadata(CovMapSize);
       CoverageIndex = IRB.CreateURem(XorResult, CovMapSize);
+
     }
 
     updateCoverageBitmap(IRB, CoverageIndex, MapPtr);
@@ -1268,32 +1489,43 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
     // done :)
 
     ++instr;
+
   }
+
 }
 
 std::string ModuleSanitizerCoverageAFL::getSectionName(
     const std::string &Section) const {
+
   if (TargetTriple.isOSBinFormatCOFF()) {
+
     if (Section == SanCovCountersSectionName) return ".SCOV$CM";
     if (Section == SanCovBoolFlagSectionName) return ".SCOV$BM";
     if (Section == SanCovPCsSectionName) return ".SCOVP$M";
     return ".SCOV$GM";  // For SanCovGuardsSectionName.
+
   }
 
   if (TargetTriple.isOSBinFormatMachO()) return "__DATA,__" + Section;
   return "__" + Section;
+
 }
 
 std::string ModuleSanitizerCoverageAFL::getSectionStart(
     const std::string &Section) const {
+
   if (TargetTriple.isOSBinFormatMachO())
     return "\1section$start$__DATA$__" + Section;
   return "__start___" + Section;
+
 }
 
 std::string ModuleSanitizerCoverageAFL::getSectionEnd(
     const std::string &Section) const {
+
   if (TargetTriple.isOSBinFormatMachO())
     return "\1section$end$__DATA$__" + Section;
   return "__stop___" + Section;
+
 }
+

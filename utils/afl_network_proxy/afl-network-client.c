@@ -385,9 +385,9 @@ int main(int argc, char *argv[]) {
                                       &decompress_len) != LIBDEFLATE_SUCCESS ||
         decompress_len != __afl_map_size)
       FATAL("decompression failed");
-      // fprintf(stderr, "DECOMPRESS (%u->%u): ", compress_len, decompress_len);
-      // for (u32 i = 0; i < __afl_map_size; i++) fprintf(stderr, "%02x",
-      // __afl_area_ptr[i]); fprintf(stderr, "\n");
+    // fprintf(stderr, "DECOMPRESS (%u->%u): ", compress_len, decompress_len);
+    // for (u32 i = 0; i < __afl_map_size; i++) fprintf(stderr, "%02x",
+    // __afl_area_ptr[i]); fprintf(stderr, "\n");
 #else
     while (received < __afl_map_size &&
            (ret = recv(s, __afl_area_ptr + received, __afl_map_size - received,

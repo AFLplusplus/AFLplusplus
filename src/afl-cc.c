@@ -136,28 +136,37 @@ char compiler_mode_string[7][12] = {
 };
 
 u8 *instrument_mode_2str(instrument_mode_id i) {
+
   return instrument_mode_string[i];
+
 }
 
 u8 *compiler_mode_2str(compiler_mode_id i) {
+
   return compiler_mode_string[i];
+
 }
 
 u8 *getthecwd() {
+
   if (getcwd(cwd, sizeof(cwd)) == NULL) {
+
     static u8 fail[] = "";
     return fail;
+
   }
 
   return cwd;
+
 }
 
 typedef struct aflcc_state {
-  u8 **cc_params;  /* Parameters passed to the real CC  */
-  u32  cc_par_cnt; /* Param count, including argv0      */
 
-  u8 *argv0;    /* Original argv0 (by strdup)        */
-  u8 *callname; /* Executable file argv0 indicated   */
+  u8 **cc_params;                      /* Parameters passed to the real CC  */
+  u32  cc_par_cnt;                     /* Param count, including argv0      */
+
+  u8 *argv0;                           /* Original argv0 (by strdup)        */
+  u8 *callname;                        /* Executable file argv0 indicated   */
 
   u8 debug;
 
@@ -191,16 +200,22 @@ u8 *find_object(aflcc_state_t *, u8 *obj);
 void find_built_deps(aflcc_state_t *);
 
 static inline void increment_cc_parameter_cnt(aflcc_state_t *aflcc) {
+
   aflcc->cc_par_cnt += 1;
   if (unlikely(aflcc->cc_par_cnt >= MAX_PARAMS_NUM)) {
+
     FATAL("Too many command line parameters. Please increase MAX_PARAMS_NUM.");
+
   }
+
 }
 
 /* Insert param into the new argv, raise error if MAX_PARAMS_NUM exceeded. */
 static inline void insert_param(aflcc_state_t *aflcc, u8 *param) {
+
   aflcc->cc_params[aflcc->cc_par_cnt] = param;
   increment_cc_parameter_cnt(aflcc);
+
 }
 
 /*
@@ -212,33 +227,44 @@ static inline void insert_param(aflcc_state_t *aflcc, u8 *param) {
 */
 static inline void insert_object(aflcc_state_t *aflcc, u8 *obj, u8 *fmt,
                                  u8 *msg) {
+
   u8 *_obj_path = find_object(aflcc, obj);
   if (!_obj_path) {
+
     if (msg)
       FATAL("%s", msg);
     else
       FATAL("Unable to find '%s'", obj);
 
   } else {
+
     if (fmt) {
+
       u8 *_obj_path_fmt = alloc_printf(fmt, _obj_path);
       ck_free(_obj_path);
       aflcc->cc_params[aflcc->cc_par_cnt++] = _obj_path_fmt;
 
     } else {
+
       aflcc->cc_params[aflcc->cc_par_cnt++] = _obj_path;
+
     }
+
   }
+
 }
 
 /* Insert params into the new argv, make clang load the pass. */
 static inline void load_llvm_pass(aflcc_state_t *aflcc, u8 *pass) {
+
   if (getenv("AFL_LLVM_ONLY_FSRV")) {
+
     if (!be_quiet) { DEBUGF("Coverage instrumentation disabled\n"); }
     return;
+
   }
 
-#if LLVM_MAJOR >= 11 /* use new pass manager */
+#if LLVM_MAJOR >= 11                                /* use new pass manager */
   #if LLVM_MAJOR < 16
     #if LLVM_MAJOR < 15
   insert_param(aflcc, "-fno-legacy-pass-manager");
@@ -253,15 +279,18 @@ static inline void load_llvm_pass(aflcc_state_t *aflcc, u8 *pass) {
   insert_param(aflcc, "-Xclang");
   insert_object(aflcc, pass, 0, 0);
 #endif
+
 }
 
 static inline void debugf_args(int argc, char **argv) {
+
   DEBUGF("cd '%s';", getthecwd());
   for (int i = 0; i < argc; i++)
     SAYF(" '%s'", argv[i]);
   SAYF("\n");
   fflush(stdout);
   fflush(stderr);
+
 }
 
 void compiler_mode_by_callname(aflcc_state_t *);
@@ -304,6 +333,7 @@ void add_runtime(aflcc_state_t *);
   check debug options and if in C++ mode here.
 */
 void aflcc_state_init(aflcc_state_t *aflcc, u8 *argv0) {
+
   // Default NULL/0 is a good start
   memset(aflcc, 0, sizeof(aflcc_state_t));
 
@@ -321,34 +351,45 @@ void aflcc_state_init(aflcc_state_t *aflcc, u8 *argv0) {
   char *cname = NULL;
 
   if ((cname = strrchr(aflcc->argv0, '/')) != NULL) {
+
     cname++;
 
   } else {
+
     cname = aflcc->argv0;
+
   }
 
   aflcc->callname = cname;
 
   if (strlen(cname) > 2 && (strncmp(cname + strlen(cname) - 2, "++", 2) == 0 ||
                             strstr(cname, "-g++") != NULL)) {
+
     aflcc->plusplus_mode = 1;
+
   }
 
   /* debug */
 
   if (getenv("AFL_DEBUG")) {
+
     aflcc->debug = 1;
     if (strcmp(getenv("AFL_DEBUG"), "0") == 0) unsetenv("AFL_DEBUG");
 
   } else if (getenv("AFL_QUIET")) {
+
     be_quiet = 1;
+
   }
 
   if (getenv("AFL_LLVM_NO_ERROR")) { aflcc->wnoerror = 1; }
 
   if ((getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) && (!aflcc->debug)) {
+
     be_quiet = 1;
+
   }
+
 }
 
 /*
@@ -367,12 +408,14 @@ void aflcc_state_init(aflcc_state_t *aflcc, u8 *argv0) {
   what to do. Otherwise the path to obj would be allocated and returned.
 */
 u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
+
   u8 *argv0 = aflcc->argv0;
 
   u8 *afl_path = getenv("AFL_PATH");
   u8 *slash = NULL, *tmp;
 
   if (afl_path) {
+
     tmp = alloc_printf("%s/%s", afl_path, obj);
 
     if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
@@ -380,12 +423,15 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
     if (!access(tmp, R_OK)) { return tmp; }
 
     ck_free(tmp);
+
   }
 
   if (argv0) {
+
     slash = strrchr(argv0, '/');
 
     if (slash) {
+
       u8 *dir = ck_strdup(argv0);
 
       slash = strrchr(dir, '/');
@@ -396,8 +442,10 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
       if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
 
       if (!access(tmp, R_OK)) {
+
         ck_free(dir);
         return tmp;
+
       }
 
       ck_free(tmp);
@@ -406,14 +454,17 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
       if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
 
       if (!access(tmp, R_OK)) {
+
         ck_free(dir);
         return tmp;
+
       }
 
       ck_free(tmp);
       ck_free(dir);
 
     }
+
 #if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__linux__) || \
     defined(__ANDROID__) || defined(__NetBSD__)
   #define HAS_PROC_FS 1
@@ -430,13 +481,16 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
       procname = "/proc/curproc/exe";
   #endif
       if (procname) {
+
         char    exepath[PATH_MAX];
         ssize_t exepath_len = readlink(procname, exepath, sizeof(exepath));
         if (exepath_len > 0 && exepath_len < PATH_MAX) {
+
           exepath[exepath_len] = 0;
           slash = strrchr(exepath, '/');
 
           if (slash) {
+
             *slash = 0;
             tmp = alloc_printf("%s/%s", exepath, obj);
 
@@ -452,13 +506,18 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
             if (!access(tmp, R_OK)) { return tmp; }
 
             ck_free(tmp);
+
           }
+
         }
+
       }
+
     }
 
 #endif
 #undef HAS_PROC_FS
+
   }
 
   tmp = alloc_printf("%s/%s", AFL_PATH, obj);
@@ -471,6 +530,7 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
 
   if (strlen(obj) > 2 && obj[strlen(obj) - 1] == 'h' &&
       obj[strlen(obj) - 2] == '.') {
+
     tmp = alloc_printf("%s/include/%s", afl_path, obj);
 
     if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
@@ -502,11 +562,13 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
     if (!access(tmp, R_OK)) { return tmp; }
 
     ck_free(tmp);
+
   }
 
   if (aflcc->debug) DEBUGF("Trying ... giving up\n");
 
   return NULL;
+
 }
 
 /*
@@ -514,35 +576,44 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
   from the building results of AFL++
 */
 void find_built_deps(aflcc_state_t *aflcc) {
+
   char *ptr = NULL;
 
 #if defined(__x86_64__) || defined(__i386__)
   if ((ptr = find_object(aflcc, "afl-as")) != NULL) {
+
   #ifndef __APPLE__
     // on OSX clang masquerades as GCC
     aflcc->have_gcc = 1;
   #endif
     aflcc->have_clang = 1;
     ck_free(ptr);
+
   }
 
 #endif
 
   if ((ptr = find_object(aflcc, "SanitizerCoveragePCGUARD.so")) != NULL) {
+
     aflcc->have_optimized_pcguard = 1;
     ck_free(ptr);
+
   }
 
 #if (LLVM_MAJOR >= 3)
 
   if ((ptr = find_object(aflcc, "SanitizerCoverageLTO.so")) != NULL) {
+
     aflcc->have_lto = 1;
     ck_free(ptr);
+
   }
 
   if ((ptr = find_object(aflcc, "cmplog-routines-pass.so")) != NULL) {
+
     aflcc->have_llvm = 1;
     ck_free(ptr);
+
   }
 
 #endif
@@ -552,30 +623,37 @@ void find_built_deps(aflcc_state_t *aflcc) {
 #endif
 
   if ((ptr = find_object(aflcc, "afl-gcc-pass.so")) != NULL) {
+
     aflcc->have_gcc_plugin = 1;
     ck_free(ptr);
+
   }
 
 #if !defined(__ANDROID__) && !defined(ANDROID)
   ptr = find_object(aflcc, "afl-compiler-rt.o");
 
   if (!ptr) {
+
     FATAL(
         "Unable to find 'afl-compiler-rt.o'. Please set the AFL_PATH "
         "environment variable.");
+
   }
 
   if (aflcc->debug) { DEBUGF("rt=%s\n", ptr); }
 
   ck_free(ptr);
 #endif
+
 }
 
 /** compiler_mode & instrument_mode selecting -----BEGIN----- **/
 
 /* Select compiler_mode by callname, such as "afl-clang-fast", etc. */
 void compiler_mode_by_callname(aflcc_state_t *aflcc) {
+
   if (strncmp(aflcc->callname, "afl-clang-fast", 14) == 0) {
+
     /* afl-clang-fast is always created there by makefile
       - If llvm-config is not available (i.e. LLVM_MAJOR is 0),
         or too old, it falls back to LLVM-NATIVE mode and let
@@ -589,6 +667,7 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
 #endif
 
   } else
+
 #if (LLVM_MAJOR >= 3)
 
       if (strncmp(aflcc->callname, "afl-clang-lto", 13) == 0 ||
@@ -598,6 +677,7 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
     aflcc->compiler_mode = LTO;
 
   } else
+
 #endif
 
       if (strncmp(aflcc->callname, "afl-gcc-fast", 12) == 0 ||
@@ -609,13 +689,17 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
   } else if (strncmp(aflcc->callname, "afl-gcc", 7) == 0 ||
 
              strncmp(aflcc->callname, "afl-g++", 7) == 0) {
+
     aflcc->compiler_mode = GCC;
 
   } else if (strcmp(aflcc->callname, "afl-clang") == 0 ||
 
              strcmp(aflcc->callname, "afl-clang++") == 0) {
+
     aflcc->compiler_mode = CLANG;
+
   }
+
 }
 
 /*
@@ -623,8 +707,11 @@ void compiler_mode_by_callname(aflcc_state_t *aflcc) {
   regarded as a special compiler_mode, so we check for it here, too.
 */
 void compiler_mode_by_environ(aflcc_state_t *aflcc) {
+
   if (getenv("AFL_PASSTHROUGH") || getenv("AFL_NOOPT")) {
+
     aflcc->passthrough = 1;
+
   }
 
   char *ptr = getenv("AFL_CC_COMPILER");
@@ -632,36 +719,47 @@ void compiler_mode_by_environ(aflcc_state_t *aflcc) {
   if (!ptr) { return; }
 
   if (aflcc->compiler_mode) {
+
     if (!be_quiet) {
+
       WARNF(
           "\"AFL_CC_COMPILER\" is set but a specific compiler was already "
           "selected by command line parameter or symlink, ignoring the "
           "environment variable!");
+
     }
 
   } else {
+
     if (strncasecmp(ptr, "LTO", 3) == 0) {
+
       aflcc->compiler_mode = LTO;
 
     } else if (strncasecmp(ptr, "LLVM", 4) == 0) {
+
       aflcc->compiler_mode = LLVM;
 
     } else if (strncasecmp(ptr, "GCC_P", 5) == 0 ||
 
                strncasecmp(ptr, "GCC-P", 5) == 0 ||
                strncasecmp(ptr, "GCCP", 4) == 0) {
+
       aflcc->compiler_mode = GCC_PLUGIN;
 
     } else if (strcasecmp(ptr, "GCC") == 0) {
+
       aflcc->compiler_mode = GCC;
 
     } else if (strcasecmp(ptr, "CLANG") == 0) {
+
       aflcc->compiler_mode = CLANG;
 
     } else
 
       FATAL("Unknown AFL_CC_COMPILER mode: %s\n", ptr);
+
   }
+
 }
 
 /*
@@ -672,20 +770,27 @@ void compiler_mode_by_environ(aflcc_state_t *aflcc) {
   be overwritten by "-g".
 */
 void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
+
   char *ptr = NULL;
 
   for (int i = 1; i < argc; i++) {
+
     if (strncmp(argv[i], "--afl", 5) == 0) {
+
       if (!strcmp(argv[i], "--afl_noopt") || !strcmp(argv[i], "--afl-noopt")) {
+
         aflcc->passthrough = 1;
         argv[i] = "-g";  // we have to overwrite it, -g is always good
         continue;
+
       }
 
       if (aflcc->compiler_mode && !be_quiet) {
+
         WARNF(
             "--afl-... compiler mode supersedes the AFL_CC_COMPILER and "
             "symlink compiler selection!");
+
       }
 
       ptr = argv[i];
@@ -694,20 +799,24 @@ void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
         ptr++;
 
       if (strncasecmp(ptr, "LTO", 3) == 0) {
+
         aflcc->compiler_mode = LTO;
 
       } else if (strncasecmp(ptr, "LLVM", 4) == 0) {
+
         aflcc->compiler_mode = LLVM;
 
       } else if (strncasecmp(ptr, "PCGUARD", 7) == 0 ||
 
                  strncasecmp(ptr, "PC-GUARD", 8) == 0) {
+
         aflcc->compiler_mode = LLVM;
         aflcc->instrument_mode = INSTRUMENT_PCGUARD;
 
       } else if (strcasecmp(ptr, "INSTRIM") == 0 ||
 
                  strcasecmp(ptr, "CFG") == 0) {
+
         FATAL(
             "InsTrim instrumentation was removed. Use a modern LLVM and "
             "PCGUARD (default in afl-cc).\n");
@@ -715,6 +824,7 @@ void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
       } else if (strcasecmp(ptr, "AFL") == 0 ||
 
                  strcasecmp(ptr, "CLASSIC") == 0) {
+
         aflcc->compiler_mode = LLVM;
         aflcc->instrument_mode = INSTRUMENT_CLASSIC;
 
@@ -722,6 +832,7 @@ void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
 
                  strcasecmp(ptr, "NATIVE") == 0 ||
                  strcasecmp(ptr, "LLVM-NATIVE") == 0) {
+
         aflcc->compiler_mode = LLVM;
         aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
 
@@ -729,19 +840,25 @@ void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
 
                  strncasecmp(ptr, "GCC-P", 5) == 0 ||
                  strncasecmp(ptr, "GCCP", 4) == 0) {
+
         aflcc->compiler_mode = GCC_PLUGIN;
 
       } else if (strcasecmp(ptr, "GCC") == 0) {
+
         aflcc->compiler_mode = GCC;
 
       } else if (strncasecmp(ptr, "CLANG", 5) == 0) {
+
         aflcc->compiler_mode = CLANG;
 
       } else
 
         FATAL("Unknown --afl-... compiler mode: %s\n", argv[i]);
+
     }
+
   }
+
 }
 
 /*
@@ -751,19 +868,24 @@ void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
   - AFL_LLVM_NGRAM_SIZE
 */
 static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
+
   if (getenv("AFL_LLVM_INSTRIM") || getenv("INSTRIM") ||
       getenv("INSTRIM_LIB")) {
+
     FATAL(
         "InsTrim instrumentation was removed. Use a modern LLVM and PCGUARD "
         "(default in afl-cc).\n");
+
   }
 
   if (getenv("USE_TRACE_PC") || getenv("AFL_USE_TRACE_PC") ||
       getenv("AFL_LLVM_USE_TRACE_PC") || getenv("AFL_TRACE_PC")) {
+
     if (aflcc->instrument_mode == 0)
       aflcc->instrument_mode = INSTRUMENT_PCGUARD;
     else if (aflcc->instrument_mode != INSTRUMENT_PCGUARD)
       FATAL("you cannot set AFL_LLVM_INSTRUMENT and AFL_TRACE_PC together");
+
   }
 
   if (getenv("AFL_LLVM_CTX")) aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CTX;
@@ -772,6 +894,7 @@ static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
     aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
 
   if (getenv("AFL_LLVM_NGRAM_SIZE")) {
+
     aflcc->instrument_opt_mode |= INSTRUMENT_OPT_NGRAM;
     aflcc->ngram_size = atoi(getenv("AFL_LLVM_NGRAM_SIZE"));
     if (aflcc->ngram_size < 2 || aflcc->ngram_size > NGRAM_SIZE_MAX)
@@ -779,22 +902,29 @@ static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
           "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
           "(%u)",
           NGRAM_SIZE_MAX);
+
   }
 
   if (getenv("AFL_LLVM_CTX_K")) {
+
     aflcc->ctx_k = atoi(getenv("AFL_LLVM_CTX_K"));
     if (aflcc->ctx_k < 1 || aflcc->ctx_k > CTX_MAX_K)
       FATAL("K-CTX instrumentation mode must be between 1 and CTX_MAX_K (%u)",
             CTX_MAX_K);
     if (aflcc->ctx_k == 1) {
+
       setenv("AFL_LLVM_CALLER", "1", 1);
       unsetenv("AFL_LLVM_CTX_K");
       aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
 
     } else {
+
       aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CTX_K;
+
     }
+
   }
+
 }
 
 /*
@@ -803,10 +933,13 @@ static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
   values of instrument_mode.
 */
 static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
+
   u8 *ptr2;
 
   if ((ptr2 = getenv("AFL_OPT_LEVEL"))) {
+
     opt_level = ptr2[0];  // ignore invalid data
+
   }
 
   if (!getenv("AFL_LLVM_INSTRUMENT")) { return; }
@@ -814,25 +947,33 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
   ptr2 = strtok(getenv("AFL_LLVM_INSTRUMENT"), ":,;");
 
   while (ptr2) {
+
     if (strncasecmp(ptr2, "afl", strlen("afl")) == 0 ||
         strncasecmp(ptr2, "classic", strlen("classic")) == 0) {
+
       if (aflcc->instrument_mode == INSTRUMENT_LTO) {
+
         aflcc->instrument_mode = INSTRUMENT_CLASSIC;
         aflcc->lto_mode = 1;
 
       } else if (!aflcc->instrument_mode ||
 
                  aflcc->instrument_mode == INSTRUMENT_AFL) {
+
         aflcc->instrument_mode = INSTRUMENT_AFL;
 
       } else {
+
         FATAL("main instrumentation mode already set with %s",
               instrument_mode_2str(aflcc->instrument_mode));
+
       }
+
     }
 
     if (strncasecmp(ptr2, "pc-guard", strlen("pc-guard")) == 0 ||
         strncasecmp(ptr2, "pcguard", strlen("pcguard")) == 0) {
+
       if (!aflcc->instrument_mode ||
           aflcc->instrument_mode == INSTRUMENT_PCGUARD)
 
@@ -841,11 +982,13 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
       else
         FATAL("main instrumentation mode already set with %s",
               instrument_mode_2str(aflcc->instrument_mode));
+
     }
 
     if (strncasecmp(ptr2, "llvmnative", strlen("llvmnative")) == 0 ||
         strncasecmp(ptr2, "llvm-native", strlen("llvm-native")) == 0 ||
         strncasecmp(ptr2, "native", strlen("native")) == 0) {
+
       if (!aflcc->instrument_mode ||
           aflcc->instrument_mode == INSTRUMENT_LLVMNATIVE)
 
@@ -854,29 +997,38 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
       else
         FATAL("main instrumentation mode already set with %s",
               instrument_mode_2str(aflcc->instrument_mode));
+
     }
 
     if (strncasecmp(ptr2, "llvmcodecov", strlen("llvmcodecov")) == 0 ||
         strncasecmp(ptr2, "llvm-codecov", strlen("llvm-codecov")) == 0) {
+
       if (!aflcc->instrument_mode ||
           aflcc->instrument_mode == INSTRUMENT_LLVMNATIVE) {
+
         aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
         aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CODECOV;
 
       } else {
+
         FATAL("main instrumentation mode already set with %s",
               instrument_mode_2str(aflcc->instrument_mode));
+
       }
+
     }
 
     if (strncasecmp(ptr2, "cfg", strlen("cfg")) == 0 ||
         strncasecmp(ptr2, "instrim", strlen("instrim")) == 0) {
+
       FATAL(
           "InsTrim instrumentation was removed. Use a modern LLVM and "
           "PCGUARD (default in afl-cc).\n");
+
     }
 
     if (strncasecmp(ptr2, "lto", strlen("lto")) == 0) {
+
       aflcc->lto_mode = 1;
       if (!aflcc->instrument_mode || aflcc->instrument_mode == INSTRUMENT_LTO)
 
@@ -885,9 +1037,11 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
       else
         FATAL("main instrumentation mode already set with %s",
               instrument_mode_2str(aflcc->instrument_mode));
+
     }
 
     if (strcasecmp(ptr2, "gcc") == 0) {
+
       if (!aflcc->instrument_mode || aflcc->instrument_mode == INSTRUMENT_GCC)
 
         aflcc->instrument_mode = INSTRUMENT_GCC;
@@ -897,9 +1051,11 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
               instrument_mode_2str(aflcc->instrument_mode));
 
       aflcc->compiler_mode = GCC;
+
     }
 
     if (strcasecmp(ptr2, "clang") == 0) {
+
       if (!aflcc->instrument_mode || aflcc->instrument_mode == INSTRUMENT_CLANG)
 
         aflcc->instrument_mode = INSTRUMENT_CLANG;
@@ -909,20 +1065,24 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
               instrument_mode_2str(aflcc->instrument_mode));
 
       aflcc->compiler_mode = CLANG;
+
     }
 
     if (strncasecmp(ptr2, "ctx-", strlen("ctx-")) == 0 ||
         strncasecmp(ptr2, "kctx-", strlen("c-ctx-")) == 0 ||
         strncasecmp(ptr2, "k-ctx-", strlen("k-ctx-")) == 0) {
+
       u8 *ptr3 = ptr2;
       while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
         ptr3++;
 
       if (!*ptr3) {
+
         if ((ptr3 = getenv("AFL_LLVM_CTX_K")) == NULL)
           FATAL(
               "you must set the K-CTX K with (e.g. for value 2) "
               "AFL_LLVM_INSTRUMENT=ctx-2");
+
       }
 
       aflcc->ctx_k = atoi(ptr3);
@@ -933,56 +1093,74 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
             CTX_MAX_K);
 
       if (aflcc->ctx_k == 1) {
+
         aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
         setenv("AFL_LLVM_CALLER", "1", 1);
         unsetenv("AFL_LLVM_CTX_K");
 
       } else {
+
         aflcc->instrument_opt_mode |= (INSTRUMENT_OPT_CTX_K);
         u8 *ptr4 = alloc_printf("%u", aflcc->ctx_k);
         setenv("AFL_LLVM_CTX_K", ptr4, 1);
+
       }
+
     }
 
     if (strcasecmp(ptr2, "ctx") == 0) {
+
       aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CTX;
       setenv("AFL_LLVM_CTX", "1", 1);
+
     }
 
     if (strncasecmp(ptr2, "caller", strlen("caller")) == 0) {
+
       aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
       setenv("AFL_LLVM_CALLER", "1", 1);
+
     }
 
     if (strncasecmp(ptr2, "ngram", strlen("ngram")) == 0) {
+
       u8 *ptr3 = ptr2 + strlen("ngram");
       while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9')) {
+
         ptr3++;
+
       }
 
       if (!*ptr3) {
+
         if ((ptr3 = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
           FATAL(
               "you must set the NGRAM size with (e.g. for value 2) "
               "AFL_LLVM_INSTRUMENT=ngram-2");
+
       }
 
       aflcc->ngram_size = atoi(ptr3);
 
       if (aflcc->ngram_size < 2 || aflcc->ngram_size > NGRAM_SIZE_MAX) {
+
         FATAL(
             "NGRAM instrumentation option must be between 2 and "
             "NGRAM_SIZE_MAX (%u)",
             NGRAM_SIZE_MAX);
+
       }
 
       aflcc->instrument_opt_mode |= (INSTRUMENT_OPT_NGRAM);
       u8 *ptr4 = alloc_printf("%u", aflcc->ngram_size);
       setenv("AFL_LLVM_NGRAM_SIZE", ptr4, 1);
+
     }
 
     ptr2 = strtok(NULL, ":,;");
+
   }
+
 }
 
 /*
@@ -991,20 +1169,26 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
   and instrument_mode_new_environ sequentially.
 */
 void instrument_mode_by_environ(aflcc_state_t *aflcc) {
+
   if (getenv("AFL_LLVM_INSTRUMENT_FILE") || getenv("AFL_LLVM_WHITELIST") ||
       getenv("AFL_LLVM_ALLOWLIST") || getenv("AFL_LLVM_DENYLIST") ||
       getenv("AFL_LLVM_BLOCKLIST")) {
+
     aflcc->have_instr_env = 1;
+
   }
 
   if (aflcc->have_instr_env && getenv("AFL_DONT_OPTIMIZE") && !be_quiet) {
+
     WARNF(
         "AFL_LLVM_ALLOWLIST/DENYLIST and AFL_DONT_OPTIMIZE cannot be combined "
         "for file matching, only function matching!");
+
   }
 
   instrument_mode_old_environ(aflcc);
   instrument_mode_new_environ(aflcc);
+
 }
 
 /*
@@ -1012,20 +1196,27 @@ void instrument_mode_by_environ(aflcc_state_t *aflcc) {
   instrumentation were used correctly.
 */
 static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
+
   if ((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
       (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
       aflcc->compiler_mode != LTO) {
+
     FATAL("you cannot set CTX and CALLER together");
+
   }
 
   if ((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
       (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
+
     FATAL("you cannot set CTX and K-CTX together");
+
   }
 
   if ((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
       (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
+
     FATAL("you cannot set CALLER and K-CTX together");
+
   }
 
   if (aflcc->instrument_opt_mode && aflcc->compiler_mode != LLVM &&
@@ -1041,6 +1232,7 @@ static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
     FATAL(
         "CALLER, CTX and NGRAM instrumentation options can only be used with "
         "the LLVM CLASSIC instrumentation mode.");
+
 }
 
 /*
@@ -1049,14 +1241,18 @@ static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
   prepare for a series of fallbacks, and raise warnings or errors.
 */
 void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
+
   if (aflcc->instrument_opt_mode &&
       aflcc->instrument_mode == INSTRUMENT_DEFAULT &&
       (aflcc->compiler_mode == LLVM || aflcc->compiler_mode == UNSET)) {
+
     aflcc->instrument_mode = INSTRUMENT_CLASSIC;
     aflcc->compiler_mode = LLVM;
+
   }
 
   if (!aflcc->compiler_mode) {
+
     // lto is not a default because outside of afl-cc RANLIB and AR have to
     // be set to LLVM versions so this would work
     if (aflcc->have_llvm)
@@ -1071,9 +1267,11 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
       aflcc->compiler_mode = LTO;
     else
       FATAL("no compiler mode available");
+
   }
 
   switch (aflcc->compiler_mode) {
+
     case GCC:
       break;
     case CLANG:
@@ -1098,52 +1296,70 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
       break;
     default:
       FATAL("no compiler mode available");
+
   }
 
   if (aflcc->compiler_mode == GCC) { aflcc->instrument_mode = INSTRUMENT_GCC; }
 
   if (aflcc->compiler_mode == CLANG) {
+
     /* if our PCGUARD implementation is not available then silently switch to
      native LLVM PCGUARD. Or classic asm instrument is explicitly preferred. */
     if (!aflcc->have_optimized_pcguard &&
         (aflcc->instrument_mode == INSTRUMENT_DEFAULT ||
          aflcc->instrument_mode == INSTRUMENT_PCGUARD)) {
+
       aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
 
     } else {
+
       aflcc->instrument_mode = INSTRUMENT_CLANG;
       setenv(CLANG_ENV_VAR, "1", 1);  // used by afl-as
+
     }
+
   }
 
   if (aflcc->compiler_mode == LTO) {
+
     if (aflcc->instrument_mode == 0 ||
         aflcc->instrument_mode == INSTRUMENT_LTO ||
         aflcc->instrument_mode == INSTRUMENT_CFG ||
         aflcc->instrument_mode == INSTRUMENT_PCGUARD) {
+
       aflcc->lto_mode = 1;
       aflcc->instrument_mode = INSTRUMENT_PCGUARD;
 
     } else if (aflcc->instrument_mode == INSTRUMENT_CLASSIC) {
+
       aflcc->lto_mode = 1;
 
     } else {
+
       if (!be_quiet) {
+
         WARNF("afl-clang-lto called with mode %s, using that mode instead",
               instrument_mode_2str(aflcc->instrument_mode));
+
       }
+
     }
+
   }
 
   if (aflcc->instrument_mode == 0 && aflcc->compiler_mode < GCC_PLUGIN) {
+
 #if LLVM_MAJOR >= 7
   #if LLVM_MAJOR < 11 && (LLVM_MAJOR < 10 || LLVM_MINOR < 1)
     if (aflcc->have_instr_env) {
+
       aflcc->instrument_mode = INSTRUMENT_AFL;
       if (!be_quiet) {
+
         WARNF(
             "Switching to classic instrumentation because "
             "AFL_LLVM_ALLOWLIST/DENYLIST does not work with PCGUARD < 10.0.1.");
+
       }
 
     } else
@@ -1154,11 +1370,14 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
 #else
     aflcc->instrument_mode = INSTRUMENT_AFL;
 #endif
+
   }
 
   if (!aflcc->instrument_opt_mode && aflcc->lto_mode &&
       aflcc->instrument_mode == INSTRUMENT_CFG) {
+
     aflcc->instrument_mode = INSTRUMENT_PCGUARD;
+
   }
 
 #ifndef AFL_CLANG_FLTO
@@ -1169,12 +1388,14 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
 #endif
 
   if (aflcc->lto_mode) {
+
     if (aflcc->lto_flag[0] != '-')
       FATAL(
           "Using afl-clang-lto is not possible because Makefile magic did not "
           "identify the correct -flto flag");
     else
       aflcc->compiler_mode = LTO;
+
   }
 
   if (getenv("AFL_LLVM_SKIP_NEVERZERO") && getenv("AFL_LLVM_NOT_ZERO"))
@@ -1185,9 +1406,11 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
 #if LLVM_MAJOR < 11 && (LLVM_MAJOR < 10 || LLVM_MINOR < 1)
 
   if (aflcc->instrument_mode == INSTRUMENT_PCGUARD && aflcc->have_instr_env) {
+
     FATAL(
         "Instrumentation type PCGUARD does not support "
         "AFL_LLVM_ALLOWLIST/DENYLIST! Use LLVM 10.0.1+ instead.");
+
   }
 
 #endif
@@ -1200,10 +1423,12 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
     FATAL("AFL_LLVM_DICT2FILE must be set to an absolute file path");
 
   if (getenv("AFL_LLVM_LAF_ALL")) {
+
     setenv("AFL_LLVM_LAF_SPLIT_SWITCHES", "1", 1);
     setenv("AFL_LLVM_LAF_SPLIT_COMPARES", "1", 1);
     setenv("AFL_LLVM_LAF_SPLIT_FLOATS", "1", 1);
     setenv("AFL_LLVM_LAF_TRANSFORM_COMPARES", "1", 1);
+
   }
 
   if (getenv("AFL_LLVM_DICT2FILE") &&
@@ -1215,6 +1440,7 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
 
   aflcc->cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
                        getenv("AFL_GCC_CMPLOG");
+
 }
 
 /*
@@ -1222,6 +1448,7 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
   compiler_mode and instrument_mode.
 */
 void mode_notification(aflcc_state_t *aflcc) {
+
   char *ptr2 = alloc_printf(" + NGRAM-%u", aflcc->ngram_size);
   char *ptr3 = alloc_printf(" + K-CTX-%u", aflcc->ctx_k);
 
@@ -1236,21 +1463,26 @@ void mode_notification(aflcc_state_t *aflcc) {
   ck_free(ptr3);
 
   if ((isatty(2) && !be_quiet) || aflcc->debug) {
+
     SAYF(cCYA
          "afl-cc" VERSION cRST
          " by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: %s-%s\n",
          compiler_mode_2str(aflcc->compiler_mode), ptr1);
+
   }
 
   ck_free(ptr1);
 
   if (!be_quiet &&
       (aflcc->compiler_mode == GCC || aflcc->compiler_mode == CLANG)) {
+
     WARNF(
         "You are using outdated instrumentation, install LLVM and/or "
         "gcc-plugin and use afl-clang-fast/afl-clang-lto/afl-gcc-fast "
         "instead!");
+
   }
+
 }
 
 /*
@@ -1267,42 +1499,55 @@ void mode_notification(aflcc_state_t *aflcc) {
   If AFL_COMPILER_LAUNCHER is set, prepend that command to the compiler.
 */
 void add_real_argv0(aflcc_state_t *aflcc) {
+
   static u8 llvm_fullpath[PATH_MAX];
   u8       *compiler_path = NULL;
 
   if (aflcc->plusplus_mode) {
+
     u8 *alt_cxx = getenv("AFL_CXX");
 
     if (!alt_cxx) {
+
       if (aflcc->compiler_mode == GCC || aflcc->compiler_mode == GCC_PLUGIN) {
+
         alt_cxx = "g++";
 
       } else if (aflcc->compiler_mode == CLANG) {
+
         alt_cxx = "clang++";
 
       } else {
+
         if (USE_BINDIR)
           snprintf(llvm_fullpath, sizeof(llvm_fullpath), "%s/clang++",
                    LLVM_BINDIR);
         else
           snprintf(llvm_fullpath, sizeof(llvm_fullpath), CLANGPP_BIN);
         alt_cxx = llvm_fullpath;
+
       }
+
     }
 
     compiler_path = alt_cxx;
 
   } else {
+
     u8 *alt_cc = getenv("AFL_CC");
 
     if (!alt_cc) {
+
       if (aflcc->compiler_mode == GCC || aflcc->compiler_mode == GCC_PLUGIN) {
+
         alt_cc = "gcc";
 
       } else if (aflcc->compiler_mode == CLANG) {
+
         alt_cc = "clang";
 
       } else {
+
 #ifndef CLANG_BIN
   #define CLANG_BIN "/there/is/no/clang/defined/use/LLVM_CONFIG"
 #endif
@@ -1313,19 +1558,25 @@ void add_real_argv0(aflcc_state_t *aflcc) {
         else
           snprintf(llvm_fullpath, sizeof(llvm_fullpath), CLANG_BIN);
         alt_cc = llvm_fullpath;
+
       }
+
     }
 
     compiler_path = alt_cc;
+
   }
 
   u8 *cc_prefix = getenv("AFL_COMPILER_LAUNCHER");
   if (cc_prefix) {
+
     increment_cc_parameter_cnt(aflcc);
 
     // Shift all existing parameters to make room for the prefix
     for (u32 i = aflcc->cc_par_cnt; i > 0; i--) {
+
       aflcc->cc_params[i] = aflcc->cc_params[i - 1];
+
     }
 
     // Insert prefix as the first parameter
@@ -1333,8 +1584,11 @@ void add_real_argv0(aflcc_state_t *aflcc) {
     aflcc->cc_params[1] = compiler_path;
 
   } else {
+
     aflcc->cc_params[0] = compiler_path;
+
   }
+
 }
 
 /** compiler_mode & instrument_mode selecting -----END----- **/
@@ -1342,8 +1596,10 @@ void add_real_argv0(aflcc_state_t *aflcc) {
 /** Macro defs for the preprocessor -----BEGIN----- **/
 
 void add_defs_common(aflcc_state_t *aflcc) {
+
   insert_param(aflcc, "-D__AFL_COMPILER=1");
   insert_param(aflcc, "-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1");
+
 }
 
 /*
@@ -1352,7 +1608,9 @@ void add_defs_common(aflcc_state_t *aflcc) {
   2-selective-instrumentation-with-_afl_coverage-directives
 */
 void add_defs_selective_instr(aflcc_state_t *aflcc) {
+
   if (aflcc->plusplus_mode) {
+
     insert_param(aflcc,
                  "-D__AFL_COVERAGE()=int __afl_selective_coverage "
                  "__attribute__ ((weak)) = 1;"
@@ -1362,6 +1620,7 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
                  "extern \"C\" void __afl_coverage_off();");
 
   } else {
+
     insert_param(aflcc,
                  "-D__AFL_COVERAGE()=int __afl_selective_coverage "
                  "__attribute__ ((weak)) = 1;"
@@ -1369,6 +1628,7 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
                  "void __afl_coverage_skip();"
                  "void __afl_coverage_on();"
                  "void __afl_coverage_off();");
+
   }
 
   insert_param(
@@ -1379,6 +1639,7 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
   insert_param(aflcc, "-D__AFL_COVERAGE_OFF()=__afl_coverage_off()");
   insert_param(aflcc, "-D__AFL_COVERAGE_DISCARD()=__afl_coverage_discard()");
   insert_param(aflcc, "-D__AFL_COVERAGE_SKIP()=__afl_coverage_skip()");
+
 }
 
 /*
@@ -1386,6 +1647,7 @@ void add_defs_selective_instr(aflcc_state_t *aflcc) {
   instrumentation/README.persistent_mode.md, deferred forkserver initialization
 */
 void add_defs_persistent_mode(aflcc_state_t *aflcc) {
+
   if (aflcc->compiler_mode == GCC || aflcc->compiler_mode == CLANG) return;
 
   insert_param(aflcc, "-D__AFL_HAVE_MANUAL_CONTROL=1");
@@ -1443,7 +1705,7 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
 #else
       "__attribute__((visibility(\"default\"))) "
       "int _L(unsigned int) __asm__(\"__afl_persistent_loop\"); "
-#endif /* ^__APPLE__ */
+#endif                                                        /* ^__APPLE__ */
       // if afl is connected, we run _A times, else once.
       "_L(__afl_connected ? _A : 1); })");
 
@@ -1459,8 +1721,9 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
 #else
       "__attribute__((visibility(\"default\"))) "
       "void _I(void) __asm__(\"__afl_manual_init\"); "
-#endif /* ^__APPLE__ */
+#endif                                                        /* ^__APPLE__ */
       "_I(); } while (0)");
+
 }
 
 /*
@@ -1469,9 +1732,11 @@ void add_defs_persistent_mode(aflcc_state_t *aflcc) {
   the macro already here in these existing args.
 */
 void add_defs_fortify(aflcc_state_t *aflcc, u8 action) {
+
   if (aflcc->have_fortify) { return; }
 
   switch (action) {
+
     case 1:
       insert_param(aflcc, "-D_FORTIFY_SOURCE=1");
       break;
@@ -1483,13 +1748,16 @@ void add_defs_fortify(aflcc_state_t *aflcc, u8 action) {
     default:  // OFF
       insert_param(aflcc, "-U_FORTIFY_SOURCE");
       break;
+
   }
 
   aflcc->have_fortify = 1;
+
 }
 
 /* Macro defs of __AFL_LEAK_CHECK, __AFL_LSAN_ON and __AFL_LSAN_OFF */
 void add_defs_lsan_ctrl(aflcc_state_t *aflcc) {
+
   insert_param(aflcc, "-includesanitizer/lsan_interface.h");
   insert_param(
       aflcc,
@@ -1497,6 +1765,7 @@ void add_defs_lsan_ctrl(aflcc_state_t *aflcc) {
       "_exit(23); }");
   insert_param(aflcc, "-D__AFL_LSAN_OFF()=__lsan_disable();");
   insert_param(aflcc, "-D__AFL_LSAN_ON()=__lsan_enable();");
+
 }
 
 /** Macro defs for the preprocessor -----END----- **/
@@ -1511,6 +1780,7 @@ void add_defs_lsan_ctrl(aflcc_state_t *aflcc) {
   3. rets 1 if exactly "fuzzer" found, otherwise rets 0
 */
 static u8 fsanitize_fuzzer_comma(char *string) {
+
   u8 detect_single_fuzzer = 0;
 
   char *p, *ptr = string + strlen("-fsanitize=");
@@ -1522,37 +1792,50 @@ static u8 fsanitize_fuzzer_comma(char *string) {
   strcpy(new, "-fsanitize=");
 
   do {
+
     p = strchr(ptr, ',');
     if (!p) {
+
       p = ptr + strlen(ptr) + 1;
       ende = 1;
+
     }
 
     len = p - ptr;
     if (len) {
+
       strncpy(tmp, ptr, len);
       tmp[len] = 0;
       // fprintf(stderr, "Found: %s\n", tmp);
       ptr += len + 1;
       if (*tmp) {
+
         u32 copy = 1;
         if (!strcmp(tmp, "fuzzer")) {
+
           detect_single_fuzzer = 1;
           copy = 0;
 
         } else if (!strncmp(tmp, "fuzzer", 6)) {
+
           copy = 0;
+
         }
 
         if (copy) {
+
           if (count) { strcat(new, ","); }
           strcat(new, tmp);
           ++count;
+
         }
+
       }
 
     } else {
+
       ptr++;
+
     }
 
   } while (!ende);
@@ -1563,32 +1846,42 @@ static u8 fsanitize_fuzzer_comma(char *string) {
   ck_free(new);
 
   return detect_single_fuzzer;
+
 }
 
 /* Add params to link with libAFLDriver.a on request */
 static void add_aflpplib(aflcc_state_t *aflcc) {
+
   if (!aflcc->need_aflpplib) return;
 
   u8 *afllib = find_object(aflcc, "libAFLDriver.a");
 
   if (!be_quiet) {
+
     OKF("Found '-fsanitize=fuzzer', replacing with libAFLDriver.a");
+
   }
 
   if (!afllib) {
+
     if (!be_quiet) {
+
       WARNF(
           "Cannot find 'libAFLDriver.a' to replace '-fsanitize=fuzzer' in "
           "the flags - this will fail!");
+
     }
 
   } else {
+
     insert_param(aflcc, afllib);
 
 #ifdef __APPLE__
     insert_param(aflcc, "-Wl,-undefined,dynamic_lookup");
 #endif
+
   }
+
 }
 
 /*
@@ -1602,21 +1895,28 @@ static void add_aflpplib(aflcc_state_t *aflcc) {
     can't make it finally for various reasons, just drop these options.
 */
 param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
+
   param_st final_ = PARAM_MISS;
   u8       insert = 0;
 
 // MACRO START
 #define HAVE_SANITIZER_SCAN_KEEP(v, k)        \
   do {                                        \
+                                              \
     if (strstr(cur_argv, "=" STRINGIFY(k)) || \
         strstr(cur_argv, "," STRINGIFY(k))) { \
+                                              \
       if (scan) {                             \
+                                              \
         aflcc->have_##v = 1;                  \
         final_ = PARAM_SCAN;                  \
                                               \
       } else {                                \
+                                              \
         final_ = PARAM_KEEP;                  \
+                                              \
       }                                       \
+                                              \
     }                                         \
                                               \
   } while (0)
@@ -1624,12 +1924,14 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
   // MACRO END
 
   if (!strncmp(cur_argv, "-fsanitize=", strlen("-fsanitize="))) {
+
     HAVE_SANITIZER_SCAN_KEEP(asan, address);
     HAVE_SANITIZER_SCAN_KEEP(msan, memory);
     HAVE_SANITIZER_SCAN_KEEP(ubsan, undefined);
     HAVE_SANITIZER_SCAN_KEEP(tsan, thread);
     HAVE_SANITIZER_SCAN_KEEP(lsan, leak);
     HAVE_SANITIZER_SCAN_KEEP(cfisan, cfi);
+
   }
 
 #undef HAVE_SANITIZER_SCAN_KEEP
@@ -1637,13 +1939,17 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
   // We can't use a "else if" there, because some of the following
   // matching rules overlap with those in the if-statement above.
   if (!strcmp(cur_argv, "-fsanitize=fuzzer")) {
+
     if (scan) {
+
       aflcc->need_aflpplib = 1;
       insert = 1;
       final_ = PARAM_SCAN;
 
     } else {
+
       final_ = PARAM_DROP;
+
     }
 
   } else if (!strncmp(cur_argv, "-fsanitize=", strlen("-fsanitize=")) &&
@@ -1652,44 +1958,58 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
              !strstr(cur_argv, "=,")) {  // avoid OOB errors
 
     if (scan) {
+
       u8 *cur_argv_ = ck_strdup(cur_argv);
 
       if (fsanitize_fuzzer_comma(cur_argv_)) {
+
         aflcc->need_aflpplib = 1;
         insert = 1;
         final_ = PARAM_SCAN;
+
       }
 
       ck_free(cur_argv_);
 
     } else {
+
       fsanitize_fuzzer_comma(cur_argv);
       if (!cur_argv || strlen(cur_argv) <= strlen("-fsanitize="))
         final_ = PARAM_DROP;  // this means it only has "fuzzer" previously.
+
     }
 
   } else if (!strncmp(cur_argv, "-fsanitize-coverage-", 20) &&
 
              strstr(cur_argv, "list=")) {
+
     if (scan) {
+
       aflcc->have_instr_list = 1;
       final_ = PARAM_SCAN;
 
     } else {
+
       if (aflcc->instrument_mode != INSTRUMENT_LLVMNATIVE) {
+
         if (!be_quiet) { WARNF("Found '%s' - stripping!", cur_argv); }
         final_ = PARAM_DROP;
 
       } else {
+
         final_ = PARAM_KEEP;
+
       }
+
     }
+
   }
 
   if (final_ == PARAM_KEEP) { insert_param(aflcc, cur_argv); }
   if (insert) { add_aflpplib(aflcc); }
 
   return final_;
+
 }
 
 /*
@@ -1703,7 +2023,9 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
   these have_*, otherwise they may not work as expected.
 */
 void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
+
   if (getenv("AFL_USE_ASAN") || aflcc->have_asan) {
+
     if (getenv("AFL_USE_MSAN") || aflcc->have_msan)
       FATAL("ASAN and MSAN are mutually exclusive");
 
@@ -1711,18 +2033,23 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
       FATAL("ASAN and AFL_HARDEN are mutually exclusive");
 
     if (aflcc->compiler_mode == GCC_PLUGIN && !aflcc->have_staticasan) {
+
       insert_param(aflcc, "-static-libasan");
+
     }
 
     add_defs_fortify(aflcc, 0);
     if (!aflcc->have_asan) {
+
       insert_param(aflcc, "-fsanitize=address");
       insert_param(aflcc, "-fno-common");
+
     }
 
     aflcc->have_asan = 1;
 
   } else if (getenv("AFL_USE_MSAN") || aflcc->have_msan) {
+
     if (getenv("AFL_USE_ASAN") || aflcc->have_asan)
       FATAL("ASAN and MSAN are mutually exclusive");
 
@@ -1732,86 +2059,117 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
     add_defs_fortify(aflcc, 0);
     if (!aflcc->have_msan) { insert_param(aflcc, "-fsanitize=memory"); }
     aflcc->have_msan = 1;
+
   }
 
   if (getenv("AFL_USE_UBSAN") || aflcc->have_ubsan) {
+
     if (!aflcc->have_ubsan) { insert_param(aflcc, "-fsanitize=undefined"); }
 
     if (getenv("AFL_UBSAN_VERBOSE")) {
+
       insert_param(aflcc, "-fno-sanitize-recover=undefined");
 
     } else {
+
       insert_param(aflcc, "-fsanitize-trap=undefined");
+
     }
 
     if (!aflcc->have_fp) {
+
       insert_param(aflcc, "-fno-omit-frame-pointer");
       aflcc->have_fp = 1;
+
     }
 
     aflcc->have_ubsan = 1;
+
   }
 
   if (getenv("AFL_USE_TSAN") || aflcc->have_tsan) {
+
     if (getenv("AFL_USE_ASAN") || aflcc->have_asan)
       FATAL("ASAN and TSAN are mutually exclusive");
 
     if (!aflcc->have_fp) {
+
       insert_param(aflcc, "-fno-omit-frame-pointer");
       aflcc->have_fp = 1;
+
     }
 
     if (!aflcc->have_tsan) { insert_param(aflcc, "-fsanitize=thread"); }
     aflcc->have_tsan = 1;
+
   }
 
   if (getenv("AFL_USE_LSAN") && !aflcc->have_lsan) {
+
     if (getenv("AFL_USE_TSAN") || aflcc->have_tsan)
       FATAL("TSAN and LSAN are mutually exclusive");
 
     insert_param(aflcc, "-fsanitize=leak");
     add_defs_lsan_ctrl(aflcc);
     aflcc->have_lsan = 1;
+
   }
 
   if (getenv("AFL_USE_RTSAN") && !aflcc->have_rtsan) {
+
     insert_param(aflcc, "-fsanitize=realtime");
     aflcc->have_rtsan = 1;
+
   }
 
   if (getenv("AFL_USE_CFISAN") || aflcc->have_cfisan) {
+
     if (aflcc->compiler_mode == GCC_PLUGIN || aflcc->compiler_mode == GCC) {
+
       if (!aflcc->have_fcf) { insert_param(aflcc, "-fcf-protection=full"); }
 
     } else {
+
       if (!aflcc->lto_mode && !aflcc->have_flto) {
+
         uint32_t i = 0, found = 0;
         while (envp[i] != NULL && !found) {
+
           if (strncmp("-flto", envp[i++], 5) == 0) found = 1;
+
         }
 
         if (!found) { insert_param(aflcc, "-flto"); }
         aflcc->have_flto = 1;
+
       }
 
       if (!aflcc->have_cfisan) { insert_param(aflcc, "-fsanitize=cfi"); }
 
       if (getenv("AFL_CFISAN_VERBOSE")) {
+
         insert_param(aflcc, "-fno-sanitize-trap=cfi");
+
       }
 
       if (!aflcc->have_hidden) {
+
         insert_param(aflcc, "-fvisibility=hidden");
         aflcc->have_hidden = 1;
+
       }
 
       aflcc->have_cfisan = 1;
+
     }
+
   }
+
 }
 
 /* Add params to enable LLVM SanCov, the native PCGUARD */
 void add_native_pcguard(aflcc_state_t *aflcc) {
+
   /* If there is a rust ASan runtime on the command line, it is likely we're
    * linking from rust and adding native flags requiring the sanitizer runtime
    * will trigger native clang to add yet another runtime, causing linker
@@ -1820,8 +2178,10 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
    */
   if (aflcc->have_rust_asanrt) { return; }
   if (getenv("AFL_LLVM_ONLY_FSRV")) {
+
     if (!be_quiet) { DEBUGF("SAND: Coverage instrumentation disabled\n"); }
     return;
+
   }
 
   /* If llvm-config doesn't figure out LLVM_MAJOR, just
@@ -1837,14 +2197,18 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
   #endif
 
   if (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CODECOV) {
+
     insert_param(aflcc,
                  "-fsanitize-coverage=trace-pc-guard,bb,no-prune,pc-table");
 
   } else {
+
     insert_param(aflcc, "-fsanitize-coverage=trace-pc-guard,pc-table");
+
   }
 
 #endif
+
 }
 
 /*
@@ -1853,9 +2217,12 @@ void add_native_pcguard(aflcc_state_t *aflcc) {
   bear in mind that instrument_mode will be set to INSTRUMENT_LLVMNATIVE.
 */
 void add_optimized_pcguard(aflcc_state_t *aflcc) {
+
   if (getenv("AFL_LLVM_ONLY_FSRV")) {
+
     if (!be_quiet) { DEBUGF("SAND: Coverage instrumentation disabled\n"); }
     return;
+
   }
 
 #if LLVM_MAJOR >= 13
@@ -1866,6 +2233,7 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
   #else
 
   if (aflcc->have_instr_list) {
+
     if (!be_quiet)
       SAYF(
           "Using unoptimized trace-pc-guard, due usage of "
@@ -1876,6 +2244,7 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
     aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
 
   } else {
+
     /* Since LLVM_MAJOR >= 13 we use new pass manager */
     #if LLVM_MAJOR < 16
       #if LLVM_MAJOR < 15
@@ -1885,6 +2254,7 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
       #endif
     #endif
     insert_object(aflcc, "SanitizerCoveragePCGUARD.so", "-fpass-plugin=%s", 0);
+
   }
 
   #endif  // defined __ANDROID__ || ANDROID
@@ -1904,6 +2274,7 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
 
   #endif
 #endif
+
 }
 
 /** About -fsanitize -----END----- **/
@@ -1916,46 +2287,61 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
 */
 param_st parse_linking_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan,
                               u8 *skip_next, char **argv) {
+
   if (aflcc->lto_mode && !strncmp(cur_argv, "-flto=thin", 10)) {
+
     FATAL(
         "afl-clang-lto cannot work with -flto=thin. Switch to -flto=full or "
         "use afl-clang-fast!");
+
   }
 
   param_st final_ = PARAM_MISS;
 
   if (!strcmp(cur_argv, "-shared") || !strcmp(cur_argv, "-dynamiclib")) {
+
     if (scan) {
+
       aflcc->shared_linking = 1;
       final_ = PARAM_SCAN;
 
     } else {
+
       final_ = PARAM_KEEP;
+
     }
 
   } else if (!strcmp(cur_argv, "-Wl,-r") || !strcmp(cur_argv, "-Wl,-i") ||
 
              !strcmp(cur_argv, "-Wl,--relocatable") ||
              !strcmp(cur_argv, "-r") || !strcmp(cur_argv, "--relocatable")) {
+
     if (scan) {
+
       aflcc->partial_linking = 1;
       final_ = PARAM_SCAN;
 
     } else {
+
       final_ = PARAM_KEEP;
+
     }
 
   } else if (!strncmp(cur_argv, "-fuse-ld=", 9) ||
 
              !strncmp(cur_argv, "--ld-path=", 10)) {
+
     if (scan) {
+
       final_ = PARAM_SCAN;
 
     } else {
+
       if (aflcc->lto_mode)
         final_ = PARAM_DROP;
       else
         final_ = PARAM_KEEP;
+
     }
 
   } else if (!strcmp(cur_argv, "-Wl,-z,defs") ||
@@ -1965,96 +2351,130 @@ param_st parse_linking_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan,
              !strcmp(cur_argv, "--no-undefined") ||
              strstr(cur_argv, "afl-compiler-rt") ||
              strstr(cur_argv, "afl-llvm-rt")) {
+
     if (scan) {
+
       final_ = PARAM_SCAN;
 
     } else {
+
       final_ = PARAM_DROP;
+
     }
 
   } else if (!strcmp(cur_argv, "-z") || !strcmp(cur_argv, "-Wl,-z")) {
+
     u8 *param = *(argv + 1);
     if (param && (!strcmp(param, "defs") || !strcmp(param, "-Wl,defs"))) {
+
       *skip_next = 1;
 
       if (scan) {
+
         final_ = PARAM_SCAN;
 
       } else {
+
         final_ = PARAM_DROP;
+
       }
+
     }
+
   }
 
   // Try to warn user for some unsupported cases
   if (scan && final_ == PARAM_MISS) {
+
     u8 *ptr_ = NULL;
 
     if (!strcmp(cur_argv, "-Xlinker") && (ptr_ = *(argv + 1))) {
+
       if (!strcmp(ptr_, "defs")) {
+
         WARNF("'-Xlinker' 'defs' detected. This may result in a bad link.");
 
       } else if (strstr(ptr_, "-no-undefined")) {
+
         WARNF(
             "'-Xlinker' '%s' detected. The latter option may be dropped and "
             "result in a bad link.",
             ptr_);
+
       }
 
     } else if (!strncmp(cur_argv, "-Wl,", 4) &&
 
                (u8 *)strrchr(cur_argv, ',') != (cur_argv + 3)) {
+
       ptr_ = cur_argv + 4;
 
       if (strstr(ptr_, "-shared") || strstr(ptr_, "-dynamiclib")) {
+
         WARNF(
             "'%s': multiple link options after '-Wl,' may break shared "
             "linking.",
             ptr_);
+
       }
 
       if (strstr(ptr_, "-r,") || strstr(ptr_, "-i,") || strstr(ptr_, ",-r") ||
           strstr(ptr_, ",-i") || strstr(ptr_, "--relocatable")) {
+
         WARNF(
             "'%s': multiple link options after '-Wl,' may break partial "
             "linking.",
             ptr_);
+
       }
 
       if (strstr(ptr_, "defs") || strstr(ptr_, "no-undefined")) {
+
         WARNF(
             "'%s': multiple link options after '-Wl,' may enable report "
             "unresolved symbol references and result in a bad link.",
             ptr_);
+
       }
+
     }
+
   }
 
   if (final_ == PARAM_KEEP) insert_param(aflcc, cur_argv);
 
   return final_;
+
 }
 
 /* Add params to specify the linker used in LTO */
 void add_lto_linker(aflcc_state_t *aflcc) {
+
   unsetenv("AFL_LD");
   unsetenv("AFL_LD_CALLER");
 
   u8 *ld_path = NULL;
   if (getenv("AFL_REAL_LD")) {
+
     ld_path = strdup(getenv("AFL_REAL_LD"));
 
   } else {
+
     ld_path = strdup(AFL_REAL_LD);
+
   }
 
   if (!ld_path || !*ld_path) {
+
     if (ld_path) {
+
       // Freeing empty string
       free(ld_path);
+
     }
 
     ld_path = strdup("ld.lld");
+
   }
 
   if (!ld_path) { PFATAL("Could not allocate mem for ld_path"); }
@@ -2064,10 +2484,12 @@ void add_lto_linker(aflcc_state_t *aflcc) {
   insert_param(aflcc, alloc_printf("-fuse-ld=%s", ld_path));
 #endif
   free(ld_path);
+
 }
 
 /* Add params to launch SanitizerCoverageLTO.so when linking  */
 void add_lto_passes(aflcc_state_t *aflcc) {
+
 #if defined(AFL_CLANG_LDPATH) && LLVM_MAJOR >= 15
   // The NewPM implementation only works fully since LLVM 15.
   insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,--load-pass-plugin=%s",
@@ -2083,34 +2505,42 @@ void add_lto_passes(aflcc_state_t *aflcc) {
 #ifndef __APPLE__
   insert_param(aflcc, "-Wl,--allow-multiple-definition");
 #endif
+
 }
 
 /* Add params to link with runtimes depended by our instrumentation */
 void add_runtime(aflcc_state_t *aflcc) {
+
   if (aflcc->preprocessor_only || aflcc->have_c || !aflcc->non_dash) {
+
     /* In the preprocessor_only case (-E), we are not actually compiling at
        all but requesting the compiler to output preprocessed sources only.
        We must not add the runtime in this case because the compiler will
        simply output its binary content back on stdout, breaking any build
        systems that rely on a separate source preprocessing step. */
     return;
+
   }
 
   if (aflcc->compiler_mode != GCC_PLUGIN && aflcc->compiler_mode != GCC &&
       !getenv("AFL_LLVM_NO_RPATH")) {
+
     // in case LLVM is installed not via a package manager or "make install"
     // e.g. compiled download or compiled from github then its ./lib directory
     // might not be in the search path. Add it if so.
     const char *libdir = LLVM_LIBDIR;
     if (aflcc->plusplus_mode && strlen(libdir) && strncmp(libdir, "/usr", 4) &&
         strncmp(libdir, "/lib", 4)) {
+
 #ifdef __APPLE__
       u8 *libdir_opt = strdup("-Wl,-rpath," LLVM_LIBDIR);
 #else
       u8 *libdir_opt = strdup("-Wl,-rpath=" LLVM_LIBDIR);
 #endif
       insert_param(aflcc, libdir_opt);
+
     }
+
   }
 
 #ifndef __ANDROID__
@@ -2119,7 +2549,9 @@ void add_runtime(aflcc_state_t *aflcc) {
   #define M64_ERR_MSG "-m64 is not supported by your compiler"
 
   if (aflcc->compiler_mode != GCC && aflcc->compiler_mode != CLANG) {
+
     switch (aflcc->bit_mode) {
+
       case 0:
         if (!aflcc->shared_linking && !aflcc->partial_linking)
           insert_object(aflcc, "afl-compiler-rt.o", 0, 0);
@@ -2139,6 +2571,7 @@ void add_runtime(aflcc_state_t *aflcc) {
         if (aflcc->lto_mode)
           insert_object(aflcc, "afl-llvm-rt-lto-64.o", 0, M64_ERR_MSG);
         break;
+
     }
 
   #if __AFL_CODE_COVERAGE
@@ -2153,13 +2586,16 @@ void add_runtime(aflcc_state_t *aflcc) {
 
   #if defined(__APPLE__)
     if (aflcc->shared_linking || aflcc->partial_linking) {
+
       insert_param(aflcc, "-Wl,-U");
       insert_param(aflcc, "-Wl,___afl_area_ptr");
       insert_param(aflcc, "-Wl,-U");
       insert_param(aflcc, "-Wl,___sanitizer_cov_trace_pc_guard_init");
+
     }
 
   #endif
+
   }
 
 #endif
@@ -2169,6 +2605,7 @@ void add_runtime(aflcc_state_t *aflcc) {
 #if defined(USEMMAP) && !defined(__HAIKU__) && !__APPLE__
   insert_param(aflcc, "-Wl,-lrt");
 #endif
+
 }
 
 /** Linking behaviors -----END----- **/
@@ -2180,6 +2617,7 @@ void add_runtime(aflcc_state_t *aflcc) {
   as assembler, required by the vanilla instrumentation.
 */
 void add_assembler(aflcc_state_t *aflcc) {
+
   u8 *afl_as = find_object(aflcc, "afl-as");
 
   if (!afl_as) FATAL("Cannot find 'afl-as'.");
@@ -2201,25 +2639,31 @@ void add_assembler(aflcc_state_t *aflcc) {
 
   struct stat st;
   if (fstat(fd, &st) < 0) {
+
     PFATAL("Unable to fstat '%s' " AFL_AS_ERR, afl_as_dup);
+
   }
 
   u32 f_len = st.st_size;
 
   u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
   if (f_data == MAP_FAILED) {
+
     PFATAL("Unable to mmap file '%s' " AFL_AS_ERR, afl_as_dup);
+
   }
 
   close(fd);
 
   // "AFL_AS" is a const str passed to getenv in afl-as.c
   if (!memmem(f_data, f_len, "AFL_AS", strlen("AFL_AS") + 1)) {
+
     FATAL(
         "Looks like '%s' is not a valid symlink or copy of '%s/afl-as'. "
         "It is a prerequisite to override system-wide 'as' for "
         "instrumentation.",
         afl_as_dup, afl_as);
+
   }
 
   if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
@@ -2232,30 +2676,39 @@ void add_assembler(aflcc_state_t *aflcc) {
   insert_param(aflcc, afl_as);
 
   if (aflcc->compiler_mode == CLANG) insert_param(aflcc, "-no-integrated-as");
+
 }
 
 /* Add params to launch the gcc plugins for instrumentation. */
 void add_gcc_plugin(aflcc_state_t *aflcc) {
+
   if (getenv("AFL_GCC_ONLY_FSRV")) {
+
     if (!be_quiet) { DEBUGF("SAND: Coverage instrumentation disabled\n"); }
     return;
+
   }
 
   if (aflcc->cmplog_mode) {
+
     insert_object(aflcc, "afl-gcc-cmplog-pass.so", "-fplugin=%s", 0);
     insert_object(aflcc, "afl-gcc-cmptrs-pass.so", "-fplugin=%s", 0);
+
   }
 
   insert_object(aflcc, "afl-gcc-pass.so", "-fplugin=%s", 0);
 
   insert_param(aflcc, "-fno-if-conversion");
   insert_param(aflcc, "-fno-if-conversion2");
+
 }
 
 char *get_opt_level() {
+
   static char levels[8][8] = {"-O0", "-O1", "-O2",    "-O3",
                               "-Oz", "-Os", "-Ofast", "-Og"};
   switch (opt_level) {
+
     case '0':
       return levels[0];
     case '1':
@@ -2272,14 +2725,18 @@ char *get_opt_level() {
       return levels[7];
     default:
       return levels[3];
+
   }
+
 }
 
 /* Add some miscellaneous params required by our instrumentation. */
 void add_misc_params(aflcc_state_t *aflcc) {
+
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
       getenv("AFL_LLVM_LAF_ALL") || getenv("AFL_LLVM_CMPLOG") ||
       aflcc->lto_mode) {
+
     insert_param(aflcc, "-fno-builtin-strcmp");
     insert_param(aflcc, "-fno-builtin-strncmp");
     insert_param(aflcc, "-fno-builtin-strcasecmp");
@@ -2289,36 +2746,46 @@ void add_misc_params(aflcc_state_t *aflcc) {
     insert_param(aflcc, "-fno-builtin-bcmp");
     insert_param(aflcc, "-fno-builtin-strstr");
     insert_param(aflcc, "-fno-builtin-strcasestr");
+
   }
 
   if (!aflcc->have_pic) { insert_param(aflcc, "-fPIC"); }
 
   if (getenv("AFL_HARDEN")) {
+
     insert_param(aflcc, "-fstack-protector-all");
 
     if (!aflcc->fortify_set) add_defs_fortify(aflcc, 2);
+
   }
 
   if (!getenv("AFL_DONT_OPTIMIZE")) {
+
     insert_param(aflcc, "-g");
     if (!aflcc->have_o) insert_param(aflcc, get_opt_level());
     if (!aflcc->have_unroll) insert_param(aflcc, "-funroll-loops");
     // if (strlen(aflcc->march_opt) > 1 && aflcc->march_opt[0] == '-')
     //     insert_param(aflcc, aflcc->march_opt);
+
   }
 
   if (aflcc->x_set) {
+
     insert_param(aflcc, "-x");
     insert_param(aflcc, "none");
+
   }
 
 #if LLVM_MAJOR == 18
   if (aflcc->compiler_mode != GCC && aflcc->compiler_mode != GCC_PLUGIN) {
+
     insert_param(aflcc, "-fno-record-command-line");
     insert_param(aflcc, "-gno-record-command-line");
+
   }
 
 #endif
+
 }
 
 /*
@@ -2326,17 +2793,22 @@ void add_misc_params(aflcc_state_t *aflcc) {
   return PARAM_MISS if nothing matched.
 */
 param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
+
   param_st final_ = PARAM_MISS;
 
 // MACRO START
 #define SCAN_KEEP(dst, src) \
   do {                      \
+                            \
     if (scan) {             \
+                            \
       dst = src;            \
       final_ = PARAM_SCAN;  \
                             \
     } else {                \
+                            \
       final_ = PARAM_KEEP;  \
+                            \
     }                       \
                             \
   } while (0)
@@ -2344,85 +2816,109 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
   // MACRO END
 
   if (!strncasecmp(cur_argv, "-fpic", 5)) {
+
     SCAN_KEEP(aflcc->have_pic, 1);
 
   } else if (!strcmp(cur_argv, "-m32") ||
 
              !strcmp(cur_argv, "armv7a-linux-androideabi")) {
+
     SCAN_KEEP(aflcc->bit_mode, 32);
 
   } else if (!strcmp(cur_argv, "-m64")) {
+
     SCAN_KEEP(aflcc->bit_mode, 64);
 
   } else if (strstr(cur_argv, "FORTIFY_SOURCE")) {
+
     SCAN_KEEP(aflcc->fortify_set, 1);
 
   } else if (!strcmp(cur_argv, "-x")) {
+
     SCAN_KEEP(aflcc->x_set, 1);
 
   } else if (!strcmp(cur_argv, "-E")) {
+
     SCAN_KEEP(aflcc->preprocessor_only, 1);
 
   } else if (!strcmp(cur_argv, "--target=wasm32-wasi")) {
+
     SCAN_KEEP(aflcc->passthrough, 1);
 
   } else if (!strcmp(cur_argv, "-c")) {
+
     SCAN_KEEP(aflcc->have_c, 1);
 
   } else if (!strcmp(cur_argv, "-static-libasan")) {
+
     SCAN_KEEP(aflcc->have_staticasan, 1);
 
   } else if (strstr(cur_argv, "librustc") && strstr(cur_argv, "_rt.asan.a")) {
+
     SCAN_KEEP(aflcc->have_rust_asanrt, 1);
 
   } else if (!strcmp(cur_argv, "-fno-omit-frame-pointer")) {
+
     SCAN_KEEP(aflcc->have_fp, 1);
 
   } else if (!strcmp(cur_argv, "-fvisibility=hidden")) {
+
     SCAN_KEEP(aflcc->have_hidden, 1);
 
   } else if (!strcmp(cur_argv, "-flto") || !strcmp(cur_argv, "-flto=full")) {
+
     SCAN_KEEP(aflcc->have_flto, 1);
 
   } else if (!strncmp(cur_argv, "-D_FORTIFY_SOURCE",
 
                       strlen("-D_FORTIFY_SOURCE"))) {
+
     SCAN_KEEP(aflcc->have_fortify, 1);
 
   } else if (!strncmp(cur_argv, "-fcf-protection", strlen("-fcf-protection"))) {
+
     SCAN_KEEP(aflcc->have_cfisan, 1);
 
   } else if (!strncmp(cur_argv, "-O", 2)) {
+
     SCAN_KEEP(aflcc->have_o, 1);
 
   } else if (!strncmp(cur_argv, "-funroll-loop", 13)) {
+
     SCAN_KEEP(aflcc->have_unroll, 1);
 
   } else if (!strncmp(cur_argv, "--afl", 5)) {
+
     if (scan)
       final_ = PARAM_SCAN;
     else
       final_ = PARAM_DROP;
 
   } else if (!strncmp(cur_argv, "-fno-unroll", 11)) {
+
     if (scan)
       final_ = PARAM_SCAN;
     else
       final_ = PARAM_DROP;
 
   } else if (!strcmp(cur_argv, "-pipe") && aflcc->compiler_mode == GCC_PLUGIN) {
+
     if (scan)
       final_ = PARAM_SCAN;
     else
       final_ = PARAM_DROP;
 
   } else if (!strcmp(cur_argv, "-Werror") && aflcc->wnoerror) {
+
     if (scan) {
+
       final_ = PARAM_SCAN;
 
     } else {
+
       if (!be_quiet) WARNF("Found '%s' - stripping!", cur_argv);
       final_ = PARAM_DROP;
+
     }
 
   } else
@@ -2430,12 +2926,16 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
       if (!strncmp(cur_argv, "-stdlib=", 8) &&
 
           (aflcc->compiler_mode == GCC || aflcc->compiler_mode == GCC_PLUGIN)) {
+
     if (scan) {
+
       final_ = PARAM_SCAN;
 
     } else {
+
       if (!be_quiet) WARNF("Found '%s' - stripping!", cur_argv);
       final_ = PARAM_DROP;
+
     }
 
   } else
@@ -2448,19 +2948,25 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
          !strcmp(cur_argv, "-Wno-dangling-assignment-gsl")) &&
 
         (aflcc->compiler_mode != GCC && aflcc->compiler_mode != GCC_PLUGIN)) {
+
       if (scan) {
+
         final_ = PARAM_SCAN;
 
       } else {
+
         final_ = PARAM_DROP;
+
       }
 
     } else if (cur_argv[0] != '-') {
+
       /* It's a weak, loose pattern, with very different purpose
        than others. We handle it at last, cautiously and robustly. */
 
       if (scan && cur_argv[0] != '@')  // response file support
         aflcc->non_dash = 1;
+
     }
 
 #undef SCAN_KEEP
@@ -2468,13 +2974,16 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
   if (final_ == PARAM_KEEP) insert_param(aflcc, cur_argv);
 
   return final_;
+
 }
 
 /** Miscellaneous routines -----END----- **/
 
 /* Print help message on request */
 static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
+
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
+
     printf("afl-cc" VERSION
            " by Michal Zalewski, Laszlo Szekeres, Marc Heuse\n");
 
@@ -2583,11 +3092,13 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         "          (instrumentation/README.instrument_list.md)\n\n");
 
     if (argc < 2 || strncmp(argv[1], "-hh", 3)) {
+
       SAYF(
           "To see all environment variables for the configuration of afl-cc "
           "use \"-hh\".\n");
 
     } else {
+
       SAYF(
           "Environment variables used:\n"
           "  AFL_CC: path to the C compiler to use\n"
@@ -2710,6 +3221,7 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
           "(this is helpful\n"
           "in some build systems if you do not want to instrument "
           "everything.\n");
+
     }
 
     SAYF(
@@ -2748,14 +3260,18 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         "AFL_LLVM_DICT2FILE+AFL_LLVM_DICT2FILE_NO_MAIN.\n\n");
 
     if (LLVM_MAJOR < 13) {
+
       SAYF(
           "Warning: It is highly recommended to use at least LLVM version 13 "
           "(or better, higher) rather than %d!\n\n",
           LLVM_MAJOR);
+
     }
 
     exit(1);
+
   }
+
 }
 
 /*
@@ -2778,17 +3294,21 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
 */
 static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
                            char **argv) {
+
   // for (u32 x = 0; x < argc; ++x) fprintf(stderr, "[%u] %s\n", x, argv[x]);
 
   /* Process the argument list. */
 
   u8 skip_next = 0;
   while (--argc) {
+
     u8 *cur = *(++argv);
 
     if (skip_next > 0) {
+
       skip_next--;
       continue;
+
     }
 
     if (PARAM_MISS != parse_misc_params(aflcc, cur, scan)) continue;
@@ -2815,21 +3335,26 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
           llvm-project.git/llvm/lib/Support/CommandLine.cpp
     */
     if (*cur == '@') {
+
       u8 *filename = cur + 1;
       if (aflcc->debug) { DEBUGF("response file=%s\n", filename); }
 
       // Check not found or empty? let the compiler complain if so.
       FILE *f = fopen(filename, "r");
       if (!f) {
+
         if (!scan) insert_param(aflcc, cur);
         continue;
+
       }
 
       struct stat st;
       if (fstat(fileno(f), &st) || !S_ISREG(st.st_mode) || st.st_size < 1) {
+
         fclose(f);
         if (!scan) insert_param(aflcc, cur);
         continue;
+
       }
 
       // Limit the number of response files, the max value
@@ -2837,9 +3362,11 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
       // scan mode, and not touch rsp_count anymore in the next.
       static u32 rsp_count = 2000;
       if (scan) {
+
         if (rsp_count == 0) FATAL("Too many response files provided!");
 
         --rsp_count;
+
       }
 
       // argc, argv acquired from this rsp file. Note that
@@ -2864,6 +3391,7 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
       // Workaround to append c to arg buffer, and append the buffer to argv
 #define ARG_ALLOC(c)                                             \
   do {                                                           \
+                                                                 \
     ++arg_len;                                                   \
     arg_buf = ck_realloc(arg_buf, (arg_len + 1) * sizeof(char)); \
     arg_buf[arg_len] = '\0';                                     \
@@ -2873,6 +3401,7 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
 
 #define ARG_STORE()                                                \
   do {                                                             \
+                                                                   \
     ++argc_read;                                                   \
     argv_read = ck_realloc(argv_read, argc_read * sizeof(char *)); \
     argv_read[argc_read - 1] = arg_buf;                            \
@@ -2885,31 +3414,41 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
       enum fsm_state state_ = fsm_whitespace;
 
       while (cur_chr != EOF) {
+
         switch (state_) {
+
           case fsm_whitespace:
 
             if (arg_buf) {
+
               ARG_STORE();
               break;
+
             }
 
             if (isspace(cur_chr)) {
+
               cur_chr = fgetc(f);
 
             } else if (cur_chr == (int)'\'') {
+
               state_ = fsm_single_quote;
               cur_chr = fgetc(f);
 
             } else if (cur_chr == (int)'"') {
+
               state_ = fsm_double_quote;
               cur_chr = fgetc(f);
 
             } else if (cur_chr == (int)'\\') {
+
               state_ = fsm_backslash;
               cur_chr = fgetc(f);
 
             } else {
+
               state_ = fsm_normal;
+
             }
 
             break;
@@ -2917,23 +3456,29 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
           case fsm_normal:
 
             if (isspace(cur_chr)) {
+
               state_ = fsm_whitespace;
 
             } else if (cur_chr == (int)'\'') {
+
               state_ = fsm_single_quote;
               cur_chr = fgetc(f);
 
             } else if (cur_chr == (int)'\"') {
+
               state_ = fsm_double_quote;
               cur_chr = fgetc(f);
 
             } else if (cur_chr == (int)'\\') {
+
               state_ = fsm_backslash;
               cur_chr = fgetc(f);
 
             } else {
+
               ARG_ALLOC(cur_chr);
               cur_chr = fgetc(f);
+
             }
 
             break;
@@ -2949,15 +3494,19 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
           case fsm_single_quote:
 
             if (cur_chr == (int)'\\') {
+
               cur_chr = fgetc(f);
               if (cur_chr == EOF) break;
               ARG_ALLOC(cur_chr);
 
             } else if (cur_chr == (int)'\'') {
+
               state_ = fsm_normal;
 
             } else {
+
               ARG_ALLOC(cur_chr);
+
             }
 
             cur_chr = fgetc(f);
@@ -2966,15 +3515,19 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
           case fsm_double_quote:
 
             if (cur_chr == (int)'\\') {
+
               cur_chr = fgetc(f);
               if (cur_chr == EOF) break;
               ARG_ALLOC(cur_chr);
 
             } else if (cur_chr == (int)'"') {
+
               state_ = fsm_normal;
 
             } else {
+
               ARG_ALLOC(cur_chr);
+
             }
 
             cur_chr = fgetc(f);
@@ -2982,7 +3535,9 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
 
           default:
             break;
+
         }
+
       }
 
       if (arg_buf) { ARG_STORE(); }  // save the pending arg after EOF
@@ -2995,23 +3550,29 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
       // We cannot free argv_read[] unless we don't need to keep any
       // reference in cc_params. Never free argv[0], the const "".
       if (scan) {
+
         while (argc_read > 1)
           ck_free(argv_read[--argc_read]);
 
         ck_free(argv_read);
+
       }
 
       continue;
 
-    } /* Response file support -----END----- */
+    }                                /* Response file support -----END----- */
 
     if (!scan) insert_param(aflcc, cur);
+
   }
+
 }
 
 /* Helper function to extract source filename from compilation arguments */
 static const char *get_source_filename(u32 argc, char **argv) {
+
   for (u32 i = 1; i < argc; i++) {
+
     char *arg = argv[i];
     if (arg && arg[0] != '-') {  // Not a flag
       char *ext = strrchr(arg, '.');
@@ -3020,16 +3581,22 @@ static const char *get_source_filename(u32 argc, char **argv) {
                   strcmp(ext, ".C") == 0 || strcmp(ext, ".h") == 0 ||
                   strcmp(ext, ".hpp") == 0 || strcmp(ext, ".hh") == 0 ||
                   strcmp(ext, ".hxx") == 0 || strcmp(ext, ".H") == 0)) {
+
         return arg;
+
       }
+
     }
+
   }
 
   return NULL;
+
 }
 
 /* Check if source file contains IJON usage patterns */
 static u8 file_contains_ijon_usage(const char *source_file) {
+
   if (!source_file) return 0;
 
   FILE *f = fopen(source_file, "r");
@@ -3039,6 +3606,7 @@ static u8 file_contains_ijon_usage(const char *source_file) {
   u8   found_ijon = 0;
 
   while (fgets(line, sizeof(line), f)) {
+
     // Look for IJON patterns
     if (strstr(line, "#ifdef _USE_IJON") ||
         strstr(line, "#if defined(_USE_IJON)") || strstr(line, "ijon_max(") ||
@@ -3052,63 +3620,85 @@ static u8 file_contains_ijon_usage(const char *source_file) {
         strstr(line, "IJON_STRDIST(") || strstr(line, "IJON_DIST(") ||
         strstr(line, "IJON_CMP(") || strstr(line, "IJON_STACK_MAX(") ||
         strstr(line, "IJON_STACK_MIN(")) {
+
       found_ijon = 1;
       break;
+
     }
+
   }
 
   fclose(f);
   return found_ijon;
+
 }
 
 /* Process each of the existing argv, also add a few new args. */
 static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
                         char **envp) {
+
   add_real_argv0(aflcc);
 
   // prevent unnecessary build errors
   if (aflcc->compiler_mode != GCC_PLUGIN && aflcc->compiler_mode != GCC) {
+
     insert_param(aflcc, "-Wno-unused-command-line-argument");
+
   }
 
   if (aflcc->compiler_mode == GCC || aflcc->compiler_mode == CLANG) {
+
     add_assembler(aflcc);
+
   }
 
   if (aflcc->compiler_mode == GCC_PLUGIN) { add_gcc_plugin(aflcc); }
 
   if (aflcc->compiler_mode == LLVM || aflcc->compiler_mode == LTO) {
+
     if (aflcc->lto_mode && aflcc->have_instr_env) {
+
       load_llvm_pass(aflcc, "afl-llvm-lto-instrumentlist.so");
+
     }
 
     if (getenv("AFL_LLVM_DICT2FILE")) {
+
       load_llvm_pass(aflcc, "afl-llvm-dict2file.so");
+
     }
 
     // laf
     if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {
+
       load_llvm_pass(aflcc, "split-switches-pass.so");
+
     }
 
     if (getenv("LAF_TRANSFORM_COMPARES") ||
         getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")) {
+
       load_llvm_pass(aflcc, "compare-transform-pass.so");
+
     }
 
     if (getenv("LAF_SPLIT_COMPARES") || getenv("AFL_LLVM_LAF_SPLIT_COMPARES") ||
         getenv("AFL_LLVM_LAF_SPLIT_FLOATS")) {
+
       load_llvm_pass(aflcc, "split-compares-pass.so");
+
     }
 
     // /laf
 
     if (aflcc->cmplog_mode) {
+
       insert_param(aflcc, "-fno-inline");
 
       load_llvm_pass(aflcc, "cmplog-switches-pass.so");
       // reuse split switches from laf
       load_llvm_pass(aflcc, "split-switches-pass.so");
+
     }
 
     // #if LLVM_MAJOR >= 13
@@ -3117,44 +3707,60 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     // #endif
 
     if (aflcc->lto_mode) {
+
       insert_param(aflcc, aflcc->lto_flag);
 
       if (!aflcc->have_c) {
+
         add_lto_linker(aflcc);
         add_lto_passes(aflcc);
+
       }
 
     } else {
+
       if (aflcc->instrument_mode == INSTRUMENT_PCGUARD) {
+
         add_optimized_pcguard(aflcc);
 
       } else if (aflcc->instrument_mode == INSTRUMENT_LLVMNATIVE) {
+
         add_native_pcguard(aflcc);
 
       } else {
+
         load_llvm_pass(aflcc, "afl-llvm-pass.so");
+
       }
+
     }
 
     if (aflcc->cmplog_mode) {
+
       load_llvm_pass(aflcc, "cmplog-instructions-pass.so");
       load_llvm_pass(aflcc, "cmplog-routines-pass.so");
+
     }
 
     if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
         getenv("AFL_LLVM_INJECTIONS_SQL") ||
         getenv("AFL_LLVM_INJECTIONS_LDAP") ||
         getenv("AFL_LLVM_INJECTIONS_XSS")) {
+
       load_llvm_pass(aflcc, "injection-pass.so");
+
     }
 
     /* Load IJON instrumentation pass when AFL_LLVM_IJON is enabled */
     if (getenv("AFL_LLVM_IJON")) {
+
       load_llvm_pass(aflcc, "afl-llvm-ijon-pass.so");
+
     }
 
     /* Include IJON header only for files that actually use IJON */
     if (getenv("AFL_LLVM_IJON")) {
+
       insert_param(aflcc, "-fpermissive");
 #ifndef __APPLE__
       insert_param(aflcc, "-Wl,--allow-multiple-definition");
@@ -3163,27 +3769,39 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
       const char *source_file = get_source_filename(argc, argv);
 
       if (source_file && file_contains_ijon_usage(source_file)) {
+
         u8 *ijon_header = find_object(aflcc, "afl-ijon-min.h");
         if (ijon_header) {
+
           insert_param(aflcc, "-include");
           insert_param(aflcc, ijon_header);
           insert_param(aflcc, "-D_USE_IJON=1");  // Define the macro
 
           if (getenv("AFL_DEBUG")) {
+
             SAYF("Including IJON header for file: %s\n", source_file);
+
           }
 
         } else {
+
           WARNF("IJON header not found for file: %s", source_file);
+
         }
 
       } else {
+
         if (getenv("AFL_DEBUG") && source_file) {
+
           SAYF("Skipping IJON header for file: %s (no IJON usage detected)\n",
                source_file);
+
         }
+
       }
+
     }
+
   }
 
   /* Inspect the command line parameters. */
@@ -3201,10 +3819,12 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
   add_runtime(aflcc);
 
   insert_param(aflcc, NULL);
+
 }
 
 /* Main entry point */
 int main(int argc, char **argv, char **envp) {
+
   aflcc_state_t *aflcc = malloc(sizeof(aflcc_state_t));
   aflcc_state_init(aflcc, (u8 *)argv[0]);
 
@@ -3226,28 +3846,37 @@ int main(int argc, char **argv, char **envp) {
 
   if (aflcc->instrument_mode == INSTRUMENT_GCC ||
       aflcc->instrument_mode == INSTRUMENT_CLANG) {
+
     FATAL(
         "afl-gcc/afl-clang are obsolete and has been removed. Use "
         "afl-clang-fast/afl-gcc-fast for instrumentation instead.");
+
   }
 
   // We only support plugins with LLVM 14 onwards
 #if LLVM_MAJOR < 14
   if (aflcc->instrument_mode != INSTRUMENT_LLVMNATIVE &&
       aflcc->compiler_mode != GCC_PLUGIN) {
+
     aflcc->instrument_mode = INSTRUMENT_LLVMNATIVE;
     aflcc->compiler_mode = LLVM;
+
   }
 
   if (aflcc->compiler_mode == LLVM) {
+
     if (aflcc->cmplog_mode) {
+
       WARNF("CMPLOG support requires LLVM 14+");
       aflcc->cmplog_mode = 0;
+
     }
 
     if (getenv("AFL_LLVM_DICT2FILE")) {
+
       WARNF("DICT2FILE support requires LLVM14+");
       unsetenv("AFL_LLVM_DICT2FILE");
+
     }
 
     if (getenv("AFL_LLVM_LAF_SPLIT_SWITCHES") ||
@@ -3255,24 +3884,29 @@ int main(int argc, char **argv, char **envp) {
         getenv("AFL_LLVM_LAF_SPLIT_FLOATS") ||
         getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
         getenv("AFL_LLVM_LAF_ALL")) {
+
       WARNF("AFL_LLVM_LAF support requires LLVM14+");
       unsetenv("AFL_LLVM_LAF_SPLIT_SWITCHES");
       unsetenv("AFL_LLVM_LAF_SPLIT_COMPARES");
       unsetenv("AFL_LLVM_LAF_SPLIT_FLOATS");
       unsetenv("AFL_LLVM_LAF_TRANSFORM_COMPARES");
       unsetenv("AFL_LLVM_LAF_ALL");
+
     }
 
     if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
         getenv("AFL_LLVM_INJECTIONS_SQL") ||
         getenv("AFL_LLVM_INJECTIONS_LDAP") ||
         getenv("AFL_LLVM_INJECTIONS_XSS")) {
+
       WARNF("AFL_LLVM_INJECTIONS support requires LLVM14+");
       unsetenv("AFL_LLVM_INJECTIONS_ALL");
       unsetenv("AFL_LLVM_INJECTIONS_SQL");
       unsetenv("AFL_LLVM_INJECTIONS_LDAP");
       unsetenv("AFL_LLVM_INJECTIONS_XSS");
+
     }
+
   }
 
 #endif
@@ -3284,18 +3918,25 @@ int main(int argc, char **argv, char **envp) {
   edit_params(aflcc, argc, argv, envp);
 
   if (aflcc->debug) {
+
     debugf_args((s32)aflcc->cc_par_cnt, (char **)aflcc->cc_params);
+
   }
 
   if (aflcc->passthrough) {
+
     argv[0] = aflcc->cc_params[0];
     execvp(aflcc->cc_params[0], (char **)argv);
 
   } else {
+
     execvp(aflcc->cc_params[0], (char **)aflcc->cc_params);
+
   }
 
   FATAL("Oops, failed to execute '%s' - check your PATH", aflcc->cc_params[0]);
 
   return 0;
+
 }
+
