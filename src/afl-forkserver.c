@@ -1376,7 +1376,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     } else {
 
-      if (!fsrv->qemu_mode && !fsrv->cs_mode
+      if (!fsrv->qemu_mode && !fsrv->cs_mode && !fsrv->use_fauxsrv
 #ifdef __linux__
           && !fsrv->nyx_mode
 #endif
