@@ -310,6 +310,16 @@ Setting `AFL_LLVM_THREADSAFE_INST` will inject code that implements thread safe
 counters. The overhead is a little bit higher compared to the older non-thread
 safe case. Note that this disables neverzero (see NOT_ZERO).
 
+#### Deny exec* calls
+
+Setting `AFL_LLVM_DENY_EXEC=1` during compilation will cause the instrumented
+binary to abort when any `exec*` family function is called. This is useful to
+prevent coverage map corruption that can occur when a target calls `exec*`
+functions, as the exec'd process will inherit the instrumentation but may not
+be the intended fuzzing target. Only enable this if your target should never
+call exec functions during normal operation.
+
+
 ## 3) Settings for GCC / GCC_PLUGIN modes
 
 There are a few specific features that are only available in GCC and GCC_PLUGIN

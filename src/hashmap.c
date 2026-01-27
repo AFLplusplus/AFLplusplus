@@ -116,7 +116,7 @@ bool hashmap_search(uint64_t key) {
 
 }
 
-void delete(uint64_t key) {
+void delete (uint64_t key) {
 
   unsigned int index = hash(key);
   HashNode    *prev = NULL, *node = _hashmap->table[index];

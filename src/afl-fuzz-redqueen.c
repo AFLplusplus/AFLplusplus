@@ -2352,7 +2352,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   if (afl->cmplog_enable_transform && (lvl & LVL3)) {
 
-    u32 toupper = 0, tolower = 0, xor = 0, arith = 0, tohex = 0, fromhex = 0;
+    u32 toupper = 0, tolower = 0, xor= 0, arith = 0, tohex = 0, fromhex = 0;
     u32 tob64 = 0, fromb64 = 0;
     u32 from_0 = 0, from_x = 0, from_X = 0, from_slash = 0, from_up = 0;
     u32 to_0 = 0, to_x = 0, to_slash = 0, to_up = 0;
@@ -2653,7 +2653,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       }
 
-      if (xor > i) {
+      if (xor> i) {
 
         for (j = 0; j <= i; j++)
           buf[idx + j] = repl[j] ^ xor_val[j];

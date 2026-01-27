@@ -508,7 +508,7 @@ void setup_trap_instrumentation(void) {
   FILE *patches = fopen(filename, "r");
   if (!patches) FATAL("Couldn't open AFL_UNTRACER_FILE file %s", filename);
 
-    // Index into the coverage bitmap for the current trap instruction.
+  // Index into the coverage bitmap for the current trap instruction.
 #ifdef __aarch64__
   uint64_t bitmap_index = 0;
   #ifdef __APPLE__
@@ -553,7 +553,7 @@ void setup_trap_instrumentation(void) {
                    PROT_READ | PROT_WRITE | PROT_EXEC) != 0)
         FATAL("Failed to mprotect library %s writable", line);
 
-        // Create shadow memory.
+      // Create shadow memory.
 #ifdef __aarch64__
       for (int i = 0; i < 8; i++) {
 
@@ -595,7 +595,7 @@ void setup_trap_instrumentation(void) {
         *shadow = SHADOW(lib_addr + offset);
     if (*shadow != 0) continue;  // skip duplicates
 
-      // Make lookup entry in shadow memory.
+    // Make lookup entry in shadow memory.
 
 #if ((defined(__APPLE__) && defined(__LP64__)) || defined(__x86_64__) || \
      defined(__i386__))
@@ -626,14 +626,14 @@ void setup_trap_instrumentation(void) {
               bitmap_index, *shadow);
 
 #else
-    // this will be ARM and AARCH64
-    // for ARM we will need to identify if the code is in thumb or ARM
+  // this will be ARM and AARCH64
+  // for ARM we will need to identify if the code is in thumb or ARM
   #error "non x86_64/aarch64 not supported yet"
-    //__arm__:
-    // linux thumb: 0xde01
-    // linux arm: 0xe7f001f0
-    //__aarch64__:
-    // linux aarch64: 0xd4200000
+  //__arm__:
+  // linux thumb: 0xde01
+  // linux arm: 0xe7f001f0
+  //__aarch64__:
+  // linux aarch64: 0xd4200000
 #endif
 
     bitmap_index++;
@@ -801,8 +801,7 @@ int main(int argc, char *argv[]) {
 #ifndef _DEBUG
 inline
 #endif
-    static void
-    fuzz(void) {
+    static void fuzz(void) {
 
   // STEP 3: call the function to fuzz, also the functions you might
   //         need to call to prepare the function and - important! -
