@@ -370,6 +370,21 @@ struct afl_pass : afl_base_pass {
 
     if (AFL_R(100) >= (long int)inst_ratio) return false;
 
+    /* Skip blocks with returns_twice calls (e.g., setjmp, vfork).
+       Since GCC 13, these calls must be first in their basic block. */
+    gimple_stmt_iterator gsi;
+    for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
+
+      gimple stmt = gsi_stmt(gsi);
+      if (is_gimple_call(stmt)) {
+
+        int flags = gimple_call_flags(stmt);
+        if (flags & ECF_RETURNS_TWICE) return false;
+
+      }
+
+    }
+
     edge          e;
     edge_iterator ei;
     FOR_EACH_EDGE(e, ei, bb->preds)
