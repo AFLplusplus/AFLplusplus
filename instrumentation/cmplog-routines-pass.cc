@@ -223,6 +223,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                !FuncName.compare("strcasecmp") ||
                !FuncName.compare("stricmp") ||
                !FuncName.compare("ap_cstr_casecmp") ||
+               !FuncName.compare("apr_cstr_casecmp") ||
                !FuncName.compare("OPENSSL_strcasecmp") ||
                !FuncName.compare("xmlStrcasecmp") ||
                !FuncName.compare("g_strcasecmp") ||
@@ -230,6 +231,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                !FuncName.compare("Curl_strcasecompare") ||
                !FuncName.compare("Curl_safe_strcasecompare") ||
                !FuncName.compare("cmsstrcasecmp") ||
+               !FuncName.compare("sqlite3_stricmp") ||
+               !FuncName.compare("sqlite3StrICmp") ||
                !FuncName.compare("g_str_has_prefix") ||
                !FuncName.compare("g_str_has_suffix"));
           isStrcmp &=
@@ -244,11 +247,13 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                             !FuncName.compare("strncasecmp") ||
                             !FuncName.compare("strnicmp") ||
                             !FuncName.compare("ap_cstr_casecmpn") ||
+                            !FuncName.compare("apr_cstr_casecmpn") ||
                             !FuncName.compare("OPENSSL_strncasecmp") ||
                             !FuncName.compare("xmlStrncasecmp") ||
                             !FuncName.compare("g_ascii_strncasecmp") ||
                             !FuncName.compare("Curl_strncasecompare") ||
-                            !FuncName.compare("g_strncasecmp"));
+                            !FuncName.compare("g_strncasecmp") ||
+                            !FuncName.compare("sqlite3_strnicmp"));
           isStrncmp &=
               FT->getNumParams() == 3 && FT->getReturnType()->isIntegerTy(32) &&
               FT->getParamType(0) == FT->getParamType(1) &&
