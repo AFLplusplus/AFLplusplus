@@ -102,7 +102,7 @@ llvmGetPassPluginInfo() {
 bool CmpLogRoutines::hookRtns(Module &M) {
 
   std::vector<CallInst *> calls, llvmStdStd, llvmStdC, gccStdStd, gccStdC,
-      Memcmp, Strcmp, Strncmp, GStrstrLen;
+      Memcmp, Strcmp, Strncmp, GStrstrLen, Memmem;
   LLVMContext &C = M.getContext();
 
   Type *VoidTy = Type::getVoidTy(C);
@@ -258,10 +258,11 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           // Functions like strstr that return a pointer to the found substring
           // Signature: ptr strstr(ptr haystack, ptr needle)
-          bool isStrstr = (!FuncName.compare("strstr") ||
-                           !FuncName.compare("ap_strcasestr") ||
-                           !FuncName.compare("xmlStrstr") ||
-                           !FuncName.compare("xmlStrcasestr"));
+          bool isStrstr =
+              (!FuncName.compare("strstr") || !FuncName.compare("strcasestr") ||
+               !FuncName.compare("ap_strcasestr") ||
+               !FuncName.compare("xmlStrstr") ||
+               !FuncName.compare("xmlStrcasestr"));
           isStrstr &= FT->getNumParams() == 2 &&
                       FT->getReturnType()->isPointerTy() &&
                       FT->getParamType(0)->isPointerTy() &&
@@ -275,6 +276,25 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                           FT->getParamType(0)->isPointerTy() &&
                           FT->getParamType(1)->isIntegerTy() &&
                           FT->getParamType(2)->isPointerTy();
+
+          // memmem: void* (const void *haystack, size_t haystacklen,
+          //                const void *needle, size_t needlelen)
+          bool isMemmem = (!FuncName.compare("memmem"));
+          isMemmem &= FT->getNumParams() == 4 &&
+                      FT->getReturnType()->isPointerTy() &&
+                      FT->getParamType(0)->isPointerTy() &&
+                      FT->getParamType(1)->isIntegerTy() &&
+                      FT->getParamType(2)->isPointerTy() &&
+                      FT->getParamType(3)->isIntegerTy();
+
+          // strnstr: char* (const char *big, const char *little, size_t len)
+          // BSD-specific function
+          bool isStrnstr = (!FuncName.compare("strnstr"));
+          isStrnstr &= FT->getNumParams() == 3 &&
+                       FT->getReturnType()->isPointerTy() &&
+                       FT->getParamType(0)->isPointerTy() &&
+                       FT->getParamType(1)->isPointerTy() &&
+                       FT->getParamType(2)->isIntegerTy();
 
           bool isGccStdStringStdString =
               Callee->getName().find("__is_charIT_EE7__value") !=
@@ -324,7 +344,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           if (isGccStdStringCString || isGccStdStringStdString ||
               isLlvmStdStringStdString || isLlvmStdStringCString || isMemcmp ||
-              isStrcmp || isStrncmp || isStrstr || isGStrstrLen) {
+              isStrcmp || isStrncmp || isStrstr || isGStrstrLen || isMemmem ||
+              isStrnstr) {
 
             isPtrRtnN = isPtrRtn = false;
 
@@ -335,8 +356,9 @@ bool CmpLogRoutines::hookRtns(Module &M) {
           if (isPtrRtn) { calls.push_back(callInst); }
           if (isMemcmp || isPtrRtnN) { Memcmp.push_back(callInst); }
           if (isStrcmp || isStrstr) { Strcmp.push_back(callInst); }
-          if (isStrncmp) { Strncmp.push_back(callInst); }
+          if (isStrncmp || isStrnstr) { Strncmp.push_back(callInst); }
           if (isGStrstrLen) { GStrstrLen.push_back(callInst); }
+          if (isMemmem) { Memmem.push_back(callInst); }
           if (isGccStdStringStdString) { gccStdStd.push_back(callInst); }
           if (isGccStdStringCString) { gccStdC.push_back(callInst); }
           if (isLlvmStdStringStdString) { llvmStdStd.push_back(callInst); }
@@ -352,7 +374,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
   if (!calls.size() && !gccStdStd.size() && !gccStdC.size() &&
       !llvmStdStd.size() && !llvmStdC.size() && !Memcmp.size() &&
-      !Strcmp.size() && !Strncmp.size() && !GStrstrLen.size())
+      !Strcmp.size() && !Strncmp.size() && !GStrstrLen.size() && !Memmem.size())
     return false;
 
   /*
@@ -660,6 +682,48 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     args.push_back(v2Pcasted);
 
     IRB.CreateCall(cmplogHookFnStr, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  // memmem: void* (const void *haystack, size_t haystacklen,
+  //                const void *needle, size_t needlelen)
+  // Extract arg0 (haystack), arg2 (needle), arg3 (needlelen)
+  for (auto &callInst : Memmem) {
+
+    Value *v1P = callInst->getArgOperand(0),    // haystack
+        *v2P = callInst->getArgOperand(2),      // needle
+            *v3P = callInst->getArgOperand(3);  // needlelen
+
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
+
+    std::vector<Value *> args;
+    Value               *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value               *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    Value               *v3Pbitcast = IRB.CreateBitCast(
+        v3P, IntegerType::get(C, v3P->getType()->getPrimitiveSizeInBits()));
+    Value *v3Pcasted =
+        IRB.CreateIntCast(v3Pbitcast, IntegerType::get(C, 64), false);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+    args.push_back(v3Pcasted);
+
+    IRB.CreateCall(cmplogHookFnN, args);
 
     // errs() << callInst->getCalledFunction()->getName() << "\n";
 
