@@ -626,8 +626,8 @@ void setup_trap_instrumentation(void) {
               bitmap_index, *shadow);
 
 #else
-    // this will be ARM and AARCH64
-    // for ARM we will need to identify if the code is in thumb or ARM
+  // this will be ARM and AARCH64
+  // for ARM we will need to identify if the code is in thumb or ARM
   #error "non x86_64/aarch64 not supported yet"
     //__arm__:
     // linux thumb: 0xde01

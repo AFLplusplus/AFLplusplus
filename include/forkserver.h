@@ -275,6 +275,9 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 void              afl_fsrv_killall(void);
 void              afl_fsrv_deinit(afl_forkserver_t *fsrv);
 void              afl_fsrv_kill(afl_forkserver_t *fsrv);
+void              afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
+                                          char **use_argv, u32 map_size,
+                                          volatile u8 *stop_soon, bool unicorn_mode);
 
 #ifdef __linux__
 void nyx_load_target_hash(afl_forkserver_t *fsrv);

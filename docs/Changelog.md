@@ -9,10 +9,17 @@
     - added `AFL_FORCE_FASTRESUME` which will ignore the saved hash of the
       target - but note it will only work if the coverage map size did not
       change
+    - prevent further executed instrumented programs by the fuzz target to
+      manipulate the coverage
   - afl-cc:
     - LLVM 22 support (they are again switching around include files ...)
+    - g_/curl_/xml_ string support for COMPCOV, thanks to @Prajwal-kp-18
+    - env `AFL_LLVM_DENY_EXEC` will abort any common exec calls
   - afl-cmin:
-    - new implementation in C by @kcwu - thanks!
+    - new implementation in C by @kcwu - thanks! (it is the default now)
+    - afl-cmin.py was changing behaviour to hash the original filenames,
+      this was reverted.
+    - afl-cmin and afl-cmin.py honor `AFL_SHA1_FILENAMES` now
   - afl-showmap:
     - -f support added by Prajwal-kp-18 - thanks!
 

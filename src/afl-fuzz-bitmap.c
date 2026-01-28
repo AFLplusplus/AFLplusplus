@@ -620,7 +620,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       cksum_unique =
           hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      if (unlikely(!bitmap_read(afl->n_fuzz_dup, cksum) &&
+      if (unlikely(!bitmap_read(afl->n_fuzz_dup, cksum_unique) &&
                    fault == afl->crash_mode)) {
 
         feed_san = 1;

@@ -85,6 +85,12 @@ fairly broad use of environment variables instead:
 
     Note that this is an outdated variable. Only LLVM CLASSIC pass can use this.
 
+  - Setting `AFL_INPUT_PLACEHOLDER` to a string allows you to use that string 
+    as a placeholder instead of "@@" in the target command line arguments.
+    Use this when "@@" conflicts with the parameters of your program.
+    For eg. `AFL_INPUT_PLACEHOLDER=NEW_PLACEHOLDER afl-fuzz -i in -o out --
+    ./targetProgram NEW_PLACEHOLDER`
+
   - `AFL_NO_BUILTIN` causes the compiler to generate code suitable for use with
     libtokencap.so (but perhaps running a bit slower than without the flag).
 
@@ -303,6 +309,16 @@ For more information, see
 Setting `AFL_LLVM_THREADSAFE_INST` will inject code that implements thread safe
 counters. The overhead is a little bit higher compared to the older non-thread
 safe case. Note that this disables neverzero (see NOT_ZERO).
+
+#### Deny exec* calls
+
+Setting `AFL_LLVM_DENY_EXEC=1` during compilation will cause the instrumented
+binary to abort when any `exec*` family function is called. This is useful to
+prevent coverage map corruption that can occur when a target calls `exec*`
+functions, as the exec'd process will inherit the instrumentation but may not
+be the intended fuzzing target. Only enable this if your target should never
+call exec functions during normal operation.
+
 
 ## 3) Settings for GCC / GCC_PLUGIN modes
 

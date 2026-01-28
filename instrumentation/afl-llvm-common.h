@@ -52,6 +52,7 @@ void                   scanForDangerousFunctions(llvm::Module *M);
 unsigned int           calcCyclomaticComplexity(llvm::Function *F);
 bool                   isAflCovInterestingInstruction(llvm::Instruction &I);
 bool                   isDecisionUse(const llvm::Value *Cond);
+bool                   isExecCall(llvm::Instruction *IN);
 std::pair<bool, bool>  detectIJONUsage(llvm::Module &M);
 void createIJONEnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
 llvm::GlobalVariable *createIJONStateGlobal(llvm::Module &M,

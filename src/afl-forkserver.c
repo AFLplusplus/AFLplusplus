@@ -35,6 +35,7 @@
 #include "common.h"
 #include "list.h"
 #include "forkserver.h"
+#include "sharedmem.h"
 #include "hash.h"
 
 #include <stdio.h>
@@ -969,14 +970,21 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     /* TODO: Come up with some nice way to initialize this all */
 
-    if (fsrv->init_child_func != fsrv_exec_child) {
+    if (fsrv->init_child_func == afl_fauxsrv_execv) {
+
+      if (!be_quiet) { ACTF("Faux forkserver already initialized"); }
+
+    } else if (fsrv->init_child_func != fsrv_exec_child) {
 
       FATAL("Different forkserver not compatible with fauxserver");
+
+    } else {
+
+      fsrv->init_child_func = afl_fauxsrv_execv;
 
     }
 
     if (!be_quiet) { ACTF("Using AFL++ faux forkserver..."); }
-    fsrv->init_child_func = afl_fauxsrv_execv;
 
   }
 
@@ -1368,7 +1376,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     } else {
 
-      if (!fsrv->qemu_mode && !fsrv->cs_mode
+      if (!fsrv->qemu_mode && !fsrv->cs_mode && !fsrv->use_fauxsrv
 #ifdef __linux__
           && !fsrv->nyx_mode
 #endif
@@ -1878,6 +1886,86 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
   afl_fsrv_start(fsrv, argv, stop_soon_p, debug_child_output);
   return fsrv->map_size;
+
+}
+
+/* Get mapsize from fsrv and resize if larger than DEFAULT_SHMEM_SIZE */
+
+void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
+                             char **use_argv, u32 map_size,
+                             volatile u8 *stop_soon, bool unicorn_mode) {
+
+  if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
+
+    if (map_size <= DEFAULT_SHMEM_SIZE) {
+
+      fsrv->map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
+
+    } else {
+
+      validate_map_size(map_size);
+      fsrv->map_size = map_size;
+
+    }
+
+    char vbuf[16];
+    snprintf(vbuf, sizeof(vbuf), "%u", fsrv->map_size);
+    setenv("AFL_MAP_SIZE", vbuf, 1);
+
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(fsrv, use_argv, stop_soon,
+                             (get_afl_env("AFL_DEBUG_CHILD") ||
+                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                                 ? 1
+                                 : 0);
+
+    if (new_map_size) {
+
+      // only reinitialize when it makes sense
+      if (map_size < new_map_size) {
+
+        if (!be_quiet)
+          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
+
+#ifdef __linux__
+        /* no need to terminate the nyx runner */
+        if (!fsrv->nyx_mode) {
+
+#endif
+          sharedmem_t *shm = (sharedmem_t *)shm_p;
+          afl_shm_deinit(shm);
+          afl_fsrv_kill(fsrv);
+          fsrv->map_size = new_map_size;
+          fsrv->trace_bits =
+              afl_shm_init(shm, new_map_size, 0, DEFAULT_PERMISSION, -1);
+          afl_fsrv_start(fsrv, use_argv, stop_soon,
+                         (get_afl_env("AFL_DEBUG_CHILD") ||
+                          get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                             ? 1
+                             : 0);
+#ifdef __linux__
+
+        }
+
+#endif
+
+      }
+
+      map_size = new_map_size;
+
+    }
+
+    fsrv->map_size = map_size;
+
+  } else {
+
+    afl_fsrv_start(fsrv, use_argv, stop_soon,
+                   (get_afl_env("AFL_DEBUG_CHILD") ||
+                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
+                       ? 1
+                       : 0);
+
+  }
 
 }
 

@@ -19,12 +19,14 @@ import array
 import base64
 import collections
 import ctypes
+import errno
 import glob
 import hashlib
 import itertools
 import logging
 import multiprocessing
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -372,9 +374,10 @@ def afl_showmap(
         "-Z",  # cmin mode
     ]
     # yapf: enable
+    placeholder = os.environ.get("AFL_INPUT_PLACEHOLDER", "@@")
     found_atat = False
     for arg in args.args:
-        if "@@" in arg:
+        if placeholder in arg:
             found_atat = True
 
     if args.stdin_file:
@@ -392,9 +395,20 @@ def afl_showmap(
     if batch:
         input_from_file = True
         filelist = os.path.join(args.output, f".filelist.{os.getpid()}")
+        temp_dir = os.path.join(args.output, f".filelist.{os.getpid()}.d")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_entries = []
         with open(filelist, "w") as f:
             for _, path in batch:
-                f.write(path + "\n")
+                base = os.path.basename(path)
+                unique = f"{random.getrandbits(32):08x}_{base}"
+                temp_path = os.path.join(temp_dir, unique)
+                try:
+                    os.link(path, temp_path)
+                except OSError:
+                    shutil.copy(path, temp_path)
+                temp_entries.append((_, unique))
+                f.write(temp_path + "\n")
         cmd += ["-I", filelist]
         output_path = os.path.join(args.output, f".showmap.{os.getpid()}")
         cmd += ["-o", output_path]
@@ -443,11 +457,10 @@ def afl_showmap(
 
     if batch:
         result = []
-        for idx, input_path in batch:
-            basename = os.path.basename(input_path)
+        for idx, unique in temp_entries:
             values = []
             try:
-                trace_file = os.path.join(output_path, basename)
+                trace_file = os.path.join(output_path, unique)
                 with open(trace_file, "r") as f:
                     values = list(map(int, f))
                 crashed = len(values) == 0
@@ -460,6 +473,12 @@ def afl_showmap(
             result.append((idx, a, crashed))
         os.unlink(filelist)
         os.rmdir(output_path)
+        for _, unique in temp_entries:
+            try:
+                os.unlink(os.path.join(temp_dir, unique))
+            except FileNotFoundError:
+                pass
+        os.rmdir(temp_dir)
         return result
     else:
         values = []
@@ -502,6 +521,7 @@ class Worker(multiprocessing.Process):
         p_out,
         r_out,
         file_index_type_code,
+        tuple_index_type_code,
         afl_showmap_bin,
     ):
         super().__init__()
@@ -512,6 +532,7 @@ class Worker(multiprocessing.Process):
         self.p_out = p_out
         self.r_out = r_out
         self.file_index_type_code = file_index_type_code
+        self.tuple_index_type_code = tuple_index_type_code
         self.afl_showmap_bin = afl_showmap_bin
 
     def run(self):
@@ -536,7 +557,7 @@ class Worker(multiprocessing.Process):
                     self.afl_showmap_bin,
                     batch=batch,
                     afl_map_size=self.afl_map_size,
-                    tuple_index_type_code=self.file_index_type_code,
+                    tuple_index_type_code=self.tuple_index_type_code,
                 ):
                     counter.update(r)
 
@@ -596,12 +617,28 @@ def hash_file(path):
 
 
 def dedup(args, files):
+    seen_hash = set()
+    result = []
+    hash_list = []
+    if args.workers <= 1:
+        for i, h in enumerate(
+            tqdm(
+                map(hash_file, files),
+                desc="dedup",
+                total=len(files),
+                ncols=0,
+                leave=(len(files) > 100000),
+            )
+        ):
+            if h in seen_hash:
+                continue
+            seen_hash.add(h)
+            result.append(files[i])
+            hash_list.append(h)
+        return result, hash_list
     with multiprocessing.Pool(
         args.workers, initializer=init_logger, initargs=(args,)
     ) as pool:
-        seen_hash = set()
-        result = []
-        hash_list = []
         # use large chunksize to reduce multiprocessing overhead
         chunksize = max(1, min(256, len(files) // args.workers))
         for i, h in enumerate(
@@ -684,11 +721,14 @@ def main():
     file_index_type_code = detect_type_code(len(files))
 
     logger.info("Sorting files.")
-    with multiprocessing.Pool(
-        args.workers, initializer=init_logger, initargs=(args,)
-    ) as pool:
-        chunksize = max(1, min(512, len(files) // args.workers))
-        size_list = list(pool.map(os.path.getsize, files, chunksize))
+    if args.workers <= 1:
+        size_list = list(map(os.path.getsize, files))
+    else:
+        with multiprocessing.Pool(
+            args.workers, initializer=init_logger, initargs=(args,)
+        ) as pool:
+            chunksize = max(1, min(512, len(files) // args.workers))
+            size_list = list(pool.map(os.path.getsize, files, chunksize))
     idxes = sorted(range(len(files)), key=lambda x: size_list[x])
     files = [files[idx] for idx in idxes]
     hash_list = [hash_list[idx] for idx in idxes]
@@ -745,6 +785,7 @@ def main():
             progress_queue,
             result_queue,
             file_index_type_code,
+            tuple_index_type_code,
             afl_showmap_bin,
         )
         p.start()
@@ -800,24 +841,62 @@ def main():
     logger.info("Processing candidates and writing output")
     already_have = set()
     count = 0
+    use_sha1_filenames = bool(os.environ.get("AFL_SHA1_FILENAMES"))
+    hash_cache = {}
+    used_output_names = set()
+
+    def unique_output_path(base_name):
+        output_path = os.path.join(args.output, base_name)
+        if output_path not in used_output_names and not os.path.exists(output_path):
+            used_output_names.add(output_path)
+            return output_path
+        for _ in range(10000):
+            prefix = f"{random.getrandbits(32):08x}"
+            candidate = os.path.join(args.output, f"{prefix}_{base_name}")
+            if candidate not in used_output_names and not os.path.exists(candidate):
+                used_output_names.add(candidate)
+                return candidate
+        raise RuntimeError(f'Unable to find unique output name for "{base_name}"')
+
+    def get_sha1(idx, input_path):
+        if not args.no_dedup:
+            return hash_list[idx]
+        if idx in hash_cache:
+            return hash_cache[idx]
+        h = hash_file(input_path)
+        hash_cache[idx] = h
+        return h
 
     def save_file(idx):
         input_path = files[idx]
-        fn = (
-            base64.b16encode(hash_list[idx]).decode("utf8").lower()
-            if not args.no_dedup
-            else os.path.basename(input_path)
-        )
+        if use_sha1_filenames:
+            fn = base64.b16encode(get_sha1(idx, input_path)).decode("utf8").lower()
+        else:
+            fn = os.path.basename(input_path)
         if args.as_queue:
             if args.no_dedup:
                 fn = "id:%06d,orig:%s" % (count, fn)
             else:
-                fn = "id:%06d,hash:%s" % (count, fn)
+                if use_sha1_filenames:
+                    fn = "id:%06d,hash:%s" % (count, fn)
+                else:
+                    fn = "id:%06d,orig:%s" % (count, fn)
         output_path = os.path.join(args.output, fn)
-        try:
-            os.link(input_path, output_path)
-        except OSError:
-            shutil.copy(input_path, output_path)
+        use_orig_name = not use_sha1_filenames and not args.as_queue
+        if use_orig_name:
+            output_path = unique_output_path(fn)
+        while True:
+            try:
+                os.link(input_path, output_path)
+                break
+            except OSError as exc:
+                if use_orig_name and exc.errno == errno.EEXIST:
+                    output_path = unique_output_path(fn)
+                    continue
+                if use_orig_name and os.path.exists(output_path):
+                    output_path = unique_output_path(fn)
+                shutil.copy(input_path, output_path)
+                break
 
     jobs = [[] for i in range(args.workers)]
     saved = set()
@@ -881,7 +960,10 @@ def main():
             crash_files, hash_list = dedup(args, crash_files)
 
         for idx, crash_path in enumerate(crash_files):
-            fn = base64.b16encode(hash_list[idx]).decode("utf8").lower()
+            if use_sha1_filenames:
+                fn = base64.b16encode(hash_list[idx]).decode("utf8").lower()
+            else:
+                fn = os.path.basename(crash_path)
             output_path = os.path.join(args.crash_dir, fn)
             try:
                 os.link(crash_path, output_path)

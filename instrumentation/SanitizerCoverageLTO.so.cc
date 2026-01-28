@@ -267,6 +267,7 @@ class ModuleSanitizerCoverageLTO
   AllocaInst                      *CTX_add = NULL;
   std::ofstream                    dFile;
   size_t                           found = 0;
+  bool                             deny_exec = false;
   // AFL++ END
 
 };
@@ -442,6 +443,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   // Check if IJON state-aware coverage is enabled
   ijon_enabled = getenv("AFL_LLVM_IJON");
+  if (getenv("AFL_LLVM_DENY_EXEC")) deny_exec = true;
 
   // If IJON is enabled, check if the module actually uses any IJON functions
   bool uses_ijon_functions = false;
@@ -1445,6 +1447,30 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
     // we have to set __afl_ctx 0 for all indirect calls in all functions, even
     // those not to be instrumented.
+
+    // AFL++ START
+    if (deny_exec) {
+
+      FunctionCallee AbortFn = F.getParent()->getOrInsertFunction(
+          "abort", AttributeList{}, Type::getVoidTy(Context));
+      for (auto &BB : F) {
+
+        for (auto &IN : BB) {
+
+          if (isExecCall(&IN)) {
+
+            IRBuilder<> IRB(&IN);
+            IRB.CreateCall(AbortFn);
+
+          }
+
+        }
+
+      }
+
+    }
+
+    // AFL++ END
     for (auto &BB : F) {
 
       for (auto &IN : BB) {
