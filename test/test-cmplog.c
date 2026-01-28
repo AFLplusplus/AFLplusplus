@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -8,11 +9,14 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *buf, size_t i) {
 
-  if (i < 15) return -1;
+  if (i < 24) return -1;
   if (buf[0] != 'A') return 0;
   int *icmp = (int *)(buf + 1);
   if (*icmp != 0x69694141) return 0;
-  if (memcmp(buf + 5, "1234EF", 6) == 0) abort();
+  if (memmem(buf + 5, i - 5, "MEMMEM", 6) == NULL) return 0;
+  ((char *)buf)[23] = '\0';  // Ensure null-termination for strstr
+  if (strstr((char *)(buf + 11), "STRSTR") == NULL) return 0;
+  if (memcmp(buf + 17, "1234EF", 6) == 0) abort();
   return 0;
 
 }

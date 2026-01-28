@@ -306,6 +306,15 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       CODE=1
     }
   }
+  # Test cmplog routines pass instrumentation
+  test -e test-cmplog-routines-pass.sh && {
+    ./test-cmplog-routines-pass.sh > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] cmplog routines pass instrumentation test passed"
+    } || {
+      $ECHO "$RED[!] cmplog routines pass instrumentation test failed"
+      CODE=1
+    }
+  }
   ../afl-clang-fast -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
