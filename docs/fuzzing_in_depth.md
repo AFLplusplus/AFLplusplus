@@ -938,6 +938,25 @@ contain severity and other information.
 casr-afl -i /path/to/afl/out/dir -o /path/to/casr/out/dir
 ```
 
+### If crashes do not reproduce
+
+Sometimes crashes AFL++ finds cannot be reproduced.
+
+This usually means that limits applied at the time of fuzzing that crashes the
+target process, e.g. running out of memory, or the limit of a set `-m` being
+reached.
+
+If you do persistent fuzzing, then it is also possible that the target keeps
+persistent state (this is mostly for AFL_LOOP/LLVMFuzzerTestOneInput type
+targets).
+In this case either fuzz with the env var `AFL_ALLOW_CORES` to create core
+files and analyze them where the cash occur (slows down fuzzing, so only use
+this for analysis), or you recompile AFL++ with a config.h setting that enables
+`AFL_PERSISTENT_RECORD` and `AFL_PERSISTENT_REPLAY_ARGPARSE`.
+[Read the documentation](../instrumentation/README.persistent_mode.md) on how
+to configure persistent record at runtime, and how to replay these.
+
+
 ## 5. CI fuzzing
 
 Some notes on continuous integration (CI) fuzzing - this fuzzing is different to

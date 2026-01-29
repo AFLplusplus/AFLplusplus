@@ -302,6 +302,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->child_kill_signal = SIGKILL;
   fsrv->max_length = MAX_FILE;
 
+  fsrv->allow_cores = getenv("AFL_ALLOW_CORES") != NULL ? true : false;
+
   if (getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL) {
 
     fsrv->setenv = 1;
@@ -354,6 +356,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
   fsrv_to->out_fd = from->out_fd;  // not sure this is a good idea
   fsrv_to->no_unlink = from->no_unlink;
+  fsrv_to->allow_cores = from->allow_cores;
   fsrv_to->uses_crash_exitcode = from->uses_crash_exitcode;
   fsrv_to->crash_exitcode = from->crash_exitcode;
   fsrv_to->child_kill_signal = from->child_kill_signal;
@@ -1043,9 +1046,16 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     /* Dumping cores is slow and can lead to anomalies if SIGKILL is delivered
        before the dump is complete. */
 
-    if (!fsrv->debug) {
+    if (!fsrv->debug && !fsrv->allow_cores) {
 
       r.rlim_max = r.rlim_cur = 0;
+      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
+
+    }
+
+    if (fsrv->allow_cores) {
+
+      r.rlim_max = r.rlim_cur = INT_MAX;
       setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
 
     }

@@ -391,6 +391,9 @@ checks or alter some of the more exotic semantics of the tool:
     processing the first queue entry; and `AFL_BENCH_UNTIL_CRASH` causes it to
     exit soon after the first crash is found.
 
+  - Setting `AFL_ALLOW_CORES` will allow writing core files on crashes.
+    Not recommended unless you have crashes that do not reproduce stand-alone.
+
   - `AFL_CMPLOG_ONLY_NEW` will only perform the expensive cmplog feature for
     newly found test cases and not for test cases that are loaded on startup
     (`-i in`). This is an important feature to set when resuming a fuzzing

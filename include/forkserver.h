@@ -142,6 +142,8 @@ typedef struct afl_forkserver {
 
   u8 last_exit_code;               /* Child exit code if counted as a crash */
 
+  bool allow_cores;                   /* allow core files on target crashes */
+
   bool use_shmem_fuzz;                  /* use shared mem for test cases    */
 
   bool support_shmem_fuzz;              /* set by afl-fuzz                  */
