@@ -2586,6 +2586,8 @@ void setup_stdio_file(afl_state_t *afl) {
 
 void check_crash_handling(void) {
 
+  if (getenv("AFL_ALLOW_CORES")) { return; }
+
 #ifdef __APPLE__
 
   /* Yuck! There appears to be no simple C API to query for the state of
