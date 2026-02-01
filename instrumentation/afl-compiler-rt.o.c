@@ -1646,14 +1646,50 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   */
 
+  /* AFL++ START - Detect coverage map mismatch from child processes */
+  if (*guard >= __afl_map_size) {
+
+    static u8 reported = 0;
+    if (!reported) {
+
+      fprintf(stderr,
+              "ERROR: Coverage map mismatch detected!\n"
+              "Edge ID %u exceeds the expected map size of %u bytes.\n"
+              "This typically happens when:\n"
+              "  1. The target binary calls another instrumented binary via "
+              "exec()\n"
+              "  2. Both binaries were instrumented with afl-cc\n"
+              "  3. The child process adds its own instrumentation edges\n"
+              "\n"
+              "Solution: Either:\n"
+              "  - Avoid calling instrumented binaries from other instrumented "
+              "binaries\n"
+              "  - Compile the child binary without AFL++ instrumentation\n"
+              "  - Use AFL_DUMP_MAP_SIZE=1 to get the correct map size and "
+              "configure AFL++ with the total expected size\n",
+              *guard, __afl_map_size);
+
+      reported = 1;
+
+      if (getenv("AFL_CRASH_ON_MAP_MISMATCH")) { abort(); }
+
+    }
+
+  }
+  /* AFL++ END - Detect coverage map mismatch */
+
 #if (LLVM_VERSION_MAJOR < 9)
 
-  __afl_area_ptr[*guard]++;
+  if (*guard < __afl_map_size) { __afl_area_ptr[*guard]++; }
 
 #else
 
-  __afl_area_ptr[*guard] =
-      __afl_area_ptr[*guard] + 1 + (__afl_area_ptr[*guard] == 255 ? 1 : 0);
+  if (*guard < __afl_map_size) {
+
+    __afl_area_ptr[*guard] =
+        __afl_area_ptr[*guard] + 1 + (__afl_area_ptr[*guard] == 255 ? 1 : 0);
+
+  }
 
 #endif
 
