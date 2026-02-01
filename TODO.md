@@ -1,5 +1,11 @@
 # TODO list for AFL++
 
+## Next
+ - analyse regression 87d26ff7de5ba8e762bccdda85e91f5c951f17e9
+   - more?
+ - new classify map VAR=1
+
+
 ## Must
 
  - find a solution that SAYF now prints to stderr (help!)
