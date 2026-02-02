@@ -460,7 +460,8 @@ void frameshift_stage(afl_state_t *afl) {
   printf("Frameshift stage\n");
 #endif
 
-  u64 time_start = get_cur_time();
+  u64  time_start = get_cur_time();
+  u32 *inflection_points = NULL;
 
   if (unlikely(!afl->frameshift_index_buffer)) {
 
@@ -531,9 +532,11 @@ void frameshift_stage(afl_state_t *afl) {
   u32 loss_threshold = ((index_count * FRAMESHIFT_LOSS_PCT) / 100) + 1;
 
   // printf("[FS] Index count: %u\n", index_count);
-  u32  inflection_points_count = 0;
-  u32  inflection_points_capacity = 128;
-  u32 *inflection_points = calloc(inflection_points_capacity, sizeof(u32));
+  u32 inflection_points_count = 0;
+  u32 inflection_points_capacity = 128;
+  inflection_points = calloc(inflection_points_capacity, sizeof(u32));
+
+  if (!inflection_points) { PFATAL("alloc for inflection_points failed."); }
 
   // Outer loop, run at most max_iterations times.
   for (u32 i = 0; i < FRAMESHIFT_MAX_ITERS; i++) {
@@ -547,7 +550,7 @@ void frameshift_stage(afl_state_t *afl) {
       for (u8 k = 0; k < sizeof(FRAMESHIFT_SEARCH_ORDER) / sizeof(field_tmpl_t);
            k++) {
 
-        field_tmpl_t *tmpl = &FRAMESHIFT_SEARCH_ORDER[k];
+        field_tmpl_t *tmpl = (field_tmpl_t *)&FRAMESHIFT_SEARCH_ORDER[k];
         u8            size = tmpl->size;
         u8            le = tmpl->le;
 
@@ -580,7 +583,7 @@ void frameshift_stage(afl_state_t *afl) {
 
           u64 max_shift = 0xff - curr_size;
           if (max_shift == 0) { continue; }
-          shift_amount = MIN(0x20, max_shift);
+          shift_amount = MIN((u64)0x20, max_shift);
 
         }
 

@@ -6,6 +6,12 @@
 
 ### Version ++4.36a (dev)
   - afl-fuzz:
+    - FrameShift integrated and enabled by default, disable with
+      AFL_FRAMESHIFT_DISABLE and configure effort via
+      AFL_FRAMESHIFT_MAX_OVERHEAD. In extensive fuzzbench analysis at worst
+      (on average) it does nothing, at best it improves time to new coverage
+      and total coverage unlocked. https://arxiv.org/pdf/2507.05421
+      Thanks to @hgarrereyn for the PR!
     - added `AFL_FORCE_FASTRESUME` which will ignore the saved hash of the
       target - but note it will only work if the coverage map size did not
       change

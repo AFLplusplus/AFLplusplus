@@ -436,7 +436,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     u32 t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
 
-    if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+    if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
       u8 search_time[64];
       u_simplestring_time_diff(search_time, afl->fs_stats.total_time_ms + 1, 1);
@@ -457,7 +457,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
           "Fuzzing test case #%u (%u total, %s%llu crashes saved%s, state: %s, "
           "mode=%s, "
           "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
-          "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s, cvg=%.02f%%) FS (t=%s "
+          "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s, cvg=%.02f%%) "
+          "FS (t=%s "
           "(%.2f%%), "
           "st=%llu, avg=%llu ms, found=%u/%u)...",
           afl->current_entry, afl->queued_items,
@@ -468,9 +469,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
           afl->queue_cur->exec_us,
           likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
           afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii, time_tmp,
-          ((double)t_bytes * 100) / afl->fsrv.real_map_size,
-          search_time, overhead_pct, afl->fs_stats.search_tests,
-          average_search_time_ms, afl->fs_stats.found, afl->fs_stats.searched);
+          ((double)t_bytes * 100) / afl->fsrv.real_map_size, search_time,
+          overhead_pct, afl->fs_stats.search_tests, average_search_time_ms,
+          afl->fs_stats.found, afl->fs_stats.searched);
       fflush(stdout);
 
     } else {
@@ -479,7 +480,8 @@ u8 fuzz_one_original(afl_state_t *afl) {
           "Fuzzing test case #%u (%u total, %s%llu crashes saved%s, state: %s, "
           "mode=%s, "
           "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
-          "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s, cvg=%.02f%%)...",
+          "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s, "
+          "cvg=%.02f%%)...",
           afl->current_entry, afl->queued_items,
           afl->saved_crashes != 0 ? cRED : "", afl->saved_crashes, cRST,
           get_fuzzing_state(afl), afl->fuzz_mode ? "exploit" : "explore",
@@ -579,7 +581,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * FRAMESHIFT *
    **************/
 
-  if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+  if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
     if (unlikely(afl->queue_cur->fs_status == 0)) {
 
@@ -2264,7 +2266,7 @@ havoc_stage:
 #endif
 
     // Frameshift: save the current input meta
-    if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+    if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
       if (afl->queue_cur->fs_status != 0) { fs_save(afl->fs_curr_meta); }
 
@@ -2654,7 +2656,7 @@ havoc_stage:
             temp_len += clone_len;
 
             // Frameshift tracking
-            if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+            if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
               if (afl->queue_cur->fs_status != 0) {
 
@@ -2716,7 +2718,7 @@ havoc_stage:
             temp_len += clone_len;
 
             // Frameshift tracking
-            if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+            if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
               if (afl->queue_cur->fs_status != 0) {
 
@@ -2904,7 +2906,7 @@ havoc_stage:
           temp_len -= del_len;
 
           // Frameshift tracking
-          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+          if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
             if (afl->queue_cur->fs_status != 0) {
 
@@ -2972,7 +2974,7 @@ havoc_stage:
           temp_len -= del_len;
 
           // Frameshift tracking
-          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+          if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
             if (afl->queue_cur->fs_status != 0) {
 
@@ -3022,7 +3024,7 @@ havoc_stage:
           temp_len += clone_len;
 
           // Frameshift tracking
-          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+          if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
             if (afl->queue_cur->fs_status != 0) {
 
@@ -3174,7 +3176,7 @@ havoc_stage:
             temp_len += (new_len - old_len);
 
             // Frameshift tracking
-            if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+            if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
               if (afl->queue_cur->fs_status != 0) {
 
@@ -3278,7 +3280,7 @@ havoc_stage:
           temp_len += extra_len;
 
           // Frameshift tracking
-          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+          if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
             if (afl->queue_cur->fs_status != 0) {
 
@@ -3347,7 +3349,7 @@ havoc_stage:
           temp_len += extra_len;
 
           // Frameshift tracking
-          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+          if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
             if (afl->queue_cur->fs_status != 0) {
 
@@ -3471,7 +3473,7 @@ havoc_stage:
           temp_len += clone_len;
 
           // Frameshift tracking
-          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+          if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
             if (afl->queue_cur->fs_status != 0) {
 
@@ -3502,7 +3504,7 @@ havoc_stage:
     memcpy(out_buf, in_buf, len);
 
     // Frameshift: restore the original input meta
-    if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+    if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
       if (afl->queue_cur->fs_status != 0) { fs_restore(afl->fs_curr_meta); }
 
@@ -3568,7 +3570,7 @@ retry_splicing:
     s32                 f_diff, l_diff;
 
     // Frameshift: reload the original input meta
-    if (unlikely(afl->afl_env.afl_frameshift_enabled) &&
+    if (likely(!afl->afl_env.afl_frameshift_disabled) &&
         afl->queue_cur->fs_status != 0) {
 
       fs_clone_meta(afl);
@@ -3626,7 +3628,7 @@ retry_splicing:
     memcpy(out_buf, in_buf, len);
 
     // Frameshift tracking
-    if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+    if (likely(!afl->afl_env.afl_frameshift_disabled)) {
 
       if (afl->queue_cur->fs_status != 0) {
 
