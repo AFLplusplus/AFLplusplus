@@ -2017,6 +2017,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
   OKF("Generating fuzz data with a length of min=%u max=%u", afl->min_length,
       afl->max_length);
+
+  if (afl->afl_env.afl_frameshift_disabled) {
+
+    OKF("FrameShift status: disabled");
+
+  } else {
+
+    OKF("FrameShift status: enabled (%.0f%% overhead configured)",
+        afl->afl_env.afl_frameshift_max_overhead * 100);
+
+  }
+
   u32 min_alloc = MAX(64U, afl->min_length);
   afl_realloc(AFL_BUF_PARAM(in_scratch), min_alloc);
   afl_realloc(AFL_BUF_PARAM(in), min_alloc);
