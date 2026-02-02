@@ -155,6 +155,9 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->havoc_prof =
       (struct havoc_profile *)ck_alloc(sizeof(struct havoc_profile));
 
+  afl->afl_env.afl_frameshift_max_overhead =
+      0.10;                              /* 10% FrameShift overhead default */
+
   init_mopt_globals(afl);
 
   list_append(&afl_states, afl);
@@ -795,6 +798,41 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                 gid_str = ret + 1;
 
               }
+
+            }
+
+          } else if (!strncmp(env, "AFL_FRAMESHIFT",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_frameshift_enabled =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_FRAMESHIFT_MAX_OVERHEAD",
+
+                              afl_environment_variable_len)) {
+
+            char *val = (char *)get_afl_env(afl_environment_variables[i]);
+
+            char  *endptr = NULL;
+            double ov = strtod(val, &endptr);
+            if (endptr == val || *endptr != '\0') {
+
+              WARNF(
+                  "Invalid value given to AFL_FRAMESHIFT_MAX_OVERHEAD "
+                  "'%s' - keeping default %.2f",
+                  val, afl->afl_env.afl_frameshift_max_overhead);
+
+            } else if (ov < 0.0 || ov > 1.0) {
+
+              WARNF(
+                  "AFL_FRAMESHIFT_MAX_OVERHEAD value out of range [0.0,1.0], "
+                  "keeping default %.2f",
+                  afl->afl_env.afl_frameshift_max_overhead);
+
+            } else {
+
+              afl->afl_env.afl_frameshift_max_overhead = ov;
 
             }
 

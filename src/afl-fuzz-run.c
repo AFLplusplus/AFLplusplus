@@ -1463,6 +1463,14 @@ u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
 
   u8 fault;
 
+  if (unlikely(afl->afl_env.afl_frameshift_enabled && afl->fs_curr_meta &&
+               afl->queue_cur->fs_status != 0)) {
+
+    // Apply relation updates before running.
+    fs_sanitize(afl->fs_curr_meta, out_buf);
+
+  }
+
   if (unlikely(len = write_to_testcase(afl, (void **)&out_buf, len, 0)) == 0) {
 
     return 0;

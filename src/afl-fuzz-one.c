@@ -433,23 +433,65 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     u_simplestring_time_diff(time_tmp, afl->prev_run_time + get_cur_time(),
                              afl->start_time);
+
     u32 t_bytes = count_non_255_bytes(afl, afl->virgin_bits);
 
-    ACTF(
-        "Fuzzing test case #%u (%u total, %s%llu crashes saved%s, state: %s, "
-        "mode=%s, "
-        "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
-        "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s, cvg=%.02f%%)...",
-        afl->current_entry, afl->queued_items,
-        afl->saved_crashes != 0 ? cRED : "", afl->saved_crashes, cRST,
-        get_fuzzing_state(afl), afl->fuzz_mode ? "exploit" : "explore",
-        afl->queue_cur->perf_score, afl->queue_cur->weight,
-        afl->queue_cur->favored, afl->queue_cur->was_fuzzed,
-        afl->queue_cur->exec_us,
-        likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
-        afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii, time_tmp,
-        ((double)t_bytes * 100) / afl->fsrv.real_map_size);
-    fflush(stdout);
+    if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+      u8 search_time[64];
+      u_simplestring_time_diff(search_time, afl->fs_stats.total_time_ms + 1, 1);
+
+      u64 average_search_time_ms =
+          afl->fs_stats.searched > 0
+              ? afl->fs_stats.total_time_ms / afl->fs_stats.searched
+              : 0;
+
+      u64 total_runtime_ms =
+          afl->prev_run_time + get_cur_time() - afl->start_time;
+      double overhead_pct =
+          total_runtime_ms > 0
+              ? (double)afl->fs_stats.total_time_ms / total_runtime_ms * 100.0
+              : 0.0;
+
+      ACTF(
+          "Fuzzing test case #%u (%u total, %s%llu crashes saved%s, state: %s, "
+          "mode=%s, "
+          "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
+          "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s, cvg=%.02f%%) FS (t=%s "
+          "(%.2f%%), "
+          "st=%llu, avg=%llu ms, found=%u/%u)...",
+          afl->current_entry, afl->queued_items,
+          afl->saved_crashes != 0 ? cRED : "", afl->saved_crashes, cRST,
+          get_fuzzing_state(afl), afl->fuzz_mode ? "exploit" : "explore",
+          afl->queue_cur->perf_score, afl->queue_cur->weight,
+          afl->queue_cur->favored, afl->queue_cur->was_fuzzed,
+          afl->queue_cur->exec_us,
+          likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
+          afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii, time_tmp,
+          ((double)t_bytes * 100) / afl->fsrv.real_map_size,
+          search_time, overhead_pct, afl->fs_stats.search_tests,
+          average_search_time_ms, afl->fs_stats.found, afl->fs_stats.searched);
+      fflush(stdout);
+
+    } else {
+
+      ACTF(
+          "Fuzzing test case #%u (%u total, %s%llu crashes saved%s, state: %s, "
+          "mode=%s, "
+          "perf_score=%0.0f, weight=%0.0f, favorite=%u, was_fuzzed=%u, "
+          "exec_us=%llu, hits=%u, map=%u, ascii=%u, run_time=%s, cvg=%.02f%%)...",
+          afl->current_entry, afl->queued_items,
+          afl->saved_crashes != 0 ? cRED : "", afl->saved_crashes, cRST,
+          get_fuzzing_state(afl), afl->fuzz_mode ? "exploit" : "explore",
+          afl->queue_cur->perf_score, afl->queue_cur->weight,
+          afl->queue_cur->favored, afl->queue_cur->was_fuzzed,
+          afl->queue_cur->exec_us,
+          likely(afl->n_fuzz) ? afl->n_fuzz[afl->queue_cur->n_fuzz_entry] : 0,
+          afl->queue_cur->bitmap_size, afl->queue_cur->is_ascii, time_tmp,
+          ((double)t_bytes * 100) / afl->fsrv.real_map_size);
+      fflush(stdout);
+
+    }
 
   }
 
@@ -532,6 +574,33 @@ u8 fuzz_one_original(afl_state_t *afl) {
   }
 
   memcpy(out_buf, in_buf, len);
+
+  /**************
+   * FRAMESHIFT *
+   **************/
+
+  if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+    if (unlikely(afl->queue_cur->fs_status == 0)) {
+
+      /* FrameShift has not run on this input. */
+
+      /* Check frameshift overhead budget before running analysis.
+         Use total runtime since start as the reference. */
+      u64 total_runtime_ms =
+          afl->prev_run_time + get_cur_time() - afl->start_time;
+      double max_overhead = afl->afl_env.afl_frameshift_max_overhead;
+      u64    allowed_ms = (u64)((double)total_runtime_ms * max_overhead);
+
+      if (afl->fs_stats.total_time_ms <= allowed_ms) { frameshift_stage(afl); }
+
+    }
+
+    /* If we have structure information for this input, reload it to prepare for
+     * fuzzing. */
+    if (afl->queue_cur->fs_status != 0) { fs_clone_meta(afl); }
+
+  }
 
   /*********************
    * PERFORMANCE SCORE *
@@ -2194,6 +2263,13 @@ havoc_stage:
              afl->queue_cur->fname, afl->queue_cur->is_ascii, use_stacking);
 #endif
 
+    // Frameshift: save the current input meta
+    if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+      if (afl->queue_cur->fs_status != 0) { fs_save(afl->fs_curr_meta); }
+
+    }
+
     for (i = 0; i < use_stacking; ++i) {
 
       if (afl->custom_mutators_count) {
@@ -2577,6 +2653,17 @@ havoc_stage:
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             temp_len += clone_len;
 
+            // Frameshift tracking
+            if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+              if (afl->queue_cur->fs_status != 0) {
+
+                fs_track_insert(afl->fs_curr_meta, clone_to, clone_len, 1);
+
+              }
+
+            }
+
           } else if (unlikely(temp_len < 8)) {
 
             break;
@@ -2627,6 +2714,17 @@ havoc_stage:
             out_buf = new_buf;
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             temp_len += clone_len;
+
+            // Frameshift tracking
+            if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+              if (afl->queue_cur->fs_status != 0) {
+
+                fs_track_insert(afl->fs_curr_meta, clone_to, clone_len, 1);
+
+              }
+
+            }
 
           } else if (unlikely(temp_len < 8)) {
 
@@ -2805,6 +2903,17 @@ havoc_stage:
 
           temp_len -= del_len;
 
+          // Frameshift tracking
+          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+            if (afl->queue_cur->fs_status != 0) {
+
+              fs_track_delete(afl->fs_curr_meta, del_from, del_len);
+
+            }
+
+          }
+
           break;
 
         }
@@ -2862,6 +2971,17 @@ havoc_stage:
 
           temp_len -= del_len;
 
+          // Frameshift tracking
+          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+            if (afl->queue_cur->fs_status != 0) {
+
+              fs_track_delete(afl->fs_curr_meta, del_from, del_len);
+
+            }
+
+          }
+
           break;
 
         }
@@ -2900,6 +3020,17 @@ havoc_stage:
           out_buf = new_buf;
           afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
           temp_len += clone_len;
+
+          // Frameshift tracking
+          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+            if (afl->queue_cur->fs_status != 0) {
+
+              fs_track_insert(afl->fs_curr_meta, clone_to, clone_len, 1);
+
+            }
+
+          }
 
           break;
 
@@ -3042,6 +3173,17 @@ havoc_stage:
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             temp_len += (new_len - old_len);
 
+            // Frameshift tracking
+            if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+              if (afl->queue_cur->fs_status != 0) {
+
+                fs_track_insert(afl->fs_curr_meta, off, new_len, 1);
+
+              }
+
+            }
+
           }
 
           // fprintf(stderr, "AFTER : %s\n", out_buf);
@@ -3135,6 +3277,17 @@ havoc_stage:
           memcpy(out_buf + insert_at, ptr, extra_len);
           temp_len += extra_len;
 
+          // Frameshift tracking
+          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+            if (afl->queue_cur->fs_status != 0) {
+
+              fs_track_insert(afl->fs_curr_meta, insert_at, extra_len, 1);
+
+            }
+
+          }
+
           break;
 
         }
@@ -3192,6 +3345,17 @@ havoc_stage:
           /* Inserted part */
           memcpy(out_buf + insert_at, ptr, extra_len);
           temp_len += extra_len;
+
+          // Frameshift tracking
+          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+            if (afl->queue_cur->fs_status != 0) {
+
+              fs_track_insert(afl->fs_curr_meta, insert_at, extra_len, 1);
+
+            }
+
+          }
 
           break;
 
@@ -3306,6 +3470,17 @@ havoc_stage:
           afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
           temp_len += clone_len;
 
+          // Frameshift tracking
+          if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+            if (afl->queue_cur->fs_status != 0) {
+
+              fs_track_insert(afl->fs_curr_meta, clone_to, clone_len, 1);
+
+            }
+
+          }
+
           break;
 
         }
@@ -3325,6 +3500,13 @@ havoc_stage:
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
     temp_len = len;
     memcpy(out_buf, in_buf, len);
+
+    // Frameshift: restore the original input meta
+    if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+      if (afl->queue_cur->fs_status != 0) { fs_restore(afl->fs_curr_meta); }
+
+    }
 
     /* If we're finding new stuff, let's run for a bit longer, limits
        permitting. */
@@ -3385,6 +3567,14 @@ retry_splicing:
     u8                 *new_buf;
     s32                 f_diff, l_diff;
 
+    // Frameshift: reload the original input meta
+    if (unlikely(afl->afl_env.afl_frameshift_enabled) &&
+        afl->queue_cur->fs_status != 0) {
+
+      fs_clone_meta(afl);
+
+    }
+
     /* First of all, if we've modified in_buf for havoc, let's clean that
        up... */
 
@@ -3434,6 +3624,19 @@ retry_splicing:
     out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
     if (unlikely(!out_buf)) { PFATAL("alloc"); }
     memcpy(out_buf, in_buf, len);
+
+    // Frameshift tracking
+    if (unlikely(afl->afl_env.afl_frameshift_enabled)) {
+
+      if (afl->queue_cur->fs_status != 0) {
+
+        fs_track_delete(afl->fs_curr_meta, split_at,
+                        afl->queue_cur->len - split_at);
+        fs_track_insert(afl->fs_curr_meta, split_at, target->len - split_at, 1);
+
+      }
+
+    }
 
     goto custom_mutator_stage;
 
