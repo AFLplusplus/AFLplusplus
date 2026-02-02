@@ -31,6 +31,8 @@
     - afl-cmin and afl-cmin.py honor `AFL_SHA1_FILENAMES` now
   - afl-showmap:
     - -f support added by Prajwal-kp-18 - thanks!
+  - qemu_mode:
+    - fix when AFL_EXITPOINT is not set, which could prevent detecting crashes
 
 
 ### Version ++4.35a (release)
