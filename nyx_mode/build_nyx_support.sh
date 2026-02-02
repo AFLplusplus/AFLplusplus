@@ -12,7 +12,7 @@ echo "[*] Performing basic sanity checks..."
 if [ "$CI" = "true" ]; then
 
   echo "[-] Error: nyx_mode cannot be tested in the Github CI, skipping ..."
-  exit 0
+  exit 1
 
 fi
 
@@ -20,27 +20,27 @@ fi
 if [ -n "$NO_NYX" ]; then
 
   echo "[-] Error: the NO_NYX environment variable is set, please unset."
-  exit 0
+  exit 1
 
 fi
 
 if [ ! "$(uname -s)" = "Linux" ]; then
 
   echo "[-] Error: Nyx mode is only available on Linux."
-  exit 0
+  exit 1
 
 fi
 
 if [ ! "$(uname -m)" = "x86_64" ]; then
 
   echo "[-] Error: Nyx mode is only available on x86_64 (yet)."
-  exit 0
+  exit 1
 
 fi
 
 cargo help > /dev/null 2>&1 || {
    echo "[-] Error: Rust is not installed."
-   exit 0
+   exit 1
 }
 
 echo "[*] Making sure all Nyx is checked out"
