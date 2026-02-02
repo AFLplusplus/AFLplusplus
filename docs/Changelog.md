@@ -21,6 +21,9 @@
     - LLVM 22 support (they are again switching around include files ...)
     - g_/curl_/xml_ string support for COMPCOV, thanks to @Prajwal-kp-18
     - env `AFL_LLVM_DENY_EXEC` will abort any common exec calls
+    - marked GCC plugins as unmaintained. We need someone who know gimple and
+      is willing to fix the plugin issues, workarounds for gcc bugs and
+      overall improve the plugin.
   - afl-cmin:
     - new implementation in C by @kcwu - thanks! (it is the default now)
     - afl-cmin.py was changing behaviour to hash the original filenames,

@@ -485,10 +485,19 @@ int plugin_init(struct plugin_name_args   *info,
 
   /* Show a banner.  */
   bool quiet = false;
-  if (isatty(2) && !getenv("AFL_QUIET"))
+  if (isatty(2) && !getenv("AFL_QUIET")) {
+
     SAYF(cCYA "afl-gcc-pass " cBRI VERSION cRST " by <oliva@adacore.com>\n");
-  else
+    SAYF(cRED
+         "Warning: gcc plugins are currently unmaintained and have known "
+         "issues. Help maintaining by submitting PRs or sponsoring a "
+         "maintainer.\n");
+
+  } else {
+
     quiet = true;
+
+  }
 
   /* Decide instrumentation ratio.  */
   unsigned int inst_ratio = 100U;
