@@ -241,6 +241,13 @@ struct afl_cmptrs_pass : afl_base_pass {
 
     if (!isInInstrumentList(fn)) return 0;
 
+    /* GCC's coroutine support generates helper functions (actor/destroy) with
+       tail calls that cause an ICE when we instrument them. Skip these, but
+       still instrument the actual coroutine code the user wrote. */
+#if __GNUC__ >= 10
+    if (fn->coroutine_component) return 0;
+#endif
+
     basic_block bb;
     FOR_EACH_BB_FN(bb, fn) {
 

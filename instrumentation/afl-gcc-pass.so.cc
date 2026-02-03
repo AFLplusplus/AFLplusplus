@@ -184,6 +184,25 @@ struct afl_pass : afl_base_pass {
 
     if (!isInInstrumentList(fn)) return 0;
 
+    /* GCC's coroutine support generates helper functions (actor/destroy) with
+       tail calls that cause an ICE when we instrument them. Skip these, but
+       still instrument the actual coroutine code the user wrote. */
+#if __GNUC__ >= 10
+    if (fn->coroutine_component) {
+
+      if (debug) {
+
+        fprintf(stderr,
+                "[AFL] Skipping coroutine infrastructure function: %s\n",
+                IDENTIFIER_POINTER(DECL_NAME(fn->decl)));
+
+      }
+
+      return 0;
+
+    }
+
+#endif
     int blocks = 0;
 
     /* These are temporaries used by inline instrumentation only, that
