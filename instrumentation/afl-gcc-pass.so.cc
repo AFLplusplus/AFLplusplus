@@ -127,6 +127,7 @@
 #if defined(__has_include) && __has_include("memmodel.h")
   #include "memmodel.h"
 #endif
+#include <dominance.h>
 
 /* This plugin, being under the same license as GCC, satisfies the
    "GPL-compatible Software" definition in the GCC RUNTIME LIBRARY
@@ -186,6 +187,12 @@ struct afl_pass : afl_base_pass {
 
     int blocks = 0;
 
+    /* Track whether we split any blocks (e.g., for returns_twice handling).  */
+    bool did_split = false;
+
+    /* Track blocks we've created trampolines for, to avoid reprocessing.  */
+    hash_set<basic_block> returns_twice_handled;
+
     /* These are temporaries used by inline instrumentation only, that
        are live throughout the function.  */
     tree ploc = NULL, indx = NULL, map = NULL, map_ptr = NULL, ntry = NULL,
@@ -195,6 +202,8 @@ struct afl_pass : afl_base_pass {
     FOR_EACH_BB_FN(bb, fn) {
 
       if (!instrument_block_p(bb)) continue;
+
+      if (returns_twice_handled.contains(bb)) continue;
 
       /* Generate the block identifier.  */
       unsigned bid = AFL_R(MAP_SIZE);
@@ -328,11 +337,100 @@ struct afl_pass : afl_base_pass {
       }
 
       /* Insert the generated sequence.  */
-      gimple_stmt_iterator insp = gsi_after_labels(bb);
-      gsi_insert_seq_before(&insp, seq, GSI_SAME_STMT);
+      if (block_has_returns_twice(bb)) {
 
-      /* Bump this function's instrumented block counter.  */
-      blocks++;
+        /* For blocks with returns_twice calls (setjmp), we must not
+           insert instrumentation before the call. Instead, we create a
+           trampoline block for normal entry and redirect normal edges
+           to it. Abnormal edges (from longjmp) go directly to the
+           original block.  */
+
+        /* Check if this block has any normal (non-abnormal) predecessors.
+           If not, it's only reachable via longjmp and we skip it.
+           See: https://gcc.gnu.org/onlinedocs/gccint/Edges.html  */
+        auto_vec<edge> normal_preds;
+        edge           e;
+        edge_iterator  ei;
+        FOR_EACH_EDGE(e, ei, bb->preds) {
+
+          if (!(e->flags & EDGE_ABNORMAL)) normal_preds.safe_push(e);
+
+        }
+
+        /* Only create trampoline if there are normal predecessors.  */
+        if (!normal_preds.is_empty()) {
+
+          /* GCC caches dominance information for optimization passes.
+             This info becomes invalid when we modify the CFG by
+             splitting blocks and redirecting edges.
+
+             We must free it before CFG modifications, otherwise GCC's
+             internal checks (-fchecking) will fail with errors like:
+             "error: dominator of 9 should be 2, not 3"
+
+             The TODO_update_ssa and TODO_cleanup_cfg flags in
+             todo_flags_finish ensure GCC recomputes what it needs
+             after our pass completes.  */
+          if (dom_info_available_p(CDI_DOMINATORS))
+            free_dominance_info(CDI_DOMINATORS);
+          if (dom_info_available_p(CDI_POST_DOMINATORS))
+            free_dominance_info(CDI_POST_DOMINATORS);
+
+          /* Create trampoline by splitting at the start of the block.
+             split_block_after_labels splits before any statements,
+             creating an empty predecessor block.  */
+          edge split_e = split_block_after_labels(bb);
+
+          /* After split_block_after_labels(bb):
+             - bb becomes empty (the trampoline)
+             - split_e->dest is the new block with original statements
+             - All original predecessors now point to bb (trampoline)  */
+          basic_block trampoline = bb;
+          basic_block original = split_e->dest;
+
+          /* Mark the original block as handled so we don't reprocess it
+             when we encounter it later in the FOR_EACH_BB_FN loop.  */
+          returns_twice_handled.add(original);
+
+          /* Redirect abnormal edges to bypass trampoline.
+             Iterate over a copy since we're modifying edges.  */
+          auto_vec<edge> abnormal_preds;
+          FOR_EACH_EDGE(e, ei, trampoline->preds) {
+
+            if (e->flags & EDGE_ABNORMAL) abnormal_preds.safe_push(e);
+
+          }
+
+          for (unsigned i = 0; i < abnormal_preds.length(); i++) {
+
+            redirect_edge_succ(abnormal_preds[i], original);
+
+          }
+
+          /* Insert instrumentation in trampoline.  */
+          gimple_stmt_iterator insp = gsi_start_bb(trampoline);
+          gsi_insert_seq_before(&insp, seq, GSI_NEW_STMT);
+
+          did_split = true;
+
+          /* Bump this function's instrumented block counter.  */
+          blocks++;
+
+        }
+
+        /* If no normal predecessors, skip instrumentation entirely
+           (block only reachable via longjmp).  */
+
+      } else {
+
+        /* Normal case: insert instrumentation at block start.  */
+        gimple_stmt_iterator insp = gsi_after_labels(bb);
+        gsi_insert_seq_before(&insp, seq, GSI_SAME_STMT);
+
+        /* Bump this function's instrumented block counter.  */
+        blocks++;
+
+      }
 
     }
 
@@ -357,6 +455,9 @@ struct afl_pass : afl_base_pass {
       edge e = single_succ_edge(ENTRY_BLOCK_PTR_FOR_FN(fn));
       gsi_insert_seq_on_edge_immediate(e, seq);
 
+      /* If we did any block splitting, also rebuild cgraph edges.  */
+      if (did_split) return TODO_rebuild_cgraph_edges;
+
     }
 
     return 0;
@@ -374,6 +475,25 @@ struct afl_pass : afl_base_pass {
     edge_iterator ei;
     FOR_EACH_EDGE(e, ei, bb->preds)
     if (!single_succ_p(e->src)) return true;
+
+    return false;
+
+  }
+
+  /* Check if BB contains a returns_twice call (e.g., setjmp).
+     Returns true if such a call exists anywhere in the block.  */
+  inline bool block_has_returns_twice(basic_block bb) {
+
+    for (gimple_stmt_iterator gsi = gsi_start_bb(bb); !gsi_end_p(gsi);
+         gsi_next(&gsi)) {
+
+      if (gimple_code(gsi_stmt(gsi)) == GIMPLE_CALL) {
+
+        if (gimple_call_flags(gsi_stmt(gsi)) & ECF_RETURNS_TWICE) return true;
+
+      }
+
+    }
 
     return false;
 

@@ -110,6 +110,55 @@ test -e ../afl-gcc-fast -a -e ../afl-compiler-rt.o && {
     CODE=1
   }
   rm -f test-persistent
+
+  # Test setjmp/returns_twice instrumentation fix (GitHub issue #2541)
+  # GCC 13+ requires returns_twice calls to be first in their basic block.
+  # Compile with -fchecking to verify the CFG is valid.
+  $ECHO "$GREY[*] testing setjmp/returns_twice instrumentation (issue #2541)"
+  ../afl-gcc-fast -fchecking -fdump-tree-afl -o test-setjmp ./test-setjmp.c > test-setjmp.log 2>&1
+  test -e test-setjmp && {
+    # Run the binary and capture output for debugging
+    SETJMP_OUTPUT=$(./test-setjmp 2>&1)
+    SETJMP_RC=$?
+    test "$SETJMP_RC" -eq 0 && {
+      # Verify instrumentation is present via afl-showmap
+      TUPLES=`AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -- ./test-setjmp 2>&1 | grep Captur | awk '{print$3}'`
+      test "$TUPLES" -gt 0 && {
+        # Verify trampoline structure in GIMPLE dump:
+        # - setjmp should be first stmt in its block (after DEBUG_STMT)
+        # - AFL instrumentation should be in a separate preceding block
+        DUMP_FILE=$(ls test-setjmp-test-setjmp.c.*.afl 2>/dev/null | head -1)
+        if test -n "$DUMP_FILE"; then
+          # Check: setjmp/sigsetjmp blocks should NOT contain afl_prev_loc before the call
+          # Extract the blocks and verify no AFL instrumentation before them
+          SETJMP_BLOCK=$(grep -B2 "_setjmp" "$DUMP_FILE" | grep -c "afl_prev_loc" || true)
+          SIGSETJMP_BLOCK=$(grep -B2 "sigsetjmp" "$DUMP_FILE" | grep -c "afl_prev_loc" || true)
+          test "$SETJMP_BLOCK" -eq 0 -a "$SIGSETJMP_BLOCK" -eq 0 && {
+            $ECHO "$GREEN[+] gcc_plugin setjmp/returns_twice instrumentation works correctly"
+            $ECHO "$GREEN[+] gcc_plugin verified: setjmp/sigsetjmp are first in block, instrumentation in trampoline"
+          } || {
+            $ECHO "$RED[!] gcc_plugin setjmp test: instrumentation incorrectly placed before setjmp/sigsetjmp"
+            CODE=1
+          }
+        else
+          $ECHO "$GREEN[+] gcc_plugin setjmp/returns_twice instrumentation works correctly"
+        fi
+      } || {
+        $ECHO "$RED[!] gcc_plugin setjmp test has no instrumentation (tuples=$TUPLES)"
+        CODE=1
+      }
+    } || {
+      $ECHO "$RED[!] gcc_plugin setjmp test execution failed (exit code $SETJMP_RC)"
+      test -n "$SETJMP_OUTPUT" && $ECHO "$RED    output: $SETJMP_OUTPUT"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] gcc_plugin setjmp/returns_twice compilation failed (with -fchecking)"
+    cat test-setjmp.log
+    CODE=1
+  }
+  rm -f test-setjmp test-setjmp.log test-setjmp-test-setjmp.c.*.afl
+
   export AFL_CC=${SAVE_AFL_CC}
 } || {
   $ECHO "$YELLOW[-] gcc_plugin not compiled, cannot test"
