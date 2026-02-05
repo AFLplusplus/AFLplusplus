@@ -23,7 +23,7 @@
  - afl-plot to support multiple plot_data
  - parallel builds for source-only targets
  - get rid of check_binary, replace with more forkserver communication
- - first fuzzer should be a main automatically? not sure.
+ - Should the first fuzzer be the main automatically? not sure.
 
 ## Maybe
 
@@ -35,7 +35,7 @@
 ## Further down the road
 
 QEMU mode/FRIDA mode:
- - non colliding instrumentation
+ - non-colliding instrumentation
  - rename qemu specific envs to AFL_QEMU (AFL_ENTRYPOINT, AFL_CODE_START/END,
    AFL_COMPCOV_LEVEL?)
  - add AFL_QEMU_EXITPOINT (maybe multiple?)
@@ -43,7 +43,7 @@ QEMU mode/FRIDA mode:
 ## Ideas
 
  - LTO/sancov: write current edge to prev_loc and use that information when
-   using cmplog or __sanitizer_cov_trace_cmp*. maybe we can deduct by follow up
-   edge numbers that both following cmp paths have been found and then disable
+   using cmplog or __sanitizer_cov_trace_cmp*. Maybe we can deduce by following up
+   edge numbers that both following cmp paths have been found, and then disable
    working on this edge id -> cmplog_intelligence branch
- - use cmplog colorization taint result for havoc locations?
+ - Use cmplog colorization taint result for havoc locations?
