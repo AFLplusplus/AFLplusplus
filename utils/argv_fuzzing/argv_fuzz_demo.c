@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     If the number of arguments is not correct or the values do not match,
     an error message is printed. If the values do match, the program
     calls the abort() function. */
-  if (argc > 1 && strcmp(argv[1], "XYZ") == 0) {
+  if (argc > 2 && strcmp(argv[1], "XYZ") == 0) {
 
     if (strcmp(argv[2], "TEST2") == 0) { abort(); }
 
