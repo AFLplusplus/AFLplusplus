@@ -726,6 +726,18 @@ checks or alter some of the more exotic semantics of the tool:
     enough privileges to modify the ownership of entities (e.g. CAP\_CHOWN
     capability in Linux system).
 
+  - Setting `AFL_FRAMESHIFT_DISABLE` will disable the frameshift analysis stage.
+    Frameshift automatically discovers size/offset fields in structured inputs
+    and keeps them consistent as mutations insert or delete bytes. Disabling it
+    may be useful for targets that do not consume structured binary formats, or
+    when you want to avoid the overhead of the analysis entirely.
+
+  - `AFL_FRAMESHIFT_MAX_OVERHEAD` controls the maximum fraction of total fuzzing
+    time that frameshift analysis is allowed to consume. The value is a float
+    between `0.0` and `1.0` (default `0.10`, i.e. 10%). If the cumulative time
+    spent in frameshift analysis exceeds this fraction of the overall run time,
+    new analyses are skipped until the ratio drops back under the limit.
+
   - Normally a `README.txt` is written to the `crashes/` directory when a first
     crash is found. Setting `AFL_NO_CRASH_README` will prevent this. Useful when
     counting crashes based on a file count in that directory.
