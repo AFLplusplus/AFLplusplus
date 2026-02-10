@@ -65,7 +65,19 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <errno.h>
 
 #include <sys/mman.h>
-#if !defined(__HAIKU__) && !defined(__OpenBSD__)
+#ifdef __linux__
+  #include <linux/futex.h>
+  #include <sys/syscall.h>
+
+static inline long sys_futex(void *uaddr, int op, int val,
+                             const struct timespec *timeout, void *uaddr2,
+                             int val3) {
+
+  return syscall(__NR_futex, uaddr, op, val, timeout, uaddr2, val3);
+
+}
+
+#elif !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
 #endif
 #ifndef USEMMAP
@@ -167,6 +179,7 @@ static u8 *__afl_area_ptr_backup = __afl_area_initial;
 
 u8        *__afl_area_ptr = __afl_area_initial;
 u8        *__afl_dictionary;
+u32       *__afl_child_sync = NULL;
 u8        *__afl_fuzz_ptr;
 static u32 __afl_fuzz_len_dummy;
 u32       *__afl_fuzz_len = &__afl_fuzz_len_dummy;
@@ -463,6 +476,35 @@ static void __afl_map_shm(void) {
 
   if (__afl_already_initialized_shm) return;
   __afl_already_initialized_shm = 1;
+
+#ifdef __linux__
+  {
+
+    char *child_sync_shm = getenv("AFL_CHILD_SYNC_SHM");
+    if (child_sync_shm) {
+
+  #ifdef USEMMAP
+      int shm_fd = shm_open(child_sync_shm, O_RDWR, 0600);
+      if (shm_fd != -1) {
+
+        __afl_child_sync = (u32 *)mmap(0, sizeof(u32), PROT_READ | PROT_WRITE,
+                                       MAP_SHARED, shm_fd, 0);
+        if (__afl_child_sync == MAP_FAILED) __afl_child_sync = NULL;
+        close(shm_fd);
+
+      }
+
+  #else
+      int shm_id = atoi(child_sync_shm);
+      __afl_child_sync = (u32 *)shmat(shm_id, NULL, 0);
+      if (__afl_child_sync == (void *)-1) __afl_child_sync = NULL;
+  #endif
+
+    }
+
+  }
+
+#endif
 
   // if we are not running in afl ensure the map exists
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
@@ -1155,6 +1197,7 @@ static void __afl_start_forkserver(void) {
     // send the set/requested options to forkserver
     status = FS_NEW_OPT_MAPSIZE;  // we always send the map size
     if (__afl_sharedmem_fuzzing) { status |= FS_NEW_OPT_SHDMEM_FUZZ; }
+    if (__afl_child_sync) { status |= FS_NEW_OPT_FUTEX; }
     if (__afl_dictionary_len && __afl_dictionary) {
 
       status |= FS_NEW_OPT_AUTODICT;
@@ -1178,6 +1221,8 @@ static void __afl_start_forkserver(void) {
     if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
 
     // FS_NEW_OPT_SHDMEM_FUZZ - no data
+
+    // FS_NEW_OPT_FUTEX - no data
 
     // FS_NEW_OPT_AUTODICT - send autodictionary
     if (__afl_dictionary_len && __afl_dictionary) {
@@ -1354,14 +1399,27 @@ static void __afl_start_forkserver(void) {
 
     if (likely(WIFSTOPPED(status))) { child_stopped = 1; }
 
-    /* Relay wait status to pipe, then loop back. */
-
+    /* Relay wait status to pipe BEFORE signaling via futex.  The fuzzer reads
+       the pipe immediately after waking on AFL_CHILD_EXITED; writing first
+       guarantees the data is already there and avoids a blocking pipe read. */
     if (unlikely(write(FORKSRV_FD + 1, &status, 4) != 4)) {
 
       write_error("writing to afl-fuzz");
       _exit(1);
 
     }
+
+#ifdef __linux__
+    if (!child_stopped && __afl_child_sync) {
+
+      /* Child exited (crash or normal cycle end). Signal the fuzzer
+         via futex; pipe data is already written above. */
+      __atomic_store_n(__afl_child_sync, AFL_CHILD_EXITED, __ATOMIC_RELEASE);
+      sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+
+    }
+
+#endif
 
   }
 
@@ -1443,7 +1501,39 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
 #endif
 
-    raise(SIGSTOP);
+#ifdef __linux__
+    if (__afl_child_sync) {
+
+      /* Signal the fuzzer that this iteration is complete. */
+      __atomic_store_n(__afl_child_sync, AFL_CHILD_DONE, __ATOMIC_RELEASE);
+      sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+
+      /* Wait until the fuzzer signals us to run the next test case.
+         Use a timeout so the child doesn't hang forever if afl-fuzz dies. */
+      struct timespec wait_timeout = {.tv_sec = 60, .tv_nsec = 0};
+      u32             sync_val;
+      while ((sync_val = __atomic_load_n(__afl_child_sync, __ATOMIC_ACQUIRE)) ==
+             AFL_CHILD_DONE) {
+
+        int r = sys_futex(__afl_child_sync, FUTEX_WAIT, AFL_CHILD_DONE,
+                          &wait_timeout, NULL, 0);
+        if (r == -1 && errno == ETIMEDOUT) {
+
+          /* Fuzzer didn't wake us in time - it likely died. Exit. */
+          _exit(1);
+
+        }
+
+      }
+
+      /* The fuzzer may set EXITED (e.g. timeout with a non-fatal kill signal
+         such as SIGTERM) to request a clean exit instead of another run. */
+      if (unlikely(sync_val == AFL_CHILD_EXITED)) { _exit(0); }
+
+    } else
+
+#endif
+      raise(SIGSTOP);
 
     __afl_area_ptr[0] = 1;
     if (unlikely(__afl_ijon_state)) { __afl_ijon_state = 0; }

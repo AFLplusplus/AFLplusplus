@@ -39,6 +39,7 @@
 #include "hash.h"
 
 #include <stdio.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,6 +56,22 @@
 #include <grp.h>
 
 #ifdef __linux__
+  #include <linux/futex.h>
+  #include <sys/syscall.h>
+  #ifdef USEMMAP
+    #include <sys/mman.h>
+  #else
+    #include <sys/shm.h>
+  #endif
+
+static inline long sys_futex(void *uaddr, int op, int val,
+                             const struct timespec *timeout, void *uaddr2,
+                             int val3) {
+
+  return syscall(__NR_futex, uaddr, op, val, timeout, uaddr2, val3);
+
+}
+
   #include <dlfcn.h>
 
 /* function to load nyx_helper function from libnyx.so */
@@ -260,11 +277,169 @@ static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
 }
 
+#ifdef __linux__
+
+static void afl_child_sync_deinit(afl_forkserver_t *fsrv) {
+
+  #ifdef USEMMAP
+  /* Unmap only if we have a valid mapping (guard against MAP_FAILED from a
+     failed mmap, or NULL from a failed ftruncate before mmap was called). */
+  if (fsrv->child_sync && fsrv->child_sync != MAP_FAILED) {
+
+    munmap(fsrv->child_sync, sizeof(u32));
+
+  }
+
+  fsrv->child_sync = NULL;
+
+  /* Close and unlink even when child_sync is NULL/MAP_FAILED: shm_open may
+     have succeeded while ftruncate or mmap subsequently failed. */
+  if (fsrv->child_sync_shm_id != -1) {
+
+    close(fsrv->child_sync_shm_id);
+    fsrv->child_sync_shm_id = -1;
+    shm_unlink(fsrv->child_sync_shm_file_path);
+    fsrv->child_sync_shm_file_path[0] = 0;
+
+  }
+
+  #else
+
+  if (fsrv->child_sync) {
+
+    shmdt(fsrv->child_sync);
+    shmctl(fsrv->child_sync_shm_id, IPC_RMID, NULL);
+    fsrv->child_sync_shm_id = -1;
+    fsrv->child_sync = NULL;
+
+  }
+
+  #endif                                                        /* ^USEMMAP */
+
+}
+
+static void afl_child_sync_init(afl_forkserver_t *fsrv) {
+
+  if (fsrv->use_futex && !fsrv->child_sync) {
+
+  #ifdef USEMMAP
+    fsrv->child_sync_shm_id = -1;
+
+    /* random() is utterly useless here, in benchmark.py it produces the exact
+     * same number for the parallel instances. Use urandom instead. */
+    if (fsrv->dev_urandom_fd < 0)
+      fsrv->dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+
+    uint32_t rid = 0;
+    ck_read(fsrv->dev_urandom_fd, &rid, sizeof(rid), "/dev/urandom");
+    snprintf(fsrv->child_sync_shm_file_path,
+             sizeof(fsrv->child_sync_shm_file_path), "/afl_%d_%" PRIx32,
+             getpid(), rid);
+
+    fsrv->child_sync_shm_id = shm_open(fsrv->child_sync_shm_file_path,
+                                       O_RDWR | O_EXCL | O_CREAT, 0600);
+    if (fsrv->child_sync_shm_id == -1) { FATAL("shm_open failed for futex"); }
+
+    if (ftruncate(fsrv->child_sync_shm_id, sizeof(u32))) {
+
+      afl_child_sync_deinit(fsrv);
+      FATAL("ftruncate failed for futex");
+
+    }
+
+    fsrv->child_sync = mmap(0, sizeof(u32), PROT_READ | PROT_WRITE, MAP_SHARED,
+                            fsrv->child_sync_shm_id, 0);
+    if (fsrv->child_sync == MAP_FAILED) {
+
+      afl_child_sync_deinit(fsrv);
+      FATAL("mmap failed for child_sync");
+
+    }
+
+  #else
+    int shm_id = shmget(IPC_PRIVATE, sizeof(u32), IPC_CREAT | IPC_EXCL | 0600);
+    if (shm_id < 0) FATAL("shmget failed for futex");
+    fsrv->child_sync = shmat(shm_id, NULL, 0);
+    if (fsrv->child_sync == (void *)-1) FATAL("shmat failed for child_sync");
+    fsrv->child_sync_shm_id = shm_id;
+  #endif
+
+    __atomic_store_n(fsrv->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+
+  }
+
+}
+
+/* Wait for child to complete via futex with timeout tracking.
+   Handles spurious wakeups by rechecking remaining time.
+   Returns futex state: 2 = DONE, 3 = EXITED (or timeout/stop). */
+static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
+                                 volatile u8 *stop_soon_p) {
+
+  /* Absolute deadline on CLOCK_MONOTONIC. Not affected by NTP changes. */
+  struct timespec deadline;
+  clock_gettime(CLOCK_MONOTONIC, &deadline);
+
+  deadline.tv_sec += (time_t)(timeout_ms / 1000);
+  deadline.tv_nsec += (long)(timeout_ms % 1000) * 1000000L;
+  if (deadline.tv_nsec >= 1000000000L) {
+
+    deadline.tv_sec += 1;
+    deadline.tv_nsec -= 1000000000L;
+
+  }
+
+  for (;;) {
+
+    u32 fval = __atomic_load_n(fsrv->child_sync, __ATOMIC_ACQUIRE);
+    if (fval >= AFL_CHILD_DONE) { return fval; }
+
+    /* Fast path: check timeout & stop before sleeping */
+    if (fsrv->last_run_timed_out || unlikely(*stop_soon_p)) {
+
+      if (fsrv->child_pid > 0) {
+
+        /* Write EXITED before sending the OS signal.  A child using a
+           non-fatal child_kill_signal (e.g. SIGTERM) will see AFL_CHILD_EXITED
+           in its futex wait loop and call _exit() cleanly instead of starting
+           another test case. */
+        __atomic_store_n(fsrv->child_sync, AFL_CHILD_EXITED, __ATOMIC_RELEASE);
+        sys_futex(fsrv->child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+        kill(fsrv->child_pid, fsrv->child_kill_signal);
+
+      }
+
+      return AFL_CHILD_EXITED;
+
+    }
+
+    /* Wait until the absolute deadline (CLOCK_MONOTONIC; default for
+       FUTEX_WAIT_BITSET). */
+    int r = sys_futex(fsrv->child_sync, FUTEX_WAIT_BITSET, fval, &deadline,
+                      NULL, FUTEX_BITSET_MATCH_ANY);
+
+    /* If we timed out, mark it and loop once to take the kill/return path. */
+    if (r == -1 && errno == ETIMEDOUT) { fsrv->last_run_timed_out = 1; }
+
+    /* Otherwise: value changed, spurious wake, or EINTR => loop and re-check.
+       Note: stop_soon_p is only re-checked at the top of the loop.  AFL++
+       delivers SIGALRM to the fuzzer process, which causes FUTEX_WAIT to
+       return EINTR and the loop to pick up the flag promptly.  Without such a
+       signal, a stop_soon_p write from another thread would only be noticed
+       on the next ETIMEDOUT or child-signal wakeup. */
+
+  }
+
+}
+
+#endif                                                        /* ^__linux__ */
+
 /* Initializes the struct */
 
 void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
 #ifdef __linux__
+
   fsrv->nyx_handlers = NULL;
   fsrv->out_dir_path = NULL;
   fsrv->nyx_mode = 0;
@@ -281,6 +456,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->gui_mode = 0;
   fsrv->gui_python_dir = NULL;
   fsrv->gui_python_pid = -1;
+
 #endif
 
   // this structure needs default so we initialize it if this was not done
@@ -336,6 +512,21 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   fsrv->perm = DEFAULT_PERMISSION;
 
+#ifdef __linux__
+  fsrv->use_futex = false;
+  fsrv->child_sync = NULL;
+  fsrv->child_sync_shm_id = -1;
+  if (getenv("AFL_FAST_CHILD_SYNC")) {
+
+    fsrv->use_futex = true;
+    afl_child_sync_init(fsrv);
+    /* Do NOT call shmctl(IPC_RMID) here -- the forkserver (target process)
+       needs to shmat() this segment after exec(). Cleanup in afl_fsrv_kill. */
+
+  }
+
+#endif
+
   fsrv->init_child_func = fsrv_exec_child;
   list_append(&fsrv_list, fsrv);
 
@@ -375,6 +566,20 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->late_send = from->late_send;
   fsrv_to->custom_data_ptr = from->custom_data_ptr;
+
+#ifdef __linux__
+  fsrv_to->use_futex = false;
+  fsrv_to->child_sync = NULL;
+  fsrv_to->child_sync_shm_id = -1;
+
+  if (from->use_futex) {
+
+    fsrv_to->use_futex = true;
+    afl_child_sync_init(fsrv_to);
+
+  }
+
+#endif
 
   fsrv_to->init_child_func = from->init_child_func;
   // Note: do not copy ->add_extra_func or ->persistent_record*
@@ -993,6 +1198,22 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) { PFATAL("pipe() failed"); }
 
+#ifdef __linux__
+  /* Re-create child_sync SHM if it was destroyed by afl_fsrv_kill
+   (e.g. during map resize or fast resume restart).
+   This must happen BEFORE fork() so the parent retains a valid
+   child_sync pointer for the wait loop in afl_fsrv_run_target. */
+  afl_child_sync_init(fsrv);
+
+  if (!be_quiet) {
+
+    char const *futex_status = fsrv->use_futex ? "enabled" : "disabled";
+    ACTF("Futex wait: %s", futex_status);
+
+  }
+
+#endif
+
   fsrv->last_run_timed_out = 0;
   fsrv->fsrv_pid = fork();
 
@@ -1108,6 +1329,21 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
        doing extra work post-fork(). */
 
     if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 1); }
+
+#ifdef __linux__
+    if (fsrv->use_futex) {
+
+  #ifdef USEMMAP
+      setenv("AFL_CHILD_SYNC_SHM", fsrv->child_sync_shm_file_path, 1);
+  #else
+      char val[32];
+      snprintf(val, sizeof(val), "%d", fsrv->child_sync_shm_id);
+      setenv("AFL_CHILD_SYNC_SHM", val, 1);
+  #endif
+
+    }
+
+#endif
 
     /* Set sane defaults for sanitizers */
     set_sanitizer_defaults();
@@ -1296,6 +1532,19 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+#ifdef __linux__
+      if (fsrv->use_futex && !(status & FS_NEW_OPT_FUTEX)) {
+
+        WARNF(
+            "AFL_FAST_CHILD_SYNC requested, but target does not support futex "
+            "synchronization. Falling back to pipe sync.");
+        fsrv->use_futex = false;
+        afl_child_sync_deinit(fsrv);
+
+      }
+
+#endif
+
       if (status & FS_OPT_IJON) {
 
         fsrv->use_ijon = 1;
@@ -1386,6 +1635,19 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     } else {
 
+#ifdef __linux__
+
+      if (fsrv->use_futex) {
+
+        WARNF(
+            "AFL_FAST_CHILD_SYNC requested, but old forkserver protocol is in "
+            "use. Falling back to pipe sync.");
+        fsrv->use_futex = false;
+        afl_child_sync_deinit(fsrv);
+
+      }
+
+#endif
       if (!fsrv->qemu_mode && !fsrv->cs_mode && !fsrv->use_fauxsrv
 #ifdef __linux__
           && !fsrv->nyx_mode
@@ -1871,6 +2133,8 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
   fsrv->child_pid = -1;
 
 #ifdef __linux__
+  afl_child_sync_deinit(fsrv);
+
   afl_nyx_runner_kill(fsrv);
 
   if (fsrv->gui_mode) {
@@ -2248,7 +2512,96 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */
 
-  if ((res = write(fsrv->fsrv_ctl_fd, &write_value, 4)) != 4) {
+#ifdef __linux__
+  if (likely(fsrv->use_futex)) {
+
+    /* Futex protocol: see afl_child_state_t in types.h */
+
+    if (likely(fsrv->child_pid > 0)) {
+
+      /* Check if the forkserver already signaled that the child exited
+         (e.g. crash/exit between iterations while we were processing the
+         previous DONE result).  The pipe status is already written at this
+         point (forkserver writes pipe before futex), so jump straight to
+         reading it. */
+      u32 cur = __atomic_load_n(fsrv->child_sync, __ATOMIC_ACQUIRE);
+      if (unlikely(cur == AFL_CHILD_EXITED)) { goto futex_read_status; }
+
+      /* HOT PATH: persistent child is alive, signal it to run. */
+      __atomic_store_n(fsrv->child_sync, AFL_CHILD_RUN, __ATOMIC_RELEASE);
+      sys_futex(fsrv->child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+
+    } else {
+
+      /* COLD PATH: no child, request a new one from forkserver via pipe. */
+      __atomic_store_n(fsrv->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+
+      if ((res = write(fsrv->fsrv_ctl_fd, &write_value, 4)) != 4) {
+
+        if (*stop_soon_p) { return 0; }
+        RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+      }
+
+      fsrv->last_run_timed_out = 0;
+
+      if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
+
+        if (*stop_soon_p) { return 0; }
+        RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+
+      }
+
+      if (!afl_fsrv_check_child_pid(fsrv, stop_soon_p)) { return 0; }
+
+  #ifdef AFL_PERSISTENT_RECORD
+      afl_fsrv_persistent_record_reset(fsrv);
+  #endif
+
+    }
+
+    if (unlikely(fsrv->late_send)) {
+
+      fsrv->late_send(fsrv->custom_data_ptr, fsrv->custom_input,
+                      fsrv->custom_input_len);
+
+    }
+
+    u32 fres = afl_futex_wait(fsrv, timeout, stop_soon_p);
+
+    if (fres == AFL_CHILD_DONE) {
+
+      /* DONE: child completed this iteration successfully. */
+      fsrv->total_execs++;
+      MEM_BARRIER();
+
+      if (unlikely(*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)) {
+
+        return FSRV_RUN_ERROR;
+
+      }
+
+      return FSRV_RUN_OK;
+
+    }
+
+    /* EXITED or timeout/stop: read child status from forkserver pipe. */
+  futex_read_status:
+    if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_status, 4)) < 4) {
+
+      if (*stop_soon_p) { return 0; }
+      RPFATAL(res, "Unable to communicate with fork server");
+
+    }
+
+    fsrv->child_pid = -1;
+    __atomic_store_n(fsrv->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+    goto classify_result;
+
+  } else
+
+#endif
+      if ((res = write(fsrv->fsrv_ctl_fd, &write_value, 4)) != 4) {
 
     if (*stop_soon_p) { return 0; }
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
@@ -2355,6 +2708,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = -1; }
 
+classify_result:
   fsrv->total_execs++;
 
   /* Any subsequent operations on fsrv->trace_bits must not be moved by the
