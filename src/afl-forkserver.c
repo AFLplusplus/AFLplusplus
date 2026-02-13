@@ -2101,6 +2101,52 @@ void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
 
 }
 
+/* Validate the child PID received from the forkserver.
+   Returns false if stop_soon is set (caller should return 0).
+   Calls FATAL on invalid child PIDs. */
+
+static inline bool afl_fsrv_check_child_pid(afl_forkserver_t *fsrv,
+                                            volatile u8      *stop_soon_p) {
+
+  if (likely(fsrv->child_pid > 0)) { return true; }
+
+  if (*stop_soon_p) { return false; }
+
+  if ((fsrv->child_pid & FS_OPT_ERROR) &&
+      FS_OPT_GET_ERROR(fsrv->child_pid) == FS_ERROR_SHM_OPEN)
+    FATAL(
+        "Target reported shared memory access failed (perhaps increase "
+        "shared memory available).");
+
+  FATAL("Fork server is misbehaving (OOM?)");
+
+}
+
+#ifdef AFL_PERSISTENT_RECORD
+/* Reset persistent record tracking when a new child process is spawned. */
+
+static inline void afl_fsrv_persistent_record_reset(afl_forkserver_t *fsrv) {
+
+  if (unlikely(fsrv->persistent_record &&
+               fsrv->persistent_record_pid != fsrv->child_pid)) {
+
+    fsrv->persistent_record_pid = fsrv->child_pid;
+    u32 idx, val;
+    if (unlikely(!fsrv->persistent_record_idx))
+      idx = fsrv->persistent_record - 1;
+    else
+      idx = fsrv->persistent_record_idx - 1;
+    val = fsrv->persistent_record_len[idx];
+    memset((void *)fsrv->persistent_record_len, 0,
+           fsrv->persistent_record * sizeof(u32));
+    fsrv->persistent_record_len[idx] = val;
+
+  }
+
+}
+
+#endif
+
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
@@ -2246,38 +2292,10 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 #endif
 
 #ifdef AFL_PERSISTENT_RECORD
-  // end of persistent loop?
-  if (unlikely(fsrv->persistent_record &&
-               fsrv->persistent_record_pid != fsrv->child_pid)) {
-
-    fsrv->persistent_record_pid = fsrv->child_pid;
-    u32 idx, val;
-    if (unlikely(!fsrv->persistent_record_idx))
-      idx = fsrv->persistent_record - 1;
-    else
-      idx = fsrv->persistent_record_idx - 1;
-    val = fsrv->persistent_record_len[idx];
-    memset((void *)fsrv->persistent_record_len, 0,
-           fsrv->persistent_record * sizeof(u32));
-    fsrv->persistent_record_len[idx] = val;
-
-  }
-
+  afl_fsrv_persistent_record_reset(fsrv);
 #endif
 
-  if (fsrv->child_pid <= 0) {
-
-    if (*stop_soon_p) { return 0; }
-
-    if ((fsrv->child_pid & FS_OPT_ERROR) &&
-        FS_OPT_GET_ERROR(fsrv->child_pid) == FS_ERROR_SHM_OPEN)
-      FATAL(
-          "Target reported shared memory access failed (perhaps increase "
-          "shared memory available).");
-
-    FATAL("Fork server is misbehaving (OOM?)");
-
-  }
+  if (!afl_fsrv_check_child_pid(fsrv, stop_soon_p)) { return 0; }
 
   if (unlikely(fsrv->late_send)) {
 
