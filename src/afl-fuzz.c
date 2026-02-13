@@ -2468,6 +2468,8 @@ int main(int argc, char **argv_orig, char **envp) {
   u64 prev_target_hash = 0;
   s32 fast_resume = 0;
   u8  is_ijon_fastresume = 0;
+  u8  has_vp_fastresume = 0;
+  u8 *vp_fastresume_buf = NULL;
   #ifdef HAVE_ZLIB
   gzFile fr_fd = NULL;
   #else
@@ -2541,12 +2543,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
         u8   ver_string[8];
         u64 *ver = (u64 *)ver_string;
-        /* Try both version calculations to handle IJON/non-IJON compatibility
-         */
-        u64 expect_ver_no_ijon = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
+        u64  expect_ver_no_ijon = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
                                  (sizeof(struct queue_entry) << 1);
         u64 expect_ver_with_ijon =
             expect_ver_no_ijon + sizeof(u32) + sizeof(ijon_fastresume_state_t);
+        u64 expect_ver_no_ijon_vp = expect_ver_no_ijon + VALUE_PROFILE_MAP_SIZE;
+        u64 expect_ver_with_ijon_vp =
+            expect_ver_with_ijon + VALUE_PROFILE_MAP_SIZE;
 
         if (NZLIBREAD(fr_fd, ver_string, sizeof(ver_string)) !=
             sizeof(ver_string)) {
@@ -2555,7 +2558,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
         } else {
 
-          if (*ver != expect_ver_no_ijon && *ver != expect_ver_with_ijon) {
+          if (*ver != expect_ver_no_ijon && *ver != expect_ver_with_ijon &&
+              *ver != expect_ver_no_ijon_vp &&
+              *ver != expect_ver_with_ijon_vp) {
 
             WARNF(
                 "Different AFL++ version or feature usage, cannot perform FAST "
@@ -2567,7 +2572,10 @@ int main(int argc, char **argv_orig, char **envp) {
             fast_resume = 1;
 
             /* Detect if this is an IJON fastresume file */
-            is_ijon_fastresume = (*ver == expect_ver_with_ijon);
+            is_ijon_fastresume = (*ver == expect_ver_with_ijon ||
+                                  *ver == expect_ver_with_ijon_vp);
+            has_vp_fastresume = (*ver == expect_ver_no_ijon_vp ||
+                                 *ver == expect_ver_with_ijon_vp);
 
           }
 
@@ -3110,6 +3118,32 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    if (unlikely(has_vp_fastresume)) {
+
+      if (likely(afl->virgin_val_prof)) {
+
+        ZLIBREAD(fr_fd, afl->virgin_val_prof, VALUE_PROFILE_MAP_SIZE,
+                 "virgin_val_prof");
+
+      } else {
+
+        /* Keep fastresume stream alignment when VP is currently disabled. */
+        if (unlikely(!vp_fastresume_buf)) {
+
+          vp_fastresume_buf = ck_alloc(VALUE_PROFILE_MAP_SIZE);
+
+        }
+
+        ZLIBREAD(fr_fd, vp_fastresume_buf, VALUE_PROFILE_MAP_SIZE,
+                 "virgin_val_prof(discarded)");
+        WARNF(
+            "fastresume.bin contains value profile state, but "
+            "AFL_VALUE_PROFILE is disabled. Ignoring saved VP bitmap.");
+
+      }
+
+    }
+
     u8  res[1] = {0};
     u8 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
     u8 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
@@ -3119,9 +3153,11 @@ int main(int argc, char **argv_orig, char **envp) {
     u32 r, m_len;
     u32 queue_map_size =
         stored_map_size;  // Use the map size that was used during save
-    r = 8 + (afl->fsrv.use_ijon ? sizeof(u32) : 0) +
-        queue_map_size *
-            4;         /* +sizeof(u32) for map_size field only in IJON mode */
+    r = 8 +
+        (afl->fsrv.use_ijon ? sizeof(u32) + sizeof(ijon_fastresume_state_t)
+                            : 0) +
+        queue_map_size * 4 + (has_vp_fastresume ? VALUE_PROFILE_MAP_SIZE : 0);
+    /* +sizeof(u32)+sizeof(ijon_fastresume_state_t) only in IJON mode */
     m_len = ((queue_map_size + 7) >> 3);
 
     u32                 q_len = o_end - o_start;
@@ -3225,6 +3261,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     OKF("Successfully loaded fastresume.bin (%u bytes)!", r);
     ZLIBCLOSE(fr_fd);
+    if (unlikely(vp_fastresume_buf)) {
+
+      ck_free(vp_fastresume_buf);
+      vp_fastresume_buf = NULL;
+
+    }
+
     afl->reinit_table = 1;
     update_calibration_time(afl, &resume_start);
 
@@ -3961,11 +4004,13 @@ stop_fuzzing:
       u8   ver_string[8];
       u32  w = 0;
       u64 *ver = (u64 *)ver_string;
+      u8   save_vp_state = afl->value_profile_mode ? 1 : 0;
       /* Include IJON state size in version only when IJON is used */
       *ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
              (sizeof(struct queue_entry) << 1) +
              (afl->fsrv.use_ijon ? sizeof(u32) + sizeof(ijon_fastresume_state_t)
-                                 : 0);
+                                 : 0) +
+             (save_vp_state ? VALUE_PROFILE_MAP_SIZE : 0);
 
       ZLIBWRITE(fr_fd, ver_string, sizeof(ver_string), "ver_string");
 
@@ -4013,8 +4058,16 @@ stop_fuzzing:
 
       }
 
+      if (likely(save_vp_state)) {
+
+        ZLIBWRITE(fr_fd, afl->virgin_val_prof, VALUE_PROFILE_MAP_SIZE,
+                  "virgin_val_prof");
+
+      }
+
       w += sizeof(ver_string) + (afl->fsrv.use_ijon ? sizeof(u32) : 0) +
-           afl->fsrv.map_size * 4;
+           afl->fsrv.map_size * 4 +
+           (save_vp_state ? VALUE_PROFILE_MAP_SIZE : 0);
 
       u8                  on[1] = {1}, off[1] = {0};
       u8                 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
