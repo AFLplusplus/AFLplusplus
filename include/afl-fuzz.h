@@ -1340,6 +1340,13 @@ void afl_dump_pc_map(afl_state_t *);
 void afl_dump_module_map(afl_state_t *);
 #endif
 
+/* Value profiling (afl-fuzz-valprof.c) */
+
+u32  vp_check_cmpmap(afl_state_t *);
+void vp_update_activation(afl_state_t *);
+void vp_mark_triggered_sites(afl_state_t *);
+void vp_update_bitmap_score(afl_state_t *, struct queue_entry *);
+
 /* Extras */
 
 void load_extras_file(afl_state_t *, u8 *, u32 *, u32 *, u32);
