@@ -1834,7 +1834,7 @@ static void test_target_binary(void) {
   } else {
 
     if (crashes_only)
-      FATAL("Target did not crash on input file '%s/%s', but -C specified.",
+      WARNF("Input '%s/%s' did not crash in -C mode; continuing.",
             f->dir, f->name);
 
   }
