@@ -1983,11 +1983,9 @@ showmap_done:
 
   }
 
-  if (fsrv->target_path) { ck_free(fsrv->target_path); }
-
   afl_fsrv_deinit(fsrv);
 
-  if (stdin_file) { ck_free(stdin_file); }
+  if (stdin_file) { stdin_file = NULL; }
   if (collect_coverage) { free(coverage_map); }
 
   argv_cpy_free(argv);

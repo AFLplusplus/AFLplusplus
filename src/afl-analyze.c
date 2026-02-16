@@ -1083,10 +1083,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_shm_deinit(&shm);
   afl_fsrv_deinit(&fsrv);
-  if (fsrv.target_path) { ck_free(fsrv.target_path); }
   if (in_data) { ck_free(in_data); }
 
   exit(0);
 
 }
-

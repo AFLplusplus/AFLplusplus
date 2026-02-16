@@ -299,7 +299,11 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
+  fsrv->target_path = NULL;
+  fsrv->cmplog_binary = NULL;
+  fsrv->asanfuzz_binary = NULL;
   fsrv->child_kill_signal = SIGKILL;
+  fsrv->fsrv_kill_signal = SIGTERM;
   fsrv->max_length = MAX_FILE;
 
   fsrv->allow_cores = getenv("AFL_ALLOW_CORES") != NULL ? true : false;
@@ -331,8 +335,15 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->persistent_trace_bits = NULL;
 #endif
 
+#ifdef AFL_PERSISTENT_RECORD
+  fsrv->persistent_record_dir = NULL;
+  fsrv->persistent_record_data = NULL;
+  fsrv->persistent_record_len = NULL;
+#endif
+
   fsrv->uid_set = 0;
   fsrv->gid_set = 0;
+  fsrv->supl_gids = NULL;
 
   fsrv->perm = DEFAULT_PERMISSION;
 
@@ -352,7 +363,10 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->map_size = from->map_size;
   fsrv_to->real_map_size = from->real_map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
-  fsrv_to->out_file = from->out_file;
+  fsrv_to->out_file = from->out_file ? ck_strdup(from->out_file) : NULL;
+  fsrv_to->target_path = from->target_path ? ck_strdup(from->target_path) : NULL;
+  fsrv_to->cmplog_binary = NULL;
+  fsrv_to->asanfuzz_binary = NULL;
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
   fsrv_to->out_fd = from->out_fd;  // not sure this is a good idea
   fsrv_to->no_unlink = from->no_unlink;
@@ -2480,7 +2494,114 @@ void afl_fsrv_killall() {
 void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
 
   afl_fsrv_kill(fsrv);
+ 
+  if (fsrv->target_path) {
+ 
+    ck_free(fsrv->target_path);
+    fsrv->target_path = NULL;
+ 
+  }
+
+  if (fsrv->out_file) {
+
+    ck_free(fsrv->out_file);
+    fsrv->out_file = NULL;
+
+  }
+
+  if (fsrv->cmplog_binary) {
+
+    ck_free(fsrv->cmplog_binary);
+    fsrv->cmplog_binary = NULL;
+
+  }
+
+  if (fsrv->asanfuzz_binary) {
+
+    ck_free(fsrv->asanfuzz_binary);
+    fsrv->asanfuzz_binary = NULL;
+
+  }
+
+  if (fsrv->supl_gids) {
+
+    ck_free(fsrv->supl_gids);
+    fsrv->supl_gids = NULL;
+
+  }
+
+#ifdef __linux__
+  if (fsrv->nyx_aux_string) {
+
+    ck_free(fsrv->nyx_aux_string);
+    fsrv->nyx_aux_string = NULL;
+
+  }
+
+#endif
+
+#ifdef AFL_PERSISTENT_RECORD
+  if (fsrv->persistent_record_data) {
+
+    for (u32 i = 0; i < fsrv->persistent_record; i++) {
+
+      if (fsrv->persistent_record_data[i]) {
+
+        ck_free(fsrv->persistent_record_data[i]);
+
+      }
+
+    }
+
+    ck_free(fsrv->persistent_record_data);
+    fsrv->persistent_record_data = NULL;
+
+  }
+
+  if (fsrv->persistent_record_len) {
+
+    ck_free(fsrv->persistent_record_len);
+    fsrv->persistent_record_len = NULL;
+
+  }
+
+  if (fsrv->persistent_record_dir) {
+
+    ck_free(fsrv->persistent_record_dir);
+    fsrv->persistent_record_dir = NULL;
+
+  }
+
+#endif
+
+  if (fsrv->out_fd >= 0) {
+
+    close(fsrv->out_fd);
+    fsrv->out_fd = -1;
+
+  }
+
+  if (fsrv->dev_null_fd >= 0) {
+
+    close(fsrv->dev_null_fd);
+    fsrv->dev_null_fd = -1;
+
+  }
+
+  if (fsrv->dev_urandom_fd >= 0) {
+
+    close(fsrv->dev_urandom_fd);
+    fsrv->dev_urandom_fd = -1;
+
+  }
+
+  if (fsrv->out_dir_fd >= 0) {
+
+    close(fsrv->out_dir_fd);
+    fsrv->out_dir_fd = -1;
+
+  }
+
   list_remove(&fsrv_list, fsrv);
 
 }
-

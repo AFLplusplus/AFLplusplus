@@ -833,34 +833,6 @@ static u32 scan_args(u8 **argv) {
 
 static void cleanup_fsrv_allocs(afl_forkserver_t *fsrv, char **argv) {
 
-  if (fsrv->out_file) {
-
-    ck_free(fsrv->out_file);
-    fsrv->out_file = NULL;
-
-  }
-
-  if (fsrv->target_path && fsrv->target_path != target_bin) {
-
-    free(fsrv->target_path);
-    fsrv->target_path = NULL;
-
-  }
-
-  if (fsrv->out_fd >= 0) {
-
-    close(fsrv->out_fd);
-    fsrv->out_fd = -1;
-
-  }
-
-  if (fsrv->dev_null_fd >= 0) {
-
-    close(fsrv->dev_null_fd);
-    fsrv->dev_null_fd = -1;
-
-  }
-
   if (argv && argv != (char **)target_args) {
 
     for (u32 i = 0; argv[i]; i++) {
@@ -1823,40 +1795,34 @@ static void test_target_binary(void) {
 
   if (ret == FSRV_RUN_ERROR)
     FATAL("Unable to open or read input file '%s/%s'", f->dir, f->name);
-  else if (ret == FSRV_RUN_NOINST)
-    FATAL("No instrumentation detected.");
-  else if (ret == FSRV_RUN_NOBITS)
-    FATAL("No instrumentation was gathered.");
 
-  /*
   if (ret == FSRV_RUN_CRASH) {
 
     if (!crashes_only && !allow_any)
-      FATAL("Target crashed on input file '%s/%s', but -C or -A not specified.",
+      WARNF("Target crashed on input file '%s/%s', but -C or -A not specified.",
             f->dir, f->name);
 
   } else if (ret == FSRV_RUN_TMOUT) {
 
     if (!allow_any)
-      FATAL("Target timed out on input file '%s/%s', but -A not specified.",
+      WARNF("Target timed out on input file '%s/%s', but -A not specified.",
             f->dir, f->name);
 
   } else {
 
     if (crashes_only)
-      FATAL("Target did not crash on input file '%s/%s', but -C specified.",
-            f->dir, f->name);
+      OKF("Target did not crash on input file '%s/%s', but -C specified. "
+          "Continuing to check instrumentation...",
+          f->dir, f->name);
 
   }
-
-  */
 
   u8  *trace = fsrv.trace_bits;
   u32 *tuples = ck_alloc(map_size * sizeof(u32));
   u32  t_len = collect_coverage_counts(trace, map_size, tuples);
   ck_free(tuples);
 
-  if (!t_len && !crashes_only) {
+  if (!t_len) {
 
     FATAL("No instrumentation detected");
 

@@ -2829,8 +2829,9 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
       afl->san_fsrvs[i].qemu_mode = afl->fsrv.qemu_mode;
       afl->san_fsrvs[i].frida_mode = afl->fsrv.frida_mode;
-      afl->san_fsrvs[i].asanfuzz_binary = afl->san_binary[i];
-      afl->san_fsrvs[i].target_path = afl->san_binary[i];
+      afl->san_fsrvs[i].asanfuzz_binary = ck_strdup(afl->san_binary[i]);
+      if (afl->san_fsrvs[i].target_path) ck_free(afl->san_fsrvs[i].target_path);
+      afl->san_fsrvs[i].target_path = ck_strdup(afl->san_binary[i]);
       afl->san_fsrvs[i].init_child_func = sanfuzz_exec_child;
 
       if ((map_size <= DEFAULT_SHMEM_SIZE ||
@@ -2898,8 +2899,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
     afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
-    afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
-    afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
+    afl->cmplog_fsrv.cmplog_binary = ck_strdup(afl->cmplog_binary);
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
     if ((map_size <= DEFAULT_SHMEM_SIZE ||
@@ -4005,8 +4005,6 @@ stop_fuzzing:
   ck_free(afl->simplified_n_fuzz);
 
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
-  ck_free(afl->fsrv.target_path);
-  ck_free(afl->fsrv.out_file);
   ck_free(afl->sync_id);
   if (afl->q_testcase_cache) { ck_free(afl->q_testcase_cache); }
   afl_state_deinit(afl);

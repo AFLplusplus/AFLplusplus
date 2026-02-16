@@ -1593,7 +1593,7 @@ int main(int argc, char **argv_orig, char **envp) {
   ACTF("Writing output to '%s'...", output_file);
 
   unlink(out_file);
-  if (out_file) { ck_free(out_file); }
+  if (out_file) { out_file = NULL; }
   out_file = NULL;
 
   close(write_to_file(output_file, in_data, in_len));
@@ -1604,7 +1604,6 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_shm_deinit(&shm);
   if (fsrv->use_shmem_fuzz) shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
   afl_fsrv_deinit(fsrv);
-  if (fsrv->target_path) { ck_free(fsrv->target_path); }
   if (mask_bitmap) { ck_free(mask_bitmap); }
   if (in_data) { ck_free(in_data); }
 
