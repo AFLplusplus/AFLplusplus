@@ -201,7 +201,6 @@ bool CmplogSwitches::hookInstrs(Module &M) {
 
       Value        *Val = SI->getCondition();
       unsigned int  max_size = Val->getType()->getIntegerBitWidth(), cast_size;
-      unsigned char do_cast = 0;
 
       if (!SI->getNumCases() || max_size < 16) {
 
@@ -210,12 +209,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
 
       }
 
-      if (max_size % 8) {
-
-        max_size = (((max_size / 8) + 1) * 8);
-        do_cast = 1;
-
-      }
+      if (max_size % 8) { max_size = (((max_size / 8) + 1) * 8); }
 
       IRBuilder<> IRB2(SI->getParent());
       IRB2.SetInsertPoint(SI);
@@ -250,27 +244,24 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       // do we need to cast?
       switch (max_size) {
 
-        case 8:
         case 16:
-        case 32:
-        case 64:
-        case 128:
-          cast_size = max_size;
+          cast_size = 16;
+          break;
+        case 17 ... 32:
+          cast_size = 32;
+          break;
+        case 33 ... 64:
+          cast_size = 64;
           break;
         default:
+          // 65-128 bit values are handled via 128-bit hooks.
           cast_size = 128;
-          do_cast = 1;
 
       }
 
-      Value *CompareTo = Val;
-
-      if (do_cast) {
-
-        CompareTo =
-            IRB.CreateIntCast(CompareTo, IntegerType::get(C, cast_size), false);
-
-      }
+      bool use_hookN = cast_size == 128 && cast_size != max_size;
+      Value *CompareTo =
+          IRB.CreateIntCast(Val, IntegerType::get(C, cast_size), false);
 
       for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e;
            ++i) {
@@ -296,7 +287,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
             args.push_back(new_param);
             ConstantInt *attribute = ConstantInt::get(Int8Ty, 1);
             args.push_back(attribute);
-            if (cast_size != max_size) {
+            if (use_hookN) {
 
               ConstantInt *bitsize =
                   ConstantInt::get(Int8Ty, (max_size / 8) - 1);
@@ -320,13 +311,13 @@ bool CmplogSwitches::hookInstrs(Module &M) {
                 break;
               case 128:
 #if INTPTR_MAX != INT32_MAX
-                if (max_size == 128) {
+                if (use_hookN) {
 
-                  IRB.CreateCall(cmplogHookIns16, args);
+                  IRB.CreateCall(cmplogHookInsN, args);
 
                 } else {
 
-                  IRB.CreateCall(cmplogHookInsN, args);
+                  IRB.CreateCall(cmplogHookIns16, args);
 
                 }
 
