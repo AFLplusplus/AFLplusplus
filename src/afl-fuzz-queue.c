@@ -742,7 +742,11 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   if (afl->custom_mutators_count) {
 
-    /* At the initialization stage, queue_cur is NULL */
+    /* At the initialization stage, queue_cur is NULL.
+       We also need to invoke the callback when test cases are imported
+       via mailbox/sync (when syncing_party is set).
+       The callback should be invoked for all new queue entries that are
+       added, regardless of whether they come from local fuzzing or syncing. */
     if (afl->queue_cur || afl->syncing_party) {
 
       u8 *fname_orig = NULL;

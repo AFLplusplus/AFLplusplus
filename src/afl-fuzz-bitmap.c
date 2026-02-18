@@ -683,6 +683,41 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       if (san_fault == FSRV_RUN_OK) {
 
         if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
+        
+        /* When importing test cases from mailbox/sync, even if they don't
+           have new coverage, we should still invoke the custom mutator
+           callback so they can process the imported case. Write the case
+           to a temporary location and invoke the callback. */
+        if (unlikely(afl->syncing_party && afl->custom_mutators_count)) {
+          
+          u8 tmp_fn[PATH_MAX];
+          s32 tmp_fd;
+          
+          snprintf(tmp_fn, sizeof(tmp_fn),
+                   "%s/.tmp_import_%d_%u", afl->out_dir, getpid(), 
+                   afl->queued_items);
+          
+          tmp_fd = open(tmp_fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
+          
+          if (tmp_fd >= 0) {
+            ck_write(tmp_fd, mem, len, tmp_fn);
+            close(tmp_fd);
+            
+            /* Invoke custom mutator callback for this imported case */
+            struct queue_entry tmp_q;
+            memset(&tmp_q, 0, sizeof(tmp_q));
+            tmp_q.fname = tmp_fn;
+            tmp_q.len = len;
+            tmp_q.mother = afl->queue_cur;
+            
+            u8 *fname_orig = NULL;
+            if (afl->queue_cur) { fname_orig = afl->queue_cur->fname; }
+            run_afl_custom_queue_new_entry(afl, &tmp_q, tmp_fn, fname_orig);
+            
+            unlink(tmp_fn);
+          }
+        }
+        
         return 0;
 
       } else {
