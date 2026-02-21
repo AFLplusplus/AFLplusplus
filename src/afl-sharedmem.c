@@ -79,6 +79,8 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
   }
 
+  if (shm->vp_mode) { unsetenv(VP_SHM_ENV_VAR); }
+
 #ifdef USEMMAP
   if (shm->map != NULL) {
 
@@ -128,12 +130,40 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
   }
 
+  if (shm->vp_mode) {
+
+    if (shm->vp_map != NULL) {
+
+      munmap(shm->vp_map, sizeof(vp_map_t));
+      shm->vp_map = NULL;
+
+    }
+
+    if (shm->vp_g_shm_fd != -1) {
+
+      close(shm->vp_g_shm_fd);
+      shm->vp_g_shm_fd = -1;
+
+    }
+
+    if (shm->vp_g_shm_file_path[0]) {
+
+      shm_unlink(shm->vp_g_shm_file_path);
+      shm->vp_g_shm_file_path[0] = 0;
+
+    }
+
+  }
+
 #else
   shmctl(shm->shm_id, IPC_RMID, NULL);
   if (shm->cmplog_mode) { shmctl(shm->cmplog_shm_id, IPC_RMID, NULL); }
+  if (shm->vp_mode) { shmctl(shm->vp_shm_id, IPC_RMID, NULL); }
 #endif
 
   shm->map = NULL;
+  shm->cmp_map = NULL;
+  shm->vp_map = NULL;
 
 }
 
@@ -149,11 +179,13 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   shm->map = NULL;
   shm->cmp_map = NULL;
+  shm->vp_map = NULL;
 
 #ifdef USEMMAP
 
   shm->g_shm_fd = -1;
   shm->cmplog_g_shm_fd = -1;
+  shm->vp_g_shm_fd = -1;
 
   const int shmflags = O_RDWR | O_EXCL;
 
@@ -289,6 +321,54 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
+  if (shm->vp_mode) {
+
+    snprintf(shm->vp_g_shm_file_path, L_tmpnam, "/afl_vp_%d_%ld", getpid(),
+             random());
+
+    shm->vp_g_shm_fd = shm_open(shm->vp_g_shm_file_path,
+                                O_CREAT | O_RDWR | O_EXCL, permission);
+    if (shm->vp_g_shm_fd == -1) { PFATAL("shm_open() failed"); }
+    if (gid != -1) {
+
+      if (fchown(shm->vp_g_shm_fd, -1, gid) == -1) {
+
+        PFATAL("fchown() failed");
+
+      }
+
+    }
+
+    if (ftruncate(shm->vp_g_shm_fd, sizeof(vp_map_t))) {
+
+      PFATAL("setup_shm(): vp ftruncate() failed");
+
+    }
+
+    shm->vp_map = mmap(0, sizeof(vp_map_t), PROT_READ | PROT_WRITE, MAP_SHARED,
+                       shm->vp_g_shm_fd, 0);
+    if (shm->vp_map == MAP_FAILED) {
+
+      close(shm->vp_g_shm_fd);
+      shm->vp_g_shm_fd = -1;
+      shm_unlink(shm->vp_g_shm_file_path);
+      shm->vp_g_shm_file_path[0] = 0;
+      PFATAL("vp mmap() failed");
+
+    }
+
+    memset((void *)shm->vp_map, 0, sizeof(vp_map_t));
+
+    if (!non_instrumented_mode) {
+
+      setenv(VP_SHM_ENV_VAR, shm->vp_g_shm_file_path, 1);
+
+    }
+
+    if (shm->vp_map == (void *)-1 || !shm->vp_map) PFATAL("vp mmap() failed");
+
+  }
+
 #else
   u8             *shm_str;
   struct shmid_ds shmid_ds;
@@ -352,6 +432,38 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
+  if (shm->vp_mode) {
+
+    shm->vp_shm_id = shmget(IPC_PRIVATE, sizeof(vp_map_t),
+                            IPC_CREAT | IPC_EXCL | permission);
+
+    if (shm->vp_shm_id < 0) {
+
+      shmctl(shm->shm_id, IPC_RMID, NULL);
+      if (shm->cmplog_mode) { shmctl(shm->cmplog_shm_id, IPC_RMID, NULL); }
+      PFATAL("shmget() failed, try running afl-system-config");
+
+    }
+
+    if (gid != -1) {
+
+      if (shmctl(shm->vp_shm_id, IPC_STAT, &shmid_ds) == -1) {
+
+        PFATAL("shmctl(IPC_STAT) failed");
+
+      }
+
+      shmid_ds.shm_perm.gid = (gid_t)gid;
+      if (shmctl(shm->vp_shm_id, IPC_SET, &shmid_ds) == -1) {
+
+        PFATAL("shmctl(IPC_SET) failed");
+
+      }
+
+    }
+
+  }
+
   if (!non_instrumented_mode) {
 
     shm_str = alloc_printf("%d", shm->shm_id);
@@ -377,6 +489,14 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
+  if (shm->vp_mode && !non_instrumented_mode) {
+
+    shm_str = alloc_printf("%d", shm->vp_shm_id);
+    setenv(VP_SHM_ENV_VAR, shm_str, 1);
+    ck_free(shm_str);
+
+  }
+
   shm->map = shmat(shm->shm_id, NULL, 0);
 
   if (shm->map == (void *)-1 || !shm->map) {
@@ -386,6 +506,12 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     if (shm->cmplog_mode) {
 
       shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+    }
+
+    if (shm->vp_mode) {
+
+      shmctl(shm->vp_shm_id, IPC_RMID, NULL);  // do not leak shmem
 
     }
 
@@ -406,6 +532,23 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       PFATAL("shmat() failed");
 
     }
+
+  }
+
+  if (shm->vp_mode) {
+
+    shm->vp_map = shmat(shm->vp_shm_id, NULL, 0);
+
+    if (shm->vp_map == (void *)-1 || !shm->vp_map) {
+
+      shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+      if (shm->cmplog_mode) { shmctl(shm->cmplog_shm_id, IPC_RMID, NULL); }
+      shmctl(shm->vp_shm_id, IPC_RMID, NULL);  // do not leak shmem
+      PFATAL("shmat() failed");
+
+    }
+
+    memset((void *)shm->vp_map, 0, sizeof(vp_map_t));
 
   }
 

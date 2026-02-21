@@ -31,6 +31,7 @@
 #include <unistd.h>
 
 #include "types.h"
+#include "value-profile.h"
 
 typedef struct sharedmem {
 
@@ -42,10 +43,13 @@ typedef struct sharedmem {
   char g_shm_file_path[L_tmpnam];
   int  cmplog_g_shm_fd;
   char cmplog_g_shm_file_path[L_tmpnam];
+  int  vp_g_shm_fd;
+  char vp_g_shm_file_path[L_tmpnam];
 /* ========================================= */
 #else
   s32 shm_id;                          /* ID of the SHM region              */
   s32 cmplog_shm_id;
+  s32 vp_shm_id;
 #endif
 
   u8 *map;                                          /* shared memory region */
@@ -53,9 +57,11 @@ typedef struct sharedmem {
   size_t map_size;                                 /* actual allocated size */
 
   int             cmplog_mode;
+  int             vp_mode;
   int             sanfuzz_mode;
   int             shmemfuzz_mode;
   struct cmp_map *cmp_map;
+  vp_map_t       *vp_map;
 
 } sharedmem_t;
 

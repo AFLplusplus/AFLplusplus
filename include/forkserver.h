@@ -149,6 +149,7 @@ typedef struct afl_forkserver {
   bool support_shmem_fuzz;              /* set by afl-fuzz                  */
 
   bool use_ijon;                        /* use IJON tracking feature        */
+  bool use_value_profile;               /* target has L1 VP runtime support */
 
   bool use_fauxsrv;                     /* Fauxsrv for non-forking targets? */
 
