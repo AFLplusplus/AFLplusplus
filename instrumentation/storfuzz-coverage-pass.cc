@@ -503,17 +503,8 @@ bool StorFuzzCoverage::runOnModule(Module &M) {
   // DO SETUP
   LLVMContext &C = M.getContext();
 
-  Type *VoidTy = Type::getVoidTy(C);
-
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
-  IntegerType *Int16Ty = IntegerType::getInt16Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
-  IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
-  Type        *Int8PtrTy = PointerType::getUnqual(IntegerType::getInt8Ty(C));
-  Type        *Int16PtrTy = PointerType::getUnqual(IntegerType::getInt16Ty(C));
-  Type        *Int32PtrTy = PointerType::getUnqual(IntegerType::getInt32Ty(C));
-  Type        *Int64PtrTy = PointerType::getUnqual(IntegerType::getInt64Ty(C));
-  Type *Int128PtrTy = PointerType::getUnqual(IntegerType::getInt128Ty(C));
 
   uint32_t     rand_seed;
   unsigned int cur_loc = 0;
@@ -606,9 +597,6 @@ bool StorFuzzCoverage::runOnModule(Module &M) {
     // The number of potentially interesting stores in a function may be
     // different from the number of instrumented stores due to the
     // MAX_STORES_PER_BB threshold
-    auto potentially_interesting_stores_in_func = 0;
-    auto instrumented_stores_in_func = 0;
-
     SmallDenseMap<BasicBlock *, uint16_t> stores_per_bb(8);
 
     // Pass over each block twice and only instrument it when it has fewer than
@@ -624,14 +612,6 @@ bool StorFuzzCoverage::runOnModule(Module &M) {
           errs() << "ERROR: Could not find info on any BB in '" << M.getName()
                  << ": " << F.getName() << "\n";
           break;
-
-        }
-
-        for (auto &pair : stores_per_bb) {
-
-          potentially_interesting_stores_in_func += pair.getSecond();
-          if (pair.getSecond() <= THRESHOLD)
-            instrumented_stores_in_func += pair.getSecond();
 
         }
 
@@ -1018,4 +998,3 @@ static RegisterStandardPasses RegisterStorFuzzPass(
 static RegisterStandardPasses RegisterStorFuzzPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerStorFuzzPass);
 #endif
-
