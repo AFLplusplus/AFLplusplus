@@ -2188,7 +2188,11 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     if (likely(!fsrv->nyx_mode)) {
 
       memset(fsrv->trace_bits, 0, fsrv->map_size);
-      storfuzz_clear_map(fsrv->afl);
+      if (likely(fsrv->afl_ptr)) {
+
+        storfuzz_clear_map((struct afl_state *)fsrv->afl_ptr);
+
+      }
       MEM_BARRIER();
 
     }
@@ -2196,7 +2200,11 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 #else
     /* Clear shared memory for clean execution */
     memset(fsrv->trace_bits, 0, fsrv->map_size);
-    storfuzz_clear_map(afl);
+    if (likely(fsrv->afl_ptr)) {
+
+      storfuzz_clear_map((struct afl_state *)fsrv->afl_ptr);
+
+    }
     MEM_BARRIER();
 #endif
 
@@ -2486,4 +2494,3 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
-

@@ -1136,3 +1136,6 @@ may_save_fault:
 
   }
 
+  return keeping;
+
+}
