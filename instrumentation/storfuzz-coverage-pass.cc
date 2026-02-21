@@ -24,6 +24,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/PseudoProbe.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Analysis/LazyValueInfo.h"
@@ -47,7 +49,7 @@
   #include "llvm/Support/CFG.h"
 #endif
 
-#ifndef
+#ifndef STORFUZZ_MAP_SIZE
   #define STORFUZZ_MAP_SIZE 65536
 #endif
 
@@ -194,7 +196,7 @@ class StorFuzzCoverage : public ModulePass {
 
     for (auto const &ignoreListFunc : ignoreList) {
 
-      if (F->getName().starts_with(ignoreListFunc)) { return true; }
+      if (F->getName().startswith(ignoreListFunc)) { return true; }
 
     }
 
@@ -595,10 +597,11 @@ bool StorFuzzCoverage::runOnModule(Module &M) {
     }
 
     if (F.size() < function_minimum_size) { continue; }
+    LoopInfo *loopInfo = nullptr;
 #ifdef USE_NEW_PM
     auto *LVI = &FAM.getResult<LazyValueAnalysis>(F);
-    auto *LoopInfo = &FAM.getResult<LoopAnalysis>(F);
-
+    (void)LVI;
+    loopInfo = &FAM.getResult<LoopAnalysis>(F);
 #endif
     // The number of potentially interesting stores in a function may be
     // different from the number of instrumented stores due to the
@@ -712,7 +715,7 @@ bool StorFuzzCoverage::runOnModule(Module &M) {
 
                   continue;
 
-                } else if (isLoopCtr(LoopInfo, storedValue, storeLocation)) {
+                } else if (isLoopCtr(loopInfo, storedValue, storeLocation)) {
 
                   continue;
 
