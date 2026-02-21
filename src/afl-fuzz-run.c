@@ -63,6 +63,7 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
 
 #endif
 
+  vp_prepare_exec(afl, fsrv);
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
 #ifdef __AFL_CODE_COVERAGE

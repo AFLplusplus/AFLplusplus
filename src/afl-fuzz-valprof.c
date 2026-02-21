@@ -27,6 +27,7 @@
 #include "afl-fuzz.h"
 #include "cmplog.h"
 #include "bitops.h"
+#include "value-profile.h"
 
 /* CmpLog marks string-like routine compares as 0x80 + len.
    stop_at_zero is deliberately not reset between the two operand-length
@@ -221,9 +222,127 @@ static inline u8 compute_ins_metrics(const struct cmp_operands *op, u32 shape,
 
 }
 
+/* Re-execute the current input under the CmpLog binary so VP can inspect
+   comparison operands. Returns 1 if cmp_map is ready for VP processing. */
+u8 vp_run_cmplog(afl_state_t *afl, void *mem, u32 len) {
+
+  if (unlikely(!afl->value_profile_active ||
+               afl->value_profile_source != VP_SOURCE_CMPLOG_CHILD ||
+               !afl->cmplog_binary || !afl->shm.cmp_map))
+    return 0;
+
+  void *vp_mem = mem;
+  u32   vp_len = write_to_testcase(afl, &vp_mem, len, 0);
+
+  if (!vp_len || vp_len < 4 || vp_len > afl->cmplog_max_filesize) return 0;
+
+  memcpy(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size);
+  memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
+  afl->cmplog_fsrv.custom_input = afl->fsrv.custom_input;
+  afl->cmplog_fsrv.custom_input_len = afl->fsrv.custom_input_len;
+
+  u8 result = fuzz_run_target(afl, &afl->cmplog_fsrv, afl->fsrv.exec_tmout);
+
+  memcpy(afl->fsrv.trace_bits, afl->map_tmp_buf, afl->fsrv.map_size);
+  return result == FSRV_RUN_OK;
+
+}
+
+/* Prepare per-execution VP state before running the main target:
+   - runtime source: bump/reset exec epoch and per-exec control list
+   - inline CmpLog source: clear cmp headers for this execution. */
+void vp_prepare_exec(afl_state_t *afl, afl_forkserver_t *fsrv) {
+
+  if (!afl->value_profile_mode) return;
+  if (fsrv != &afl->fsrv) return;
+
+  if (afl->value_profile_source == VP_SOURCE_RUNTIME_SHM) {
+
+    if (unlikely(!fsrv->use_value_profile)) {
+
+      FATAL(
+          "Value profile level 1 requires target support for value "
+          "profile runtime SHM. Recompile the target with "
+          "AFL_LLVM_VALUE_PROFILE=1 (or AFL_LLVM_VALUEPROFILE=1).");
+
+    }
+
+    if (unlikely(!afl->shm.vp_map)) {
+
+      FATAL("Value profile runtime map missing although level 1 was selected.");
+
+    }
+
+    vp_map_t *vp = afl->shm.vp_map;
+    vp->exec_id = afl->value_profile_active ? vp->exec_id + 1 : 0;
+    vp->control_len = 0;
+    return;
+
+  }
+
+  if (afl->value_profile_source == VP_SOURCE_CMPLOG_INLINE &&
+      afl->value_profile_active && afl->shm.cmp_map) {
+
+    /* Inline CmpLog source: start each main execution with a clean header set
+       so VP reads only comparisons produced by this input. */
+    memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
+
+  }
+
+}
+
+/* Ensure comparison data is available for the current input and selected
+   source. Returns 1 when VP consumers can safely read compare data. */
+u8 vp_ensure_cmp_data_ready(afl_state_t *afl, void *mem, u32 len) {
+
+  if (unlikely(!afl->value_profile_active)) return 0;
+
+  if (afl->value_profile_source == VP_SOURCE_RUNTIME_SHM) {
+
+    return afl->shm.vp_map && afl->shm.vp_map->exec_id;
+
+  }
+
+  if (afl->value_profile_source == VP_SOURCE_CMPLOG_INLINE ||
+      afl->value_profile_source == VP_SOURCE_CMPLOG_CHILD) {
+
+    if (unlikely(!afl->shm.cmp_map)) return 0;
+
+    if (afl->value_profile_source == VP_SOURCE_CMPLOG_INLINE) return 1;
+    if (afl->value_profile_source == VP_SOURCE_CMPLOG_CHILD) {
+
+      return vp_run_cmplog(afl, mem, len);
+
+    }
+
+    return 0;
+
+  }
+
+  return 0;
+
+}
+
 /* Build vp_trigger_bitmap for the current execution so later frontier scans
    can skip untouched compare sites. */
 void vp_mark_triggered_sites(afl_state_t *afl) {
+
+  if (afl->value_profile_source == VP_SOURCE_RUNTIME_SHM) {
+
+    vp_map_t *vp = afl->shm.vp_map;
+    if (unlikely(!vp)) return;
+    u32 control_len = MIN(vp->control_len, (u32)VP_CONTROL_CAP);
+    for (u32 i = 0; i < control_len; ++i) {
+
+      u32 k = vp->control[i];
+      if (k >= CMP_MAP_W) continue;
+      afl->vp_trigger_bitmap[k >> 6] |= (1ULL << (k & 63));
+
+    }
+
+    return;
+
+  }
 
   struct cmp_map *cmp = afl->shm.cmp_map;
   if (unlikely(!cmp)) return;

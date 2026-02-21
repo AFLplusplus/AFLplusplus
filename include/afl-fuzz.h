@@ -1378,7 +1378,7 @@ void vp_update_bitmap_score_with_cost(afl_state_t *, struct queue_entry *, u64);
 u8   vp_frontier_would_improve(afl_state_t *, u64);
 void vp_apply_delayed_evictions(afl_state_t *);
 u8   vp_run_cmplog(afl_state_t *, void *, u32);
-u8   vp_prepare_data(afl_state_t *, void *, u32);
+u8   vp_ensure_cmp_data_ready(afl_state_t *, void *, u32);
 void vp_prepare_exec(afl_state_t *, afl_forkserver_t *);
 
 /* Extras */
@@ -1654,3 +1654,4 @@ static inline u8 bitmap_read(u8 *map, u32 index) {
 #endif
 
 #endif
+
