@@ -409,7 +409,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   if (is_timeout) { strcat(ret, ",+tout"); }
 
-  if (new_bits == 2) { strcat(ret, ",+cov"); }
+  if ((new_bits & 2) == 2) { strcat(ret, ",+cov"); }
+  if ((new_bits & 4) == 4) { strcat(ret, ",+stor"); }
 
   if (san_crash_only) { strcat(ret, ",+san"); }
 
@@ -712,6 +713,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     if (!afl->afl_env.afl_sha1_filenames) {
 
+      if (new_data) new_bits += 4;
+
       queue_fn = alloc_printf(
           "%s/queue/id:%06u,%s%s%s", afl->out_dir, afl->queued_items,
           describe_op(afl, new_bits + is_timeout,
@@ -937,6 +940,8 @@ may_save_fault:
 
         if (!afl->afl_env.afl_sha1_filenames) {
 
+          if (new_data) new_bits += 4;
+
           snprintf(
               fn, PATH_MAX, "%s/hangs/id:%06llu,%s%s%s", afl->out_dir,
               afl->saved_hangs,
@@ -1003,6 +1008,8 @@ may_save_fault:
 #ifndef SIMPLE_FILES
 
           if (!afl->afl_env.afl_sha1_filenames) {
+
+            if (new_data) new_bits += 4;
 
             snprintf(
                 fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s%s%s",

@@ -998,3 +998,4 @@ static RegisterStandardPasses RegisterStorFuzzPass(
 static RegisterStandardPasses RegisterStorFuzzPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerStorFuzzPass);
 #endif
+
