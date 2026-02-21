@@ -2193,6 +2193,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
         storfuzz_clear_map((struct afl_state *)fsrv->afl_ptr);
 
       }
+
       MEM_BARRIER();
 
     }
@@ -2205,6 +2206,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
       storfuzz_clear_map((struct afl_state *)fsrv->afl_ptr);
 
     }
+
     MEM_BARRIER();
 #endif
 
@@ -2494,3 +2496,4 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
+

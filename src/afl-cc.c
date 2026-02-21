@@ -2254,6 +2254,7 @@ void add_optimized_pcguard(aflcc_state_t *aflcc) {
       #endif
     #endif
     insert_object(aflcc, "SanitizerCoveragePCGUARD.so", "-fpass-plugin=%s", 0);
+    insert_object(aflcc, "storfuzz-coverage-pass.so", "-fpass-plugin=%s", 0);
 
   }
 

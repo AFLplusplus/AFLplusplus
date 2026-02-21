@@ -492,38 +492,35 @@ src/afl-performance.o: $(COMM_HDR) src/afl-performance.c
 src/afl-common.o: $(COMM_HDR) src/afl-common.c include/envs.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/afl-common.c -o src/afl-common.o
 
-src/afl-forkserver.o: $(COMM_HDR) src/afl-forkserver.c 
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/afl-forkserver.c -o src/afl-forkserver.o
-
 src/afl-sharedmem.o: $(COMM_HDR) src/afl-sharedmem.c include/android-ashmem.h include/cmplog.h
 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
 
-afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o include/cmplog.h include/envs.h | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm
+afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o include/cmplog.h include/envs.h | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-afl-showmap: src/afl-showmap.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
+afl-showmap: src/afl-showmap.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src/afl-fuzz-storfuzz.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-afl-cmin: src/afl-cmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -pthread
+afl-cmin: src/afl-cmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-fuzz-storfuzz.c src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -pthread
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o -o $@ $(PYFLAGS) $(LDFLAGS)
+afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-fuzz-storfuzz.c src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o -o $@ $(PYFLAGS) $(LDFLAGS)
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o src/afl-forkserver.o -o $@ $(LDFLAGS)
+afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o src/afl-forkserver.c $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o src/afl-forkserver.c src/afl-fuzz-storfuzz.c -o $@ $(LDFLAGS)
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif

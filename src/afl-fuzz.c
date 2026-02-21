@@ -32,6 +32,7 @@
 #include <errno.h>
 #include "asanfuzz.h"
 #include "common.h"
+#include "storfuzz.h"
 #include <limits.h>
 #include <stdlib.h>
 #ifndef USEMMAP
