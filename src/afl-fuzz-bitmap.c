@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "asanfuzz.h"
+#include "storfuzz.h"
 
 u16 count_class_lookup16[65536];
 
@@ -552,7 +553,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  keeping = 0, res, is_timeout = 0;
+  u8  keeping = 0, res, is_timeout = 0, new_data = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
   s32 fd;
   u32 cksum_simplified = 0, cksum_unique = 0;
@@ -607,7 +608,9 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted,
                                       &classified);
 
-      if (unlikely(new_bits)) { feed_san = 1; }
+      if (!new_bits) new_data = storfuzz_has_new_bits(afl);
+
+      if (unlikely(new_bits || new_data)) { feed_san = 1; }
 
     }
 
@@ -677,8 +680,9 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
     calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
+    if (!new_bits) new_data = storfuzz_has_new_bits(afl);
 
-    if (likely(!new_bits)) {
+    if (likely(!new_bits && !new_data)) {
 
       if (san_fault == FSRV_RUN_OK) {
 
@@ -840,275 +844,295 @@ may_save_fault:
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 
-        if (!has_new_bits(afl, afl->virgin_tmout)) { return keeping; }
+        if (!has_new_bits(afl, afl->virgin_tmout)) {
 
-      }
+          if (!storfuzz_has_new_bits(afl)) { return keeping; }
 
-      is_timeout = 0x80;
+        }
+
+        is_timeout = 0x80;
 #ifdef INTROSPECTION
-      if (afl->custom_mutators_count && afl->current_custom_fuzz) {
+        if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 
-        LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+          LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
-          if (afl->current_custom_fuzz == el && el->afl_custom_introspection) {
+            if (afl->current_custom_fuzz == el &&
+                el->afl_custom_introspection) {
 
-            const char *ptr = el->afl_custom_introspection(el->data);
+              const char *ptr = el->afl_custom_introspection(el->data);
 
-            if (ptr != NULL && *ptr != 0) {
+              if (ptr != NULL && *ptr != 0) {
 
-              fprintf(afl->introspection_file,
-                      "UNIQUE_TIMEOUT CUSTOM %s = %s\n", ptr,
-                      afl->queue_top->fname);
+                fprintf(afl->introspection_file,
+                        "UNIQUE_TIMEOUT CUSTOM %s = %s\n", ptr,
+                        afl->queue_top->fname);
+
+              }
 
             }
 
-          }
+          });
 
-        });
+        } else if (afl->mutation[0] != 0) {
 
-      } else if (afl->mutation[0] != 0) {
+          fprintf(afl->introspection_file, "UNIQUE_TIMEOUT %s\n",
+                  afl->mutation);
 
-        fprintf(afl->introspection_file, "UNIQUE_TIMEOUT %s\n", afl->mutation);
-
-      }
+        }
 
 #endif
 
-      /* Before saving, we make sure that it's a genuine hang by re-running
-         the target with a more generous timeout (unless the default timeout
-         is already generous). */
+        /* Before saving, we make sure that it's a genuine hang by re-running
+           the target with a more generous timeout (unless the default timeout
+           is already generous). */
 
-      if (afl->fsrv.exec_tmout < afl->hang_tmout) {
+        if (afl->fsrv.exec_tmout < afl->hang_tmout) {
 
-        u8  new_fault;
-        u32 tmp_len = write_to_testcase(afl, &mem, len, 0);
+          u8  new_fault;
+          u32 tmp_len = write_to_testcase(afl, &mem, len, 0);
 
-        if (likely(tmp_len)) {
+          if (likely(tmp_len)) {
 
-          len = tmp_len;
-
-        } else {
-
-          len = write_to_testcase(afl, &mem, len, 1);
-
-        }
-
-        new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
-        classified = false;
-        bits_counted = false;
-        cksumed = false;
-
-        /* A corner case that one user reported bumping into: increasing the
-           timeout actually uncovers a crash. Make sure we don't discard it if
-           so. */
-
-        if (!afl->stop_soon && new_fault == FSRV_RUN_CRASH) {
-
-          goto keep_as_crash;
-
-        }
-
-        if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) {
-
-          if (afl->afl_env.afl_keep_timeouts) {
-
-            ++afl->saved_tmouts;
-            goto save_to_queue;
+            len = tmp_len;
 
           } else {
 
-            return keeping;
+            len = write_to_testcase(afl, &mem, len, 1);
 
           }
 
-        }
+          new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
+          classified = false;
+          bits_counted = false;
+          cksumed = false;
 
-      }
+          /* A corner case that one user reported bumping into: increasing the
+             timeout actually uncovers a crash. Make sure we don't discard it if
+             so. */
 
-#ifndef SIMPLE_FILES
+          if (!afl->stop_soon && new_fault == FSRV_RUN_CRASH) {
 
-      if (!afl->afl_env.afl_sha1_filenames) {
+            goto keep_as_crash;
 
-        snprintf(fn, PATH_MAX, "%s/hangs/id:%06llu,%s%s%s", afl->out_dir,
-                 afl->saved_hangs,
-                 describe_op(afl, 0, NAME_MAX - strlen("id:000000,")),
-                 afl->file_extension ? "." : "",
-                 afl->file_extension ? (const char *)afl->file_extension : "");
+          }
 
-      } else {
+          if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) {
 
-        const char *hex = sha1_hex(mem, len);
-        snprintf(fn, PATH_MAX, "%s/hangs/%s%s%s", afl->out_dir, hex,
-                 afl->file_extension ? "." : "",
-                 afl->file_extension ? (const char *)afl->file_extension : "");
-        ck_free((char *)hex);
+            if (afl->afl_env.afl_keep_timeouts) {
 
-      }
+              ++afl->saved_tmouts;
+              goto save_to_queue;
 
-#else
+            } else {
 
-      snprintf(fn, PATH_MAX, "%s/hangs/id_%06llu%s%s", afl->out_dir,
-               afl->saved_hangs, afl->file_extension ? "." : "",
-               afl->file_extension ? (const char *)afl->file_extension : "");
-
-#endif                                                    /* ^!SIMPLE_FILES */
-
-      ++afl->saved_hangs;
-
-      afl->last_hang_time = get_cur_time();
-
-      break;
-
-    case FSRV_RUN_CRASH:
-
-    keep_as_crash:
-
-      /* This is handled in a manner roughly similar to timeouts,
-         except for slightly different limits and no need to re-run test
-         cases. */
-
-      ++afl->total_crashes;
-
-      if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
-
-      if (likely(!afl->non_instrumented_mode)) {
-
-        simplify_trace(afl, afl->fsrv.trace_bits);
-
-        if (!has_new_bits(afl, afl->virgin_crash)) { return keeping; }
-
-      }
-
-      if (unlikely(!afl->saved_crashes) &&
-          (afl->afl_env.afl_no_crash_readme != 1)) {
-
-        write_crash_readme(afl);
-
-      }
-
-#ifndef SIMPLE_FILES
-
-      if (!afl->afl_env.afl_sha1_filenames) {
-
-        snprintf(fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s%s%s",
-                 afl->out_dir, afl->saved_crashes, afl->fsrv.last_kill_signal,
-                 describe_op(afl, 0, NAME_MAX - strlen("id:000000,sig:00,")),
-                 afl->file_extension ? "." : "",
-                 afl->file_extension ? (const char *)afl->file_extension : "");
-
-      } else {
-
-        const char *hex = sha1_hex(mem, len);
-        snprintf(fn, PATH_MAX, "%s/crashes/%s%s%s", afl->out_dir, hex,
-                 afl->file_extension ? "." : "",
-                 afl->file_extension ? (const char *)afl->file_extension : "");
-        ck_free((char *)hex);
-
-      }
-
-#else
-
-      snprintf(fn, PATH_MAX, "%s/crashes/id_%06llu_%02u%s%s", afl->out_dir,
-               afl->saved_crashes, afl->fsrv.last_kill_signal,
-               afl->file_extension ? "." : "",
-               afl->file_extension ? (const char *)afl->file_extension : "");
-
-#endif                                                    /* ^!SIMPLE_FILES */
-
-      ++afl->saved_crashes;
-#ifdef INTROSPECTION
-      if (afl->custom_mutators_count && afl->current_custom_fuzz) {
-
-        LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-
-          if (afl->current_custom_fuzz == el && el->afl_custom_introspection) {
-
-            const char *ptr = el->afl_custom_introspection(el->data);
-
-            if (ptr != NULL && *ptr != 0) {
-
-              fprintf(afl->introspection_file, "UNIQUE_CRASH CUSTOM %s = %s\n",
-                      ptr, afl->queue_top->fname);
+              return keeping;
 
             }
 
           }
 
-        });
+        }
 
-      } else if (afl->mutation[0] != 0) {
+#ifndef SIMPLE_FILES
 
-        fprintf(afl->introspection_file, "UNIQUE_CRASH %s\n", afl->mutation);
+        if (!afl->afl_env.afl_sha1_filenames) {
 
-      }
+          snprintf(
+              fn, PATH_MAX, "%s/hangs/id:%06llu,%s%s%s", afl->out_dir,
+              afl->saved_hangs,
+              describe_op(afl, 0, NAME_MAX - strlen("id:000000,")),
+              afl->file_extension ? "." : "",
+              afl->file_extension ? (const char *)afl->file_extension : "");
 
-#endif
-      if (unlikely(afl->infoexec)) {
+        } else {
 
-        // if the user wants to be informed on new crashes - do that
-#if !TARGET_OS_IPHONE
-        // we dont care if system errors, but we dont want a
-        // compiler warning either
-        // See
-        // https://stackoverflow.com/questions/11888594/ignoring-return-values-in-c
-        (void)(system(afl->infoexec) + 1);
+          const char *hex = sha1_hex(mem, len);
+          snprintf(
+              fn, PATH_MAX, "%s/hangs/%s%s%s", afl->out_dir, hex,
+              afl->file_extension ? "." : "",
+              afl->file_extension ? (const char *)afl->file_extension : "");
+          ck_free((char *)hex);
+
+        }
+
 #else
-        WARNF("command execution unsupported");
+
+        snprintf(fn, PATH_MAX, "%s/hangs/id_%06llu%s%s", afl->out_dir,
+                 afl->saved_hangs, afl->file_extension ? "." : "",
+                 afl->file_extension ? (const char *)afl->file_extension : "");
+
+#endif                                                    /* ^!SIMPLE_FILES */
+
+        ++afl->saved_hangs;
+
+        afl->last_hang_time = get_cur_time();
+
+        break;
+
+        case FSRV_RUN_CRASH:
+
+        keep_as_crash:
+
+          /* This is handled in a manner roughly similar to timeouts,
+             except for slightly different limits and no need to re-run test
+             cases. */
+
+          ++afl->total_crashes;
+
+          if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
+
+          if (likely(!afl->non_instrumented_mode)) {
+
+            simplify_trace(afl, afl->fsrv.trace_bits);
+
+            if (!has_new_bits(afl, afl->virgin_crash)) {
+
+              if (!storfuzz_has_new_bits(afl)) { return keeping; }
+
+            }
+
+          }
+
+          if (unlikely(!afl->saved_crashes) &&
+              (afl->afl_env.afl_no_crash_readme != 1)) {
+
+            write_crash_readme(afl);
+
+          }
+
+#ifndef SIMPLE_FILES
+
+          if (!afl->afl_env.afl_sha1_filenames) {
+
+            snprintf(
+                fn, PATH_MAX, "%s/crashes/id:%06llu,sig:%02u,%s%s%s",
+                afl->out_dir, afl->saved_crashes, afl->fsrv.last_kill_signal,
+                describe_op(afl, 0, NAME_MAX - strlen("id:000000,sig:00,")),
+                afl->file_extension ? "." : "",
+                afl->file_extension ? (const char *)afl->file_extension : "");
+
+          } else {
+
+            const char *hex = sha1_hex(mem, len);
+            snprintf(
+                fn, PATH_MAX, "%s/crashes/%s%s%s", afl->out_dir, hex,
+                afl->file_extension ? "." : "",
+                afl->file_extension ? (const char *)afl->file_extension : "");
+            ck_free((char *)hex);
+
+          }
+
+#else
+
+          snprintf(
+              fn, PATH_MAX, "%s/crashes/id_%06llu_%02u%s%s", afl->out_dir,
+              afl->saved_crashes, afl->fsrv.last_kill_signal,
+              afl->file_extension ? "." : "",
+              afl->file_extension ? (const char *)afl->file_extension : "");
+
+#endif                                                    /* ^!SIMPLE_FILES */
+
+          ++afl->saved_crashes;
+#ifdef INTROSPECTION
+          if (afl->custom_mutators_count && afl->current_custom_fuzz) {
+
+            LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+              if (afl->current_custom_fuzz == el &&
+                  el->afl_custom_introspection) {
+
+                const char *ptr = el->afl_custom_introspection(el->data);
+
+                if (ptr != NULL && *ptr != 0) {
+
+                  fprintf(afl->introspection_file,
+                          "UNIQUE_CRASH CUSTOM %s = %s\n", ptr,
+                          afl->queue_top->fname);
+
+                }
+
+              }
+
+            });
+
+          } else if (afl->mutation[0] != 0) {
+
+            fprintf(afl->introspection_file, "UNIQUE_CRASH %s\n",
+                    afl->mutation);
+
+          }
+
 #endif
+          if (unlikely(afl->infoexec)) {
+
+            // if the user wants to be informed on new crashes - do that
+#if !TARGET_OS_IPHONE
+            // we dont care if system errors, but we dont want a
+            // compiler warning either
+            // See
+            // https://stackoverflow.com/questions/11888594/ignoring-return-values-in-c
+            (void)(system(afl->infoexec) + 1);
+#else
+            WARNF("command execution unsupported");
+#endif
+
+          }
+
+          afl->last_crash_time = get_cur_time();
+          afl->last_crash_execs = afl->fsrv.total_execs;
+
+          break;
+
+        case FSRV_RUN_ERROR:
+          FATAL("Unable to execute target application");
+
+        default:
+          return keeping;
 
       }
 
-      afl->last_crash_time = get_cur_time();
-      afl->last_crash_execs = afl->fsrv.total_execs;
+      /* If we're here, we apparently want to save the crash or hang
+         test case, too. */
 
-      break;
+      fd = permissive_create(afl, fn);
+      if (fd >= 0) {
 
-    case FSRV_RUN_ERROR:
-      FATAL("Unable to execute target application");
+        ck_write(fd, mem, len, fn);
+        close(fd);
 
-    default:
+      }
+
+#ifdef __linux__
+      if (afl->fsrv.nyx_mode && fault == FSRV_RUN_CRASH) {
+
+        u8 fn_log[PATH_MAX];
+
+        (void)(snprintf(fn_log, PATH_MAX, "%s.log", fn) + 1);
+        fd = open(fn_log, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
+        if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn_log); }
+
+        if (afl->chown_needed) {
+
+          if (fchown(fd, -1, afl->fsrv.gid) == -1) {
+
+            PFATAL("fchown() failed");
+
+          }
+
+        }
+
+        u32 nyx_aux_string_len = afl->fsrv.nyx_handlers->nyx_get_aux_string(
+            afl->fsrv.nyx_runner, afl->fsrv.nyx_aux_string,
+            afl->fsrv.nyx_aux_string_len);
+
+        ck_write(fd, afl->fsrv.nyx_aux_string, nyx_aux_string_len, fn_log);
+        close(fd);
+
+      }
+
+#endif
+
       return keeping;
 
   }
-
-  /* If we're here, we apparently want to save the crash or hang
-     test case, too. */
-
-  fd = permissive_create(afl, fn);
-  if (fd >= 0) {
-
-    ck_write(fd, mem, len, fn);
-    close(fd);
-
-  }
-
-#ifdef __linux__
-  if (afl->fsrv.nyx_mode && fault == FSRV_RUN_CRASH) {
-
-    u8 fn_log[PATH_MAX];
-
-    (void)(snprintf(fn_log, PATH_MAX, "%s.log", fn) + 1);
-    fd = open(fn_log, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
-    if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", fn_log); }
-
-    if (afl->chown_needed) {
-
-      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
-
-    }
-
-    u32 nyx_aux_string_len = afl->fsrv.nyx_handlers->nyx_get_aux_string(
-        afl->fsrv.nyx_runner, afl->fsrv.nyx_aux_string,
-        afl->fsrv.nyx_aux_string_len);
-
-    ck_write(fd, afl->fsrv.nyx_aux_string, nyx_aux_string_len, fn_log);
-    close(fd);
-
-  }
-
-#endif
-
-  return keeping;
-
-}
 

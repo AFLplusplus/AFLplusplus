@@ -559,6 +559,16 @@ struct foreign_sync {
 
 };
 
+/* StorFuzz: data-coverage state */
+typedef struct storfuzz_state {
+
+  u8  enabled;
+  s32 shm_id;
+  u8 *map;                    /* current exec data-coverage bitmap (bitset) */
+  u8 *virgin;                        /* bits not yet seen globally (bitset) */
+
+} storfuzz_state_t;
+
 typedef struct afl_state {
 
   /* Position of this state in the global states list */
@@ -567,6 +577,7 @@ typedef struct afl_state {
   afl_forkserver_t fsrv;
   sharedmem_t      shm;
   sharedmem_t     *shm_fuzz;
+  storfuzz_state_t storfuzz;
   afl_env_vars_t   afl_env;
 #ifdef __AFL_CODE_COVERAGE
   sharedmem_t shm_pcmap;                         /* Shared memory for pcmap */

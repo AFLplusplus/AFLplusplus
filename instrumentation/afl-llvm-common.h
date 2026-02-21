@@ -123,8 +123,8 @@ inline llvm::Value *hoistMapPointerLoad(llvm::Function       &F,
 
   BasicBlock *Preamble = BasicBlock::Create(Ctx, "afl.entry", &F, OldEntry);
 
-  IRBuilder<>  IRB(Preamble);
-  auto        *Load = IRB.CreateLoad(PtrTy, AFLMapPtr);
+  IRBuilder<> IRB(Preamble);
+  auto       *Load = IRB.CreateLoad(PtrTy, AFLMapPtr);
   setNoSanitizeMetadata(Load);
   Load->setMetadata(LLVMContext::MD_invariant_load, MDNode::get(Ctx, {}));
   IRB.CreateBr(OldEntry);

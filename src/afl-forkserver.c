@@ -37,6 +37,7 @@
 #include "forkserver.h"
 #include "sharedmem.h"
 #include "hash.h"
+#include "storfuzz.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -2187,6 +2188,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     if (likely(!fsrv->nyx_mode)) {
 
       memset(fsrv->trace_bits, 0, fsrv->map_size);
+      storfuzz_clear_map(fsrv->afl);
       MEM_BARRIER();
 
     }
@@ -2194,6 +2196,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 #else
     /* Clear shared memory for clean execution */
     memset(fsrv->trace_bits, 0, fsrv->map_size);
+    storfuzz_clear_map(afl);
     MEM_BARRIER();
 #endif
 

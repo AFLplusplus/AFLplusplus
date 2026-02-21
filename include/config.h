@@ -441,6 +441,9 @@ and the mapping size to the called program. */
 We add 4 byte for one u32 length field. */
 #define SHM_FUZZ_MAP_SIZE_DEFAULT (MAX_FILE + 4)
 
+/* StorFuzz: Environment variable used to pass data-coverage SHM ID. */
+#define SHM_STOR_ENV_VAR "__AFL_STOR_SHM_ID"
+
 /* Other less interesting, internal-only variables. */
 
 #define CLANG_ENV_VAR "__AFL_CLANG_MODE"

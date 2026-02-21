@@ -662,6 +662,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (debug) { afl->fsrv.debug = true; }
   read_afl_environment(afl, envp);
   if (afl->shm.map_size) { afl->fsrv.map_size = afl->shm.map_size; }
+  storfuzz_init(afl);
 
   if (afl->afl_env.afl_forksrv_uid_set) {
 
@@ -4004,6 +4005,7 @@ stop_fuzzing:
   ck_free(afl->n_fuzz_dup);
   ck_free(afl->simplified_n_fuzz);
 
+  storfuzz_deinit(afl);
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);
   ck_free(afl->fsrv.out_file);
