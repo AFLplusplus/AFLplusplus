@@ -687,6 +687,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
   if (first) {
 
     afl->last_find_time = 0;
+    afl->last_cov_find_time = 0;
     afl->queued_at_start = afl->queued_items;
 
   }
@@ -882,6 +883,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
   }
 
   afl->last_find_time = 0;
+  afl->last_cov_find_time = 0;
   afl->queued_at_start = afl->queued_items;
 
 }

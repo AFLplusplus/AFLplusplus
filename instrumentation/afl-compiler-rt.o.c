@@ -2540,6 +2540,7 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
 void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
   if (likely(!__afl_cmp_map)) return;
+  if (unlikely(arg1 == arg2)) return;
   if (16 > __afl_cmplog_max_len) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);

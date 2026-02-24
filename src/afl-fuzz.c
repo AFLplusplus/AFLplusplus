@@ -268,6 +268,11 @@ static void usage(u8 *argv0, int more_help) {
       "compiled\n"
       "                  for CmpLog then use '-c 0'. To disable CMPLOG use '-c "
       "-'.\n"
+      "  -j level      - enable value profiling level (currently only '-j "
+      "2')\n"
+      "                  without -r, value profiling is always active\n"
+      "  -r seconds    - enable value profiling after stagnation (CmpLog)\n"
+      "                  if -j is omitted, level 2 is used\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2ATR\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
@@ -575,10 +580,11 @@ int main(int argc, char **argv_orig, char **envp) {
   s32 opt, auto_sync = 0 /*, user_set_cache = 0*/;
   u64 prev_queued = 0;
   u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, default_output = 1,
-      map_size = get_map_size();
+      map_size = get_map_size(), vp_stagnation_secs = 0;
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
-     extras_dir_cnt = 0 /*, have_p = 0*/;
+     extras_dir_cnt = 0 /*, have_p = 0*/, vp_level_set = 0,
+     vp_stagnation_set = 0;
   char  *afl_preload;
   char  *san_abstraction;
   char  *frida_afl_preload = NULL;
@@ -691,10 +697,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  // still available: HjJkqrv
+  // still available: HJkqv
   while ((opt = getopt(
               argc, argv,
-              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
+              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:j:K:l:L:m:M:nNo:Op:P:Qr:Rs:S:t:T:"
               "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
@@ -824,6 +830,50 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        break;
+
+      }
+
+      case 'j': {
+
+        if (vp_level_set) { FATAL("Multiple -j options not supported"); }
+
+        char         *endptr = NULL;
+        unsigned long level_val;
+        errno = 0;
+        level_val = strtoul(optarg, &endptr, 10);
+        if (errno == ERANGE || endptr == optarg || *endptr != '\0' ||
+            level_val != 2) {
+
+          FATAL(
+              "Invalid -j level '%s'; only level 2 is supported in this "
+              "revision.",
+              optarg);
+
+        }
+
+        vp_level_set = 1;
+        break;
+
+      }
+
+      case 'r': {
+
+        if (vp_stagnation_set) { FATAL("Multiple -r options not supported"); }
+
+        char         *endptr = NULL;
+        unsigned long stag_val;
+        errno = 0;
+        stag_val = strtoul(optarg, &endptr, 10);
+        if (errno == ERANGE || endptr == optarg || *endptr != '\0' ||
+            stag_val == 0 || stag_val > UINT_MAX) {
+
+          FATAL("Invalid -r value '%s'; expected positive seconds.", optarg);
+
+        }
+
+        vp_stagnation_secs = (u32)stag_val;
+        vp_stagnation_set = 1;
         break;
 
       }
@@ -1842,6 +1892,43 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (afl->shm.cmplog_mode) { OKF("CmpLog level: %u", afl->cmplog_lvl); }
+
+  if (vp_level_set || vp_stagnation_set) {
+
+    if (vp_stagnation_set) {
+
+      afl->value_profile_mode = 2;
+      afl->value_profile_active = 0;
+      afl->value_profile_stagnation_secs = vp_stagnation_secs;
+
+    } else {
+
+      afl->value_profile_mode = 1;
+      afl->value_profile_active = 1;
+
+    }
+
+    if (!afl->shm.cmplog_mode) {
+
+      WARNF("Value profiling (-j/-r) requires CmpLog (-c). Disabling.");
+      afl->value_profile_mode = 0;
+      afl->value_profile_active = 0;
+
+    }
+
+  }
+
+  if (afl->value_profile_mode) {
+
+    afl->virgin_val_prof = ck_alloc(VALUE_PROFILE_MAP_SIZE);
+    afl->top_rated_vp = ck_alloc(CMP_MAP_W * sizeof(void *));
+    afl->top_rated_vp_dist = ck_alloc(CMP_MAP_W * sizeof(u32));
+    memset(afl->top_rated_vp_dist, 0xff, CMP_MAP_W * sizeof(u32));
+
+    OKF("Value profiling: mode %u%s", afl->value_profile_mode,
+        afl->value_profile_mode == 1 ? " (always on)" : " (stagnation)");
+
+  }
 
   /* Dynamically allocate memory for AFLFast schedules */
   if (afl->schedule >= FAST && afl->schedule <= RARE) {
@@ -2963,6 +3050,14 @@ int main(int argc, char **argv_orig, char **envp) {
   dedup_extras(afl);
   if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
 
+  /* Start with a clean VP map. If fastresume contains VP state, it will be
+     loaded below and replace this default. */
+  if (afl->value_profile_mode) {
+
+    memset(afl->virgin_val_prof, 255, VALUE_PROFILE_MAP_SIZE);
+
+  }
+
   if (unlikely(fast_resume)) {
 
     u64 resume_start = get_cur_time_us();
@@ -3608,6 +3703,8 @@ int main(int argc, char **argv_orig, char **envp) {
         }
 
       }
+
+      if (unlikely(afl->value_profile_mode == 2)) { vp_update_activation(afl); }
 
       skipped_fuzz = fuzz_one(afl);
   #ifdef INTROSPECTION

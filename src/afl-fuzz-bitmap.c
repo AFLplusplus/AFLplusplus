@@ -24,6 +24,7 @@
  */
 
 #include "afl-fuzz.h"
+#include "cmplog.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,6 +71,14 @@ static const u8 count_class_lookup8[256] = {
 #if !defined NAME_MAX
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
+
+/* new_bits layout used by save_if_interesting()/describe_op().
+   - low 2 bits: coverage novelty class from has_new_bits() (0,1,2)
+   - 3rd bit: value-profile-only queue save marker
+   - 8th bit: timeout marker */
+#define NEW_BITS_COVERAGE_MASK 0x03
+#define NEW_BITS_VP_MASK 0x04
+#define NEW_BITS_TIMEOUT_MASK 0x80
 
 /* Write bitmap to file. The bitmap is useful mostly for the secret
    -B option, to focus a separate fuzzing session on a particular
@@ -308,16 +317,11 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 
 u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
-  u8 is_timeout = 0;
+  u8 is_timeout = (new_bits & NEW_BITS_TIMEOUT_MASK) ? 1 : 0;
+  u8 is_vp = (new_bits & NEW_BITS_VP_MASK) ? 1 : 0;
+  u8 cov_bits = new_bits & NEW_BITS_COVERAGE_MASK;
   u8 san_crash_only = (afl->san_case_status & SAN_CRASH_ONLY);
   u8 non_cov_incr = (afl->san_case_status & NON_COV_INCREASE_BUG);
-
-  if (new_bits & 0xf0) {
-
-    new_bits -= 0x80;
-    is_timeout = 1;
-
-  }
 
   size_t real_max_len =
       MIN(max_description_len, sizeof(afl->describe_op_buf_256));
@@ -359,7 +363,7 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
       ret[len_current++] = ',';
       ret[len_current] = '\0';
 
-      ssize_t size_left = real_max_len - len_current - strlen(",+cov") - 2;
+      ssize_t size_left = real_max_len - len_current - strlen(",+cov,+vp") - 2;
       if (is_timeout) { size_left -= strlen(",+tout"); }
       if (unlikely(size_left <= 0)) FATAL("filename got too long");
 
@@ -408,7 +412,9 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   if (is_timeout) { strcat(ret, ",+tout"); }
 
-  if (new_bits == 2) { strcat(ret, ",+cov"); }
+  if (cov_bits == 2) { strcat(ret, ",+cov"); }
+
+  if (is_vp) { strcat(ret, ",+vp"); }
 
   if (san_crash_only) { strcat(ret, ",+san"); }
 
@@ -552,7 +558,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  keeping = 0, res, is_timeout = 0;
+  u8  keeping = 0, res, is_timeout = 0, vp_entry = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
   s32 fd;
   u32 cksum_simplified = 0, cksum_unique = 0;
@@ -682,6 +688,45 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       if (san_fault == FSRV_RUN_OK) {
 
+        /* Value profiling: run CmpLog to check for new distance features
+           on non-coverage-producing executions. */
+        if (likely(afl->value_profile_active && afl->shm.cmplog_mode &&
+                   afl->shm.cmp_map)) {
+
+          void *vp_mem = mem;
+          u32   vp_len = write_to_testcase(afl, &vp_mem, len, 0);
+
+          if (likely(vp_len && vp_len >= 4 &&
+                     vp_len <= afl->cmplog_max_filesize)) {
+
+            memcpy(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size);
+            memset(afl->shm.cmp_map->headers, 0,
+                   sizeof(afl->shm.cmp_map->headers));
+            afl->cmplog_fsrv.custom_input = afl->fsrv.custom_input;
+            afl->cmplog_fsrv.custom_input_len = afl->fsrv.custom_input_len;
+
+            u8 result =
+                fuzz_run_target(afl, &afl->cmplog_fsrv, afl->fsrv.exec_tmout);
+
+            memcpy(afl->fsrv.trace_bits, afl->map_tmp_buf, afl->fsrv.map_size);
+            if (likely(result == FSRV_RUN_OK)) {
+
+              memset(afl->vp_trigger_bitmap, 0, sizeof(afl->vp_trigger_bitmap));
+              if (vp_check_cmpmap(afl)) {
+
+                afl->value_profile_finds++;
+                new_bits |= NEW_BITS_VP_MASK;
+                vp_entry = 1;
+                goto save_to_queue;
+
+              }
+
+            }
+
+          }
+
+        }
+
         if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
         return 0;
 
@@ -710,7 +755,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       queue_fn = alloc_printf(
           "%s/queue/id:%06u,%s%s%s", afl->out_dir, afl->queued_items,
-          describe_op(afl, new_bits + is_timeout,
+          describe_op(afl, new_bits | is_timeout,
                       NAME_MAX - strlen("id:000000,")),
           afl->file_extension ? "." : "",
           afl->file_extension ? (const char *)afl->file_extension : "");
@@ -744,7 +789,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     add_to_queue(afl, queue_fn, len, 0);
 
     if (unlikely(afl->fuzz_mode) &&
-        likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode)) {
+        likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode &&
+               (new_bits & NEW_BITS_COVERAGE_MASK))) {
 
       if (afl->afl_env.afl_no_ui) {
 
@@ -787,10 +833,12 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     afl->queue_top->exec_cksum = cksum;
 
-    if (new_bits == 2) {
+    if ((new_bits & NEW_BITS_COVERAGE_MASK) == 2) {
 
       afl->queue_top->has_new_cov = 1;
       ++afl->queued_with_cov;
+      /* Keep a dedicated edge-progress timestamp for VP stagnation mode. */
+      afl->last_cov_find_time = get_cur_time();
 
     }
 
@@ -815,6 +863,55 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     if (likely(afl->q_testcase_max_cache_size)) {
 
       queue_testcase_store_mem(afl, afl->queue_top, mem);
+
+    }
+
+    if (likely(!afl->queue_top->cal_failed)) {
+
+      if (unlikely(vp_entry)) {
+
+        vp_update_bitmap_score(afl, afl->queue_top);
+
+      } else if (likely(afl->value_profile_active && afl->shm.cmplog_mode &&
+
+                        afl->shm.cmp_map)) {
+
+        void *vp_mem = mem;
+        u32   vp_len = write_to_testcase(afl, &vp_mem, len, 0);
+
+        if (likely(vp_len && vp_len >= 4 &&
+                   vp_len <= afl->cmplog_max_filesize)) {
+
+          memcpy(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size);
+          memset(afl->shm.cmp_map->headers, 0,
+                 sizeof(afl->shm.cmp_map->headers));
+          afl->cmplog_fsrv.custom_input = afl->fsrv.custom_input;
+          afl->cmplog_fsrv.custom_input_len = afl->fsrv.custom_input_len;
+
+          u8 result =
+              fuzz_run_target(afl, &afl->cmplog_fsrv, afl->fsrv.exec_tmout);
+
+          memcpy(afl->fsrv.trace_bits, afl->map_tmp_buf, afl->fsrv.map_size);
+          if (likely(result == FSRV_RUN_OK)) {
+
+            /* Coverage-producing input: also compute VP score so the scheduler
+               can see VP gradient on coverage entries too. */
+            u32 vp_new_bits;
+            memset(afl->vp_trigger_bitmap, 0, sizeof(afl->vp_trigger_bitmap));
+            vp_new_bits = vp_check_cmpmap(afl);
+            if (vp_new_bits) {
+
+              afl->value_profile_cov_consumed_bits += vp_new_bits;
+
+            }
+
+            vp_update_bitmap_score(afl, afl->queue_top);
+
+          }
+
+        }
+
+      }
 
     }
 
@@ -844,7 +941,7 @@ may_save_fault:
 
       }
 
-      is_timeout = 0x80;
+      is_timeout = NEW_BITS_TIMEOUT_MASK;
 #ifdef INTROSPECTION
       if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 
