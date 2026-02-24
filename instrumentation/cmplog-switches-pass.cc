@@ -54,6 +54,7 @@
 #include "afl-llvm-common.h"
 
 using namespace llvm;
+static int vp_mode = 0;
 
 namespace {
 
@@ -133,42 +134,67 @@ bool CmplogSwitches::hookInstrs(Module &M) {
   Type *PtrTy = PointerType::get(Int8Ty, 0);
 #endif
 
-  FunctionCallee c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy,
-                                            Int8Ty, Int8Ty, Int8Ty);
-  FunctionCallee cmplogHookIns1 = c1;
-
-  FunctionCallee c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy,
-                                            Int16Ty, Int16Ty, Int8Ty);
-  FunctionCallee cmplogHookIns2 = c2;
-
-  FunctionCallee c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy,
-                                            Int32Ty, Int32Ty, Int8Ty);
-  FunctionCallee cmplogHookIns4 = c4;
-
-  FunctionCallee c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy,
-                                            Int64Ty, Int64Ty, Int8Ty);
-  FunctionCallee cmplogHookIns8 = c8;
+  FunctionCallee hookIns1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy,
+                                                  Int8Ty, Int8Ty, Int8Ty);
+  FunctionCallee hookIns2 = nullptr;
+  FunctionCallee hookIns4 = nullptr;
+  FunctionCallee hookIns8 = nullptr;
 
 #if INTPTR_MAX != INT32_MAX
   IntegerType   *Int128Ty = IntegerType::getInt128Ty(C);
-  FunctionCallee c16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy,
-                                             Int128Ty, Int128Ty, Int8Ty);
-  FunctionCallee cmplogHookIns16 = c16;
-  FunctionCallee cN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy,
-                                            Int128Ty, Int128Ty, Int8Ty, Int8Ty);
-  FunctionCallee cmplogHookInsN = cN;
+  FunctionCallee hookIns16 = nullptr;
+  FunctionCallee hookInsN = nullptr;
 #endif
 
-  GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
+  if (vp_mode) {
 
-  if (!AFLCmplogPtr) {
+    hookIns2 = M.getOrInsertFunction("__valueprofile_hook2", VoidTy, Int16Ty,
+                                     Int16Ty, Int8Ty);
 
-    AFLCmplogPtr = new GlobalVariable(
-        M, PtrTy, false, GlobalValue::ExternalWeakLinkage, 0, "__afl_cmp_map");
+    hookIns4 = M.getOrInsertFunction("__valueprofile_hook4", VoidTy, Int32Ty,
+                                     Int32Ty, Int8Ty);
+
+    hookIns8 = M.getOrInsertFunction("__valueprofile_hook8", VoidTy, Int64Ty,
+                                     Int64Ty, Int8Ty);
+
+#if INTPTR_MAX != INT32_MAX
+    hookIns16 = M.getOrInsertFunction("__valueprofile_hook16", VoidTy, Int128Ty,
+                                      Int128Ty, Int8Ty);
+    hookInsN = M.getOrInsertFunction("__valueprofile_hookN", VoidTy, Int128Ty,
+                                     Int128Ty, Int8Ty, Int8Ty);
+#endif
+
+  } else {
+
+    hookIns2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy, Int16Ty,
+                                     Int16Ty, Int8Ty);
+
+    hookIns4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy, Int32Ty,
+                                     Int32Ty, Int8Ty);
+
+    hookIns8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy, Int64Ty,
+                                     Int64Ty, Int8Ty);
+
+#if INTPTR_MAX != INT32_MAX
+    hookIns16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy, Int128Ty,
+                                      Int128Ty, Int8Ty);
+    hookInsN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy, Int128Ty,
+                                     Int128Ty, Int8Ty, Int8Ty);
+#endif
 
   }
 
-  Constant *Null = Constant::getNullValue(PtrTy);
+  GlobalVariable *AFLCmplogPtr =
+      getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_cmp_map");
+
+  GlobalVariable *AFLVpPtr = nullptr;
+  if (vp_mode) {
+
+    AFLVpPtr = getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_vp_map");
+
+  }
+
+  GlobalVariable *AFLMapPtr = vp_mode ? AFLVpPtr : AFLCmplogPtr;
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
@@ -220,14 +246,8 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       IRBuilder<> IRB2(SI->getParent());
       IRB2.SetInsertPoint(SI);
 
-      LoadInst *CmpPtr = IRB2.CreateLoad(PtrTy, AFLCmplogPtr);
-      CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
-#if LLVM_MAJOR >= 20
-                          MDNode::get(C, {}));
-#else
-                          MDNode::get(C, None));
-#endif
-      auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+      Value *is_not_null = createMapPtrNotNullGuard(IRB2, M, AFLMapPtr, PtrTy);
+
       auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, SI, false);
 
       IRBuilder<> IRB(ThenTerm);
@@ -307,26 +327,26 @@ bool CmplogSwitches::hookInstrs(Module &M) {
             switch (cast_size) {
 
               case 8:
-                IRB.CreateCall(cmplogHookIns1, args);
+                IRB.CreateCall(hookIns1, args);
                 break;
               case 16:
-                IRB.CreateCall(cmplogHookIns2, args);
+                IRB.CreateCall(hookIns2, args);
                 break;
               case 32:
-                IRB.CreateCall(cmplogHookIns4, args);
+                IRB.CreateCall(hookIns4, args);
                 break;
               case 64:
-                IRB.CreateCall(cmplogHookIns8, args);
+                IRB.CreateCall(hookIns8, args);
                 break;
               case 128:
 #if INTPTR_MAX != INT32_MAX
                 if (max_size == 128) {
 
-                  IRB.CreateCall(cmplogHookIns16, args);
+                  IRB.CreateCall(hookIns16, args);
 
                 } else {
 
-                  IRB.CreateCall(cmplogHookInsN, args);
+                  IRB.CreateCall(hookInsN, args);
 
                 }
 
@@ -356,17 +376,32 @@ bool CmplogSwitches::hookInstrs(Module &M) {
 
 PreservedAnalyses CmplogSwitches::run(Module &M, ModuleAnalysisManager &MAM) {
 
+  vp_mode = getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE");
+
   if (getenv("AFL_QUIET") == NULL)
-    printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");
+    if (vp_mode) {
+
+      printf("Running valueprofile-switches-pass by AFL++ team\n");
+
+    } else {
+
+      printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");
+
+    }
+
   else
     be_quiet = 1;
   bool ret = hookInstrs(M);
-  verifyModule(M);
+  if (ret) {
 
-  if (ret == false)
-    return PreservedAnalyses::all();
-  else
-    return PreservedAnalyses();
+    const char *marker_name =
+        vp_mode ? "__AFL_VP_RUNTIME_INSTRUMENTED" : "__AFL_CMPLOG_INSTRUMENTED";
+    markInstrumentedMarker(M, marker_name);
+
+  }
+
+  verifyModule(M);
+  return ret ? PreservedAnalyses() : PreservedAnalyses::all();
 
 }
 

@@ -52,6 +52,7 @@
 #include "afl-llvm-common.h"
 
 using namespace llvm;
+static int vp_mode = 0;
 
 namespace {
 
@@ -147,6 +148,8 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
+  Type        *floatTy = Type::getFloatTy(C);
+  Type        *doubleTy = Type::getDoubleTy(C);
 
 #if LLVM_MAJOR >= 20
   Type *PtrTy = PointerType::getUnqual(C);
@@ -174,36 +177,71 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
   #endif
   */
 
-  FunctionCallee c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy,
-                                            Int16Ty, Int16Ty, Int8Ty);
-  FunctionCallee cmplogHookIns2 = c2;
+  FunctionCallee hookIns2 = nullptr;
+  FunctionCallee hookIns4 = nullptr;
+  FunctionCallee hookIns8 = nullptr;
+  FunctionCallee hookIns16 = nullptr;
+  FunctionCallee hookInsN = nullptr;
+  FunctionCallee hookFloat = nullptr;
+  FunctionCallee hookDouble = nullptr;
 
-  FunctionCallee c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy,
-                                            Int32Ty, Int32Ty, Int8Ty);
-  FunctionCallee cmplogHookIns4 = c4;
+  if (vp_mode) {
 
-  FunctionCallee c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy,
-                                            Int64Ty, Int64Ty, Int8Ty);
-  FunctionCallee cmplogHookIns8 = c8;
+    hookIns2 = M.getOrInsertFunction("__valueprofile_hook2", VoidTy, Int16Ty,
+                                     Int16Ty, Int8Ty);
 
-  FunctionCallee c16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy,
-                                             Int128Ty, Int128Ty, Int8Ty);
-  FunctionCallee cmplogHookIns16 = c16;
+    hookIns4 = M.getOrInsertFunction("__valueprofile_hook4", VoidTy, Int32Ty,
+                                     Int32Ty, Int8Ty);
 
-  FunctionCallee cN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy,
-                                            Int128Ty, Int128Ty, Int8Ty, Int8Ty);
-  FunctionCallee cmplogHookInsN = cN;
+    hookIns8 = M.getOrInsertFunction("__valueprofile_hook8", VoidTy, Int64Ty,
+                                     Int64Ty, Int8Ty);
 
-  GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
+    hookIns16 = M.getOrInsertFunction("__valueprofile_hook16", VoidTy, Int128Ty,
+                                      Int128Ty, Int8Ty);
 
-  if (!AFLCmplogPtr) {
+    hookInsN = M.getOrInsertFunction("__valueprofile_hookN", VoidTy, Int128Ty,
+                                     Int128Ty, Int8Ty, Int8Ty);
 
-    AFLCmplogPtr = new GlobalVariable(
-        M, PtrTy, false, GlobalValue::ExternalWeakLinkage, 0, "__afl_cmp_map");
+    hookFloat = M.getOrInsertFunction("__valueprofile_hook_float", VoidTy,
+                                      floatTy, floatTy, Int8Ty);
+    hookDouble = M.getOrInsertFunction("__valueprofile_hook_double", VoidTy,
+                                       doubleTy, doubleTy, Int8Ty);
+
+  } else {
+
+    hookIns2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy, Int16Ty,
+                                     Int16Ty, Int8Ty);
+
+    hookIns4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy, Int32Ty,
+                                     Int32Ty, Int8Ty);
+
+    hookIns8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy, Int64Ty,
+                                     Int64Ty, Int8Ty);
+
+    hookIns16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy, Int128Ty,
+                                      Int128Ty, Int8Ty);
+
+    hookInsN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy, Int128Ty,
+                                     Int128Ty, Int8Ty, Int8Ty);
+
+    hookFloat = M.getOrInsertFunction("__cmplog_hook_float", VoidTy, floatTy,
+                                      floatTy, Int8Ty);
+    hookDouble = M.getOrInsertFunction("__cmplog_hook_double", VoidTy, doubleTy,
+                                       doubleTy, Int8Ty);
 
   }
 
-  Constant *Null = Constant::getNullValue(PtrTy);
+  GlobalVariable *AFLCmplogPtr =
+      getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_cmp_map");
+
+  GlobalVariable *AFLVpPtr = nullptr;
+  if (vp_mode) {
+
+    AFLVpPtr = getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_vp_map");
+
+  }
+
+  GlobalVariable *AFLMapPtr = vp_mode ? AFLVpPtr : AFLCmplogPtr;
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
@@ -241,14 +279,8 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
       IRBuilder<> IRB2(selectcmpInst->getParent());
       IRB2.SetInsertPoint(selectcmpInst);
-      LoadInst *CmpPtr = IRB2.CreateLoad(PtrTy, AFLCmplogPtr);
-      CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
-#if LLVM_MAJOR >= 20
-                          MDNode::get(C, {}));
-#else
-                          MDNode::get(C, None));
-#endif
-      auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+      Value *is_not_null = createMapPtrNotNullGuard(IRB2, M, AFLMapPtr, PtrTy);
+
       auto ThenTerm =
           SplitBlockAndInsertIfThen(is_not_null, selectcmpInst, false);
 
@@ -495,6 +527,27 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
         if (!skip) {
 
+          ConstantInt *attribute = ConstantInt::get(Int8Ty, attr);
+
+          if (is_fp && (cast_size == 32 || cast_size == 64)) {
+
+            args.push_back(op0);
+            args.push_back(op1);
+            args.push_back(attribute);
+            if (cast_size == 32) {
+
+              IRB.CreateCall(hookFloat, args);
+
+            } else {
+
+              IRB.CreateCall(hookDouble, args);
+
+            }
+
+            goto next_vec_elem;
+
+          }
+
           // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
           // cmpInst->getFunction()->getName() << ")\n";
 
@@ -518,7 +571,6 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
           // *V1
           // << "\n";
 
-          ConstantInt *attribute = ConstantInt::get(Int8Ty, attr);
           args.push_back(attribute);
 
           if (cast_size != max_size) {
@@ -537,22 +589,22 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
               // IRB.CreateCall(cmplogHookIns1, args);
               break;
             case 16:
-              IRB.CreateCall(cmplogHookIns2, args);
+              IRB.CreateCall(hookIns2, args);
               break;
             case 32:
-              IRB.CreateCall(cmplogHookIns4, args);
+              IRB.CreateCall(hookIns4, args);
               break;
             case 64:
-              IRB.CreateCall(cmplogHookIns8, args);
+              IRB.CreateCall(hookIns8, args);
               break;
             case 128:
               if (max_size == 128) {
 
-                IRB.CreateCall(cmplogHookIns16, args);
+                IRB.CreateCall(hookIns16, args);
 
               } else {
 
-                IRB.CreateCall(cmplogHookInsN, args);
+                IRB.CreateCall(hookInsN, args);
 
               }
 
@@ -564,6 +616,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
         /* else fprintf(stderr, "skipped\n"); */
 
+      next_vec_elem:
         ++cur;
         if (cur >= vector_cnt) { break; }
 
@@ -590,18 +643,33 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
 
   };
 
+  vp_mode = getenv("AFL_LLVM_VALUEPROFILE") || getenv("AFL_LLVM_VALUE_PROFILE");
+
   if (getenv("AFL_QUIET") == NULL)
-    printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
+    if (vp_mode) {
+
+      printf("Running valueprofile-instructions-pass by AFL++ team\n");
+
+    } else {
+
+      printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
+
+    }
+
   else
     be_quiet = 1;
 
   bool ret = hookInstrs(M, LICallback);
-  verifyModule(M);
+  if (ret) {
 
-  if (ret == false)
-    return PreservedAnalyses::all();
-  else
-    return PreservedAnalyses();
+    const char *marker_name =
+        vp_mode ? "__AFL_VP_RUNTIME_INSTRUMENTED" : "__AFL_CMPLOG_INSTRUMENTED";
+    markInstrumentedMarker(M, marker_name);
+
+  }
+
+  verifyModule(M);
+  return ret ? PreservedAnalyses() : PreservedAnalyses::all();
 
 }
 

@@ -54,7 +54,14 @@ bool                   isAflCovInterestingInstruction(llvm::Instruction &I);
 bool                   isDecisionUse(const llvm::Value *Cond);
 bool                   isExecCall(llvm::Instruction *IN);
 std::pair<bool, bool>  detectIJONUsage(llvm::Module &M);
-void createIJONEnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
+void markInstrumentedMarker(llvm::Module &M, const char *marker_name);
+llvm::GlobalVariable *getOrCreateExternalWeakPtrGlobal(llvm::Module &M,
+                                                       llvm::Type   *ptr_ty,
+                                                       const char   *name);
+llvm::Value *createMapPtrNotNullGuard(llvm::IRBuilder<> &IRB, llvm::Module &M,
+                                      llvm::GlobalVariable *map_ptr,
+                                      llvm::Type           *ptr_ty);
+void         createIJONEnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
 llvm::GlobalVariable *createIJONStateGlobal(llvm::Module &M,
                                             llvm::Type   *Int32Ty,
                                             bool          uses_ijon_state);

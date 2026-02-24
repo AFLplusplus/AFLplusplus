@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #define IS_EXTERN extern
 #include "afl-llvm-common.h"
@@ -29,6 +30,61 @@ static std::list<std::string> allowListFiles;
 static std::list<std::string> allowListFunctions;
 static std::list<std::string> denyListFiles;
 static std::list<std::string> denyListFunctions;
+
+/* Mark module as instrumented for a feature by emitting/retaining a tiny
+   global marker referenced from compiler.used. */
+void markInstrumentedMarker(Module &M, const char *marker_name) {
+
+  LLVMContext    *C = &(M.getContext());
+  GlobalVariable *Marker = M.getGlobalVariable(marker_name);
+
+  if (!Marker) {
+
+    Constant *Init = ConstantDataArray::getString(*C, "1", true);
+    Marker =
+        new GlobalVariable(M, Init->getType(), true,
+                           GlobalValue::ExternalLinkage, Init, marker_name);
+    Marker->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+  }
+
+  appendToCompilerUsed(M, {Marker});
+
+}
+
+/* Return an externally defined weak pointer global, creating it when absent.
+   Used by passes that optionally consume runtime map pointers. */
+GlobalVariable *getOrCreateExternalWeakPtrGlobal(Module &M, Type *ptr_ty,
+                                                 const char *name) {
+
+  GlobalVariable *G = M.getNamedGlobal(name);
+  if (!G) {
+
+    G = new GlobalVariable(M, ptr_ty, false, GlobalValue::ExternalWeakLinkage,
+                           0, name);
+
+  }
+
+  return G;
+
+}
+
+/* Emit `load map_ptr != NULL` guard with nosanitize metadata for pass-inserted
+   runtime checks. */
+Value *createMapPtrNotNullGuard(IRBuilder<> &IRB, Module &M,
+                                GlobalVariable *map_ptr, Type *ptr_ty) {
+
+  Constant *Null = Constant::getNullValue(ptr_ty);
+  LoadInst *MapPtr = IRB.CreateLoad(ptr_ty, map_ptr);
+  MapPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                      MDNode::get(M.getContext(), {}));
+#else
+                      MDNode::get(M.getContext(), None));
+#endif
+  return IRB.CreateICmpNE(MapPtr, Null);
+
+}
 
 unsigned int calcCyclomaticComplexity(llvm::Function *F) {
 
