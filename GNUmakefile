@@ -585,13 +585,26 @@ ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
+test/unittests/unit_value_profile.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_value_profile.c $(AFL_FUZZ_FILES)
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_value_profile.c -o test/unittests/unit_value_profile.o
+
+test/unittests/afl-fuzz-valprof.o : $(COMM_HDR) include/cmplog.h src/afl-fuzz-valprof.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c src/afl-fuzz-valprof.c -o test/unittests/afl-fuzz-valprof.o
+
+unit_value_profile: test/unittests/unit_value_profile.o test/unittests/afl-fuzz-valprof.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_value_profile $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	./test/unittests/unit_value_profile
+ifdef IS_IOS
+	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+endif
+
 .PHONY: unit_clean
 unit_clean:
-	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
+	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_value_profile test/unittests/*.o
 
 .PHONY: unit
 ifneq "$(SYS)" "Darwin"
-unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
+unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_value_profile
 else
 unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
