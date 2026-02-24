@@ -266,7 +266,10 @@ struct queue_entry {
   u32 id;                               /* entry number in queue_buf        */
 
   u8 colorized,                         /* Do not run redqueen stage again  */
-      cal_failed;                       /* Calibration failed?              */
+      cal_failed,                       /* Calibration failed?              */
+      vp_only;                          /* Added only due to VP guidance?   */
+
+  u32 vp_ref_cnt;                       /* Number of owned VP frontier slots*/
 
   bool trim_done,                       /* Trimmed?                         */
       was_fuzzed,                       /* historical, but needed for MOpt  */
@@ -289,7 +292,8 @@ struct queue_entry {
       fuzz_level,                       /* Number of fuzzing iterations     */
       n_fuzz_entry;                     /* offset in n_fuzz                 */
 
-  u64 exec_us,                          /* Execution time (us)              */
+  u64 vp_last_ref_cycle,                /* queue_cycle when vp_ref_cnt->0   */
+      exec_us,                          /* Execution time (us)              */
       handicap,                         /* Number of queue cycles behind    */
       depth,                            /* Path depth                       */
       exec_cksum,                       /* Checksum of the execution trace  */
@@ -318,6 +322,15 @@ struct queue_entry {
   fs_meta_t *fs_meta;                   /* Frameshift metadata              */
 
 };
+
+typedef struct {
+
+  struct queue_entry *owner;           /* Frontier owner                    */
+  u64                 cost;            /* Frontier tie-break cost           */
+  u32                 dist;            /* Frontier distance                 */
+  u16                 tag;             /* Frontier tag                      */
+
+} vp_frontier_entry_t;
 
 struct extra_data {
 
@@ -534,6 +547,7 @@ typedef struct afl_env_vars {
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
+  u8 *afl_value_profile_slots;
   s32 afl_pizza_mode, afl_ijon_history_limit;
 
   uid_t afl_forksrv_uid;
@@ -840,15 +854,29 @@ typedef struct afl_state {
 
   /* Value profiling */
   u8  value_profile_mode;              /* 0=off, 1=always, 2=stagnation     */
+  u8  value_profile_level;             /* 1=greedy frontier, 2=feature-rich */
+  u8  value_profile_source;            /* resolved runtime data source      */
+  u32 value_profile_slots;             /* Per-site frontier width (K)       */
   u32 value_profile_stagnation_secs;   /* Stagnation threshold (seconds)    */
   u8  value_profile_active;            /* Currently active?                 */
   u64 value_profile_finds;             /* Inputs saved via value profiling  */
   u64 value_profile_enabled_cycle;     /* queue_cycle when VP was enabled   */
   struct queue_entry **top_rated_vp;   /* Best entry per CMP site (by dist) */
   u32 *top_rated_vp_dist;              /* Per-site best distance            */
+  vp_frontier_entry_t *vp_frontier;    /* Frontier slots                    */
 
 /* Max real VP distance is 256; 257 means no candidate for this site. */
 #define VP_DIST_UNSOLVED 257U
+#define VP_LEVEL_DEFAULT 1U
+#define VP_LEVEL_MIN 1U
+#define VP_LEVEL_MAX 2U
+#define VP_SLOTS_DEFAULT 4U
+#define VP_SLOTS_MIN 1U
+#define VP_SLOTS_MAX 16U
+#define VP_SOURCE_NONE 0U
+#define VP_SOURCE_RUNTIME_SHM 1U
+#define VP_SOURCE_CMPLOG_INLINE 2U
+#define VP_SOURCE_CMPLOG_CHILD 3U
 #define VP_TRIGGER_BITMAP_WORDS (CMP_MAP_W / 64)
   /* Store trigger bits as native words to avoid casting between
      different pointer types in the hot-path scanner. */
@@ -1346,6 +1374,12 @@ u32  vp_check_cmpmap(afl_state_t *);
 void vp_update_activation(afl_state_t *);
 void vp_mark_triggered_sites(afl_state_t *);
 void vp_update_bitmap_score(afl_state_t *, struct queue_entry *);
+void vp_update_bitmap_score_with_cost(afl_state_t *, struct queue_entry *, u64);
+u8   vp_frontier_would_improve(afl_state_t *, u64);
+void vp_apply_delayed_evictions(afl_state_t *);
+u8   vp_run_cmplog(afl_state_t *, void *, u32);
+u8   vp_prepare_data(afl_state_t *, void *, u32);
+void vp_prepare_exec(afl_state_t *, afl_forkserver_t *);
 
 /* Extras */
 
@@ -1425,13 +1459,13 @@ void   check_cpu_governor(afl_state_t *);
 void   get_core_count(afl_state_t *);
 void   fix_up_sync(afl_state_t *);
 void   check_asan_opts(afl_state_t *);
-void   check_binary(afl_state_t *, u8 *);
-u64    get_binary_hash(u8 *fn);
-void   check_if_tty(afl_state_t *);
-void   save_cmdline(afl_state_t *, u32, char **);
-void   read_foreign_testcases(afl_state_t *, int);
-void   write_crash_readme(afl_state_t *afl);
-u8     check_if_text_buf(u8 *buf, u32 len);
+void check_binary(afl_state_t *, u8 *);
+u64  get_binary_hash(u8 *fn);
+void check_if_tty(afl_state_t *);
+void save_cmdline(afl_state_t *, u32, char **);
+void read_foreign_testcases(afl_state_t *, int);
+void write_crash_readme(afl_state_t *afl);
+u8   check_if_text_buf(u8 *buf, u32 len);
 #ifndef AFL_SHOWMAP
 void setup_signal_handlers(void);
 #endif
@@ -1617,4 +1651,3 @@ static inline u8 bitmap_read(u8 *map, u32 index) {
 #endif
 
 #endif
-
