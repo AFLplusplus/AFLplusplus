@@ -326,26 +326,26 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       mkdir -p in
       echo 00000000 > in/in
-      AFL_VALUE_PROFILE=0 AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V20 -i in -o out_no_vp -c ./test-value-profile.cmplog -- ./test-value-profile >>errors 2>&1
-      AFL_VALUE_PROFILE=1 AFL_VALUE_PROFILE_LEVEL=2 AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V90 -i in -o out_vp -c ./test-value-profile.cmplog -- ./test-value-profile >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V20 -i in -o out_no_vp -c ./test-value-profile.cmplog -- ./test-value-profile >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -j2 -m none -V90 -i in -o out_vp -c ./test-value-profile.cmplog -- ./test-value-profile >>errors 2>&1
       # Regression check: mode 2 must activate from edge-coverage stagnation.
-      timeout 120s env AFL_VALUE_PROFILE=2 AFL_VALUE_PROFILE_LEVEL=2 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V20 -i in -o out_vp_stag -c ./test-value-profile.cmplog -- ./test-value-profile >>errors 2>&1 || true
+      timeout 120s env AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -j2 -r2 -m none -V20 -i in -o out_vp_stag -c ./test-value-profile.cmplog -- ./test-value-profile >>errors 2>&1 || true
       # Level 2 inline source path (main target built with CmpLog)
-      AFL_VALUE_PROFILE=1 AFL_VALUE_PROFILE_LEVEL=2 AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V8 -i in -o out_vp_inline -- ./test-value-profile.cmplog >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -j2 -m none -V8 -i in -o out_vp_inline -- ./test-value-profile.cmplog >>errors 2>&1
       # Level 1 runtime path (main target built with VP runtime instrumentation)
-      AFL_VALUE_PROFILE=1 AFL_VALUE_PROFILE_LEVEL=1 AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V8 -i in -o out_vp_l1 -- ./test-value-profile.vp >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -j1 -m none -V8 -i in -o out_vp_l1 -- ./test-value-profile.vp >>errors 2>&1
       # Level 1 must fail clearly when runtime VP instrumentation is missing.
-      AFL_VALUE_PROFILE=1 AFL_VALUE_PROFILE_LEVEL=1 AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V4 -i in -o out_l1_err -- ./test-value-profile >>errors 2>&1 || true
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -j1 -m none -V4 -i in -o out_l1_err -- ./test-value-profile >>errors 2>&1 || true
       # Snapshot pre-resume VP stats now: the fastresume checks below intentionally
       # mutate out_vp/default/* and out_no_vp/default/*.
       cp out_vp/default/fuzzer_stats vp_pre_resume_fuzzer_stats
       no_vp_stats_has_vp=0
       grep -q "^value_profile_finds" out_no_vp/default/fuzzer_stats && no_vp_stats_has_vp=1 || true
       # Fastresume VP compatibility checks:
-      # 1) resume VP fastresume without AFL_VALUE_PROFILE
+      # 1) resume VP fastresume without -j
       AFL_AUTORESUME=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V2 -i in -o out_vp -c ./test-value-profile.cmplog -- ./test-value-profile >vp_resume_no_vp.log 2>&1
-      # 2) resume non-VP fastresume with AFL_VALUE_PROFILE
-      AFL_AUTORESUME=1 AFL_VALUE_PROFILE=1 AFL_VALUE_PROFILE_LEVEL=2 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V2 -i in -o out_no_vp -c ./test-value-profile.cmplog -- ./test-value-profile >vp_resume_with_vp.log 2>&1
+      # 2) resume non-VP fastresume with -j2
+      AFL_AUTORESUME=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -j2 -m none -V2 -i in -o out_no_vp -c ./test-value-profile.cmplog -- ./test-value-profile >vp_resume_with_vp.log 2>&1
       cat vp_resume_no_vp.log vp_resume_with_vp.log >>errors
     } >>errors 2>&1
 
@@ -362,7 +362,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     test -n "$vp_l1_finds" &&
     test "$vp_l1_finds" -gt 0 &&
     grep -q "Stagnation (" errors &&
-    grep -q "AFL_VALUE_PROFILE_LEVEL=1 requires runtime VP instrumentation" errors &&
+    grep -q "Value profile level 1 requires runtime VP instrumentation" errors &&
     grep -q "Will perform FAST RESUME" vp_resume_no_vp.log &&
     grep -q "Will perform FAST RESUME" vp_resume_with_vp.log &&
     ! grep -q "Segmentation fault" vp_resume_no_vp.log &&
@@ -392,7 +392,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       rm -f /tmp/afl-vp-main.log /tmp/afl-vp-cmplog.log
       mkdir -p in_post
       echo 0000000000 > in_post/in
-      AFL_VALUE_PROFILE=1 AFL_VALUE_PROFILE_LEVEL=2 AFL_POST_PROCESS_KEEP_ORIGINAL=1 AFL_CUSTOM_MUTATOR_LIBRARY=./test-vp-postprocess-mutator.so AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -m none -V10 -i in_post -o out_vp_post -c ./test-vp-postprocess.cmplog -- ./test-vp-postprocess >>errors_post 2>&1
+      AFL_POST_PROCESS_KEEP_ORIGINAL=1 AFL_CUSTOM_MUTATOR_LIBRARY=./test-vp-postprocess-mutator.so AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ../afl-fuzz -j2 -m none -V10 -i in_post -o out_vp_post -c ./test-vp-postprocess.cmplog -- ./test-vp-postprocess >>errors_post 2>&1
     } >>errors_post 2>&1
     if test -f /tmp/afl-vp-cmplog.log; then
       vp_cmplog_total="$(wc -l < /tmp/afl-vp-cmplog.log)"
