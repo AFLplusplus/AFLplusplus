@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <limits.h>
 #include "afl-fuzz.h"
+#include "cmplog.h"
 #include "envs.h"
 
 char *power_names[POWER_SCHEDULES_NUM] = {"explore", "mmopt", "exploit",
@@ -951,6 +952,14 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->virgin_crash);
   ck_free(afl->var_bytes);
   ck_free(afl->top_rated);
+  if (afl->virgin_val_prof) {
+
+    ck_free(afl->virgin_val_prof);
+    ck_free(afl->top_rated_vp);
+    ck_free(afl->top_rated_vp_dist);
+
+  }
+
   ck_free(afl->clean_trace);
   ck_free(afl->clean_trace_custom);
   ck_free(afl->first_trace);

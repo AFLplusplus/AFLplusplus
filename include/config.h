@@ -100,6 +100,10 @@
 /* Maximum allowed fails per CMP value. Default: 96 */
 #define CMPLOG_FAIL_MAX 96
 
+/* Value profile bitmap size in bytes. Uses a bit-level bitmap, so
+   VALUE_PROFILE_MAP_SIZE bytes = VALUE_PROFILE_MAP_SIZE*8 features. */
+#define VALUE_PROFILE_MAP_SIZE MAP_SIZE        /* 65536 bytes = 524288 bits */
+
 /*
  * Effective fuzzing with selective feeding inputs
  */

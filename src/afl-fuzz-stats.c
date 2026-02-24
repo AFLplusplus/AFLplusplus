@@ -524,6 +524,13 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   }
 
+  if (afl->value_profile_mode) {
+
+    fprintf(f, "value_profile_finds  : %llu\n",
+            (unsigned long long)afl->value_profile_finds);
+
+  }
+
   fclose(f);
   rename(fn_tmp, fn_final);
 

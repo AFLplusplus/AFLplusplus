@@ -45,6 +45,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "cmplog.h"
 
 #include "afl-ijon-min.h"
 
@@ -682,7 +683,8 @@ typedef struct afl_state {
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
-      *virgin_crash;                    /* Bits we haven't seen in crashes  */
+      *virgin_crash,                    /* Bits we haven't seen in crashes  */
+      *virgin_val_prof;                 /* Value profile virgin bitmap      */
 
   double *alias_probability;            /* alias weighted probabilities     */
   u32    *alias_table;                /* alias weighted random lookup table */
@@ -734,7 +736,8 @@ typedef struct afl_state {
       start_time,                       /* Unix start time (ms)             */
       last_sync_time,                   /* Time of last sync                */
       last_sync_cycle,                  /* Cycle no. of the last sync       */
-      last_find_time,                   /* Time for most recent path (ms)   */
+      last_find_time,                   /* Time for most recent find (ms)   */
+      last_cov_find_time,            /* Time for most recent edge find (ms) */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time,                   /* Time for most recent hang (ms)   */
       longest_find_time,                /* Longest time taken for a find    */
@@ -834,6 +837,22 @@ typedef struct afl_state {
   u32 colorize_success;
   u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
       cmplog_enable_xtreme_transform, cmplog_random_colorization;
+
+  /* Value profiling */
+  u8  value_profile_mode;              /* 0=off, 1=always, 2=stagnation     */
+  u32 value_profile_stagnation_secs;   /* Stagnation threshold (seconds)    */
+  u8  value_profile_active;            /* Currently active?                 */
+  u64 value_profile_finds;             /* Inputs saved via value profiling  */
+  u64 value_profile_enabled_cycle;     /* queue_cycle when VP was enabled   */
+  struct queue_entry **top_rated_vp;   /* Best entry per CMP site (by dist) */
+  u32 *top_rated_vp_dist;              /* Per-site best distance            */
+
+/* Max real VP distance is 256; 257 means no candidate for this site. */
+#define VP_DIST_UNSOLVED 257U
+#define VP_TRIGGER_BITMAP_WORDS (CMP_MAP_W / 64)
+  /* Store trigger bits as native words to avoid casting between
+     different pointer types in the hot-path scanner. */
+  u64 vp_trigger_bitmap[VP_TRIGGER_BITMAP_WORDS];
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;
