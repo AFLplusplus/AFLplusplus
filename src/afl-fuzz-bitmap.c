@@ -688,40 +688,28 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       if (san_fault == FSRV_RUN_OK) {
 
-        /* Value profiling: run CmpLog to check for new distance features
-           on non-coverage-producing executions. */
-        if (likely(afl->value_profile_active && afl->shm.cmplog_mode &&
-                   afl->shm.cmp_map)) {
+        /* Value profiling on non-coverage-producing executions. */
+        if (vp_ensure_cmp_data_ready(afl, mem, len)) {
 
-          void *vp_mem = mem;
-          u32   vp_len = write_to_testcase(afl, &vp_mem, len, 0);
+          u8  frontier_improved = 0;
+          u32 feature_new = 0;
 
-          if (likely(vp_len && vp_len >= 4 &&
-                     vp_len <= afl->cmplog_max_filesize)) {
+          if (afl->value_profile_level == 2) {
 
-            memcpy(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size);
-            memset(afl->shm.cmp_map->headers, 0,
-                   sizeof(afl->shm.cmp_map->headers));
-            afl->cmplog_fsrv.custom_input = afl->fsrv.custom_input;
-            afl->cmplog_fsrv.custom_input_len = afl->fsrv.custom_input_len;
+            feature_new = vp_check_cmpmap(afl);
 
-            u8 result =
-                fuzz_run_target(afl, &afl->cmplog_fsrv, afl->fsrv.exec_tmout);
+          } else {
 
-            memcpy(afl->fsrv.trace_bits, afl->map_tmp_buf, afl->fsrv.map_size);
-            if (likely(result == FSRV_RUN_OK)) {
+            frontier_improved = vp_frontier_would_improve(afl);
 
-              memset(afl->vp_trigger_bitmap, 0, sizeof(afl->vp_trigger_bitmap));
-              if (vp_check_cmpmap(afl)) {
+          }
 
-                afl->value_profile_finds++;
-                new_bits |= NEW_BITS_VP_MASK;
-                vp_entry = 1;
-                goto save_to_queue;
+          if (feature_new || frontier_improved) {
 
-              }
-
-            }
+            afl->value_profile_finds++;
+            new_bits |= NEW_BITS_VP_MASK;
+            vp_entry = 1;
+            goto save_to_queue;
 
           }
 
@@ -787,6 +775,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     }
 
     add_to_queue(afl, queue_fn, len, 0);
+    afl->queue_top->vp_only = vp_entry ? 1 : 0;
+    if (vp_entry) { afl->queue_top->vp_last_ref_cycle = afl->queue_cycle; }
 
     if (unlikely(afl->fuzz_mode) &&
         likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode &&
@@ -870,46 +860,15 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       if (unlikely(vp_entry)) {
 
-        vp_update_bitmap_score(afl, afl->queue_top);
+        vp_frontier_apply(afl, afl->queue_top);
 
-      } else if (likely(afl->value_profile_active && afl->shm.cmplog_mode &&
+      } else if (vp_ensure_cmp_data_ready(afl, mem, len)) {
 
-                        afl->shm.cmp_map)) {
+        /* Coverage-producing input: also compute VP score so the scheduler
+           can see VP gradient on coverage entries too. */
+        if (afl->value_profile_level == 2) { vp_check_cmpmap(afl); }
 
-        void *vp_mem = mem;
-        u32   vp_len = write_to_testcase(afl, &vp_mem, len, 0);
-
-        if (likely(vp_len && vp_len >= 4 &&
-                   vp_len <= afl->cmplog_max_filesize)) {
-
-          memcpy(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size);
-          memset(afl->shm.cmp_map->headers, 0,
-                 sizeof(afl->shm.cmp_map->headers));
-          afl->cmplog_fsrv.custom_input = afl->fsrv.custom_input;
-          afl->cmplog_fsrv.custom_input_len = afl->fsrv.custom_input_len;
-
-          u8 result =
-              fuzz_run_target(afl, &afl->cmplog_fsrv, afl->fsrv.exec_tmout);
-
-          memcpy(afl->fsrv.trace_bits, afl->map_tmp_buf, afl->fsrv.map_size);
-          if (likely(result == FSRV_RUN_OK)) {
-
-            /* Coverage-producing input: also compute VP score so the scheduler
-               can see VP gradient on coverage entries too. */
-            u32 vp_new_bits;
-            memset(afl->vp_trigger_bitmap, 0, sizeof(afl->vp_trigger_bitmap));
-            vp_new_bits = vp_check_cmpmap(afl);
-            if (vp_new_bits) {
-
-              afl->value_profile_cov_consumed_bits += vp_new_bits;
-
-            }
-
-            vp_update_bitmap_score(afl, afl->queue_top);
-
-          }
-
-        }
+        vp_frontier_apply(afl, afl->queue_top);
 
       }
 

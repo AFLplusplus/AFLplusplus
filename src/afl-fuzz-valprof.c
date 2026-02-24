@@ -970,7 +970,7 @@ static inline u8 vp_apply_site_candidates(afl_state_t        *afl,
 
 /* Fast VP-interest probe used before queue admission.
    Admission is based on distance-only progress; cost tie-breaks are applied
-   later in vp_update_bitmap_score() after calibration provides real exec_us. */
+   later in vp_frontier_apply() after calibration provides real exec_us. */
 u8 vp_frontier_would_improve(afl_state_t *afl) {
 
   if (unlikely(!afl->vp_frontier)) return 0;
@@ -1069,8 +1069,8 @@ static inline u8 vp_apply_cmplog_frontier(afl_state_t        *afl,
 
 }
 
-void vp_update_bitmap_score_with_cost(afl_state_t *afl, struct queue_entry *q,
-                                      u64 cost) {
+void vp_frontier_apply_with_cost(afl_state_t *afl, struct queue_entry *q,
+                                 u64 cost) {
 
   if (unlikely(!q || !afl->vp_frontier)) return;
 
@@ -1096,9 +1096,9 @@ void vp_update_bitmap_score_with_cost(afl_state_t *afl, struct queue_entry *q,
 
 }
 
-void vp_update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
+void vp_frontier_apply(afl_state_t *afl, struct queue_entry *q) {
 
-  vp_update_bitmap_score_with_cost(afl, q, vp_entry_cost(q));
+  vp_frontier_apply_with_cost(afl, q, vp_entry_cost(q));
 
 }
 

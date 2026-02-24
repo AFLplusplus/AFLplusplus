@@ -949,6 +949,19 @@ void perform_dry_run(afl_state_t *afl) {
 
     }
 
+    if (afl->value_profile_mode && afl->value_profile_active &&
+        !q->cal_failed && (res == afl->crash_mode || res == FSRV_RUN_NOBITS)) {
+
+      if (vp_ensure_cmp_data_ready(afl, use_mem, read_len)) {
+
+        if (afl->value_profile_level == 2) { vp_check_cmpmap(afl); }
+
+        vp_frontier_apply(afl, q);
+
+      }
+
+    }
+
     if (afl->stop_soon) { return; }
 
     if (res == afl->crash_mode || res == FSRV_RUN_NOBITS) {

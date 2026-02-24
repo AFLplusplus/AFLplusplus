@@ -935,6 +935,12 @@ void cull_queue(afl_state_t *afl) {
 
   afl->score_changed = 0;
 
+  if (afl->top_rated_vp && afl->value_profile_mode) {
+
+    vp_apply_delayed_evictions(afl);
+
+  }
+
   memset(temp_v, 255, len);
 
   afl->queued_favored = 0;
@@ -1000,7 +1006,7 @@ void cull_queue(afl_state_t *afl) {
     for (i = 0; i < CMP_MAP_W; ++i) {
 
       struct queue_entry *q = afl->top_rated_vp[i];
-      if (!q || q->disabled || q->favored ||
+      if (!q || q->disabled || q->favored || afl->top_rated_vp_dist[i] == 0 ||
           afl->top_rated_vp_dist[i] >= VP_DIST_UNSOLVED)
         continue;
 
