@@ -1459,7 +1459,10 @@ void   check_cpu_governor(afl_state_t *);
 void   get_core_count(afl_state_t *);
 void   fix_up_sync(afl_state_t *);
 void   check_asan_opts(afl_state_t *);
-void check_binary(afl_state_t *, u8 *);
+#define BIN_CAP_NONE 0U
+#define BIN_CAP_CMPLOG (1U << 0)
+#define BIN_CAP_VP_RUNTIME (1U << 1)
+u8   check_binary(afl_state_t *, u8 *);
 u64  get_binary_hash(u8 *fn);
 void check_if_tty(afl_state_t *);
 void save_cmdline(afl_state_t *, u32, char **);

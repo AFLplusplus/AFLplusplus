@@ -129,7 +129,8 @@ extern u64 time_spent_working;
 static void at_exit() {
 
   s32   i, pid1 = 0, pid2 = 0, pgrp = -1;
-  char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
+  char *list[5] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR,
+                   VP_SHM_ENV_VAR, NULL};
   char *ptr;
 
   ptr = getenv("__AFL_TARGET_PID2");
@@ -268,11 +269,12 @@ static void usage(u8 *argv0, int more_help) {
       "compiled\n"
       "                  for CmpLog then use '-c 0'. To disable CMPLOG use '-c "
       "-'.\n"
-      "  -j level      - enable value profiling level (currently only '-j "
-      "2')\n"
+      "  -j level      - enable value profiling at level 1 (runtime) or 2 "
+      "(CmpLog)\n"
       "                  without -r, value profiling is always active\n"
-      "  -r seconds    - enable value profiling after stagnation (CmpLog)\n"
-      "                  if -j is omitted, level 2 is used\n"
+      "  -r seconds    - enable value profiling in stagnation mode after the\n"
+      "                  given number of seconds without new edge coverage\n"
+      "                  if -j is omitted, level 1 is used\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2ATR\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
@@ -583,8 +585,8 @@ int main(int argc, char **argv_orig, char **envp) {
       map_size = get_map_size(), vp_stagnation_secs = 0;
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
-     extras_dir_cnt = 0 /*, have_p = 0*/, vp_level_set = 0,
-     vp_stagnation_set = 0;
+     extras_dir_cnt = 0 /*, have_p = 0*/, vp_level = VP_LEVEL_DEFAULT,
+     vp_level_set = 0, vp_stagnation_set = 0;
   char  *afl_preload;
   char  *san_abstraction;
   char  *frida_afl_preload = NULL;
@@ -697,7 +699,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  // still available: HJkqv
+  // still available: Hkqv
   while ((opt = getopt(
               argc, argv,
               "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:j:K:l:L:m:M:nNo:Op:P:Qr:Rs:S:t:T:"
@@ -843,15 +845,14 @@ int main(int argc, char **argv_orig, char **envp) {
         errno = 0;
         level_val = strtoul(optarg, &endptr, 10);
         if (errno == ERANGE || endptr == optarg || *endptr != '\0' ||
-            level_val != 2) {
+            level_val < VP_LEVEL_MIN || level_val > VP_LEVEL_MAX) {
 
-          FATAL(
-              "Invalid -j level '%s'; only level 2 is supported in this "
-              "revision.",
-              optarg);
+          FATAL("Invalid -j level '%s'; expected %u or %u.", optarg,
+                VP_LEVEL_MIN, VP_LEVEL_MAX);
 
         }
 
+        vp_level = (u8)level_val;
         vp_level_set = 1;
         break;
 
@@ -868,7 +869,8 @@ int main(int argc, char **argv_orig, char **envp) {
         if (errno == ERANGE || endptr == optarg || *endptr != '\0' ||
             stag_val == 0 || stag_val > UINT_MAX) {
 
-          FATAL("Invalid -r value '%s'; expected positive seconds.", optarg);
+          FATAL("Invalid -r value '%s'; expected a positive number of seconds.",
+                optarg);
 
         }
 
@@ -1891,9 +1893,35 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->shm.cmplog_mode) { OKF("CmpLog level: %u", afl->cmplog_lvl); }
+  if (afl->cmplog_binary) { OKF("CmpLog level: %u", afl->cmplog_lvl); }
 
+  afl->value_profile_level = VP_LEVEL_DEFAULT;
+
+  afl->value_profile_slots = VP_SLOTS_DEFAULT;
+  if (afl->afl_env.afl_value_profile_slots) {
+
+    char         *slots_env = (char *)afl->afl_env.afl_value_profile_slots;
+    char         *endptr = NULL;
+    unsigned long slots_val;
+
+    errno = 0;
+    slots_val = strtoul(slots_env, &endptr, 10);
+    if (errno == ERANGE || endptr == slots_env || *endptr != '\0' ||
+        slots_val > UINT_MAX) {
+
+      FATAL("Invalid AFL_VALUE_PROFILE_SLOTS value '%s'.", slots_env);
+
+    }
+
+    afl->value_profile_slots = (u32)slots_val;
+
+  }
+
+  /* -j enables VP at a selected level; -r enables stagnation mode.
+     If -r is used without -j, level 1 is selected by default. */
   if (vp_level_set || vp_stagnation_set) {
+
+    afl->value_profile_level = vp_level_set ? vp_level : VP_LEVEL_DEFAULT;
 
     if (vp_stagnation_set) {
 
@@ -1908,25 +1936,61 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    if (!afl->shm.cmplog_mode) {
-
-      WARNF("Value profiling (-j/-r) requires CmpLog (-c). Disabling.");
-      afl->value_profile_mode = 0;
-      afl->value_profile_active = 0;
-
-    }
-
   }
 
   if (afl->value_profile_mode) {
 
-    afl->virgin_val_prof = ck_alloc(VALUE_PROFILE_MAP_SIZE);
+    if (afl->value_profile_slots < VP_SLOTS_MIN) {
+
+      WARNF("AFL_VALUE_PROFILE_SLOTS=%u below minimum; clamping to %u.",
+            afl->value_profile_slots, VP_SLOTS_MIN);
+      afl->value_profile_slots = VP_SLOTS_MIN;
+
+    } else if (afl->value_profile_slots > VP_SLOTS_MAX) {
+
+      WARNF("AFL_VALUE_PROFILE_SLOTS=%u above maximum; clamping to %u.",
+            afl->value_profile_slots, VP_SLOTS_MAX);
+      afl->value_profile_slots = VP_SLOTS_MAX;
+
+    }
+
+    afl->value_profile_source =
+        afl->value_profile_level == 1 ? VP_SOURCE_RUNTIME_SHM : VP_SOURCE_NONE;
+
+    if (afl->value_profile_source == VP_SOURCE_RUNTIME_SHM) {
+
+      afl->shm.vp_mode = 1;
+
+    }
+
+    if (afl->value_profile_level == 2) {
+
+      afl->virgin_val_prof = ck_alloc(VALUE_PROFILE_MAP_SIZE);
+
+    }
+
     afl->top_rated_vp = ck_alloc(CMP_MAP_W * sizeof(void *));
     afl->top_rated_vp_dist = ck_alloc(CMP_MAP_W * sizeof(u32));
-    memset(afl->top_rated_vp_dist, 0xff, CMP_MAP_W * sizeof(u32));
+    for (u32 i = 0; i < CMP_MAP_W; ++i) {
 
-    OKF("Value profiling: mode %u%s", afl->value_profile_mode,
-        afl->value_profile_mode == 1 ? " (always on)" : " (stagnation)");
+      afl->top_rated_vp_dist[i] = VP_DIST_UNSOLVED;
+
+    }
+
+    size_t vp_frontier_slots = (size_t)CMP_MAP_W * afl->value_profile_slots;
+    afl->vp_frontier =
+        ck_alloc(vp_frontier_slots * sizeof(vp_frontier_entry_t));
+    for (size_t i = 0; i < vp_frontier_slots; ++i) {
+
+      afl->vp_frontier[i].dist = VP_DIST_UNSOLVED;
+
+    }
+
+    OKF("Value profiling: mode %u%s, level %u, slots %u, source=%s",
+        afl->value_profile_mode,
+        afl->value_profile_mode == 1 ? " (always on)" : " (stagnation)",
+        afl->value_profile_level, afl->value_profile_slots,
+        afl->value_profile_level == 1 ? "runtime-shm" : "cmplog");
 
   }
 
@@ -2453,6 +2517,8 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   setup_cmdline_file(afl, argv + optind);
+  u8 main_caps = BIN_CAP_NONE;
+  u8 cmplog_caps = BIN_CAP_NONE;
 
   // Let's check SAND sanitizers binaries a bit earlier
   // so that we won't overwrite target_path.
@@ -2463,7 +2529,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  check_binary(afl, argv[optind]);
+  main_caps = check_binary(afl, argv[optind]);
 
   u64 prev_target_hash = 0;
   s32 fast_resume = 0;
@@ -2680,7 +2746,99 @@ int main(int argc, char **argv_orig, char **envp) {
     if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
         !afl->non_instrumented_mode && !afl->unicorn_mode) {
 
-      check_binary(afl, afl->cmplog_binary);
+      u8 *saved_target_path =
+          afl->fsrv.target_path ? ck_strdup(afl->fsrv.target_path) : NULL;
+
+      cmplog_caps = check_binary(afl, afl->cmplog_binary);
+
+      if (saved_target_path) {
+
+        ck_free(afl->fsrv.target_path);
+        afl->fsrv.target_path = saved_target_path;
+
+      }
+
+    }
+
+  }
+
+  if (afl->value_profile_mode && afl->value_profile_level == 2) {
+
+    afl->fsrv.keep_cmplog_shm_env = false;
+
+    if (main_caps & BIN_CAP_CMPLOG) {
+
+      afl->value_profile_source = VP_SOURCE_CMPLOG_INLINE;
+
+    } else if (afl->cmplog_binary) {
+
+      afl->value_profile_source = VP_SOURCE_CMPLOG_CHILD;
+
+    } else {
+
+      afl->value_profile_source = VP_SOURCE_NONE;
+
+    }
+
+    if (afl->value_profile_source == VP_SOURCE_CMPLOG_INLINE) {
+
+      /* Level-2 inline source needs cmp_map SHM in normal executions. */
+      afl->shm.cmplog_mode = 1;
+      afl->fsrv.keep_cmplog_shm_env = true;
+
+    }
+
+    if (afl->value_profile_source == VP_SOURCE_NONE) {
+
+      FATAL(
+          "Value profile level 2 needs CmpLog compare data. Either "
+          "compile the main target with AFL_LLVM_CMPLOG=1 (inline source) "
+          "or run afl-fuzz with -c and a CmpLog-instrumented binary.");
+
+    }
+
+    OKF("Value profiling level 2 source: %s",
+        afl->value_profile_source == VP_SOURCE_CMPLOG_INLINE
+            ? "inline CmpLog in main target"
+            : "CmpLog -c child");
+
+  }
+
+  if (afl->value_profile_mode && !afl->afl_env.afl_skip_bin_check &&
+      !afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
+      !afl->non_instrumented_mode && !afl->unicorn_mode) {
+
+    if (afl->value_profile_source == VP_SOURCE_RUNTIME_SHM &&
+        !(main_caps & BIN_CAP_VP_RUNTIME)) {
+
+      FATAL(
+          "Value profile level 1 requires runtime VP instrumentation in "
+          "the main target. Recompile with AFL_LLVM_VALUE_PROFILE=1 (or "
+          "AFL_LLVM_VALUEPROFILE=1).");
+
+    }
+
+    if (afl->value_profile_level == 2) {
+
+      if (afl->value_profile_source == VP_SOURCE_CMPLOG_INLINE &&
+          !(main_caps & BIN_CAP_CMPLOG)) {
+
+        FATAL(
+            "Value profile level 2 selected inline CmpLog source, but "
+            "the main target is missing CmpLog instrumentation. "
+            "Recompile with AFL_LLVM_CMPLOG=1.");
+
+      }
+
+      if (afl->value_profile_source == VP_SOURCE_CMPLOG_CHILD &&
+          !(cmplog_caps & BIN_CAP_CMPLOG)) {
+
+        FATAL(
+            "Value profile level 2 selected -c CmpLog fallback source, "
+            "but the -c binary is missing CmpLog instrumentation marker. "
+            "Recompile the -c target with AFL_LLVM_CMPLOG=1.");
+
+      }
 
     }
 
@@ -2773,6 +2931,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
     u32 new_map_size = afl_fsrv_get_mapsize(
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
+
+    if (afl->value_profile_mode &&
+        afl->value_profile_source == VP_SOURCE_RUNTIME_SHM &&
+        !afl->fsrv.use_value_profile) {
+
+      FATAL(
+          "Value profile level 1 requires target support for value "
+          "profile runtime SHM. Recompile the target with "
+          "AFL_LLVM_VALUE_PROFILE=1 (or AFL_LLVM_VALUEPROFILE=1).");
+
+    }
 
     // only reinitialize if the map needs to be larger than what we have.
     if (map_size < new_map_size) {
@@ -3060,7 +3229,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   /* Start with a clean VP map. If fastresume contains VP state, it will be
      loaded below and replace this default. */
-  if (afl->value_profile_mode) {
+  if (afl->virgin_val_prof) {
 
     memset(afl->virgin_val_prof, 255, VALUE_PROFILE_MAP_SIZE);
 
@@ -3138,7 +3307,7 @@ int main(int argc, char **argv_orig, char **envp) {
                  "virgin_val_prof(discarded)");
         WARNF(
             "fastresume.bin contains value profile state, but "
-            "AFL_VALUE_PROFILE is disabled. Ignoring saved VP bitmap.");
+            "value profiling is disabled. Ignoring saved VP bitmap.");
 
       }
 
@@ -4004,7 +4173,7 @@ stop_fuzzing:
       u8   ver_string[8];
       u32  w = 0;
       u64 *ver = (u64 *)ver_string;
-      u8   save_vp_state = afl->value_profile_mode ? 1 : 0;
+      u8   save_vp_state = afl->virgin_val_prof ? 1 : 0;
       /* Include IJON state size in version only when IJON is used */
       *ver = FAST_RESUME_VERSION + afl->shm.cmplog_mode +
              (sizeof(struct queue_entry) << 1) +

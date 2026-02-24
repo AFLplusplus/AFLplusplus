@@ -150,6 +150,7 @@ typedef struct afl_forkserver {
 
   bool use_ijon;                        /* use IJON tracking feature        */
   bool use_value_profile;               /* target has L1 VP runtime support */
+  bool keep_cmplog_shm_env;             /* keep cmp SHM env for this fsrv   */
 
   bool use_fauxsrv;                     /* Fauxsrv for non-forking targets? */
 

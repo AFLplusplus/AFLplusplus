@@ -3047,7 +3047,7 @@ void setup_testcase_shmem(afl_state_t *afl) {
    isn't a shell script - a common and painful mistake. We also check for
    a valid ELF header and for evidence of AFL instrumentation. */
 
-void check_binary(afl_state_t *afl, u8 *fname) {
+u8 check_binary(afl_state_t *afl, u8 *fname) {
 
   if (unlikely(!fname)) { FATAL("BUG: Binary name is NULL"); }
 
@@ -3057,6 +3057,9 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   s32 fd;
   u8 *f_data;
   u32 f_len = 0;
+  u8  has_cmplog_marker = 0;
+  u8  has_vp_runtime_marker = 0;
+  u8  caps = BIN_CAP_NONE;
 
   ACTF("Validating target binary...");
 
@@ -3076,7 +3079,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
         if (stat(tmp, &st) || S_ISREG(st.st_mode)) {
 
           free(tmp);
-          return;
+          return caps;
 
         }
 
@@ -3156,7 +3159,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       (afl->fsrv.cs_mode && getenv("AFL_CS_CUSTOM_BIN")) ||
       afl->non_instrumented_mode) {
 
-    return;
+    return caps;
 
   }
 
@@ -3282,6 +3285,16 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
+  has_cmplog_marker = !!afl_memmem(f_data, f_len, "__AFL_CMPLOG_INSTRUMENTED",
+                                   strlen("__AFL_CMPLOG_INSTRUMENTED"));
+
+  has_vp_runtime_marker =
+      !!afl_memmem(f_data, f_len, "__AFL_VP_RUNTIME_INSTRUMENTED",
+                   strlen("__AFL_VP_RUNTIME_INSTRUMENTED"));
+
+  if (has_cmplog_marker) { caps |= BIN_CAP_CMPLOG; }
+  if (has_vp_runtime_marker) { caps |= BIN_CAP_VP_RUNTIME; }
+
   afl->fsrv.uses_asan = 0;
 
   if (afl_memmem(f_data, f_len, "__asan_init", 11)) {
@@ -3346,6 +3359,8 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
+
+  return caps;
 
 }
 
