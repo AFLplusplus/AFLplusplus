@@ -39,7 +39,10 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #endif
 #include "config.h"
 #include "types.h"
+#include "hash.h"
+#include "bitops.h"
 #include "cmplog.h"
+#include "value-profile.h"
 #include "llvm-alternative-coverage.h"
 #include "afl-ijon-min.h"
 
@@ -63,6 +66,7 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <stddef.h>
 #include <limits.h>
 #include <errno.h>
+#include <math.h>
 
 #include <sys/mman.h>
 #if !defined(__HAIKU__) && !defined(__OpenBSD__)
@@ -273,8 +277,20 @@ __thread u32        __afl_prev_ctx;
 
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
+vp_map_t       *__afl_vp_map;
+vp_map_t       *__afl_vp_map_backup;
 
 static u8 __afl_cmplog_max_len = 32;  // 16-32
+static u8 __afl_vp_slots = 4;
+
+typedef enum {
+
+  VP_PREDICATES_ALL = 0,
+  VP_PREDICATES_EQ_NE = 1,
+
+} vp_predicate_policy_t;
+
+static vp_predicate_policy_t __afl_vp_predicate_policy = VP_PREDICATES_ALL;
 
 /* Child pid? */
 
@@ -589,6 +605,94 @@ static void __afl_map_shm(void) {
               __afl_area_ptr_dummy);
 
     }
+
+  }
+
+  char *vp_id_str = getenv(VP_SHM_ENV_VAR);
+
+  {
+
+    char *vp_slots_str = getenv("AFL_VALUE_PROFILE_SLOTS");
+    if (vp_slots_str && *vp_slots_str) {
+
+      char         *endptr = NULL;
+      unsigned long slots = strtoul(vp_slots_str, &endptr, 10);
+      if (!(endptr == vp_slots_str || *endptr != '\0')) {
+
+        if (slots < 1) slots = 1;
+        if (slots > VP_MAX_SLOTS) slots = VP_MAX_SLOTS;
+        __afl_vp_slots = (u8)slots;
+
+      }
+
+    }
+
+    if (getenv("AFL_VALUE_PROFILE_EQ_NE_ONLY")) {
+
+      __afl_vp_predicate_policy = VP_PREDICATES_EQ_NE;
+
+    }
+
+  }
+
+  if (__afl_debug) {
+
+    fprintf(stderr, "DEBUG: vp id_str %s\n",
+            vp_id_str == NULL ? "<null>" : vp_id_str);
+
+  }
+
+  if (vp_id_str) {
+
+    if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
+
+      if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[1] = 1; }
+
+    }
+
+#ifdef USEMMAP
+    const char *shm_file_path = vp_id_str;
+    int         shm_fd = -1;
+    vp_map_t   *shm_base = NULL;
+
+    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+    if (shm_fd == -1) {
+
+      perror("shm_open() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(1);
+
+    }
+
+    shm_base = mmap(0, sizeof(vp_map_t), PROT_READ | PROT_WRITE, MAP_SHARED,
+                    shm_fd, 0);
+    if (shm_base == MAP_FAILED) {
+
+      close(shm_fd);
+      shm_fd = -1;
+
+      fprintf(stderr, "mmap() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(2);
+
+    }
+
+    __afl_vp_map = shm_base;
+#else
+    u32 shm_id = atoi(vp_id_str);
+
+    __afl_vp_map = (vp_map_t *)shmat(shm_id, NULL, 0);
+#endif
+
+    if (!__afl_vp_map || __afl_vp_map == (void *)-1) {
+
+      perror("shmat for value-profile");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
+
+    __afl_vp_map_backup = __afl_vp_map;
 
   }
 
@@ -1013,6 +1117,25 @@ static void __afl_unmap_shm(void) {
 
   }
 
+  id_str = getenv(VP_SHM_ENV_VAR);
+
+  if (id_str) {
+
+#ifdef USEMMAP
+
+    munmap((void *)__afl_vp_map, sizeof(vp_map_t));
+
+#else
+
+    shmdt((void *)__afl_vp_map);
+
+#endif
+
+    __afl_vp_map = NULL;
+    __afl_vp_map_backup = NULL;
+
+  }
+
   __afl_already_initialized_shm = 0;
 
 }
@@ -1143,6 +1266,7 @@ static void __afl_start_forkserver(void) {
     // send the set/requested options to forkserver
     status = FS_NEW_OPT_MAPSIZE;  // we always send the map size
     if (__afl_sharedmem_fuzzing) { status |= FS_NEW_OPT_SHDMEM_FUZZ; }
+    if (__afl_vp_map) { status |= FS_NEW_OPT_VALUE_PROFILE; }
     if (__afl_dictionary_len && __afl_dictionary) {
 
       status |= FS_NEW_OPT_AUTODICT;
@@ -1166,6 +1290,8 @@ static void __afl_start_forkserver(void) {
     if (write(FORKSRV_FD + 1, msg, 4) != 4) { _exit(1); }
 
     // FS_NEW_OPT_SHDMEM_FUZZ - no data
+
+    // FS_NEW_OPT_VALUE_PROFILE - no data
 
     // FS_NEW_OPT_AUTODICT - send autodictionary
     if (__afl_dictionary_len && __afl_dictionary) {
@@ -2579,6 +2705,427 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 #endif
 
+#ifdef WORD_SIZE_64
+/* Bit length for uint128_t (0 for input 0). */
+static inline u32 vp_bitlen_u128(uint128_t v) {
+
+  u64 hi = (u64)(v >> 64);
+  if (hi) return 64U + bit_length_u64(hi);
+  return bit_length_u64((u64)v);
+
+}
+
+/* Popcount for uint128_t. */
+static inline u32 vp_popcnt_u128(uint128_t v) {
+
+  return popcount_u64((u64)v) + popcount_u64((u64)(v >> 64));
+
+}
+
+/* Keep only the lowest `bits` bits from a 128-bit operand.
+   This aligns VP distance calculations with the real compare width. */
+static inline uint128_t vp_mask_u128(uint128_t v, u8 bits) {
+
+  if (bits >= 128) return v;
+  if (bits <= 64) {
+
+    if (!bits) return 0;
+    u64 mask = (bits == 64) ? ~(u64)0 : ((1ULL << bits) - 1ULL);
+    return (uint128_t)((u64)v & mask);
+
+  }
+
+  u8  hi_bits = bits - 64;
+  u64 lo = (u64)v;
+  u64 hi = (u64)(v >> 64);
+  if (hi_bits < 64) { hi &= ((1ULL << hi_bits) - 1ULL); }
+
+  return ((uint128_t)hi << 64) | lo;
+
+}
+
+#endif
+
+/* Runtime predicate policy gate (equality-only vs all predicates). */
+static inline u8 vp_runtime_allow_predicate(u8 attr) {
+
+  if (__afl_vp_predicate_policy == VP_PREDICATES_EQ_NE) { return attr <= 1; }
+  return 1;
+
+}
+
+/* Compute runtime site id from callsite PC.
+   On 64-bit targets use the 64-bit mixer directly; on 32-bit, use fmix32. */
+static inline u16 vp_runtime_hash_site(void) {
+
+  uintptr_t pc = (uintptr_t)__builtin_return_address(0);
+#ifdef WORD_SIZE_64
+  return (u16)(hash_fmix64((u64)pc) & (VP_MAP_W - 1));
+#else
+  return (u16)(hash_fmix32((u32)pc) & (VP_MAP_W - 1));
+#endif
+
+}
+
+/* Bitmask for active per-site slots, given the runtime slot count. */
+static inline u16 vp_runtime_site_mask(u16 slots) {
+
+  return slots == 16 ? 0xffffU : (u16)((1U << slots) - 1U);
+
+}
+
+/* True if slot_idx is active in active_slot_mask. */
+static inline u8 vp_slot_is_active(u16 active_slot_mask, u16 slot_idx) {
+
+  return (u8)(active_slot_mask & (u16)(1U << slot_idx));
+
+}
+
+/* Append a touched site to control[] for this execution; track drops when full.
+ */
+static inline void vp_runtime_append_control(vp_map_t *vp, u16 site_id) {
+
+  if (vp->control_len < VP_CONTROL_CAP) {
+
+    vp->control[vp->control_len++] = site_id;
+
+  } else {
+
+    ++vp->control_drops;
+
+  }
+
+}
+
+/* Prepare per-exec state for one VP site and return its persistent entry. */
+static inline vp_site_t *vp_runtime_prepare_site(vp_map_t *vp, u16 site_id) {
+
+  vp_site_t *site = &vp->site[site_id];
+  if (site->exec_seen != vp->exec_id) {
+
+    /* Lazy per-site reset: only clear metadata for sites touched in this
+       execution, avoiding a full VP_MAP_W sweep every run. */
+    site->exec_seen = vp->exec_id;
+    site->hit_count = 0;
+    site->touched_mask = 0;
+
+  }
+
+  return site;
+
+}
+
+/* Select the slot to update for one hit:
+   matching active slot > empty slot > solved active slot > strictly-better
+   replacement of worst active slot. */
+static inline s32 vp_runtime_pick_slot(vp_site_t *site, u16 slot_count,
+                                       u16 hit_ordinal, u16 distance,
+                                       u16 preferred_start_slot) {
+
+  u16 active_slot_mask = site->valid_mask & vp_runtime_site_mask(slot_count);
+
+  s32 first_empty_slot_idx = -1;
+  s32 first_solved_slot_idx = -1;
+  s32 worst_slot_idx = -1;
+  u16 worst_slot_dist = 0;
+
+  /* Single-pass priority selection:
+     1) matching active key with strictly better distance
+     2) first empty slot
+     3) first solved slot (dist==0)
+     4) strictly-better replacement of current worst slot */
+  for (u16 i = 0, slot_idx = preferred_start_slot; i < slot_count; ++i) {
+
+    if (vp_slot_is_active(active_slot_mask, slot_idx)) {
+
+      u16 slot_dist = site->slots[slot_idx].best_dist;
+      if (site->slots[slot_idx].slot_key == hit_ordinal) {
+
+        return distance < slot_dist ? (s32)slot_idx : -1;
+
+      }
+
+      if (slot_dist == 0 && first_solved_slot_idx < 0) {
+
+        first_solved_slot_idx = (s32)slot_idx;
+
+      }
+
+      if (worst_slot_idx < 0 || slot_dist > worst_slot_dist) {
+
+        worst_slot_idx = (s32)slot_idx;
+        worst_slot_dist = slot_dist;
+
+      }
+
+    } else if (first_empty_slot_idx < 0) {
+
+      first_empty_slot_idx = (s32)slot_idx;
+
+    }
+
+    if (++slot_idx == slot_count) slot_idx = 0;
+
+  }
+
+  if (first_empty_slot_idx >= 0) return first_empty_slot_idx;
+  if (first_solved_slot_idx >= 0) return first_solved_slot_idx;
+
+  if (worst_slot_idx < 0 || distance >= worst_slot_dist) return -1;
+  return worst_slot_idx;
+
+}
+
+/* Record one computed distance for a callsite into the runtime VP map. */
+static inline void vp_runtime_record_dist(u16 site_id, u16 dist) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled)) return;
+
+  u16        slot_count = __afl_vp_slots;
+  vp_site_t *site = vp_runtime_prepare_site(vp, site_id);
+  u16        hit_ordinal = site->hit_count;
+  if (site->hit_count < 0xffffU) { ++site->hit_count; }
+
+  u16 preferred_start_slot =
+      slot_count == 1 ? 0 : (u16)(hit_ordinal % slot_count);
+  s32 selected_slot_idx = vp_runtime_pick_slot(site, slot_count, hit_ordinal,
+                                               dist, preferred_start_slot);
+  if (selected_slot_idx < 0) return;
+
+  if (!site->touched_mask) { vp_runtime_append_control(vp, site_id); }
+
+  site->slots[selected_slot_idx].slot_key = hit_ordinal;
+  site->slots[selected_slot_idx].best_dist = dist;
+  u16 selected_slot_bit = (u16)(1U << selected_slot_idx);
+  site->valid_mask |= selected_slot_bit;
+  site->touched_mask |= selected_slot_bit;
+
+}
+
+void __valueprofile_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  u16 site = vp_runtime_hash_site();
+  u16 dist;
+  if (arg1 == arg2) {
+
+    dist = 0;
+
+  } else {
+
+    u32 hamming = popcount_u32((u32)(arg1 ^ arg2));
+    u32 abs_dist =
+        bit_length_u64((u64)((arg1 > arg2) ? (arg1 - arg2) : (arg2 - arg1)));
+    dist = (u16)MIN(hamming, abs_dist);
+
+  }
+
+  vp_runtime_record_dist(site, dist);
+
+}
+
+void __valueprofile_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  u16 site = vp_runtime_hash_site();
+  u16 dist;
+  if (arg1 == arg2) {
+
+    dist = 0;
+
+  } else {
+
+    u32 hamming = popcount_u32(arg1 ^ arg2);
+    u32 abs_dist =
+        bit_length_u64((u64)((arg1 > arg2) ? (arg1 - arg2) : (arg2 - arg1)));
+    dist = (u16)MIN(hamming, abs_dist);
+
+  }
+
+  vp_runtime_record_dist(site, dist);
+
+}
+
+void __valueprofile_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  u16 site = vp_runtime_hash_site();
+  u16 dist;
+  if (arg1 == arg2) {
+
+    dist = 0;
+
+  } else {
+
+    u32 hamming = popcount_u64(arg1 ^ arg2);
+    u32 abs_dist =
+        bit_length_u64((arg1 > arg2) ? (arg1 - arg2) : (arg2 - arg1));
+    dist = (u16)MIN(hamming, abs_dist);
+
+  }
+
+  vp_runtime_record_dist(site, dist);
+
+}
+
+#ifdef WORD_SIZE_64
+void __valueprofile_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  u16 site = vp_runtime_hash_site();
+
+  arg1 = vp_mask_u128(arg1, 128);
+  arg2 = vp_mask_u128(arg2, 128);
+
+  u16 dist;
+  if (arg1 == arg2) {
+
+    dist = 0;
+
+  } else {
+
+    u32       hamming = vp_popcnt_u128(arg1 ^ arg2);
+    uint128_t abs_val = (arg1 > arg2) ? (arg1 - arg2) : (arg2 - arg1);
+    u32       abs_dist = vp_bitlen_u128(abs_val);
+    dist = (u16)MIN(hamming, abs_dist);
+
+  }
+
+  vp_runtime_record_dist(site, dist);
+
+}
+
+void __valueprofile_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
+                          uint8_t bits_minus_1) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  u8 bits = (u8)((bits_minus_1 + 1U) * 8U);
+  if (!bits) return;
+
+  u16 site = vp_runtime_hash_site();
+
+  arg1 = vp_mask_u128(arg1, bits);
+  arg2 = vp_mask_u128(arg2, bits);
+
+  u16 dist;
+  if (arg1 == arg2) {
+
+    dist = 0;
+
+  } else {
+
+    u32       hamming = vp_popcnt_u128(arg1 ^ arg2);
+    uint128_t abs_val = (arg1 > arg2) ? (arg1 - arg2) : (arg2 - arg1);
+    u32       abs_dist = vp_bitlen_u128(abs_val);
+    dist = (u16)MIN(hamming, abs_dist);
+
+  }
+
+  vp_runtime_record_dist(site, dist);
+
+}
+
+#endif
+
+void __valueprofile_hook_float(float arg1, float arg2, uint8_t attr) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (isnan(arg1) || isnan(arg2)) return;
+  u16 site = vp_runtime_hash_site();
+  u16 dist = 0;
+
+  if (arg1 != arg2) {
+
+    u32 b0 = 0, b1 = 0;
+    memcpy((void *)&b0, (void *)&arg1, sizeof(b0));
+    memcpy((void *)&b1, (void *)&arg2, sizeof(b1));
+    u32 hamming = popcount_u32(b0 ^ b1);
+    u32 abs_dist = bit_length_u64((u64)((b0 > b1) ? (b0 - b1) : (b1 - b0)));
+    dist = (u16)MIN(hamming, abs_dist);
+
+  }
+
+  vp_runtime_record_dist(site, dist);
+
+}
+
+void __valueprofile_hook_double(double arg1, double arg2, uint8_t attr) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (isnan(arg1) || isnan(arg2)) return;
+  u16 site = vp_runtime_hash_site();
+  u16 dist = 0;
+
+  if (arg1 != arg2) {
+
+    u64 b0 = 0, b1 = 0;
+    memcpy((void *)&b0, (void *)&arg1, sizeof(b0));
+    memcpy((void *)&b1, (void *)&arg2, sizeof(b1));
+    u32 hamming = popcount_u64(b0 ^ b1);
+    u32 abs_dist = bit_length_u64((b0 > b1) ? (b0 - b1) : (b1 - b0));
+    dist = (u16)MIN(hamming, abs_dist);
+
+  }
+
+  vp_runtime_record_dist(site, dist);
+
+}
+
+/* Compute routine-compare distance (memcmp/strcmp-style) and record it
+   into runtime VP state. */
+static inline void vp_runtime_record_rtn(u8 *ptr1, u8 *ptr2, u32 max_len,
+                                         u8 stop_at_zero) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled)) return;
+  if (unlikely(!ptr1 || !ptr2 || max_len < 1)) return;
+  if (max_len > 32) max_len = 32;
+
+  u16 site = vp_runtime_hash_site();
+  vp_runtime_prepare_site(vp, site);
+
+  u32 prefix_len = 0;
+  u8  solved = 0;
+  while (prefix_len < max_len && ptr1[prefix_len] == ptr2[prefix_len]) {
+
+    if (stop_at_zero && ptr1[prefix_len] == 0) {
+
+      solved = 1;
+      break;
+
+    }
+
+    ++prefix_len;
+
+  }
+
+  if (prefix_len == max_len) solved = 1;
+
+  u16 dist;
+  if (solved) {
+
+    dist = 0;
+
+  } else {
+
+    u32 rem = max_len - prefix_len;
+    u32 first_diff_hamming = popcount_u8(ptr1[prefix_len] ^ ptr2[prefix_len]);
+    dist = (u16)(((rem - 1U) * 8U) + first_diff_hamming);
+
+  }
+
+  vp_runtime_record_dist(site, dist);
+
+}
+
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
   //__cmplog_ins_hook1(arg1, arg2, 0);
@@ -2593,56 +3140,92 @@ void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
 void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  __cmplog_ins_hook2(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook2(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook2(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  __cmplog_ins_hook2(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook2(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook2(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  __cmplog_ins_hook4(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook4(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook4(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  __cmplog_ins_hook4(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook4(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook4(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  __cmplog_ins_hook8(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook8(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook8(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  __cmplog_ins_hook8(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook8(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook8(arg1, arg2, 0);
 
 }
 
 #ifdef WORD_SIZE_64
 void __sanitizer_cov_trace_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  __cmplog_ins_hook16(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook16(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook16(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  __cmplog_ins_hook16(arg1, arg2, 0);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_hook16(arg1, arg2, 0);
+  else
+    __cmplog_ins_hook16(arg1, arg2, 0);
 
 }
 
 #endif
 
 void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
+
+  if (unlikely(__afl_vp_map)) {
+
+    for (uint64_t i = 0; i < cases[0]; i++) {
+
+      __valueprofile_hook8(val, cases[i + 2], 1);
+
+    }
+
+    return;
+
+  }
 
   if (likely(!__afl_cmp_map)) return;
 
@@ -3120,12 +3703,123 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
 }
 
+void __valueprofile_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!ptr1 || !ptr2 || len < 2)) return;
+
+  u32 cap = (u32)MIN(len, 32ULL);
+  int l1 = area_is_valid(ptr1, cap);
+  int l2 = area_is_valid(ptr2, cap);
+  if (l1 <= 0 || l2 <= 0) return;
+
+  u32 max_len = MIN((u32)MIN(l1, l2), cap);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(ptr1, ptr2, max_len, 1);
+
+}
+
+void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!ptr1 || !ptr2)) return;
+
+  int l1 = area_is_valid(ptr1, 32);
+  int l2 = area_is_valid(ptr2, 32);
+  if (l1 <= 0 || l2 <= 0) return;
+
+  u32 n1 = (u32)strnlen((char *)ptr1, (size_t)MIN(l1, 31));
+  u32 n2 = (u32)strnlen((char *)ptr2, (size_t)MIN(l2, 31));
+  u32 max_len = MIN(MIN(n1, n2) + 1U, 32U);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(ptr1, ptr2, max_len, 1);
+
+}
+
+void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!ptr1 || !ptr2)) return;
+
+  int l1 = area_is_valid(ptr1, 32);
+  int l2 = area_is_valid(ptr2, 32);
+  if (l1 <= 0 || l2 <= 0) return;
+
+  u32 max_len = MIN((u32)MIN(l1, l2), 32U);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(ptr1, ptr2, max_len, 0);
+
+}
+
+void __valueprofile_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!ptr1 || !ptr2 || !len)) return;
+
+  u32 cap = (u32)MIN(len, 32ULL);
+  int l1 = area_is_valid(ptr1, cap);
+  int l2 = area_is_valid(ptr2, cap);
+  if (l1 <= 0 || l2 <= 0) return;
+
+  u32 max_len = MIN((u32)MIN(l1, l2), cap);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(ptr1, ptr2, max_len, 0);
+
+}
+
+void __valueprofile_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
+    return;
+
+  __valueprofile_rtn_hook_str(get_gcc_stdstring(stdstring), cstring);
+
+}
+
+void __valueprofile_rtn_gcc_stdstring_stdstring(u8 *stdstring1,
+                                                u8 *stdstring2) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
+    return;
+
+  __valueprofile_rtn_hook(get_gcc_stdstring(stdstring1),
+                          get_gcc_stdstring(stdstring2));
+
+}
+
+void __valueprofile_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
+    return;
+
+  __valueprofile_rtn_hook_str(get_llvm_stdstring(stdstring), cstring);
+
+}
+
+void __valueprofile_rtn_llvm_stdstring_stdstring(u8 *stdstring1,
+                                                 u8 *stdstring2) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
+    return;
+
+  __valueprofile_rtn_hook(get_llvm_stdstring(stdstring1),
+                          get_llvm_stdstring(stdstring2));
+
+}
+
 /* llvm weak hooks */
 
 void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
                                   size_t n, int result) {
 
-  __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2, (u64)n);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_rtn_hook_n((u8 *)s1, (u8 *)s2, (u64)n);
+  else
+    __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2, (u64)n);
   (void)pc;
   (void)result;
 
@@ -3134,7 +3828,12 @@ void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_memmem(void *pc, const void *s1, size_t len1,
                                   const void *s2, size_t len2, void *result) {
 
-  __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2, len1 < len2 ? (u64)len1 : (u64)len2);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_rtn_hook_n((u8 *)s1, (u8 *)s2,
+                              len1 < len2 ? (u64)len1 : (u64)len2);
+  else
+    __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2,
+                        len1 < len2 ? (u64)len1 : (u64)len2);
   (void)pc;
   (void)result;
 
@@ -3143,7 +3842,10 @@ void __sanitizer_weak_hook_memmem(void *pc, const void *s1, size_t len1,
 void __sanitizer_weak_hook_strncasecmp(void *pc, const void *s1, const void *s2,
                                        size_t n, int result) {
 
-  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
+  else
+    __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
   (void)pc;
   (void)result;
 
@@ -3152,7 +3854,10 @@ void __sanitizer_weak_hook_strncasecmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_strncasestr(void *pc, const void *s1, const void *s2,
                                        size_t n, char *result) {
 
-  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
+  else
+    __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
   (void)pc;
   (void)result;
 
@@ -3161,7 +3866,10 @@ void __sanitizer_weak_hook_strncasestr(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_strncmp(void *pc, const void *s1, const void *s2,
                                    size_t n, int result) {
 
-  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
+  else
+    __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
   (void)pc;
   (void)result;
 
@@ -3170,7 +3878,10 @@ void __sanitizer_weak_hook_strncmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_strcasecmp(void *pc, const void *s1, const void *s2,
                                       int result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  else
+    __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
   (void)pc;
   (void)result;
 
@@ -3179,8 +3890,12 @@ void __sanitizer_weak_hook_strcasecmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_strcasestr(void *pc, const void *s1, const void *s2,
                                       size_t n, char *result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  else
+    __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
   (void)pc;
+  (void)n;
   (void)result;
 
 }
@@ -3188,7 +3903,10 @@ void __sanitizer_weak_hook_strcasestr(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_strcmp(void *pc, const void *s1, const void *s2,
                                   int result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  else
+    __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
   (void)pc;
   (void)result;
 
@@ -3197,7 +3915,10 @@ void __sanitizer_weak_hook_strcmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_strstr(void *pc, const void *s1, const void *s2,
                                   char *result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  if (unlikely(__afl_vp_map))
+    __valueprofile_rtn_hook_str((u8 *)s1, (u8 *)s2);
+  else
+    __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
   (void)pc;
   (void)result;
 
@@ -3217,6 +3938,7 @@ void __afl_coverage_off() {
 
     __afl_area_ptr = __afl_area_ptr_dummy;
     __afl_cmp_map = NULL;
+    __afl_vp_map = NULL;
 
   }
 
@@ -3229,6 +3951,7 @@ void __afl_coverage_on() {
 
     __afl_area_ptr = __afl_area_ptr_backup;
     if (__afl_cmp_map_backup) { __afl_cmp_map = __afl_cmp_map_backup; }
+    if (__afl_vp_map_backup) { __afl_vp_map = __afl_vp_map_backup; }
 
   }
 
@@ -3245,6 +3968,8 @@ void __afl_coverage_discard() {
     memset_noasan(__afl_cmp_map, 0, sizeof(struct cmp_map));
 
   }
+
+  if (__afl_vp_map) { memset_noasan(__afl_vp_map, 0, sizeof(vp_map_t)); }
 
 }
 
