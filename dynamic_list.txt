@@ -36,9 +36,14 @@
   "__cmplog_ins_hook4";
   "__cmplog_ins_hook8";
   "__cmplog_ins_hookN";
+  "__cmplog_hook_double";
+  "__cmplog_hook_float";
   "__cmplog_rtn_gcc_stdstring_cstring";
   "__cmplog_rtn_gcc_stdstring_stdstring";
   "__cmplog_rtn_hook";
+  "__cmplog_rtn_hook_n";
+  "__cmplog_rtn_hook_str";
+  "__cmplog_rtn_hook_strn";
   "__cmplog_rtn_llvm_stdstring_cstring";
   "__cmplog_rtn_llvm_stdstring_stdstring";
   "__valueprofile_hook2";

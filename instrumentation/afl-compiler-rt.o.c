@@ -2612,6 +2612,24 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
 }
 
+void __cmplog_hook_float(float arg1, float arg2, uint8_t attr) {
+
+  uint32_t b0 = 0, b1 = 0;
+  memcpy((void *)&b0, (void *)&arg1, sizeof(b0));
+  memcpy((void *)&b1, (void *)&arg2, sizeof(b1));
+  __cmplog_ins_hook4(b0, b1, attr);
+
+}
+
+void __cmplog_hook_double(double arg1, double arg2, uint8_t attr) {
+
+  uint64_t b0 = 0, b1 = 0;
+  memcpy((void *)&b0, (void *)&arg1, sizeof(b0));
+  memcpy((void *)&b1, (void *)&arg2, sizeof(b1));
+  __cmplog_ins_hook8(b0, b1, attr);
+
+}
+
 #ifdef WORD_SIZE_64
 // support for u24 to u120 via llvm _ExitInt(). size is in bytes minus 1
 void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
