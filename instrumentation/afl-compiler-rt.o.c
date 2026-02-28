@@ -3108,7 +3108,6 @@ static inline void vp_runtime_record_rtn(u8 *ptr1, u8 *ptr2, u32 max_len,
   if (max_len > 32) max_len = 32;
 
   u16 site = vp_runtime_hash_site();
-  vp_runtime_prepare_site(vp, site);
 
   u32 prefix_len = 0;
   u8  solved = 0;
