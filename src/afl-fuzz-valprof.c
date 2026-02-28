@@ -696,31 +696,10 @@ static inline u8 vp_site_refresh_needed(afl_state_t *afl, u32 site,
 
 typedef struct {
 
-  s32 tag_match_idx;            /* Slot index with matching tag, -1 if none */
-  s32 first_empty_idx;         /* First empty slot index, -1 if none        */
-  s32 worst_idx;               /* Worst resident slot index, -1 if none     */
-  u32 worst_dist;              /* Distance value for worst_idx              */
-  u64 worst_cost;              /* Cost tie-break value for worst_idx        */
-
-} vp_slot_scan_t;
-
-typedef struct {
-
   u16 tag;
   u32 dist;
 
 } vp_site_candidate_t;
-
-/* Reset scan accumulator before processing one compare site. */
-static inline void vp_slot_scan_reset(vp_slot_scan_t *scan) {
-
-  scan->tag_match_idx = -1;
-  scan->first_empty_idx = -1;
-  scan->worst_idx = -1;
-  scan->worst_dist = 0;
-  scan->worst_cost = 0;
-
-}
 
 /* Frontier slot validity check shared by scan paths. */
 static inline u8 vp_frontier_slot_is_empty(const struct queue_entry *owner,
@@ -762,50 +741,53 @@ static inline u32 vp_collect_runtime_site_candidates(const vp_site_t *site,
 
 }
 
-/* Scan a site's slots and collect candidate indices for tag match, empty slot,
-   and worst slot (for replacement decisions). */
-static inline void vp_frontier_site_scan_slots(afl_state_t *afl, u32 site,
-                                               u16 tag, u8 clear_stale,
-                                               vp_slot_scan_t *scan) {
+typedef struct {
 
-  vp_slot_scan_reset(scan);
+  size_t base;                      /* First frontier index for this site      */
+  u16    slots;                     /* Active slots for this run (1..16)       */
+  s32    first_empty_rel;           /* First empty slot (relative), else -1    */
+  s32    worst_rel;                 /* Worst resident slot (relative), else -1 */
+  u32    worst_dist;                /* Distance of worst_rel                   */
+  u64    worst_cost;                /* Cost tie-break value of worst_rel       */
 
-  size_t base = vp_site_base(afl, site);
-  for (u32 i = 0; i < afl->value_profile_slots; ++i) {
+} vp_frontier_site_ctx_t;
 
-    size_t               idx = base + i;
+static inline size_t vp_frontier_site_abs_idx(const vp_frontier_site_ctx_t *ctx,
+                                              u16 rel_idx) {
+
+  return ctx->base + (size_t)rel_idx;
+
+}
+
+/* Recompute first-empty and worst-slot summaries from current slot contents. */
+static inline void vp_frontier_site_ctx_recompute(afl_state_t            *afl,
+                                                  vp_frontier_site_ctx_t *ctx) {
+
+  ctx->first_empty_rel = -1;
+  ctx->worst_rel = -1;
+  ctx->worst_dist = 0;
+  ctx->worst_cost = 0;
+
+  for (u16 rel_idx = 0; rel_idx < ctx->slots; ++rel_idx) {
+
+    size_t               idx = vp_frontier_site_abs_idx(ctx, rel_idx);
     vp_frontier_entry_t *entry = &afl->vp_frontier[idx];
     struct queue_entry  *owner = entry->owner;
-    u32                  slot_dist = entry->dist;
+    u32                  dist = entry->dist;
 
-    if (clear_stale && owner && owner->disabled) {
+    if (vp_frontier_slot_is_empty(owner, dist)) {
 
-      vp_clear_slot(afl, idx);
-      owner = NULL;
-
-    }
-
-    u8 is_empty = vp_frontier_slot_is_empty(owner, slot_dist);
-
-    if (!is_empty && entry->tag == tag) {
-
-      scan->tag_match_idx = (s32)idx;
-      break;
+      if (ctx->first_empty_rel < 0) ctx->first_empty_rel = (s32)rel_idx;
+      continue;
 
     }
 
-    if (is_empty) {
+    if (ctx->worst_rel < 0 || dist > ctx->worst_dist ||
+        (dist == ctx->worst_dist && entry->cost > ctx->worst_cost)) {
 
-      if (scan->first_empty_idx < 0) scan->first_empty_idx = (s32)idx;
-
-    } else if (scan->worst_idx < 0 || slot_dist > scan->worst_dist ||
-
-               (slot_dist == scan->worst_dist &&
-                entry->cost > scan->worst_cost)) {
-
-      scan->worst_idx = (s32)idx;
-      scan->worst_dist = slot_dist;
-      scan->worst_cost = entry->cost;
+      ctx->worst_rel = (s32)rel_idx;
+      ctx->worst_dist = dist;
+      ctx->worst_cost = entry->cost;
 
     }
 
@@ -813,66 +795,135 @@ static inline void vp_frontier_site_scan_slots(afl_state_t *afl, u32 site,
 
 }
 
-/* Probe-only decision used for admission:
-   would (site,tag,dist) improve this site's frontier by distance only? */
-static inline u8 vp_frontier_site_would_improve(afl_state_t *afl, u32 site,
-                                                u16 tag, u32 dist) {
+/* Initialize per-site frontier context once; optionally purge disabled owners.
+ */
+static inline void vp_frontier_site_ctx_init(afl_state_t            *afl,
+                                             u32                     site,
+                                             u8                      clear_stale,
+                                             vp_frontier_site_ctx_t *ctx) {
 
-  if (!dist) return 0;
+  ctx->base = vp_site_base(afl, site);
+  ctx->slots = (u16)afl->value_profile_slots;
 
-  vp_slot_scan_t scan;
-  vp_frontier_site_scan_slots(afl, site, tag, 0, &scan);
+  if (clear_stale) {
 
-  if (scan.tag_match_idx >= 0) {
+    for (u16 rel_idx = 0; rel_idx < ctx->slots; ++rel_idx) {
 
-    return dist < afl->vp_frontier[scan.tag_match_idx].dist;
+      size_t              idx = vp_frontier_site_abs_idx(ctx, rel_idx);
+      struct queue_entry *owner = afl->vp_frontier[idx].owner;
+      if (owner && owner->disabled) { vp_clear_slot(afl, idx); }
+
+    }
 
   }
 
-  if (scan.first_empty_idx >= 0) return 1;
-  assert(scan.worst_idx >= 0);
-  return dist < scan.worst_dist;
+  vp_frontier_site_ctx_recompute(afl, ctx);
 
 }
 
-/* Mutating apply path for one site candidate; updates slot ownership and
-   reference counts when replacement succeeds. */
-static inline u8 vp_frontier_site_apply(afl_state_t *afl, struct queue_entry *q,
-                                        u32 site, u16 tag, u32 dist, u64 cost) {
+/* Find the worst active slot for a tag (highest dist, then highest cost).
+   Returns relative slot index or -1 if tag is not present. */
+static inline s32 vp_frontier_site_find_worst_tag(afl_state_t *afl,
+                                                   vp_frontier_site_ctx_t *ctx,
+                                                   u16 tag) {
 
-  if (!dist) return 0;
+  assert(ctx->first_empty_rel < 0);
 
-  vp_slot_scan_t scan;
-  vp_frontier_site_scan_slots(afl, site, tag, 1, &scan);
+  s32 worst_tag_rel = -1;
+  u32 worst_tag_dist = 0;
+  u64 worst_tag_cost = 0;
 
-  s32 idx = -1;
-  if (scan.tag_match_idx >= 0) {
+  for (u16 rel_idx = 0; rel_idx < ctx->slots; ++rel_idx) {
 
-    if (!vp_is_better(dist, cost, afl->vp_frontier[scan.tag_match_idx].dist,
-                      afl->vp_frontier[scan.tag_match_idx].cost))
-      return 0;
-    idx = scan.tag_match_idx;
+    size_t               idx = vp_frontier_site_abs_idx(ctx, rel_idx);
+    vp_frontier_entry_t *entry = &afl->vp_frontier[idx];
+    if (entry->tag != tag) continue;
 
-  } else if (scan.first_empty_idx >= 0) {
+    if (worst_tag_rel < 0 || entry->dist > worst_tag_dist ||
+        (entry->dist == worst_tag_dist && entry->cost > worst_tag_cost)) {
 
-    idx = scan.first_empty_idx;
+      worst_tag_rel = (s32)rel_idx;
+      worst_tag_dist = entry->dist;
+      worst_tag_cost = entry->cost;
+
+    }
+
+  }
+
+  return worst_tag_rel;
+
+}
+
+/* Probe-only decision used for admission, using caller-provided site context. */
+static inline u8 vp_frontier_site_would_improve_ctx(afl_state_t *afl,
+                                                    vp_frontier_site_ctx_t *ctx,
+                                                    u16 tag, u32 dist) {
+
+  if (!dist || dist >= VP_DIST_UNSOLVED) return 0;
+  if (ctx->first_empty_rel >= 0) return 1;
+
+  s32 tag_rel = vp_frontier_site_find_worst_tag(afl, ctx, tag);
+  if (tag_rel >= 0) {
+
+    size_t idx = vp_frontier_site_abs_idx(ctx, (u16)tag_rel);
+    return dist < afl->vp_frontier[idx].dist;
+
+  }
+
+  assert(ctx->worst_rel >= 0);
+  return dist < ctx->worst_dist;
+
+}
+
+/* Apply one candidate to a site context; updates frontier slots in-place and
+   refreshes cached first-empty / worst summaries only on successful updates. */
+static inline u8 vp_frontier_site_apply_ctx(afl_state_t            *afl,
+                                            struct queue_entry     *q,
+                                            vp_frontier_site_ctx_t *ctx,
+                                            u16 tag, u32 dist,
+                                            u64 cost) {
+
+  if (!dist || dist >= VP_DIST_UNSOLVED) return 0;
+
+  s32    chosen_rel = -1;
+  size_t chosen_idx;
+  if (ctx->first_empty_rel >= 0) {
+
+    chosen_rel = ctx->first_empty_rel;
+    chosen_idx = vp_frontier_site_abs_idx(ctx, (u16)chosen_rel);
 
   } else {
 
-    assert(scan.worst_idx >= 0);
-    if (!vp_is_better(dist, cost, scan.worst_dist, scan.worst_cost)) return 0;
-    idx = scan.worst_idx;
+    s32 tag_rel = vp_frontier_site_find_worst_tag(afl, ctx, tag);
+    if (tag_rel >= 0) {
+
+      chosen_rel = tag_rel;
+      chosen_idx = vp_frontier_site_abs_idx(ctx, (u16)chosen_rel);
+      if (!vp_is_better(dist, cost, afl->vp_frontier[chosen_idx].dist,
+                        afl->vp_frontier[chosen_idx].cost))
+        return 0;
+
+    } else {
+
+      assert(ctx->worst_rel >= 0);
+      if (!vp_is_better(dist, cost, ctx->worst_dist, ctx->worst_cost))
+        return 0;
+      chosen_rel = ctx->worst_rel;
+      chosen_idx = vp_frontier_site_abs_idx(ctx, (u16)chosen_rel);
+
+    }
 
   }
 
-  struct queue_entry *old = afl->vp_frontier[idx].owner;
+  struct queue_entry *old = afl->vp_frontier[chosen_idx].owner;
   if (old && old != q) vp_dec_ref(afl, old);
   if (old != q) { vp_inc_ref(q); }
 
-  afl->vp_frontier[idx].owner = q;
-  afl->vp_frontier[idx].tag = tag;
-  afl->vp_frontier[idx].dist = dist;
-  afl->vp_frontier[idx].cost = cost;
+  afl->vp_frontier[chosen_idx].owner = q;
+  afl->vp_frontier[chosen_idx].tag = tag;
+  afl->vp_frontier[chosen_idx].dist = dist;
+  afl->vp_frontier[chosen_idx].cost = cost;
+  vp_frontier_site_ctx_recompute(afl, ctx);
   return 1;
 
 }
@@ -949,11 +1000,14 @@ static inline u8 vp_apply_site_candidates(afl_state_t        *afl,
                                           vp_site_candidate_t *candidates,
                                           u32 cand_count, u64 cost) {
 
+  vp_frontier_site_ctx_t ctx;
+  vp_frontier_site_ctx_init(afl, site, cand_count ? 1 : 0, &ctx);
+
   u8 site_changed = 0;
   for (u32 i = 0; i < cand_count; ++i) {
 
-    if (vp_frontier_site_apply(afl, q, site, candidates[i].tag,
-                               candidates[i].dist, cost))
+    if (vp_frontier_site_apply_ctx(afl, q, &ctx, candidates[i].tag,
+                                   candidates[i].dist, cost))
       site_changed = 1;
 
   }
@@ -990,11 +1044,13 @@ u8 vp_frontier_would_improve(afl_state_t *afl) {
     vp_site_candidate_t candidates[VP_MAX_SLOTS];
     u32                 cand_count = vp_collect_runtime_site_candidates(
         site, active_mask, candidates, max_slot_count);
+    vp_frontier_site_ctx_t ctx;
+    vp_frontier_site_ctx_init(afl, k, 0, &ctx);
 
     for (u32 i = 0; i < cand_count; ++i) {
 
-      if (vp_frontier_site_would_improve(afl, k, candidates[i].tag,
-                                         candidates[i].dist))
+      if (vp_frontier_site_would_improve_ctx(afl, &ctx, candidates[i].tag,
+                                             candidates[i].dist))
         return 1;
 
     }
@@ -1166,4 +1222,3 @@ void vp_update_activation(afl_state_t *afl) {
   }
 
 }
-
