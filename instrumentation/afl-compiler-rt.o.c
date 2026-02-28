@@ -67,6 +67,7 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <sys/mman.h>
 #ifdef __linux__
   #include <linux/futex.h>
+  #include <sys/prctl.h>
   #include <sys/syscall.h>
 
 static inline long sys_futex(void *uaddr, int op, int val,
@@ -1269,6 +1270,12 @@ static void __afl_start_forkserver(void) {
 
   if (__afl_sharedmem_fuzzing) { __afl_map_shm_fuzz(); }
 
+#ifdef __linux__
+  /* Ensure the forkserver dies when afl-fuzz dies, so orphaned children
+     (who set their own PR_SET_PDEATHSIG) are cleaned up transitively. */
+  if (__afl_child_sync) { prctl(PR_SET_PDEATHSIG, SIGKILL); }
+#endif
+
   while (1) {
 
     int status;
@@ -1352,6 +1359,13 @@ static void __afl_start_forkserver(void) {
 
         signal(SIGCHLD, old_sigchld_handler);
         signal(SIGTERM, old_sigterm_handler);
+
+#ifdef __linux__
+        /* When the forkserver (our parent) dies, the kernel delivers
+           SIGKILL to us.  This guarantees the child never hangs in
+           FUTEX_WAIT if afl-fuzz is killed unexpectedly. */
+        if (__afl_child_sync) { prctl(PR_SET_PDEATHSIG, SIGKILL); }
+#endif
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
@@ -1509,20 +1523,13 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
 
       /* Wait until the fuzzer signals us to run the next test case.
-         Use a timeout so the child doesn't hang forever if afl-fuzz dies. */
-      struct timespec wait_timeout = {.tv_sec = 60, .tv_nsec = 0};
-      u32             sync_val;
+         No timeout needed: PR_SET_PDEATHSIG ensures the kernel delivers
+         SIGKILL if the forkserver (our parent) dies. */
+      u32 sync_val;
       while ((sync_val = __atomic_load_n(__afl_child_sync, __ATOMIC_ACQUIRE)) ==
              AFL_CHILD_DONE) {
 
-        int r = sys_futex(__afl_child_sync, FUTEX_WAIT, AFL_CHILD_DONE,
-                          &wait_timeout, NULL, 0);
-        if (r == -1 && errno == ETIMEDOUT) {
-
-          /* Fuzzer didn't wake us in time - it likely died. Exit. */
-          _exit(1);
-
-        }
+        sys_futex(__afl_child_sync, FUTEX_WAIT, AFL_CHILD_DONE, NULL, NULL, 0);
 
       }
 
