@@ -3068,6 +3068,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
   memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
+  afl->shm.cmp_map->control_len = 0;
+  afl->shm.cmp_map->control_drops = 0;
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) {
 
     afl->queue_cur->colorized = CMPLOG_LVL_MAX;
@@ -3118,7 +3120,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 #endif
 
   u32 k;
-  for (k = 0; k < CMP_MAP_W; ++k) {
+  u8  use_cmp_control = !afl->shm.cmp_map->control_drops;
+  u32 cmp_iter_max =
+      use_cmp_control ? afl->shm.cmp_map->control_len : (u32)CMP_MAP_W;
+
+  for (u32 i = 0; i < cmp_iter_max; ++i) {
+
+    k = use_cmp_control ? afl->shm.cmp_map->control[i] : i;
 
     if (!afl->shm.cmp_map->headers[k].hits) { continue; }
 
@@ -3149,7 +3157,9 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-  for (k = 0; k < CMP_MAP_W; ++k) {
+  for (u32 i = 0; i < cmp_iter_max; ++i) {
+
+    k = use_cmp_control ? afl->shm.cmp_map->control[i] : i;
 
     if (!afl->shm.cmp_map->headers[k].hits) { continue; }
 

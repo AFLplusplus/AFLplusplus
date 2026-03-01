@@ -2458,6 +2458,22 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
 ///// CmpLog instrumentation
 
+/* Track touched cmp_map sites for this execution to avoid full-map scans in
+   VP and Redqueen consumers. */
+static inline void cmplog_append_control(struct cmp_map *cmp, u16 site_id) {
+
+  if (cmp->control_len < CMP_MAP_W) {
+
+    cmp->control[cmp->control_len++] = site_id;
+
+  } else {
+
+    ++cmp->control_drops;
+
+  }
+
+}
+
 void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
   // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
@@ -2471,6 +2487,12 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+    cmplog_append_control(__afl_cmp_map, (u16)k);
+
+  }
 
   u32 hits;
 
@@ -2504,6 +2526,12 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+    cmplog_append_control(__afl_cmp_map, (u16)k);
+
+  }
 
   u32 hits;
 
@@ -2544,6 +2572,12 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
+  if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+    cmplog_append_control(__afl_cmp_map, (u16)k);
+
+  }
+
   u32 hits;
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
@@ -2582,6 +2616,12 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+    cmplog_append_control(__afl_cmp_map, (u16)k);
+
+  }
 
   u32 hits;
 
@@ -2645,6 +2685,12 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
+  if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+    cmplog_append_control(__afl_cmp_map, (u16)k);
+
+  }
+
   u32 hits;
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
@@ -2689,6 +2735,12 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+    cmplog_append_control(__afl_cmp_map, (u16)k);
+
+  }
 
   u32 hits;
 
@@ -3252,6 +3304,12 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
     k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
                     (CMP_MAP_W - 1));
 
+    if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+      cmplog_append_control(__afl_cmp_map, (u16)k);
+
+    }
+
     u32 hits;
 
     if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
@@ -3402,6 +3460,12 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
 
+  if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+    cmplog_append_control(__afl_cmp_map, (u16)k);
+
+  }
+
   u32 hits;
 
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
@@ -3463,6 +3527,12 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+    cmplog_append_control(__afl_cmp_map, (u16)k);
+
+  }
 
   u32 hits;
 
@@ -3527,6 +3597,12 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   // fprintf(stderr, "RTN2 %u\n", len);
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(!__afl_cmp_map->headers[k].hits)) {
+
+    cmplog_append_control(__afl_cmp_map, (u16)k);
+
+  }
 
   u32 hits;
 

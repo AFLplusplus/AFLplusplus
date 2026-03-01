@@ -85,6 +85,9 @@ struct cmp_map {
 
   struct cmp_header   headers[CMP_MAP_W];
   struct cmp_operands log[CMP_MAP_W][CMP_MAP_H];
+  u32                 control_len; /* Number of touched site ids in control[] */
+  u32 control_drops;               /* Dropped appends when control[] is full  */
+  u16 control[CMP_MAP_W];            /* Touched site ids for this execution */
 
 };
 

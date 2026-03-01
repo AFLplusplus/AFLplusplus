@@ -239,6 +239,8 @@ u8 vp_run_cmplog(afl_state_t *afl, void *mem, u32 len) {
 
   memcpy(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size);
   memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
+  afl->shm.cmp_map->control_len = 0;
+  afl->shm.cmp_map->control_drops = 0;
   afl->cmplog_fsrv.custom_input = afl->fsrv.custom_input;
   afl->cmplog_fsrv.custom_input_len = afl->fsrv.custom_input_len;
 
@@ -294,6 +296,8 @@ void vp_prepare_exec(afl_state_t *afl, afl_forkserver_t *fsrv) {
     /* Inline CmpLog source: start each main execution with a clean header set
        so VP reads only comparisons produced by this input. */
     memset(afl->shm.cmp_map->headers, 0, sizeof(afl->shm.cmp_map->headers));
+    afl->shm.cmp_map->control_len = 0;
+    afl->shm.cmp_map->control_drops = 0;
 
   }
 
@@ -471,6 +475,67 @@ static inline u32 vp_site_hits(const struct cmp_header *hdr) {
 /* Compute value profile features from the current cmp_map.
    Check each feature against virgin_val_prof bitmap.
    Returns the number of newly consumed value profile bits. */
+static inline u32 vp_check_cmpmap_site(struct cmp_map *cmp, u8 *virgin, u32 k) {
+
+  u32 hits = vp_site_hits(&cmp->headers[k]);
+  u32 new_bits = 0;
+
+  if (cmp->headers[k].type == CMP_TYPE_INS) {
+
+    u32 shape = SHAPE_BYTES(cmp->headers[k].shape);
+
+    for (u32 j = 0; j < hits; j++) {
+
+      u32 hamming, abs_dist;
+      if (!compute_ins_metrics(&cmp->log[k][j], shape, VP_DIST_WRAPPED,
+                               &hamming, &abs_dist))
+        continue;
+
+      /* Two features per INS compare: hamming and absolute distance.
+         Each hashed independently via hash_fmix32 for uniform scattering. */
+      u32 idx_h =
+          hash_fmix32(k * 256 + (hamming - 1)) % (VALUE_PROFILE_MAP_SIZE * 8);
+      u32 idx_a = hash_fmix32(k * 256 + 128 + (abs_dist - 1)) %
+                  (VALUE_PROFILE_MAP_SIZE * 8);
+
+      new_bits += clear_virgin_bit(virgin, idx_h);
+      new_bits += clear_virgin_bit(virgin, idx_a);
+
+    }
+
+  } else {                                                  /* CMP_TYPE_RTN */
+
+    struct cmpfn_operands *rtn = (struct cmpfn_operands *)cmp->log[k];
+
+    for (u32 j = 0; j < hits; j++) {
+
+      u32 max_len, prefix_len;
+      if (analyze_rtn_compare(&rtn[j], &max_len, &prefix_len)) { continue; }
+
+      u32 first_diff_hamming = 0;
+      if (prefix_len < max_len) {
+
+        first_diff_hamming =
+            popcount_u8(rtn[j].v0[prefix_len] ^ rtn[j].v1[prefix_len]);
+
+      }
+
+      /* Single feature per RTN compare: per-position hamming at full
+         resolution.  Each prefix advance opens 8 fresh feature slots.
+         Hashed via hash_fmix32 for uniform scattering. */
+      u32 idx =
+          hash_fmix32(k * 256 + prefix_len * 8 + (first_diff_hamming - 1)) %
+          (VALUE_PROFILE_MAP_SIZE * 8);
+
+      new_bits += clear_virgin_bit(virgin, idx);
+
+    }
+
+  }
+
+  return new_bits;
+
+}
 
 u32 vp_check_cmpmap(afl_state_t *afl) {
 
@@ -481,65 +546,15 @@ u32 vp_check_cmpmap(afl_state_t *afl) {
   if (unlikely(!cmp || !virgin)) return 0;
   vp_reset_trigger_bitmap(afl);
 
-  for (u32 k = 0; k < CMP_MAP_W; k++) {
+  u8  use_cmp_control = !cmp->control_drops;
+  u32 cmp_iter_max = use_cmp_control ? cmp->control_len : (u32)CMP_MAP_W;
+  for (u32 i = 0; i < cmp_iter_max; ++i) {
 
+    u32 k = use_cmp_control ? cmp->control[i] : i;
     if (!cmp->headers[k].hits) continue;
 
-    u32 hits = vp_site_hits(&cmp->headers[k]);
     afl->vp_trigger_bitmap[k >> 6] |= (1ULL << (k & 63));
-
-    if (cmp->headers[k].type == CMP_TYPE_INS) {
-
-      u32 shape = SHAPE_BYTES(cmp->headers[k].shape);
-
-      for (u32 j = 0; j < hits; j++) {
-
-        u32 hamming, abs_dist;
-        if (!compute_ins_metrics(&cmp->log[k][j], shape, VP_DIST_WRAPPED,
-                                 &hamming, &abs_dist))
-          continue;
-
-        /* Two features per INS compare: hamming and absolute distance.
-           Each hashed independently via hash_fmix32 for uniform scattering. */
-        u32 idx_h =
-            hash_fmix32(k * 256 + (hamming - 1)) % (VALUE_PROFILE_MAP_SIZE * 8);
-        u32 idx_a = hash_fmix32(k * 256 + 128 + (abs_dist - 1)) %
-                    (VALUE_PROFILE_MAP_SIZE * 8);
-
-        new_bits += clear_virgin_bit(virgin, idx_h);
-        new_bits += clear_virgin_bit(virgin, idx_a);
-
-      }
-
-    } else {                                                /* CMP_TYPE_RTN */
-
-      struct cmpfn_operands *rtn = (struct cmpfn_operands *)cmp->log[k];
-
-      for (u32 j = 0; j < hits; j++) {
-
-        u32 max_len, prefix_len;
-        if (analyze_rtn_compare(&rtn[j], &max_len, &prefix_len)) { continue; }
-
-        u32 first_diff_hamming = 0;
-        if (prefix_len < max_len) {
-
-          first_diff_hamming =
-              popcount_u8(rtn[j].v0[prefix_len] ^ rtn[j].v1[prefix_len]);
-
-        }
-
-        /* Single feature per RTN compare: per-position hamming at full
-           resolution.  Each prefix advance opens 8 fresh feature slots.
-           Hashed via hash_fmix32 for uniform scattering. */
-        u32 idx =
-            hash_fmix32(k * 256 + prefix_len * 8 + (first_diff_hamming - 1)) %
-            (VALUE_PROFILE_MAP_SIZE * 8);
-
-        new_bits += clear_virgin_bit(virgin, idx);
-
-      }
-
-    }
+    new_bits += vp_check_cmpmap_site(cmp, virgin, k);
 
   }
 
@@ -743,12 +758,12 @@ static inline u32 vp_collect_runtime_site_candidates(const vp_site_t *site,
 
 typedef struct {
 
-  size_t base;                      /* First frontier index for this site      */
-  u16    slots;                     /* Active slots for this run (1..16)       */
-  s32    first_empty_rel;           /* First empty slot (relative), else -1    */
-  s32    worst_rel;                 /* Worst resident slot (relative), else -1 */
-  u32    worst_dist;                /* Distance of worst_rel                   */
-  u64    worst_cost;                /* Cost tie-break value of worst_rel       */
+  size_t base;                   /* First frontier index for this site      */
+  u16    slots;                  /* Active slots for this run (1..16)       */
+  s32    first_empty_rel;        /* First empty slot (relative), else -1    */
+  s32    worst_rel;              /* Worst resident slot (relative), else -1 */
+  u32    worst_dist;             /* Distance of worst_rel                   */
+  u64    worst_cost;             /* Cost tie-break value of worst_rel       */
 
 } vp_frontier_site_ctx_t;
 
@@ -797,9 +812,8 @@ static inline void vp_frontier_site_ctx_recompute(afl_state_t            *afl,
 
 /* Initialize per-site frontier context once; optionally purge disabled owners.
  */
-static inline void vp_frontier_site_ctx_init(afl_state_t            *afl,
-                                             u32                     site,
-                                             u8                      clear_stale,
+static inline void vp_frontier_site_ctx_init(afl_state_t *afl, u32 site,
+                                             u8 clear_stale,
                                              vp_frontier_site_ctx_t *ctx) {
 
   ctx->base = vp_site_base(afl, site);
@@ -823,9 +837,9 @@ static inline void vp_frontier_site_ctx_init(afl_state_t            *afl,
 
 /* Find the worst active slot for a tag (highest dist, then highest cost).
    Returns relative slot index or -1 if tag is not present. */
-static inline s32 vp_frontier_site_find_worst_tag(afl_state_t *afl,
-                                                   vp_frontier_site_ctx_t *ctx,
-                                                   u16 tag) {
+static inline s32 vp_frontier_site_find_worst_tag(afl_state_t            *afl,
+                                                  vp_frontier_site_ctx_t *ctx,
+                                                  u16                     tag) {
 
   assert(ctx->first_empty_rel < 0);
 
@@ -854,8 +868,9 @@ static inline s32 vp_frontier_site_find_worst_tag(afl_state_t *afl,
 
 }
 
-/* Probe-only decision used for admission, using caller-provided site context. */
-static inline u8 vp_frontier_site_would_improve_ctx(afl_state_t *afl,
+/* Probe-only decision used for admission, using caller-provided site context.
+ */
+static inline u8 vp_frontier_site_would_improve_ctx(afl_state_t            *afl,
                                                     vp_frontier_site_ctx_t *ctx,
                                                     u16 tag, u32 dist) {
 
@@ -880,8 +895,7 @@ static inline u8 vp_frontier_site_would_improve_ctx(afl_state_t *afl,
 static inline u8 vp_frontier_site_apply_ctx(afl_state_t            *afl,
                                             struct queue_entry     *q,
                                             vp_frontier_site_ctx_t *ctx,
-                                            u16 tag, u32 dist,
-                                            u64 cost) {
+                                            u16 tag, u32 dist, u64 cost) {
 
   if (!dist || dist >= VP_DIST_UNSOLVED) return 0;
 
@@ -906,8 +920,7 @@ static inline u8 vp_frontier_site_apply_ctx(afl_state_t            *afl,
     } else {
 
       assert(ctx->worst_rel >= 0);
-      if (!vp_is_better(dist, cost, ctx->worst_dist, ctx->worst_cost))
-        return 0;
+      if (!vp_is_better(dist, cost, ctx->worst_dist, ctx->worst_cost)) return 0;
       chosen_rel = ctx->worst_rel;
       chosen_idx = vp_frontier_site_abs_idx(ctx, (u16)chosen_rel);
 
@@ -1222,3 +1235,4 @@ void vp_update_activation(afl_state_t *afl) {
   }
 
 }
+
