@@ -1971,6 +1971,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->top_rated_vp = ck_alloc(CMP_MAP_W * sizeof(void *));
     afl->top_rated_vp_dist = ck_alloc(CMP_MAP_W * sizeof(u32));
+    afl->value_profile_replay_idx = 0;
     for (u32 i = 0; i < CMP_MAP_W; ++i) {
 
       afl->top_rated_vp_dist[i] = VP_DIST_UNSOLVED;

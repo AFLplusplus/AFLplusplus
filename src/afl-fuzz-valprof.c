@@ -1199,6 +1199,68 @@ void vp_apply_delayed_evictions(afl_state_t *afl) {
 
 }
 
+/* Collect VP signal for one replayed queue entry.
+   For child-CmpLog source, run only the CmpLog child to avoid double-running
+   the input. For runtime/inline sources, run the main target once first. */
+static inline u8 vp_replay_collect_signal(afl_state_t *afl, u8 *mem, u32 len) {
+
+  if (afl->value_profile_source == VP_SOURCE_CMPLOG_CHILD) {
+
+    return vp_run_cmplog(afl, mem, len);
+
+  }
+
+  void *exec_mem = mem;
+  u32   exec_len = write_to_testcase(afl, &exec_mem, len, 0);
+  if (!exec_len) return 0;
+
+  u8 fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+  if (unlikely(fault == FSRV_RUN_ERROR)) {
+
+    FATAL("Unable to execute target application");
+
+  }
+
+  if (fault != afl->crash_mode && fault != FSRV_RUN_NOBITS) return 0;
+
+  return vp_ensure_cmp_data_ready(afl, mem, len);
+
+}
+
+/* Replay queue entries once VP activates in stagnation mode so the frontier
+   is immediately based on existing inputs too. */
+static void vp_replay_queue(afl_state_t *afl) {
+
+  u32 start = afl->value_profile_replay_idx;
+  u32 end = afl->queued_items;
+  if (start > end) start = end;
+  if (start == end) {
+
+    afl->value_profile_replay_idx = end;
+    return;
+
+  }
+
+  u32 i = start;
+  for (; i < end; ++i) {
+
+    if (afl->stop_soon) break;
+
+    struct queue_entry *q = afl->queue_buf[i];
+    if (unlikely(!q || q->disabled || !q->len)) continue;
+
+    u8 *mem = queue_testcase_get(afl, q);
+    if (!vp_replay_collect_signal(afl, mem, q->len)) continue;
+
+    if (afl->value_profile_level == 2) { (void)vp_check_cmpmap(afl); }
+    vp_frontier_apply_with_cost(afl, q, vp_entry_cost(q));
+
+  }
+
+  afl->value_profile_replay_idx = i;
+
+}
+
 /* Check stagnation and activate/deactivate value profiling. */
 
 void vp_update_activation(afl_state_t *afl) {
@@ -1217,6 +1279,7 @@ void vp_update_activation(afl_state_t *afl) {
 
     afl->value_profile_active = 1;
     afl->value_profile_enabled_cycle = afl->queue_cycle;
+    vp_replay_queue(afl);
     afl->score_changed = 1;
     OKF("Stagnation (%llu s), enabling value profiling.",
         (unsigned long long)(no_find_ms / 1000));
@@ -1229,6 +1292,7 @@ void vp_update_activation(afl_state_t *afl) {
 
     afl->value_profile_active = 0;
     afl->value_profile_enabled_cycle = 0;
+    afl->value_profile_replay_idx = afl->queued_items;
     afl->score_changed = 1;
     OKF("New edge coverage found, disabling value profiling.");
 

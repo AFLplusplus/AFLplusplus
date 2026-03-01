@@ -44,6 +44,15 @@ fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
 
 }
 
+u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
+
+  static u8 dummy[4];
+  (void)afl;
+  (void)q;
+  return dummy;
+
+}
+
 /* remap exit -> assert, then use cmocka's mock_assert
    (compile with `--wrap=exit`) */
 extern void exit(int status);

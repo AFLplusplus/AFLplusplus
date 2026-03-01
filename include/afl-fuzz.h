@@ -861,6 +861,8 @@ typedef struct afl_state {
   u8  value_profile_active;            /* Currently active?                 */
   u64 value_profile_finds;             /* Inputs saved via value profiling  */
   u64 value_profile_enabled_cycle;     /* queue_cycle when VP was enabled   */
+  u32 value_profile_replay_idx;        /* Next queue index to replay when   */
+                                     /* stagnation mode re-activates VP   */
   struct queue_entry **top_rated_vp;   /* Best entry per CMP site (by dist) */
   u32 *top_rated_vp_dist;              /* Per-site best distance            */
   vp_frontier_entry_t *vp_frontier;    /* Frontier slots                    */
