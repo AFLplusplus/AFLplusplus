@@ -559,6 +559,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
   u8  keeping = 0, res, is_timeout = 0, vp_entry = 0;
+  u8  vp_restore_active = 0, vp_prev_active = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
   s32 fd;
   u32 cksum_simplified = 0, cksum_unique = 0;
@@ -840,9 +841,33 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
+    if (unlikely(afl->value_profile_active && afl->value_profile_level == 1 &&
+                 afl->value_profile_source == VP_SOURCE_RUNTIME_SHM)) {
+
+      /* Preserve runtime VP state from this execution across calibration
+         re-runs by temporarily disabling VP collection. */
+      vp_prev_active = afl->value_profile_active;
+      afl->value_profile_active = 0;
+      vp_restore_active = 1;
+
+    }
+
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
     res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
+
+    if (vp_restore_active) {
+
+      afl->value_profile_active = vp_prev_active;
+      if (likely(afl->shm.vp_map)) {
+
+        afl->shm.vp_map->enabled = vp_prev_active ? 1U : 0U;
+
+      }
+
+      vp_restore_active = 0;
+
+    }
 
     if (unlikely(res == FSRV_RUN_ERROR)) {
 

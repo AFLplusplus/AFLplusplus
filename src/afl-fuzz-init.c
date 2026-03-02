@@ -915,6 +915,9 @@ void perform_dry_run(afl_state_t *afl) {
     if (unlikely(!q || q->disabled)) { continue; }
 
     u8  res;
+    u8  vp_restore_active = 0;
+    u8  vp_prev_active = 0;
+    u8  vp_runtime_refresh = 0;
     s32 fd;
 
     if (unlikely(!q->len)) {
@@ -939,7 +942,31 @@ void perform_dry_run(afl_state_t *afl) {
 
     close(fd);
 
+    if (unlikely(afl->value_profile_active && afl->value_profile_level == 1 &&
+                 afl->value_profile_source == VP_SOURCE_RUNTIME_SHM)) {
+
+      /* Keep runtime VP state stable while calibration re-runs this seed. */
+      vp_prev_active = afl->value_profile_active;
+      afl->value_profile_active = 0;
+      vp_restore_active = 1;
+      vp_runtime_refresh = 1;
+
+    }
+
     res = calibrate_case(afl, q, use_mem, 0, 1);
+
+    if (vp_restore_active) {
+
+      afl->value_profile_active = vp_prev_active;
+      if (likely(afl->shm.vp_map)) {
+
+        afl->shm.vp_map->enabled = vp_prev_active ? 1U : 0U;
+
+      }
+
+      vp_restore_active = 0;
+
+    }
 
     /* For AFLFast schedules we update the queue entry */
     if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE) &&
@@ -952,7 +979,35 @@ void perform_dry_run(afl_state_t *afl) {
     if (afl->value_profile_mode && afl->value_profile_active &&
         !q->cal_failed && (res == afl->crash_mode || res == FSRV_RUN_NOBITS)) {
 
-      if (vp_ensure_cmp_data_ready(afl, use_mem, read_len)) {
+      u8 vp_ready = 0;
+
+      if (afl->value_profile_level == 1 &&
+          afl->value_profile_source == VP_SOURCE_RUNTIME_SHM &&
+          vp_runtime_refresh) {
+
+        /* Dry-run L1/runtime: collect one post-calibration VP sample. */
+        void *exec_mem = use_mem;
+        u32   exec_len = write_to_testcase(afl, &exec_mem, read_len, 0);
+        if (exec_len) {
+
+          u8 fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+          if (unlikely(fault == FSRV_RUN_ERROR)) {
+
+            FATAL("Unable to execute target application");
+
+          }
+
+          vp_ready = (fault == afl->crash_mode || fault == FSRV_RUN_NOBITS);
+
+        }
+
+      } else {
+
+        vp_ready = vp_ensure_cmp_data_ready(afl, use_mem, read_len);
+
+      }
+
+      if (vp_ready) {
 
         if (afl->value_profile_level == 2) { vp_check_cmpmap(afl); }
 

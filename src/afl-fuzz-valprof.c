@@ -282,10 +282,10 @@ void vp_prepare_exec(afl_state_t *afl, afl_forkserver_t *fsrv) {
 
       ++vp->exec_id;
       if (unlikely(!vp->exec_id)) { ++vp->exec_id; }
+      vp->control_len = 0;
 
     }
 
-    vp->control_len = 0;
     return;
 
   }
