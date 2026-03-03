@@ -543,8 +543,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * TRIMMING *
    ************/
 
+  /* TODO: Add VP-aware trimming so frontier owners can be minimized without
+     relying on this coarse skip. */
   if (unlikely(!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
-               !afl->disable_trim)) {
+               !afl->disable_trim &&
+               !(afl->value_profile_active && afl->queue_cur->vp_ref_cnt))) {
 
     u32 old_len = afl->queue_cur->len;
 
@@ -3833,8 +3836,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
    * TRIMMING *
    ************/
 
+  /* TODO: Add VP-aware trimming so frontier owners can be minimized without
+     relying on this coarse skip. */
   if (unlikely(!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
-               !afl->disable_trim)) {
+               !afl->disable_trim &&
+               !(afl->value_profile_active && afl->queue_cur->vp_ref_cnt))) {
 
     u32 old_len = afl->queue_cur->len;
 
@@ -6562,4 +6568,3 @@ u8 fuzz_one(afl_state_t *afl) {
   return (key_val_lv_1 | key_val_lv_2);
 
 }
-
