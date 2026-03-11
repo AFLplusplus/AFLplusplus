@@ -892,6 +892,7 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
   fsrv->frida_mode   = frida_mode;
   fsrv->qemu_mode    = qemu_mode;
   fsrv->unicorn_mode = unicorn_mode;
+  fsrv->nyx_mode     = nyx_mode;
 
   afl_fsrv_setup_preload(fsrv, target_bin);
 
@@ -1246,6 +1247,7 @@ static void cmin_detect_map_size(void) {
     fsrv.frida_mode   = frida_mode;
     fsrv.qemu_mode    = qemu_mode;
     fsrv.unicorn_mode = unicorn_mode;
+    fsrv.nyx_mode     = nyx_mode;
 
     afl_fsrv_setup_preload(&fsrv, target_bin);
     fsrv.target_path = target_bin;
@@ -1841,7 +1843,10 @@ static void test_target_binary(void) {
   sharedmem_t      shm = {0};
   u8               stop_soon = 0;
 
-  char **argv = prepare_fsrv(&fsrv, &shm, map_size, (u32)-1, NULL);
+  /* Use worker id 0 for the probe instance.
+     (u32)-1 collides with the NYX sentinel (0xFFFFFFFF) set in
+     afl_fsrv_init() and triggers NYX_PRE_FATAL in afl_fsrv_start(). */
+  char **argv = prepare_fsrv(&fsrv, &shm, map_size, 0, NULL);
 
   /* Set up shared-memory test-case delivery; the fork server negotiates
      shmem-fuzz support during the handshake (needed for Frida/QEMU). */
@@ -1935,7 +1940,11 @@ static void test_target_binary(void) {
 static void execute_cmin(void) {
 
   cmin_detect_map_size();
-  test_target_binary();
+
+  /* NYX performs validation inside the first worker execution.
+     Running test_target_binary() beforehand breaks the NYX setup. */
+  if (!nyx_mode)
+    test_target_binary();
 
   effective_map_size = map_size;
   if (!edges_only) effective_map_size *= 8;
