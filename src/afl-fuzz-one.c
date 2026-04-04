@@ -37,12 +37,11 @@ static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
 
   double range_sele =
       (double)afl->probability_now[afl->swarm_now][OPERATOR_NUMber - 1];
-  double sele =
-      ((double)((double)rand_below(afl, 10000) * 0.0001 * range_sele));
+  double sele = ((double)(rand_next_percent(afl) * range_sele));
 
   if (likely(sele >= afl->probability_now[afl->swarm_now][0])) {
 
-    for (i_puppet = 1; i_puppet < OPERATOR_NUM; ++i_puppet) {
+    for (i_puppet = 1; i_puppet < OPERATOR_NUMber; ++i_puppet) {
 
       if (sele < afl->probability_now[afl->swarm_now][i_puppet]) {
 
@@ -57,7 +56,7 @@ static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
 
   if (unlikely((j_puppet == 1 &&
                 sele < afl->probability_now[afl->swarm_now][i_puppet - 1]) ||
-               (i_puppet + 1 < OPERATOR_NUM &&
+               (i_puppet + 1 < OPERATOR_NUMber &&
                 sele > afl->probability_now[afl->swarm_now][i_puppet + 1]))) {
 
     FATAL("error select_algorithm");
@@ -4993,6 +4992,11 @@ static u8 mopt_common_fuzzing(afl_state_t *afl, MOpt_globals_t MOpt_globals) {
           }
 
         }                                                             /* if */
+
+        /* Check period per-execution to match reference: break out of the
+           havoc loop so the transition logic at abandon_entry_puppet fires
+           promptly instead of waiting for the entire stage to complete. */
+        if (unlikely(*MOpt_globals.pTime > MOpt_globals.period)) { break; }
 
       } /* for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max;
 
