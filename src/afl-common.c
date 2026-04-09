@@ -865,7 +865,7 @@ void check_environment_vars(char **envp) {
 
   }
 
-  if (issue_detected) { sleep(2); }
+  if (issue_detected) {  }
 
 }
 
