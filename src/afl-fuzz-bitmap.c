@@ -1081,7 +1081,7 @@ may_save_fault:
 
   }
 
-  if (unlikely(afl->infoexec)) {
+  if (unlikely(afl->infoexec) && fault == FSRV_RUN_CRASH) {
 
     if (fd < 0) {
 
