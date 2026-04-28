@@ -1056,23 +1056,6 @@ may_save_fault:
       }
 
 #endif
-      if (unlikely(afl->infoexec)) {
-
-        // if the user wants to be informed on new crashes - do that
-#if !TARGET_OS_IPHONE
-        // we dont care if system errors, but we dont want a
-        // compiler warning either
-        // See
-        // https://stackoverflow.com/questions/11888594/ignoring-return-values-in-c
-        char infoexec_cmd[PATH_MAX * 2];
-        snprintf(infoexec_cmd, sizeof(infoexec_cmd), "%s \"%s\"", afl->infoexec,
-                 fn);
-        (void)(system(infoexec_cmd) + 1);
-#else
-        WARNF("command execution unsupported");
-#endif
-
-      }
 
       afl->last_crash_time = get_cur_time();
       afl->last_crash_execs = afl->fsrv.total_execs;
@@ -1095,6 +1078,24 @@ may_save_fault:
 
     ck_write(fd, mem, len, fn);
     close(fd);
+
+    if (unlikely(afl->infoexec)) {
+
+      // if the user wants to be informed on new crashes - do that
+#if !TARGET_OS_IPHONE
+      // we dont care if system errors, but we dont want a
+      // compiler warning either
+      // See
+      // https://stackoverflow.com/questions/11888594/ignoring-return-values-in-c
+      char infoexec_cmd[PATH_MAX * 2];
+      snprintf(infoexec_cmd, sizeof(infoexec_cmd), "%s \"%s\"", afl->infoexec,
+               fn);
+      (void)(system(infoexec_cmd) + 1);
+#else
+      WARNF("command execution unsupported");
+#endif
+
+    }
 
   }
 
