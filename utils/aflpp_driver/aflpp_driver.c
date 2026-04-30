@@ -53,9 +53,6 @@ extern "C" {
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#ifndef __HAIKU__
-  #include <sys/syscall.h>
-#endif
 
 #include "config.h"
 #include "types.h"
@@ -259,7 +256,6 @@ static int ExecuteFilesOnyByOne(int argc, char **argv,
   bool           have_asan = __asan_region_is_poisoned;
 
   if (have_asan) { __asan_poison_memory_region(buf, MAX_FILE); }
-  ssize_t prev_length = 0;
 
   for (int i = 1; i < argc; i++) {
 
@@ -269,8 +265,13 @@ static int ExecuteFilesOnyByOne(int argc, char **argv,
 
     if (fd == -1) { continue; }
 
+    /* Unpoison so ASan's read() interceptor does not flag the write into
+       our deliberately-poisoned scratch buffer; the unused tail is
+       re-poisoned after the read. */
+    if (have_asan) { __asan_unpoison_memory_region(buf, MAX_FILE); }
+
 #ifndef __HAIKU__
-    ssize_t length = syscall(SYS_read, fd, buf, MAX_FILE);
+    ssize_t length = read(fd, buf, MAX_FILE);
 #else
     ssize_t length = _kern_read(fd, buf, MAX_FILE);
 #endif  // HAIKU
@@ -279,24 +280,17 @@ static int ExecuteFilesOnyByOne(int argc, char **argv,
 
       if (have_asan) {
 
-        if (length < prev_length) {
-
-          __asan_poison_memory_region(buf + length, prev_length - length);
-
-        } else {
-
-          __asan_unpoison_memory_region(buf + prev_length,
-                                        length - prev_length);
-
-        }
+        __asan_poison_memory_region(buf + length, MAX_FILE - length);
 
       }
-
-      prev_length = length;
 
       printf("Reading %zu bytes from %s\n", length, argv[i]);
       callback(buf, length);
       printf("Execution successful.\n");
+
+    } else if (have_asan) {
+
+      __asan_poison_memory_region(buf, MAX_FILE);
 
     }
 
