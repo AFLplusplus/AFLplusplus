@@ -2467,7 +2467,14 @@ void add_lto_linker(aflcc_state_t *aflcc) {
 
     }
 
+    /* On macOS the Mach-O lld backend is named ld64.lld; ld.lld is ELF only
+       and rejects the Mach-O flags clang emits (-arch, -platform_version,
+       -syslibroot, ...). */
+#ifdef __APPLE__
+    ld_path = strdup("ld64.lld");
+#else
     ld_path = strdup("ld.lld");
+#endif
 
   }
 
