@@ -6,7 +6,7 @@ FILE=$AFL_PERFORMANCE_FILE
 # otherwise we use ~/.afl_performance
 test -z "$FILE" && FILE=.afl_performance
 
-test "$1" = "run" || { echo "[*] skipping $0, no value in CI, run with \"run\" to force running"; exit 1; }
+test "$1" = "run" || { echo "[*] skipping $0, no value in CI, run with \"run\" to force running"; exit 0; }
 
 test -e ./test-performance.sh || { echo Error: this script must be run from the directory in which it lies. ; exit 1 ; }
 

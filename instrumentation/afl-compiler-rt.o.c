@@ -2717,9 +2717,17 @@ static int area_is_valid(void *ptr, size_t len) {
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
 #elif defined(__OpenBSD__)
   long r = write(__afl_dummy_fd[1], ptr, len);
+#elif defined(__APPLE__) && defined(__MACH__)
+  /* syscall(2) is flagged deprecated on modern macOS, but the BSD numbers
+     in <sys/syscall.h> remain stable and we deliberately want the raw
+     syscall here to avoid libc/sanitizer interception on this hot path. */
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+  #pragma GCC diagnostic pop
 #else
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-#endif  // HAIKU, OPENBSD
+#endif  // HAIKU, OPENBSD, APPLE
 
   if (r <= 0 || r > len) return 0;
 
