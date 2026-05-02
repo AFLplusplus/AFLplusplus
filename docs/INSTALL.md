@@ -1,4 +1,3 @@
-/bin/sh: aspell: command not found
 # Building and installing AFL++
 
 ## Linux on x86
