@@ -669,6 +669,12 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_TRY_AFFINITY` tries to attempt binding to a specific CPU core
     on Linux systems, but will not terminate if that fails.
 
+  - Setting `AFL_FAST_CHILD_SYNC` causes the forkserver to use shared memory
+    and futexes for synchronization instead of pipes. This reduces the overhead
+    of communication between afl-fuzz and the forkserver, which can noticeably
+    improve exec/sec especially when fuzzing fast targets where the pipe-based
+    IPC overhead is a significant bottleneck. (Linux only)
+
   - The following environment variables are only needed if you implemented
     your own forkserver or persistent mode, or if __AFL_LOOP or __AFL_INIT
     are in a shared library and not the main binary:
