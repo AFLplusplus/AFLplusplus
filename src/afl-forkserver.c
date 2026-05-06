@@ -393,7 +393,7 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
   for (;;) {
 
     u32 fval = __atomic_load_n(fsrv->child_sync, __ATOMIC_ACQUIRE);
-    if (fval >= AFL_CHILD_DONE) { return fval; }
+    if (fval == AFL_CHILD_DONE || fval == AFL_CHILD_EXITED) { return fval; }
 
     /* Fast path: check timeout & stop before sleeping */
     if (fsrv->last_run_timed_out || unlikely(*stop_soon_p)) {
@@ -428,6 +428,40 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
        return EINTR and the loop to pick up the flag promptly.  Without such a
        signal, a stop_soon_p write from another thread would only be noticed
        on the next ETIMEDOUT or child-signal wakeup. */
+
+  }
+
+}
+
+/* Wait until the forkserver publishes the newly forked child PID, or until the
+   child exits before afl-fuzz observes the PID. */
+static inline u32 afl_futex_wait_child_start(afl_forkserver_t *fsrv,
+                                             volatile u8 *stop_soon_p) {
+
+  for (;;) {
+
+    u32 fval = __atomic_load_n(fsrv->child_sync, __ATOMIC_ACQUIRE);
+
+    if (AFL_CHILD_HAS_PID(fval) || fval == AFL_CHILD_EXITED) { return fval; }
+
+    if (unlikely(*stop_soon_p)) { return AFL_CHILD_EXITED; }
+
+    struct timespec poll_time = {0, 100000000L};
+    int             r = sys_futex(fsrv->child_sync, FUTEX_WAIT, fval,
+                                  &poll_time, NULL, 0);
+
+    if (r == -1 && errno == ETIMEDOUT && fsrv->fsrv_pid > 0) {
+
+      int   status;
+      pid_t pid = waitpid(fsrv->fsrv_pid, &status, WNOHANG);
+      if (pid == fsrv->fsrv_pid) {
+
+        fsrv->fsrv_pid = -1;
+        return AFL_CHILD_IDLE;
+
+      }
+
+    }
 
   }
 
@@ -517,7 +551,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->use_futex = false;
   fsrv->child_sync = NULL;
   fsrv->child_sync_shm_id = -1;
-  if (getenv("AFL_FAST_CHILD_SYNC")) {
+  if (!getenv("AFL_OLD_CHILD_SYNC")) {
 
     fsrv->use_futex = true;
     afl_child_sync_init(fsrv);
@@ -1545,8 +1579,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if (fsrv->use_futex && !(status & FS_NEW_OPT_FUTEX)) {
 
         WARNF(
-            "AFL_FAST_CHILD_SYNC requested, but target does not support futex "
-            "synchronization. Falling back to pipe sync.");
+            "Fast child sync is enabled by default, but target does not "
+            "support futex synchronization. Falling back to pipe sync. Set "
+            "AFL_OLD_CHILD_SYNC=1 to request pipe sync explicitly.");
         fsrv->use_futex = false;
         afl_child_sync_deinit(fsrv);
 
@@ -1649,8 +1684,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if (fsrv->use_futex) {
 
         WARNF(
-            "AFL_FAST_CHILD_SYNC requested, but old forkserver protocol is in "
-            "use. Falling back to pipe sync.");
+            "Fast child sync is enabled by default, but old forkserver "
+            "protocol is in use. Falling back to pipe sync. Set "
+            "AFL_OLD_CHILD_SYNC=1 to request pipe sync explicitly.");
         fsrv->use_futex = false;
         afl_child_sync_deinit(fsrv);
 
@@ -2542,22 +2578,28 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
     } else {
 
-      /* COLD PATH: no child, request a new one from forkserver via pipe. */
-      __atomic_store_n(fsrv->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
-
-      if ((res = write(fsrv->fsrv_ctl_fd, &write_value, 4)) != 4) {
-
-        if (*stop_soon_p) { return 0; }
-        RPFATAL(res, "Unable to request new process from fork server (OOM?)");
-
-      }
+      /* COLD PATH: no child, request a new one from forkserver via futex. */
+      __atomic_store_n(fsrv->child_sync, AFL_CHILD_RUN, __ATOMIC_RELEASE);
+      sys_futex(fsrv->child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
 
       fsrv->last_run_timed_out = 0;
 
-      if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
+      u32 start_state = afl_futex_wait_child_start(fsrv, stop_soon_p);
+
+      if (AFL_CHILD_HAS_PID(start_state)) {
+
+        fsrv->child_pid = AFL_CHILD_GET_PID(start_state);
+
+      } else {
 
         if (*stop_soon_p) { return 0; }
-        RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+        if (start_state == AFL_CHILD_IDLE) {
+
+          RPFATAL(0, "Unable to request new process from fork server (OOM?)");
+
+        }
+
+        goto futex_read_status;
 
       }
 
@@ -2871,4 +2913,3 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
-

@@ -1273,16 +1273,32 @@ static void __afl_start_forkserver(void) {
 #ifdef __linux__
   /* Ensure the forkserver dies when afl-fuzz dies, so orphaned children
      (who set their own PR_SET_PDEATHSIG) are cleaned up transitively. */
-  if (__afl_child_sync) { prctl(PR_SET_PDEATHSIG, SIGKILL); }
+  prctl(PR_SET_PDEATHSIG, SIGKILL);
 #endif
 
   while (1) {
 
     int status;
 
-    /* Wait for parent by reading from the pipe. Abort if read fails. */
+    /* Wait for parent. With futex sync, afl-fuzz publishes RUN in child_sync;
+       otherwise keep the classic pipe command path. */
 
-    if (unlikely(already_read_first)) {
+#ifdef __linux__
+    if (likely(__afl_child_sync)) {
+
+      u32 sync_val;
+      while ((sync_val = __atomic_load_n(__afl_child_sync,
+                                         __ATOMIC_ACQUIRE)) != AFL_CHILD_RUN) {
+
+        sys_futex(__afl_child_sync, FUTEX_WAIT, sync_val, NULL, NULL, 0);
+
+      }
+
+      was_killed = 0;
+
+    } else
+#endif
+        if (unlikely(already_read_first)) {
 
       already_read_first = 0;
 
@@ -1364,7 +1380,7 @@ static void __afl_start_forkserver(void) {
         /* When the forkserver (our parent) dies, the kernel delivers
            SIGKILL to us.  This guarantees the child never hangs in
            FUTEX_WAIT if afl-fuzz is killed unexpectedly. */
-        if (__afl_child_sync) { prctl(PR_SET_PDEATHSIG, SIGKILL); }
+        prctl(PR_SET_PDEATHSIG, SIGKILL);
 #endif
 
         close(FORKSRV_FD);
@@ -1390,9 +1406,18 @@ static void __afl_start_forkserver(void) {
 
     }
 
-    /* In parent process: write PID to pipe, then wait for child. */
+    /* In parent process: publish PID, then wait for child. */
 
-    if (unlikely(write(FORKSRV_FD + 1, &child_pid, 4) != 4)) {
+#ifdef __linux__
+    if (likely(__afl_child_sync)) {
+
+      __atomic_store_n(__afl_child_sync, AFL_CHILD_PID_VALUE(child_pid),
+                       __ATOMIC_RELEASE);
+      sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+
+    } else
+#endif
+        if (unlikely(write(FORKSRV_FD + 1, &child_pid, 4) != 4)) {
 
       write_error("write to afl-fuzz");
       _exit(1);
@@ -1424,7 +1449,7 @@ static void __afl_start_forkserver(void) {
     }
 
 #ifdef __linux__
-    if (!child_stopped && __afl_child_sync) {
+    if (!child_stopped && likely(__afl_child_sync)) {
 
       /* Child exited (crash or normal cycle end). Signal the fuzzer
          via futex; pipe data is already written above. */
@@ -1516,7 +1541,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 #endif
 
 #ifdef __linux__
-    if (__afl_child_sync) {
+    if (likely(__afl_child_sync)) {
 
       /* Signal the fuzzer that this iteration is complete. */
       __atomic_store_n(__afl_child_sync, AFL_CHILD_DONE, __ATOMIC_RELEASE);
@@ -3757,4 +3782,3 @@ uint32_t ijon_strdist(char *a, char *b) {
   return IJON_DIST_FUNC(a, b, len);
 
 }
-

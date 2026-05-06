@@ -61,8 +61,8 @@ typedef uint128_t         u128;
 #ifdef __linux__
 /* Protocol phases for the futex-based forkserver handshake.
    A single 32-bit shared-memory word (child_sync) carries these values so
-   that afl-fuzz (fuzzer side) and the persistent target child can coordinate
-   each execution cycle without going through the normal pipe path. */
+   that afl-fuzz, the forkserver, and the target child can coordinate each
+   execution cycle without going through the normal pipe path. */
 typedef enum {
 
   AFL_CHILD_IDLE = 0,  /* child not started, or dead                        */
@@ -71,6 +71,14 @@ typedef enum {
   AFL_CHILD_EXITED = 3, /* child → fuzzer: child is exiting (crash/end)      */
 
 } afl_child_state_t;
+
+/* The forkserver publishes a newly forked child PID in the same word. Linux
+   PIDs are well below this marker, so the lower bits can carry the payload. */
+#define AFL_CHILD_PID_MARKER 0x40000000U
+#define AFL_CHILD_PID_MASK 0x3fffffffU
+#define AFL_CHILD_PID_VALUE(_pid) (AFL_CHILD_PID_MARKER | (u32)(_pid))
+#define AFL_CHILD_HAS_PID(_val) (((_val) & AFL_CHILD_PID_MARKER) != 0)
+#define AFL_CHILD_GET_PID(_val) ((int)((_val) & AFL_CHILD_PID_MASK))
 
 #endif                                                         /* __linux__ */
 
@@ -282,4 +290,3 @@ typedef struct module_entry {
 #endif                                               /* __AFL_CODE_COVERAGE */
 
 #endif                                                   /* ! _HAVE_TYPES_H */
-
