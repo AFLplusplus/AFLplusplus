@@ -399,7 +399,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60\n"
       "                      minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
-      "AFL_OLD_CHILD_SYNC: use file descriptor forkserver synchronization\n"
+      "AFL_OLD_CHILD_SYNC: use file descriptor persistent-mode synchronization\n"
       "                    instead of the default shared memory + futex path\n"
       "                    (Linux only)\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"

@@ -1270,35 +1270,13 @@ static void __afl_start_forkserver(void) {
 
   if (__afl_sharedmem_fuzzing) { __afl_map_shm_fuzz(); }
 
-#ifdef __linux__
-  /* Ensure the forkserver dies when afl-fuzz dies, so orphaned children
-     (who set their own PR_SET_PDEATHSIG) are cleaned up transitively. */
-  prctl(PR_SET_PDEATHSIG, SIGKILL);
-#endif
-
   while (1) {
 
     int status;
 
-    /* Wait for parent. With futex sync, afl-fuzz publishes RUN in child_sync;
-       otherwise keep the classic pipe command path. */
+    /* Wait for parent by reading from the pipe. Abort if read fails. */
 
-#ifdef __linux__
-    if (likely(__afl_child_sync)) {
-
-      u32 sync_val;
-      while ((sync_val = __atomic_load_n(__afl_child_sync,
-                                         __ATOMIC_ACQUIRE)) != AFL_CHILD_RUN) {
-
-        sys_futex(__afl_child_sync, FUTEX_WAIT, sync_val, NULL, NULL, 0);
-
-      }
-
-      was_killed = 0;
-
-    } else
-#endif
-        if (unlikely(already_read_first)) {
+    if (unlikely(already_read_first)) {
 
       already_read_first = 0;
 
@@ -1376,13 +1354,6 @@ static void __afl_start_forkserver(void) {
         signal(SIGCHLD, old_sigchld_handler);
         signal(SIGTERM, old_sigterm_handler);
 
-#ifdef __linux__
-        /* When the forkserver (our parent) dies, the kernel delivers
-           SIGKILL to us.  This guarantees the child never hangs in
-           FUTEX_WAIT if afl-fuzz is killed unexpectedly. */
-        prctl(PR_SET_PDEATHSIG, SIGKILL);
-#endif
-
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
 
@@ -1406,18 +1377,9 @@ static void __afl_start_forkserver(void) {
 
     }
 
-    /* In parent process: publish PID, then wait for child. */
+    /* In parent process: write PID to pipe, then wait for child. */
 
-#ifdef __linux__
-    if (likely(__afl_child_sync)) {
-
-      __atomic_store_n(__afl_child_sync, AFL_CHILD_PID_VALUE(child_pid),
-                       __ATOMIC_RELEASE);
-      sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
-
-    } else
-#endif
-        if (unlikely(write(FORKSRV_FD + 1, &child_pid, 4) != 4)) {
+    if (unlikely(write(FORKSRV_FD + 1, &child_pid, 4) != 4)) {
 
       write_error("write to afl-fuzz");
       _exit(1);

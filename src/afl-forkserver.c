@@ -433,62 +433,24 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
 
 }
 
-/* Wait until the forkserver publishes the newly forked child PID, or until the
-   child exits before afl-fuzz observes the PID. */
-static inline u32 afl_futex_wait_child_start(afl_forkserver_t *fsrv,
-                                             volatile u8 *stop_soon_p,
-                                             bool        probe_only) {
-
-  for (;;) {
-
-    u32 fval = __atomic_load_n(fsrv->child_sync, __ATOMIC_ACQUIRE);
-
-    if (AFL_CHILD_HAS_PID(fval) || fval == AFL_CHILD_EXITED) { return fval; }
-
-    if (unlikely(*stop_soon_p)) { return AFL_CHILD_EXITED; }
-
-    struct timespec poll_time = {0, 100000000L};
-    int             r = sys_futex(fsrv->child_sync, FUTEX_WAIT, fval,
-                                  &poll_time, NULL, 0);
-
-    if (r == -1 && errno == ETIMEDOUT && fsrv->fsrv_pid > 0) {
-
-      if (unlikely(probe_only)) { return AFL_CHILD_IDLE; }
-
-      int   status;
-      pid_t pid = waitpid(fsrv->fsrv_pid, &status, WNOHANG);
-      if (pid == fsrv->fsrv_pid) {
-
-        fsrv->fsrv_pid = -1;
-        return AFL_CHILD_IDLE;
-
-      }
-
-    }
-
-  }
-
-}
-
 #endif                                                        /* ^__linux__ */
 
-static inline void afl_fsrv_report_sync_mode(afl_forkserver_t *fsrv) {
+static inline void afl_fsrv_report_persistent_sync_mode(
+    afl_forkserver_t *fsrv) {
 
-  if (!fsrv->sync_reported && (!be_quiet || getenv("AFL_DEBUG"))) {
+  if (fsrv->persistent_mode && !be_quiet) {
 
 #ifdef __linux__
     if (fsrv->use_futex) {
 
-      ACTF("Using futex forkserver synchronization.");
+      ACTF("Using futex persistent-mode synchronization.");
 
     } else
 
 #endif
-        ACTF("Using file descriptor forkserver synchronization.");
+        ACTF("Using file descriptor persistent-mode synchronization.");
 
   }
-
-  fsrv->sync_reported = true;
 
 }
 
@@ -557,8 +519,6 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->real_map_size = fsrv->map_size;
   fsrv->use_fauxsrv = false;
   fsrv->last_run_timed_out = false;
-  fsrv->use_futex_probe = false;
-  fsrv->sync_reported = false;
   fsrv->debug = false;
   fsrv->uses_crash_exitcode = false;
   fsrv->uses_asan = 0;
@@ -623,8 +583,6 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_pid = -1;
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
-  fsrv_to->use_futex_probe = false;
-  fsrv_to->sync_reported = false;
 
   fsrv_to->late_send = from->late_send;
   fsrv_to->custom_data_ptr = from->custom_data_ptr;
@@ -1394,7 +1352,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 1); }
 
 #ifdef __linux__
-    if (fsrv->use_futex) {
+    if (fsrv->use_futex && fsrv->persistent_mode) {
 
   #ifdef USEMMAP
       setenv("AFL_CHILD_SYNC_SHM", fsrv->child_sync_shm_file_path, 1);
@@ -1596,30 +1554,19 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       }
 
 #ifdef __linux__
-      if (fsrv->use_futex && (status & FS_NEW_OPT_FORKSRV_FUTEX)) {
+      if (fsrv->use_futex && !(status & FS_NEW_OPT_FUTEX)) {
 
-        fsrv->use_futex_probe = false;
+        if (fsrv->persistent_mode) {
 
-      } else if (fsrv->use_futex && (status & FS_NEW_OPT_FUTEX)) {
-
-        fsrv->use_futex_probe = true;
-        if (!be_quiet) {
-
-          ACTF(
-              "Target has no futex support; probing old forkserver "
-              "synchronization mode.");
+          WARNF(
+              "Fast persistent sync is enabled by default, but target does "
+              "not support futex synchronization. Falling back to file "
+              "descriptor sync. Set AFL_OLD_CHILD_SYNC=1 to request file "
+              "descriptor sync explicitly.");
 
         }
 
-      } else if (fsrv->use_futex) {
-
-        WARNF(
-            "Fast child sync is enabled by default, but this target runtime "
-            "does not support futex forkserver control. Falling back to file "
-            "descriptor sync. Set AFL_OLD_CHILD_SYNC=1 to request file "
-            "descriptor sync explicitly.");
         fsrv->use_futex = false;
-        fsrv->use_futex_probe = false;
         afl_child_sync_deinit(fsrv);
 
       }
@@ -1720,13 +1667,17 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       if (fsrv->use_futex) {
 
-        WARNF(
-            "Fast child sync is enabled by default, but old forkserver "
-            "protocol is in use. Falling back to file descriptor sync. Set "
-            "AFL_OLD_CHILD_SYNC=1 to request file descriptor sync "
-            "explicitly.");
+        if (fsrv->persistent_mode) {
+
+          WARNF(
+              "Fast persistent sync is enabled by default, but old forkserver "
+              "protocol is in use. Falling back to file descriptor sync. Set "
+              "AFL_OLD_CHILD_SYNC=1 to request file descriptor sync "
+              "explicitly.");
+
+        }
+
         fsrv->use_futex = false;
-        fsrv->use_futex_probe = false;
         afl_child_sync_deinit(fsrv);
 
       }
@@ -1875,7 +1826,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
               }
 
-              if (!fsrv->use_futex_probe) { afl_fsrv_report_sync_mode(fsrv); }
+              afl_fsrv_report_persistent_sync_mode(fsrv);
               return;
 
             }
@@ -1976,7 +1927,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    if (!fsrv->use_futex_probe) { afl_fsrv_report_sync_mode(fsrv); }
+    afl_fsrv_report_persistent_sync_mode(fsrv);
     return;
 
   }
@@ -2599,69 +2550,21 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   First, tell it if the previous run timed out. */
 
 #ifdef __linux__
-  if (likely(fsrv->use_futex)) {
+  if (likely(fsrv->use_futex && fsrv->child_pid > 0)) {
 
     /* Futex protocol: see afl_child_state_t in types.h */
 
-    if (likely(fsrv->child_pid > 0)) {
+    /* Check if the forkserver already signaled that the child exited
+       (e.g. crash/exit between iterations while we were processing the
+       previous DONE result).  The pipe status is already written at this
+       point (forkserver writes pipe before futex), so jump straight to
+       reading it. */
+    u32 cur = __atomic_load_n(fsrv->child_sync, __ATOMIC_ACQUIRE);
+    if (unlikely(cur == AFL_CHILD_EXITED)) { goto futex_read_status; }
 
-      /* Check if the forkserver already signaled that the child exited
-         (e.g. crash/exit between iterations while we were processing the
-         previous DONE result).  The pipe status is already written at this
-         point (forkserver writes pipe before futex), so jump straight to
-         reading it. */
-      u32 cur = __atomic_load_n(fsrv->child_sync, __ATOMIC_ACQUIRE);
-      if (unlikely(cur == AFL_CHILD_EXITED)) { goto futex_read_status; }
-
-      /* HOT PATH: persistent child is alive, signal it to run. */
-      __atomic_store_n(fsrv->child_sync, AFL_CHILD_RUN, __ATOMIC_RELEASE);
-      sys_futex(fsrv->child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
-
-    } else {
-
-      /* COLD PATH: no child, request a new one from forkserver via futex. */
-      __atomic_store_n(fsrv->child_sync, AFL_CHILD_RUN, __ATOMIC_RELEASE);
-      sys_futex(fsrv->child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
-
-      fsrv->last_run_timed_out = 0;
-
-      u32 start_state = afl_futex_wait_child_start(fsrv, stop_soon_p,
-                                                   fsrv->use_futex_probe);
-
-      if (AFL_CHILD_HAS_PID(start_state)) {
-
-        fsrv->child_pid = AFL_CHILD_GET_PID(start_state);
-        if (fsrv->use_futex_probe) {
-
-          fsrv->use_futex_probe = false;
-          afl_fsrv_report_sync_mode(fsrv);
-
-        }
-
-      } else {
-
-        if (*stop_soon_p) { return 0; }
-        if (start_state == AFL_CHILD_IDLE) {
-
-          fsrv->use_futex = false;
-          fsrv->use_futex_probe = false;
-          afl_child_sync_deinit(fsrv);
-          afl_fsrv_report_sync_mode(fsrv);
-          goto pipe_request;
-
-        }
-
-        goto futex_read_status;
-
-      }
-
-      if (!afl_fsrv_check_child_pid(fsrv, stop_soon_p)) { return 0; }
-
-  #ifdef AFL_PERSISTENT_RECORD
-      afl_fsrv_persistent_record_reset(fsrv);
-  #endif
-
-    }
+    /* HOT PATH: persistent child is alive, signal it to run. */
+    __atomic_store_n(fsrv->child_sync, AFL_CHILD_RUN, __ATOMIC_RELEASE);
+    sys_futex(fsrv->child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
 
     if (unlikely(fsrv->late_send)) {
 
@@ -2703,8 +2606,6 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   }
 
-pipe_request:
-  if (!fsrv->use_futex) { afl_fsrv_report_sync_mode(fsrv); }
 #endif
   if ((res = write(fsrv->fsrv_ctl_fd, &write_value, 4)) != 4) {
 
@@ -2766,6 +2667,43 @@ pipe_request:
                     fsrv->custom_input_len);
 
   }
+
+#ifdef __linux__
+  if (likely(fsrv->use_futex && fsrv->persistent_mode)) {
+
+    u32 fres = afl_futex_wait(fsrv, timeout, stop_soon_p);
+
+    if (fres == AFL_CHILD_DONE) {
+
+      /* DONE: child completed this iteration successfully. */
+      fsrv->total_execs++;
+      MEM_BARRIER();
+
+      if (unlikely(*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)) {
+
+        return FSRV_RUN_ERROR;
+
+      }
+
+      return FSRV_RUN_OK;
+
+    }
+
+    /* EXITED or timeout/stop: read child status from forkserver pipe. */
+    if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_status, 4)) < 4) {
+
+      if (*stop_soon_p) { return 0; }
+      RPFATAL(res, "Unable to communicate with fork server");
+
+    }
+
+    fsrv->child_pid = -1;
+    __atomic_store_n(fsrv->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+    goto classify_result;
+
+  }
+
+#endif
 
   exec_ms = read_s32_timed(fsrv->fsrv_st_fd, &fsrv->child_status, timeout,
                            stop_soon_p);

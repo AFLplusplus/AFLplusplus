@@ -149,8 +149,6 @@ typedef struct afl_forkserver {
   bool support_shmem_fuzz;              /* set by afl-fuzz                  */
 
   bool use_futex;                       /* usage of futex implementation    */
-  bool use_futex_probe;                 /* probe legacy futex capability    */
-  bool sync_reported;                   /* printed final sync mode?         */
   u32 *child_sync;                      /* shared word: fuzzer↔child sync   */
   int  child_sync_shm_id;               /* SysV SHM ID / FD for child_sync  */
 #ifdef USEMMAP
