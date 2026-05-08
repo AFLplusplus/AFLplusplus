@@ -148,6 +148,13 @@ typedef struct afl_forkserver {
 
   bool support_shmem_fuzz;              /* set by afl-fuzz                  */
 
+  bool use_futex;                       /* usage of futex implementation    */
+  u32 *child_sync;                      /* shared word: fuzzer↔child sync   */
+  int  child_sync_shm_id;               /* SysV SHM ID / FD for child_sync  */
+#ifdef USEMMAP
+  char child_sync_shm_file_path[32];    /* Path for shm_open child_sync     */
+#endif
+
   bool use_ijon;                        /* use IJON tracking feature        */
 
   bool use_fauxsrv;                     /* Fauxsrv for non-forking targets? */
@@ -303,4 +310,3 @@ void nyx_load_target_hash(afl_forkserver_t *fsrv);
 #endif                                                        /* ^RLIMIT_AS */
 
 #endif
-

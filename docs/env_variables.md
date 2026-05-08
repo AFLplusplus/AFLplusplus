@@ -669,6 +669,11 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_TRY_AFFINITY` tries to attempt binding to a specific CPU core
     on Linux systems, but will not terminate if that fails.
 
+  - By default on Linux, persistent mode uses shared memory and futexes for
+    child synchronization. This reduces the overhead of communication between
+    afl-fuzz and the persistent target child. Setting `AFL_OLD_CHILD_SYNC`
+    restores the old file descriptor based persistent synchronization behavior.
+
   - The following environment variables are only needed if you implemented
     your own forkserver or persistent mode, or if __AFL_LOOP or __AFL_INIT
     are in a shared library and not the main binary:
