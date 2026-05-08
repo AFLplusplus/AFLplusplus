@@ -282,3 +282,4 @@ typedef struct module_entry {
 #endif                                               /* __AFL_CODE_COVERAGE */
 
 #endif                                                   /* ! _HAVE_TYPES_H */
+

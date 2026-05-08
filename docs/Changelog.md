@@ -8,6 +8,9 @@
   - Switched https://github.com/AFLplusplus/cov-analysis for outdated afl-cov
   - MacOS most current version support for afl-fuzz, afl-cc (incl. LTO) and
     frida mode
+  - Linux persistent mode uses futex now which increases speed and reduces
+    system call overhead (opt out with AFL_FAST_CHILD_SYNC), thanks to
+    @martinus for most of the implementation!
   - afl-fuzz:
     - `-I tool` call now receives the new crash as a command line parameter
     - changed to a better map classifier

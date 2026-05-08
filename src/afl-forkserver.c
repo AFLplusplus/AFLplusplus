@@ -448,7 +448,7 @@ static inline void afl_fsrv_report_persistent_sync_mode(
     } else
 
 #endif
-        ACTF("Using file descriptor persistent-mode synchronization.");
+      ACTF("Using file descriptor persistent-mode synchronization.");
 
   }
 
@@ -2905,3 +2905,4 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
+

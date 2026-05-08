@@ -3744,3 +3744,4 @@ uint32_t ijon_strdist(char *a, char *b) {
   return IJON_DIST_FUNC(a, b, len);
 
 }
+
