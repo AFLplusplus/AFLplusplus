@@ -205,6 +205,15 @@ class ModuleSanitizerCoverageLTO
   void InjectCoverageAtBlock(Function &F, BasicBlock &BB, size_t Idx,
                              bool IsLeafFunc = true);
 
+  /* Ball-Larus path coverage (AFL_LLVM_LTO_PATH).  Inserts a per-function
+     path register, edge increments on non-back edges, and a bitmap write
+     at every exit point.  No-op if path_mode == false or function is
+     ineligible.  Returns the number of slots reserved (0 if skipped).    */
+  uint64_t instrumentPathCoverage(Function           &F,
+                                  const DominatorTree *DT,
+                                  uint32_t            call_counter,
+                                  LoadInst           *PrevCtxLoad);
+
   std::string    getSectionName(const std::string &Section) const;
   FunctionCallee SanCovTracePC /*, SanCovTracePCGuard*/;
   Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
@@ -233,6 +242,9 @@ class ModuleSanitizerCoverageLTO
   uint32_t                         instrument_ctx = 0;
   uint32_t                         instrument_ctx_max_depth = 0;
   uint32_t                         extra_ctx_inst = 0;
+  bool                             path_mode = false;       // Ball-Larus path
+  uint32_t                         extra_path_inst = 0;     // sum of paths
+  uint32_t                         path_skipped_funcs = 0;  // skipped funcs
   uint64_t                         map_addr = 0;
   const char                      *skip_nozero = NULL;
   const char                      *use_threadsafe_counters = nullptr;
@@ -485,13 +497,34 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   }
 
+  /* AFL_LLVM_LTO_PATH (and aliases AFL_LLVM_PATH / AFL_LLVM_PATH_MODE):
+     Ball-Larus per-function path coverage on top of edge coverage.
+     Activated by any of these env vars set to a non-empty, non-"0" value. */
+  {
+
+    const char *p = getenv("AFL_LLVM_LTO_PATH");
+    if (!p) p = getenv("AFL_LLVM_PATH");
+    if (!p) p = getenv("AFL_LLVM_PATH_MODE");
+    if (p && *p && strcmp(p, "0") != 0) { path_mode = true; }
+
+  }
+
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
-    char buf[64] = {};
-    if (instrument_ctx) {
+    char buf[128] = {};
+    if (instrument_ctx && path_mode) {
 
-      snprintf(buf, sizeof(buf), " (CTX mode, depth %u)\n",
+      snprintf(buf, sizeof(buf), " (CTX mode, depth %u, PATH mode)",
                instrument_ctx_max_depth);
+
+    } else if (instrument_ctx) {
+
+      snprintf(buf, sizeof(buf), " (CTX mode, depth %u)",
+               instrument_ctx_max_depth);
+
+    } else if (path_mode) {
+
+      snprintf(buf, sizeof(buf), " (PATH mode)");
 
     }
 
@@ -1275,11 +1308,28 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
                getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      char buf[64] = {};
+      char buf[160] = {};
+      char *p = buf;
+      size_t left = sizeof(buf);
       if (instrument_ctx) {
 
-        snprintf(buf, sizeof(buf), " with %u extra map entries for CTX",
-                 extra_ctx_inst);
+        int n =
+            snprintf(p, left, " with %u extra map entries for CTX",
+                     extra_ctx_inst);
+        if (n > 0 && (size_t)n < left) { p += n; left -= n; }
+
+      }
+      if (path_mode) {
+
+        int n = snprintf(p, left, " with %u extra map entries for PATH",
+                         extra_path_inst);
+        if (n > 0 && (size_t)n < left) { p += n; left -= n; }
+        if (path_skipped_funcs) {
+
+          n = snprintf(p, left, " (%u funcs skipped)", path_skipped_funcs);
+          if (n > 0 && (size_t)n < left) { p += n; left -= n; }
+
+        }
 
       }
 
@@ -2293,6 +2343,8 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
   }
 
+  if (path_mode) { instrumentPathCoverage(F, DT, call_counter, PrevCtxLoad); }
+
 }
 
 GlobalVariable *ModuleSanitizerCoverageLTO::CreateFunctionLocalArrayInSection(
@@ -2531,6 +2583,368 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
     */
 
   }
+
+}
+
+/* Ball-Larus path coverage:
+   - Identify exit instructions (Return, Resume, before NoReturn calls,
+     before Unreachable terminators).
+   - Treat the function CFG as a DAG by stripping back-edges (edge a->b is
+     a back-edge iff b dominates a).
+   - Compute NumPaths(v) bottom-up: 1 for exit BBs, sum-of-children for
+     interior BBs.  Path IDs at exit are unique in [0, NumPaths(entry)).
+   - If NumPaths(entry) > 100,000: re-compute with multi-way branches
+     (>2 successors) using max() instead of sum().  If still > 100,000,
+     skip path instrumentation in this function (warn).
+   - Allocate a per-function i32 path register, init 0; insert
+     `path_reg += edge_val` on each forward edge with edge_val != 0;
+     at every exit insert a bitmap update with index =
+     base + path_reg [+ call_id * NumPaths under CTX composition]. */
+uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
+    Function &F, const DominatorTree *DT, uint32_t call_counter,
+    LoadInst *PrevCtxLoad) {
+
+  if (!path_mode) return 0;
+  if (F.empty()) return 0;
+  /* Function eligibility checks already performed by the caller via the
+     same conditions used for edge instrumentation; if the function got
+     this far we mirror that decision. */
+
+  LLVMContext &Ctx = F.getContext();
+  IntegerType *Int32 = Type::getInt32Ty(Ctx);
+  MDNode      *NoSan = MDNode::get(Ctx, MDString::get(Ctx, "nosanitize"));
+
+  /* 1. Find exit points: ReturnInst, ResumeInst, before NoReturn calls,
+     before UnreachableInst terminators.  Only the FIRST exit per BB
+     matters — anything after a noreturn is unreachable.  Each exit
+     records its insertion point (just before the exit instruction). */
+  struct ExitPt {
+
+    BasicBlock  *BB;
+    Instruction *insertBefore;
+
+  };
+  std::vector<ExitPt>                 Exits;
+  llvm::DenseSet<BasicBlock *>        ExitBBs;
+
+  for (auto &BB : F) {
+
+    Instruction *firstExit = nullptr;
+    for (auto &I : BB) {
+
+      if (isa<ReturnInst>(&I) || isa<ResumeInst>(&I) ||
+          isa<UnreachableInst>(&I)) {
+
+        firstExit = &I;
+        break;
+
+      }
+      if (auto *Call = dyn_cast<CallBase>(&I)) {
+
+        if (Call->doesNotReturn()) {
+
+          firstExit = Call;
+          break;
+
+        }
+
+      }
+
+    }
+    if (firstExit) {
+
+      Exits.push_back({&BB, firstExit});
+      ExitBBs.insert(&BB);
+
+    }
+
+  }
+  if (Exits.empty()) return 0;
+
+  /* 2. Identify back-edges via DFS.  edge a->b is a back-edge iff b is
+     currently on the DFS stack (active ancestor of a).  This is the
+     standard cycle-edge identification and avoids relying on a possibly
+     stale DominatorTree after SplitAllCriticalEdges.                    */
+  llvm::DenseSet<std::pair<BasicBlock *, BasicBlock *>> BackEdges;
+  {
+
+    llvm::DenseSet<BasicBlock *> visited;
+    llvm::DenseSet<BasicBlock *> onStack;
+    std::function<void(BasicBlock *)> dfs = [&](BasicBlock *BB) {
+
+      visited.insert(BB);
+      onStack.insert(BB);
+      for (auto *S : successors(BB)) {
+
+        if (onStack.count(S)) {
+
+          BackEdges.insert({BB, S});
+
+        } else if (!visited.count(S)) {
+
+          dfs(S);
+
+        }
+
+      }
+      onStack.erase(BB);
+
+    };
+    dfs(&F.getEntryBlock());
+    /* Also walk from any unreachable-from-entry BB so we don't accidentally
+       treat their forward edges as back-edges (rare but safe to be thorough). */
+    for (auto &BB : F) {
+
+      if (!visited.count(&BB)) dfs(&BB);
+
+    }
+
+  }
+  (void)DT;  // no longer needed for back-edge detection
+
+  auto forwardSuccs =
+      [&](BasicBlock *BB) -> llvm::SmallVector<BasicBlock *, 4> {
+
+    llvm::SmallVector<BasicBlock *, 4> out;
+    if (ExitBBs.count(BB)) return out;
+    for (auto *S : successors(BB)) {
+
+      if (BackEdges.count({BB, S})) continue;
+      out.push_back(S);
+
+    }
+    return out;
+
+  };
+
+  /* 3. Compute NumPaths(v) on the forward DAG, recursively with memoization.
+     Two passes if we need to simplify after the first.                     */
+  llvm::DenseMap<BasicBlock *, uint64_t> NumPaths;
+
+  auto computeWithMode = [&](bool simplify) -> uint64_t {
+
+    NumPaths.clear();
+    /* Iterative DFS with stack so we avoid blowing the C stack on large
+       functions (recursion depth could match BB count). */
+    std::function<uint64_t(BasicBlock *)> rec = [&](BasicBlock *BB) -> uint64_t {
+
+      auto it = NumPaths.find(BB);
+      if (it != NumPaths.end()) return it->second;
+      NumPaths[BB] = 0;  // sentinel
+      uint64_t total = 0;
+      if (ExitBBs.count(BB)) {
+
+        total = 1;
+
+      } else {
+
+        auto succs = forwardSuccs(BB);
+        if (succs.empty()) {
+
+          total = 0;
+
+        } else if (simplify && succs.size() > 2) {
+
+          for (auto *S : succs) {
+
+            uint64_t c = rec(S);
+            if (c > total) total = c;
+
+          }
+
+        } else {
+
+          for (auto *S : succs) { total += rec(S); }
+
+        }
+
+      }
+      NumPaths[BB] = total;
+      return total;
+
+    };
+    return rec(&F.getEntryBlock());
+
+  };
+
+  uint64_t numEntry = computeWithMode(/*simplify=*/false);
+  bool     simplified = false;
+
+  if (numEntry > 100000ULL) {
+
+    numEntry = computeWithMode(/*simplify=*/true);
+    simplified = true;
+    if (numEntry > 100000ULL) {
+
+      WARNF(
+          "Function %s has too many paths (>100,000) even after "
+          "simplification; skipping PATH instrumentation in this function.",
+          F.getName().str().c_str());
+      ++path_skipped_funcs;
+      return 0;
+
+    } else {
+
+      WARNF(
+          "Function %s simplified for PATH (multi-way branches collapsed): "
+          "%llu paths.",
+          F.getName().str().c_str(), (unsigned long long)numEntry);
+
+    }
+
+  }
+
+  if (numEntry <= 1) return 0;  // straight-line, no info
+
+  /* 4. Assign edge values per Ball-Larus prefix-sum.  Edge values for
+     simplified multi-way branches are all zero. */
+  llvm::DenseMap<std::pair<BasicBlock *, BasicBlock *>, uint64_t> EdgeVal;
+  for (auto &BB : F) {
+
+    if (ExitBBs.count(&BB)) continue;
+    if (!NumPaths.count(&BB)) continue;  // unreachable in DAG
+    auto succs = forwardSuccs(&BB);
+    if (succs.empty()) continue;
+    if (simplified && succs.size() > 2) {
+
+      for (auto *S : succs) EdgeVal[{&BB, S}] = 0;
+      continue;
+
+    }
+    uint64_t prefix = 0;
+    for (auto *S : succs) {
+
+      EdgeVal[{&BB, S}] = prefix;
+      auto it = NumPaths.find(S);
+      if (it != NumPaths.end()) prefix += it->second;
+
+    }
+
+  }
+
+  /* 5. Reserve afl_global_id range.  When CTX expanded this function,
+     reserve NumPaths * call_counter so each (call_id, path) tuple has
+     its own slot.  Otherwise reserve NumPaths.                         */
+  bool     ctx_active = (call_counter > 1) && PrevCtxLoad != nullptr;
+  uint64_t reservation = ctx_active ? numEntry * (uint64_t)call_counter
+                                    : numEntry;
+  uint32_t path_base = afl_global_id;
+  afl_global_id += (uint32_t)reservation;
+  extra_path_inst += (uint32_t)reservation;
+
+  if (debug) {
+
+    fprintf(stderr,
+            "DEBUG: PATH function=%s paths=%llu reservation=%llu base=%u%s\n",
+            F.getName().str().c_str(), (unsigned long long)numEntry,
+            (unsigned long long)reservation, path_base,
+            ctx_active ? " (CTX-composed)" : "");
+
+  }
+
+  /* 6. IR insertion. */
+
+  /* 6a. path_reg alloca + init in the entry BB (after existing
+     allocas/landingpads). */
+  BasicBlock         &EntryBB = F.getEntryBlock();
+  BasicBlock::iterator entryIP = EntryBB.getFirstInsertionPt();
+  IRBuilder<>         EntryIRB(&*entryIP);
+  AllocaInst         *path_reg =
+      EntryIRB.CreateAlloca(Int32, nullptr, "path_reg");
+  StoreInst *initStore =
+      EntryIRB.CreateStore(ConstantInt::get(Int32, 0), path_reg);
+  initStore->setMetadata("nosanitize", NoSan);
+
+  /* 6b. Edge increments.  After SplitAllCriticalEdges (already invoked
+     by instrumentFunction), every edge has either a single-successor
+     source (insert at end of source) or a single-predecessor destination
+     (insert at top of destination). */
+  for (auto &kv : EdgeVal) {
+
+    BasicBlock *a = kv.first.first;
+    BasicBlock *b = kv.first.second;
+    uint64_t    val = kv.second;
+    if (val == 0) continue;
+    Instruction *insertPt = nullptr;
+    if (a->getTerminator()->getNumSuccessors() > 1) {
+
+      insertPt = &*b->getFirstInsertionPt();
+
+    } else {
+
+      insertPt = a->getTerminator();
+
+    }
+    IRBuilder<> IRB(insertPt);
+    LoadInst   *cur = IRB.CreateLoad(Int32, path_reg);
+    cur->setMetadata("nosanitize", NoSan);
+    Value     *next =
+        IRB.CreateAdd(cur, ConstantInt::get(Int32, (uint32_t)val));
+    StoreInst *st = IRB.CreateStore(next, path_reg);
+    st->setMetadata("nosanitize", NoSan);
+
+  }
+
+  /* 6c. Path-ID writes at every exit point in DAG-reachable BBs. */
+  for (auto &E : Exits) {
+
+    if (!NumPaths.count(E.BB)) continue;  // unreachable in DAG
+    IRBuilder<> IRB(E.insertBefore);
+
+    LoadInst *p = IRB.CreateLoad(Int32, path_reg);
+    p->setMetadata("nosanitize", NoSan);
+
+    Value *idx = IRB.CreateAdd(p, ConstantInt::get(Int32, path_base));
+
+    if (ctx_active) {
+
+      LoadInst *cid = IRB.CreateLoad(Int32, AFLContext);
+      cid->setMetadata("nosanitize", NoSan);
+      Value *ctxOff =
+          IRB.CreateMul(cid, ConstantInt::get(Int32, (uint32_t)numEntry));
+      idx = IRB.CreateAdd(idx, ctxOff);
+
+    }
+
+    /* Bitmap update (mirrors InjectCoverageAtBlock, minus the CTX_add
+       handling — the path index already includes the per-call offset). */
+    Value *EffMapPtr = HoistedMapPtr;
+    if (!EffMapPtr) {
+
+      auto *L = IRB.CreateLoad(PtrTy, AFLMapPtr);
+      L->setMetadata("nosanitize", NoSan);
+      EffMapPtr = L;
+
+    }
+    Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, EffMapPtr, idx);
+
+    if (use_threadsafe_counters) {
+
+      IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                          llvm::MaybeAlign(1),
+#endif
+                          llvm::AtomicOrdering::Monotonic);
+
+    } else {
+
+      LoadInst *Counter =
+          IRB.CreateLoad(IntegerType::getInt8Ty(Ctx), MapPtrIdx);
+      Counter->setMetadata("nosanitize", NoSan);
+      Value *Incr = IRB.CreateAdd(Counter, One);
+      if (skip_nozero == NULL) {
+
+        Incr = IRB.CreateBinaryIntrinsic(Intrinsic::umax, Incr, One);
+
+      }
+      StoreInst *st = IRB.CreateStore(Incr, MapPtrIdx);
+      st->setMetadata("nosanitize", NoSan);
+
+    }
+
+  }
+
+  return reservation;
 
 }
 

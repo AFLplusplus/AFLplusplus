@@ -292,6 +292,19 @@ collisions occur.
 For more information, see
 [instrumentation/README.llvm.md#7) AFL++ N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage).
 
+#### PATH (LTO only)
+
+Setting `AFL_LLVM_LTO_PATH=1` (or `AFL_LLVM_PATH=1` / `AFL_LLVM_PATH_MODE=1`)
+under `afl-clang-lto` enables Ball-Larus per-function path coverage in
+addition to the default edge coverage. Every acyclic path through a function
+(loops are treated as a single iteration; back-edges are stripped) gets a
+unique map slot. Composes with `AFL_LLVM_LTO_CALLER` to track
+`(call_site, path)` tuples. Functions with more than 100,000 acyclic paths
+that cannot be reduced by collapsing multi-way branches are skipped with a
+warning. See
+[instrumentation/README.lto.md](../instrumentation/README.lto.md) for
+details.
+
 #### NOT_ZERO
 
   - Setting `AFL_LLVM_NOT_ZERO=1` during compilation will use counters that skip

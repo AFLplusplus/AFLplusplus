@@ -160,6 +160,38 @@ Setting `export AFL_LLVM_DOCUMENT_IDS=file` will document in a file which edge
 ID was given to which function. This helps to identify functions with variable
 bytes or which functions were touched by an input.
 
+## Path coverage (AFL_LLVM_LTO_PATH)
+
+Setting `AFL_LLVM_LTO_PATH=1` (also accepted: `AFL_LLVM_PATH=1`,
+`AFL_LLVM_PATH_MODE=1`) enables Ball-Larus per-function path coverage *in
+addition to* the default collision-free edge coverage.
+
+Each acyclic path through a function (DAG view of the CFG, with back-edges
+stripped — loops do not contribute path differentiation) is assigned a
+unique integer ID. A small per-function `i32` register accumulates the ID at
+each branch; at every function exit (`return`, C++ `resume`, just before a
+`noreturn` call such as `abort`/`exit`/`__cxa_throw`, and just before
+`unreachable` terminators) the path ID is written into a reserved per-function
+slot range in the coverage map.
+
+Composes with `AFL_LLVM_LTO_CALLER`: when both are set, multi-caller
+functions get `NumPaths * call_counter` slots so each `(call_site, path)`
+pair is uniquely tracked.
+
+Limits:
+
+- Functions with `NumPaths(entry) > 100,000` are first re-counted with
+  multi-way branches (`switch`/`indirectbr`) collapsed (max instead of sum).
+  If the count is still too high, path instrumentation is skipped for that
+  function (a warning is emitted) — edge coverage continues unchanged.
+- Single-path (straight-line) functions are skipped: a constant path ID
+  carries no information.
+- Functions with no return points are skipped.
+- Per-function map size grows roughly with `NumPaths(F)`, which is exponential
+  in independent if/else branches (`2^N` for `N` such branches). On large
+  targets this can produce a very large map; consider scoping with
+  `AFL_LLVM_ALLOWLIST` if needed.
+
 ## Solving difficult targets
 
 Some targets are difficult because the configure script does unusual stuff that

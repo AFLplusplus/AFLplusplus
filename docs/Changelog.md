@@ -19,6 +19,9 @@
   - afl-cc:
     - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
       triggers in target binaries
+    - LTO: new `AFL_LLVM_LTO_PATH=1` (also `AFL_LLVM_PATH` / `AFL_LLVM_PATH_MODE`)
+      Ball-Larus per-function path coverage on top of edge coverage; composes
+      with `AFL_LLVM_LTO_CALLER`. See instrumentation/README.lto.md.
   - IJON dist was changed to original IJON implementation: initial matching
     bytes, max length is 1024
   - lib* tools:
