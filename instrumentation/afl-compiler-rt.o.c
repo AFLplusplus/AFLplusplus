@@ -1144,12 +1144,14 @@ static void __afl_start_forkserver(void) {
 
   }
 
+/* Disable as this seems to create problems in corner cases
   if (getenv("LD_BIND_LAZY") == NULL) {
 
     // prevent further executed programs to fuck up the coverage
     setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 1);
 
   }
+*/
 
   if (getenv("AFL_OLD_FORKSERVER")) {
 
