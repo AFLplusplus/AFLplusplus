@@ -1274,12 +1274,15 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
       write_loc = (((afl_global_id + 8) >> 3) << 3);
 
-      GlobalVariable *AFLFinalLoc =
-          new GlobalVariable(M, Int32Tyi, false, GlobalValue::ExternalLinkage,
-                             0, "__afl_final_loc");
+      // Define __afl_final_loc as a strong global with a static initializer
+      // (load-time value) instead of a runtime store inside a constructor.
+      // afl-compiler-rt.o has a tentative (common) definition that gets
+      // overridden at link time. This guarantees the value is set before any
+      // constructor runs, which matters on macOS where mod_init_func ordering
+      // does not honor cross-translation-unit constructor priorities.
       ConstantInt *const_loc = ConstantInt::get(Int32Tyi, write_loc);
-      StoreInst   *StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
-      setNoSanitizeMetadata(StoreFinalLoc);
+      new GlobalVariable(M, Int32Tyi, false, GlobalValue::ExternalLinkage,
+                         const_loc, "__afl_final_loc");
 
     }
 
