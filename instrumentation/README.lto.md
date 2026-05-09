@@ -162,9 +162,24 @@ bytes or which functions were touched by an input.
 
 ## Path coverage (AFL_LLVM_LTO_PATH)
 
-Setting `AFL_LLVM_LTO_PATH=1` (also accepted: `AFL_LLVM_PATH=1`,
-`AFL_LLVM_PATH_MODE=1`) enables Ball-Larus per-function path coverage *in
-addition to* the default collision-free edge coverage.
+Setting `AFL_LLVM_LTO_PATH` (also accepted: `AFL_LLVM_PATH`,
+`AFL_LLVM_PATH_MODE`) enables Ball-Larus per-function path coverage *in
+addition to* the default collision-free edge coverage. The value selects
+how aggressively to collapse "guard-only" basic blocks (BBs that only
+contain condition-check work — loads, casts, GEPs, comparisons, phis,
+freezes, allocas, plain arithmetic — no function calls, no stores, no
+atomics):
+
+| Value | Mode | Behaviour | Map size |
+|-------|------|-----------|----------|
+| unset / `0` | off | no path coverage | smallest |
+| `1` (default if value is empty) | **relaxed** | every guard-only BB collapses via `max()` instead of `sum()` — short-circuit `&&`/`||`, switches on a bare loaded value, etc. all collapse to one decision | smallest with PATH on |
+| `2` | **restricted** | only collapse 2-successor guard-only BBs — switches and indirect branches keep their full path-multiplying effect | mid |
+| `3` | **strict** | full Ball-Larus: every IR-level acyclic path gets its own slot | largest |
+
+The relaxed/restricted modes give numbers closer to "distinct
+user-visible behaviours"; strict gives the literal answer to "every
+possible path is a unique route".
 
 Each acyclic path through a function (DAG view of the CFG, with back-edges
 stripped — loops do not contribute path differentiation) is assigned a

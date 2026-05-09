@@ -243,6 +243,7 @@ class ModuleSanitizerCoverageLTO
   uint32_t                         instrument_ctx_max_depth = 0;
   uint32_t                         extra_ctx_inst = 0;
   bool                             path_mode = false;       // Ball-Larus path
+  uint32_t                         path_mode_level = 0;     // 1=strict, 2=relaxed
   uint32_t                         extra_path_inst = 0;     // sum of paths
   uint32_t                         path_skipped_funcs = 0;  // skipped funcs
   uint64_t                         map_addr = 0;
@@ -499,23 +500,83 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   /* AFL_LLVM_LTO_PATH (and aliases AFL_LLVM_PATH / AFL_LLVM_PATH_MODE):
      Ball-Larus per-function path coverage on top of edge coverage.
-     Activated by any of these env vars set to a non-empty, non-"0" value. */
+     Levels:
+       (unset/"0") — disabled.
+       "1" / ""    — relaxed: collapse every guard-only basic block (no
+                     calls, no stores, no atomics) via max(succ) instead
+                     of sum(succ).  Short-circuit `&&`/`||`, pure-condition
+                     chains, and switch-on-loaded-value collapse to a
+                     single decision.  Smallest map.
+       "2"         — restricted: like "1" but only collapse 2-successor
+                     guard-only BBs.  Switches and indirect branches
+                     remain as sum-merged decisions.  Slightly larger
+                     map than "1".
+       "3"         — strict Ball-Larus: every IR-level acyclic path has
+                     its own slot.  Largest map; matches the literal
+                     "every possible path is a unique route" reading.
+     Other values are rejected. */
   {
 
     const char *p = getenv("AFL_LLVM_LTO_PATH");
     if (!p) p = getenv("AFL_LLVM_PATH");
     if (!p) p = getenv("AFL_LLVM_PATH_MODE");
-    if (p && *p && strcmp(p, "0") != 0) { path_mode = true; }
+    if (p) {
+
+      if (*p == 0 || strcmp(p, "1") == 0) {
+
+        path_mode_level = 1;
+
+      } else if (strcmp(p, "2") == 0) {
+
+        path_mode_level = 2;
+
+      } else if (strcmp(p, "3") == 0) {
+
+        path_mode_level = 3;
+
+      } else if (strcmp(p, "0") == 0) {
+
+        path_mode_level = 0;
+
+      } else {
+
+        FATAL(
+            "AFL_LLVM_LTO_PATH/AFL_LLVM_PATH/AFL_LLVM_PATH_MODE only "
+            "accepts \"0\" (off), \"1\" (relaxed, default), \"2\" "
+            "(restricted), or \"3\" (strict). Got %s.",
+            p);
+
+      }
+      path_mode = (path_mode_level > 0);
+
+    }
 
   }
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
-    char buf[128] = {};
+    char buf[160] = {};
+    const char *path_label;
+    switch (path_mode_level) {
+
+      case 1:
+        path_label = "PATH mode (relaxed)";
+        break;
+      case 2:
+        path_label = "PATH mode (restricted)";
+        break;
+      case 3:
+        path_label = "PATH mode (strict)";
+        break;
+      default:
+        path_label = "PATH mode";
+        break;
+
+    }
     if (instrument_ctx && path_mode) {
 
-      snprintf(buf, sizeof(buf), " (CTX mode, depth %u, PATH mode)",
-               instrument_ctx_max_depth);
+      snprintf(buf, sizeof(buf), " (CTX mode, depth %u, %s)",
+               instrument_ctx_max_depth, path_label);
 
     } else if (instrument_ctx) {
 
@@ -524,7 +585,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
     } else if (path_mode) {
 
-      snprintf(buf, sizeof(buf), " (PATH mode)");
+      snprintf(buf, sizeof(buf), " (%s)", path_label);
 
     }
 
@@ -2717,6 +2778,36 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
 
   };
 
+  /* Helper: a "guard-only" BB has no calls, no stores, no atomics — only
+     pure condition-check work (loads, casts, GEPs, comparisons, phis,
+     freezes, allocas) and a terminator.  In relaxed mode (level 2) such
+     BBs collapse via max() instead of sum(), so short-circuit `&&`/`||`
+     and similar pure-condition chains do not multiply path counts.       */
+  auto isGuardOnlyBB = [&](BasicBlock *BB) -> bool {
+
+    for (auto &I : *BB) {
+
+      if (I.isTerminator()) continue;
+      if (isa<LoadInst>(&I)) continue;
+      if (isa<CastInst>(&I)) continue;  // zext/sext/trunc/bitcast/etc.
+      if (isa<GetElementPtrInst>(&I)) continue;
+      if (isa<CmpInst>(&I)) continue;  // icmp / fcmp
+      if (isa<PHINode>(&I)) continue;
+      if (isa<FreezeInst>(&I)) continue;
+      if (isa<AllocaInst>(&I)) continue;
+      if (isa<SelectInst>(&I)) continue;  // pure data flow, no side effects
+      if (isa<BinaryOperator>(&I)) continue;  // add/sub/and/or/xor/shl/...
+      if (isa<UnaryOperator>(&I)) continue;
+      if (isa<ExtractValueInst>(&I) || isa<InsertValueInst>(&I)) continue;
+      /* Anything else (calls, stores, atomicrmw/cmpxchg, fences, ...)
+         counts as "real work" — not guard-only. */
+      return false;
+
+    }
+    return true;
+
+  };
+
   /* 3. Compute NumPaths(v) on the forward DAG, recursively with memoization.
      Two passes if we need to simplify after the first.                     */
   llvm::DenseMap<BasicBlock *, uint64_t> NumPaths;
@@ -2739,11 +2830,20 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
       } else {
 
         auto succs = forwardSuccs(BB);
+        bool maxMerge = false;
+        if (simplify && succs.size() > 2) maxMerge = true;
+        /* Level 1 (relaxed): collapse every guard-only BB regardless of
+           successor count.  Level 2 (restricted): only collapse 2-successor
+           guard-only BBs (preserves switches/indirectbr).  Level 3 (strict):
+           never collapse from this rule. */
+        if ((path_mode_level == 1 && succs.size() > 1 && isGuardOnlyBB(BB)) ||
+            (path_mode_level == 2 && succs.size() == 2 && isGuardOnlyBB(BB)))
+          maxMerge = true;
         if (succs.empty()) {
 
           total = 0;
 
-        } else if (simplify && succs.size() > 2) {
+        } else if (maxMerge) {
 
           for (auto *S : succs) {
 
@@ -2796,8 +2896,10 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
 
   if (numEntry <= 1) return 0;  // straight-line, no info
 
-  /* 4. Assign edge values per Ball-Larus prefix-sum.  Edge values for
-     simplified multi-way branches are all zero. */
+  /* 4. Assign edge values per Ball-Larus prefix-sum.  Branches that were
+     max-merged during NumPaths computation must produce zero edge values
+     so that the runtime path register sees the same value regardless of
+     which arm was taken. */
   llvm::DenseMap<std::pair<BasicBlock *, BasicBlock *>, uint64_t> EdgeVal;
   for (auto &BB : F) {
 
@@ -2805,7 +2907,12 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
     if (!NumPaths.count(&BB)) continue;  // unreachable in DAG
     auto succs = forwardSuccs(&BB);
     if (succs.empty()) continue;
-    if (simplified && succs.size() > 2) {
+    bool maxMerge = false;
+    if (simplified && succs.size() > 2) maxMerge = true;
+    if ((path_mode_level == 1 && succs.size() > 1 && isGuardOnlyBB(&BB)) ||
+        (path_mode_level == 2 && succs.size() == 2 && isGuardOnlyBB(&BB)))
+      maxMerge = true;
+    if (maxMerge) {
 
       for (auto *S : succs) EdgeVal[{&BB, S}] = 0;
       continue;
