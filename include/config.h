@@ -514,6 +514,24 @@ We add 4 byte for one u32 length field. */
 /* IJON map footprint in bytes (64-bit values for legacy compatibility) */
 #define MAP_SIZE_IJON_BYTES (MAP_SIZE_IJON_ENTRIES * sizeof(u64))  // = 4096
 
+/* Bug-pass map. Holds u32 slots; runtime keeps the max value seen per slot
+   (like IJON). Layout: appended after the IJON region in __afl_area_ptr. */
+#define MAP_SIZE_BUG_ENTRIES (1U << 14)
+#define MAP_SIZE_BUG_BYTES (MAP_SIZE_BUG_ENTRIES * sizeof(u32))
+
+/* AllocSizeOracle (AFL_LLVM_BUG_ALLOCSIZE) shadow.
+   1 byte per 64-byte granule, covering a 16 GB tracked address range.
+   mmap'd MAP_NORESERVE so physical pages are lazy. */
+#define MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2 6                    /* 64 bytes */
+#define MAP_SIZE_ALLOCSHADOW_RANGE        (1ULL << 34)         /* 16 GB */
+#define MAP_SIZE_ALLOCSHADOW_BYTES \
+  (MAP_SIZE_ALLOCSHADOW_RANGE >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2)  /* 256 MB */
+
+/* Live allocation records. Index 0 is reserved for "untracked"; 1..255
+   correspond to active allocations. 255 simultaneous tracked allocations
+   is more than libwebp's worst case (~100). */
+#define MAP_SIZE_ALLOCRECORDS 256
+
 /* Maximum allocator request size (keep well under INT_MAX): */
 
 #define MAX_ALLOC 0x40000000

@@ -3751,6 +3751,16 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     }
 
+    /* Bug-finding pass: enabled by any AFL_LLVM_BUG* var. Single .so handles
+       all four sub-modes internally. */
+    if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_SCALAR") ||
+        getenv("AFL_LLVM_BUG_BUDGET") || getenv("AFL_LLVM_BUG_SIZEFILL") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE")) {
+
+      load_llvm_pass(aflcc, "afl-llvm-bug-pass.so");
+
+    }
+
     if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
         getenv("AFL_LLVM_INJECTIONS_SQL") ||
         getenv("AFL_LLVM_INJECTIONS_LDAP") ||
