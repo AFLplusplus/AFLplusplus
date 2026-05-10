@@ -241,6 +241,33 @@ It is highly recommended to increase the MAP_SIZE_POW2 definition in config.h to
 at least 18 and maybe up to 20 for this as otherwise too many map collisions
 occur.
 
+## 7b) AFL++ Path Coverage (Ball-Larus)
+
+Setting `AFL_LLVM_PATH` (or `AFL_LLVM_LTO_PATH` / `AFL_LLVM_PATH_MODE`)
+adds Ball-Larus per-function path coverage on top of the default edge
+coverage. Each acyclic path through a function (loops are treated as a
+single iteration; back-edges stripped) gets its own bitmap slot. The
+runtime cost per function exit is one map increment. Three levels:
+
+- `=1` (relaxed): collapses every "guard-only" basic block (no calls,
+  stores, or atomics — just pure condition checks) via `max()` instead of
+  `sum()` during path counting, so short-circuit `&&`/`||` chains and
+  switches-on-loaded-value do not multiply path counts. Smallest map.
+- `=2` (restricted): collapses only 2-successor guard-only BBs (preserves
+  switches/indirectbr).
+- `=3` (strict): full Ball-Larus, every IR-level acyclic path is a unique
+  slot.
+
+Functions with more than 100,000 paths that cannot be reduced by
+collapsing multi-way branches are skipped with a warning. Single-path
+(straight-line) functions and functions without any return point are
+also skipped.
+
+This works under both `afl-clang-fast` (PCGUARD) and `afl-clang-lto`. The
+LTO build additionally composes with `AFL_LLVM_LTO_CALLER` to track
+`(call_site, path)` tuples — see
+[README.lto.md](README.lto.md).
+
 ## 8) NeverZero counters
 
 In larger, complex, or reiterative programs, the byte sized counters that
