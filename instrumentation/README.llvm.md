@@ -268,6 +268,18 @@ LTO build additionally composes with `AFL_LLVM_LTO_CALLER` to track
 `(call_site, path)` tuples — see
 [README.lto.md](README.lto.md).
 
+Some numbers:
+|TARGET|CALLER DEPTH|PATH LEVEL|MAP SIZE||
+|------|------------|----------|--------|-|
+|libjpeg|-|-|22041||
+|libjpeg|-|1|262705|x12|
+|libjpeg|-|2|379697|x18|
+|libjpeg|-|3|1154201|x50|
+|libjpeg|1|-|42161|x2|
+|libjpeg|1|1|477009|x22|
+|libjpeg|1|2|863505|x40|
+|libjpeg|1|3|1977785|hits limits|
+
 ## 8) NeverZero counters
 
 In larger, complex, or reiterative programs, the byte sized counters that
