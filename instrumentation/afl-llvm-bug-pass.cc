@@ -390,6 +390,11 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
 
       Function *callee = m.Call->getCalledFunction();
       if (!callee || callee->isDeclaration()) continue;  // intra-module only
+      /* Defensive: if the matched call's return isn't integer, the post-call
+         CreateZExtOrTrunc would assert. Valid IR for `gep ptr, idx` and
+         `add p2i, idx` always has integer idx, but pass ordering with ASan
+         and unusual optimisation pipelines can produce surprises. */
+      if (!m.Call->getType()->isIntegerTy()) continue;
 
       IRBuilder<> Pre(m.Call);
       Value      *ptrCast = Pre.CreateBitOrPointerCast(m.PtrBefore, PtrTy);
@@ -715,6 +720,9 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
         if (pi >= Call->arg_size()) continue;
         Value *p = Call->getArgOperand(pi);
         if (isa<ConstantPointerNull>(p->stripPointerCasts())) continue;
+        /* Sentinel-arg functions returning void / pointer / float can't be
+           checked here — sfCheck takes the returned size as i64. */
+        if (!cf->getReturnType()->isIntegerTy()) continue;
         uint64_t bufsz = inferBufferSize(p, M.getDataLayout());
         if (!bufsz) continue;
 
@@ -891,6 +899,46 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         for (const AllocRewriteSpec &spec : kRewriteSpecs) {
 
           if (name != spec.libc) continue;
+          /* Defensive signature check: only rewrite calls whose args match
+             the expected libc shape. With AFL_USE_ASAN=1 + CmpLog,
+             user code that shadows malloc/etc. with a different signature
+             would otherwise hit IRBuilder asserts. */
+          unsigned expected_args =
+              spec.is_free                   ? 1
+              : (spec.is_realloc)            ? 2
+              : (spec.is_calloc)             ? 2
+              : (spec.is_posix_memalign)     ? 3
+                                             : 1;  /* malloc */
+          if (Call->arg_size() != expected_args) continue;
+          if (spec.is_free) {
+
+            if (!Call->getArgOperand(0)->getType()->isPointerTy()) continue;
+
+          } else if (spec.is_realloc) {
+
+            if (!Call->getArgOperand(0)->getType()->isPointerTy() ||
+                !Call->getArgOperand(1)->getType()->isIntegerTy())
+              continue;
+
+          } else if (spec.is_calloc) {
+
+            if (!Call->getArgOperand(0)->getType()->isIntegerTy() ||
+                !Call->getArgOperand(1)->getType()->isIntegerTy())
+              continue;
+
+          } else if (spec.is_posix_memalign) {
+
+            if (!Call->getArgOperand(0)->getType()->isPointerTy() ||
+                !Call->getArgOperand(1)->getType()->isIntegerTy() ||
+                !Call->getArgOperand(2)->getType()->isIntegerTy())
+              continue;
+
+          } else { /* malloc */
+
+            if (!Call->getArgOperand(0)->getType()->isIntegerTy()) continue;
+
+          }
+
           IRBuilder<>  B(Call);
           uint32_t     id = next_alloc_id++;
           ConstantInt *idC = ConstantInt::get(I32, id);
@@ -940,7 +988,9 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         if (matched) continue;
         // 2) Manual register for user-listed custom allocators.
         if (!custom_set.count(name.str())) continue;
-        if (cf->getReturnType() == VoidTy) continue;
+        /* Custom allocator must return a pointer — its result is passed to
+           __afl_alloc_register's first arg (PtrTy). Reject void/int/etc. */
+        if (!cf->getReturnType()->isPointerTy()) continue;
         IRBuilder<> Post(Call->getNextNode());
         Value      *sizeArg = nullptr;
         for (unsigned i = 0; i < Call->arg_size(); ++i) {
