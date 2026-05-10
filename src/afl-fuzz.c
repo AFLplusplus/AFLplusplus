@@ -308,7 +308,9 @@ static void usage(u8 *argv0, int more_help) {
       "files,\n"
       "                  A=arithmetic solving, T=transformational solving,\n"
       "                  X=extreme transform solving, R=random colorization "
-      "bytes.\n\n"
+      "bytes,\n"
+      "                  M=tightness scheduling (favour barely-passed cmps),\n"
+      "                  Z=size-derive mining (use AFL_LLVM_BUG_ALLOCSIZE_DERIVE).\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z             - sequential queue selection instead of weighted "
       "random\n"
@@ -1465,6 +1467,14 @@ int main(int argc, char **argv_orig, char **envp) {
             case 'r':
             case 'R':
               afl->cmplog_random_colorization = 1;
+              break;
+            case 'm':
+            case 'M':
+              afl->cmplog_tightness = 1;
+              break;
+            case 'z':
+            case 'Z':
+              afl->cmplog_size_derive = 1;
               break;
             default:
               FATAL("Unknown option value '%c' in -l %s", *c, optarg);

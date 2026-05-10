@@ -1031,7 +1031,8 @@ void cull_queue(afl_state_t *afl) {
 
   for (i = 0; i < afl->queued_items; i++) {
 
-    afl->queue_buf[i]->favored = 0;
+    /* Keep entries flagged tightness_novel favoured across cull cycles. */
+    afl->queue_buf[i]->favored = afl->queue_buf[i]->tightness_novel;
 
   }
 

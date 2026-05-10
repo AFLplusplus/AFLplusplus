@@ -105,4 +105,23 @@ else
   exit 1
 fi
 
+# --- ALLOCSIZE_DERIVE ---
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1 \
+  "$CC" -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-allocsize-derive.c" -o "$TMP/ad"
+set +e
+printf '\x00\x00\x00\x00' | AFL_LLVM_BUG_ALLOCSIZE=1 \
+  AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1 AFL_CMPLOG_DEBUG=1 \
+  "$TMP/ad" 2>"$TMP/ad.err" >/dev/null
+ad_rc=$?
+set -e
+
+if [ "$ad_rc" -eq 0 ] && grep -q "size=64 off=" "$TMP/ad.err"; then
+  echo "[+] ALLOCSIZE_DERIVE: $(grep BUG_ALLOCSIZE_DERIVE $TMP/ad.err)"
+else
+  echo "[!] ALLOCSIZE_DERIVE: rc=$ad_rc"
+  cat "$TMP/ad.err" || true
+  exit 1
+fi
+
 echo "[+] all bug-pass tests passed"

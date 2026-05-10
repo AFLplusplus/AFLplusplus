@@ -230,10 +230,13 @@ typedef struct AllocSizeRecord {
   uint64_t  size;
   uint32_t  alloc_site_id;
   uint8_t   in_use;
+  uint64_t  max_observed_off;     /* tracked by __afl_alloc_oracle */
+  uint8_t   derive_logged;        /* set after __afl_size_derive_log */
 
 } AllocSizeRecord;
 
 u8              __afl_allocsize_active = 0;
+u8              __afl_size_derive_active = 0;
 u8             *__afl_alloc_shadow = NULL;
 uintptr_t       __afl_alloc_shadow_origin = 0;
 AllocSizeRecord __afl_alloc_records[MAP_SIZE_ALLOCRECORDS];
@@ -1049,6 +1052,12 @@ static void __afl_map_shm(void) {
   if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_ALLOCSIZE")) {
 
     __afl_allocsize_active = 1;
+
+  }
+
+  if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE")) {
+
+    __afl_size_derive_active = 1;
 
   }
 
@@ -3994,8 +4003,51 @@ void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
   __afl_alloc_records[idx].size = size;
   __afl_alloc_records[idx].alloc_site_id = alloc_site_id;
   __afl_alloc_records[idx].in_use = 1;
+  __afl_alloc_records[idx].max_observed_off = 0;
+  __afl_alloc_records[idx].derive_logged = 0;
   __afl_alloc_shadow_paint((uintptr_t)ptr, size, (u8)idx);
   __AFL_ALLOC_UNLOCK;
+
+}
+
+/* Size-derive: when a tracked allocation is freed (or unregistered), log
+   (computed_size, max_observed_off) into a CmpLog routine slot keyed by
+   alloc_site_id. The fuzzer's existing CMP_TYPE_RTN dictionary mining will
+   pick up `computed_size` as a magic dictionary entry, propagating the
+   input bytes that produced that exact size into havoc. */
+static void __afl_size_derive_log(AllocSizeRecord *r) {
+
+  if (!__afl_size_derive_active) return;
+  if (!__afl_cmp_map) return;
+  if (r->derive_logged) return;
+  if (!r->size) return;
+
+  /* Stable per-site key into cmp_map; Knuth multiplicative hash to disperse. */
+  u32                key = (r->alloc_site_id * 2654435761u) & (CMP_MAP_W - 1);
+  struct cmp_header *h = &__afl_cmp_map->headers[key];
+  if (h->hits >= CMP_MAP_RTN_H) return;  /* slot full — skip */
+
+  u32 slot = h->hits;
+  if (slot >= CMP_MAP_RTN_H) return;
+  h->type = CMP_TYPE_RTN;
+  h->shape = 7;                          /* 8-byte values */
+  h->attribute = 0;
+
+  struct cmpfn_operands *op =
+      (struct cmpfn_operands *)&__afl_cmp_map->log[key][slot];
+  /* Bytewise little-endian copy of the two u64s into v0/v1. */
+  for (u32 i = 0; i < 8; ++i) {
+
+    op->v0[i] = (u8)(r->size >> (i * 8));
+    op->v1[i] = (u8)(r->max_observed_off >> (i * 8));
+
+  }
+
+  op->v0_len = 8;
+  op->v1_len = 8;
+  op->addr_attr = 0;
+  ++h->hits;
+  r->derive_logged = 1;
 
 }
 
@@ -4007,6 +4059,7 @@ void __afl_alloc_unregister(void *ptr) {
 
     AllocSizeRecord *r = &__afl_alloc_records[i];
     if (!r->in_use || r->base != (uintptr_t)ptr) continue;
+    __afl_size_derive_log(r);
     __afl_alloc_shadow_paint(r->base, r->size, 0);
     r->in_use = 0;
     break;
@@ -4071,6 +4124,12 @@ void __afl_alloc_oracle(const void *ptr) {
   AllocSizeRecord *r = &__afl_alloc_records[idx];
   if (!r->in_use) return;
   uintptr_t end = r->base + r->size;
+  /* Always update max_observed_off, regardless of OOB status — size-derive
+     wants to know "how far did the largest write reach" even on benign
+     runs. The +1 covers a 1-byte store; if we later track per-store size
+     we can refine. */
+  uint64_t off_now = (uint64_t)(a - r->base) + 1;
+  if (off_now > r->max_observed_off) r->max_observed_off = off_now;
   /* (3) Soft-OOB tripwire: ptr is past end. */
   if (a >= end) {
 

@@ -225,6 +225,14 @@ class).
     `AFL_LLVM_BUG_ALLOCSIZE=1`. Note: targets must export the named
     function (non-static / extern linkage) so LLVM's IPO does not strip
     the size argument; static helpers can be specialized away by `-O3`.
+  - `AFL_LLVM_BUG_ALLOCSIZE_DERIVE` — at every `__afl_alloc_unregister`
+    (free of a tracked allocation), log `(record.size,
+    record.max_observed_off)` into a CmpLog routine slot keyed by
+    alloc-site ID. Requires `AFL_LLVM_BUG_ALLOCSIZE=1` and a CmpLog
+    binary (or `AFL_CMPLOG_DEBUG=1`) for the cmp_map to be allocated.
+    Pair with `afl-fuzz -l 2z` to confirm the feature is in use; the
+    fuzzer's existing CmpLog RTN dictionary mining harvests the entries
+    automatically.
 
 The runtime keeps its own private max-value bug-map (`MAP_SIZE_BUG`,
 16384 u32 slots), separate from the IJON map, and reports oracle violations
