@@ -57,12 +57,19 @@ void *__afl_track_malloc(uint64_t size, uint32_t alloc_site_id);
 void *__afl_track_calloc(uint64_t nmemb, uint64_t size,
                          uint32_t alloc_site_id);
 void *__afl_track_realloc(void *ptr, uint64_t size, uint32_t alloc_site_id);
+void *__afl_track_reallocarray(void *ptr, uint64_t nmemb, uint64_t size,
+                               uint32_t alloc_site_id);
 int   __afl_track_posix_memalign(void **memptr, uint64_t alignment,
                                  uint64_t size, uint32_t alloc_site_id);
 // C++17 aligned operator new replacement — preserves the alignment
 // contract by routing through posix_memalign rather than plain malloc.
 void *__afl_track_aligned_alloc(uint64_t size, uint64_t alignment,
                                 uint32_t alloc_site_id);
+// strdup / strndup return a fresh malloc'd buffer the runtime must
+// register so subsequent stores against the result are oracle-checked.
+char *__afl_track_strdup(const char *s, uint32_t alloc_site_id);
+char *__afl_track_strndup(const char *s, uint64_t n,
+                          uint32_t alloc_site_id);
 void  __afl_track_free(void *ptr);
 
 // Manual registration entrypoint for custom allocators that the pass

@@ -211,20 +211,34 @@ u32 __afl_ijon_enabled __attribute__((weak)) = 0;
 u8         __afl_bug_active = 0;
 u32       *__afl_bug_map = NULL;
 static u32 __afl_bug_map_local[MAP_SIZE_BUG_ENTRIES];
+/* Per-thread stack of nested BUDGET / SIZEFILL frames.
+   Previously begin/check used a single global (base, max_off), so an
+   inner instrumented call's wsBegin overwrote the outer frame and the
+   outer wsCheck became a silent no-op — losing real budget violations
+   in nested call patterns. With a stack, every store updates EVERY
+   active frame (so an outer call's contract correctly includes writes
+   done by its callees) and each call's check inspects its own frame. */
+#define __AFL_BUG_FRAME_STACK_DEPTH 16
+typedef struct __afl_bug_frame {
+
+  const void *base;
+  u64         max_off;
+  u64         total;
+
+} __afl_bug_frame;
+
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
-static const void *__afl_bug_ws_base = NULL;
-static u64         __afl_bug_ws_max_off = 0;
-static u64         __afl_bug_ws_total = 0;
-/* Independent SIZEFILL state so it can coexist with BUDGET under
-   AFL_LLVM_BUG=all without clobbering each other's base/max. */
-static const void *__afl_bug_sf_base = NULL;
-static u64         __afl_bug_sf_max_off = 0;
+static __afl_bug_frame __afl_bug_ws_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static int             __afl_bug_ws_top = -1;
+static __afl_bug_frame __afl_bug_sf_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static int             __afl_bug_sf_top = -1;
 #else
-static __thread const void *__afl_bug_ws_base = NULL;
-static __thread u64         __afl_bug_ws_max_off = 0;
-static __thread u64         __afl_bug_ws_total = 0;
-static __thread const void *__afl_bug_sf_base = NULL;
-static __thread u64         __afl_bug_sf_max_off = 0;
+static __thread __afl_bug_frame
+    __afl_bug_ws_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static __thread int __afl_bug_ws_top = -1;
+static __thread __afl_bug_frame
+    __afl_bug_sf_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static __thread int __afl_bug_sf_top = -1;
 #endif
 
 /* AllocSizeOracle (AFL_LLVM_BUG_ALLOCSIZE) runtime globals.
@@ -3847,63 +3861,104 @@ void __afl_bug_loop_iter_flush(uint32_t id, uint32_t local_count) {
 void __afl_bug_ws_begin(const void *ptr_before) {
 
   if (!__afl_bug_active) return;
-  __afl_bug_ws_base = ptr_before;
-  __afl_bug_ws_max_off = 0;
-  __afl_bug_ws_total = 0;
+  /* Stack overflow: silently drop the frame. The matching check below
+     won't find a matching base and will become a no-op — preferable to
+     stomping the deepest frame and reporting wrong violations. */
+  if (__afl_bug_ws_top + 1 >= __AFL_BUG_FRAME_STACK_DEPTH) return;
+  ++__afl_bug_ws_top;
+  __afl_bug_ws_stack[__afl_bug_ws_top].base = ptr_before;
+  __afl_bug_ws_stack[__afl_bug_ws_top].max_off = 0;
+  __afl_bug_ws_stack[__afl_bug_ws_top].total = 0;
 
 }
 
 void __afl_bug_ws_store(const void *addr, uint32_t size) {
 
-  if (!__afl_bug_active || !__afl_bug_ws_base) return;
-  uintptr_t base = (uintptr_t)__afl_bug_ws_base;
+  if (!__afl_bug_active || __afl_bug_ws_top < 0) return;
   uintptr_t a = (uintptr_t)addr;
-  if (a < base) return; /* unrelated store */
-  uint64_t off = (uint64_t)(a - base) + size;
-  if (off > __afl_bug_ws_max_off) __afl_bug_ws_max_off = off;
-  __afl_bug_ws_total += size;
+  /* Update every active frame whose base is at or before addr — an
+     outer call's contract should include writes done by callees on its
+     behalf, so we don't hide nested writes from outer frames. */
+  for (int i = 0; i <= __afl_bug_ws_top; ++i) {
+
+    uintptr_t base = (uintptr_t)__afl_bug_ws_stack[i].base;
+    if (a < base) continue;
+    uint64_t off = (uint64_t)(a - base) + size;
+    if (off > __afl_bug_ws_stack[i].max_off)
+      __afl_bug_ws_stack[i].max_off = off;
+    __afl_bug_ws_stack[i].total += size;
+
+  }
 
 }
 
 void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size) {
 
-  if (!__afl_bug_active) return;
-  if (ptr_before != __afl_bug_ws_base) return; /* nesting / unmatched */
-  if (__afl_bug_ws_max_off > ret_size) {
+  if (!__afl_bug_active || __afl_bug_ws_top < 0) return;
+  /* Match against the nearest frame with this base. Walking from top
+     down handles direct recursion (the closer frame is ours); on
+     unmatched nesting (e.g., an inlined wsBegin without a paired
+     wsCheck, or a wsBegin we silently dropped due to overflow) we
+     return without touching the stack. */
+  int matched = -1;
+  for (int i = __afl_bug_ws_top; i >= 0; --i) {
+
+    if (__afl_bug_ws_stack[i].base == ptr_before) {
+
+      matched = i;
+      break;
+
+    }
+
+  }
+
+  if (matched < 0) return;
+  u64 max_off = __afl_bug_ws_stack[matched].max_off;
+  if (max_off > ret_size) {
 
     fprintf(stderr,
             "[afl-bug] BUDGET violation: function wrote %llu bytes past "
             "ptr_before, returned size %llu (delta=%llu)\n",
-            (unsigned long long)__afl_bug_ws_max_off,
-            (unsigned long long)ret_size,
-            (unsigned long long)(__afl_bug_ws_max_off - ret_size));
+            (unsigned long long)max_off, (unsigned long long)ret_size,
+            (unsigned long long)(max_off - ret_size));
     abort();
 
   }
 
-  __afl_bug_ws_base = NULL;
+  /* Pop the matched frame and any orphans above it (those lost their
+     matching check; discarding keeps the stack consistent for outer
+     frames still pending). */
+  __afl_bug_ws_top = matched - 1;
 
 }
 
-/* Independent SIZEFILL begin/store hooks — mirror ws_begin/ws_store but
-   write to the sf_* state so BUDGET and SIZEFILL can run concurrently
-   under AFL_LLVM_BUG=all without trampling on each other's base/max. */
+/* Independent SIZEFILL stack so it can coexist with BUDGET under
+   AFL_LLVM_BUG=all without clobbering each other. Same begin/store/
+   check discipline as ws_*. */
 void __afl_bug_sf_begin(const void *ptr_arg) {
 
   if (!__afl_bug_active) return;
-  __afl_bug_sf_base = ptr_arg;
-  __afl_bug_sf_max_off = 0;
+  if (__afl_bug_sf_top + 1 >= __AFL_BUG_FRAME_STACK_DEPTH) return;
+  ++__afl_bug_sf_top;
+  __afl_bug_sf_stack[__afl_bug_sf_top].base = ptr_arg;
+  __afl_bug_sf_stack[__afl_bug_sf_top].max_off = 0;
+  __afl_bug_sf_stack[__afl_bug_sf_top].total = 0;
 
 }
 
 void __afl_bug_sf_store(const void *addr, uint32_t size) {
 
-  if (!__afl_bug_active || !__afl_bug_sf_base) return;
-  uintptr_t base = (uintptr_t)__afl_bug_sf_base;
+  if (!__afl_bug_active || __afl_bug_sf_top < 0) return;
   uintptr_t a = (uintptr_t)addr;
-  if (a < base) return;
-  uint64_t off = (uint64_t)(a - base) + size;
-  if (off > __afl_bug_sf_max_off) __afl_bug_sf_max_off = off;
+  for (int i = 0; i <= __afl_bug_sf_top; ++i) {
+
+    uintptr_t base = (uintptr_t)__afl_bug_sf_stack[i].base;
+    if (a < base) continue;
+    uint64_t off = (uint64_t)(a - base) + size;
+    if (off > __afl_bug_sf_stack[i].max_off)
+      __afl_bug_sf_stack[i].max_off = off;
+
+  }
 
 }
 
@@ -3922,19 +3977,33 @@ void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
 
   }
 
-  if (ptr_arg == __afl_bug_sf_base &&
-      __afl_bug_sf_max_off > caller_buf_size) {
+  if (__afl_bug_sf_top < 0) return;
+  int matched = -1;
+  for (int i = __afl_bug_sf_top; i >= 0; --i) {
+
+    if (__afl_bug_sf_stack[i].base == ptr_arg) {
+
+      matched = i;
+      break;
+
+    }
+
+  }
+
+  if (matched < 0) return;
+  u64 max_off = __afl_bug_sf_stack[matched].max_off;
+  if (max_off > caller_buf_size) {
 
     fprintf(stderr,
             "[afl-bug] SIZEFILL violation: writes extended to %llu bytes "
             "past buffer head, caller buffer only %llu (ptr=%p)\n",
-            (unsigned long long)__afl_bug_sf_max_off,
+            (unsigned long long)max_off,
             (unsigned long long)caller_buf_size, ptr_arg);
     abort();
 
   }
 
-  __afl_bug_sf_base = NULL;
+  __afl_bug_sf_top = matched - 1;
 
 }
 
@@ -3942,10 +4011,10 @@ void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
    scalar/loop hooks on the same __afl_bug_map:
      - We invert the bucket (small slack -> large stored value) so a MAX
        update preserves the tightest match seen.
-     - We hash the id with a SLACK-specific salt before masking. Scalar/loop
-       use `id & MASK` directly; slack uses `(id * 2654435761u) & MASK`.
-       Collisions still happen at the noise floor but the two channels no
-       longer trample each other on adjacent low IDs.
+     - The pass already hashes (function-name, site-index, mode salt) to
+       produce `id`, so the SLACK channel does not collide with SCALAR's
+       slot 0 even for the lowest-numbered sites. We simply mask here —
+       the pass owns slot distribution.
    Net: a smaller-than-ever slack at a given site wins; large slack from
    other paths can't overwrite it. */
 void __afl_bug_slack_min(uint32_t id, uint64_t slack) {
@@ -3954,7 +4023,7 @@ void __afl_bug_slack_min(uint32_t id, uint64_t slack) {
   /* ceil(log2(slack+1)), capped at 64. Slack==0 (tight equality) -> 0. */
   u32 log_slack = slack ? (64u - (u32)__builtin_clzll(slack)) : 0;
   u32 inv = 64u - log_slack;  /* 64 for slack==0, shrinks as slack grows */
-  u32 slot = (id * 2654435761u) & (MAP_SIZE_BUG_ENTRIES - 1);
+  u32 slot = id & (MAP_SIZE_BUG_ENTRIES - 1);
   if (__afl_bug_map[slot] < inv) __afl_bug_map[slot] = inv;
 
 }
@@ -4163,6 +4232,49 @@ void *__afl_track_aligned_alloc(uint64_t size, uint64_t alignment,
   if (alignment < sizeof(void *)) alignment = sizeof(void *);
   if (posix_memalign(&p, (size_t)alignment, (size_t)size) != 0) return NULL;
   __afl_alloc_register(p, size, alloc_site_id);
+  return p;
+
+}
+
+void *__afl_track_reallocarray(void *ptr, uint64_t nmemb, uint64_t size,
+                               uint32_t alloc_site_id) {
+
+  /* Saturating overflow check mirroring glibc's reallocarray. On overflow
+     errno=ENOMEM and we return NULL without unregistering the old buf —
+     the caller still owns it. */
+  if (size && nmemb > (uint64_t)-1 / size) return NULL;
+  uint64_t total = nmemb * size;
+  __afl_alloc_unregister(ptr);
+  void *p = realloc(ptr, (size_t)total);
+  __afl_alloc_register(p, total, alloc_site_id);
+  return p;
+
+}
+
+char *__afl_track_strdup(const char *s, uint32_t alloc_site_id) {
+
+  if (!s) return NULL;
+  size_t n = strlen(s) + 1;
+  char  *p = (char *)malloc(n);
+  if (!p) return NULL;
+  memcpy(p, s, n);
+  __afl_alloc_register(p, n, alloc_site_id);
+  return p;
+
+}
+
+char *__afl_track_strndup(const char *s, uint64_t n, uint32_t alloc_site_id) {
+
+  if (!s) return NULL;
+  /* strndup copies at most n bytes, stopping at the first NUL, and always
+     appends one. The malloc size is (effective_len + 1). */
+  size_t len = 0;
+  while (len < (size_t)n && s[len]) ++len;
+  char *p = (char *)malloc(len + 1);
+  if (!p) return NULL;
+  memcpy(p, s, len);
+  p[len] = '\0';
+  __afl_alloc_register(p, len + 1, alloc_site_id);
   return p;
 
 }

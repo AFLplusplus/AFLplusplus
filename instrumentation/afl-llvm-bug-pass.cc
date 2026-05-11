@@ -116,6 +116,45 @@ static bool ptrStoreReachesArg(StoreInst                 *S,
                                const std::set<unsigned> &arg_indices);
 static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source);
 
+// Mode salts for siteSlotId() — fed into the hash so the same site index
+// in different modes lands in different map slots (a SLACK id-0 site
+// would otherwise share its slot with SCALAR id-0 and they'd MAX over
+// each other unpredictably).
+enum : uint32_t {
+
+  BUG_MODE_SALT_SCALAR_ARITH = 0x53415243u,  // 'SARC'
+  BUG_MODE_SALT_SCALAR_LOOP  = 0x534C4F50u,  // 'SLOP'
+  BUG_MODE_SALT_SLACK        = 0x534C434Bu,  // 'SLCK'
+
+};
+
+// FNV-1a-style hash producing a slot index in [0, MAP_SIZE_BUG_ENTRIES).
+// Hashes (function name, site index, mode salt) so that a single mod-
+// space collision pattern across sites can't pile up on the same slot,
+// and so that the same site index across functions/modes lands
+// elsewhere. Stable across builds of the same function — no PRNG.
+static uint32_t siteSlotId(StringRef func_name, uint32_t site_idx,
+                           uint32_t mode_salt) {
+
+  uint32_t h = 0x811c9dc5u;  // FNV offset basis
+  for (char c : func_name) {
+
+    h ^= (uint8_t)c;
+    h *= 0x01000193u;        // FNV prime
+
+  }
+
+  h ^= site_idx;
+  h *= 0x01000193u;
+  h ^= mode_salt;
+  h *= 0x01000193u;
+  // Mix once more — small inputs (short names, low ids) otherwise leave
+  // the upper bits poorly distributed for a tiny mask.
+  h ^= h >> 16;
+  return h & (MAP_SIZE_BUG_ENTRIES - 1);
+
+}
+
 PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
 
   BugPassConfig cfg = parseEnv();
@@ -215,18 +254,22 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
 
   FunctionCallee scalarHook =
       M.getOrInsertFunction("__afl_bug_scalar_max", VoidTy, I32, I64);
+  FunctionCallee loopFlush =
+      M.getOrInsertFunction("__afl_bug_loop_iter_flush", VoidTy, I32, I32);
 
-  uint32_t next_id = 0;
+  uint32_t arith_sites = 0, loop_sites = 0;
   bool     changed = false;
 
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
     if (!isInInstrumentList(&F, F.getName().str())) continue;
-    // LoopInfo is needed both here (for IV-filter) and below (for loop
-    // iteration counters). Build once per function.
+    // Build DT + LoopInfo once per function and use it for both the
+    // arithmetic-site walk (IV-filter) and the loop-counter walk below.
     DominatorTree DT(F);
     LoopInfo      LI(DT);
+    StringRef     func_name = F.getName();
+    uint32_t      site_idx = 0;
     for (BasicBlock &BB : F) {
 
       for (Instruction &I : BB) {
@@ -251,31 +294,22 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
         IRBuilder<> B(Bin->getNextNode());
         inheritDebugLoc(B, Bin);
         Value   *v64 = B.CreateZExtOrTrunc(Bin, I64);
-        uint32_t id = (next_id++) & (MAP_SIZE_BUG_ENTRIES - 1);
+        uint32_t id = siteSlotId(func_name, site_idx++,
+                                 BUG_MODE_SALT_SCALAR_ARITH);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
+        ++arith_sites;
         changed = true;
 
       }
 
     }
 
-  }
-
-  // Loop-header iteration counters. Use local DominatorTree + LoopInfo
-  // (constructable directly), avoiding the analysis-manager API which varies
-  // across LLVM versions.
-  FunctionCallee loopFlush =
-      M.getOrInsertFunction("__afl_bug_loop_iter_flush", VoidTy, I32, I32);
-
-  uint32_t loop_sites = 0;
-  for (Function &F : M) {
-
-    if (F.isDeclaration()) continue;
-    if (!isInInstrumentList(&F, F.getName().str())) continue;
-    DominatorTree DT(F);
-    LoopInfo      LI(DT);
+    // Loop-header iteration counters in the SAME function — re-use the
+    // DT/LoopInfo we just built. Each loop gets a salted (function,
+    // site) hash so arithmetic site indices and loop site indices in
+    // the same function don't collide on the shared bug map.
     if (LI.empty()) continue;
-
+    uint32_t loop_idx = 0;
     for (Loop *L : LI.getLoopsInPreorder()) {
 
       // Need a simplified loop (single preheader + single latch) so the
@@ -287,7 +321,8 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
       BasicBlock *Header = L->getHeader();
       if (!Preheader || !Latch || !Header) continue;
 
-      uint32_t id = (next_id++) & (MAP_SIZE_BUG_ENTRIES - 1);
+      uint32_t id =
+          siteSlotId(func_name, loop_idx++, BUG_MODE_SALT_SCALAR_LOOP);
       ++loop_sites;
 
       // SSA-form counter: PHI in the header taking 0 from preheader and
@@ -349,7 +384,7 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
   }
 
   if (getenv("AFL_QUIET") == nullptr)
-    errs() << "[afl-bug] SCALAR instrumented " << (next_id - loop_sites)
+    errs() << "[afl-bug] SCALAR instrumented " << arith_sites
            << " arithmetic sites, " << loop_sites << " loops\n";
   return changed;
 
@@ -374,11 +409,31 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
     for (Instruction &I : BB) {
 
       // GEP form (most common in modern LLVM): getelementptr ptr, call_result.
+      // Accept multi-index GEPs whose final index is the call result and
+      // all preceding indices are constant-zero (typed-pointer struct
+      // walks land here in pre-opaque-pointer IR, e.g. `gep [N x T]*,
+      // ptr, 0, idx`). Without this the BUDGET oracle silently misses
+      // every such site under -O0/-Og or older LLVM.
       if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
 
-        if (GEP->getNumIndices() != 1) continue;
+        unsigned n = GEP->getNumIndices();
+        if (n < 1) continue;
+        bool leading_zero_ok = true;
+        for (unsigned k = 1; k + 1 < GEP->getNumOperands(); ++k) {
+
+          auto *Ci = dyn_cast<ConstantInt>(GEP->getOperand(k));
+          if (!Ci || !Ci->isZero()) {
+
+            leading_zero_ok = false;
+            break;
+
+          }
+
+        }
+
+        if (!leading_zero_ok) continue;
         Value *base = GEP->getPointerOperand();
-        Value *idx = GEP->getOperand(1);
+        Value *idx = GEP->getOperand(GEP->getNumOperands() - 1);
         // Look through zero/sign-extending casts: clang produces
         // `zext i32 %ret to i64` between the call and the GEP.
         while (auto *Cast = dyn_cast<CastInst>(idx)) {
@@ -394,10 +449,41 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
 
         auto *Call = dyn_cast<CallInst>(idx);
         if (!Call) continue;
+        // Match base against any pointer arg of the call, peering through
+        // a single level of alloca-spill (load %slot where %slot is
+        // written exactly once with the arg). Without this the optnone
+        // pattern `store %arg, %slot; %p = load %slot; gep %p, call(%slot)`
+        // is missed even though it's semantically the same as the direct
+        // form.
+        auto matches_arg = [&](Value *arg_val, Value *needle) -> bool {
+
+          Value *a = arg_val->stripPointerCasts();
+          Value *b = needle->stripPointerCasts();
+          if (a == b) return true;
+          if (auto *Ld = dyn_cast<LoadInst>(b)) {
+
+            if (auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand())) {
+
+              for (User *U : AI->users()) {
+
+                auto *St = dyn_cast<StoreInst>(U);
+                if (!St || St->getPointerOperand() != AI) continue;
+                if (St->getValueOperand()->stripPointerCasts() == a)
+                  return true;
+
+              }
+
+            }
+
+          }
+
+          return false;
+
+        };
+
         for (unsigned i = 0; i < Call->arg_size(); ++i) {
 
-          if (Call->getArgOperand(i)->stripPointerCasts() ==
-              base->stripPointerCasts()) {
+          if (matches_arg(Call->getArgOperand(i), base)) {
 
             out.push_back({Call, i, base});
             break;
@@ -512,10 +598,14 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
 
   // Instrument stores whose pointer traces to the SPECIFIC budget-traced
   // argument. Stores via stack locals, globals, or other pointer args are
-  // skipped to keep the tracked max_off honest.
+  // skipped to keep the tracked max_off honest. Skip callees the user
+  // excluded via AFL_LLVM_DENYLIST etc. — otherwise excluded code still
+  // gets per-store instrumentation when it happens to receive a tracked
+  // arg from an instrumented caller.
   for (auto &kv : callee_arg_indices) {
 
     Function                  *F = kv.first;
+    if (!isInInstrumentList(F, F->getName().str())) continue;
     const std::set<unsigned>  &arg_indices = kv.second;
     for (BasicBlock &BB : *F) {
 
@@ -544,6 +634,67 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
     errs() << "[afl-bug] BUDGET instrumented " << callee_arg_indices.size()
            << " callees\n";
   return changed;
+
+}
+
+// Describes a sentinel-style API:
+//   sentinel_idx   : the pointer arg branched on null; pre-pass returns
+//                    the buffer's claimed size without writing.
+//   out_size_idx   : -1 if the size comes from the integer return value;
+//                    otherwise the index of a pointer-to-integer arg
+//                    through which the function writes the size. Caller-
+//                    visible after the call as `*args[out_size_idx]`.
+struct SentinelDesc {
+
+  int sentinel_idx;
+  int out_size_idx;
+
+};
+
+// Scan F for an out-size argument: a pointer-to-integer arg into which
+// F stores a value before returning. Heuristic: any pointer-to-integer
+// arg that has at least one store-through. Returns the arg index, or -1.
+//
+// This catches the common `int parse(const buf*, size_t len, size_t *out)`
+// idiom that the integer-return-only path misses.
+static int findOutSizeParam(Function &F, int sentinel_idx) {
+
+  for (Argument &A : F.args()) {
+
+    if ((int)A.getArgNo() == sentinel_idx) continue;
+    if (!A.getType()->isPointerTy()) continue;
+    // Walk users (including spill-load idiom) for a store of an integer.
+    std::vector<Value *> roots;
+    roots.push_back(&A);
+    for (User *U : A.users()) {
+
+      auto *St = dyn_cast<StoreInst>(U);
+      if (!St) continue;
+      auto *AI = dyn_cast<AllocaInst>(St->getPointerOperand());
+      if (!AI) continue;
+      for (User *UU : AI->users())
+        if (auto *L = dyn_cast<LoadInst>(UU)) roots.push_back(L);
+
+    }
+
+    for (Value *root : roots) {
+
+      for (User *U : root->users()) {
+
+        auto *St = dyn_cast<StoreInst>(U);
+        if (!St || St->getPointerOperand() != root) continue;
+        Type *VT = St->getValueOperand()->getType();
+        if (VT->isIntegerTy() && VT->getIntegerBitWidth() >= 16 &&
+            VT->getIntegerBitWidth() <= 64)
+          return (int)A.getArgNo();
+
+      }
+
+    }
+
+  }
+
+  return -1;
 
 }
 
@@ -762,11 +913,13 @@ static bool ptrStoreReachesArg(StoreInst                 *S,
 
 // Copy the source instruction's DebugLoc onto `IB`'s recently-inserted
 // instructions so crashes / backtraces resolve to the user's source line
-// rather than the no-location bug-pass synthetic IR.
+// rather than the no-location bug-pass synthetic IR. If Source has no
+// debug loc, leave the builder's existing loc untouched — otherwise we'd
+// silently clear it and subsequent inserts would surface as <unknown>.
 static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source) {
 
   if (!Source) return;
-  B.SetCurrentDebugLocation(Source->getDebugLoc());
+  if (DebugLoc DL = Source->getDebugLoc()) B.SetCurrentDebugLocation(DL);
 
 }
 
@@ -775,16 +928,32 @@ static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source) {
 // the runtime size, both as i64. Returns nullptr if no anchor.
 //
 // Recognizes:
-//   - alloca of constant array type            -> ConstantInt
-//   - call malloc(N) / __afl_track_malloc(N)   -> Value* of N
-//   - call calloc(N,S) / __afl_track_calloc    -> Value* of N*S
-//   - call realloc(_,N) / __afl_track_realloc  -> Value* of N
-//   - call _Znwm / _Znam (C++ operator new)    -> Value* of size arg
+//   - alloca of constant array type                         -> ConstantInt
+//   - global var with constant array type                   -> ConstantInt
+//   - malloc / __afl_track_malloc / new                     -> size arg
+//   - calloc / __afl_track_calloc                           -> N*S (sat'd)
+//   - realloc / __afl_track_realloc                         -> new size
+//   - reallocarray / __afl_track_reallocarray               -> N*S (sat'd)
+//   - posix_memalign / __afl_track_posix_memalign           -> size arg
+//   - aligned_alloc (C11)                                   -> size arg
+//   - __afl_track_aligned_alloc                             -> size arg
+//   - _ZnwmSt11align_val_t / _ZnamSt11align_val_t etc.      -> size arg
+//   - strndup / __afl_track_strndup                         -> n+1 (worst case)
+//   - PHI / Select where all incomings are statically known -> max constant
 //
 // `B` is an IRBuilder positioned where the resulting Value must be
-// available. ZExt/Mul instructions for runtime sizes are inserted at B's
-// insertion point. SSA dominance is automatic: a malloc-call's size
-// operand dominates the malloc, which dominates any use of its return.
+// available. ZExt/Mul/Select instructions for runtime sizes are inserted
+// at B's insertion point. SSA dominance is automatic: a malloc-call's
+// size operand dominates the malloc, which dominates any use of its
+// return.
+//
+// PHI/Select join handling: if every incoming arm yields a ConstantInt
+// size, we return their MAX as a ConstantInt (no FPs for fuzzing; we
+// accept FNs on the smaller arm). If any arm yields a non-constant
+// Value*, we return nullptr rather than emit a fresh PHI — that would
+// require placing the new PHI in the original PHI's block and threading
+// per-arm sizes through their predecessor blocks, which we can't always
+// do safely from B's insertion point.
 //
 // Critically, this is what catches the libwebp-1.3.2-style idiom:
 //   size = sentinel_fn(NULL, ...);   // returns runtime size
@@ -841,12 +1010,75 @@ static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
 
   }
 
+  // PHI join: only proceed if every incoming yields a ConstantInt size.
+  // Take the MAX as the conservative claim — we'd rather under-report
+  // overflows than abort on the legitimate larger arm.
+  if (auto *PN = dyn_cast<PHINode>(V)) {
+
+    uint64_t best = 0;
+    bool     all_const = true;
+    for (Value *Inc : PN->incoming_values()) {
+
+      Value *s = inferBufferSizeValue(Inc, B, DL);
+      auto  *Ci = dyn_cast_or_null<ConstantInt>(s);
+      if (!Ci) {
+
+        all_const = false;
+        break;
+
+      }
+
+      uint64_t v = Ci->getZExtValue();
+      if (v > best) best = v;
+
+    }
+
+    if (all_const && best > 0) return ConstantInt::get(I64, best);
+    return nullptr;
+
+  }
+
+  // Select join: same conservative MAX. If both arms are constants we
+  // can fold; otherwise give up (a runtime select on raw size values
+  // would require both size Values dominate the call site, which isn't
+  // guaranteed when the sizes live in branches alongside the mallocs).
+  if (auto *Sel = dyn_cast<SelectInst>(V)) {
+
+    Value *st = inferBufferSizeValue(Sel->getTrueValue(), B, DL);
+    Value *sf = inferBufferSizeValue(Sel->getFalseValue(), B, DL);
+    auto  *Ct = dyn_cast_or_null<ConstantInt>(st);
+    auto  *Cf = dyn_cast_or_null<ConstantInt>(sf);
+    if (Ct && Cf) {
+
+      uint64_t m = std::max(Ct->getZExtValue(), Cf->getZExtValue());
+      return ConstantInt::get(I64, m);
+
+    }
+
+    return nullptr;
+
+  }
+
   if (auto *A = dyn_cast<AllocaInst>(V)) {
 
     if (auto *Cst = dyn_cast<ConstantInt>(A->getArraySize())) {
 
       uint64_t bytes =
           Cst->getZExtValue() * DL.getTypeStoreSize(A->getAllocatedType());
+      return ConstantInt::get(I64, bytes);
+
+    }
+
+    return nullptr;
+
+  }
+
+  // Global with a constant-sized type (string literals, static arrays).
+  if (auto *GV = dyn_cast<GlobalVariable>(V)) {
+
+    if (GV->hasInitializer() && GV->getValueType()->isSized()) {
+
+      uint64_t bytes = DL.getTypeAllocSize(GV->getValueType());
       return ConstantInt::get(I64, bytes);
 
     }
@@ -862,11 +1094,69 @@ static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
     StringRef name = cf->getName();
     /* The size-arg is always integer; CreateZExtOrTrunc to i64. The arg's
        Value at the Call site dominates any use of the Call's return. */
-    if ((name == "malloc" || name == "__afl_track_malloc") &&
+
+    // Helper: emit a saturating N*S product, returning UINT64_MAX on
+    // overflow so SIZEFILL's `ret_size > buf_size` check can't trip a
+    // false-positive abort. libc would return NULL on overflow anyway.
+    auto satMul = [&](Value *N, Value *S) -> Value * {
+
+      Value *uoCall =
+          B.CreateIntrinsic(Intrinsic::umul_with_overflow, {I64}, {N, S});
+      Value *prod = B.CreateExtractValue(uoCall, 0);
+      Value *ovf = B.CreateExtractValue(uoCall, 1);
+      Value *maxU = ConstantInt::get(I64, UINT64_MAX);
+      return B.CreateSelect(ovf, maxU, prod);
+
+    };
+
+    // Single-size-arg allocators. The size arg index varies by ABI:
+    //   arg0: malloc, __afl_track_malloc, operator new variants,
+    //         strndup-arg-1 (handled separately), realloc-arg-1 (sep.)
+    //   arg1: realloc family (ptr, size), strndup (str, n)
+    //   arg-of-aligned-alloc: see below
+    if ((name == "malloc" || name == "__afl_track_malloc" ||
+         name == "_Znwm" || name == "_Znam" || name == "_Znwj" ||
+         name == "_Znaj") &&
         Call->arg_size() >= 1 &&
         Call->getArgOperand(0)->getType()->isIntegerTy()) {
 
       return B.CreateZExtOrTrunc(Call->getArgOperand(0), I64);
+
+    }
+
+    // C++17 aligned new — (size, align_val_t). Size is arg0.
+    if ((name == "_ZnwmSt11align_val_t" || name == "_ZnamSt11align_val_t" ||
+         name == "_ZnwjSt11align_val_t" || name == "_ZnajSt11align_val_t") &&
+        Call->arg_size() >= 2 &&
+        Call->getArgOperand(0)->getType()->isIntegerTy()) {
+
+      return B.CreateZExtOrTrunc(Call->getArgOperand(0), I64);
+
+    }
+
+    // __afl_track_aligned_alloc signature: (size, align, id). Size = arg0.
+    if (name == "__afl_track_aligned_alloc" && Call->arg_size() >= 3 &&
+        Call->getArgOperand(0)->getType()->isIntegerTy()) {
+
+      return B.CreateZExtOrTrunc(Call->getArgOperand(0), I64);
+
+    }
+
+    // C11 aligned_alloc(align, size). Size = arg1.
+    if (name == "aligned_alloc" && Call->arg_size() >= 2 &&
+        Call->getArgOperand(1)->getType()->isIntegerTy()) {
+
+      return B.CreateZExtOrTrunc(Call->getArgOperand(1), I64);
+
+    }
+
+    // posix_memalign(memptr, align, size): size = arg2. The tracked
+    // variant matches the same shape but with a trailing id arg.
+    if ((name == "posix_memalign" || name == "__afl_track_posix_memalign") &&
+        Call->arg_size() >= 3 &&
+        Call->getArgOperand(2)->getType()->isIntegerTy()) {
+
+      return B.CreateZExtOrTrunc(Call->getArgOperand(2), I64);
 
     }
 
@@ -877,18 +1167,7 @@ static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
 
       Value *N = B.CreateZExtOrTrunc(Call->getArgOperand(0), I64);
       Value *S = B.CreateZExtOrTrunc(Call->getArgOperand(1), I64);
-      // Guard against N*S overflow: emit llvm.umul.with.overflow.i64, and
-      // on overflow saturate to UINT64_MAX so the SIZEFILL `ret_size >
-      // buf_size` check can't trip a false-positive abort. libc calloc
-      // returns NULL on overflow anyway, so any access to the buffer
-      // would null-deref before our check runs — saturating-to-max
-      // intentionally suppresses our oracle on that path.
-      Value *uoCall =
-          B.CreateIntrinsic(Intrinsic::umul_with_overflow, {I64}, {N, S});
-      Value *prod = B.CreateExtractValue(uoCall, 0);
-      Value *ovf = B.CreateExtractValue(uoCall, 1);
-      Value *maxU = ConstantInt::get(I64, UINT64_MAX);
-      return B.CreateSelect(ovf, maxU, prod);
+      return satMul(N, S);
 
     }
 
@@ -900,15 +1179,26 @@ static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
 
     }
 
-    // C++ operator new — plain, array, and C++17 aligned variants. The
-    // alignment arg of the aligned forms is irrelevant to the buffer size.
-    if ((name == "_Znwm" || name == "_Znam" ||
-         name == "_ZnwmSt11align_val_t" ||
-         name == "_ZnamSt11align_val_t") &&
-        Call->arg_size() >= 1 &&
-        Call->getArgOperand(0)->getType()->isIntegerTy()) {
+    // reallocarray(ptr, nmemb, size): NEW size = nmemb*size (saturated).
+    if ((name == "reallocarray" || name == "__afl_track_reallocarray") &&
+        Call->arg_size() >= 3 &&
+        Call->getArgOperand(1)->getType()->isIntegerTy() &&
+        Call->getArgOperand(2)->getType()->isIntegerTy()) {
 
-      return B.CreateZExtOrTrunc(Call->getArgOperand(0), I64);
+      Value *N = B.CreateZExtOrTrunc(Call->getArgOperand(1), I64);
+      Value *S = B.CreateZExtOrTrunc(Call->getArgOperand(2), I64);
+      return satMul(N, S);
+
+    }
+
+    // strndup(s, n): result is at most n+1 bytes (includes NUL). Worst
+    // case for buffer-size inference.
+    if ((name == "strndup" || name == "__afl_track_strndup") &&
+        Call->arg_size() >= 2 &&
+        Call->getArgOperand(1)->getType()->isIntegerTy()) {
+
+      Value *n = B.CreateZExtOrTrunc(Call->getArgOperand(1), I64);
+      return B.CreateAdd(n, ConstantInt::get(I64, 1));
 
     }
 
@@ -939,13 +1229,28 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
       M.getOrInsertFunction("__afl_bug_sf_store", VoidTy, PtrTy,
                             IntegerType::getInt32Ty(C));
 
-  // 1) Find sentinel-param functions in this module.
-  std::map<Function *, int> sentinel;
+  // 1) Find sentinel-param functions in this module. Each may declare its
+  // size either via the integer return value (legacy path) or via a
+  // pointer-to-integer output argument (the very common
+  // `int parse(buf, len, &out_size)` idiom — invisible to the
+  // integer-return-only check).
+  std::map<Function *, SentinelDesc> sentinel;
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
     int idx = findSentinelParam(F);
-    if (idx >= 0) sentinel[&F] = idx;
+    if (idx < 0) continue;
+    int out_idx = -1;
+    if (!F.getReturnType()->isIntegerTy()) {
+
+      // Fall back to output-param convention. Only adopt if we find a
+      // distinct pointer-to-integer arg that the function writes to.
+      out_idx = findOutSizeParam(F, idx);
+      if (out_idx < 0) continue;
+
+    }
+
+    sentinel[&F] = {idx, out_idx};
 
   }
 
@@ -958,7 +1263,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
   }
 
   // 2) For every call to such a function with a non-null pointer arg whose
-  // buffer size we can infer, instrument ws_begin + post-call check, and
+  // buffer size we can infer, instrument sf_begin + post-call check, and
   // mark the callee for store-instrumentation.
   bool                 changed = false;
   unsigned             instrumented = 0;
@@ -966,6 +1271,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
+    if (!isInInstrumentList(&F, F.getName().str())) continue;
     for (BasicBlock &BB : F) {
 
       for (Instruction &I : BB) {
@@ -976,13 +1282,11 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
         if (!cf) continue;
         auto it = sentinel.find(cf);
         if (it == sentinel.end()) continue;
-        unsigned pi = (unsigned)it->second;
+        unsigned pi = (unsigned)it->second.sentinel_idx;
+        int      oi = it->second.out_size_idx;
         if (pi >= Call->arg_size()) continue;
         Value *p = Call->getArgOperand(pi);
         if (isa<ConstantPointerNull>(p->stripPointerCasts())) continue;
-        /* Sentinel-arg functions returning void / pointer / float can't be
-           checked here — sfCheck takes the returned size as i64. */
-        if (!cf->getReturnType()->isIntegerTy()) continue;
 
         IRBuilder<> Pre(Call);
         inheritDebugLoc(Pre, Call);
@@ -994,7 +1298,38 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
         IRBuilder<> Post(Call->getNextNode());
         inheritDebugLoc(Post, Call);
-        Value *ret64 = Post.CreateZExtOrTrunc(Call, I64);
+        // Source the returned-size value: from the integer return if
+        // out_idx < 0, otherwise by loading through the out-param. The
+        // load is safe — control reached here, so the callee returned
+        // normally and (per the contract) wrote the size.
+        Value *ret64 = nullptr;
+        if (oi < 0) {
+
+          ret64 = Post.CreateZExtOrTrunc(Call, I64);
+
+        } else if ((unsigned)oi < Call->arg_size() &&
+                   Call->getArgOperand(oi)->getType()->isPointerTy()) {
+
+          Value *outPtr = Call->getArgOperand(oi);
+          // Read as i64; the actual stored width is determined by the
+          // pointee type. Use the function's own arg type to pick the
+          // load size — cf->getArg(oi) tells us the pointer's pointee.
+          // With opaque pointers we have to guess from the stores; the
+          // common case is size_t / i32, so load i64 via an aligned
+          // load through a bitcast. Pick i64 to capture full size_t.
+          IntegerType *outIntTy = IntegerType::getInt64Ty(C);
+          Value       *castPtr =
+              Post.CreateBitOrPointerCast(outPtr, PtrTy);
+          ret64 = Post.CreateAlignedLoad(outIntTy, castPtr,
+                                         llvm::MaybeAlign(1),
+                                         "afl.sf.outsize");
+
+        } else {
+
+          continue;
+
+        }
+
         Value *pcast = Post.CreateBitOrPointerCast(p, PtrTy);
         Post.CreateCall(sfCheck, {pcast, ret64, bufsz});
         ++instrumented;
@@ -1011,10 +1346,14 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
   // single budget-traced arg (the sentinel-arg discovery is per-callee
   // not per-call-site), so pass an empty arg_indices set — equivalent to
   // "any arg counts". Same robust walk as BUDGET via the shared helper.
+  // Honor the user's instrument-list blocklist on the callee too —
+  // otherwise excluded code would still get its stores instrumented when
+  // it happens to be a sentinel callee.
   IntegerType                          *I32 = IntegerType::getInt32Ty(C);
   const std::set<unsigned>              any_arg;
   for (Function *F : callees_to_instrument) {
 
+    if (!isInInstrumentList(F, F->getName().str())) continue;
     for (BasicBlock &BB : *F) {
 
       for (Instruction &I : BB) {
@@ -1062,7 +1401,6 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &) {
   FunctionCallee slackHook =
       M.getOrInsertFunction("__afl_bug_slack_min", VoidTy, I32, I64);
 
-  uint32_t next_id = 0;
   uint32_t sites = 0;
   bool     changed = false;
 
@@ -1094,6 +1432,8 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &) {
 
     }
 
+    StringRef func_name = F.getName();
+    uint32_t  site_idx = 0;
     for (ICmpInst *Cmp : targets) {
 
       IRBuilder<> B(Cmp);
@@ -1129,7 +1469,12 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &) {
       Value *large = B.CreateSelect(lt, Op1_64, Op0_64);
       Value *slack = B.CreateSub(large, small);
 
-      uint32_t id = (next_id++) & (MAP_SIZE_BUG_ENTRIES - 1);
+      // Pass-side hash. With a 16K-slot map and many sites per TU, the
+      // old `next_id++ & MASK` produced deterministic wrap-collisions
+      // (sites K and K + 16384 always shared a slot). siteSlotId mixes
+      // function name + index + mode salt so collisions are spread,
+      // and id=0 in SLACK no longer collapses to SCALAR's slot 0.
+      uint32_t id = siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
       B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack});
       ++sites;
       changed = true;
@@ -1144,70 +1489,96 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &) {
 
 }
 
-// Direct-call signature pairs we know how to rewrite. The pair members are:
-//   { libc_name, replacement_name, is_calloc, is_realloc, is_free,
-//     is_posix_memalign }
+// Allocator-call rewrite kinds. Each kind encodes the libc/ABI signature
+// shape (arg count, arg types) and which runtime hook to dispatch to.
+enum class AllocKind : uint8_t {
+
+  Malloc,            // size_t                                   -> ptr
+  Calloc,            // size_t nmemb, size_t size                -> ptr
+  Realloc,           // ptr, size_t                              -> ptr
+  PosixMemalign,     // ptr*, size_t align, size_t size          -> int
+  AlignedAlloc,      // size_t align, size_t size                -> ptr (C11)
+  Free,              // ptr                                      -> void
+  AlignedNew,        // size_t size, align_val_t                 -> ptr (C++17)
+  AlignedDelete,     // ptr, align_val_t                         -> void
+  SizedFree,         // ptr, size_t                              -> void (C++14)
+  SizedAlignedFree,  // ptr, size_t, align_val_t                 -> void
+  Strdup,            // const char*                              -> ptr
+  Strndup,           // const char*, size_t                      -> ptr
+  Reallocarray,      // ptr, size_t, size_t                      -> ptr
+
+};
+
 struct AllocRewriteSpec {
 
   StringRef libc;
   StringRef tracked;
-  bool      is_calloc;
-  bool      is_realloc;
-  bool      is_free;
-  bool      is_posix_memalign;
-  // Aligned-new (C++17): (size_t, std::align_val_t) -> ptr. We ignore the
-  // alignment when feeding the tracker — alignment is a constraint, not a
-  // size — and rewrite as malloc(size). Aligned-delete: (ptr, align_val_t).
-  bool      is_aligned_new;
-  bool      is_aligned_delete;
+  AllocKind kind;
 
 };
 
+// Itanium C++ ABI (Linux/macOS) operator new/delete routed through the
+// same malloc/free runtime hooks; signatures match (size_t -> ptr,
+// ptr -> void).
+//
+// SEMANTICS NOTE: the *throwing* operator new (_Znwm/_Znam et al.) is
+// replaced with __afl_track_malloc, which returns NULL on allocator
+// failure rather than throwing std::bad_alloc. C++ code that assumes
+// `new` never returns NULL will null-deref under fuzzer-triggered OOM —
+// generally fine for fuzzing (more crashes = more signal) but a real
+// observable behavior change. Build with -fno-exceptions for cleanest
+// matching, or disable AFL_LLVM_BUG_ALLOCSIZE for production-mode runs.
+//
+// MSVC mangling is included so Windows targets get the same coverage as
+// Itanium. _K is size_t on x64; I is uint on x86.
 static const AllocRewriteSpec kRewriteSpecs[] = {
-    {"malloc", "__afl_track_malloc", false, false, false, false, false,
-     false},
-    {"calloc", "__afl_track_calloc", true, false, false, false, false,
-     false},
-    {"realloc", "__afl_track_realloc", false, true, false, false, false,
-     false},
-    {"posix_memalign", "__afl_track_posix_memalign", false, false, false,
-     true, false, false},
-    {"free", "__afl_track_free", false, false, true, false, false, false},
-    // Itanium C++ ABI (Linux/macOS). Routed to the same malloc/free runtime
-    // hooks; signatures match (size_t -> ptr, ptr -> void).
-    //
-    // SEMANTICS NOTE: the *throwing* operator new (_Znwm/_Znam) is replaced
-    // with __afl_track_malloc, which returns NULL on allocator failure
-    // rather than throwing std::bad_alloc. C++ code that assumes `new`
-    // never returns NULL will null-deref under fuzzer-triggered OOM —
-    // generally fine for fuzzing (more crashes = more signal) but a real
-    // observable behavior change. Build with -fno-exceptions for cleanest
-    // matching, or disable AFL_LLVM_BUG_ALLOCSIZE for production-mode runs.
-    //
-    // Sized delete (_ZdlPvm/_ZdaPvm) is intentionally omitted — its 2-arg
-    // signature would fail the is_free=1-arg guard in Phase 1. Compile
-    // C++ targets with -fno-sized-deallocation to ensure full coverage,
-    // or extend the spec with an is_sized_free flag.
-    {"_Znwm", "__afl_track_malloc", false, false, false, false, false,
-     false},
-    {"_Znam", "__afl_track_malloc", false, false, false, false, false,
-     false},
-    {"_ZdlPv", "__afl_track_free", false, false, true, false, false,
-     false},
-    {"_ZdaPv", "__afl_track_free", false, false, true, false, false,
-     false},
-    // C++17 aligned new / delete. The `tracked` name is
-    // __afl_track_aligned_alloc (NOT plain __afl_track_malloc) so the
-    // posix_memalign-backed allocation honors the requested alignment;
-    // see Phase 1 rewrite + runtime hook for the rationale.
-    {"_ZnwmSt11align_val_t", "__afl_track_aligned_alloc", false, false,
-     false, false, true, false},
-    {"_ZnamSt11align_val_t", "__afl_track_aligned_alloc", false, false,
-     false, false, true, false},
-    {"_ZdlPvSt11align_val_t", "__afl_track_free", false, false, false,
-     false, false, true},
-    {"_ZdaPvSt11align_val_t", "__afl_track_free", false, false, false,
-     false, false, true},
+    {"malloc",          "__afl_track_malloc",         AllocKind::Malloc},
+    {"calloc",          "__afl_track_calloc",         AllocKind::Calloc},
+    {"realloc",         "__afl_track_realloc",        AllocKind::Realloc},
+    {"reallocarray",    "__afl_track_reallocarray",   AllocKind::Reallocarray},
+    {"posix_memalign",  "__afl_track_posix_memalign", AllocKind::PosixMemalign},
+    {"aligned_alloc",   "__afl_track_aligned_alloc",  AllocKind::AlignedAlloc},
+    {"free",            "__afl_track_free",           AllocKind::Free},
+    {"strdup",          "__afl_track_strdup",         AllocKind::Strdup},
+    {"strndup",         "__afl_track_strndup",        AllocKind::Strndup},
+    // Itanium C++ ABI.
+    {"_Znwm", "__afl_track_malloc", AllocKind::Malloc},
+    {"_Znam", "__afl_track_malloc", AllocKind::Malloc},
+    {"_Znwj", "__afl_track_malloc", AllocKind::Malloc},  /* 32-bit ABI */
+    {"_Znaj", "__afl_track_malloc", AllocKind::Malloc},
+    {"_ZdlPv", "__afl_track_free", AllocKind::Free},
+    {"_ZdaPv", "__afl_track_free", AllocKind::Free},
+    // C++14 sized delete: (ptr, size_t). Hand off as plain free (size arg
+    // is advisory for allocator hint only).
+    {"_ZdlPvm", "__afl_track_free", AllocKind::SizedFree},
+    {"_ZdaPvm", "__afl_track_free", AllocKind::SizedFree},
+    {"_ZdlPvj", "__afl_track_free", AllocKind::SizedFree},  /* 32-bit */
+    {"_ZdaPvj", "__afl_track_free", AllocKind::SizedFree},
+    // C++17 aligned new / delete. Routed to __afl_track_aligned_alloc
+    // (posix_memalign-backed) so the alignment contract is preserved;
+    // rewriting to plain malloc would hand out an under-aligned buffer
+    // and any SIMD/over-aligned access would fault, manufacturing
+    // crashes that don't reflect real bugs in the target.
+    {"_ZnwmSt11align_val_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
+    {"_ZnamSt11align_val_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
+    {"_ZnwjSt11align_val_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
+    {"_ZnajSt11align_val_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
+    {"_ZdlPvSt11align_val_t", "__afl_track_free", AllocKind::AlignedDelete},
+    {"_ZdaPvSt11align_val_t", "__afl_track_free", AllocKind::AlignedDelete},
+    // Sized + aligned delete (C++17).
+    {"_ZdlPvmSt11align_val_t", "__afl_track_free", AllocKind::SizedAlignedFree},
+    {"_ZdaPvmSt11align_val_t", "__afl_track_free", AllocKind::SizedAlignedFree},
+    {"_ZdlPvjSt11align_val_t", "__afl_track_free", AllocKind::SizedAlignedFree},
+    {"_ZdaPvjSt11align_val_t", "__afl_track_free", AllocKind::SizedAlignedFree},
+    // MSVC mangling. x64 (_K = size_t = u64), x86 (I = uint = u32).
+    {"??2@YAPEAX_K@Z",  "__afl_track_malloc", AllocKind::Malloc},   /* new   x64 */
+    {"??_U@YAPEAX_K@Z", "__afl_track_malloc", AllocKind::Malloc},   /* new[] x64 */
+    {"??2@YAPAXI@Z",    "__afl_track_malloc", AllocKind::Malloc},   /* new   x86 */
+    {"??_U@YAPAXI@Z",   "__afl_track_malloc", AllocKind::Malloc},   /* new[] x86 */
+    {"??3@YAXPEAX@Z",   "__afl_track_free",   AllocKind::Free},     /* del   x64 */
+    {"??_V@YAXPEAX@Z",  "__afl_track_free",   AllocKind::Free},     /* del[] x64 */
+    {"??3@YAXPAX@Z",    "__afl_track_free",   AllocKind::Free},     /* del   x86 */
+    {"??_V@YAXPAX@Z",   "__afl_track_free",   AllocKind::Free},     /* del[] x86 */
 };
 
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
@@ -1229,10 +1600,19 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
       M.getOrInsertFunction("__afl_track_calloc", PtrTy, I64, I64, I32);
   FunctionCallee trackRealloc = M.getOrInsertFunction(
       "__afl_track_realloc", PtrTy, PtrTy, I64, I32);
+  FunctionCallee trackReallocarray = M.getOrInsertFunction(
+      "__afl_track_reallocarray", PtrTy, PtrTy, I64, I64, I32);
   FunctionCallee trackPmemalign = M.getOrInsertFunction(
       "__afl_track_posix_memalign", I32, PtrTy, I64, I64, I32);
+  // aligned_alloc / aligned-new share the same runtime hook. The hook
+  // takes (size, align) — note the order matches the underlying
+  // posix_memalign-based runtime, NOT C11's (align, size).
   FunctionCallee trackAlignedAlloc = M.getOrInsertFunction(
       "__afl_track_aligned_alloc", PtrTy, I64, I64, I32);
+  FunctionCallee trackStrdup =
+      M.getOrInsertFunction("__afl_track_strdup", PtrTy, PtrTy, I32);
+  FunctionCallee trackStrndup = M.getOrInsertFunction(
+      "__afl_track_strndup", PtrTy, PtrTy, I64, I32);
   FunctionCallee trackFree =
       M.getOrInsertFunction("__afl_track_free", VoidTy, PtrTy);
   FunctionCallee allocReg = M.getOrInsertFunction(
@@ -1275,109 +1655,132 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
              the expected libc shape. With AFL_USE_ASAN=1 + CmpLog,
              user code that shadows malloc/etc. with a different signature
              would otherwise hit IRBuilder asserts. */
-          unsigned expected_args =
-              spec.is_free                   ? 1
-              : (spec.is_realloc)            ? 2
-              : (spec.is_calloc)             ? 2
-              : (spec.is_posix_memalign)     ? 3
-              : (spec.is_aligned_new)        ? 2
-              : (spec.is_aligned_delete)     ? 2
-                                             : 1;  /* malloc */
-          if (Call->arg_size() != expected_args) continue;
-          if (spec.is_free) {
+          unsigned expected_args = 0;
+          switch (spec.kind) {
 
-            if (!Call->getArgOperand(0)->getType()->isPointerTy()) continue;
-
-          } else if (spec.is_realloc) {
-
-            if (!Call->getArgOperand(0)->getType()->isPointerTy() ||
-                !Call->getArgOperand(1)->getType()->isIntegerTy())
-              continue;
-
-          } else if (spec.is_calloc) {
-
-            if (!Call->getArgOperand(0)->getType()->isIntegerTy() ||
-                !Call->getArgOperand(1)->getType()->isIntegerTy())
-              continue;
-
-          } else if (spec.is_posix_memalign) {
-
-            if (!Call->getArgOperand(0)->getType()->isPointerTy() ||
-                !Call->getArgOperand(1)->getType()->isIntegerTy() ||
-                !Call->getArgOperand(2)->getType()->isIntegerTy())
-              continue;
-
-          } else if (spec.is_aligned_new) {
-
-            if (!Call->getArgOperand(0)->getType()->isIntegerTy() ||
-                !Call->getArgOperand(1)->getType()->isIntegerTy())
-              continue;
-
-          } else if (spec.is_aligned_delete) {
-
-            if (!Call->getArgOperand(0)->getType()->isPointerTy() ||
-                !Call->getArgOperand(1)->getType()->isIntegerTy())
-              continue;
-
-          } else { /* malloc */
-
-            if (!Call->getArgOperand(0)->getType()->isIntegerTy()) continue;
+            case AllocKind::Free:
+            case AllocKind::Malloc:
+            case AllocKind::Strdup:           expected_args = 1; break;
+            case AllocKind::Calloc:
+            case AllocKind::Realloc:
+            case AllocKind::AlignedAlloc:
+            case AllocKind::AlignedNew:
+            case AllocKind::AlignedDelete:
+            case AllocKind::SizedFree:
+            case AllocKind::Strndup:          expected_args = 2; break;
+            case AllocKind::PosixMemalign:
+            case AllocKind::Reallocarray:
+            case AllocKind::SizedAlignedFree: expected_args = 3; break;
 
           }
+
+          if (Call->arg_size() != expected_args) continue;
+          // Type-shape gate keyed by kind. P = pointer, I = integer.
+          auto isP = [&](unsigned i) {
+
+            return Call->getArgOperand(i)->getType()->isPointerTy();
+
+          };
+
+          auto isI = [&](unsigned i) {
+
+            return Call->getArgOperand(i)->getType()->isIntegerTy();
+
+          };
+
+          bool ok = false;
+          switch (spec.kind) {
+
+            case AllocKind::Free:             ok = isP(0); break;
+            case AllocKind::Malloc:           ok = isI(0); break;
+            case AllocKind::Strdup:           ok = isP(0); break;
+            case AllocKind::Realloc:          ok = isP(0) && isI(1); break;
+            case AllocKind::Calloc:           ok = isI(0) && isI(1); break;
+            case AllocKind::AlignedAlloc:     ok = isI(0) && isI(1); break;
+            case AllocKind::AlignedNew:       ok = isI(0) && isI(1); break;
+            case AllocKind::AlignedDelete:    ok = isP(0) && isI(1); break;
+            case AllocKind::SizedFree:        ok = isP(0) && isI(1); break;
+            case AllocKind::Strndup:          ok = isP(0) && isI(1); break;
+            case AllocKind::PosixMemalign:    ok = isP(0) && isI(1) && isI(2); break;
+            case AllocKind::Reallocarray:     ok = isP(0) && isI(1) && isI(2); break;
+            case AllocKind::SizedAlignedFree: ok = isP(0) && isI(1) && isI(2); break;
+
+          }
+
+          if (!ok) continue;
 
           IRBuilder<> B(Call);
           inheritDebugLoc(B, Call);
           uint32_t     id = next_alloc_id++;
           ConstantInt *idC = ConstantInt::get(I32, id);
-          CallInst    *NewCall = nullptr;
-          if (spec.is_free) {
+          CallBase    *NewCall = nullptr;
+          switch (spec.kind) {
 
-            NewCall = B.CreateCall(trackFree, {Call->getArgOperand(0)});
-
-          } else if (spec.is_realloc) {
-
-            NewCall = B.CreateCall(
-                trackRealloc,
-                {Call->getArgOperand(0),
-                 B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
-
-          } else if (spec.is_calloc) {
-
-            NewCall = B.CreateCall(
-                trackCalloc,
-                {B.CreateZExtOrTrunc(Call->getArgOperand(0), I64),
-                 B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
-
-          } else if (spec.is_posix_memalign) {
-
-            NewCall = B.CreateCall(
-                trackPmemalign,
-                {Call->getArgOperand(0),
-                 B.CreateZExtOrTrunc(Call->getArgOperand(1), I64),
-                 B.CreateZExtOrTrunc(Call->getArgOperand(2), I64), idC});
-
-          } else if (spec.is_aligned_new) {
-
-            // Preserve the alignment by routing through
-            // __afl_track_aligned_alloc (which calls posix_memalign).
-            // Rewriting to plain __afl_track_malloc would hand out an
-            // under-aligned buffer; subsequent SIMD/over-aligned access
-            // would fault, manufacturing crashes that don't reflect real
-            // bugs in the target.
-            NewCall = B.CreateCall(
-                trackAlignedAlloc,
-                {B.CreateZExtOrTrunc(Call->getArgOperand(0), I64),
-                 B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
-
-          } else if (spec.is_aligned_delete) {
-
-            NewCall = B.CreateCall(trackFree, {Call->getArgOperand(0)});
-
-          } else { /* malloc */
-
-            NewCall = B.CreateCall(
-                trackMalloc,
-                {B.CreateZExtOrTrunc(Call->getArgOperand(0), I64), idC});
+            case AllocKind::Free:
+            case AllocKind::SizedFree:
+            case AllocKind::AlignedDelete:
+            case AllocKind::SizedAlignedFree:
+              // All deallocator variants collapse to plain free; size /
+              // alignment args are advisory only.
+              NewCall = B.CreateCall(trackFree, {Call->getArgOperand(0)});
+              break;
+            case AllocKind::Malloc:
+              NewCall = B.CreateCall(
+                  trackMalloc,
+                  {B.CreateZExtOrTrunc(Call->getArgOperand(0), I64), idC});
+              break;
+            case AllocKind::Calloc:
+              NewCall = B.CreateCall(
+                  trackCalloc,
+                  {B.CreateZExtOrTrunc(Call->getArgOperand(0), I64),
+                   B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
+              break;
+            case AllocKind::Realloc:
+              NewCall = B.CreateCall(
+                  trackRealloc,
+                  {Call->getArgOperand(0),
+                   B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
+              break;
+            case AllocKind::Reallocarray:
+              NewCall = B.CreateCall(
+                  trackReallocarray,
+                  {Call->getArgOperand(0),
+                   B.CreateZExtOrTrunc(Call->getArgOperand(1), I64),
+                   B.CreateZExtOrTrunc(Call->getArgOperand(2), I64), idC});
+              break;
+            case AllocKind::PosixMemalign:
+              NewCall = B.CreateCall(
+                  trackPmemalign,
+                  {Call->getArgOperand(0),
+                   B.CreateZExtOrTrunc(Call->getArgOperand(1), I64),
+                   B.CreateZExtOrTrunc(Call->getArgOperand(2), I64), idC});
+              break;
+            case AllocKind::AlignedAlloc:
+              // C11 aligned_alloc(align, size). Runtime hook signature is
+              // (size, align) — swap arg order on rewrite.
+              NewCall = B.CreateCall(
+                  trackAlignedAlloc,
+                  {B.CreateZExtOrTrunc(Call->getArgOperand(1), I64),
+                   B.CreateZExtOrTrunc(Call->getArgOperand(0), I64), idC});
+              break;
+            case AllocKind::AlignedNew:
+              // C++17 operator new(size, align_val_t). Runtime hook
+              // already takes (size, align) — pass through.
+              NewCall = B.CreateCall(
+                  trackAlignedAlloc,
+                  {B.CreateZExtOrTrunc(Call->getArgOperand(0), I64),
+                   B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
+              break;
+            case AllocKind::Strdup:
+              NewCall =
+                  B.CreateCall(trackStrdup, {Call->getArgOperand(0), idC});
+              break;
+            case AllocKind::Strndup:
+              NewCall = B.CreateCall(
+                  trackStrndup,
+                  {Call->getArgOperand(0),
+                   B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
+              break;
 
           }
 
@@ -1417,12 +1820,57 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         if (!cf->getReturnType()->isPointerTy()) continue;
         // Position the post-call register: for a CallInst that's the
         // next instruction; for an InvokeInst it's the top of the
-        // normal-dest block (after any leading PHIs).
+        // normal-dest block.
+        //
+        // CRITICAL: when InvokeInst's NormalDest has multiple predecessors,
+        // II's SSA result does NOT strictly dominate non-PHI instructions
+        // in NormalDest — other preds can reach NormalDest without going
+        // through II. Inserting __afl_alloc_register(II, ...) there would
+        // be invalid IR. Split the critical edge so the new register call
+        // lives in a unique block reached only from this invoke.
         Instruction *PostInsertAt = nullptr;
-        if (auto *II = dyn_cast<InvokeInst>(Call))
-          PostInsertAt = &*II->getNormalDest()->getFirstInsertionPt();
-        else
+        if (auto *II = dyn_cast<InvokeInst>(Call)) {
+
+          BasicBlock *NormalDest = II->getNormalDest();
+          if (NormalDest->getUniquePredecessor() != II->getParent()) {
+
+            // Insert a fresh edge-block between II's parent and NormalDest:
+            //   invoke ... to %edge unwind %unw
+            //   edge:  br %NormalDest
+            // Then post-insert in %edge before the terminator. Update PHIs
+            // in NormalDest so any incoming from the old parent now lists
+            // %edge as the source.
+            BasicBlock *EdgeBB = BasicBlock::Create(
+                C, II->getParent()->getName() + ".alloc.edge",
+                II->getFunction(), NormalDest);
+            BranchInst *Br = BranchInst::Create(NormalDest, EdgeBB);
+            II->setNormalDest(EdgeBB);
+            for (PHINode &PN : NormalDest->phis()) {
+
+              int idx = PN.getBasicBlockIndex(II->getParent());
+              while (idx >= 0) {
+
+                PN.setIncomingBlock((unsigned)idx, EdgeBB);
+                idx = PN.getBasicBlockIndex(II->getParent());
+
+              }
+
+            }
+
+            PostInsertAt = Br;
+
+          } else {
+
+            PostInsertAt = &*NormalDest->getFirstInsertionPt();
+
+          }
+
+        } else {
+
           PostInsertAt = Call->getNextNode();
+
+        }
+
         if (!PostInsertAt) continue;
         IRBuilder<> Post(PostInsertAt);
         inheritDebugLoc(Post, Call);
@@ -1475,7 +1923,16 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
     // Skip dealloc specs — their `tracked` is __afl_track_free, which
     // doesn't return a pointer and isn't a candidate for store-tracking.
-    if (s.is_free || s.is_aligned_delete) continue;
+    switch (s.kind) {
+
+      case AllocKind::Free:
+      case AllocKind::SizedFree:
+      case AllocKind::AlignedDelete:
+      case AllocKind::SizedAlignedFree: continue;
+      default: break;
+
+    }
+
     tracked_callee_names.insert(s.tracked);
 
   }
@@ -1593,6 +2050,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   };
 
   uint32_t store_sites = 0;
+  uint32_t mem_sites = 0;
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
@@ -1603,6 +2061,27 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     for (BasicBlock &BB : F) {
 
       for (Instruction &I : BB) {
+
+        // memcpy / memmove / memset: clang emits these for struct copies
+        // and aggregate inits. Without this branch, a 4 KB memcpy into a
+        // 32-byte tracked buffer is invisible. Feed (dest, len) to the
+        // oracle, truncating len to i32 (huge memcpys would lose info
+        // but the oracle's shadow check covers them via dest+len).
+        if (auto *MI = dyn_cast<MemIntrinsic>(&I)) {
+
+          Value *dest = MI->getRawDest();
+          Value *len = MI->getLength();
+          if (!dest || !len) continue;
+          if (!pointerOnlyTouchesTrackedAlloc(dest)) continue;
+          IRBuilder<> MB(MI);
+          inheritDebugLoc(MB, MI);
+          Value *addr = MB.CreateBitOrPointerCast(dest, PtrTy);
+          Value *lenI32 = MB.CreateZExtOrTrunc(len, I32);
+          MB.CreateCall(oracle, {addr, lenI32});
+          ++mem_sites;
+          continue;
+
+        }
 
         auto *S = dyn_cast<StoreInst>(&I);
         if (!S) continue;
@@ -1627,8 +2106,9 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     errs() << "[afl-bug] ALLOCSIZE rewrote " << rewrites
            << " libc allocator calls, " << custom_inserts
            << " custom-allocator registrations, " << store_sites
-           << " stores instrumented\n";
-  return rewrites > 0 || custom_inserts > 0 || store_sites > 0;
+           << " stores, " << mem_sites << " mem intrinsics instrumented\n";
+  return rewrites > 0 || custom_inserts > 0 || store_sites > 0 ||
+         mem_sites > 0;
 
 }
 
