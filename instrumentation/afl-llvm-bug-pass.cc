@@ -20,6 +20,7 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -184,6 +185,62 @@ static uint32_t siteSlotId(StringRef func_name, uint32_t site_idx,
   // the upper bits poorly distributed for a tiny mask.
   h ^= h >> 16;
   return h & (MAP_SIZE_BUG_ENTRIES - 1);
+
+}
+
+static Type *pointerTyTo(LLVMContext &C, Type *ElemTy) {
+
+#if LLVM_MAJOR >= 20
+  (void)ElemTy;
+  return PointerType::getUnqual(C);
+#else
+  return PointerType::getUnqual(ElemTy);
+#endif
+
+}
+
+static Value *castToPtrTy(IRBuilder<> &B, Value *V, Type *PtrTy) {
+
+  if (!V || V->getType() == PtrTy) return V;
+  return B.CreateBitOrPointerCast(V, PtrTy);
+
+}
+
+// Return a safe insertion point for instrumentation that consumes a call's
+// result after normal completion. For invokes whose normal destination has
+// other predecessors, split the normal edge so the invoke result dominates
+// the inserted hook and PHI incoming blocks stay valid.
+static Instruction *postCallInsertionPoint(CallBase *CB, LLVMContext &C,
+                                           const Twine &Suffix) {
+
+  if (auto *CI = dyn_cast<CallInst>(CB)) return CI->getNextNode();
+
+  auto *II = dyn_cast<InvokeInst>(CB);
+  if (!II) return nullptr;
+
+  BasicBlock *Parent = II->getParent();
+  BasicBlock *NormalDest = II->getNormalDest();
+  if (NormalDest->getUniquePredecessor() == Parent)
+    return &*NormalDest->getFirstInsertionPt();
+
+  BasicBlock *EdgeBB = BasicBlock::Create(
+      C, Parent->getName() + Suffix, II->getFunction(), NormalDest);
+  BranchInst *Br = BranchInst::Create(NormalDest, EdgeBB);
+  II->setNormalDest(EdgeBB);
+
+  for (PHINode &PN : NormalDest->phis()) {
+
+    int idx = PN.getBasicBlockIndex(Parent);
+    while (idx >= 0) {
+
+      PN.setIncomingBlock((unsigned)idx, EdgeBB);
+      idx = PN.getBasicBlockIndex(Parent);
+
+    }
+
+  }
+
+  return Br;
 
 }
 
@@ -626,7 +683,7 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 // index, or {nullptr,0,0}.
 struct BudgetMatch {
 
-  CallInst *Call;
+  CallBase *Call;
   unsigned  PtrArgIdx;
   Value    *PtrBefore;
 
@@ -678,8 +735,9 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
 
         }
 
-        auto *Call = dyn_cast<CallInst>(idx);
-        if (!Call) continue;
+        auto *Call = dyn_cast<CallBase>(idx);
+        if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
+          continue;
         // Match base against any pointer arg of the call, peering through
         // up to TWO levels of alloca-spill (load-from-alloca written
         // exactly once with a load-from-alloca written with the arg).
@@ -745,16 +803,17 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
       auto *Add = dyn_cast<BinaryOperator>(&I);
       if (!Add || Add->getOpcode() != Instruction::Add) continue;
       Value *L = Add->getOperand(0), *R = Add->getOperand(1);
-      auto  *Call = dyn_cast<CallInst>(L);
+      auto  *Call = dyn_cast<CallBase>(L);
       Value *Ptr = R;
-      if (!Call) {
+      if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call))) {
 
-        Call = dyn_cast<CallInst>(R);
+        Call = dyn_cast<CallBase>(R);
         Ptr = L;
 
       }
 
-      if (!Call) continue;
+      if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
+        continue;
       auto *P2I = dyn_cast<PtrToIntInst>(Ptr);
       if (!P2I) continue;
       Value *base = P2I->getOperand(0);
@@ -823,13 +882,16 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
 
       IRBuilder<> Pre(m.Call);
       inheritDebugLoc(Pre, m.Call);
-      Value *ptrCast = Pre.CreateBitOrPointerCast(m.PtrBefore, PtrTy);
+      Value *ptrCast = castToPtrTy(Pre, m.PtrBefore, PtrTy);
       Pre.CreateCall(wsBegin, {ptrCast});
 
-      IRBuilder<> Post(m.Call->getNextNode());
+      Instruction *PostAt =
+          postCallInsertionPoint(m.Call, C, ".budget.edge");
+      if (!PostAt) continue;
+      IRBuilder<> Post(PostAt);
       inheritDebugLoc(Post, m.Call);
       Value *ret64 = Post.CreateZExtOrTrunc(m.Call, I64);
-      Value *ptrCast2 = Post.CreateBitOrPointerCast(m.PtrBefore, PtrTy);
+      Value *ptrCast2 = castToPtrTy(Post, m.PtrBefore, PtrTy);
       Post.CreateCall(wsCheck, {ptrCast2, ret64});
 
       callee_arg_indices[callee].insert(m.PtrArgIdx);
@@ -1223,39 +1285,53 @@ static int findSentinelParam(Function &F) {
 static bool ptrStoreReachesArg(StoreInst                 *S,
                                const std::set<unsigned> &arg_indices) {
 
-  // Spill helper: alloca written exactly once with an Argument whose
-  // index is acceptable. Cheap and safe.
-  auto allocaSpillsAcceptableArg = [&](AllocaInst *AI) -> bool {
+  auto argAcceptable = [&](Argument *Arg) -> bool {
 
-    for (const User *U : AI->users()) {
-
-      auto *St = dyn_cast<StoreInst>(U);
-      if (!St || St->getPointerOperand() != AI) continue;
-      auto *Arg = dyn_cast<Argument>(St->getValueOperand());
-      if (!Arg) continue;
-      if (arg_indices.empty() || arg_indices.count(Arg->getArgNo()))
-        return true;
-
-    }
-
-    return false;
+    return arg_indices.empty() || arg_indices.count(Arg->getArgNo());
 
   };
 
-  // Iterative DFS over the alias tree with a small visited-set guard.
-  SmallVector<Value *, 8>     work;
-  SmallPtrSet<Value *, 16>    seen;
+  // Resolve the common -O0 spill idiom only when the stack slot has exactly
+  // one direct store. Multiple stores, non-pointer stores, or stores through
+  // aliases make the origin ambiguous; treat those as untrusted roots.
+  auto singleAllocaSpillSource = [&](AllocaInst *AI) -> Value * {
+
+    Value *source = nullptr;
+    unsigned stores = 0;
+    for (User *U : AI->users()) {
+
+      auto *St = dyn_cast<StoreInst>(U);
+      if (!St || St->getPointerOperand() != AI) continue;
+      ++stores;
+      if (stores > 1) return nullptr;
+      source = St->getValueOperand();
+      if (!source->getType()->isPointerTy()) return nullptr;
+
+    }
+
+    return stores == 1 ? source : nullptr;
+
+  };
+
+  SmallVector<Value *, 8>  work;
+  SmallPtrSet<Value *, 16> seen;
   work.push_back(S->getPointerOperand());
-  unsigned                    iters = 0;
-  while (!work.empty() && iters++ < 32) {
+
+  bool     saw_acceptable_root = false;
+  unsigned iters = 0;
+  while (!work.empty()) {
+
+    if (++iters > 64) return false;
 
     Value *ptr = work.pop_back_val();
+    if (!ptr) return false;
+    ptr = ptr->stripPointerCasts();
     if (!seen.insert(ptr).second) continue;
 
     if (auto *Arg = dyn_cast<Argument>(ptr)) {
 
-      if (arg_indices.empty() || arg_indices.count(Arg->getArgNo()))
-        return true;
+      if (!argAcceptable(Arg)) return false;
+      saw_acceptable_root = true;
       continue;
 
     }
@@ -1267,10 +1343,16 @@ static bool ptrStoreReachesArg(StoreInst                 *S,
 
     }
 
-    if (auto *BC = dyn_cast<BitCastInst>(ptr)) {
+    if (auto *Cast = dyn_cast<CastInst>(ptr)) {
 
-      work.push_back(BC->getOperand(0));
-      continue;
+      if (Cast->getOperand(0)->getType()->isPointerTy()) {
+
+        work.push_back(Cast->getOperand(0));
+        continue;
+
+      }
+
+      return false;
 
     }
 
@@ -1291,17 +1373,23 @@ static bool ptrStoreReachesArg(StoreInst                 *S,
 
     if (auto *Ld = dyn_cast<LoadInst>(ptr)) {
 
-      if (auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand()))
-        if (allocaSpillsAcceptableArg(AI)) return true;
+      auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand());
+      if (!AI) return false;
+      Value *source = singleAllocaSpillSource(AI);
+      if (!source) return false;
+      work.push_back(source);
       continue;
 
     }
 
-    // Stop at anything else (constant, call, intrinsic, etc).
+    // A constant, call result, global, alloca base, or any other terminal
+    // value is not proven to be the traced argument. Reject the store rather
+    // than attributing writes from mixed PHI/select paths to the buffer.
+    return false;
 
   }
 
-  return false;
+  return saw_acceptable_root;
 
 }
 
@@ -1349,7 +1437,7 @@ static unsigned instrumentArgReachingStores(
       IRBuilder<> SB(S);
       inheritDebugLoc(SB, S);
       Value *addr =
-          SB.CreateBitOrPointerCast(S->getPointerOperand(), PtrTy);
+          castToPtrTy(SB, S->getPointerOperand(), PtrTy);
       uint64_t sz = DL.getTypeStoreSize(S->getValueOperand()->getType());
       SB.CreateCall(hook, {addr, ConstantInt::get(I32, (uint32_t)sz)});
       ++count;
@@ -1359,6 +1447,18 @@ static unsigned instrumentArgReachingStores(
   }
 
   return count;
+
+}
+
+static bool functionHasStoreThroughArg(Function &F, unsigned arg_idx) {
+
+  std::set<unsigned> args;
+  args.insert(arg_idx);
+  for (BasicBlock &BB : F)
+    for (Instruction &I : BB)
+      if (auto *S = dyn_cast<StoreInst>(&I))
+        if (ptrStoreReachesArg(S, args)) return true;
+  return false;
 
 }
 
@@ -1751,7 +1851,14 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
     int  out_idx = -1;
     int  out_bits = 0;
     bool out_is_inout = false;
-    if (!F.getReturnType()->isIntegerTy()) {
+    if (F.getReturnType()->isIntegerTy()) {
+
+      auto *RT = cast<IntegerType>(F.getReturnType());
+      unsigned ret_bits = RT->getBitWidth();
+      if (ret_bits < 16 || ret_bits > 64) continue;
+      if (!functionHasStoreThroughArg(F, (unsigned)idx)) continue;
+
+    } else {
 
       // Fall back to output-param convention. Only adopt if we find a
       // distinct pointer-to-integer arg that the function writes to.
@@ -1790,8 +1897,9 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
       for (Instruction &I : BB) {
 
-        auto *Call = dyn_cast<CallInst>(&I);
-        if (!Call) continue;
+        auto *Call = dyn_cast<CallBase>(&I);
+        if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
+          continue;
         Function *cf = Call->getCalledFunction();
         if (!cf) continue;
         auto it = sentinel.find(cf);
@@ -1833,17 +1941,21 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
           IntegerType *outTy =
               IntegerType::get(C, (unsigned)obits);
+          Type *outPtrTy = pointerTyTo(C, outTy);
           Value *outPtrZ =
-              Pre.CreateBitOrPointerCast(Call->getArgOperand(oi), PtrTy);
+              Pre.CreateBitOrPointerCast(Call->getArgOperand(oi), outPtrTy);
           Pre.CreateAlignedStore(ConstantInt::get(outTy, 0), outPtrZ,
                                  llvm::MaybeAlign(1));
 
         }
 
-        Value *ptrCast = Pre.CreateBitOrPointerCast(p, PtrTy);
+        Value *ptrCast = castToPtrTy(Pre, p, PtrTy);
         Pre.CreateCall(sfBegin, {ptrCast, bufsz});
 
-        IRBuilder<> Post(Call->getNextNode());
+        Instruction *PostAt =
+            postCallInsertionPoint(Call, C, ".sizefill.edge");
+        if (!PostAt) continue;
+        IRBuilder<> Post(PostAt);
         inheritDebugLoc(Post, Call);
         // Source the returned-size value: from the integer return if
         // out_idx < 0, otherwise by loading through the out-param at
@@ -1860,8 +1972,9 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
           Value       *outPtr = Call->getArgOperand(oi);
           IntegerType *outIntTy = IntegerType::get(C, (unsigned)obits);
+          Type        *outPtrTy = pointerTyTo(C, outIntTy);
           Value       *castPtr =
-              Post.CreateBitOrPointerCast(outPtr, PtrTy);
+              Post.CreateBitOrPointerCast(outPtr, outPtrTy);
           Value *narrow = Post.CreateAlignedLoad(
               outIntTy, castPtr, llvm::MaybeAlign(1), "afl.sf.outsize");
           ret64 = Post.CreateZExtOrTrunc(narrow, I64);
@@ -1872,7 +1985,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
         }
 
-        Value *pcast = Post.CreateBitOrPointerCast(p, PtrTy);
+        Value *pcast = castToPtrTy(Post, p, PtrTy);
         Post.CreateCall(sfCheck, {pcast, ret64, bufsz});
         ++instrumented;
         callee_sentinel_args[cf].insert(pi);
@@ -2371,7 +2484,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
             case AllocKind::SizedAlignedFree:
               // All deallocator variants collapse to plain free; size /
               // alignment args are advisory only.
-              NewCall = B.CreateCall(trackFree, {Call->getArgOperand(0)});
+              NewCall = B.CreateCall(
+                  trackFree, {castToPtrTy(B, Call->getArgOperand(0), PtrTy)});
               break;
             case AllocKind::Malloc:
               NewCall = B.CreateCall(
@@ -2387,20 +2501,20 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
             case AllocKind::Realloc:
               NewCall = B.CreateCall(
                   trackRealloc,
-                  {Call->getArgOperand(0),
+                  {castToPtrTy(B, Call->getArgOperand(0), PtrTy),
                    B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
               break;
             case AllocKind::Reallocarray:
               NewCall = B.CreateCall(
                   trackReallocarray,
-                  {Call->getArgOperand(0),
+                  {castToPtrTy(B, Call->getArgOperand(0), PtrTy),
                    B.CreateZExtOrTrunc(Call->getArgOperand(1), I64),
                    B.CreateZExtOrTrunc(Call->getArgOperand(2), I64), idC});
               break;
             case AllocKind::PosixMemalign:
               NewCall = B.CreateCall(
                   trackPmemalign,
-                  {Call->getArgOperand(0),
+                  {castToPtrTy(B, Call->getArgOperand(0), PtrTy),
                    B.CreateZExtOrTrunc(Call->getArgOperand(1), I64),
                    B.CreateZExtOrTrunc(Call->getArgOperand(2), I64), idC});
               break;
@@ -2421,19 +2535,37 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
                    B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
               break;
             case AllocKind::Strdup:
-              NewCall =
-                  B.CreateCall(trackStrdup, {Call->getArgOperand(0), idC});
+              NewCall = B.CreateCall(
+                  trackStrdup,
+                  {castToPtrTy(B, Call->getArgOperand(0), PtrTy), idC});
               break;
             case AllocKind::Strndup:
               NewCall = B.CreateCall(
                   trackStrndup,
-                  {Call->getArgOperand(0),
+                  {castToPtrTy(B, Call->getArgOperand(0), PtrTy),
                    B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
               break;
 
           }
 
-          if (!Call->use_empty()) Call->replaceAllUsesWith(NewCall);
+          if (!Call->use_empty()) {
+
+            Value *Replacement = NewCall;
+            if (NewCall->getType() != Call->getType()) {
+
+              Instruction *InsertBefore = nullptr;
+              if (auto *NCInst = dyn_cast<Instruction>(NewCall))
+                InsertBefore = NCInst->getNextNode();
+              if (!InsertBefore) InsertBefore = cast<Instruction>(Call);
+              IRBuilder<> CastB(InsertBefore);
+              inheritDebugLoc(CastB, Call);
+              Replacement = CastB.CreateBitOrPointerCast(NewCall, Call->getType());
+
+            }
+
+            Call->replaceAllUsesWith(Replacement);
+
+          }
           if (auto *II = dyn_cast<InvokeInst>(Call)) {
 
             // Invoke is a terminator with normal + unwind successors.
@@ -2477,57 +2609,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         // through II. Inserting __afl_alloc_register(II, ...) there would
         // be invalid IR. Split the critical edge so the new register call
         // lives in a unique block reached only from this invoke.
-        Instruction *PostInsertAt = nullptr;
-        if (auto *II = dyn_cast<InvokeInst>(Call)) {
-
-          BasicBlock *NormalDest = II->getNormalDest();
-          if (NormalDest->getUniquePredecessor() != II->getParent()) {
-
-            // Insert a fresh edge-block between II's parent and NormalDest:
-            //   invoke ... to %edge unwind %unw
-            //   edge:  br %NormalDest
-            // Then post-insert in %edge before the terminator. Update PHIs
-            // in NormalDest so any incoming from the old parent now lists
-            // %edge as the source.
-            //
-            // Bug 13 note: this is a CFG mutation (new block, new edge,
-            // PHI rewrite). ALLOCSIZE intentionally does not use LoopInfo,
-            // so no analysis-cache invalidation is needed here. If a
-            // future change adds LoopInfo usage in this phase, that
-            // analysis must be invalidated or re-built after this edge
-            // split — the new EdgeBB block is not in the original loop
-            // structure.
-            BasicBlock *EdgeBB = BasicBlock::Create(
-                C, II->getParent()->getName() + ".alloc.edge",
-                II->getFunction(), NormalDest);
-            BranchInst *Br = BranchInst::Create(NormalDest, EdgeBB);
-            II->setNormalDest(EdgeBB);
-            for (PHINode &PN : NormalDest->phis()) {
-
-              int idx = PN.getBasicBlockIndex(II->getParent());
-              while (idx >= 0) {
-
-                PN.setIncomingBlock((unsigned)idx, EdgeBB);
-                idx = PN.getBasicBlockIndex(II->getParent());
-
-              }
-
-            }
-
-            PostInsertAt = Br;
-
-          } else {
-
-            PostInsertAt = &*NormalDest->getFirstInsertionPt();
-
-          }
-
-        } else {
-
-          PostInsertAt = Call->getNextNode();
-
-        }
-
+        Instruction *PostInsertAt =
+            postCallInsertionPoint(Call, C, ".alloc.edge");
         if (!PostInsertAt) continue;
         IRBuilder<> Post(PostInsertAt);
         inheritDebugLoc(Post, Call);
@@ -2555,7 +2638,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         if (!sizeArg) continue;
         uint32_t id = next_alloc_id++;
         Post.CreateCall(allocReg,
-                        {Call, Post.CreateZExtOrTrunc(sizeArg, I64),
+                        {castToPtrTy(Post, Call, PtrTy),
+                         Post.CreateZExtOrTrunc(sizeArg, I64),
                          ConstantInt::get(I32, id)});
         ++custom_inserts;
 
@@ -2758,7 +2842,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
           if (!pointerOnlyTouchesTrackedAlloc(dest)) continue;
           IRBuilder<> MB(MI);
           inheritDebugLoc(MB, MI);
-          Value *addr = MB.CreateBitOrPointerCast(dest, PtrTy);
+          Value *addr = castToPtrTy(MB, dest, PtrTy);
           Value *lenI64 = MB.CreateZExtOrTrunc(len, I64);
           MB.CreateCall(oracle_n, {addr, lenI64});
           ++mem_sites;
@@ -2773,7 +2857,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         IRBuilder<> SB(S);
         inheritDebugLoc(SB, S);
         Value *addr =
-            SB.CreateBitOrPointerCast(S->getPointerOperand(), PtrTy);
+            castToPtrTy(SB, S->getPointerOperand(), PtrTy);
         uint64_t sz = M.getDataLayout().getTypeStoreSize(
             S->getValueOperand()->getType());
         SB.CreateCall(oracle, {addr, ConstantInt::get(I32, (uint32_t)sz)});
