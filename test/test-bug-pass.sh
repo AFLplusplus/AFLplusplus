@@ -105,6 +105,102 @@ else
   exit 1
 fi
 
+# --- SIZEFILL DAG (PHI both arms feed same malloc) ---
+# Force -O0 so the volatile-guarded if/else survives to OptimizerLast
+# as a real diamond PHI.
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-sizefill-dag.c" -o "$TMP/sd"
+set +e
+printf '\x10\x00\x00\x00' | AFL_LLVM_BUG_SIZEFILL=1 "$TMP/sd" \
+  >/dev/null 2>"$TMP/sderr"
+sd_rc=$?
+set -e
+if [ "$sd_rc" -ne 0 ] && grep -q "SIZEFILL violation" "$TMP/sderr"; then
+  echo "[+] SIZEFILL DAG: rc=$sd_rc (oracle wired up through DAG-shared malloc)"
+else
+  echo "[!] SIZEFILL DAG: rc=$sd_rc (oracle did NOT fire — DAG bug)"
+  cat "$TMP/sderr" || true
+  exit 1
+fi
+
+# --- SIZEFILL in/out (callee escapes out-size to a helper) ---
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-sizefill-inout.c" -o "$TMP/si"
+set +e
+printf '\x10\x00\x00\x00' | AFL_LLVM_BUG_SIZEFILL=1 "$TMP/si" \
+  >/dev/null 2>"$TMP/sierr"
+si_rc=$?
+set -e
+seen_hint=$(grep -E '^INOUT_HINT_SEEN=' "$TMP/sierr" | sed 's/.*=//')
+if [ "$si_rc" -eq 0 ] && [ "${seen_hint:-0}" = "305419896" ]; then
+  # 0x12345678 = 305419896
+  echo "[+] SIZEFILL in/out: hint preserved across pre-zero (saw $seen_hint)"
+else
+  echo "[!] SIZEFILL in/out: rc=$si_rc hint=$seen_hint (pre-zero clobbered)"
+  cat "$TMP/sierr" || true
+  exit 1
+fi
+
+# --- SIZEFILL adjacent (nested call's writes must not pollute outer) ---
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-sizefill-adjacent.c" -o "$TMP/sa"
+set +e
+printf '\x10\x00\x00\x00' | AFL_LLVM_BUG_SIZEFILL=1 \
+  AFL_LLVM_BUG_ALLOCSIZE=1 "$TMP/sa" >/dev/null 2>"$TMP/saerr"
+sa_rc=$?
+set -e
+if [ "$sa_rc" -eq 0 ] && ! grep -q "SIZEFILL violation" "$TMP/saerr"; then
+  echo "[+] SIZEFILL adjacent: no false positive (rc=$sa_rc)"
+else
+  echo "[!] SIZEFILL adjacent: rc=$sa_rc (false-positive abort)"
+  cat "$TMP/saerr" || true
+  exit 1
+fi
+
+# --- SLACK FP precision (sub-1 |diff| must not collapse to inv=64) ---
+# Build a program with a single user-level FCmp. The runtime emits map
+# updates not just for our FCmp but also for FCmps inside atof() etc.,
+# so we can't grep "first slot" — instead we look for ANY slot whose
+# value DIFFERS between the eq and near runs. With sub-unit scaling,
+# our FCmp's slot is one of the differing ones; without scaling, the
+# slot's value (64 = max bucket) is identical across both runs.
+AFL_QUIET=1 AFL_LLVM_BUG_SLACK=1 "$CC" \
+  "$SCRIPT_DIR/test-bug-slack-fp.c" -o "$TMP/fp"
+# Program exits with the FCmp result (1 for "less"); set +e for both calls.
+set +e
+AFL_LLVM_BUG_SLACK=1 "$TMP/fp" 1.0 1.0 2>"$TMP/fperr_eq" >/dev/null
+AFL_LLVM_BUG_SLACK=1 "$TMP/fp" 1.0 1.5 2>"$TMP/fperr_near" >/dev/null
+set -e
+# Sort by slot so diff lines are well-defined; differ-count > 0 means
+# at least one slot took different values between the two inputs.
+sort "$TMP/fperr_eq" > "$TMP/fp_eq.s"
+sort "$TMP/fperr_near" > "$TMP/fp_near.s"
+diff_count=$(comm -3 "$TMP/fp_eq.s" "$TMP/fp_near.s" | wc -l | tr -d ' ')
+if [ "${diff_count:-0}" -gt 0 ]; then
+  echo "[+] SLACK FP precision: $diff_count slot diffs (sub-unit gradient preserved)"
+else
+  echo "[!] SLACK FP precision: 0 slot diffs (sub-unit gradient lost)"
+  cat "$TMP/fperr_eq" || true
+  exit 1
+fi
+
+# --- ALLOCSIZE track table ---
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-allocsize-track.c" -o "$TMP/at"
+set +e
+printf '\x00\x00\x00\x00' | AFL_LLVM_BUG_ALLOCSIZE=1 \
+  "$TMP/at" >/dev/null 2>"$TMP/aterr"
+at_rc=$?
+set -e
+tracked=$(grep -oE 'tracked=[0-9]+' "$TMP/aterr" | head -1 | sed 's/.*=//')
+if [ "$at_rc" -eq 0 ] && [ "${tracked:-0}" = "2" ]; then
+  echo "[+] ALLOCSIZE track: $tracked allocations recorded"
+else
+  echo "[!] ALLOCSIZE track: rc=$at_rc tracked=$tracked"
+  cat "$TMP/aterr" || true
+  exit 1
+fi
+
 # --- ALLOCSIZE_DERIVE ---
 AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1 \
   "$CC" -I"$AFL_DIR/include" \

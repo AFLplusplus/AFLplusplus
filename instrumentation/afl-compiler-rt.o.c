@@ -251,23 +251,9 @@ static __thread int __afl_bug_sf_top = -1;
 
 /* AllocSizeOracle (AFL_LLVM_BUG_ALLOCSIZE) runtime globals.
    Exposed (non-static) on purpose so tests and inspection tools can read
-   the live record table — same convention as __afl_bug_map / __afl_area_ptr. */
-typedef struct AllocSizeRecord {
-
-  uintptr_t base;
-  uint64_t  size;
-  uint32_t  alloc_site_id;
-  uint8_t   in_use;
-  uint64_t  max_observed_off;     /* tracked by __afl_alloc_oracle */
-  uint8_t   derive_logged;        /* set after __afl_size_derive_log */
-  /* Type-confusion fingerprint: the first observed store's element
-     size (in bytes) and alignment. Later stores with mismatching
-     element size are reported once per record. 0 = unobserved. */
-  uint32_t  first_elem_size;
-  uint32_t  first_elem_align;
-  uint8_t   type_warned;
-
-} AllocSizeRecord;
+   the live record table — same convention as __afl_bug_map / __afl_area_ptr.
+   AllocSizeRecord layout lives in include/bug-pass.h so consumers see
+   the canonical fields without copy-pasting. */
 
 u8              __afl_allocsize_active = 0;
 u8              __afl_size_derive_active = 0;
@@ -1076,7 +1062,7 @@ static void __afl_map_shm(void) {
      a smarter integration into the shared map can come later. */
   if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_SCALAR") ||
       getenv("AFL_LLVM_BUG_BUDGET") || getenv("AFL_LLVM_BUG_SIZEFILL") ||
-      getenv("AFL_LLVM_BUG_ALLOCSIZE")) {
+      getenv("AFL_LLVM_BUG_ALLOCSIZE") || getenv("AFL_LLVM_BUG_SLACK")) {
 
     __afl_bug_active = 1;
     __afl_bug_map = __afl_bug_map_local;
@@ -3963,27 +3949,65 @@ void __afl_bug_sf_begin(const void *ptr_arg, uint64_t caller_buf_size) {
   __afl_bug_sf_stack[__afl_bug_sf_top].base = ptr_arg;
   __afl_bug_sf_stack[__afl_bug_sf_top].max_off = 0;
   __afl_bug_sf_stack[__afl_bug_sf_top].total = 0;
-  /* Cap = caller_buf_size + UNRELATED_SLACK. Writes past the buffer
-     end but within UNRELATED_SLACK count toward max_off (so a real
-     OOB overrun of a few KB still trips `max_off > caller_buf_size`
-     in __afl_bug_sizefill_check); writes far beyond — almost certainly
-     belonging to a different allocation that happens to live higher
-     than this buffer — are filtered. 64 KiB is a generous plausibility
-     radius; real-world bug patterns rarely overflow by more.
-     Pass 0 for unbounded behavior. */
+
+  /* Cap derivation, in order of preference:
+       1. If the ALLOCSIZE shadow is initialized AND ptr_arg falls inside
+          a tracked allocation, use that allocation's actual remaining
+          extent (end - ptr_arg). This is the PRINCIPLED filter: writes
+          inside the allocation count, writes outside (different malloc
+          chunks, stack frames, etc.) are dropped. Catches in-allocation
+          OOBs of the SIZEFILL-tracked buffer; ignores unrelated buffers.
+       2. Else fall back to caller_buf_size + UNRELATED_SLACK (64 KiB).
+          Still catches OOBs up to 64 KiB; still false-positives on
+          adjacent allocations within that window. Acceptable when no
+          shadow is available (ALLOCSIZE disabled).
+       3. caller_buf_size == 0 → unbounded (legacy behavior). */
 #define __AFL_BUG_SF_UNRELATED_SLACK ((u64)(64 * 1024))
-  u64 cap;
-  if (caller_buf_size == 0) {
+  u64 cap = (u64)-1;
+  int resolved = 0;
 
-    cap = (u64)-1;
+  if (__afl_allocsize_active && __afl_alloc_shadow) {
 
-  } else if (caller_buf_size > (u64)-1 - __AFL_BUG_SF_UNRELATED_SLACK) {
+    uintptr_t a = (uintptr_t)ptr_arg;
+    if (a >= __afl_alloc_shadow_origin) {
 
-    cap = (u64)-1;
+      uintptr_t off = a - __afl_alloc_shadow_origin;
+      if (off < MAP_SIZE_ALLOCSHADOW_RANGE) {
 
-  } else {
+        u8 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+        if (idx) {
 
-    cap = caller_buf_size + __AFL_BUG_SF_UNRELATED_SLACK;
+          AllocSizeRecord *r = &__afl_alloc_records[idx];
+          if (r->in_use && a >= r->base && a < r->base + r->size) {
+
+            cap = (r->base + r->size) - a;
+            resolved = 1;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+  if (!resolved) {
+
+    if (caller_buf_size == 0) {
+
+      cap = (u64)-1;
+
+    } else if (caller_buf_size > (u64)-1 - __AFL_BUG_SF_UNRELATED_SLACK) {
+
+      cap = (u64)-1;
+
+    } else {
+
+      cap = caller_buf_size + __AFL_BUG_SF_UNRELATED_SLACK;
+
+    }
 
   }
 
@@ -4407,7 +4431,13 @@ void __afl_alloc_oracle_n(const void *ptr, uint64_t store_size) {
    differs triggers a one-shot warning on stderr. This is informational,
    not fatal — type-punning is legal in C/C++ and we don't want to
    abort benign programs, only flag the smell so the fuzzer's stderr
-   pickups can correlate with crashes downstream. */
+   pickups can correlate with crashes downstream.
+
+   Thread safety: under concurrent stores, multiple threads can race on
+   the same allocation. We use __atomic CAS for first_elem_size so the
+   "first wins" semantics hold, and an atomic test-and-set on
+   type_warned so the one-shot warning isn't duplicated. The align
+   field's update is best-effort (paired with the size CAS winner). */
 void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
                               uint32_t alignment) {
 
@@ -4420,24 +4450,37 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
   u8 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
   if (!idx) return;
   AllocSizeRecord *r = &__afl_alloc_records[idx];
-  if (!r->in_use) return;
-  if (!r->first_elem_size) {
+  if (!__atomic_load_n(&r->in_use, __ATOMIC_RELAXED)) return;
 
-    /* First store wins; record. Subsequent stores with the same size
-       are silent. */
-    r->first_elem_size = elem_size;
-    r->first_elem_align = alignment;
+  /* First-elem-size CAS: only the thread that observes 0 wins and
+     stores its (size, align) pair. Losers fall through to the
+     mismatch check below. */
+  uint32_t expected = 0;
+  if (__atomic_compare_exchange_n(
+          &r->first_elem_size, &expected, elem_size,
+          /*weak=*/0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+
+    /* We won; record the alignment to match. Not strictly atomic with
+       the size CAS, but it's only consulted in the warning printf
+       and a torn read still produces a useful (size, ~align) report. */
+    __atomic_store_n(&r->first_elem_align, alignment, __ATOMIC_RELAXED);
     return;
 
   }
 
-  if (r->first_elem_size == elem_size) return;
-  if (r->type_warned) return;  /* one report per allocation */
-  r->type_warned = 1;
+  /* `expected` now holds the winner's size. */
+  if (expected == elem_size) return;
+
+  /* Mismatch. One-shot warning gate via test-and-set. */
+  uint8_t already = __atomic_exchange_n(&r->type_warned, (uint8_t)1,
+                                        __ATOMIC_ACQ_REL);
+  if (already) return;
+
   fprintf(stderr,
           "[afl-bug] ALLOCSIZE type-confusion: site=%u first elem_size=%u "
           "(align=%u), later elem_size=%u (align=%u) at %p\n",
-          r->alloc_site_id, r->first_elem_size, r->first_elem_align,
+          r->alloc_site_id, expected,
+          __atomic_load_n(&r->first_elem_align, __ATOMIC_RELAXED),
           elem_size, alignment, ptr);
 
 }

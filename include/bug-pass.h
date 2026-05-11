@@ -116,6 +116,26 @@ void  __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
 // hooks short-circuit on this.
 extern uint8_t __afl_bug_active;
 
+// ALLOCSIZE record table layout. Exposed so test programs and external
+// inspection tools see the canonical struct and don't drift from the
+// runtime's actual layout when fields are added. The runtime defines
+// `__afl_alloc_records[MAP_SIZE_ALLOCRECORDS]`; consumers index it with
+// indices read from the live shadow.
+typedef struct AllocSizeRecord {
+
+  uintptr_t base;
+  uint64_t  size;
+  uint32_t  alloc_site_id;
+  uint8_t   in_use;
+  uint64_t  max_observed_off;     /* tracked by __afl_alloc_oracle */
+  uint8_t   derive_logged;        /* set after size-derive log */
+  /* Type-confusion fingerprint (one-shot warning per allocation). */
+  uint32_t  first_elem_size;
+  uint32_t  first_elem_align;
+  uint8_t   type_warned;
+
+} AllocSizeRecord;
+
 #ifdef __cplusplus
 }
 #endif

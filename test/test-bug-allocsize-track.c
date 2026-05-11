@@ -1,17 +1,13 @@
 // test/test-bug-allocsize-track.c
 // Verifies that the pass rewrites malloc/free into __afl_track_*. Without
 // rewriting, the runtime's record table stays empty (all .in_use==0) and
-// the helper printf reports "tracked=0".
+// the helper printf reports "tracked=0". Uses the canonical struct from
+// bug-pass.h so this test doesn't drift from the runtime layout.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "bug-pass.h"
 
-typedef struct AllocSizeRecord {
-  uintptr_t base;
-  uint64_t  size;
-  uint32_t  alloc_site_id;
-  uint8_t   in_use;
-} AllocSizeRecord;
 extern AllocSizeRecord __afl_alloc_records[256];
 
 int main(void) {

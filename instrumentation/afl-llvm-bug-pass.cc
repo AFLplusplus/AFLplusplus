@@ -894,33 +894,29 @@ struct SentinelDesc {
 // Returns the arg index AND the bit width of the value stored (via
 // `*out_bits`), or -1 if no qualifying arg. Also returns via
 // `*out_is_inout` whether the callee READS through the param anywhere
-// (any load through the arg or its spill-loads). In/out semantics
-// means the caller-side pre-zero would clobber an initial value the
-// callee depends on; the caller MUST honor this flag.
+// (any load through the arg, its spill-loads, a one-step GEP, or any
+// CallBase escape). In/out semantics means the caller-side pre-zero
+// would clobber an initial value the callee depends on; the caller
+// MUST honor this flag.
 //
 // Tightening (Bug 5 — `findOutSizeParam` was over-permissive and matched
 // generic error-code out-params):
-//   (a) Function must also have at least one size_t-shaped integer arg
-//       BEFORE the candidate out-param (the typical `parse(buf, size_t
-//       len, size_t *out)` shape). This excludes
-//       `parse(buf, &err_code)` patterns.
-//   (b) Argument name (when debug names survive) matches a size-like
-//       pattern: contains "size", "len", "bytes", "written", "count",
-//       or "n_*". If no debug name is present, only (a) needs to hold.
-//   (c) Stored value's width must be size_t-class (>= pointer width)
-//       OR >= 32 bits — error codes are typically int (32 bits), but
-//       so are some size fields. Pure name match is the differentiator.
+//   (a) Function must have at least one non-pointer integer arg BEFORE
+//       the candidate out-param (the typical `parse(buf, size_t len,
+//       size_t *out)` shape). This excludes `parse(buf, &err_code)`
+//       patterns. Any width is accepted — clang doesn't preserve arg
+//       names on IR Argument values even under -g (names live in
+//       DILocalVariable metadata), so a name-based filter is unreliable.
+//   (b) Stored value's width must be pointer-wide (`size_t`-class).
+//       This is the strongest single signal that the stored quantity
+//       is a buffer size rather than an error code: nearly all size_t
+//       APIs use pointer-width integers, while error-code out-params
+//       are int (smaller than pointer width on 64-bit). On 32-bit
+//       targets the distinction collapses; a small false-positive
+//       rate is acceptable.
 //
-// -g dependence: precondition (b) only fires when debug names survive
-// (clang's -g lowers DILocalVariable names onto Arguments). On stripped
-// builds, only (a) and (c) gate the match: any "pointer-wide-integer
-// out-param after a size-like int arg" is accepted, plus any 32-bit
-// out-param whose preceding arg has a size-like name. The fallback is
-// conservative — without debug info we may miss `int parse(buf, int*)`
-// style APIs but won't false-match `parse(buf, int *err_code)`.
-//
-// This catches the common `int parse(const buf*, size_t len, size_t *out)`
-// idiom that the integer-return-only path misses, while rejecting
+// This catches `int parse(const buf*, size_t len, size_t *out)` and
+// `void parse(buf, size_t len, size_t *out)` patterns, while rejecting
 // `parse(buf, int *err_code)`.
 static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
                             bool *out_is_inout) {
@@ -928,48 +924,30 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
   if (out_bits) *out_bits = 0;
   if (out_is_inout) *out_is_inout = false;
 
-  // Discover whether F has any size-like integer arg before the
-  // candidate (precondition (a)). Pointer-wide integer or any integer
-  // whose name matches size-pattern qualifies.
   const DataLayout &DL = F.getParent()->getDataLayout();
   unsigned          ptr_bits = DL.getPointerSizeInBits();
-  auto              hasSizeLikeName = [](StringRef n) -> bool {
-
-    if (n.empty()) return false;
-    std::string lower = n.lower();
-    return lower.find("size") != std::string::npos ||
-           lower.find("len") != std::string::npos ||
-           lower.find("bytes") != std::string::npos ||
-           lower.find("written") != std::string::npos ||
-           lower.find("count") != std::string::npos ||
-           lower.find("n_") != std::string::npos ||
-           lower == "n";
-
-  };
 
   for (Argument &A : F.args()) {
 
     if ((int)A.getArgNo() == sentinel_idx) continue;
     if (!A.getType()->isPointerTy()) continue;
 
-    // Precondition (a): a size-like integer arg appears earlier in the
-    // signature. Either pointer-wide integer, or name matches.
-    bool has_size_arg_before = false;
+    // Precondition (a): at least one non-pointer integer arg appears
+    // earlier in the signature. Excludes the `parse(buf, &err)` shape.
+    bool has_int_arg_before = false;
     for (Argument &B : F.args()) {
 
       if (B.getArgNo() >= A.getArgNo()) break;
-      if (!B.getType()->isIntegerTy()) continue;
-      if (B.getType()->getIntegerBitWidth() >= ptr_bits ||
-          hasSizeLikeName(B.getName())) {
+      if (B.getType()->isIntegerTy()) {
 
-        has_size_arg_before = true;
+        has_int_arg_before = true;
         break;
 
       }
 
     }
 
-    if (!has_size_arg_before) continue;
+    if (!has_int_arg_before) continue;
 
     // Walk users (including spill-load idiom) for a store of an integer
     // through this arg.
@@ -986,12 +964,17 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
 
     }
 
-    bool name_size_like = hasSizeLikeName(A.getName());
-
-    // Scan for in/out semantics: any LoadInst through any of the roots
-    // means the callee reads the param's initial value. We accumulate
-    // this before deciding to accept the arg — the caller uses it to
-    // gate the pre-call zero.
+    // Scan for in/out semantics: the callee READS the param's initial
+    // value through any of:
+    //   - a direct LoadInst with pointer operand == root
+    //   - a one-step GEP from root whose result is then loaded (struct
+    //     out-param fields read)
+    //   - root being passed as a CallBase argument (escape — the
+    //     callee may dereference it, we can't prove otherwise)
+    // We accumulate this before deciding to accept the arg — the caller
+    // uses it to gate the pre-call zero. Conservative: prefer FN on a
+    // truly write-only param with an unrelated escape over clobbering
+    // an in/out hint.
     bool is_inout = false;
     for (Value *root : roots) {
 
@@ -1005,6 +988,38 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
             break;
 
           }
+
+        } else if (auto *G = dyn_cast<GetElementPtrInst>(U)) {
+
+          if (G->getPointerOperand() == root) {
+
+            for (User *GU : G->users()) {
+
+              if (auto *L2 = dyn_cast<LoadInst>(GU)) {
+
+                if (L2->getPointerOperand() == G) {
+
+                  is_inout = true;
+                  break;
+
+                }
+
+              }
+
+            }
+
+            if (is_inout) break;
+
+          }
+
+        } else if (auto *Call = dyn_cast<CallBase>(U)) {
+
+          // Escape into a callee. Be conservative regardless of which
+          // arg position root occupies — once it's passed out, we lose
+          // visibility into what the callee does with it.
+          (void)Call;
+          is_inout = true;
+          break;
 
         }
 
@@ -1025,10 +1040,12 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
         unsigned bits = VT->getIntegerBitWidth();
         if (bits < 16 || bits > 64) continue;
 
-        // Precondition (c): width >= pointer-width OR name says size.
-        // Pure 32-bit int without a size-like name is rejected — too
-        // likely to be an error code.
-        if (bits < ptr_bits && !name_size_like) continue;
+        // Precondition (b): stored value must be pointer-wide. The
+        // strongest single signal that we're seeing a size_t store
+        // rather than an error-code (int) store. On 32-bit targets
+        // the test collapses and `int *err` would also match — an
+        // accepted false-positive on a niche architecture.
+        if (bits < ptr_bits) continue;
 
         if (out_bits) *out_bits = (int)bits;
         if (out_is_inout) *out_is_inout = is_inout;
@@ -1307,9 +1324,14 @@ static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source) {
 // duplication doesn't drift; a future runtime-side unification (one
 // tracked-region hook) would change only this one helper.
 //
-// `hook` must be void-returning with signature (i8*, i32). Caller is
-// responsible for honoring the instrument-list blocklist on F — this
-// helper does not re-check.
+// PRECONDITION (load-bearing): callers MUST verify F is in the user's
+// instrument list before invoking this helper. The helper instruments
+// every qualifying StoreInst in F unconditionally — it does not
+// re-check isInInstrumentList. The two current callers
+// (runBudgetMode, runSizefillMode) honor this; any new caller must
+// do the same or risk leaking hook calls into user-excluded code.
+//
+// `hook` must be void-returning with signature (i8*, i32).
 static unsigned instrumentArgReachingStores(
     Function &F, FunctionCallee hook,
     const std::set<unsigned> &arg_indices, Type *PtrTy, IntegerType *I32,
@@ -1387,10 +1409,12 @@ static unsigned instrumentArgReachingStores(
 // — the runtime size of `buf` is recoverable from the malloc arg.
 // Internal recursive helper. `visited` guards against cyclic PHIs that
 // can occur with loop-carried pointers (e.g. a header phi feeding back
-// into itself via realloc). Without the guard, walking `phi -> realloc(phi)
-// -> phi` would recurse forever. Returning nullptr on revisit is the
-// conservative answer: "we already saw this value, we can't add more
-// signal by walking it again."
+// into itself via realloc). Cycles can only form through PHI and
+// SelectInst — the only join nodes in SSA. We therefore insert ONLY
+// those node kinds into the visited set; non-join values (LoadInst,
+// CallInst, AllocaInst, etc.) revisits are common and benign on DAG
+// inputs (two PHI arms sharing a common ancestor malloc, for instance)
+// and tracking them here would block legitimate joins.
 static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
                                        const DataLayout       &DL,
                                        SmallPtrSetImpl<Value *> &visited);
@@ -1409,7 +1433,6 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
 
   IntegerType *I64 = IntegerType::getInt64Ty(B.getContext());
   if (!V) return nullptr;
-  if (!visited.insert(V).second) return nullptr;
   V = V->stripPointerCasts();
   // Peel through one level of spill (the optnone / -O0 idiom):
   //   p_slot = alloca ptr
@@ -1417,36 +1440,33 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
   //   store p, p_slot        ; spill
   //   p2 = load p_slot       ; reload (this is V)
   //   foo(p2)
-  // Only follow when there's exactly ONE store to the alloca and its value
-  // is a call — otherwise the load could return a different value (e.g.,
-  // null-init followed by lazy assign) and we'd report the wrong size.
+  // Only follow when every store to the alloca writes the same SSA value
+  // (so the load is guaranteed to return that value) — null-init-then-
+  // assign and other mixed-source spills bail out via the `multi` flag.
+  //
+  // The spill source can be any kind of value, not just a CallInst —
+  // chained spills (clang at -O0 stores a PHI into an alloca, then
+  // reloads it later) need to walk through the PHI on the recursive
+  // call. Restricting to CallInst would silently drop those sites.
   if (auto *Ld = dyn_cast<LoadInst>(V)) {
 
     if (auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand())) {
 
-      CallInst *unique_src = nullptr;
-      bool      multi = false;
+      Value *unique_src = nullptr;
+      bool   multi = false;
       for (User *U : AI->users()) {
 
         auto *St = dyn_cast<StoreInst>(U);
         if (!St || St->getPointerOperand() != AI) continue;
-        auto *C = dyn_cast<CallInst>(
-            St->getValueOperand()->stripPointerCasts());
-        if (!C) {
+        Value *sv = St->getValueOperand()->stripPointerCasts();
+        if (unique_src && unique_src != sv) {
 
           multi = true;
           break;
 
         }
 
-        if (unique_src && unique_src != C) {
-
-          multi = true;
-          break;
-
-        }
-
-        unique_src = C;
+        unique_src = sv;
 
       }
 
@@ -1461,6 +1481,10 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
   // that exceed the smaller arm's buffer.
   if (auto *PN = dyn_cast<PHINode>(V)) {
 
+    // Cycle guard: only block re-entry on the SAME PHI. Distinct PHIs
+    // whose subtrees share a value are not cycles — they're DAG joins
+    // and must be allowed to recurse independently.
+    if (!visited.insert(PN).second) return nullptr;
     SmallVector<std::pair<Value *, BasicBlock *>, 4> arms;
     bool ok = true;
     bool all_const = true;
@@ -1516,6 +1540,7 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
   // calls because those operate at B (or at earlier dominating positions).
   if (auto *Sel = dyn_cast<SelectInst>(V)) {
 
+    if (!visited.insert(Sel).second) return nullptr;
     Value *st =
         inferBufferSizeValueImpl(Sel->getTrueValue(), B, DL, visited);
     Value *sf =
@@ -1730,8 +1755,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
       // Fall back to output-param convention. Only adopt if we find a
       // distinct pointer-to-integer arg that the function writes to.
-      out_idx =
-          findOutSizeParam(F, idx, &out_bits, &out_is_inout);
+      out_idx = findOutSizeParam(F, idx, &out_bits, &out_is_inout);
       if (out_idx < 0) continue;
 
     }
@@ -2054,15 +2078,29 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
     }
 
     // Enhancement D: FP slack. Compute |fpext(a) - fpext(b)| at f64,
-    // then convert to i64 via a saturating fptoui. NaN handling is the
-    // load-bearing detail here: LLVM's `llvm.fptoui.sat.i64.f64` returns
-    // **0** on NaN — feeding 0 to slackHook would put the slot at its
-    // MAX inv bucket (tight match), drowning real-signal updates from
-    // non-NaN comparisons at the same site. Detect NaN explicitly via
-    // `fcmp uno` and substitute UINT64_MAX so the slack hook's MAX
-    // update rule treats NaN as "no signal" (inv = 0, no overwrite).
-    Type     *F64 = Type::getDoubleTy(C);
-    Constant *u64_max = ConstantInt::get(I64, (uint64_t)-1);
+    // SCALE by 2^20 to retain ~20 bits of sub-unit precision, then
+    // convert to i64 via a saturating fptoui. Without scaling,
+    // fptoui_sat truncates any |diff| in [0, 1) to 0 — `0.0 == 0.0`
+    // and `0.0 vs 0.5` would both produce slack=0 and inv=64 (max
+    // bucket), erasing the gradient near zero that fuzzing needs.
+    //
+    // Scale factor 2^20 (= 1 << 20) chosen so:
+    //   - |diff| = 1.0   → slack = 2^20         (log_slack = 21)
+    //   - |diff| = 0.5   → slack = 524288       (log_slack = 20)
+    //   - |diff| = 1e-6  → slack = 1            (log_slack = 1)
+    //   - |diff| = 0.0   → slack = 0            (log_slack = 0)
+    // Distinct bucket values across the sub-unit range while keeping
+    // large |diff| (up to ~2^44) within i64 range pre-saturation.
+    //
+    // NaN handling is the load-bearing detail here: LLVM's
+    // `llvm.fptoui.sat.i64.f64` returns **0** on NaN — feeding 0 to
+    // slackHook would put the slot at its MAX inv bucket (tight
+    // match), drowning real-signal updates. Detect NaN via `fcmp uno`
+    // and substitute UINT64_MAX so the slack hook's MAX update rule
+    // treats NaN as "no signal" (inv = 0, no overwrite).
+    Type      *F64 = Type::getDoubleTy(C);
+    Constant  *u64_max = ConstantInt::get(I64, (uint64_t)-1);
+    Constant  *scale = ConstantFP::get(F64, (double)(1u << 20));
     for (FCmpInst *FCmp : fp_targets) {
 
       IRBuilder<> B(FCmp);
@@ -2078,10 +2116,11 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
       // iff x is NaN (relies only on the standard floating-point
       // unordered semantics, no target intrinsic needed).
       Value *isNaN = B.CreateFCmpUNO(absD, absD);
-      // Saturating cast: well-defined for Inf (clamps to UINT64_MAX)
-      // and for in-range values. NaN result (0) is overridden below.
+      // Scale to preserve sub-unit precision, then saturating cast.
+      // FMul of NaN stays NaN; that's still caught by isNaN above.
+      Value *scaled = B.CreateFMul(absD, scale);
       Value *slack_sat = B.CreateIntrinsic(
-          Intrinsic::fptoui_sat, {I64, F64}, {absD});
+          Intrinsic::fptoui_sat, {I64, F64}, {scaled});
       Value *slack_fp = B.CreateSelect(isNaN, u64_max, slack_sat);
       uint32_t id =
           siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
