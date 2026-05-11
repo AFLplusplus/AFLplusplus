@@ -211,6 +211,10 @@ u32 __afl_ijon_enabled __attribute__((weak)) = 0;
 u8         __afl_bug_active = 0;
 u32       *__afl_bug_map = NULL;
 static u32 __afl_bug_map_local[MAP_SIZE_BUG_ENTRIES];
+u32        __afl_bug_mode __attribute__((weak)) = 0;
+static u8  __afl_bug_runtime_configured = 0;
+static u32 __afl_bug_configured_mode = 0;
+static u8  __afl_bug_map_increased = 0;
 /* Per-thread stack of nested BUDGET / SIZEFILL frames.
    Previously begin/check used a single global (base, max_off), so an
    inner instrumented call's wsBegin overwrote the outer frame and the
@@ -531,6 +535,65 @@ static void __afl_map_shm_fuzz() {
 
 }
 
+static void __afl_bug_configure_runtime(void) {
+
+  u32 mode = __afl_bug_mode;
+  if (likely(__afl_bug_runtime_configured && mode == __afl_bug_configured_mode))
+    return;
+  __afl_bug_runtime_configured = 1;
+  __afl_bug_configured_mode = mode;
+  __afl_bug_mode = mode;
+  if (mode & (AFL_BUG_MODE_SCALAR | AFL_BUG_MODE_BUDGET |
+              AFL_BUG_MODE_SIZEFILL | AFL_BUG_MODE_ALLOCSIZE |
+              AFL_BUG_MODE_SLACK)) {
+
+    __afl_bug_active = 1;
+    if (!__afl_bug_map) {
+
+      __afl_bug_map = __afl_bug_map_local;
+      memset(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
+
+    }
+
+  }
+
+  if (mode & AFL_BUG_MODE_ALLOCSIZE) { __afl_allocsize_active = 1; }
+  if (mode & AFL_BUG_MODE_DERIVE) { __afl_size_derive_active = 1; }
+
+}
+
+static inline void __afl_bug_ensure_runtime(void) {
+
+  if (unlikely(!__afl_bug_active || !__afl_bug_map ||
+      __afl_bug_mode != __afl_bug_configured_mode))
+    __afl_bug_configure_runtime();
+
+}
+
+static void __afl_bug_append_map(void) {
+
+  if (likely(!__afl_bug_active || __afl_bug_map_increased)) return;
+  __afl_map_size += MAP_SIZE_BUG_BYTES;
+  __afl_set_map_size += MAP_SIZE_BUG_BYTES;
+  __afl_bug_map_increased = 1;
+
+}
+
+static void __afl_bug_bind_map(void) {
+
+  if (likely(!__afl_bug_active || !__afl_area_ptr || !__afl_set_map_size ||
+      __afl_set_map_size < MAP_SIZE_BUG_BYTES)) {
+
+    return;
+
+  }
+
+  __afl_bug_map =
+      (u32 *)(void *)(__afl_area_ptr + __afl_set_map_size - MAP_SIZE_BUG_BYTES);
+  memset(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
+
+}
+
 /* SHM setup. */
 
 static void __afl_map_shm(void) {
@@ -569,6 +632,7 @@ static void __afl_map_shm(void) {
 
   // if we are not running in afl ensure the map exists
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
+  __afl_bug_configure_runtime();
 
   if (getenv("AFL_NO_IJON")) {
 
@@ -590,10 +654,12 @@ static void __afl_map_shm(void) {
       __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
       __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
       __afl_ijon_map_increased = 1;
+      __afl_bug_append_map();
 
     } else {
 
       __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
+      __afl_bug_append_map();
 
     }
 
@@ -635,6 +701,7 @@ static void __afl_map_shm(void) {
   } else {
 
     __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
+    __afl_bug_append_map();
 
     // IJON SUPPORT: Defer expansion until __afl_final_loc is set by
     // __sanitizer_cov_pcs_init This will be handled in __afl_map_shm_resize()
@@ -900,6 +967,7 @@ static void __afl_map_shm(void) {
   }  // else: nothing to be done
 
   __afl_area_ptr_backup = __afl_area_ptr;
+  __afl_bug_bind_map();
 
   if (__afl_debug) {
 
@@ -1058,28 +1126,7 @@ static void __afl_map_shm(void) {
 
   }
 
-  /* Activate bug-pass runtime channel. Map lives in private memory by default;
-     a smarter integration into the shared map can come later. */
-  if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_SCALAR") ||
-      getenv("AFL_LLVM_BUG_BUDGET") || getenv("AFL_LLVM_BUG_SIZEFILL") ||
-      getenv("AFL_LLVM_BUG_ALLOCSIZE") || getenv("AFL_LLVM_BUG_SLACK")) {
-
-    __afl_bug_active = 1;
-    __afl_bug_map = __afl_bug_map_local;
-    memset(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
-
-  }
-  if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_ALLOCSIZE")) {
-
-    __afl_allocsize_active = 1;
-
-  }
-
-  if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE")) {
-
-    __afl_size_derive_active = 1;
-
-  }
+  __afl_bug_configure_runtime();
 
 }
 
@@ -1131,6 +1178,8 @@ static void __afl_unmap_shm(void) {
   }
 
   __afl_area_ptr = __afl_area_ptr_dummy;
+  if (__afl_bug_active) __afl_bug_map = __afl_bug_map_local;
+  __afl_bug_map_increased = 0;
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
@@ -1284,6 +1333,12 @@ static void __afl_start_forkserver(void) {
     status = FS_NEW_OPT_MAPSIZE;  // we always send the map size
     if (__afl_sharedmem_fuzzing) { status |= FS_NEW_OPT_SHDMEM_FUZZ; }
     if (__afl_child_sync) { status |= FS_NEW_OPT_FUTEX; }
+    if (__afl_bug_mode & AFL_BUG_MODE_DERIVE) {
+
+      status |= FS_NEW_OPT_ALLOCSIZE_DERIVE;
+
+    }
+
     if (__afl_dictionary_len && __afl_dictionary) {
 
       status |= FS_NEW_OPT_AUTODICT;
@@ -1309,6 +1364,8 @@ static void __afl_start_forkserver(void) {
     // FS_NEW_OPT_SHDMEM_FUZZ - no data
 
     // FS_NEW_OPT_FUTEX - no data
+
+    // FS_NEW_OPT_ALLOCSIZE_DERIVE - no data
 
     // FS_NEW_OPT_AUTODICT - send autodictionary
     if (__afl_dictionary_len && __afl_dictionary) {
@@ -2495,6 +2552,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     }
 
     __afl_map_size = __afl_final_loc + 1;
+    __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
+    __afl_bug_map_increased = 0;
 
     // IJON SUPPORT: Re-apply IJON expansion after reinit
     if (__afl_ijon_enabled && !__afl_ijon_map_increased) {
@@ -2506,6 +2565,10 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       __afl_ijon_map_increased = 1;
 
     }
+
+    __afl_bug_configure_runtime();
+    __afl_bug_append_map();
+    __afl_bug_bind_map();
 
   }
 
@@ -3838,6 +3901,7 @@ uint32_t ijon_strdist(char *a, char *b) {
 
 void __afl_bug_scalar_max(uint32_t id, uint64_t val) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_bug_active || !__afl_bug_map) return;
   /* Bucket as ceil(log2(val+1)) so equal-magnitude values collapse to one
      slot but growth produces new coverage. Cap at 63. */
@@ -3850,6 +3914,7 @@ void __afl_bug_scalar_max(uint32_t id, uint64_t val) {
 
 void __afl_bug_loop_iter_flush(uint32_t id, uint32_t local_count) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_bug_active || !__afl_bug_map) return;
   u32 bucket = 0;
   if (local_count) bucket = 32u - (u32)__builtin_clz(local_count);
@@ -3860,6 +3925,7 @@ void __afl_bug_loop_iter_flush(uint32_t id, uint32_t local_count) {
 
 void __afl_bug_ws_begin(const void *ptr_before) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_bug_active) return;
   /* Stack overflow: silently drop the frame. The matching check below
      won't find a matching base and will become a no-op — preferable to
@@ -3875,6 +3941,7 @@ void __afl_bug_ws_begin(const void *ptr_before) {
 
 void __afl_bug_ws_store(const void *addr, uint32_t size) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_bug_active || __afl_bug_ws_top < 0) return;
   uintptr_t a = (uintptr_t)addr;
   /* Update every active frame whose base is at or before addr AND the
@@ -3900,6 +3967,7 @@ void __afl_bug_ws_store(const void *addr, uint32_t size) {
 
 void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_bug_active || __afl_bug_ws_top < 0) return;
   /* Match against the nearest frame with this base. Walking from top
      down handles direct recursion (the closer frame is ours); on
@@ -3943,6 +4011,7 @@ void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size) {
    check discipline as ws_*. */
 void __afl_bug_sf_begin(const void *ptr_arg, uint64_t caller_buf_size) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_bug_active) return;
   if (__afl_bug_sf_top + 1 >= __AFL_BUG_FRAME_STACK_DEPTH) return;
   ++__afl_bug_sf_top;
@@ -4017,6 +4086,7 @@ void __afl_bug_sf_begin(const void *ptr_arg, uint64_t caller_buf_size) {
 
 void __afl_bug_sf_store(const void *addr, uint32_t size) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_bug_active || __afl_bug_sf_top < 0) return;
   uintptr_t a = (uintptr_t)addr;
   for (int i = 0; i <= __afl_bug_sf_top; ++i) {
@@ -4036,6 +4106,7 @@ void __afl_bug_sf_store(const void *addr, uint32_t size) {
 void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
                               uint64_t caller_buf_size) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_bug_active) return;
   if (ret_size > caller_buf_size) {
 
@@ -4090,6 +4161,7 @@ void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
    other paths can't overwrite it. */
 void __afl_bug_slack_min(uint32_t id, uint64_t slack) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_bug_active || !__afl_bug_map) return;
   /* ceil(log2(slack+1)), capped at 64. Slack==0 (tight equality) -> 0. */
   u32 log_slack = slack ? (64u - (u32)__builtin_clzll(slack)) : 0;
@@ -4145,7 +4217,9 @@ static void __afl_alloc_shadow_paint(uintptr_t base, uint64_t size, u8 idx) {
   if (!__afl_alloc_shadow) return;
   if (base < __afl_alloc_shadow_origin) return;
   uintptr_t off = base - __afl_alloc_shadow_origin;
-  if (off + size > MAP_SIZE_ALLOCSHADOW_RANGE) return;
+  if (size > MAP_SIZE_ALLOCSHADOW_RANGE ||
+      off > MAP_SIZE_ALLOCSHADOW_RANGE - size)
+    return;
   uint64_t g_start = off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
   /* Paint one sentinel granule past the actual end. Otherwise an OOB write
      at exactly base+size lands on an unpainted granule and the oracle
@@ -4162,6 +4236,7 @@ static void __afl_alloc_shadow_paint(uintptr_t base, uint64_t size, u8 idx) {
 
 void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_allocsize_active || !ptr || !size) return;
   __AFL_ALLOC_LOCK;
   if (!__afl_alloc_shadow) __afl_alloc_shadow_init((uintptr_t)ptr);
@@ -4266,6 +4341,7 @@ void *__afl_track_calloc(uint64_t nmemb, uint64_t size,
                          uint32_t alloc_site_id) {
 
   void *p = calloc((size_t)nmemb, (size_t)size);
+  if (size && nmemb > (uint64_t)-1 / size) return p;
   __afl_alloc_register(p, nmemb * size, alloc_site_id);
   return p;
 
@@ -4365,6 +4441,7 @@ void __afl_track_free(void *ptr) {
    end still produce a single soft-OOB abort. */
 static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_allocsize_active || !__afl_alloc_shadow) return;
   uintptr_t a = (uintptr_t)ptr;
   if (a < __afl_alloc_shadow_origin) return;
@@ -4404,6 +4481,7 @@ static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
      keeps the closest approach to the end. */
   u32 log_hr = headroom ? (64u - (u32)__builtin_clzll(headroom)) : 0;
   u32 inv = 64u - log_hr;
+  if (!__afl_bug_map) return;
   u32 slot1 = (r->alloc_site_id * 31u) & (MAP_SIZE_BUG_ENTRIES - 1);
   if (__afl_bug_map[slot1] < inv) __afl_bug_map[slot1] = inv;
   /* (2) Proximity bucket as synthetic edge: hash(site, log2(headroom)). */
@@ -4441,6 +4519,7 @@ void __afl_alloc_oracle_n(const void *ptr, uint64_t store_size) {
 void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
                               uint32_t alignment) {
 
+  __afl_bug_ensure_runtime();
   if (!__afl_allocsize_active || !__afl_alloc_shadow) return;
   if (!elem_size) return;  /* zero-width stores carry no type signal */
   uintptr_t a = (uintptr_t)ptr;
@@ -4484,4 +4563,3 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
           elem_size, alignment, ptr);
 
 }
-

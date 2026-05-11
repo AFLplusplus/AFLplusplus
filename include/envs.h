@@ -72,7 +72,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_BUG_BUDGET", "AFL_LLVM_BUG_SIZEFILL",
     "AFL_LLVM_BUG_SLACK",
     "AFL_LLVM_BUG_ALLOCSIZE", "AFL_LLVM_BUG_ALLOCSIZE_FUNCS",
-    "AFL_LLVM_BUG_ALLOCSIZE_DERIVE",
+    "AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS", "AFL_LLVM_BUG_ALLOCSIZE_DERIVE",
     "AFL_CMPLOG", "AFL_LLVM_CMPLOG",
     "AFL_GCC_CMPLOG", "AFL_LLVM_INSTRIM", "AFL_LLVM_CALLER", "AFL_LLVM_CTX",
     "AFL_LLVM_NO_ERROR", "AFL_LLVM_LTO_CALLER", "AFL_LLVM_LTO_CTX",
@@ -142,4 +142,3 @@ static char *afl_environment_variables[] = {
 extern char *afl_environment_variables[];
 
 #endif
-

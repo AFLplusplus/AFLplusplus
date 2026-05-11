@@ -522,6 +522,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->debug = false;
   fsrv->uses_crash_exitcode = false;
   fsrv->uses_asan = 0;
+  fsrv->cmplog_size_derive_requested = false;
+  fsrv->supports_allocsize_derive = false;
 
 #ifdef __AFL_CODE_COVERAGE
   fsrv->persistent_trace_bits = NULL;
@@ -573,6 +575,9 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_kill_signal = from->child_kill_signal;
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
+  fsrv_to->cmplog_size_derive_requested =
+      from->cmplog_size_derive_requested;
+  fsrv_to->supports_allocsize_derive = false;
 
 #ifdef __AFL_CODE_COVERAGE
   fsrv_to->persistent_trace_bits = from->persistent_trace_bits;
@@ -1553,6 +1558,17 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+      fsrv->supports_allocsize_derive =
+          !!(status & FS_NEW_OPT_ALLOCSIZE_DERIVE);
+      if (fsrv->cmplog_size_derive_requested &&
+          !fsrv->supports_allocsize_derive) {
+
+        FATAL(
+            "-l Z requires a CmpLog target compiled with "
+            "AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1");
+
+      }
+
 #ifdef __linux__
       if (fsrv->use_futex && !(status & FS_NEW_OPT_FUTEX)) {
 
@@ -1688,6 +1704,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           && !fsrv->nyx_mode
 #endif
       ) {
+
+        if (fsrv->cmplog_size_derive_requested) {
+
+          FATAL(
+              "-l Z requires a CmpLog target with new forkserver support and "
+              "AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1");
+
+        }
 
         WARNF(
             "Old fork server model is used by the target, this still works "
@@ -2905,4 +2929,3 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
-

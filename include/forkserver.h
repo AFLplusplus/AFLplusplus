@@ -155,6 +155,9 @@ typedef struct afl_forkserver {
   char child_sync_shm_file_path[32];    /* Path for shm_open child_sync     */
 #endif
 
+  bool cmplog_size_derive_requested;    /* -l Z requires target support     */
+  bool supports_allocsize_derive;       /* target reports derive support    */
+
   bool use_ijon;                        /* use IJON tracking feature        */
 
   bool use_fauxsrv;                     /* Fauxsrv for non-forking targets? */
@@ -310,4 +313,3 @@ void nyx_load_target_hash(afl_forkserver_t *fsrv);
 #endif                                                        /* ^RLIMIT_AS */
 
 #endif
-

@@ -844,6 +844,7 @@ typedef struct afl_state {
   /* Per-cmp-site minimum slack ever seen; UINT64_MAX = unseen. Indexed by
      cmp_map header key. Lazily allocated on first slack scan. */
   u64 *min_slack;
+  u64  cmplog_tightness_new;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;
@@ -1604,4 +1605,3 @@ static inline u8 bitmap_read(u8 *map, u32 index) {
 #endif
 
 #endif
-

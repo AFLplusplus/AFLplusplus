@@ -3755,7 +3755,11 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
        all five sub-modes internally (SCALAR/BUDGET/SIZEFILL/ALLOCSIZE/SLACK). */
     if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_SCALAR") ||
         getenv("AFL_LLVM_BUG_BUDGET") || getenv("AFL_LLVM_BUG_SIZEFILL") ||
-        getenv("AFL_LLVM_BUG_ALLOCSIZE") || getenv("AFL_LLVM_BUG_SLACK")) {
+        getenv("AFL_LLVM_BUG_ALLOCSIZE") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_FUNCS") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") ||
+        getenv("AFL_LLVM_BUG_SLACK")) {
 
       load_llvm_pass(aflcc, "afl-llvm-bug-pass.so");
 
@@ -3958,4 +3962,3 @@ int main(int argc, char **argv, char **envp) {
   return 0;
 
 }
-

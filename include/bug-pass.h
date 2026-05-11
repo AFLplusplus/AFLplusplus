@@ -11,6 +11,7 @@
 #define AFL_BUG_ENV_SIZEFILL "AFL_LLVM_BUG_SIZEFILL"
 #define AFL_BUG_ENV_ALLOCSIZE        "AFL_LLVM_BUG_ALLOCSIZE"
 #define AFL_BUG_ENV_ALLOCSIZE_FUNCS  "AFL_LLVM_BUG_ALLOCSIZE_FUNCS"
+#define AFL_BUG_ENV_ALLOCSIZE_FREE_FUNCS "AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS"
 #define AFL_BUG_ENV_ALLOCSIZE_DERIVE "AFL_LLVM_BUG_ALLOCSIZE_DERIVE"
 #define AFL_BUG_ENV_SLACK            "AFL_LLVM_BUG_SLACK"
 // Optional opt-in: restricts SCALAR's arithmetic-site instrumentation to
@@ -27,6 +28,13 @@
 // instrument many arithmetic sites.
 #define MAP_SIZE_BUG_ENTRIES (1U << 14)              // 16384 slots
 #define MAP_SIZE_BUG (MAP_SIZE_BUG_ENTRIES * sizeof(uint32_t))
+
+#define AFL_BUG_MODE_SCALAR    (1U << 0)
+#define AFL_BUG_MODE_BUDGET    (1U << 1)
+#define AFL_BUG_MODE_SIZEFILL  (1U << 2)
+#define AFL_BUG_MODE_ALLOCSIZE (1U << 3)
+#define AFL_BUG_MODE_SLACK     (1U << 4)
+#define AFL_BUG_MODE_DERIVE    (1U << 5)
 
 // Runtime hook signatures (called from instrumented IR).
 #ifdef __cplusplus
@@ -115,6 +123,7 @@ void  __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
 // Initialized to 0, set to 1 by runtime if any mode is active. Pass-emitted
 // hooks short-circuit on this.
 extern uint8_t __afl_bug_active;
+extern uint32_t __afl_bug_mode;
 
 // ALLOCSIZE record table layout. Exposed so test programs and external
 // inspection tools see the canonical struct and don't drift from the

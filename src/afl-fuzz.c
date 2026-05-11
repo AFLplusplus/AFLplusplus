@@ -310,7 +310,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  X=extreme transform solving, R=random colorization "
       "bytes,\n"
       "                  M=tightness scheduling (favour barely-passed cmps),\n"
-      "                  Z=size-derive mining (use AFL_LLVM_BUG_ALLOCSIZE_DERIVE).\n\n"
+      "                  Z=size-derive mining (compile target with "
+      "AFL_LLVM_BUG_ALLOCSIZE_DERIVE).\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z             - sequential queue selection instead of weighted "
       "random\n"
@@ -2935,6 +2936,8 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
+    afl->cmplog_fsrv.cmplog_size_derive_requested =
+        afl->cmplog_size_derive;
     afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
@@ -4065,4 +4068,3 @@ stop_fuzzing:
 }
 
 #endif                                                          /* !AFL_LIB */
-

@@ -30,6 +30,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Support/raw_ostream.h"
 #if LLVM_MAJOR >= 22
   #include "llvm/Plugins/PassPlugin.h"
@@ -53,6 +54,7 @@ struct BugPassConfig {
   bool sizefill = false;
   bool allocsize = false;
   bool slack = false;
+  bool derive = false;
   // Opt-in: restricts SCALAR to BinaryOperators that flow into a memory-
   // size sink. Off by default — turning it on improves signal-to-noise
   // on huge targets but silences pure-compute accumulator patterns
@@ -61,9 +63,10 @@ struct BugPassConfig {
   // non-memory sums are filtered out).
   bool scalar_slice = false;
   std::vector<std::string> custom_alloc_funcs;
+  std::vector<std::string> custom_free_funcs;
   bool any() const {
 
-    return scalar || budget || sizefill || allocsize || slack;
+    return scalar || budget || sizefill || allocsize || slack || derive;
 
   }
 
@@ -87,11 +90,13 @@ static BugPassConfig parseEnv() {
   if (getenv(AFL_BUG_ENV_SIZEFILL)) c.sizefill = true;
   if (getenv(AFL_BUG_ENV_ALLOCSIZE)) c.allocsize = true;
   if (getenv(AFL_BUG_ENV_SLACK)) c.slack = true;
+  if (getenv(AFL_BUG_ENV_ALLOCSIZE_DERIVE)) c.derive = true;
   // Slice filter is purely additive on top of SCALAR — it's a no-op
   // unless SCALAR is also enabled.
   if (getenv(AFL_BUG_ENV_SCALAR_SLICE)) c.scalar_slice = true;
   if (const char *list = getenv(AFL_BUG_ENV_ALLOCSIZE_FUNCS)) {
 
+    c.allocsize = true;
     std::string s(list);
     size_t      i = 0;
     while (i < s.size()) {
@@ -99,6 +104,22 @@ static BugPassConfig parseEnv() {
       size_t j = s.find_first_of(",;: ", i);
       if (j == std::string::npos) j = s.size();
       if (j > i) c.custom_alloc_funcs.emplace_back(s.substr(i, j - i));
+      i = j + 1;
+
+    }
+
+  }
+
+  if (const char *list = getenv(AFL_BUG_ENV_ALLOCSIZE_FREE_FUNCS)) {
+
+    c.allocsize = true;
+    std::string s(list);
+    size_t      i = 0;
+    while (i < s.size()) {
+
+      size_t j = s.find_first_of(",;: ", i);
+      if (j == std::string::npos) j = s.size();
+      if (j > i) c.custom_free_funcs.emplace_back(s.substr(i, j - i));
       i = j + 1;
 
     }
@@ -140,7 +161,8 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &MAM);
 bool runSlackMode(Module &M, ModuleAnalysisManager &MAM,
                   const BugPassState &S);
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &MAM,
-                      const std::vector<std::string> &custom);
+                      const std::vector<std::string> &custom,
+                      const std::vector<std::string> &custom_free);
 static bool ptrStoreReachesArg(StoreInst                 *S,
                                const std::set<unsigned> &arg_indices);
 static unsigned instrumentArgReachingStores(
@@ -206,6 +228,62 @@ static Value *castToPtrTy(IRBuilder<> &B, Value *V, Type *PtrTy) {
 
 }
 
+static void emitBugModeGlobal(Module &M, const BugPassConfig &cfg) {
+
+  uint32_t mode = 0;
+  if (cfg.scalar) mode |= AFL_BUG_MODE_SCALAR;
+  if (cfg.budget) mode |= AFL_BUG_MODE_BUDGET;
+  if (cfg.sizefill) mode |= AFL_BUG_MODE_SIZEFILL;
+  if (cfg.allocsize) mode |= AFL_BUG_MODE_ALLOCSIZE;
+  if (cfg.slack) mode |= AFL_BUG_MODE_SLACK;
+  if (cfg.derive) mode |= AFL_BUG_MODE_DERIVE;
+
+  LLVMContext &C = M.getContext();
+  auto *I32 = IntegerType::getInt32Ty(C);
+  auto *Existing = M.getGlobalVariable("__afl_bug_mode");
+  GlobalVariable *ModeGlobal = nullptr;
+  if (Existing) {
+
+    if (Existing->hasInitializer()) {
+
+      if (auto *Old = dyn_cast<ConstantInt>(Existing->getInitializer()))
+        mode |= (uint32_t)Old->getZExtValue();
+
+    }
+    Existing->setConstant(false);
+    Existing->setLinkage(GlobalValue::WeakAnyLinkage);
+    Existing->setInitializer(ConstantInt::get(I32, mode));
+    ModeGlobal = Existing;
+
+  } else {
+
+    ModeGlobal = new GlobalVariable(M, I32, false, GlobalValue::WeakAnyLinkage,
+                                    ConstantInt::get(I32, mode),
+                                    "__afl_bug_mode");
+    ModeGlobal->setVisibility(GlobalValue::DefaultVisibility);
+
+  }
+
+  if (!mode) return;
+
+  // Do not rely on weak data coalescing to preserve the non-zero mode
+  // initializer: on Mach-O the runtime's weak zero definition can win.
+  // A priority-1 constructor runs before the pass-added sancov constructor
+  // in the same translation unit and ORs this TU's bits into the final
+  // runtime variable. Multiple instrumented TUs compose naturally.
+  FunctionType *FT = FunctionType::get(Type::getVoidTy(C), false);
+  Function *Ctor = Function::Create(FT, GlobalValue::InternalLinkage,
+                                    "__afl_bug_mode_ctor", M);
+  BasicBlock *BB = BasicBlock::Create(C, "entry", Ctor);
+  IRBuilder<> B(BB);
+  Value *Old = B.CreateLoad(I32, ModeGlobal);
+  Value *New = B.CreateOr(Old, ConstantInt::get(I32, mode));
+  B.CreateStore(New, ModeGlobal);
+  B.CreateRetVoid();
+  appendToGlobalCtors(M, Ctor, 1);
+
+}
+
 // Return a safe insertion point for instrumentation that consumes a call's
 // result after normal completion. For invokes whose normal destination has
 // other predecessors, split the normal edge so the invoke result dominates
@@ -265,14 +343,16 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
   // plugin instance.
   state_.scalar_covered.clear();
   state_.scalar_slice = cfg.scalar_slice;
+  emitBugModeGlobal(M, cfg);
 
-  bool changed = false;
+  bool changed = true;
   if (cfg.scalar) changed |= runScalarMode(M, MAM, state_);
   if (cfg.budget) changed |= runBudgetMode(M, MAM);
   if (cfg.sizefill) changed |= runSizefillMode(M, MAM);
   if (cfg.slack) changed |= runSlackMode(M, MAM, state_);
   if (cfg.allocsize)
-    changed |= runAllocSizeMode(M, MAM, cfg.custom_alloc_funcs);
+    changed |= runAllocSizeMode(M, MAM, cfg.custom_alloc_funcs,
+                                cfg.custom_free_funcs);
   return changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 
 }
@@ -1282,7 +1362,7 @@ static int findSentinelParam(Function &F) {
 // index is in `arg_indices` (or any Argument when the set is empty). A
 // store via a stack-local alloca, a global, or a pointer through a
 // different arg returns false.
-static bool ptrStoreReachesArg(StoreInst                 *S,
+static bool ptrValueReachesArg(Value *Root,
                                const std::set<unsigned> &arg_indices) {
 
   auto argAcceptable = [&](Argument *Arg) -> bool {
@@ -1315,7 +1395,7 @@ static bool ptrStoreReachesArg(StoreInst                 *S,
 
   SmallVector<Value *, 8>  work;
   SmallPtrSet<Value *, 16> seen;
-  work.push_back(S->getPointerOperand());
+  work.push_back(Root);
 
   bool     saw_acceptable_root = false;
   unsigned iters = 0;
@@ -1393,6 +1473,46 @@ static bool ptrStoreReachesArg(StoreInst                 *S,
 
 }
 
+static bool ptrStoreReachesArg(StoreInst                 *S,
+                               const std::set<unsigned> &arg_indices) {
+
+  return ptrValueReachesArg(S->getPointerOperand(), arg_indices);
+
+}
+
+static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
+                                          Value *&Len) {
+
+  Function *Callee = CB ? CB->getCalledFunction() : nullptr;
+  if (!Callee) return false;
+  StringRef Name = Callee->getName();
+  if (Name.starts_with("\01")) Name = Name.drop_front();
+
+  auto useArgs = [&](unsigned DestIdx, unsigned LenIdx) -> bool {
+
+    if (CB->arg_size() <= std::max(DestIdx, LenIdx)) return false;
+    Dest = CB->getArgOperand(DestIdx);
+    Len = CB->getArgOperand(LenIdx);
+    return Dest && Len && Dest->getType()->isPointerTy() &&
+           Len->getType()->isIntegerTy();
+
+  };
+
+  if (Name == "memset" || Name == "__memset_chk" || Name == "memcpy" ||
+      Name == "__memcpy_chk" || Name == "memmove" ||
+      Name == "__memmove_chk" || Name == "mempcpy" ||
+      Name == "__mempcpy_chk")
+    return useArgs(0, 2);
+
+  if (Name == "bzero" || Name == "explicit_bzero") return useArgs(0, 1);
+
+  // BSD bcopy has source/dest/length argument order.
+  if (Name == "bcopy") return useArgs(1, 2);
+
+  return false;
+
+}
+
 // Copy the source instruction's DebugLoc onto `IB`'s recently-inserted
 // instructions so crashes / backtraces resolve to the user's source line
 // rather than the no-location bug-pass synthetic IR. If Source has no
@@ -1430,9 +1550,43 @@ static unsigned instrumentArgReachingStores(
 
     for (Instruction &I : BB) {
 
+      if (auto *MI = dyn_cast<MemIntrinsic>(&I)) {
+
+        Value *dest = MI->getRawDest();
+        Value *len = MI->getLength();
+        if (!dest || !len) continue;
+        if (!ptrValueReachesArg(dest, arg_indices)) continue;
+        IRBuilder<> MB(MI);
+        inheritDebugLoc(MB, MI);
+        Value *addr = castToPtrTy(MB, dest, PtrTy);
+        Value *sz = MB.CreateZExtOrTrunc(len, I32);
+        MB.CreateCall(hook, {addr, sz});
+        ++count;
+        continue;
+
+      }
+
+      if (auto *CB = dyn_cast<CallBase>(&I)) {
+
+        Value *dest = nullptr;
+        Value *len = nullptr;
+        if (getLibcMemoryWriteDestAndSize(CB, dest, len)) {
+
+          if (!ptrValueReachesArg(dest, arg_indices)) continue;
+          IRBuilder<> MB(CB);
+          inheritDebugLoc(MB, CB);
+          Value *addr = castToPtrTy(MB, dest, PtrTy);
+          Value *sz = MB.CreateZExtOrTrunc(len, I32);
+          MB.CreateCall(hook, {addr, sz});
+          ++count;
+          continue;
+
+        }
+
+      }
+
       auto *S = dyn_cast<StoreInst>(&I);
       if (!S) continue;
-      if (isa<Argument>(S->getValueOperand())) continue;
       if (!ptrStoreReachesArg(S, arg_indices)) continue;
       IRBuilder<> SB(S);
       inheritDebugLoc(SB, S);
@@ -1455,9 +1609,19 @@ static bool functionHasStoreThroughArg(Function &F, unsigned arg_idx) {
   std::set<unsigned> args;
   args.insert(arg_idx);
   for (BasicBlock &BB : F)
-    for (Instruction &I : BB)
+    for (Instruction &I : BB) {
+      if (auto *MI = dyn_cast<MemIntrinsic>(&I))
+        if (ptrValueReachesArg(MI->getRawDest(), args)) return true;
+      if (auto *CB = dyn_cast<CallBase>(&I)) {
+        Value *dest = nullptr;
+        Value *len = nullptr;
+        if (getLibcMemoryWriteDestAndSize(CB, dest, len) &&
+            ptrValueReachesArg(dest, args))
+          return true;
+      }
       if (auto *S = dyn_cast<StoreInst>(&I))
         if (ptrStoreReachesArg(S, args)) return true;
+    }
   return false;
 
 }
@@ -2344,7 +2508,8 @@ static const AllocRewriteSpec kRewriteSpecs[] = {
 };
 
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
-                      const std::vector<std::string> &custom) {
+                      const std::vector<std::string> &custom,
+                      const std::vector<std::string> &custom_free) {
 
   LLVMContext &C = M.getContext();
   IntegerType *I32 = IntegerType::getInt32Ty(C);
@@ -2379,10 +2544,13 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
       M.getOrInsertFunction("__afl_track_free", VoidTy, PtrTy);
   FunctionCallee allocReg = M.getOrInsertFunction(
       "__afl_alloc_register", VoidTy, PtrTy, I64, I32);
+  FunctionCallee allocUnreg =
+      M.getOrInsertFunction("__afl_alloc_unregister", VoidTy, PtrTy);
 
   uint32_t              next_alloc_id = 1;
-  uint32_t              rewrites = 0, custom_inserts = 0;
+  uint32_t              rewrites = 0, custom_inserts = 0, custom_frees = 0;
   std::set<std::string> custom_set(custom.begin(), custom.end());
+  std::set<std::string> custom_free_set(custom_free.begin(), custom_free.end());
 
   for (Function &F : M) {
 
@@ -2594,6 +2762,20 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         }
 
         if (matched) continue;
+        // 2) Manual unregister for user-listed custom deallocators.
+        if (custom_free_set.count(name.str())) {
+
+          if (Call->arg_size() < 1) continue;
+          if (!Call->getArgOperand(0)->getType()->isPointerTy()) continue;
+          IRBuilder<> FB(Call);
+          inheritDebugLoc(FB, Call);
+          FB.CreateCall(allocUnreg,
+                        {castToPtrTy(FB, Call->getArgOperand(0), PtrTy)});
+          ++custom_frees;
+          continue;
+
+        }
+
         // 2) Manual register for user-listed custom allocators.
         if (!custom_set.count(name.str())) continue;
         /* Custom allocator must return a pointer — its result is passed to
@@ -2651,11 +2833,10 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
   }
 
-  // Phase 2: instrument every store inside a loop whose pointer base is a
-  // call to one of our tracked allocators (post-rewrite name OR custom).
-  // Signature is (addr, write_size_bytes); the write_size lets the runtime
-  // check `off + sz > alloc_size` instead of just `off < alloc_size`, so a
-  // 4-byte store at the last 1 byte of the buffer is flagged correctly.
+  // Phase 2: instrument stores and bulk memory writes broadly. The runtime
+  // shadow lookup is the filter: untracked stack/global/foreign pointers are
+  // cheap no-ops, while tracked allocations remain visible even after being
+  // passed through helper functions.
   FunctionCallee oracle =
       M.getOrInsertFunction("__afl_alloc_oracle", VoidTy, PtrTy, I32);
   // Enhancement I: separate hook with i64 length for memcpy/memmove/memset.
@@ -2673,147 +2854,6 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   // `Bar*` store of different size.
   FunctionCallee oracle_typed = M.getOrInsertFunction(
       "__afl_alloc_oracle_typed", VoidTy, PtrTy, I32, I32);
-
-  // Bug 14 note: tracked_callee_names stores StringRef. Two sources:
-  //   (1) kRewriteSpecs[i].tracked — string literals in static data,
-  //       lifetime is the whole program. Safe.
-  //   (2) `n` from `custom` (caller-owned vector<string>). The implicit
-  //       string->StringRef conversion below stores a view that is only
-  //       valid as long as `custom` lives. `custom` is `runAllocSizeMode`'s
-  //       parameter, so it lives until this function returns — covering
-  //       the entire use of tracked_callee_names below. Safe but fragile:
-  //       if this set is ever returned or stored beyond this function,
-  //       the strings must be deep-copied (std::set<std::string>) first.
-  std::set<StringRef> tracked_callee_names;
-  for (const AllocRewriteSpec &s : kRewriteSpecs) {
-
-    // Skip dealloc specs — their `tracked` is __afl_track_free, which
-    // doesn't return a pointer and isn't a candidate for store-tracking.
-    switch (s.kind) {
-
-      case AllocKind::Free:
-      case AllocKind::SizedFree:
-      case AllocKind::AlignedDelete:
-      case AllocKind::SizedAlignedFree: continue;
-      default: break;
-
-    }
-
-    tracked_callee_names.insert(s.tracked);
-
-  }
-
-  for (const std::string &n : custom) tracked_callee_names.insert(n);
-
-  // Resolve a pointer to the set of allocator-call sources that could
-  // back it. Walks GEP/BitCast/PHI/Select/spill-load chains with a cycle
-  // guard. Returns true if EVERY traced root is a call to one of our
-  // tracked allocators — otherwise we'd be checking a stack/global/other
-  // address against an allocator's bookkeeping, producing noise.
-  auto pointerOnlyTouchesTrackedAlloc = [&](Value *p) -> bool {
-
-    SmallPtrSet<Value *, 16> seen;
-    SmallVector<Value *, 8>  work;
-    work.push_back(p);
-    bool any = false;
-    unsigned iters = 0;
-    while (!work.empty() && iters++ < 64) {
-
-      Value *v = work.pop_back_val();
-      if (!seen.insert(v).second) continue;
-      v = v->stripPointerCasts();
-
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(v)) {
-
-        work.push_back(GEP->getPointerOperand());
-        continue;
-
-      }
-
-      if (auto *PN = dyn_cast<PHINode>(v)) {
-
-        for (Value *Inc : PN->incoming_values()) work.push_back(Inc);
-        continue;
-
-      }
-
-      if (auto *Sel = dyn_cast<SelectInst>(v)) {
-
-        work.push_back(Sel->getTrueValue());
-        work.push_back(Sel->getFalseValue());
-        continue;
-
-      }
-
-      // Direct call to a tracked allocator.
-      if (auto *Call = dyn_cast<CallBase>(v)) {
-
-        Function *callee = Call->getCalledFunction();
-        if (callee && tracked_callee_names.count(callee->getName())) {
-
-          any = true;
-          continue;
-
-        }
-
-        return false;
-
-      }
-
-      // Spilled call result: alloca written exactly once with a tracked
-      // allocator call.
-      if (auto *Ld = dyn_cast<LoadInst>(v)) {
-
-        if (auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand())) {
-
-          bool   resolved = false;
-          for (const User *U : AI->users()) {
-
-            auto *St = dyn_cast<StoreInst>(U);
-            if (!St || St->getPointerOperand() != AI) continue;
-            auto *C2 = dyn_cast<CallBase>(
-                St->getValueOperand()->stripPointerCasts());
-            if (!C2) {
-
-              resolved = false;
-              break;
-
-            }
-
-            Function *callee = C2->getCalledFunction();
-            if (!callee ||
-                !tracked_callee_names.count(callee->getName())) {
-
-              resolved = false;
-              break;
-
-            }
-
-            resolved = true;
-
-          }
-
-          if (resolved) {
-
-            any = true;
-            continue;
-
-          }
-
-        }
-
-        return false;
-
-      }
-
-      // Anything else (alloca, global, argument, undef) — not ours.
-      return false;
-
-    }
-
-    return any;
-
-  };
 
   uint32_t store_sites = 0;
   uint32_t mem_sites = 0;
@@ -2839,7 +2879,6 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
           Value *dest = MI->getRawDest();
           Value *len = MI->getLength();
           if (!dest || !len) continue;
-          if (!pointerOnlyTouchesTrackedAlloc(dest)) continue;
           IRBuilder<> MB(MI);
           inheritDebugLoc(MB, MI);
           Value *addr = castToPtrTy(MB, dest, PtrTy);
@@ -2852,8 +2891,6 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
         auto *S = dyn_cast<StoreInst>(&I);
         if (!S) continue;
-        if (!pointerOnlyTouchesTrackedAlloc(S->getPointerOperand()))
-          continue;
         IRBuilder<> SB(S);
         inheritDebugLoc(SB, S);
         Value *addr =
@@ -2893,10 +2930,11 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   if (getenv("AFL_QUIET") == nullptr)
     errs() << "[afl-bug] ALLOCSIZE rewrote " << rewrites
            << " libc allocator calls, " << custom_inserts
-           << " custom-allocator registrations, " << store_sites
+           << " custom-allocator registrations, " << custom_frees
+           << " custom-free unregisters, " << store_sites
            << " stores, " << mem_sites << " mem intrinsics instrumented\n";
-  return rewrites > 0 || custom_inserts > 0 || store_sites > 0 ||
-         mem_sites > 0;
+  return rewrites > 0 || custom_inserts > 0 || custom_frees > 0 ||
+         store_sites > 0 || mem_sites > 0;
 
 }
 
