@@ -27,9 +27,8 @@ extern "C" {
 
 // SCALAR: update bug_map[id] = max(bug_map[id], val_log2_bucket).
 void __afl_bug_scalar_max(uint32_t id, uint64_t val);
-// SCALAR: loop iteration counter (called once per loop header, finalized on
-// function exit).
-void __afl_bug_loop_iter_inc(uint32_t id);
+// SCALAR: per-loop iteration counter. Pass-emitted code maintains the
+// counter as a header PHI and flushes the final value once per loop run.
 void __afl_bug_loop_iter_flush(uint32_t id, uint32_t local_count);
 
 // BUDGET: write-set tracking around `ptr += func()`.
@@ -37,7 +36,10 @@ void __afl_bug_ws_begin(const void *ptr_before);
 void __afl_bug_ws_store(const void *addr, uint32_t size);
 void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size);
 
-// SIZEFILL: post-call check for size-or-fill idioms.
+// SIZEFILL: post-call check for size-or-fill idioms. Uses dedicated
+// __afl_bug_sf_* state so BUDGET and SIZEFILL don't share a base/max.
+void __afl_bug_sf_begin(const void *ptr_arg);
+void __afl_bug_sf_store(const void *addr, uint32_t size);
 void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
                               uint64_t caller_buf_size);
 
@@ -57,6 +59,10 @@ void *__afl_track_calloc(uint64_t nmemb, uint64_t size,
 void *__afl_track_realloc(void *ptr, uint64_t size, uint32_t alloc_site_id);
 int   __afl_track_posix_memalign(void **memptr, uint64_t alignment,
                                  uint64_t size, uint32_t alloc_site_id);
+// C++17 aligned operator new replacement — preserves the alignment
+// contract by routing through posix_memalign rather than plain malloc.
+void *__afl_track_aligned_alloc(uint64_t size, uint64_t alignment,
+                                uint32_t alloc_site_id);
 void  __afl_track_free(void *ptr);
 
 // Manual registration entrypoint for custom allocators that the pass

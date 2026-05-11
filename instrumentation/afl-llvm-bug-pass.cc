@@ -1,11 +1,12 @@
 // instrumentation/afl-llvm-bug-pass.cc
 //
-// AFL++ bug-finding pass: implements three independent oracles:
-//   - SCALAR  : max-value-per-arithmetic-site coverage  (#2 from design)
-//   - BUDGET  : ptr += func() write-extent contract     (#3)
-//   - SIZEFILL: NULL-means-size idiom self-consistency  (#4)
-//
-// Each is enabled by AFL_LLVM_BUG_<name>=1 (or AFL_LLVM_BUG=all).
+// AFL++ bug-finding pass: implements five independent oracles, each gated
+// by its own AFL_LLVM_BUG_<NAME>=1 (or AFL_LLVM_BUG=all):
+//   - SCALAR   : max-value-per-arithmetic-site coverage + loop iter counts
+//   - BUDGET   : ptr += func() write-extent contract
+//   - SIZEFILL : NULL-means-size idiom self-consistency
+//   - SLACK    : |op0 - op1| per icmp site, fed as inverse-bucket MAX
+//   - ALLOCSIZE: malloc/free rewrite + per-store OOB oracle
 //
 // Modeled on cmplog-instructions-pass.cc.
 
@@ -104,13 +105,16 @@ class BugPass : public PassInfoMixin<BugPass> {
 
 };
 
-// Forward decls: implemented in later tasks.
+// Forward decls.
 bool runScalarMode(Module &M, ModuleAnalysisManager &MAM);
 bool runBudgetMode(Module &M, ModuleAnalysisManager &MAM);
 bool runSizefillMode(Module &M, ModuleAnalysisManager &MAM);
 bool runSlackMode(Module &M, ModuleAnalysisManager &MAM);
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &MAM,
                       const std::vector<std::string> &custom);
+static bool ptrStoreReachesArg(StoreInst                 *S,
+                               const std::set<unsigned> &arg_indices);
+static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source);
 
 PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
 
@@ -186,7 +190,7 @@ static bool ScalarSiteWorthInstrumenting(BinaryOperator *I, LoopInfo &LI) {
   // non-IntegerType is critical to avoid backend crashes.
   auto *IT = dyn_cast<IntegerType>(I->getType());
   if (!IT) return false;
-  if (IT->getBitWidth() < 16 || IT->getBitWidth() > 64) return false;
+  if (IT->getBitWidth() < 8 || IT->getBitWidth() > 64) return false;
   // Skip if used only as a branch condition.
   bool any_non_br = false;
   for (User *U : I->users())
@@ -245,8 +249,9 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
 
         if (!ScalarSiteWorthInstrumenting(Bin, LI)) continue;
         IRBuilder<> B(Bin->getNextNode());
-        Value      *v64 = B.CreateZExtOrTrunc(Bin, I64);
-        uint32_t    id = (next_id++) & (MAP_SIZE_BUG_ENTRIES - 1);
+        inheritDebugLoc(B, Bin);
+        Value   *v64 = B.CreateZExtOrTrunc(Bin, I64);
+        uint32_t id = (next_id++) & (MAP_SIZE_BUG_ENTRIES - 1);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
         changed = true;
 
@@ -271,48 +276,66 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
     LoopInfo      LI(DT);
     if (LI.empty()) continue;
 
-    IRBuilder<>                                EB(&*F.getEntryBlock().getFirstInsertionPt());
     for (Loop *L : LI.getLoopsInPreorder()) {
 
-      // Need a preheader to anchor the per-loop reset. If absent (loop
-      // not in simplified form, e.g. multi-entry irreducible CFGs), skip
-      // this loop — accumulating counts across multiple loop entries
-      // gives non-interpretable max values, which is exactly the bug
-      // we're fixing.
+      // Need a simplified loop (single preheader + single latch) so the
+      // header PHI has exactly two incoming edges. Irreducible / multi-
+      // entry loops are skipped — better to miss the signal than to emit
+      // a malformed PHI.
       BasicBlock *Preheader = L->getLoopPreheader();
-      if (!Preheader) continue;
+      BasicBlock *Latch = L->getLoopLatch();
+      BasicBlock *Header = L->getHeader();
+      if (!Preheader || !Latch || !Header) continue;
 
-      AllocaInst *cnt = EB.CreateAlloca(I32);
-      // Defensive zero-init in function entry (covers paths that bypass
-      // the preheader, e.g. setjmp/exception entry, or a future change
-      // that adds an exit-block flush without going through preheader).
-      EB.CreateStore(ConstantInt::get(I32, 0), cnt);
       uint32_t id = (next_id++) & (MAP_SIZE_BUG_ENTRIES - 1);
       ++loop_sites;
 
-      // Per-loop reset: every fresh entry into the loop starts at 0,
-      // so the flushed value reflects ONE loop run's iteration count.
-      IRBuilder<> PB(Preheader->getTerminator());
-      PB.CreateStore(ConstantInt::get(I32, 0), cnt);
+      // SSA-form counter: PHI in the header taking 0 from preheader and
+      // (cnt+1) from the latch. This avoids per-iteration load/add/store
+      // through an alloca — which would survive optimizer-last since
+      // mem2reg has already run. Codegen lowers this to a register
+      // increment, ~3x faster in tight loops than the alloca form.
+      PHINode *cnt = PHINode::Create(I32, 2, "afl.loopcnt",
+                                     &*Header->begin());
+      cnt->setDebugLoc(Header->getFirstNonPHI()->getDebugLoc());
+      IRBuilder<> HB(Header->getFirstNonPHI());
+      inheritDebugLoc(HB, Header->getFirstNonPHI());
+      Value      *inc = HB.CreateAdd(cnt, ConstantInt::get(I32, 1),
+                                     "afl.loopcnt.inc");
+      cnt->addIncoming(ConstantInt::get(I32, 0), Preheader);
+      cnt->addIncoming(inc, Latch);
 
-      // Increment at the loop header (executes once per iteration,
-      // including the iteration that exits the loop).
-      IRBuilder<> HB(&*L->getHeader()->getFirstInsertionPt());
-      Value      *cur = HB.CreateLoad(I32, cnt);
-      Value      *inc = HB.CreateAdd(cur, ConstantInt::get(I32, 1));
-      HB.CreateStore(inc, cnt);
-
-      // Flush at every unique exit block. SmallPtrSet dedups in case
-      // multiple exit edges land at the same successor.
+      // Flush at every unique exit block via an LCSSA-style PHI: pick up
+      // `inc` (the count INCLUDING the exit iteration) along edges that
+      // come from inside the loop, and 0 along any edge that bypasses
+      // the loop entirely. SmallPtrSet dedups exit blocks reached by
+      // multiple edges.
       SmallVector<BasicBlock *, 4> Exits;
       L->getExitBlocks(Exits);
       SmallPtrSet<BasicBlock *, 4> seenExits;
       for (BasicBlock *Exit : Exits) {
 
         if (!seenExits.insert(Exit).second) continue;
-        IRBuilder<> XB(&*Exit->getFirstInsertionPt());
-        Value      *v = XB.CreateLoad(I32, cnt);
-        XB.CreateCall(loopFlush, {ConstantInt::get(I32, id), v});
+        PHINode *xphi = PHINode::Create(
+            I32, 0, "afl.loopcnt.lcssa", &*Exit->begin());
+        for (BasicBlock *Pred : predecessors(Exit)) {
+
+          if (L->contains(Pred))
+            xphi->addIncoming(inc, Pred);
+          else
+            xphi->addIncoming(ConstantInt::get(I32, 0), Pred);
+
+        }
+
+        // Insert the flush AFTER all PHIs in the exit block. Using
+        // xphi->getNextNode() would land between PHIs when multiple
+        // loops share an exit block (we insert a new PHI for each loop
+        // and the next inserted-PHI would then sit AFTER a non-PHI flush
+        // call, breaking the "PHIs at top" invariant).
+        Instruction *FlushAt = Exit->getFirstNonPHI();
+        IRBuilder<> XB(FlushAt);
+        inheritDebugLoc(XB, FlushAt);
+        XB.CreateCall(loopFlush, {ConstantInt::get(I32, id), xphi});
 
       }
 
@@ -444,8 +467,13 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
   FunctionCallee wsStore =
       M.getOrInsertFunction("__afl_bug_ws_store", VoidTy, PtrTy, I32);
 
-  // Collect callees that need their stores instrumented.
-  std::set<Function *> callees_to_instrument;
+  // Per-callee set of argument indices that are budget-traced. A store
+  // inside such a callee only counts toward __afl_bug_ws_max_off if it
+  // reaches one of these specific args — not just any pointer arg. This
+  // prevents false positives when the callee has unrelated pointer args
+  // (e.g., a status-out pointer) whose writes happen to land past the
+  // tracked buffer head.
+  std::map<Function *, std::set<unsigned>> callee_arg_indices;
 
   bool changed = false;
   for (Function &F : M) {
@@ -461,95 +489,46 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
          `add p2i, idx` always has integer idx, but pass ordering with ASan
          and unusual optimisation pipelines can produce surprises. */
       if (!m.Call->getType()->isIntegerTy()) continue;
+      if (m.PtrArgIdx >= callee->arg_size()) continue;
 
       IRBuilder<> Pre(m.Call);
-      Value      *ptrCast = Pre.CreateBitOrPointerCast(m.PtrBefore, PtrTy);
+      inheritDebugLoc(Pre, m.Call);
+      Value *ptrCast = Pre.CreateBitOrPointerCast(m.PtrBefore, PtrTy);
       Pre.CreateCall(wsBegin, {ptrCast});
 
       IRBuilder<> Post(m.Call->getNextNode());
-      Value      *ret64 = Post.CreateZExtOrTrunc(m.Call, I64);
-      Value      *ptrCast2 = Post.CreateBitOrPointerCast(m.PtrBefore, PtrTy);
+      inheritDebugLoc(Post, m.Call);
+      Value *ret64 = Post.CreateZExtOrTrunc(m.Call, I64);
+      Value *ptrCast2 = Post.CreateBitOrPointerCast(m.PtrBefore, PtrTy);
       Post.CreateCall(wsCheck, {ptrCast2, ret64});
 
-      callees_to_instrument.insert(callee);
+      callee_arg_indices[callee].insert(
+          callee->getArg(m.PtrArgIdx)->getArgNo());
       changed = true;
 
     }
 
   }
 
-  // Instrument stores whose pointer traces to a function argument. Stack-
-  // local stores (alloca-derived) and global stores are skipped to avoid
-  // tracking unrelated writes that happen to land near the buffer.
-  for (Function *F : callees_to_instrument) {
+  // Instrument stores whose pointer traces to the SPECIFIC budget-traced
+  // argument. Stores via stack locals, globals, or other pointer args are
+  // skipped to keep the tracked max_off honest.
+  for (auto &kv : callee_arg_indices) {
 
+    Function                  *F = kv.first;
+    const std::set<unsigned>  &arg_indices = kv.second;
     for (BasicBlock &BB : *F) {
 
       for (Instruction &I : BB) {
 
         auto *S = dyn_cast<StoreInst>(&I);
         if (!S) continue;
-        // Trace the store's pointer operand back to its origin: either
-        // directly a function argument, or through a parameter-spill
-        // (load from an alloca that was written the arg). Stores that
-        // don't reach an arg this way (stack locals, the spill store
-        // itself, etc.) are skipped.
-        Value *ptr = S->getPointerOperand();
-        bool   reaches_arg = false;
-        for (int depth = 0; depth < 8; ++depth) {
-
-          if (auto *GEP = dyn_cast<GetElementPtrInst>(ptr)) {
-
-            ptr = GEP->getPointerOperand();
-            continue;
-
-          }
-
-          if (auto *BC = dyn_cast<BitCastInst>(ptr)) {
-
-            ptr = BC->getOperand(0);
-            continue;
-
-          }
-
-          if (auto *L = dyn_cast<LoadInst>(ptr)) {
-
-            auto *AI = dyn_cast<AllocaInst>(L->getPointerOperand());
-            if (!AI) break;
-            for (const User *U : AI->users()) {
-
-              auto *St = dyn_cast<StoreInst>(U);
-              if (!St || St->getPointerOperand() != AI) continue;
-              if (isa<Argument>(St->getValueOperand())) {
-
-                reaches_arg = true;
-                break;
-
-              }
-
-            }
-
-            break;
-
-          }
-
-          if (isa<Argument>(ptr)) {
-
-            reaches_arg = true;
-            break;
-
-          }
-
-          break;
-
-        }
-
-        if (!reaches_arg) continue;
-        // Defensive: skip the spill itself (storing the argument into its
-        // alloca).
+        // Skip the spill itself (storing the argument into its alloca).
         if (isa<Argument>(S->getValueOperand())) continue;
+        if (!ptrStoreReachesArg(S, arg_indices)) continue;
         IRBuilder<> SB(S);
-        Value      *addr =
+        inheritDebugLoc(SB, S);
+        Value *addr =
             SB.CreateBitOrPointerCast(S->getPointerOperand(), PtrTy);
         uint64_t sz = M.getDataLayout().getTypeStoreSize(
             S->getValueOperand()->getType());
@@ -562,7 +541,7 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
   }
 
   if (getenv("AFL_QUIET") == nullptr)
-    errs() << "[afl-bug] BUDGET instrumented " << callees_to_instrument.size()
+    errs() << "[afl-bug] BUDGET instrumented " << callee_arg_indices.size()
            << " callees\n";
   return changed;
 
@@ -683,6 +662,111 @@ static int findSentinelParam(Function &F) {
   }
 
   return -1;
+
+}
+
+// Trace a store's pointer back to its origin and decide whether it
+// reaches one of the function arguments named in `arg_indices`. If
+// `arg_indices` is empty, ANY argument satisfies (BUDGET legacy
+// behavior). Walks GEP/BitCast/PHI/Select chains and one level of
+// alloca-spill, capped by `max_depth` to keep cycles bounded.
+//
+// Returns true if every traced root that we found is an Argument whose
+// index is in `arg_indices` (or any Argument when the set is empty). A
+// store via a stack-local alloca, a global, or a pointer through a
+// different arg returns false.
+static bool ptrStoreReachesArg(StoreInst                 *S,
+                               const std::set<unsigned> &arg_indices) {
+
+  // Spill helper: alloca written exactly once with an Argument whose
+  // index is acceptable. Cheap and safe.
+  auto allocaSpillsAcceptableArg = [&](AllocaInst *AI) -> bool {
+
+    for (const User *U : AI->users()) {
+
+      auto *St = dyn_cast<StoreInst>(U);
+      if (!St || St->getPointerOperand() != AI) continue;
+      auto *Arg = dyn_cast<Argument>(St->getValueOperand());
+      if (!Arg) continue;
+      if (arg_indices.empty() || arg_indices.count(Arg->getArgNo()))
+        return true;
+
+    }
+
+    return false;
+
+  };
+
+  // Iterative DFS over the alias tree with a small visited-set guard.
+  SmallVector<Value *, 8>     work;
+  SmallPtrSet<Value *, 16>    seen;
+  work.push_back(S->getPointerOperand());
+  unsigned                    iters = 0;
+  while (!work.empty() && iters++ < 32) {
+
+    Value *ptr = work.pop_back_val();
+    if (!seen.insert(ptr).second) continue;
+
+    if (auto *Arg = dyn_cast<Argument>(ptr)) {
+
+      if (arg_indices.empty() || arg_indices.count(Arg->getArgNo()))
+        return true;
+      continue;
+
+    }
+
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(ptr)) {
+
+      work.push_back(GEP->getPointerOperand());
+      continue;
+
+    }
+
+    if (auto *BC = dyn_cast<BitCastInst>(ptr)) {
+
+      work.push_back(BC->getOperand(0));
+      continue;
+
+    }
+
+    if (auto *PN = dyn_cast<PHINode>(ptr)) {
+
+      for (Value *Inc : PN->incoming_values()) work.push_back(Inc);
+      continue;
+
+    }
+
+    if (auto *Sel = dyn_cast<SelectInst>(ptr)) {
+
+      work.push_back(Sel->getTrueValue());
+      work.push_back(Sel->getFalseValue());
+      continue;
+
+    }
+
+    if (auto *Ld = dyn_cast<LoadInst>(ptr)) {
+
+      if (auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand()))
+        if (allocaSpillsAcceptableArg(AI)) return true;
+      continue;
+
+    }
+
+    // Stop at anything else (constant, call, intrinsic, etc).
+
+  }
+
+  return false;
+
+}
+
+// Copy the source instruction's DebugLoc onto `IB`'s recently-inserted
+// instructions so crashes / backtraces resolve to the user's source line
+// rather than the no-location bug-pass synthetic IR.
+static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source) {
+
+  if (!Source) return;
+  B.SetCurrentDebugLocation(Source->getDebugLoc());
 
 }
 
@@ -816,7 +900,12 @@ static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
 
     }
 
-    if ((name == "_Znwm" || name == "_Znam") && Call->arg_size() == 1 &&
+    // C++ operator new — plain, array, and C++17 aligned variants. The
+    // alignment arg of the aligned forms is irrelevant to the buffer size.
+    if ((name == "_Znwm" || name == "_Znam" ||
+         name == "_ZnwmSt11align_val_t" ||
+         name == "_ZnamSt11align_val_t") &&
+        Call->arg_size() >= 1 &&
         Call->getArgOperand(0)->getType()->isIntegerTy()) {
 
       return B.CreateZExtOrTrunc(Call->getArgOperand(0), I64);
@@ -842,10 +931,12 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
   FunctionCallee sfCheck = M.getOrInsertFunction(
       "__afl_bug_sizefill_check", VoidTy, PtrTy, I64, I64);
-  FunctionCallee wsBegin =
-      M.getOrInsertFunction("__afl_bug_ws_begin", VoidTy, PtrTy);
-  FunctionCallee wsStore =
-      M.getOrInsertFunction("__afl_bug_ws_store", VoidTy, PtrTy,
+  // Dedicated SIZEFILL begin/store hooks (do NOT reuse __afl_bug_ws_*),
+  // so BUDGET and SIZEFILL can coexist under AFL_LLVM_BUG=all.
+  FunctionCallee sfBegin =
+      M.getOrInsertFunction("__afl_bug_sf_begin", VoidTy, PtrTy);
+  FunctionCallee sfStore =
+      M.getOrInsertFunction("__afl_bug_sf_store", VoidTy, PtrTy,
                             IntegerType::getInt32Ty(C));
 
   // 1) Find sentinel-param functions in this module.
@@ -894,15 +985,17 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
         if (!cf->getReturnType()->isIntegerTy()) continue;
 
         IRBuilder<> Pre(Call);
-        Value      *bufsz = inferBufferSizeValue(p, Pre, M.getDataLayout());
+        inheritDebugLoc(Pre, Call);
+        Value *bufsz = inferBufferSizeValue(p, Pre, M.getDataLayout());
         if (!bufsz) continue;
 
         Value *ptrCast = Pre.CreateBitOrPointerCast(p, PtrTy);
-        Pre.CreateCall(wsBegin, {ptrCast});
+        Pre.CreateCall(sfBegin, {ptrCast});
 
         IRBuilder<> Post(Call->getNextNode());
-        Value      *ret64 = Post.CreateZExtOrTrunc(Call, I64);
-        Value      *pcast = Post.CreateBitOrPointerCast(p, PtrTy);
+        inheritDebugLoc(Post, Call);
+        Value *ret64 = Post.CreateZExtOrTrunc(Call, I64);
+        Value *pcast = Post.CreateBitOrPointerCast(p, PtrTy);
         Post.CreateCall(sfCheck, {pcast, ret64, bufsz});
         ++instrumented;
         callees_to_instrument.insert(cf);
@@ -914,8 +1007,12 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
   }
 
-  // Instrument stores in candidate callees (same logic as BUDGET).
-  IntegerType *I32 = IntegerType::getInt32Ty(C);
+  // Instrument stores in candidate callees. SIZEFILL doesn't have a
+  // single budget-traced arg (the sentinel-arg discovery is per-callee
+  // not per-call-site), so pass an empty arg_indices set — equivalent to
+  // "any arg counts". Same robust walk as BUDGET via the shared helper.
+  IntegerType                          *I32 = IntegerType::getInt32Ty(C);
+  const std::set<unsigned>              any_arg;
   for (Function *F : callees_to_instrument) {
 
     for (BasicBlock &BB : *F) {
@@ -924,64 +1021,15 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
         auto *S = dyn_cast<StoreInst>(&I);
         if (!S) continue;
-        Value *ptr = S->getPointerOperand();
-        bool   reaches_arg = false;
-        for (int depth = 0; depth < 8; ++depth) {
-
-          if (auto *GEP = dyn_cast<GetElementPtrInst>(ptr)) {
-
-            ptr = GEP->getPointerOperand();
-            continue;
-
-          }
-
-          if (auto *BC = dyn_cast<BitCastInst>(ptr)) {
-
-            ptr = BC->getOperand(0);
-            continue;
-
-          }
-
-          if (auto *L = dyn_cast<LoadInst>(ptr)) {
-
-            auto *AI = dyn_cast<AllocaInst>(L->getPointerOperand());
-            if (!AI) break;
-            for (const User *U : AI->users()) {
-
-              auto *St = dyn_cast<StoreInst>(U);
-              if (!St || St->getPointerOperand() != AI) continue;
-              if (isa<Argument>(St->getValueOperand())) {
-
-                reaches_arg = true;
-                break;
-
-              }
-
-            }
-
-            break;
-
-          }
-
-          if (isa<Argument>(ptr)) {
-
-            reaches_arg = true;
-            break;
-
-          }
-
-          break;
-
-        }
-
-        if (!reaches_arg) continue;
         if (isa<Argument>(S->getValueOperand())) continue;
+        if (!ptrStoreReachesArg(S, any_arg)) continue;
         IRBuilder<> SB(S);
-        Value      *addr =
+        inheritDebugLoc(SB, S);
+        Value *addr =
             SB.CreateBitOrPointerCast(S->getPointerOperand(), PtrTy);
         uint64_t sz = M.getDataLayout().getTypeStoreSize(
             S->getValueOperand()->getType());
-        SB.CreateCall(wsStore, {addr, ConstantInt::get(I32, (uint32_t)sz)});
+        SB.CreateCall(sfStore, {addr, ConstantInt::get(I32, (uint32_t)sz)});
 
       }
 
@@ -1049,31 +1097,37 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &) {
     for (ICmpInst *Cmp : targets) {
 
       IRBuilder<> B(Cmp);
-      Value      *Op0 = Cmp->getOperand(0);
-      Value      *Op1 = Cmp->getOperand(1);
-      // Sign-extend for signed predicates, zero-extend otherwise. For
-      // equality predicates the sign choice doesn't matter for |a-b|
-      // because the difference is symmetric — pick zext as cheaper.
+      inheritDebugLoc(B, Cmp);
+      Value *Op0 = Cmp->getOperand(0);
+      Value *Op1 = Cmp->getOperand(1);
+      // Sign-extend for signed predicates, zero-extend for unsigned /
+      // equality. The choice is load-bearing here: a naive `|diff|` via
+      // select-on-sign breaks for i64 unsigned operands whose true
+      // distance saturates the sign bit (e.g. 0xFFFF.. vs 0 has signed
+      // value −1, neg → 1, but the actual distance is 0xFFFF..). Use the
+      // predicate's signedness to pick the subtraction ORDER instead —
+      // branch-free, correct at every width, no overflow on the result
+      // because `large - small` of same-width nonneg-in-domain values
+      // never wraps.
       Value *Op0_64, *Op1_64;
+      Value *lt;
       if (Cmp->isSigned()) {
 
         Op0_64 = B.CreateSExtOrTrunc(Op0, I64);
         Op1_64 = B.CreateSExtOrTrunc(Op1, I64);
+        lt = B.CreateICmpSLT(Op0_64, Op1_64);
 
       } else {
 
         Op0_64 = B.CreateZExtOrTrunc(Op0, I64);
         Op1_64 = B.CreateZExtOrTrunc(Op1, I64);
+        lt = B.CreateICmpULT(Op0_64, Op1_64);
 
       }
 
-      Value *diff = B.CreateSub(Op0_64, Op1_64);
-      // |diff| via select; avoids llvm.abs intrinsic API churn across
-      // LLVM versions (different builder helpers in 15/17/20/22).
-      Value *zero = ConstantInt::get(I64, 0);
-      Value *neg = B.CreateNeg(diff);
-      Value *isNeg = B.CreateICmpSLT(diff, zero);
-      Value *slack = B.CreateSelect(isNeg, neg, diff);
+      Value *small = B.CreateSelect(lt, Op0_64, Op1_64);
+      Value *large = B.CreateSelect(lt, Op1_64, Op0_64);
+      Value *slack = B.CreateSub(large, small);
 
       uint32_t id = (next_id++) & (MAP_SIZE_BUG_ENTRIES - 1);
       B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack});
@@ -1142,12 +1196,14 @@ static const AllocRewriteSpec kRewriteSpecs[] = {
      false},
     {"_ZdaPv", "__afl_track_free", false, false, true, false, false,
      false},
-    // C++17 aligned new / delete: take an extra std::align_val_t (size_t)
-    // argument that we discard for tracking purposes.
-    {"_ZnwmSt11align_val_t", "__afl_track_malloc", false, false, false,
-     false, true, false},
-    {"_ZnamSt11align_val_t", "__afl_track_malloc", false, false, false,
-     false, true, false},
+    // C++17 aligned new / delete. The `tracked` name is
+    // __afl_track_aligned_alloc (NOT plain __afl_track_malloc) so the
+    // posix_memalign-backed allocation honors the requested alignment;
+    // see Phase 1 rewrite + runtime hook for the rationale.
+    {"_ZnwmSt11align_val_t", "__afl_track_aligned_alloc", false, false,
+     false, false, true, false},
+    {"_ZnamSt11align_val_t", "__afl_track_aligned_alloc", false, false,
+     false, false, true, false},
     {"_ZdlPvSt11align_val_t", "__afl_track_free", false, false, false,
      false, false, true},
     {"_ZdaPvSt11align_val_t", "__afl_track_free", false, false, false,
@@ -1175,6 +1231,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
       "__afl_track_realloc", PtrTy, PtrTy, I64, I32);
   FunctionCallee trackPmemalign = M.getOrInsertFunction(
       "__afl_track_posix_memalign", I32, PtrTy, I64, I64, I32);
+  FunctionCallee trackAlignedAlloc = M.getOrInsertFunction(
+      "__afl_track_aligned_alloc", PtrTy, I64, I64, I32);
   FunctionCallee trackFree =
       M.getOrInsertFunction("__afl_track_free", VoidTy, PtrTy);
   FunctionCallee allocReg = M.getOrInsertFunction(
@@ -1191,10 +1249,20 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     std::vector<Instruction *> dead;
     for (BasicBlock &BB : F) {
 
-      for (Instruction &I : BB) {
+      // Manual advance-before-process iteration: rewriting an InvokeInst
+      // erases the BB's terminator inline, which invalidates a range-for
+      // iterator that still points to it. Advancing `it` first keeps the
+      // iterator pointing at the next instruction (or end()) regardless.
+      for (auto it = BB.begin(); it != BB.end();) {
 
-        auto *Call = dyn_cast<CallInst>(&I);
-        if (!Call) continue;
+        Instruction &I = *it++;
+        // Accept both CallInst (the common case) and InvokeInst (used by
+        // throwing C++ operator new under -fexceptions). Without invoke
+        // handling, every aligned-new and throwing-new in exception-
+        // enabled C++ code would silently bypass instrumentation.
+        auto *Call = dyn_cast<CallBase>(&I);
+        if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
+          continue;
         Function *cf = Call->getCalledFunction();
         if (!cf) continue;
         StringRef name = cf->getName();
@@ -1257,7 +1325,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
           }
 
-          IRBuilder<>  B(Call);
+          IRBuilder<> B(Call);
+          inheritDebugLoc(B, Call);
           uint32_t     id = next_alloc_id++;
           ConstantInt *idC = ConstantInt::get(I32, id);
           CallInst    *NewCall = nullptr;
@@ -1289,11 +1358,16 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
           } else if (spec.is_aligned_new) {
 
-            // Discard the std::align_val_t argument — the alignment is a
-            // constraint, not part of the allocation size.
+            // Preserve the alignment by routing through
+            // __afl_track_aligned_alloc (which calls posix_memalign).
+            // Rewriting to plain __afl_track_malloc would hand out an
+            // under-aligned buffer; subsequent SIMD/over-aligned access
+            // would fault, manufacturing crashes that don't reflect real
+            // bugs in the target.
             NewCall = B.CreateCall(
-                trackMalloc,
-                {B.CreateZExtOrTrunc(Call->getArgOperand(0), I64), idC});
+                trackAlignedAlloc,
+                {B.CreateZExtOrTrunc(Call->getArgOperand(0), I64),
+                 B.CreateZExtOrTrunc(Call->getArgOperand(1), I64), idC});
 
           } else if (spec.is_aligned_delete) {
 
@@ -1308,7 +1382,27 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
           }
 
           if (!Call->use_empty()) Call->replaceAllUsesWith(NewCall);
-          dead.push_back(Call);
+          if (auto *II = dyn_cast<InvokeInst>(Call)) {
+
+            // Invoke is a terminator with normal + unwind successors.
+            // The replacement call doesn't throw, so we re-route the
+            // normal successor via a plain branch and detach the unwind
+            // edge (also fixes up PHIs in the unwind dest). The new
+            // branch is inserted BEFORE the invoke; erasing the invoke
+            // immediately after restores valid IR.
+            BasicBlock *NormalDest = II->getNormalDest();
+            BasicBlock *UnwindDest = II->getUnwindDest();
+            BasicBlock *Parent = II->getParent();
+            UnwindDest->removePredecessor(Parent);
+            BranchInst::Create(NormalDest, II);
+            II->eraseFromParent();
+
+          } else {
+
+            dead.push_back(cast<CallInst>(Call));
+
+          }
+
           ++rewrites;
           matched = true;
           break;
@@ -1321,14 +1415,33 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         /* Custom allocator must return a pointer — its result is passed to
            __afl_alloc_register's first arg (PtrTy). Reject void/int/etc. */
         if (!cf->getReturnType()->isPointerTy()) continue;
-        IRBuilder<> Post(Call->getNextNode());
-        Value      *sizeArg = nullptr;
+        // Position the post-call register: for a CallInst that's the
+        // next instruction; for an InvokeInst it's the top of the
+        // normal-dest block (after any leading PHIs).
+        Instruction *PostInsertAt = nullptr;
+        if (auto *II = dyn_cast<InvokeInst>(Call))
+          PostInsertAt = &*II->getNormalDest()->getFirstInsertionPt();
+        else
+          PostInsertAt = Call->getNextNode();
+        if (!PostInsertAt) continue;
+        IRBuilder<> Post(PostInsertAt);
+        inheritDebugLoc(Post, Call);
+        // Pick the widest integer arg as the size. `size_t` is pointer-
+        // width on the target, so for a signature like
+        // `void *alloc(int flags, size_t size)` this avoids grabbing the
+        // narrower `flags` int. Ties favor the later operand, matching
+        // the C convention of "options first, size last".
+        Value   *sizeArg = nullptr;
+        unsigned bestBits = 0;
         for (unsigned i = 0; i < Call->arg_size(); ++i) {
 
-          if (Call->getArgOperand(i)->getType()->isIntegerTy()) {
+          auto *IT =
+              dyn_cast<IntegerType>(Call->getArgOperand(i)->getType());
+          if (!IT) continue;
+          if (IT->getBitWidth() >= bestBits) {
 
+            bestBits = IT->getBitWidth();
             sizeArg = Call->getArgOperand(i);
-            break;
 
           }
 
@@ -1369,58 +1482,140 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
   for (const std::string &n : custom) tracked_callee_names.insert(n);
 
+  // Resolve a pointer to the set of allocator-call sources that could
+  // back it. Walks GEP/BitCast/PHI/Select/spill-load chains with a cycle
+  // guard. Returns true if EVERY traced root is a call to one of our
+  // tracked allocators — otherwise we'd be checking a stack/global/other
+  // address against an allocator's bookkeeping, producing noise.
+  auto pointerOnlyTouchesTrackedAlloc = [&](Value *p) -> bool {
+
+    SmallPtrSet<Value *, 16> seen;
+    SmallVector<Value *, 8>  work;
+    work.push_back(p);
+    bool any = false;
+    unsigned iters = 0;
+    while (!work.empty() && iters++ < 64) {
+
+      Value *v = work.pop_back_val();
+      if (!seen.insert(v).second) continue;
+      v = v->stripPointerCasts();
+
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(v)) {
+
+        work.push_back(GEP->getPointerOperand());
+        continue;
+
+      }
+
+      if (auto *PN = dyn_cast<PHINode>(v)) {
+
+        for (Value *Inc : PN->incoming_values()) work.push_back(Inc);
+        continue;
+
+      }
+
+      if (auto *Sel = dyn_cast<SelectInst>(v)) {
+
+        work.push_back(Sel->getTrueValue());
+        work.push_back(Sel->getFalseValue());
+        continue;
+
+      }
+
+      // Direct call to a tracked allocator.
+      if (auto *Call = dyn_cast<CallBase>(v)) {
+
+        Function *callee = Call->getCalledFunction();
+        if (callee && tracked_callee_names.count(callee->getName())) {
+
+          any = true;
+          continue;
+
+        }
+
+        return false;
+
+      }
+
+      // Spilled call result: alloca written exactly once with a tracked
+      // allocator call.
+      if (auto *Ld = dyn_cast<LoadInst>(v)) {
+
+        if (auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand())) {
+
+          bool   resolved = false;
+          for (const User *U : AI->users()) {
+
+            auto *St = dyn_cast<StoreInst>(U);
+            if (!St || St->getPointerOperand() != AI) continue;
+            auto *C2 = dyn_cast<CallBase>(
+                St->getValueOperand()->stripPointerCasts());
+            if (!C2) {
+
+              resolved = false;
+              break;
+
+            }
+
+            Function *callee = C2->getCalledFunction();
+            if (!callee ||
+                !tracked_callee_names.count(callee->getName())) {
+
+              resolved = false;
+              break;
+
+            }
+
+            resolved = true;
+
+          }
+
+          if (resolved) {
+
+            any = true;
+            continue;
+
+          }
+
+        }
+
+        return false;
+
+      }
+
+      // Anything else (alloca, global, argument, undef) — not ours.
+      return false;
+
+    }
+
+    return any;
+
+  };
+
   uint32_t store_sites = 0;
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
     if (!isInInstrumentList(&F, F.getName().str())) continue;
-    DominatorTree DT(F);
-    LoopInfo      LI(DT);
-    if (LI.empty()) continue;
-    for (Loop *L : LI.getLoopsInPreorder()) {
+    // Walk every store in the function, not just loop-internal ones. The
+    // oracle runtime is cheap on shadow miss, and OOB writes happen
+    // outside loops too (e.g., one-shot `arr[computed_idx] = x`).
+    for (BasicBlock &BB : F) {
 
-      for (BasicBlock *BB : L->blocks()) {
+      for (Instruction &I : BB) {
 
-        for (Instruction &I : *BB) {
-
-          auto *S = dyn_cast<StoreInst>(&I);
-          if (!S) continue;
-          const Value    *uo = getUnderlyingObject(S->getPointerOperand());
-          const CallInst *src_call = dyn_cast<CallInst>(uo);
-          if (!src_call) {
-
-            if (auto *AI = dyn_cast<AllocaInst>(uo)) {
-
-              for (const User *U : AI->users()) {
-
-                auto *St = dyn_cast<StoreInst>(U);
-                if (!St || St->getPointerOperand() != AI) continue;
-                if (auto *C2 = dyn_cast<CallInst>(St->getValueOperand())) {
-
-                  src_call = C2;
-                  break;
-
-                }
-
-              }
-
-            }
-
-          }
-
-          if (!src_call) continue;
-          Function *callee = src_call->getCalledFunction();
-          if (!callee) continue;
-          if (!tracked_callee_names.count(callee->getName())) continue;
-          IRBuilder<> SB(S);
-          Value      *addr =
-              SB.CreateBitOrPointerCast(S->getPointerOperand(), PtrTy);
-          uint64_t sz = M.getDataLayout().getTypeStoreSize(
-              S->getValueOperand()->getType());
-          SB.CreateCall(oracle, {addr, ConstantInt::get(I32, (uint32_t)sz)});
-          ++store_sites;
-
-        }
+        auto *S = dyn_cast<StoreInst>(&I);
+        if (!S) continue;
+        if (!pointerOnlyTouchesTrackedAlloc(S->getPointerOperand()))
+          continue;
+        IRBuilder<> SB(S);
+        inheritDebugLoc(SB, S);
+        Value *addr =
+            SB.CreateBitOrPointerCast(S->getPointerOperand(), PtrTy);
+        uint64_t sz = M.getDataLayout().getTypeStoreSize(
+            S->getValueOperand()->getType());
+        SB.CreateCall(oracle, {addr, ConstantInt::get(I32, (uint32_t)sz)});
+        ++store_sites;
 
       }
 
@@ -1432,7 +1627,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     errs() << "[afl-bug] ALLOCSIZE rewrote " << rewrites
            << " libc allocator calls, " << custom_inserts
            << " custom-allocator registrations, " << store_sites
-           << " in-loop stores instrumented\n";
+           << " stores instrumented\n";
   return rewrites > 0 || custom_inserts > 0 || store_sites > 0;
 
 }
@@ -1445,12 +1640,12 @@ llvmGetPassPluginInfo() {
   return {LLVM_PLUGIN_API_VERSION, "afl-bug-pass", "v0.1",
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR <= 13
+#if LLVM_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
 #endif
             PB.registerOptimizerLastEPCallback(
                 [](ModulePassManager &MPM, OptimizationLevel
-#if LLVM_VERSION_MAJOR >= 20
+#if LLVM_MAJOR >= 20
                    ,
                    ThinOrFullLTOPhase
 #endif

@@ -215,10 +215,16 @@ static u32 __afl_bug_map_local[MAP_SIZE_BUG_ENTRIES];
 static const void *__afl_bug_ws_base = NULL;
 static u64         __afl_bug_ws_max_off = 0;
 static u64         __afl_bug_ws_total = 0;
+/* Independent SIZEFILL state so it can coexist with BUDGET under
+   AFL_LLVM_BUG=all without clobbering each other's base/max. */
+static const void *__afl_bug_sf_base = NULL;
+static u64         __afl_bug_sf_max_off = 0;
 #else
 static __thread const void *__afl_bug_ws_base = NULL;
 static __thread u64         __afl_bug_ws_max_off = 0;
 static __thread u64         __afl_bug_ws_total = 0;
+static __thread const void *__afl_bug_sf_base = NULL;
+static __thread u64         __afl_bug_sf_max_off = 0;
 #endif
 
 /* AllocSizeOracle (AFL_LLVM_BUG_ALLOCSIZE) runtime globals.
@@ -3828,14 +3834,6 @@ void __afl_bug_scalar_max(uint32_t id, uint64_t val) {
 
 }
 
-void __afl_bug_loop_iter_inc(uint32_t id) {
-
-  (void)id;
-  /* Per-loop counters are kept on the stack by the pass; this hook is a
-     no-op placeholder reserved for future cross-call accumulation. */
-
-}
-
 void __afl_bug_loop_iter_flush(uint32_t id, uint32_t local_count) {
 
   if (!__afl_bug_active || !__afl_bug_map) return;
@@ -3887,6 +3885,28 @@ void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size) {
 
 }
 
+/* Independent SIZEFILL begin/store hooks — mirror ws_begin/ws_store but
+   write to the sf_* state so BUDGET and SIZEFILL can run concurrently
+   under AFL_LLVM_BUG=all without trampling on each other's base/max. */
+void __afl_bug_sf_begin(const void *ptr_arg) {
+
+  if (!__afl_bug_active) return;
+  __afl_bug_sf_base = ptr_arg;
+  __afl_bug_sf_max_off = 0;
+
+}
+
+void __afl_bug_sf_store(const void *addr, uint32_t size) {
+
+  if (!__afl_bug_active || !__afl_bug_sf_base) return;
+  uintptr_t base = (uintptr_t)__afl_bug_sf_base;
+  uintptr_t a = (uintptr_t)addr;
+  if (a < base) return;
+  uint64_t off = (uint64_t)(a - base) + size;
+  if (off > __afl_bug_sf_max_off) __afl_bug_sf_max_off = off;
+
+}
+
 void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
                               uint64_t caller_buf_size) {
 
@@ -3902,19 +3922,19 @@ void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
 
   }
 
-  if (ptr_arg == __afl_bug_ws_base &&
-      __afl_bug_ws_max_off > caller_buf_size) {
+  if (ptr_arg == __afl_bug_sf_base &&
+      __afl_bug_sf_max_off > caller_buf_size) {
 
     fprintf(stderr,
             "[afl-bug] SIZEFILL violation: writes extended to %llu bytes "
             "past buffer head, caller buffer only %llu (ptr=%p)\n",
-            (unsigned long long)__afl_bug_ws_max_off,
+            (unsigned long long)__afl_bug_sf_max_off,
             (unsigned long long)caller_buf_size, ptr_arg);
     abort();
 
   }
 
-  __afl_bug_ws_base = NULL;
+  __afl_bug_sf_base = NULL;
 
 }
 
@@ -4123,6 +4143,27 @@ int __afl_track_posix_memalign(void **memptr, uint64_t alignment,
   int rc = posix_memalign(memptr, (size_t)alignment, (size_t)size);
   if (rc == 0) __afl_alloc_register(*memptr, size, alloc_site_id);
   return rc;
+
+}
+
+/* C++17 aligned-new replacement. Unlike __afl_track_malloc (which would
+   discard the alignment requirement and hand out an under-aligned buffer
+   that subsequent SIMD stores can fault on), this goes through
+   posix_memalign and respects the C++ contract. Returns NULL on failure
+   instead of throwing — the same observable difference as the throwing-
+   new -> __afl_track_malloc rewrite documented in the pass. */
+void *__afl_track_aligned_alloc(uint64_t size, uint64_t alignment,
+                                uint32_t alloc_site_id) {
+
+  void *p = NULL;
+  /* posix_memalign requires alignment to be a power of two AND a multiple
+     of sizeof(void*); enforce the floor here so a bogus align_val_t can't
+     wedge the call. C++ aligned new already passes a valid value, so this
+     just hardens against malformed IR. */
+  if (alignment < sizeof(void *)) alignment = sizeof(void *);
+  if (posix_memalign(&p, (size_t)alignment, (size_t)size) != 0) return NULL;
+  __afl_alloc_register(p, size, alloc_site_id);
+  return p;
 
 }
 
