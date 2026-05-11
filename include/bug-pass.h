@@ -13,6 +13,14 @@
 #define AFL_BUG_ENV_ALLOCSIZE_FUNCS  "AFL_LLVM_BUG_ALLOCSIZE_FUNCS"
 #define AFL_BUG_ENV_ALLOCSIZE_DERIVE "AFL_LLVM_BUG_ALLOCSIZE_DERIVE"
 #define AFL_BUG_ENV_SLACK            "AFL_LLVM_BUG_SLACK"
+// Optional opt-in: restricts SCALAR's arithmetic-site instrumentation to
+// BinaryOperators that flow into a memory-size sink (allocator size args,
+// GEP indices, memcpy/memset lengths). Off by default — turning it on
+// silences pure-compute accumulators like hash-builders or non-memory
+// counters, which is exactly the libwebp-style signal SCALAR otherwise
+// captures. Use only when you want to cut SCALAR map pollution on very
+// large targets and accept the loss of pure-compute coverage.
+#define AFL_BUG_ENV_SCALAR_SLICE     "AFL_LLVM_BUG_SCALAR_SLICE"
 
 // Number of u32 slots in the bug map (max-value coverage channel).
 // Must be a power of two. Sized like IJON (512) but wider because we
@@ -38,7 +46,12 @@ void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size);
 
 // SIZEFILL: post-call check for size-or-fill idioms. Uses dedicated
 // __afl_bug_sf_* state so BUDGET and SIZEFILL don't share a base/max.
-void __afl_bug_sf_begin(const void *ptr_arg);
+//
+// sf_begin now takes the caller-buffer size so the runtime can range-
+// gate every sf_store as `addr < base + size`. Without the bound, an
+// unrelated higher-address store inside the callee would inflate the
+// tracked max_off and trip a spurious SIZEFILL abort.
+void __afl_bug_sf_begin(const void *ptr_arg, uint64_t caller_buf_size);
 void __afl_bug_sf_store(const void *addr, uint32_t size);
 void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
                               uint64_t caller_buf_size);
@@ -84,6 +97,20 @@ void  __afl_alloc_unregister(void *ptr);
 // lookup) and uses `addr + size` as the post-write end so a 4-byte store at
 // the last byte of a buffer is correctly classified as OOB.
 void  __afl_alloc_oracle(const void *ptr, uint32_t store_size);
+
+// Wide-length variant of the per-store oracle. memcpy/memmove/memset
+// emit i64 lengths in IR; truncating to i32 would hide overflow bugs
+// where a computed length wraps but a tiny i32 value still passes the
+// shadow check. Same shadow lookup, same `addr + size` end.
+void  __afl_alloc_oracle_n(const void *ptr, uint64_t store_size);
+
+// Type-confusion smell. The runtime remembers the first (element-size,
+// alignment) pair observed at each tracked allocation; later stores
+// with a different element-size are reported on stderr (informational,
+// not fatal). Useful for catching realloc-with-different-type and
+// C++ type-punning patterns.
+void  __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
+                               uint32_t alignment);
 
 // Initialized to 0, set to 1 by runtime if any mode is active. Pass-emitted
 // hooks short-circuit on this.

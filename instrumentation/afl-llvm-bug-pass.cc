@@ -28,6 +28,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/raw_ostream.h"
 #if LLVM_MAJOR >= 22
   #include "llvm/Plugins/PassPlugin.h"
@@ -51,6 +52,13 @@ struct BugPassConfig {
   bool sizefill = false;
   bool allocsize = false;
   bool slack = false;
+  // Opt-in: restricts SCALAR to BinaryOperators that flow into a memory-
+  // size sink. Off by default — turning it on improves signal-to-noise
+  // on huge targets but silences pure-compute accumulator patterns
+  // (libwebp-style `total_size += table_size` works either way because
+  // total_size feeds a malloc, but hash-builders, counters, and
+  // non-memory sums are filtered out).
+  bool scalar_slice = false;
   std::vector<std::string> custom_alloc_funcs;
   bool any() const {
 
@@ -78,6 +86,9 @@ static BugPassConfig parseEnv() {
   if (getenv(AFL_BUG_ENV_SIZEFILL)) c.sizefill = true;
   if (getenv(AFL_BUG_ENV_ALLOCSIZE)) c.allocsize = true;
   if (getenv(AFL_BUG_ENV_SLACK)) c.slack = true;
+  // Slice filter is purely additive on top of SCALAR — it's a no-op
+  // unless SCALAR is also enabled.
+  if (getenv(AFL_BUG_ENV_SCALAR_SLICE)) c.scalar_slice = true;
   if (const char *list = getenv(AFL_BUG_ENV_ALLOCSIZE_FUNCS)) {
 
     std::string s(list);
@@ -97,23 +108,44 @@ static BugPassConfig parseEnv() {
 
 }
 
+// Cross-mode dedup state. SCALAR populates `covered` per Function during
+// its run; SLACK consults it to skip icmps whose operand SCALAR already
+// instruments (saves a redundant hook call without changing semantics).
+// Held in BugPass (not file scope) so Function* keys can't dangle across
+// modules. Cleared at the start of every BugPass::run().
+struct BugPassState {
+
+  std::map<Function *, SmallPtrSet<Value *, 32>> scalar_covered;
+  bool                                           scalar_slice = false;
+
+};
+
 class BugPass : public PassInfoMixin<BugPass> {
 
  public:
   BugPass() { initInstrumentList(); }
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
+ private:
+  BugPassState state_;
+
 };
 
 // Forward decls.
-bool runScalarMode(Module &M, ModuleAnalysisManager &MAM);
+bool runScalarMode(Module &M, ModuleAnalysisManager &MAM,
+                   BugPassState &S);
 bool runBudgetMode(Module &M, ModuleAnalysisManager &MAM);
 bool runSizefillMode(Module &M, ModuleAnalysisManager &MAM);
-bool runSlackMode(Module &M, ModuleAnalysisManager &MAM);
+bool runSlackMode(Module &M, ModuleAnalysisManager &MAM,
+                  const BugPassState &S);
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &MAM,
                       const std::vector<std::string> &custom);
 static bool ptrStoreReachesArg(StoreInst                 *S,
                                const std::set<unsigned> &arg_indices);
+static unsigned instrumentArgReachingStores(
+    Function &F, FunctionCallee hook,
+    const std::set<unsigned> &arg_indices, Type *PtrTy, IntegerType *I32,
+    const DataLayout &DL);
 static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source);
 
 // Mode salts for siteSlotId() — fed into the hash so the same site index
@@ -170,11 +202,18 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
 
   }
 
+  // Fresh state per module — `scalar_covered`'s Function* keys are only
+  // valid for the lifetime of THIS Module. Clearing here is the load-
+  // bearing line that prevents UAFs across compilations sharing a pass
+  // plugin instance.
+  state_.scalar_covered.clear();
+  state_.scalar_slice = cfg.scalar_slice;
+
   bool changed = false;
-  if (cfg.scalar) changed |= runScalarMode(M, MAM);
+  if (cfg.scalar) changed |= runScalarMode(M, MAM, state_);
   if (cfg.budget) changed |= runBudgetMode(M, MAM);
   if (cfg.sizefill) changed |= runSizefillMode(M, MAM);
-  if (cfg.slack) changed |= runSlackMode(M, MAM);
+  if (cfg.slack) changed |= runSlackMode(M, MAM, state_);
   if (cfg.allocsize)
     changed |= runAllocSizeMode(M, MAM, cfg.custom_alloc_funcs);
   return changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
@@ -190,9 +229,34 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
 // rejected here, because `table_size` is computed inside the loop body
 // and is therefore NOT loop-invariant. Such data-dependent accumulators
 // are exactly what we want to track.
+//
+// Bug 7 extension: also walks through ONE level of zext/sext/trunc
+// between the BinOp and its PHI user, catching `i_next = i + 1; i_w = sext
+// i_next` patterns that appear under -O0 + indvar-widening.
 static bool isInductionVariableUpdate(BinaryOperator *I, LoopInfo &LI) {
 
+  // Build the set of users to inspect: direct users plus values that are
+  // a single cast away. Bounded by 1 cast level — anything deeper isn't
+  // a simple IV anyway and should be tracked.
+  SmallVector<User *, 4> candidates;
+  for (User *U : I->users()) candidates.push_back(U);
   for (User *U : I->users()) {
+
+    if (auto *Cast = dyn_cast<CastInst>(U)) {
+
+      Instruction::CastOps op = Cast->getOpcode();
+      if (op == Instruction::ZExt || op == Instruction::SExt ||
+          op == Instruction::Trunc) {
+
+        for (User *UU : Cast->users()) candidates.push_back(UU);
+
+      }
+
+    }
+
+  }
+
+  for (User *U : candidates) {
 
     auto *PN = dyn_cast<PHINode>(U);
     if (!PN) continue;
@@ -208,6 +272,115 @@ static bool isInductionVariableUpdate(BinaryOperator *I, LoopInfo &LI) {
   }
 
   return false;
+
+}
+
+// Enhancement A: backward-slice helper for SCALAR's data-flow gate.
+// Walks back from every allocator-size argument, every GEP index, and
+// every memcpy/memmove/memset length, collecting all Values that feed
+// any of them. SCALAR then only instruments BinaryOperators in this set
+// — drastically reducing map pollution on large targets where most
+// arithmetic is unrelated to memory layout.
+//
+// Sinks intentionally include all OpenMP/Clang-emitted size args (the
+// AllocKind table's allocator names match the post-rewrite forms too,
+// so this works whether ALLOCSIZE has already run or not).
+static void
+computeScalarSinkSlice(Function &F, SmallPtrSetImpl<Value *> &out) {
+
+  SmallVector<Value *, 32> work;
+  auto                     pushIfInt = [&](Value *V) {
+
+    if (!V) return;
+    if (!V->getType()->isIntegerTy()) return;
+    work.push_back(V);
+
+  };
+
+  // Allocator size arguments. Matched by name to avoid hard-coding the
+  // AllocKind table layout here; this is a small subset (the size-arg
+  // positions) of what runAllocSizeMode consumes.
+  auto isAllocSizeCallee = [](StringRef n) -> bool {
+
+    return n == "malloc" || n == "calloc" || n == "realloc" ||
+           n == "reallocarray" || n == "posix_memalign" ||
+           n == "aligned_alloc" || n == "strndup" ||
+           n == "__afl_track_malloc" || n == "__afl_track_calloc" ||
+           n == "__afl_track_realloc" || n == "__afl_track_reallocarray" ||
+           n == "__afl_track_posix_memalign" ||
+           n == "__afl_track_aligned_alloc" || n == "__afl_track_strndup" ||
+           n == "_Znwm" || n == "_Znam" || n == "_Znwj" || n == "_Znaj" ||
+           n == "_ZnwmSt11align_val_t" || n == "_ZnamSt11align_val_t" ||
+           n == "_ZnwjSt11align_val_t" || n == "_ZnajSt11align_val_t";
+
+  };
+
+  for (BasicBlock &BB : F) {
+
+    for (Instruction &I : BB) {
+
+      // GEP indices (all of them; the first index is the array stride,
+      // subsequent ones are nested-aggregate offsets — all interesting).
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+
+        for (auto idx = GEP->idx_begin(), e = GEP->idx_end(); idx != e; ++idx)
+          pushIfInt(idx->get());
+        continue;
+
+      }
+
+      // memcpy / memmove / memset lengths.
+      if (auto *MI = dyn_cast<MemIntrinsic>(&I)) {
+
+        pushIfInt(MI->getLength());
+        continue;
+
+      }
+
+      // Allocator size args.
+      if (auto *Call = dyn_cast<CallBase>(&I)) {
+
+        Function *cf = Call->getCalledFunction();
+        if (!cf) continue;
+        if (!isAllocSizeCallee(cf->getName())) continue;
+        // Pull every integer arg as a sink. The position-specific size
+        // arg is only one of them, but we don't need to distinguish:
+        // tracking too much is safe (we already filter by BinaryOperator
+        // and IV-update); tracking too little is the failure mode A
+        // exists to avoid.
+        for (Use &U : Call->args()) pushIfInt(U.get());
+        continue;
+
+      }
+
+    }
+
+  }
+
+  // Backward BFS. Bounded by visited-set; cycles (PHIs) handled by
+  // SmallPtrSet's insert returning false on dup.
+  while (!work.empty()) {
+
+    Value *v = work.pop_back_val();
+    if (!out.insert(v).second) continue;
+
+    if (auto *Op = dyn_cast<Operator>(v)) {
+
+      for (Use &U : Op->operands()) {
+
+        Value *o = U.get();
+        if (!o->getType()->isIntegerTy()) continue;
+        if (out.count(o)) continue;
+        // Stop at function arguments (they're sources, not transforms).
+        // Constants short-circuit naturally via Operator-check below.
+        if (isa<Constant>(o)) continue;
+        work.push_back(o);
+
+      }
+
+    }
+
+  }
 
 }
 
@@ -245,7 +418,9 @@ static bool ScalarSiteWorthInstrumenting(BinaryOperator *I, LoopInfo &LI) {
 
 }
 
-bool runScalarMode(Module &M, ModuleAnalysisManager &) {
+// (Cross-mode dedup map moved into BugPassState; see top of namespace.)
+
+bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 
   LLVMContext &C = M.getContext();
   Type        *VoidTy = Type::getVoidTy(C);
@@ -256,6 +431,14 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
       M.getOrInsertFunction("__afl_bug_scalar_max", VoidTy, I32, I64);
   FunctionCallee loopFlush =
       M.getOrInsertFunction("__afl_bug_loop_iter_flush", VoidTy, I32, I32);
+
+  // No per-site active-flag guard. The earlier Enhancement J emitted
+  // load/icmp/branch around every SCALAR call, which inflates IR
+  // dramatically (3+ extra instructions × thousands of sites) and gives
+  // LLVM no way to CSE the load (global loads alias everything by
+  // default). The runtime hook already starts with `if (!__afl_bug_active)
+  // return;` — the saved fuzzing-OFF call overhead doesn't justify the
+  // per-site IR cost.
 
   uint32_t arith_sites = 0, loop_sites = 0;
   bool     changed = false;
@@ -270,6 +453,18 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
     LoopInfo      LI(DT);
     StringRef     func_name = F.getName();
     uint32_t      site_idx = 0;
+
+    // Optional size-sink slice (AFL_LLVM_BUG_SCALAR_SLICE). Off by
+    // default — turning it on silences pure-compute accumulators like
+    // hash builders or non-memory counters, which is exactly the
+    // libwebp-class signal SCALAR otherwise captures. Useful only for
+    // very large targets where map pollution outweighs lost coverage.
+    SmallPtrSet<Value *, 32> slice;
+    if (S.scalar_slice) computeScalarSinkSlice(F, slice);
+
+    // Track which Values get instrumented here, for SLACK dedup.
+    SmallPtrSet<Value *, 32> &covered = S.scalar_covered[&F];
+
     for (BasicBlock &BB : F) {
 
       for (Instruction &I : BB) {
@@ -291,12 +486,19 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
         }
 
         if (!ScalarSiteWorthInstrumenting(Bin, LI)) continue;
+        // Optional slice filter: skip if the BinOp doesn't reach any
+        // size sink. Only active when the user explicitly opts in via
+        // AFL_LLVM_BUG_SCALAR_SLICE — otherwise we trust the IV-filter
+        // plus the per-site worth-instrumenting heuristic above.
+        if (S.scalar_slice && !slice.count(Bin)) continue;
+
         IRBuilder<> B(Bin->getNextNode());
         inheritDebugLoc(B, Bin);
         Value   *v64 = B.CreateZExtOrTrunc(Bin, I64);
         uint32_t id = siteSlotId(func_name, site_idx++,
                                  BUG_MODE_SALT_SCALAR_ARITH);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
+        covered.insert(Bin);
         ++arith_sites;
         changed = true;
 
@@ -340,11 +542,40 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &) {
       cnt->addIncoming(ConstantInt::get(I32, 0), Preheader);
       cnt->addIncoming(inc, Latch);
 
+      // Bug 11 hardening: validate the PHI ended up well-formed. With
+      // simplified-form preconditions above (preheader + latch + header
+      // all non-null and distinct) the standard case has exactly 2
+      // incomings. Degenerate cases (latch == preheader for a single-
+      // block loop, or a header reachable from outside the loop via an
+      // unexpected edge) would yield wrong/extra incomings and feed
+      // garbage into the iteration counter. Roll back rather than
+      // emit corrupt IR.
+      if (cnt->getNumIncomingValues() != 2 ||
+          cnt->getIncomingBlock(0) == cnt->getIncomingBlock(1)) {
+
+        cnt->replaceAllUsesWith(ConstantInt::get(I32, 0));
+        cnt->eraseFromParent();
+        if (auto *IncInst = dyn_cast<Instruction>(inc))
+          if (IncInst->use_empty()) IncInst->eraseFromParent();
+        continue;
+
+      }
+
       // Flush at every unique exit block via an LCSSA-style PHI: pick up
       // `inc` (the count INCLUDING the exit iteration) along edges that
       // come from inside the loop, and 0 along any edge that bypasses
       // the loop entirely. SmallPtrSet dedups exit blocks reached by
       // multiple edges.
+      //
+      // Bug 12 note: when multiple loops share an exit block, each loop
+      // inserts its own xphi at top and its own flush after the PHIs.
+      // Because new PHIs are inserted at &*Exit->begin() they go ABOVE
+      // any previously-inserted xphi, so the PHIs-at-top invariant is
+      // preserved. Flushes inserted at getFirstNonPHI() land after ALL
+      // PHIs (including ones inserted later), so order is "newest-loop
+      // flush precedes older-loop flush" — reverse of pre-order Loop
+      // iteration. If a future change relies on flush order, fix this
+      // by inserting flushes at a stable anchor (e.g., the terminator).
       SmallVector<BasicBlock *, 4> Exits;
       L->getExitBlocks(Exits);
       SmallPtrSet<BasicBlock *, 4> seenExits;
@@ -450,34 +681,47 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
         auto *Call = dyn_cast<CallInst>(idx);
         if (!Call) continue;
         // Match base against any pointer arg of the call, peering through
-        // a single level of alloca-spill (load %slot where %slot is
-        // written exactly once with the arg). Without this the optnone
-        // pattern `store %arg, %slot; %p = load %slot; gep %p, call(%slot)`
-        // is missed even though it's semantically the same as the direct
-        // form.
+        // up to TWO levels of alloca-spill (load-from-alloca written
+        // exactly once with a load-from-alloca written with the arg).
+        // Bug 8 extension: a single level catches optnone code; two
+        // levels catches post-Inlining-without-mem2reg IR where the
+        // inlined callee re-spills its arg into a second slot.
         auto matches_arg = [&](Value *arg_val, Value *needle) -> bool {
 
           Value *a = arg_val->stripPointerCasts();
+          // Walk needle through up to 2 spill-loads.
           Value *b = needle->stripPointerCasts();
-          if (a == b) return true;
-          if (auto *Ld = dyn_cast<LoadInst>(b)) {
+          for (int depth = 0; depth < 3; ++depth) {
 
-            if (auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand())) {
+            if (a == b) return true;
+            auto *Ld = dyn_cast<LoadInst>(b);
+            if (!Ld) break;
+            auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand());
+            if (!AI) break;
+            Value *next = nullptr;
+            bool   multi = false;
+            for (User *U : AI->users()) {
 
-              for (User *U : AI->users()) {
+              auto *St = dyn_cast<StoreInst>(U);
+              if (!St || St->getPointerOperand() != AI) continue;
+              Value *sv = St->getValueOperand()->stripPointerCasts();
+              if (next && next != sv) {
 
-                auto *St = dyn_cast<StoreInst>(U);
-                if (!St || St->getPointerOperand() != AI) continue;
-                if (St->getValueOperand()->stripPointerCasts() == a)
-                  return true;
+                multi = true;
+                break;
 
               }
 
+              next = sv;
+
             }
+
+            if (multi || !next) break;
+            b = next;
 
           }
 
-          return false;
+          return a == b;
 
         };
 
@@ -588,8 +832,7 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
       Value *ptrCast2 = Post.CreateBitOrPointerCast(m.PtrBefore, PtrTy);
       Post.CreateCall(wsCheck, {ptrCast2, ret64});
 
-      callee_arg_indices[callee].insert(
-          callee->getArg(m.PtrArgIdx)->getArgNo());
+      callee_arg_indices[callee].insert(m.PtrArgIdx);
       changed = true;
 
     }
@@ -602,31 +845,14 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
   // excluded via AFL_LLVM_DENYLIST etc. — otherwise excluded code still
   // gets per-store instrumentation when it happens to receive a tracked
   // arg from an instrumented caller.
+  IntegerType *I32_for_store = IntegerType::getInt32Ty(C);
   for (auto &kv : callee_arg_indices) {
 
     Function                  *F = kv.first;
     if (!isInInstrumentList(F, F->getName().str())) continue;
     const std::set<unsigned>  &arg_indices = kv.second;
-    for (BasicBlock &BB : *F) {
-
-      for (Instruction &I : BB) {
-
-        auto *S = dyn_cast<StoreInst>(&I);
-        if (!S) continue;
-        // Skip the spill itself (storing the argument into its alloca).
-        if (isa<Argument>(S->getValueOperand())) continue;
-        if (!ptrStoreReachesArg(S, arg_indices)) continue;
-        IRBuilder<> SB(S);
-        inheritDebugLoc(SB, S);
-        Value *addr =
-            SB.CreateBitOrPointerCast(S->getPointerOperand(), PtrTy);
-        uint64_t sz = M.getDataLayout().getTypeStoreSize(
-            S->getValueOperand()->getType());
-        SB.CreateCall(wsStore, {addr, ConstantInt::get(I32, (uint32_t)sz)});
-
-      }
-
-    }
+    instrumentArgReachingStores(*F, wsStore, arg_indices, PtrTy,
+                                I32_for_store, M.getDataLayout());
 
   }
 
@@ -644,26 +870,109 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
 //                    otherwise the index of a pointer-to-integer arg
 //                    through which the function writes the size. Caller-
 //                    visible after the call as `*args[out_size_idx]`.
+//   out_size_bits  : width in bits of the value stored through
+//                    args[out_size_idx]. Unused when out_size_idx == -1.
+//                    Critical: loading wider than the actual pointee
+//                    reads adjacent caller-stack garbage and almost
+//                    always trips the SIZEFILL `ret_size > buf_size`
+//                    check spuriously (Bug 1).
 struct SentinelDesc {
 
-  int sentinel_idx;
-  int out_size_idx;
+  int  sentinel_idx;
+  int  out_size_idx;
+  int  out_size_bits;
+  // True if the callee reads through args[out_size_idx] (in/out param).
+  // Caller MUST skip the Bug 2 pre-call zero on these — otherwise the
+  // zero clobbers an initial value the callee expects.
+  bool out_is_inout;
 
 };
 
-// Scan F for an out-size argument: a pointer-to-integer arg into which
-// F stores a value before returning. Heuristic: any pointer-to-integer
-// arg that has at least one store-through. Returns the arg index, or -1.
+// Scan F for an out-size argument: a pointer-to-integer arg through
+// which F writes a value before returning.
+//
+// Returns the arg index AND the bit width of the value stored (via
+// `*out_bits`), or -1 if no qualifying arg. Also returns via
+// `*out_is_inout` whether the callee READS through the param anywhere
+// (any load through the arg or its spill-loads). In/out semantics
+// means the caller-side pre-zero would clobber an initial value the
+// callee depends on; the caller MUST honor this flag.
+//
+// Tightening (Bug 5 — `findOutSizeParam` was over-permissive and matched
+// generic error-code out-params):
+//   (a) Function must also have at least one size_t-shaped integer arg
+//       BEFORE the candidate out-param (the typical `parse(buf, size_t
+//       len, size_t *out)` shape). This excludes
+//       `parse(buf, &err_code)` patterns.
+//   (b) Argument name (when debug names survive) matches a size-like
+//       pattern: contains "size", "len", "bytes", "written", "count",
+//       or "n_*". If no debug name is present, only (a) needs to hold.
+//   (c) Stored value's width must be size_t-class (>= pointer width)
+//       OR >= 32 bits — error codes are typically int (32 bits), but
+//       so are some size fields. Pure name match is the differentiator.
+//
+// -g dependence: precondition (b) only fires when debug names survive
+// (clang's -g lowers DILocalVariable names onto Arguments). On stripped
+// builds, only (a) and (c) gate the match: any "pointer-wide-integer
+// out-param after a size-like int arg" is accepted, plus any 32-bit
+// out-param whose preceding arg has a size-like name. The fallback is
+// conservative — without debug info we may miss `int parse(buf, int*)`
+// style APIs but won't false-match `parse(buf, int *err_code)`.
 //
 // This catches the common `int parse(const buf*, size_t len, size_t *out)`
-// idiom that the integer-return-only path misses.
-static int findOutSizeParam(Function &F, int sentinel_idx) {
+// idiom that the integer-return-only path misses, while rejecting
+// `parse(buf, int *err_code)`.
+static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
+                            bool *out_is_inout) {
+
+  if (out_bits) *out_bits = 0;
+  if (out_is_inout) *out_is_inout = false;
+
+  // Discover whether F has any size-like integer arg before the
+  // candidate (precondition (a)). Pointer-wide integer or any integer
+  // whose name matches size-pattern qualifies.
+  const DataLayout &DL = F.getParent()->getDataLayout();
+  unsigned          ptr_bits = DL.getPointerSizeInBits();
+  auto              hasSizeLikeName = [](StringRef n) -> bool {
+
+    if (n.empty()) return false;
+    std::string lower = n.lower();
+    return lower.find("size") != std::string::npos ||
+           lower.find("len") != std::string::npos ||
+           lower.find("bytes") != std::string::npos ||
+           lower.find("written") != std::string::npos ||
+           lower.find("count") != std::string::npos ||
+           lower.find("n_") != std::string::npos ||
+           lower == "n";
+
+  };
 
   for (Argument &A : F.args()) {
 
     if ((int)A.getArgNo() == sentinel_idx) continue;
     if (!A.getType()->isPointerTy()) continue;
-    // Walk users (including spill-load idiom) for a store of an integer.
+
+    // Precondition (a): a size-like integer arg appears earlier in the
+    // signature. Either pointer-wide integer, or name matches.
+    bool has_size_arg_before = false;
+    for (Argument &B : F.args()) {
+
+      if (B.getArgNo() >= A.getArgNo()) break;
+      if (!B.getType()->isIntegerTy()) continue;
+      if (B.getType()->getIntegerBitWidth() >= ptr_bits ||
+          hasSizeLikeName(B.getName())) {
+
+        has_size_arg_before = true;
+        break;
+
+      }
+
+    }
+
+    if (!has_size_arg_before) continue;
+
+    // Walk users (including spill-load idiom) for a store of an integer
+    // through this arg.
     std::vector<Value *> roots;
     roots.push_back(&A);
     for (User *U : A.users()) {
@@ -677,6 +986,34 @@ static int findOutSizeParam(Function &F, int sentinel_idx) {
 
     }
 
+    bool name_size_like = hasSizeLikeName(A.getName());
+
+    // Scan for in/out semantics: any LoadInst through any of the roots
+    // means the callee reads the param's initial value. We accumulate
+    // this before deciding to accept the arg — the caller uses it to
+    // gate the pre-call zero.
+    bool is_inout = false;
+    for (Value *root : roots) {
+
+      for (User *U : root->users()) {
+
+        if (auto *L = dyn_cast<LoadInst>(U)) {
+
+          if (L->getPointerOperand() == root) {
+
+            is_inout = true;
+            break;
+
+          }
+
+        }
+
+      }
+
+      if (is_inout) break;
+
+    }
+
     for (Value *root : roots) {
 
       for (User *U : root->users()) {
@@ -684,9 +1021,18 @@ static int findOutSizeParam(Function &F, int sentinel_idx) {
         auto *St = dyn_cast<StoreInst>(U);
         if (!St || St->getPointerOperand() != root) continue;
         Type *VT = St->getValueOperand()->getType();
-        if (VT->isIntegerTy() && VT->getIntegerBitWidth() >= 16 &&
-            VT->getIntegerBitWidth() <= 64)
-          return (int)A.getArgNo();
+        if (!VT->isIntegerTy()) continue;
+        unsigned bits = VT->getIntegerBitWidth();
+        if (bits < 16 || bits > 64) continue;
+
+        // Precondition (c): width >= pointer-width OR name says size.
+        // Pure 32-bit int without a size-like name is rejected — too
+        // likely to be an error code.
+        if (bits < ptr_bits && !name_size_like) continue;
+
+        if (out_bits) *out_bits = (int)bits;
+        if (out_is_inout) *out_is_inout = is_inout;
+        return (int)A.getArgNo();
 
       }
 
@@ -699,9 +1045,15 @@ static int findOutSizeParam(Function &F, int sentinel_idx) {
 }
 
 // A pointer parameter is "sentinel-checked" if the function has a basic
-// block branched on (param == null) where the null branch returns without
-// any store through the parameter. Returns the index of the matching
-// parameter, or -1.
+// block branched on (param == null) where the null branch reaches a
+// Return without any store through the parameter. Returns the index of
+// the matching parameter, or -1.
+//
+// Bug 6 fix: previously the forward walk stopped after 4 unconditional
+// hops, which missed real functions whose null-branch goes through
+// cleanup code, debug-logging blocks, or fall-through error labels
+// before reaching the return. Now uses a proper visited-set forward
+// CFG walk with a generous depth cap.
 static int findSentinelParam(Function &F) {
 
   for (Argument &A : F.args()) {
@@ -740,14 +1092,30 @@ static int findSentinelParam(Function &F) {
           BasicBlock *NullBB = (Cmp->getPredicate() == ICmpInst::ICMP_EQ)
                                    ? Br->getSuccessor(0)
                                    : Br->getSuccessor(1);
-          // Walk forward from NullBB through unconditional branches until
-          // we hit a Return. Flag if we get there without seeing a store
-          // through the parameter.
-          bool       seen_store_via_arg = false;
-          bool       reached_return = false;
-          BasicBlock *cur = NullBB;
-          for (int hop = 0; hop < 4 && cur; ++hop) {
+          // Forward CFG walk from NullBB. Look for any reachable Return
+          // along a path that contains no store through `root`. Cap by
+          // both visited-set size and a depth budget; that handles
+          // pathological CFGs (large dispatch jump-tables on the null
+          // path) without scanning unboundedly.
+          //
+          // We don't require the null path to be ONLY uncond branches —
+          // cleanup blocks often have conditional branches (e.g.
+          // `if (logger) log_error()`) before reaching the return. We
+          // do prune any successor whose entry instruction is a store
+          // through `root` — that's by definition NOT a null-path.
+          SmallPtrSet<BasicBlock *, 16> visited;
+          SmallVector<BasicBlock *, 16> work;
+          work.push_back(NullBB);
+          bool reached_return_clean = false;
+          // Depth cap: 64 distinct blocks on the null path is plenty.
+          // libwebp's typical null-path is 1-3 blocks; OpenSSL idioms
+          // around 5-8; nothing legitimate hits 64.
+          while (!work.empty() && visited.size() < 64) {
 
+            BasicBlock *cur = work.pop_back_val();
+            if (!visited.insert(cur).second) continue;
+            bool stores_via_arg_here = false;
+            bool returns_here = false;
             for (Instruction &I : *cur) {
 
               if (auto *S = dyn_cast<StoreInst>(&I)) {
@@ -766,31 +1134,40 @@ static int findSentinelParam(Function &F) {
 
                 }
 
-                // Stores into the function's own return-slot alloca are
-                // fine; only stores that actually go through the parameter
-                // count.
-                if (p == root) seen_store_via_arg = true;
+                if (p == root) {
+
+                  stores_via_arg_here = true;
+                  break;  // this BB taints; treat as pruned
+
+                }
 
               }
 
               if (isa<ReturnInst>(&I)) {
 
-                reached_return = true;
+                returns_here = true;
                 break;
 
               }
 
             }
 
-            if (reached_return) break;
-            // Walk through one unconditional branch.
-            auto *T = dyn_cast<BranchInst>(cur->getTerminator());
-            if (!T || !T->isUnconditional()) break;
-            cur = T->getSuccessor(0);
+            if (stores_via_arg_here) continue;  // prune this branch
+            if (returns_here) {
+
+              reached_return_clean = true;
+              break;
+
+            }
+
+            // Enqueue all successors of cur's terminator.
+            Instruction *T = cur->getTerminator();
+            for (unsigned i = 0, e = T->getNumSuccessors(); i < e; ++i)
+              work.push_back(T->getSuccessor(i));
 
           }
 
-          if (reached_return && !seen_store_via_arg) {
+          if (reached_return_clean) {
 
             found_null_branch = true;
 
@@ -923,12 +1300,54 @@ static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source) {
 
 }
 
+// Enhancement E (pass-side scope): the per-store instrumentation walk
+// is identical in shape between BUDGET and SIZEFILL — same pointer-
+// origin tracing via ptrStoreReachesArg, same filter against an
+// arg-index set, same hook call emission. Factored here so the
+// duplication doesn't drift; a future runtime-side unification (one
+// tracked-region hook) would change only this one helper.
+//
+// `hook` must be void-returning with signature (i8*, i32). Caller is
+// responsible for honoring the instrument-list blocklist on F — this
+// helper does not re-check.
+static unsigned instrumentArgReachingStores(
+    Function &F, FunctionCallee hook,
+    const std::set<unsigned> &arg_indices, Type *PtrTy, IntegerType *I32,
+    const DataLayout &DL) {
+
+  unsigned count = 0;
+  for (BasicBlock &BB : F) {
+
+    for (Instruction &I : BB) {
+
+      auto *S = dyn_cast<StoreInst>(&I);
+      if (!S) continue;
+      if (isa<Argument>(S->getValueOperand())) continue;
+      if (!ptrStoreReachesArg(S, arg_indices)) continue;
+      IRBuilder<> SB(S);
+      inheritDebugLoc(SB, S);
+      Value *addr =
+          SB.CreateBitOrPointerCast(S->getPointerOperand(), PtrTy);
+      uint64_t sz = DL.getTypeStoreSize(S->getValueOperand()->getType());
+      SB.CreateCall(hook, {addr, ConstantInt::get(I32, (uint32_t)sz)});
+      ++count;
+
+    }
+
+  }
+
+  return count;
+
+}
+
 // Try to recover the allocation size of a buffer at a use-site. Returns
 // either a ConstantInt (statically known) or an SSA Value* representing
 // the runtime size, both as i64. Returns nullptr if no anchor.
 //
 // Recognizes:
 //   - alloca of constant array type                         -> ConstantInt
+//   - alloca with runtime array size (C99 VLA / clang LTO
+//     stack-promoted dynamic allocas)                       -> SSA mul
 //   - global var with constant array type                   -> ConstantInt
 //   - malloc / __afl_track_malloc / new                     -> size arg
 //   - calloc / __afl_track_calloc                           -> N*S (sat'd)
@@ -939,7 +1358,7 @@ static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source) {
 //   - __afl_track_aligned_alloc                             -> size arg
 //   - _ZnwmSt11align_val_t / _ZnamSt11align_val_t etc.      -> size arg
 //   - strndup / __afl_track_strndup                         -> n+1 (worst case)
-//   - PHI / Select where all incomings are statically known -> max constant
+//   - PHI / Select where all incomings yield a size         -> MIN (see below)
 //
 // `B` is an IRBuilder positioned where the resulting Value must be
 // available. ZExt/Mul/Select instructions for runtime sizes are inserted
@@ -947,23 +1366,50 @@ static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source) {
 // size operand dominates the malloc, which dominates any use of its
 // return.
 //
-// PHI/Select join handling: if every incoming arm yields a ConstantInt
-// size, we return their MAX as a ConstantInt (no FPs for fuzzing; we
-// accept FNs on the smaller arm). If any arm yields a non-constant
-// Value*, we return nullptr rather than emit a fresh PHI — that would
-// require placing the new PHI in the original PHI's block and threading
-// per-arm sizes through their predecessor blocks, which we can't always
-// do safely from B's insertion point.
+// PHI/Select join semantics (Bug 10 fix): take the MIN of incoming
+// sizes, not the MAX. SIZEFILL semantics — "did the function write past
+// the buffer end?" — are answered correctly only if we use the SMALLEST
+// possible buffer on any reaching path: writes within the small arm's
+// size are in-bounds; writes between the small and large arm's sizes
+// are OOB on the small-arm path and we must flag them. Taking MAX would
+// under-report (false negatives on the small arm).
+//
+// Enhancement G: when both PHI arms have a Value* (constant or not), we
+// emit a PHI of those Values at the original PHI's location. Dominance
+// is guaranteed because each per-arm size is derived from a malloc/
+// alloca that itself dominates the original PHI's edge. Same for Select
+// — emit a Select of the two sizes.
 //
 // Critically, this is what catches the libwebp-1.3.2-style idiom:
 //   size = sentinel_fn(NULL, ...);   // returns runtime size
 //   buf  = malloc(size);             // size flows through SSA
 //   sentinel_fn(buf, ...);           // we instrument here
 // — the runtime size of `buf` is recoverable from the malloc arg.
+// Internal recursive helper. `visited` guards against cyclic PHIs that
+// can occur with loop-carried pointers (e.g. a header phi feeding back
+// into itself via realloc). Without the guard, walking `phi -> realloc(phi)
+// -> phi` would recurse forever. Returning nullptr on revisit is the
+// conservative answer: "we already saw this value, we can't add more
+// signal by walking it again."
+static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
+                                       const DataLayout       &DL,
+                                       SmallPtrSetImpl<Value *> &visited);
+
 static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
                                    const DataLayout &DL) {
 
+  SmallPtrSet<Value *, 16> visited;
+  return inferBufferSizeValueImpl(V, B, DL, visited);
+
+}
+
+static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
+                                       const DataLayout       &DL,
+                                       SmallPtrSetImpl<Value *> &visited) {
+
   IntegerType *I64 = IntegerType::getInt64Ty(B.getContext());
+  if (!V) return nullptr;
+  if (!visited.insert(V).second) return nullptr;
   V = V->stripPointerCasts();
   // Peel through one level of spill (the optnone / -O0 idiom):
   //   p_slot = alloca ptr
@@ -1010,66 +1456,101 @@ static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
 
   }
 
-  // PHI join: only proceed if every incoming yields a ConstantInt size.
-  // Take the MAX as the conservative claim — we'd rather under-report
-  // overflows than abort on the legitimate larger arm.
+  // PHI join: emit a PHI of the per-arm sizes if every arm yields a Value.
+  // MIN semantics: pick the smallest reaching size so SIZEFILL flags writes
+  // that exceed the smaller arm's buffer.
   if (auto *PN = dyn_cast<PHINode>(V)) {
 
-    uint64_t best = 0;
-    bool     all_const = true;
-    for (Value *Inc : PN->incoming_values()) {
+    SmallVector<std::pair<Value *, BasicBlock *>, 4> arms;
+    bool ok = true;
+    bool all_const = true;
+    uint64_t min_const = UINT64_MAX;
+    for (unsigned i = 0, e = PN->getNumIncomingValues(); i < e; ++i) {
 
-      Value *s = inferBufferSizeValue(Inc, B, DL);
-      auto  *Ci = dyn_cast_or_null<ConstantInt>(s);
-      if (!Ci) {
+      Value      *Inc = PN->getIncomingValue(i);
+      BasicBlock *Pred = PN->getIncomingBlock(i);
+      // Emit per-arm size at the END of the predecessor (just before its
+      // terminator) so the value dominates the join point. This is safe
+      // even when the arm's malloc/alloca is conditional: the per-arm
+      // recursive call walks back to ITS malloc, which dominates the
+      // terminator (it's in this same predecessor or an ancestor).
+      IRBuilder<> PB(Pred->getTerminator());
+      Value      *s = inferBufferSizeValueImpl(Inc, PB, DL, visited);
+      if (!s) {
 
-        all_const = false;
+        ok = false;
         break;
 
       }
 
-      uint64_t v = Ci->getZExtValue();
-      if (v > best) best = v;
+      arms.push_back({s, Pred});
+      auto *Ci = dyn_cast<ConstantInt>(s);
+      if (Ci) {
+
+        if (Ci->getZExtValue() < min_const) min_const = Ci->getZExtValue();
+
+      } else {
+
+        all_const = false;
+
+      }
 
     }
 
-    if (all_const && best > 0) return ConstantInt::get(I64, best);
-    return nullptr;
+    if (!ok || arms.empty()) return nullptr;
+    if (all_const) return ConstantInt::get(I64, min_const);
+
+    // Emit a PHI of sizes at the original PHI's location, sharing its
+    // incoming-block structure. IRBuilder doesn't help here — direct
+    // PHINode::Create lets us insert before all non-PHIs in the block.
+    PHINode *NewPN = PHINode::Create(I64, (unsigned)arms.size(),
+                                     "afl.bufsz.phi", PN);
+    for (auto &kv : arms) NewPN->addIncoming(kv.first, kv.second);
+    return NewPN;
 
   }
 
-  // Select join: same conservative MAX. If both arms are constants we
-  // can fold; otherwise give up (a runtime select on raw size values
-  // would require both size Values dominate the call site, which isn't
-  // guaranteed when the sizes live in branches alongside the mallocs).
+  // Select join: same MIN semantics. If both arms have sizes (constant or
+  // not), emit a Select choosing the smaller. Operands must dominate B's
+  // insertion point — they always do if the arms came from sub-recursive
+  // calls because those operate at B (or at earlier dominating positions).
   if (auto *Sel = dyn_cast<SelectInst>(V)) {
 
-    Value *st = inferBufferSizeValue(Sel->getTrueValue(), B, DL);
-    Value *sf = inferBufferSizeValue(Sel->getFalseValue(), B, DL);
-    auto  *Ct = dyn_cast_or_null<ConstantInt>(st);
-    auto  *Cf = dyn_cast_or_null<ConstantInt>(sf);
+    Value *st =
+        inferBufferSizeValueImpl(Sel->getTrueValue(), B, DL, visited);
+    Value *sf =
+        inferBufferSizeValueImpl(Sel->getFalseValue(), B, DL, visited);
+    if (!st || !sf) return nullptr;
+    auto *Ct = dyn_cast<ConstantInt>(st);
+    auto *Cf = dyn_cast<ConstantInt>(sf);
     if (Ct && Cf) {
 
-      uint64_t m = std::max(Ct->getZExtValue(), Cf->getZExtValue());
+      uint64_t m = std::min(Ct->getZExtValue(), Cf->getZExtValue());
       return ConstantInt::get(I64, m);
 
     }
 
-    return nullptr;
+    Value *isLt = B.CreateICmpULT(st, sf);
+    return B.CreateSelect(isLt, st, sf);
 
   }
 
   if (auto *A = dyn_cast<AllocaInst>(V)) {
 
-    if (auto *Cst = dyn_cast<ConstantInt>(A->getArraySize())) {
+    Value     *arrSize = A->getArraySize();
+    uint64_t   eltBytes = DL.getTypeStoreSize(A->getAllocatedType());
+    if (auto *Cst = dyn_cast<ConstantInt>(arrSize)) {
 
-      uint64_t bytes =
-          Cst->getZExtValue() * DL.getTypeStoreSize(A->getAllocatedType());
-      return ConstantInt::get(I64, bytes);
+      return ConstantInt::get(I64, Cst->getZExtValue() * eltBytes);
 
     }
 
-    return nullptr;
+    // Enhancement F: VLA / dynamic-sized alloca — emit `arrSize * eltBytes`.
+    // arrSize dominates the alloca, which dominates any use of its result,
+    // so emitting at B's position (a use-site) is dominance-safe.
+    Value *n64 = B.CreateZExtOrTrunc(arrSize, I64);
+    return B.CreateMul(n64, ConstantInt::get(I64, eltBytes),
+                       "afl.vla.bytes");
 
   }
 
@@ -1221,10 +1702,12 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
   FunctionCallee sfCheck = M.getOrInsertFunction(
       "__afl_bug_sizefill_check", VoidTy, PtrTy, I64, I64);
-  // Dedicated SIZEFILL begin/store hooks (do NOT reuse __afl_bug_ws_*),
-  // so BUDGET and SIZEFILL can coexist under AFL_LLVM_BUG=all.
+  // Bug 4: sfBegin now takes (ptr, size). Lets the runtime range-check
+  // every store as `addr < base + size` rather than the over-permissive
+  // `addr >= base` walk that pollutes a tracked buffer's max-off with
+  // writes through unrelated higher-address buffers.
   FunctionCallee sfBegin =
-      M.getOrInsertFunction("__afl_bug_sf_begin", VoidTy, PtrTy);
+      M.getOrInsertFunction("__afl_bug_sf_begin", VoidTy, PtrTy, I64);
   FunctionCallee sfStore =
       M.getOrInsertFunction("__afl_bug_sf_store", VoidTy, PtrTy,
                             IntegerType::getInt32Ty(C));
@@ -1238,19 +1721,22 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
-    int idx = findSentinelParam(F);
+    int  idx = findSentinelParam(F);
     if (idx < 0) continue;
-    int out_idx = -1;
+    int  out_idx = -1;
+    int  out_bits = 0;
+    bool out_is_inout = false;
     if (!F.getReturnType()->isIntegerTy()) {
 
       // Fall back to output-param convention. Only adopt if we find a
       // distinct pointer-to-integer arg that the function writes to.
-      out_idx = findOutSizeParam(F, idx);
+      out_idx =
+          findOutSizeParam(F, idx, &out_bits, &out_is_inout);
       if (out_idx < 0) continue;
 
     }
 
-    sentinel[&F] = {idx, out_idx};
+    sentinel[&F] = {idx, out_idx, out_bits, out_is_inout};
 
   }
 
@@ -1267,7 +1753,11 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
   // mark the callee for store-instrumentation.
   bool                 changed = false;
   unsigned             instrumented = 0;
-  std::set<Function *> callees_to_instrument;
+  // Bug 3: per-callee set of which arg indices are sentinel-traced.
+  // Stores in the callee only count toward the SIZEFILL max-off if they
+  // reach one of these specific args. Prevents the callee's own write
+  // to *out_size from being counted against the buffer's frame.
+  std::map<Function *, std::set<unsigned>> callee_sentinel_args;
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
@@ -1284,6 +1774,8 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
         if (it == sentinel.end()) continue;
         unsigned pi = (unsigned)it->second.sentinel_idx;
         int      oi = it->second.out_size_idx;
+        int      obits = it->second.out_size_bits;
+        bool     is_inout = it->second.out_is_inout;
         if (pi >= Call->arg_size()) continue;
         Value *p = Call->getArgOperand(pi);
         if (isa<ConstantPointerNull>(p->stripPointerCasts())) continue;
@@ -1293,36 +1785,62 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
         Value *bufsz = inferBufferSizeValue(p, Pre, M.getDataLayout());
         if (!bufsz) continue;
 
+        // Bug 2: defensively zero the out-param BEFORE the call. If the
+        // callee returns early without writing it (e.g., an internal
+        // error path), the post-call load would otherwise pick up
+        // garbage from the caller's stack and almost certainly trip
+        // the SIZEFILL abort. Zero is the only safe pre-call value:
+        // it under-reports rather than over-reports, so any abort
+        // signal is real. We zero at the actual width discovered by
+        // findOutSizeParam (Bug 1) so we don't accidentally clobber
+        // a neighboring field.
+        //
+        // CRITICAL: skip the zero when the callee reads through this
+        // arg (in/out semantics). Some APIs pass a max-size or hint via
+        // the same pointer the function later writes its actual count
+        // into; zeroing that destroys the input. `out_is_inout` is set
+        // by findOutSizeParam when any LoadInst through the arg or its
+        // spill-loads is detected. Conservative — false negatives on
+        // "wrote but also dead-loaded" are preferable to clobbering a
+        // legitimate input.
+        if (oi >= 0 && (unsigned)oi < Call->arg_size() &&
+            Call->getArgOperand(oi)->getType()->isPointerTy() &&
+            obits > 0 && !is_inout) {
+
+          IntegerType *outTy =
+              IntegerType::get(C, (unsigned)obits);
+          Value *outPtrZ =
+              Pre.CreateBitOrPointerCast(Call->getArgOperand(oi), PtrTy);
+          Pre.CreateAlignedStore(ConstantInt::get(outTy, 0), outPtrZ,
+                                 llvm::MaybeAlign(1));
+
+        }
+
         Value *ptrCast = Pre.CreateBitOrPointerCast(p, PtrTy);
-        Pre.CreateCall(sfBegin, {ptrCast});
+        Pre.CreateCall(sfBegin, {ptrCast, bufsz});
 
         IRBuilder<> Post(Call->getNextNode());
         inheritDebugLoc(Post, Call);
         // Source the returned-size value: from the integer return if
-        // out_idx < 0, otherwise by loading through the out-param. The
-        // load is safe — control reached here, so the callee returned
-        // normally and (per the contract) wrote the size.
+        // out_idx < 0, otherwise by loading through the out-param at
+        // the EXACT width discovered (Bug 1). Loading wider than the
+        // pointee reads adjacent caller-stack garbage.
         Value *ret64 = nullptr;
         if (oi < 0) {
 
           ret64 = Post.CreateZExtOrTrunc(Call, I64);
 
         } else if ((unsigned)oi < Call->arg_size() &&
-                   Call->getArgOperand(oi)->getType()->isPointerTy()) {
+                   Call->getArgOperand(oi)->getType()->isPointerTy() &&
+                   obits > 0) {
 
-          Value *outPtr = Call->getArgOperand(oi);
-          // Read as i64; the actual stored width is determined by the
-          // pointee type. Use the function's own arg type to pick the
-          // load size — cf->getArg(oi) tells us the pointer's pointee.
-          // With opaque pointers we have to guess from the stores; the
-          // common case is size_t / i32, so load i64 via an aligned
-          // load through a bitcast. Pick i64 to capture full size_t.
-          IntegerType *outIntTy = IntegerType::getInt64Ty(C);
+          Value       *outPtr = Call->getArgOperand(oi);
+          IntegerType *outIntTy = IntegerType::get(C, (unsigned)obits);
           Value       *castPtr =
               Post.CreateBitOrPointerCast(outPtr, PtrTy);
-          ret64 = Post.CreateAlignedLoad(outIntTy, castPtr,
-                                         llvm::MaybeAlign(1),
-                                         "afl.sf.outsize");
+          Value *narrow = Post.CreateAlignedLoad(
+              outIntTy, castPtr, llvm::MaybeAlign(1), "afl.sf.outsize");
+          ret64 = Post.CreateZExtOrTrunc(narrow, I64);
 
         } else {
 
@@ -1333,7 +1851,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
         Value *pcast = Post.CreateBitOrPointerCast(p, PtrTy);
         Post.CreateCall(sfCheck, {pcast, ret64, bufsz});
         ++instrumented;
-        callees_to_instrument.insert(cf);
+        callee_sentinel_args[cf].insert(pi);
         changed = true;
 
       }
@@ -1342,37 +1860,21 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
   }
 
-  // Instrument stores in candidate callees. SIZEFILL doesn't have a
-  // single budget-traced arg (the sentinel-arg discovery is per-callee
-  // not per-call-site), so pass an empty arg_indices set — equivalent to
-  // "any arg counts". Same robust walk as BUDGET via the shared helper.
+  // Instrument stores in candidate callees. Bug 3: only stores that
+  // reach the sentinel arg (the buffer), NOT every pointer arg. The
+  // callee's own write to *out_size, *status, etc. would otherwise be
+  // counted against the buffer's max-off and trip a false-positive abort.
   // Honor the user's instrument-list blocklist on the callee too —
-  // otherwise excluded code would still get its stores instrumented when
-  // it happens to be a sentinel callee.
-  IntegerType                          *I32 = IntegerType::getInt32Ty(C);
-  const std::set<unsigned>              any_arg;
-  for (Function *F : callees_to_instrument) {
+  // otherwise excluded code would still get its stores instrumented
+  // when it happens to be a sentinel callee.
+  IntegerType *I32 = IntegerType::getInt32Ty(C);
+  for (auto &kv : callee_sentinel_args) {
 
+    Function                 *F = kv.first;
+    const std::set<unsigned> &args = kv.second;
     if (!isInInstrumentList(F, F->getName().str())) continue;
-    for (BasicBlock &BB : *F) {
-
-      for (Instruction &I : BB) {
-
-        auto *S = dyn_cast<StoreInst>(&I);
-        if (!S) continue;
-        if (isa<Argument>(S->getValueOperand())) continue;
-        if (!ptrStoreReachesArg(S, any_arg)) continue;
-        IRBuilder<> SB(S);
-        inheritDebugLoc(SB, S);
-        Value *addr =
-            SB.CreateBitOrPointerCast(S->getPointerOperand(), PtrTy);
-        uint64_t sz = M.getDataLayout().getTypeStoreSize(
-            S->getValueOperand()->getType());
-        SB.CreateCall(sfStore, {addr, ConstantInt::get(I32, (uint32_t)sz)});
-
-      }
-
-    }
+    instrumentArgReachingStores(*F, sfStore, args, PtrTy, I32,
+                                M.getDataLayout());
 
   }
 
@@ -1391,7 +1893,8 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 // `num_nodes == 2*offset[15]-1` — the triggering input sits at the tight
 // edge of all four simultaneously, and edge-coverage alone cannot
 // distinguish "barely passed" from "passed with room to spare".
-bool runSlackMode(Module &M, ModuleAnalysisManager &) {
+bool runSlackMode(Module &M, ModuleAnalysisManager &,
+                  const BugPassState &S) {
 
   LLVMContext &C = M.getContext();
   Type        *VoidTy = Type::getVoidTy(C);
@@ -1411,22 +1914,68 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &) {
 
     // Collect first, instrument afterwards — avoid the iterator visiting
     // our own inserted Sub/Neg/Select instructions.
+    //
+    // Enhancement B: if SCALAR already instrumented an operand value
+    // (which itself produces a MAX-rule update on growth), and that
+    // value is one of THIS cmp's operands, we can skip the SLACK hook —
+    // the fuzzer already gets a gradient signal from the SCALAR hook on
+    // that value's growth. SLACK still fires when no operand was SCALAR-
+    // covered, or when both operands are constants/loads/etc. with no
+    // SCALAR coverage.
+    auto                            scalarIt = S.scalar_covered.find(&F);
+    const SmallPtrSet<Value *, 32> *scalarCov =
+        scalarIt != S.scalar_covered.end() ? &scalarIt->second : nullptr;
+    auto opAlreadyCovered = [&](Value *V) -> bool {
+
+      if (!scalarCov) return false;
+      return scalarCov->count(V) > 0;
+
+    };
+
     std::vector<ICmpInst *> targets;
+    std::vector<FCmpInst *> fp_targets;  // Enh D
     for (BasicBlock &BB : F) {
 
       for (Instruction &I : BB) {
 
-        auto *Cmp = dyn_cast<ICmpInst>(&I);
-        if (!Cmp) continue;
-        Type *OpTy = Cmp->getOperand(0)->getType();
-        auto *IT = dyn_cast<IntegerType>(OpTy);
-        if (!IT) continue;  // skip pointer / vector / fp comparisons
-        if (IT->getBitWidth() < 8 || IT->getBitWidth() > 64) continue;
-        // Skip if both operands constant — optimizer would fold; defensive.
-        if (isa<Constant>(Cmp->getOperand(0)) &&
-            isa<Constant>(Cmp->getOperand(1)))
+        if (auto *Cmp = dyn_cast<ICmpInst>(&I)) {
+
+          Type *OpTy = Cmp->getOperand(0)->getType();
+          auto *IT = dyn_cast<IntegerType>(OpTy);
+          if (!IT) continue;  // skip pointer / vector comparisons
+          if (IT->getBitWidth() < 8 || IT->getBitWidth() > 64) continue;
+          // Skip if both operands constant — optimizer would fold; defensive.
+          if (isa<Constant>(Cmp->getOperand(0)) &&
+              isa<Constant>(Cmp->getOperand(1)))
+            continue;
+          // Enhancement B: dedup with SCALAR.
+          if (opAlreadyCovered(Cmp->getOperand(0)) ||
+              opAlreadyCovered(Cmp->getOperand(1)))
+            continue;
+          targets.push_back(Cmp);
           continue;
-        targets.push_back(Cmp);
+
+        }
+
+        // Enhancement D: FP comparisons. Image/audio codecs and ML
+        // inference do tight FP comparisons that are blind to the integer
+        // SLACK channel. Float/double only — vectors and other FP types
+        // (half/bfloat/x86_fp80) skipped to keep the extension simple
+        // and the slack semantics meaningful at f64 precision.
+        if (auto *FCmp = dyn_cast<FCmpInst>(&I)) {
+
+          Type *FT = FCmp->getOperand(0)->getType();
+          if (!FT->isFloatTy() && !FT->isDoubleTy()) continue;
+          // Ordered/unordered: instrument both. NaN-containing operands
+          // produce NaN slack, which fptoui rounds to a defined large
+          // value below — acceptable; NaN-producing inputs are typically
+          // interesting anyway.
+          if (isa<Constant>(FCmp->getOperand(0)) &&
+              isa<Constant>(FCmp->getOperand(1)))
+            continue;
+          fp_targets.push_back(FCmp);
+
+        }
 
       }
 
@@ -1440,6 +1989,7 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &) {
       inheritDebugLoc(B, Cmp);
       Value *Op0 = Cmp->getOperand(0);
       Value *Op1 = Cmp->getOperand(1);
+
       // Sign-extend for signed predicates, zero-extend for unsigned /
       // equality. The choice is load-bearing here: a naive `|diff|` via
       // select-on-sign breaks for i64 unsigned operands whose true
@@ -1449,9 +1999,31 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &) {
       // branch-free, correct at every width, no overflow on the result
       // because `large - small` of same-width nonneg-in-domain values
       // never wraps.
+      //
+      // Enhancement C: for EQ/NE (which carry no signedness in LLVM)
+      // infer signedness from the operand-defining instructions. If
+      // either operand is a SExt result, treat the comparison as signed
+      // so a tight "-1 vs 0" distance shows as slack=1, not slack≈2^32.
+      // Detection: walk through one bitcast (opaque pointers don't
+      // affect this), look at the defining SExtInst.
+      auto isSExtDefined = [](Value *V) -> bool {
+
+        V = V->stripPointerCasts();
+        return isa<SExtInst>(V);
+
+      };
+
+      bool signed_mode = Cmp->isSigned();
+      if (Cmp->isEquality() &&
+          (isSExtDefined(Op0) || isSExtDefined(Op1))) {
+
+        signed_mode = true;
+
+      }
+
       Value *Op0_64, *Op1_64;
       Value *lt;
-      if (Cmp->isSigned()) {
+      if (signed_mode) {
 
         Op0_64 = B.CreateSExtOrTrunc(Op0, I64);
         Op1_64 = B.CreateSExtOrTrunc(Op1, I64);
@@ -1476,6 +2048,44 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &) {
       // and id=0 in SLACK no longer collapses to SCALAR's slot 0.
       uint32_t id = siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
       B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack});
+      ++sites;
+      changed = true;
+
+    }
+
+    // Enhancement D: FP slack. Compute |fpext(a) - fpext(b)| at f64,
+    // then convert to i64 via a saturating fptoui. NaN handling is the
+    // load-bearing detail here: LLVM's `llvm.fptoui.sat.i64.f64` returns
+    // **0** on NaN — feeding 0 to slackHook would put the slot at its
+    // MAX inv bucket (tight match), drowning real-signal updates from
+    // non-NaN comparisons at the same site. Detect NaN explicitly via
+    // `fcmp uno` and substitute UINT64_MAX so the slack hook's MAX
+    // update rule treats NaN as "no signal" (inv = 0, no overwrite).
+    Type     *F64 = Type::getDoubleTy(C);
+    Constant *u64_max = ConstantInt::get(I64, (uint64_t)-1);
+    for (FCmpInst *FCmp : fp_targets) {
+
+      IRBuilder<> B(FCmp);
+      inheritDebugLoc(B, FCmp);
+      Value *Op0 = FCmp->getOperand(0);
+      Value *Op1 = FCmp->getOperand(1);
+      Value *Op0d = (Op0->getType() == F64) ? Op0 : B.CreateFPExt(Op0, F64);
+      Value *Op1d = (Op1->getType() == F64) ? Op1 : B.CreateFPExt(Op1, F64);
+      Value *diff = B.CreateFSub(Op0d, Op1d);
+      // |diff| via FAbs intrinsic (well-supported across LLVM versions).
+      Value *absD = B.CreateUnaryIntrinsic(Intrinsic::fabs, diff);
+      // NaN test BEFORE the saturating cast — `fcmp uno x, x` is true
+      // iff x is NaN (relies only on the standard floating-point
+      // unordered semantics, no target intrinsic needed).
+      Value *isNaN = B.CreateFCmpUNO(absD, absD);
+      // Saturating cast: well-defined for Inf (clamps to UINT64_MAX)
+      // and for in-range values. NaN result (0) is overridden below.
+      Value *slack_sat = B.CreateIntrinsic(
+          Intrinsic::fptoui_sat, {I64, F64}, {absD});
+      Value *slack_fp = B.CreateSelect(isNaN, u64_max, slack_sat);
+      uint32_t id =
+          siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
+      B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack_fp});
       ++sites;
       changed = true;
 
@@ -1840,6 +2450,14 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
             // Then post-insert in %edge before the terminator. Update PHIs
             // in NormalDest so any incoming from the old parent now lists
             // %edge as the source.
+            //
+            // Bug 13 note: this is a CFG mutation (new block, new edge,
+            // PHI rewrite). ALLOCSIZE intentionally does not use LoopInfo,
+            // so no analysis-cache invalidation is needed here. If a
+            // future change adds LoopInfo usage in this phase, that
+            // analysis must be invalidated or re-built after this edge
+            // split — the new EdgeBB block is not in the original loop
+            // structure.
             BasicBlock *EdgeBB = BasicBlock::Create(
                 C, II->getParent()->getName() + ".alloc.edge",
                 II->getFunction(), NormalDest);
@@ -1917,7 +2535,32 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   // 4-byte store at the last 1 byte of the buffer is flagged correctly.
   FunctionCallee oracle =
       M.getOrInsertFunction("__afl_alloc_oracle", VoidTy, PtrTy, I32);
+  // Enhancement I: separate hook with i64 length for memcpy/memmove/memset.
+  // Integer-overflow bugs that wrap a memcpy length to a small value
+  // (e.g., size_t computed from input where the high bits got truncated)
+  // are exactly the bug class where ALLOCSIZE wants the full length —
+  // the i32 hook used to silently truncate, hiding the overflow.
+  FunctionCallee oracle_n =
+      M.getOrInsertFunction("__afl_alloc_oracle_n", VoidTy, PtrTy, I64);
+  // Enhancement H: type-confusion signal. The runtime tracks the first
+  // (elem_size, alignment-class) pair seen at each allocation; a later
+  // store with a mismatched element size is reported as a type-confusion
+  // smell. Useful for catching UAF-with-realloc-confusion patterns and
+  // C++ type-punning bugs where a `Foo[]` allocation later sees a
+  // `Bar*` store of different size.
+  FunctionCallee oracle_typed = M.getOrInsertFunction(
+      "__afl_alloc_oracle_typed", VoidTy, PtrTy, I32, I32);
 
+  // Bug 14 note: tracked_callee_names stores StringRef. Two sources:
+  //   (1) kRewriteSpecs[i].tracked — string literals in static data,
+  //       lifetime is the whole program. Safe.
+  //   (2) `n` from `custom` (caller-owned vector<string>). The implicit
+  //       string->StringRef conversion below stores a view that is only
+  //       valid as long as `custom` lives. `custom` is `runAllocSizeMode`'s
+  //       parameter, so it lives until this function returns — covering
+  //       the entire use of tracked_callee_names below. Safe but fragile:
+  //       if this set is ever returned or stored beyond this function,
+  //       the strings must be deep-copied (std::set<std::string>) first.
   std::set<StringRef> tracked_callee_names;
   for (const AllocRewriteSpec &s : kRewriteSpecs) {
 
@@ -2065,8 +2708,9 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         // memcpy / memmove / memset: clang emits these for struct copies
         // and aggregate inits. Without this branch, a 4 KB memcpy into a
         // 32-byte tracked buffer is invisible. Feed (dest, len) to the
-        // oracle, truncating len to i32 (huge memcpys would lose info
-        // but the oracle's shadow check covers them via dest+len).
+        // oracle. Enhancement I: pass length as i64 to the dedicated
+        // oracle_n hook so an integer-overflow that wraps a memcpy's
+        // length to a small i32 value is still visible to the oracle.
         if (auto *MI = dyn_cast<MemIntrinsic>(&I)) {
 
           Value *dest = MI->getRawDest();
@@ -2076,8 +2720,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
           IRBuilder<> MB(MI);
           inheritDebugLoc(MB, MI);
           Value *addr = MB.CreateBitOrPointerCast(dest, PtrTy);
-          Value *lenI32 = MB.CreateZExtOrTrunc(len, I32);
-          MB.CreateCall(oracle, {addr, lenI32});
+          Value *lenI64 = MB.CreateZExtOrTrunc(len, I64);
+          MB.CreateCall(oracle_n, {addr, lenI64});
           ++mem_sites;
           continue;
 
@@ -2094,6 +2738,27 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         uint64_t sz = M.getDataLayout().getTypeStoreSize(
             S->getValueOperand()->getType());
         SB.CreateCall(oracle, {addr, ConstantInt::get(I32, (uint32_t)sz)});
+        // Enhancement H: feed a type-confusion signal. The runtime
+        // remembers the first (element-size, alignment) pair observed
+        // at each tracked allocation; a later store with a different
+        // element-size triggers a one-shot warning. Useful for catching
+        // realloc-with-different-type and C++ type-punning patterns
+        // where the same buffer is later treated as a different type.
+        // Skip when sz==0 (zero-sized struct stores) — no type signal.
+        if (sz) {
+
+          // Element size and alignment together form the type
+          // fingerprint. `getAlign().value() == 0` only happens on
+          // malformed IR, but defend anyway (alignment of 1 means
+          // "byte-aligned" which is also a valid fingerprint value).
+          unsigned align = S->getAlign().value();
+          if (align == 0) align = 1;
+          SB.CreateCall(oracle_typed,
+                        {addr, ConstantInt::get(I32, (uint32_t)sz),
+                         ConstantInt::get(I32, align)});
+
+        }
+
         ++store_sites;
 
       }

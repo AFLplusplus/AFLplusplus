@@ -217,13 +217,21 @@ static u32 __afl_bug_map_local[MAP_SIZE_BUG_ENTRIES];
    outer wsCheck became a silent no-op — losing real budget violations
    in nested call patterns. With a stack, every store updates EVERY
    active frame (so an outer call's contract correctly includes writes
-   done by its callees) and each call's check inspects its own frame. */
+   done by its callees) and each call's check inspects its own frame.
+
+   `cap` is the upper bound for stores under this frame: writes at or
+   past `base + cap` are not the buffer's writes and must be ignored so
+   their max_off doesn't pollute the frame's contract check. BUDGET
+   doesn't know the buffer cap (it's the function's contract that
+   determines it), so BUDGET frames set cap=UINT64_MAX. SIZEFILL knows
+   the caller buffer size and uses it. */
 #define __AFL_BUG_FRAME_STACK_DEPTH 16
 typedef struct __afl_bug_frame {
 
   const void *base;
   u64         max_off;
   u64         total;
+  u64         cap;
 
 } __afl_bug_frame;
 
@@ -252,6 +260,12 @@ typedef struct AllocSizeRecord {
   uint8_t   in_use;
   uint64_t  max_observed_off;     /* tracked by __afl_alloc_oracle */
   uint8_t   derive_logged;        /* set after __afl_size_derive_log */
+  /* Type-confusion fingerprint: the first observed store's element
+     size (in bytes) and alignment. Later stores with mismatching
+     element size are reported once per record. 0 = unobserved. */
+  uint32_t  first_elem_size;
+  uint32_t  first_elem_align;
+  uint8_t   type_warned;
 
 } AllocSizeRecord;
 
@@ -3869,6 +3883,7 @@ void __afl_bug_ws_begin(const void *ptr_before) {
   __afl_bug_ws_stack[__afl_bug_ws_top].base = ptr_before;
   __afl_bug_ws_stack[__afl_bug_ws_top].max_off = 0;
   __afl_bug_ws_stack[__afl_bug_ws_top].total = 0;
+  __afl_bug_ws_stack[__afl_bug_ws_top].cap = (u64)-1; /* unbounded */
 
 }
 
@@ -3876,16 +3891,21 @@ void __afl_bug_ws_store(const void *addr, uint32_t size) {
 
   if (!__afl_bug_active || __afl_bug_ws_top < 0) return;
   uintptr_t a = (uintptr_t)addr;
-  /* Update every active frame whose base is at or before addr — an
-     outer call's contract should include writes done by callees on its
-     behalf, so we don't hide nested writes from outer frames. */
+  /* Update every active frame whose base is at or before addr AND the
+     write end fits under the frame's cap. The cap test prevents an
+     unrelated higher-address store inside the callee from inflating
+     the tracked max_off — exactly the false-positive class that
+     motivated SIZEFILL's size-bounded sf_begin. BUDGET frames have
+     cap=UINT64_MAX so this is a no-op for them. */
   for (int i = 0; i <= __afl_bug_ws_top; ++i) {
 
     uintptr_t base = (uintptr_t)__afl_bug_ws_stack[i].base;
     if (a < base) continue;
-    uint64_t off = (uint64_t)(a - base) + size;
-    if (off > __afl_bug_ws_stack[i].max_off)
-      __afl_bug_ws_stack[i].max_off = off;
+    uint64_t off = (uint64_t)(a - base);
+    uint64_t end = off + size;
+    if (end > __afl_bug_ws_stack[i].cap) continue;
+    if (end > __afl_bug_ws_stack[i].max_off)
+      __afl_bug_ws_stack[i].max_off = end;
     __afl_bug_ws_stack[i].total += size;
 
   }
@@ -3935,7 +3955,7 @@ void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size) {
 /* Independent SIZEFILL stack so it can coexist with BUDGET under
    AFL_LLVM_BUG=all without clobbering each other. Same begin/store/
    check discipline as ws_*. */
-void __afl_bug_sf_begin(const void *ptr_arg) {
+void __afl_bug_sf_begin(const void *ptr_arg, uint64_t caller_buf_size) {
 
   if (!__afl_bug_active) return;
   if (__afl_bug_sf_top + 1 >= __AFL_BUG_FRAME_STACK_DEPTH) return;
@@ -3943,6 +3963,31 @@ void __afl_bug_sf_begin(const void *ptr_arg) {
   __afl_bug_sf_stack[__afl_bug_sf_top].base = ptr_arg;
   __afl_bug_sf_stack[__afl_bug_sf_top].max_off = 0;
   __afl_bug_sf_stack[__afl_bug_sf_top].total = 0;
+  /* Cap = caller_buf_size + UNRELATED_SLACK. Writes past the buffer
+     end but within UNRELATED_SLACK count toward max_off (so a real
+     OOB overrun of a few KB still trips `max_off > caller_buf_size`
+     in __afl_bug_sizefill_check); writes far beyond — almost certainly
+     belonging to a different allocation that happens to live higher
+     than this buffer — are filtered. 64 KiB is a generous plausibility
+     radius; real-world bug patterns rarely overflow by more.
+     Pass 0 for unbounded behavior. */
+#define __AFL_BUG_SF_UNRELATED_SLACK ((u64)(64 * 1024))
+  u64 cap;
+  if (caller_buf_size == 0) {
+
+    cap = (u64)-1;
+
+  } else if (caller_buf_size > (u64)-1 - __AFL_BUG_SF_UNRELATED_SLACK) {
+
+    cap = (u64)-1;
+
+  } else {
+
+    cap = caller_buf_size + __AFL_BUG_SF_UNRELATED_SLACK;
+
+  }
+
+  __afl_bug_sf_stack[__afl_bug_sf_top].cap = cap;
 
 }
 
@@ -3954,9 +3999,11 @@ void __afl_bug_sf_store(const void *addr, uint32_t size) {
 
     uintptr_t base = (uintptr_t)__afl_bug_sf_stack[i].base;
     if (a < base) continue;
-    uint64_t off = (uint64_t)(a - base) + size;
-    if (off > __afl_bug_sf_stack[i].max_off)
-      __afl_bug_sf_stack[i].max_off = off;
+    uint64_t off = (uint64_t)(a - base);
+    uint64_t end = off + size;
+    if (end > __afl_bug_sf_stack[i].cap) continue;
+    if (end > __afl_bug_sf_stack[i].max_off)
+      __afl_bug_sf_stack[i].max_off = end;
 
   }
 
@@ -4115,6 +4162,9 @@ void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
   __afl_alloc_records[idx].in_use = 1;
   __afl_alloc_records[idx].max_observed_off = 0;
   __afl_alloc_records[idx].derive_logged = 0;
+  __afl_alloc_records[idx].first_elem_size = 0;
+  __afl_alloc_records[idx].first_elem_align = 0;
+  __afl_alloc_records[idx].type_warned = 0;
   __afl_alloc_shadow_paint((uintptr_t)ptr, size, (u8)idx);
   __AFL_ALLOC_UNLOCK;
 
@@ -4286,7 +4336,10 @@ void __afl_track_free(void *ptr) {
 
 }
 
-void __afl_alloc_oracle(const void *ptr, uint32_t store_size) {
+/* Shared oracle body. Takes a u64 length so the i32 and i64 callers can
+   funnel into one implementation; lengths beyond the tracked buffer's
+   end still produce a single soft-OOB abort. */
+static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
 
   if (!__afl_allocsize_active || !__afl_alloc_shadow) return;
   uintptr_t a = (uintptr_t)ptr;
@@ -4313,9 +4366,9 @@ void __afl_alloc_oracle(const void *ptr, uint32_t store_size) {
   if (a >= end || sz > (uint64_t)(end - a)) {
 
     fprintf(stderr,
-            "[afl-bug] ALLOCSIZE soft-OOB: %u-byte write at %p, allocation "
+            "[afl-bug] ALLOCSIZE soft-OOB: %llu-byte write at %p, allocation "
             "[%p..%p) (size=%llu, site=%u, off=%llu)\n",
-            (unsigned)sz, ptr, (void *)r->base, (void *)end,
+            (unsigned long long)sz, ptr, (void *)r->base, (void *)end,
             (unsigned long long)r->size, r->alloc_site_id,
             (unsigned long long)(a - r->base));
     abort();
@@ -4334,6 +4387,58 @@ void __afl_alloc_oracle(const void *ptr, uint32_t store_size) {
   u32 slot2 = ((r->alloc_site_id * 1009u) ^ (bucket * 17u)) &
               (MAP_SIZE_BUG_ENTRIES - 1);
   if (__afl_bug_map[slot2] < (bucket + 1u)) __afl_bug_map[slot2] = bucket + 1u;
+
+}
+
+void __afl_alloc_oracle(const void *ptr, uint32_t store_size) {
+
+  __afl_alloc_oracle_impl(ptr, (uint64_t)store_size);
+
+}
+
+void __afl_alloc_oracle_n(const void *ptr, uint64_t store_size) {
+
+  __afl_alloc_oracle_impl(ptr, store_size);
+
+}
+
+/* Type-confusion smell. We remember the first observed (elem_size,
+   alignment) pair per allocation; any later store whose elem_size
+   differs triggers a one-shot warning on stderr. This is informational,
+   not fatal — type-punning is legal in C/C++ and we don't want to
+   abort benign programs, only flag the smell so the fuzzer's stderr
+   pickups can correlate with crashes downstream. */
+void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
+                              uint32_t alignment) {
+
+  if (!__afl_allocsize_active || !__afl_alloc_shadow) return;
+  if (!elem_size) return;  /* zero-width stores carry no type signal */
+  uintptr_t a = (uintptr_t)ptr;
+  if (a < __afl_alloc_shadow_origin) return;
+  uintptr_t off = a - __afl_alloc_shadow_origin;
+  if (off >= MAP_SIZE_ALLOCSHADOW_RANGE) return;
+  u8 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+  if (!idx) return;
+  AllocSizeRecord *r = &__afl_alloc_records[idx];
+  if (!r->in_use) return;
+  if (!r->first_elem_size) {
+
+    /* First store wins; record. Subsequent stores with the same size
+       are silent. */
+    r->first_elem_size = elem_size;
+    r->first_elem_align = alignment;
+    return;
+
+  }
+
+  if (r->first_elem_size == elem_size) return;
+  if (r->type_warned) return;  /* one report per allocation */
+  r->type_warned = 1;
+  fprintf(stderr,
+          "[afl-bug] ALLOCSIZE type-confusion: site=%u first elem_size=%u "
+          "(align=%u), later elem_size=%u (align=%u) at %p\n",
+          r->alloc_site_id, r->first_elem_size, r->first_elem_align,
+          elem_size, alignment, ptr);
 
 }
 
