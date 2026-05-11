@@ -3918,6 +3918,27 @@ void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
 
 }
 
+/* SLACK: |op0 - op1| per icmp site. Designed to coexist with the MAX-based
+   scalar/loop hooks on the same __afl_bug_map:
+     - We invert the bucket (small slack -> large stored value) so a MAX
+       update preserves the tightest match seen.
+     - We hash the id with a SLACK-specific salt before masking. Scalar/loop
+       use `id & MASK` directly; slack uses `(id * 2654435761u) & MASK`.
+       Collisions still happen at the noise floor but the two channels no
+       longer trample each other on adjacent low IDs.
+   Net: a smaller-than-ever slack at a given site wins; large slack from
+   other paths can't overwrite it. */
+void __afl_bug_slack_min(uint32_t id, uint64_t slack) {
+
+  if (!__afl_bug_active || !__afl_bug_map) return;
+  /* ceil(log2(slack+1)), capped at 64. Slack==0 (tight equality) -> 0. */
+  u32 log_slack = slack ? (64u - (u32)__builtin_clzll(slack)) : 0;
+  u32 inv = 64u - log_slack;  /* 64 for slack==0, shrinks as slack grows */
+  u32 slot = (id * 2654435761u) & (MAP_SIZE_BUG_ENTRIES - 1);
+  if (__afl_bug_map[slot] < inv) __afl_bug_map[slot] = inv;
+
+}
+
 /* ----- AllocSizeOracle runtime ----- */
 
 static void __afl_alloc_shadow_init(uintptr_t hint) {
@@ -4112,7 +4133,7 @@ void __afl_track_free(void *ptr) {
 
 }
 
-void __afl_alloc_oracle(const void *ptr) {
+void __afl_alloc_oracle(const void *ptr, uint32_t store_size) {
 
   if (!__afl_allocsize_active || !__afl_alloc_shadow) return;
   uintptr_t a = (uintptr_t)ptr;
@@ -4124,19 +4145,24 @@ void __afl_alloc_oracle(const void *ptr) {
   AllocSizeRecord *r = &__afl_alloc_records[idx];
   if (!r->in_use) return;
   uintptr_t end = r->base + r->size;
+  /* Treat zero-width (e.g. struct-of-size-0 or unknown) as one byte so the
+     oracle still has a defined tripwire. */
+  uint64_t sz = store_size ? store_size : 1;
   /* Always update max_observed_off, regardless of OOB status — size-derive
      wants to know "how far did the largest write reach" even on benign
-     runs. The +1 covers a 1-byte store; if we later track per-store size
-     we can refine. */
-  uint64_t off_now = (uint64_t)(a - r->base) + 1;
+     runs. We track the byte just past the store (off + sz). */
+  uint64_t off_now = (uint64_t)(a - r->base) + sz;
   if (off_now > r->max_observed_off) r->max_observed_off = off_now;
-  /* (3) Soft-OOB tripwire: ptr is past end. */
-  if (a >= end) {
+  /* (3) Soft-OOB tripwire: store extends past end. A 4-byte store one byte
+     before the end of the buffer is OOB; the old `a >= end` check missed
+     it. Use `a + sz > end`, written as `sz > end - a` to avoid wrap when
+     `a` is far past `end`. */
+  if (a >= end || sz > (uint64_t)(end - a)) {
 
     fprintf(stderr,
-            "[afl-bug] ALLOCSIZE soft-OOB: write at %p, allocation "
+            "[afl-bug] ALLOCSIZE soft-OOB: %u-byte write at %p, allocation "
             "[%p..%p) (size=%llu, site=%u, off=%llu)\n",
-            ptr, (void *)r->base, (void *)end,
+            (unsigned)sz, ptr, (void *)r->base, (void *)end,
             (unsigned long long)r->size, r->alloc_site_id,
             (unsigned long long)(a - r->base));
     abort();

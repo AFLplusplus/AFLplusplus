@@ -12,6 +12,7 @@
 #define AFL_BUG_ENV_ALLOCSIZE        "AFL_LLVM_BUG_ALLOCSIZE"
 #define AFL_BUG_ENV_ALLOCSIZE_FUNCS  "AFL_LLVM_BUG_ALLOCSIZE_FUNCS"
 #define AFL_BUG_ENV_ALLOCSIZE_DERIVE "AFL_LLVM_BUG_ALLOCSIZE_DERIVE"
+#define AFL_BUG_ENV_SLACK            "AFL_LLVM_BUG_SLACK"
 
 // Number of u32 slots in the bug map (max-value coverage channel).
 // Must be a power of two. Sized like IJON (512) but wider because we
@@ -40,6 +41,13 @@ void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size);
 void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
                               uint64_t caller_buf_size);
 
+// SLACK: per-icmp |op0 - op1| feedback. Semantically a MIN-channel (smaller
+// slack = tighter match = more interesting), but mapped onto the shared
+// MAX-based __afl_bug_map via inverse-bucket so it can coexist with scalar /
+// loop hooks without clobbering. Slot is hashed with a SLACK-specific salt
+// to keep collisions with scalar/loop IDs at the noise floor.
+void __afl_bug_slack_min(uint32_t id, uint64_t slack);
+
 // ALLOCSIZE: allocation tracking and per-store oracle.
 // All __afl_track_* return the underlying allocator's result, side-effect:
 // register the new region in the runtime shadow table.
@@ -58,9 +66,11 @@ void  __afl_track_free(void *ptr);
 void  __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id);
 void  __afl_alloc_unregister(void *ptr);
 
-// Per-store oracle. Takes a single pointer; runtime decides whether
-// the address is tracked (cheap shadow lookup) and emits feedback.
-void  __afl_alloc_oracle(const void *ptr);
+// Per-store oracle. Takes the store address and the width of the store in
+// bytes; runtime decides whether the address is tracked (cheap shadow
+// lookup) and uses `addr + size` as the post-write end so a 4-byte store at
+// the last byte of a buffer is correctly classified as OOB.
+void  __afl_alloc_oracle(const void *ptr, uint32_t store_size);
 
 // Initialized to 0, set to 1 by runtime if any mode is active. Pass-emitted
 // hooks short-circuit on this.
