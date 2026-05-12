@@ -15,7 +15,7 @@ if [ ! -x "$CC" ] || [ ! -e "$PLUGIN" ]; then
   exit 0
 fi
 
-echo "[*] Testing: afl-llvm-bug-pass.so (SCALAR / BUDGET / SIZEFILL)"
+echo "[*] Testing: afl-llvm-bug-pass.so (SCALAR / BUDGET / SIZEFILL / SLACK / ALLOCSIZE)"
 
 # --- SCALAR ---
 AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 "$CC" \
