@@ -307,4 +307,50 @@ else
   exit 1
 fi
 
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1 \
+  "$CC" -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-allocsize-derive.c" -o "$TMP/ad_only"
+set +e
+printf '\x00\x00\x00\x00' | AFL_CMPLOG_DEBUG=1 \
+  "$TMP/ad_only" 2>"$TMP/ad_only.err" >/dev/null
+ad_only_rc=$?
+set -e
+
+if [ "$ad_only_rc" -eq 0 ] && grep -q "size=64 off=" "$TMP/ad_only.err"; then
+  echo "[+] ALLOCSIZE_DERIVE-only: implied ALLOCSIZE instrumentation"
+else
+  echo "[!] ALLOCSIZE_DERIVE-only: rc=$ad_only_rc"
+  cat "$TMP/ad_only.err" || true
+  exit 1
+fi
+
+# --- ALLOCSIZE persistent-state reset ---
+if [ -x "$AFL_DIR/afl-fuzz" ]; then
+
+  AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -I"$AFL_DIR/include" \
+    "$SCRIPT_DIR/test-bug-allocsize-persistent.c" -o "$TMP/ap"
+  mkdir -p "$TMP/ap.in" "$TMP/ap.out"
+  printf '\x01' > "$TMP/ap.in/seed"
+  marker="$TMP/ap.marker"
+  set +e
+  AFL_NO_UI=1 AFL_BENCH_UNTIL_CRASH=1 AFL_IGNORE_UNKNOWN_ENVS=1 \
+    AFL_BUG_PERSISTENT_RESET_MARKER="$marker" \
+    timeout 10 "$AFL_DIR/afl-fuzz" -i "$TMP/ap.in" -o "$TMP/ap.out" \
+    -V 5 -- "$TMP/ap" >"$TMP/ap.log" 2>&1
+  ap_rc=$?
+  set -e
+  if { [ "$ap_rc" -eq 0 ] || [ "$ap_rc" -eq 124 ]; } && [ -s "$marker" ]; then
+    echo "[+] ALLOCSIZE persistent reset: per-input fields cleared across __AFL_LOOP"
+  else
+    echo "[!] ALLOCSIZE persistent reset: rc=$ap_rc"
+    cat "$TMP/ap.log" 2>/dev/null || true
+    exit 1
+  fi
+
+else
+
+  echo "[-] ALLOCSIZE persistent reset: afl-fuzz missing; skipping"
+
+fi
+
 echo "[+] all bug-pass tests passed"

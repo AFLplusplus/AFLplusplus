@@ -90,7 +90,12 @@ static BugPassConfig parseEnv() {
   if (getenv(AFL_BUG_ENV_SIZEFILL)) c.sizefill = true;
   if (getenv(AFL_BUG_ENV_ALLOCSIZE)) c.allocsize = true;
   if (getenv(AFL_BUG_ENV_SLACK)) c.slack = true;
-  if (getenv(AFL_BUG_ENV_ALLOCSIZE_DERIVE)) c.derive = true;
+  if (getenv(AFL_BUG_ENV_ALLOCSIZE_DERIVE)) {
+
+    c.derive = true;
+    c.allocsize = true;
+
+  }
   // Slice filter is purely additive on top of SCALAR — it's a no-op
   // unless SCALAR is also enabled.
   if (getenv(AFL_BUG_ENV_SCALAR_SLICE)) c.scalar_slice = true;

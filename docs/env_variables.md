@@ -185,8 +185,9 @@ Setting any `AFL_LLVM_BUG*` variable during compilation enables
 logical-OOB bugs that ASan does not catch (the CVE-2023-4863 / libwebp-Huffman
 class).
 
-  - `AFL_LLVM_BUG=1` — enable all bug-pass oracles (shorthand for setting all
-    three sub-modes below).
+  - `AFL_LLVM_BUG=1` — enable the main bug-pass oracles (`SCALAR`,
+    `BUDGET`, `SIZEFILL`, `SLACK`, and `ALLOCSIZE`). Size-derive still
+    needs `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1`.
   - `AFL_LLVM_BUG_SCALAR=1` — max-value-per-arithmetic-site coverage and
     per-loop iteration counts. Treats internal scalar growth as a fitness
     signal in addition to edge coverage. Useful for finding inputs that
@@ -194,49 +195,63 @@ class).
   - `AFL_LLVM_BUG_BUDGET=1` — at every call site of the form `ptr += func()`
     (or `ptr = gep(ptr, func())`), enforce that during the call all writes
     via the pointer arg lie in `[ptr, ptr + return_value)`. Catches functions
-    that write beyond what they claim to consume.
+    that write beyond what they claim to consume. This mode needs to see the
+    callee body in the same LLVM module to instrument its stores; use LTO for
+    cross-translation-unit APIs or expect those calls to be missed.
   - `AFL_LLVM_BUG_SIZEFILL=1` — at every call site to a function that has a
     "NULL-means-size-only" sentinel parameter, verify the returned size and
-    actual writes both fit the caller's known buffer.
+    actual writes both fit the caller's known buffer. Like `BUDGET`, the
+    store-tracking part is intra-module unless the target is built with LTO.
   - `AFL_LLVM_BUG_ALLOCSIZE` — enable the AllocSizeOracle pass: every call to
     `malloc`, `calloc`, `realloc`, `posix_memalign`, and `free` is rewritten
     to a tracked variant that records `(base, size, alloc_site_id)` in a
-    runtime shadow table. Every store inside a loop whose pointer base
-    traces back to a tracked allocation emits one runtime hook with three
-    feedback channels:
+    runtime shadow table. Every store whose pointer base traces back to a
+    tracked allocation emits one runtime hook with three feedback channels:
       1. **Headroom** (max-rule) — `__afl_bug_map[hash(site)]` holds the
          highest "closeness to end" seen across the run, so the fuzzer
          rewards inputs that approach but don't yet exceed the buffer.
       2. **Proximity bucket** — a synthetic edge `hash(site, log2(remaining))`
          joining the bug-map; turns "wrote into the last 8/16/32/… bytes
          of buffer X" into a discoverable coverage event.
-      3. **Soft-OOB tripwire** — `abort()`s with a diagnostic when an
-         in-loop store hits or exceeds the recorded end, before ASan's
+      3. **Soft-OOB tripwire** — `abort()`s with a diagnostic when a store
+         hits or exceeds the recorded end, before ASan's
          shadow check would (useful for custom allocators ASan doesn't
          poison).
     Cost is one shadow lookup + one subtract + 2–3 max-rule writes per
     qualifying store. Combine with `AFL_LLVM_BUG_BUDGET=1` and
-    `AFL_LLVM_BUG_SIZEFILL=1` to layer all four oracles.
+    `AFL_LLVM_BUG_SIZEFILL=1` to layer the aborting oracles.
   - `AFL_LLVM_BUG_ALLOCSIZE_FUNCS` — comma-separated list of custom
     allocator function names that the pass should treat as additional
     allocator entry points (e.g., `WebPSafeMalloc,WebPSafeCalloc`). The
-    pass inserts a post-call `__afl_alloc_register` and uses the first
+    pass inserts a post-call `__afl_alloc_register` and uses the widest
     integer argument of the callee as the size. Pair with
     `AFL_LLVM_BUG_ALLOCSIZE=1`. Note: targets must export the named
     function (non-static / extern linkage) so LLVM's IPO does not strip
     the size argument; static helpers can be specialized away by `-O3`.
-  - `AFL_LLVM_BUG_ALLOCSIZE_DERIVE` — at every `__afl_alloc_unregister`
-    (free of a tracked allocation), log `(record.size,
-    record.max_observed_off)` into a CmpLog routine slot keyed by
-    alloc-site ID. Requires `AFL_LLVM_BUG_ALLOCSIZE=1` and a CmpLog
-    binary (or `AFL_CMPLOG_DEBUG=1`) for the cmp_map to be allocated.
-    Pair with `afl-fuzz -l 2z` to confirm the feature is in use; the
-    fuzzer's existing CmpLog RTN dictionary mining harvests the entries
-    automatically.
+  - `AFL_LLVM_BUG_ALLOCSIZE_DERIVE` — enables `ALLOCSIZE` and, at every
+    `__afl_alloc_unregister` (free of a tracked allocation), logs
+    `(record.size, record.max_observed_off)` into a CmpLog routine slot keyed
+    by alloc-site ID. It needs a CmpLog binary (or `AFL_CMPLOG_DEBUG=1`) for
+    the cmp_map to be allocated. Pair with `afl-fuzz -l 2z` to confirm the
+    feature is in use; the fuzzer's existing CmpLog RTN dictionary mining
+    harvests the entries automatically.
 
 The runtime keeps its own private max-value bug-map (`MAP_SIZE_BUG`,
 16384 u32 slots), separate from the IJON map, and reports oracle violations
 to stderr followed by `abort()`.
+
+Recommended usage:
+
+  - Use normal coverage binaries as the main campaign baseline.
+  - Add `SCALAR` and/or `SLACK` when you want extra guidance toward arithmetic
+    bounds, tight comparisons, and computed-size corner cases.
+  - Use `BUDGET`, `SIZEFILL`, and `ALLOCSIZE` as oracle builds for bug-finding
+    or confirmation runs; they intentionally abort on detected contract
+    violations.
+  - Use `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` with `afl-fuzz -l 2Z` as a CmpLog
+    assistant build for mining allocation-size values.
+  - Prefer LTO for `BUDGET` and `SIZEFILL` campaigns when the checked APIs are
+    split across translation units.
 
 #### CMPLOG
 

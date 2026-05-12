@@ -63,7 +63,6 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <stddef.h>
 #include <limits.h>
 #include <errno.h>
-#include <pthread.h>
 
 #include <sys/mman.h>
 #ifdef __linux__
@@ -266,9 +265,7 @@ u8             *__afl_alloc_shadow = NULL;
 uintptr_t       __afl_alloc_shadow_origin = 0;
 AllocSizeRecord __afl_alloc_records[MAP_SIZE_ALLOCRECORDS];
 static u32      __afl_alloc_next_idx = 1; /* 0 reserved */
-static pthread_mutex_t __afl_alloc_mu = PTHREAD_MUTEX_INITIALIZER;
-#define __AFL_ALLOC_LOCK   pthread_mutex_lock(&__afl_alloc_mu)
-#define __AFL_ALLOC_UNLOCK pthread_mutex_unlock(&__afl_alloc_mu)
+static void __afl_alloc_persistent_reset(u8 flush_derive);
 
 /* IJON state tracking globals */
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
@@ -1601,6 +1598,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     memset_noasan(__afl_area_ptr, 0, __afl_set_map_size);
     __afl_area_ptr[0] = 1;
     memset_noasan(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+    __afl_alloc_persistent_reset(0);
 
     first_pass = 0;
     __afl_selective_coverage_temp = 1;
@@ -1626,6 +1624,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
 #ifdef AFL_PERSISTENT_RECORD
     if (unlikely(is_replay_record)) {
+
+      __afl_alloc_persistent_reset(1);
 
     persistent_record:
 
@@ -1654,6 +1654,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     }
 
 #endif
+
+    __afl_alloc_persistent_reset(1);
 
 #ifdef __linux__
     if (likely(__afl_child_sync)) {
@@ -1700,6 +1702,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
         follows the loop is not traced. We do that by pivoting back to the
         dummy output region. */
 
+    __afl_alloc_persistent_reset(1);
     __afl_area_ptr = __afl_area_ptr_dummy;
 
     return 0;
@@ -4249,22 +4252,11 @@ void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
 
   __afl_bug_ensure_runtime();
   if (!__afl_allocsize_active || !ptr || !size) return;
-  __AFL_ALLOC_LOCK;
   if (!__afl_alloc_shadow) __afl_alloc_shadow_init((uintptr_t)ptr);
-  if (!__afl_alloc_shadow) {
-
-    __AFL_ALLOC_UNLOCK;
-    return;
-
-  }
+  if (!__afl_alloc_shadow) return;
 
   u32 idx = __afl_alloc_pick_idx();
-  if (!idx) {
-
-    __AFL_ALLOC_UNLOCK;
-    return;
-
-  }
+  if (!idx) return;
 
   __afl_alloc_records[idx].base = (uintptr_t)ptr;
   __afl_alloc_records[idx].size = size;
@@ -4276,7 +4268,6 @@ void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
   __afl_alloc_records[idx].first_elem_align = 0;
   __afl_alloc_records[idx].type_warned = 0;
   __afl_alloc_shadow_paint((uintptr_t)ptr, size, (u8)idx);
-  __AFL_ALLOC_UNLOCK;
 
 }
 
@@ -4321,10 +4312,27 @@ static void __afl_size_derive_log(AllocSizeRecord *r) {
 
 }
 
+static inline void __afl_alloc_persistent_reset(u8 flush_derive) {
+
+  if (likely(!__afl_allocsize_active)) return;
+  for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
+
+    AllocSizeRecord *r = &__afl_alloc_records[i];
+    if (!r->in_use) continue;
+    if (flush_derive) __afl_size_derive_log(r);
+    r->max_observed_off = 0;
+    r->derive_logged = 0;
+    r->first_elem_size = 0;
+    r->first_elem_align = 0;
+    r->type_warned = 0;
+
+  }
+
+}
+
 void __afl_alloc_unregister(void *ptr) {
 
   if (!__afl_allocsize_active || !ptr || !__afl_alloc_shadow) return;
-  __AFL_ALLOC_LOCK;
   for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
 
     AllocSizeRecord *r = &__afl_alloc_records[i];
@@ -4335,8 +4343,6 @@ void __afl_alloc_unregister(void *ptr) {
     break;
 
   }
-
-  __AFL_ALLOC_UNLOCK;
 
 }
 

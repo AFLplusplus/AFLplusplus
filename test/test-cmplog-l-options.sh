@@ -109,3 +109,26 @@ if [ "${z_enabled:-0}" != "1" ] || [ ! -s "$marker" ]; then
 fi
 
 echo "[+] cmplog -l Z: option parsed and size-derive child stayed active"
+
+# Derive-only compilation must imply ALLOCSIZE instrumentation. Without that,
+# the runtime can advertise -l Z support while no allocations are tracked.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1 \
+  "$AFL_DIR/afl-clang-fast" \
+  "$SCRIPT_DIR/test-cmplog-size-derive-option.c" -o "$TMP/z-derive-only"
+mkdir -p "$TMP/zonly.in" "$TMP/zonly.out"
+printf '\x00' > "$TMP/zonly.in/seed"
+marker_only="$TMP/zonly.marker"
+
+AFL_CMPLOG_LZ_MARKER="$marker_only" run_fuzz "$TMP/zonly.log" \
+  -i "$TMP/zonly.in" -o "$TMP/zonly.out" -c 0 -l 2Z -V 3 \
+  -- "$TMP/z-derive-only"
+
+zonly_stats="$TMP/zonly.out/default/fuzzer_stats"
+zonly_enabled=$(sed -n 's/^cmplog_size_derive: //p' "$zonly_stats" 2>/dev/null)
+if [ "${zonly_enabled:-0}" != "1" ] || [ ! -s "$marker_only" ]; then
+  echo "[!] cmplog -l Z derive-only compile did not imply ALLOCSIZE support"
+  cat "$zonly_stats" "$TMP/zonly.log" 2>/dev/null || true
+  exit 1
+fi
+
+echo "[+] cmplog -l Z: derive-only compile implied ALLOCSIZE support"

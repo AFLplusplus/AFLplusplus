@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 extern uint8_t __afl_size_derive_active;
+extern uint8_t __afl_allocsize_active;
 
 int main(void) {
 
@@ -20,7 +21,7 @@ int main(void) {
   free(p);
 
   const char *marker = getenv("AFL_CMPLOG_LZ_MARKER");
-  if (marker && __afl_size_derive_active) {
+  if (marker && __afl_size_derive_active && __afl_allocsize_active) {
 
     FILE *f = fopen(marker, "w");
     if (f) {
