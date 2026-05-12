@@ -194,6 +194,24 @@ else
 fi
 
 # --- SLACK FP precision (sub-1 |diff| must not collapse to inv=64) ---
+# --- SLACK integer gradient (closer-to-magic should score higher) ---
+printf 'fun: target_cmp\n' > "$TMP/slack.allow"
+AFL_QUIET=1 AFL_LLVM_BUG_SLACK=1 AFL_LLVM_ALLOWLIST="$TMP/slack.allow" \
+  "$CC" "$SCRIPT_DIR/test-bug-slack-int.c" -o "$TMP/slack_int"
+slack_far=$("$TMP/slack_int" 0 2>&1 \
+            | sed -n 's/.*maxval=\([0-9]*\).*/\1/p')
+slack_near=$("$TMP/slack_int" 0x12345677 2>&1 \
+             | sed -n 's/.*maxval=\([0-9]*\).*/\1/p')
+slack_exact=$("$TMP/slack_int" 0x12345678 2>&1 \
+              | sed -n 's/.*maxval=\([0-9]*\).*/\1/p')
+if [ "${slack_near:-0}" -gt "${slack_far:-0}" ] && \
+   [ "${slack_exact:-0}" -gt "${slack_near:-0}" ]; then
+  echo "[+] SLACK int gradient: far=$slack_far near=$slack_near exact=$slack_exact"
+else
+  echo "[!] SLACK int gradient: far=$slack_far near=$slack_near exact=$slack_exact"
+  exit 1
+fi
+
 # Build a program with a single user-level FCmp. The runtime emits map
 # updates not just for our FCmp but also for FCmps inside atof() etc.,
 # so we can't grep "first slot" — instead we look for ANY slot whose
