@@ -158,14 +158,25 @@ done
 
 # 8. PATH coverage actually differentiates paths in if_chain.
 # Different inputs flip different bits — should hit different path IDs.
+# `printf '%b'` (unlike '%c') interprets backslash escapes so '\\001'..'\\007'
+# emit distinct bytes. The buggy original used '%c' which fed the same '\\' byte
+# to every iteration.
+emit_byte() {
+  printf '%b' "$(printf '\\%03o' "$1")"
+}
 for v in 0 1 2 3 4 5 6 7; do
-  printf '%c' "$(printf '\\%03o' "$v")" | \
+  emit_byte "$v" | \
     AFL_QUIET=1 ../afl-showmap -m none -o "/tmp/pathmap.$v" -q -- \
       ./path.bin >/dev/null 2>&1
-  printf '%c' "$(printf '\\%03o' "$v")" | \
+  emit_byte "$v" | \
     AFL_QUIET=1 ../afl-showmap -m none -o "/tmp/plainmap.$v" -q -- \
       ./plain.bin >/dev/null 2>&1
 done
+SRC_UNIQ=$(for v in 0 1 2 3 4 5 6 7; do emit_byte "$v" | od -An -tx1; done \
+             | sort -u | wc -l | tr -d ' ')
+if [ "$SRC_UNIQ" -lt 8 ]; then
+  ko "test fed only $SRC_UNIQ unique bytes (need 8) — oracle would not probe path differentiation"
+fi
 UNIQ_PATH=$(cat /tmp/pathmap.* 2>/dev/null | sort -u | wc -l)
 UNIQ_PLAIN=$(cat /tmp/plainmap.* 2>/dev/null | sort -u | wc -l)
 if [ "$UNIQ_PATH" -gt "$UNIQ_PLAIN" ]; then
@@ -173,6 +184,93 @@ if [ "$UNIQ_PATH" -gt "$UNIQ_PLAIN" ]; then
 else
   ko "PATH should expand distinct slots ($UNIQ_PATH vs $UNIQ_PLAIN)"
 fi
+
+# 9. CTX_DEPTH > 1 + PATH must FATAL: cid * NumPaths assumes
+# cid ∈ [0, call_counter); at depth > 1 AFLContext is an XOR-stack and
+# cannot be guaranteed in range. The compiler must reject the combination
+# instead of silently producing out-of-bounds bitmap writes.
+if env AFL_LLVM_LTO_CALLER=1 AFL_LLVM_CTX_DEPTH=2 AFL_LLVM_LTO_PATH=1 \
+       ../afl-clang-lto -O0 -o ctxdepth.bin test-llvm-lto-path.c \
+       > ctxdepth.log 2>&1; then
+  ko "CTX_DEPTH=2 + PATH should be rejected"
+else
+  if grep -qiE 'depth|CTX|caller' ctxdepth.log; then
+    ok "CTX_DEPTH>1 + PATH rejected with informative message"
+  else
+    ko "CTX_DEPTH>1 + PATH rejected but message did not mention depth/CTX/caller"
+    tail -5 ctxdepth.log
+  fi
+fi
+rm -f ctxdepth.bin ctxdepth.log
+
+# 10. AFL_LLVM_PATH_MAX_PATHS lowers the 100k cap. With a tiny cap most
+# functions should be skipped — the total reservation must shrink.
+N_LOWCAP=$(compile_total lowcap.bin lowcap.log \
+              AFL_LLVM_LTO_PATH=3 AFL_LLVM_PATH_MAX_PATHS=4)
+if [ -z "$N_LOWCAP" ]; then
+  ko "AFL_LLVM_PATH_MAX_PATHS=4 compile failed"
+  cat lowcap.log
+else
+  if grep -qiE 'too many.*paths|skip.*path' lowcap.log; then
+    ok "AFL_LLVM_PATH_MAX_PATHS=4 triggers skip for functions over the cap"
+  else
+    ko "AFL_LLVM_PATH_MAX_PATHS=4 produced no skip warnings"
+  fi
+  if [ "$N_LOWCAP" -lt "$N_S" ]; then
+    ok "lowered cap shrinks total ($N_LOWCAP < $N_S)"
+  else
+    ko "lowered cap should shrink total ($N_LOWCAP vs $N_S)"
+  fi
+fi
+rm -f lowcap.bin lowcap.log
+
+# 11. Threadsafe counters at exit must compile and produce a coverage map.
+N_TSAFE=$(compile_total tsafe.bin tsafe.log \
+            AFL_LLVM_LTO_PATH=1 AFL_LLVM_THREADSAFE_INST=1)
+if [ -z "$N_TSAFE" ]; then
+  ko "threadsafe+PATH compile failed"
+  tail -10 tsafe.log
+else
+  ok "threadsafe+PATH compiles (total = $N_TSAFE)"
+  emit_byte 1 | AFL_QUIET=1 ../afl-showmap -m none -o tsafe.map -q -- \
+      ./tsafe.bin >/dev/null 2>&1
+  if [ -s tsafe.map ]; then
+    ok "threadsafe+PATH binary produces coverage"
+  else
+    ko "threadsafe+PATH binary produced no coverage"
+  fi
+fi
+rm -f tsafe.bin tsafe.log tsafe.map
+
+# 12. AFL_DUMP_MAP_SIZE on the LTO-built path.bin must reflect a map size
+# that includes the PATH slots — the macOS-targeted __afl_final_loc
+# static-init fix exercises this path.
+N_PATH_FOR_DUMP=$(compile_total dump.bin dump.log AFL_LLVM_LTO_PATH=1)
+if [ -n "$N_PATH_FOR_DUMP" ]; then
+  AFL_DUMP_MAP_SIZE=1 ./dump.bin > dumpmap.out 2>&1 || true
+  DUMP=$(grep -oE '[0-9]+' dumpmap.out | head -1)
+  if [ -n "$DUMP" ] && [ "$DUMP" -gt 0 ]; then
+    ok "AFL_DUMP_MAP_SIZE prints a positive integer ($DUMP)"
+    if [ "$DUMP" -ge "$N_PATH_FOR_DUMP" ]; then
+      ok "AFL_DUMP_MAP_SIZE >= reported PATH reservation ($DUMP >= $N_PATH_FOR_DUMP)"
+    else
+      ko "AFL_DUMP_MAP_SIZE ($DUMP) smaller than reported reservation ($N_PATH_FOR_DUMP)"
+    fi
+  else
+    ko "AFL_DUMP_MAP_SIZE printed no numeric value"
+    cat dumpmap.out
+  fi
+fi
+rm -f dump.bin dump.log dumpmap.out
+
+# 13. Empty AFL_LLVM_PATH= must be rejected — not silently enable level 1.
+if env AFL_LLVM_PATH= ../afl-clang-lto -O0 -o empty.bin test-llvm-lto-path.c \
+     > empty.log 2>&1; then
+  ko "AFL_LLVM_PATH= (empty) should be rejected"
+else
+  ok "AFL_LLVM_PATH= (empty) rejected"
+fi
+rm -f empty.bin empty.log
 
 # Cleanup
 rm -f plain.bin plain.log ctx.bin ctx.log path.bin path.log \

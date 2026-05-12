@@ -72,6 +72,7 @@
 #include "config.h"
 #include "debug.h"
 #include "afl-llvm-common.h"
+#include "PathCoverage.h"
 
 using namespace llvm;
 
@@ -243,9 +244,10 @@ class ModuleSanitizerCoverageLTO
   uint32_t                         instrument_ctx_max_depth = 0;
   uint32_t                         extra_ctx_inst = 0;
   bool                             path_mode = false;       // Ball-Larus path
-  uint32_t                         path_mode_level = 0;     // 1=strict, 2=relaxed
-  uint32_t                         extra_path_inst = 0;     // sum of paths
+  uint32_t                         path_mode_level = 0;     // 1=relaxed, 2=restricted, 3=strict
+  uint64_t                         extra_path_inst = 0;     // sum of paths
   uint32_t                         path_skipped_funcs = 0;  // skipped funcs
+  uint64_t                         path_max_paths = 100000;
   uint64_t                         map_addr = 0;
   const char                      *skip_nozero = NULL;
   const char                      *use_threadsafe_counters = nullptr;
@@ -522,7 +524,16 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
     if (!p) p = getenv("AFL_LLVM_PATH_MODE");
     if (p) {
 
-      if (*p == 0 || strcmp(p, "1") == 0) {
+      if (*p == 0) {
+
+        /* Reject the empty value rather than silently enabling level 1 —
+           users who want level 1 should pass "1". */
+        FATAL(
+            "AFL_LLVM_LTO_PATH/AFL_LLVM_PATH/AFL_LLVM_PATH_MODE was set to "
+            "an empty value. Use \"1\" (relaxed), \"2\" (restricted), "
+            "\"3\" (strict), or \"0\" (off).");
+
+      } else if (strcmp(p, "1") == 0) {
 
         path_mode_level = 1;
 
@@ -542,14 +553,48 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
         FATAL(
             "AFL_LLVM_LTO_PATH/AFL_LLVM_PATH/AFL_LLVM_PATH_MODE only "
-            "accepts \"0\" (off), \"1\" (relaxed, default), \"2\" "
-            "(restricted), or \"3\" (strict). Got %s.",
+            "accepts \"0\" (off), \"1\" (relaxed), \"2\" (restricted), or "
+            "\"3\" (strict). Got %s.",
             p);
 
       }
       path_mode = (path_mode_level > 0);
 
     }
+
+  }
+
+  if (const char *mp = getenv("AFL_LLVM_PATH_MAX_PATHS")) {
+
+    char *end = nullptr;
+    unsigned long long v = strtoull(mp, &end, 10);
+    if (!end || *end || v < 2) {
+
+      FATAL(
+          "AFL_LLVM_PATH_MAX_PATHS must be a positive integer >= 2 "
+          "(got %s).",
+          mp);
+
+    }
+    path_max_paths = (uint64_t)v;
+
+  }
+
+  /* CTX_DEPTH > 1 + PATH would compute
+       idx = path_base + path_reg + cid * NumPaths
+     in i32, but `cid` is the AFLContext XOR-stack value which is *not*
+     bounded by call_counter when depth > 1. The result can fall outside
+     the reserved [path_base, path_base + numPaths * call_counter) range
+     and either alias another function's slots or write out-of-bounds.
+     Refuse the combination loudly rather than silently corrupt coverage. */
+  if (path_mode && instrument_ctx_max_depth > 1) {
+
+    FATAL(
+        "AFL_LLVM_CTX_DEPTH/AFL_LLVM_CALLER_DEPTH > 1 cannot be combined "
+        "with AFL_LLVM_PATH: at depth > 1 AFLContext is an XOR-stack of "
+        "caller IDs and is not bounded by call_counter, so the path "
+        "index math (path_base + cid * NumPaths + path) cannot stay in "
+        "range. Use depth = 1 with PATH, or disable PATH.");
 
   }
 
@@ -1385,8 +1430,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
       }
       if (path_mode) {
 
-        int n = snprintf(p, left, " with %u extra map entries for PATH",
-                         extra_path_inst);
+        int n = snprintf(p, left, " with %llu extra map entries for PATH",
+                         (unsigned long long)extra_path_inst);
         if (n > 0 && (size_t)n < left) { p += n; left -= n; }
         if (path_skipped_funcs) {
 
@@ -2670,267 +2715,50 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
 
   if (!path_mode) return 0;
   if (F.empty()) return 0;
-  /* Function eligibility checks already performed by the caller via the
-     same conditions used for edge instrumentation; if the function got
-     this far we mirror that decision. */
+  /* Defensive re-check of the function-level skip predicates so a future
+     refactor that moves the call site can't silently bypass them. Today
+     instrumentFunction already gates these — this is belt + braces. */
+  if (F.hasFnAttribute(llvm::Attribute::NoSanitizeCoverage)) return 0;
+#if LLVM_VERSION_MAJOR >= 19
+  if (F.hasFnAttribute(llvm::Attribute::DisableSanitizerInstrumentation))
+    return 0;
+#endif
+  if (!isInInstrumentList(&F, FMNAME)) return 0;
 
   LLVMContext &Ctx = F.getContext();
   IntegerType *Int32 = Type::getInt32Ty(Ctx);
   MDNode      *NoSan = MDNode::get(Ctx, MDString::get(Ctx, "nosanitize"));
+  (void)DT;  // PathAnalysis uses an iterative DFS — no DominatorTree needed.
 
-  /* 1. Find exit points: ReturnInst, ResumeInst, before NoReturn calls,
-     before UnreachableInst terminators.  Only the FIRST exit per BB
-     matters — anything after a noreturn is unreachable.  Each exit
-     records its insertion point (just before the exit instruction). */
-  struct ExitPt {
+  /* Analysis (issues #1 dedup, #2 iterative DFS, #16 cached forward
+     successors) — see instrumentation/PathCoverage.h. */
+  afl::PathAnalysis       PA(path_mode_level, path_max_paths);
+  afl::PathAnalysisResult R = PA.analyze(F);
 
-    BasicBlock  *BB;
-    Instruction *insertBefore;
+  if (R.overCap) {
 
-  };
-  std::vector<ExitPt>                 Exits;
-  llvm::DenseSet<BasicBlock *>        ExitBBs;
-
-  for (auto &BB : F) {
-
-    Instruction *firstExit = nullptr;
-    for (auto &I : BB) {
-
-      if (isa<ReturnInst>(&I) || isa<ResumeInst>(&I) ||
-          isa<UnreachableInst>(&I)) {
-
-        firstExit = &I;
-        break;
-
-      }
-      if (auto *Call = dyn_cast<CallBase>(&I)) {
-
-        if (Call->doesNotReturn()) {
-
-          firstExit = Call;
-          break;
-
-        }
-
-      }
-
-    }
-    if (firstExit) {
-
-      Exits.push_back({&BB, firstExit});
-      ExitBBs.insert(&BB);
-
-    }
+    WARNF(
+        "Function %s has too many paths (>%llu) even after simplification; "
+        "skipping PATH instrumentation in this function.",
+        F.getName().str().c_str(), (unsigned long long)path_max_paths);
+    ++path_skipped_funcs;
+    return 0;
 
   }
-  if (Exits.empty()) return 0;
+  if (R.simplified) {
 
-  /* 2. Identify back-edges via DFS.  edge a->b is a back-edge iff b is
-     currently on the DFS stack (active ancestor of a).  This is the
-     standard cycle-edge identification and avoids relying on a possibly
-     stale DominatorTree after SplitAllCriticalEdges.                    */
-  llvm::DenseSet<std::pair<BasicBlock *, BasicBlock *>> BackEdges;
-  {
-
-    llvm::DenseSet<BasicBlock *> visited;
-    llvm::DenseSet<BasicBlock *> onStack;
-    std::function<void(BasicBlock *)> dfs = [&](BasicBlock *BB) {
-
-      visited.insert(BB);
-      onStack.insert(BB);
-      for (auto *S : successors(BB)) {
-
-        if (onStack.count(S)) {
-
-          BackEdges.insert({BB, S});
-
-        } else if (!visited.count(S)) {
-
-          dfs(S);
-
-        }
-
-      }
-      onStack.erase(BB);
-
-    };
-    dfs(&F.getEntryBlock());
-    /* Also walk from any unreachable-from-entry BB so we don't accidentally
-       treat their forward edges as back-edges (rare but safe to be thorough). */
-    for (auto &BB : F) {
-
-      if (!visited.count(&BB)) dfs(&BB);
-
-    }
+    WARNF(
+        "Function %s simplified for PATH (multi-way branches collapsed): "
+        "%llu paths.",
+        F.getName().str().c_str(), (unsigned long long)R.numPaths);
 
   }
-  (void)DT;  // no longer needed for back-edge detection
+  if (R.numPaths == 0) return 0;  // skipped: no exits / single path
 
-  auto forwardSuccs =
-      [&](BasicBlock *BB) -> llvm::SmallVector<BasicBlock *, 4> {
-
-    llvm::SmallVector<BasicBlock *, 4> out;
-    if (ExitBBs.count(BB)) return out;
-    for (auto *S : successors(BB)) {
-
-      if (BackEdges.count({BB, S})) continue;
-      out.push_back(S);
-
-    }
-    return out;
-
-  };
-
-  /* Helper: a "guard-only" BB has no calls, no stores, no atomics — only
-     pure condition-check work (loads, casts, GEPs, comparisons, phis,
-     freezes, allocas) and a terminator.  In relaxed mode (level 2) such
-     BBs collapse via max() instead of sum(), so short-circuit `&&`/`||`
-     and similar pure-condition chains do not multiply path counts.       */
-  auto isGuardOnlyBB = [&](BasicBlock *BB) -> bool {
-
-    for (auto &I : *BB) {
-
-      if (I.isTerminator()) continue;
-      if (isa<LoadInst>(&I)) continue;
-      if (isa<CastInst>(&I)) continue;  // zext/sext/trunc/bitcast/etc.
-      if (isa<GetElementPtrInst>(&I)) continue;
-      if (isa<CmpInst>(&I)) continue;  // icmp / fcmp
-      if (isa<PHINode>(&I)) continue;
-      if (isa<FreezeInst>(&I)) continue;
-      if (isa<AllocaInst>(&I)) continue;
-      if (isa<SelectInst>(&I)) continue;  // pure data flow, no side effects
-      if (isa<BinaryOperator>(&I)) continue;  // add/sub/and/or/xor/shl/...
-      if (isa<UnaryOperator>(&I)) continue;
-      if (isa<ExtractValueInst>(&I) || isa<InsertValueInst>(&I)) continue;
-      /* Anything else (calls, stores, atomicrmw/cmpxchg, fences, ...)
-         counts as "real work" — not guard-only. */
-      return false;
-
-    }
-    return true;
-
-  };
-
-  /* 3. Compute NumPaths(v) on the forward DAG, recursively with memoization.
-     Two passes if we need to simplify after the first.                     */
-  llvm::DenseMap<BasicBlock *, uint64_t> NumPaths;
-
-  auto computeWithMode = [&](bool simplify) -> uint64_t {
-
-    NumPaths.clear();
-    /* Iterative DFS with stack so we avoid blowing the C stack on large
-       functions (recursion depth could match BB count). */
-    std::function<uint64_t(BasicBlock *)> rec = [&](BasicBlock *BB) -> uint64_t {
-
-      auto it = NumPaths.find(BB);
-      if (it != NumPaths.end()) return it->second;
-      NumPaths[BB] = 0;  // sentinel
-      uint64_t total = 0;
-      if (ExitBBs.count(BB)) {
-
-        total = 1;
-
-      } else {
-
-        auto succs = forwardSuccs(BB);
-        bool maxMerge = false;
-        if (simplify && succs.size() > 2) maxMerge = true;
-        /* Level 1 (relaxed): collapse every guard-only BB regardless of
-           successor count.  Level 2 (restricted): only collapse 2-successor
-           guard-only BBs (preserves switches/indirectbr).  Level 3 (strict):
-           never collapse from this rule. */
-        if ((path_mode_level == 1 && succs.size() > 1 && isGuardOnlyBB(BB)) ||
-            (path_mode_level == 2 && succs.size() == 2 && isGuardOnlyBB(BB)))
-          maxMerge = true;
-        if (succs.empty()) {
-
-          total = 0;
-
-        } else if (maxMerge) {
-
-          for (auto *S : succs) {
-
-            uint64_t c = rec(S);
-            if (c > total) total = c;
-
-          }
-
-        } else {
-
-          for (auto *S : succs) { total += rec(S); }
-
-        }
-
-      }
-      NumPaths[BB] = total;
-      return total;
-
-    };
-    return rec(&F.getEntryBlock());
-
-  };
-
-  uint64_t numEntry = computeWithMode(/*simplify=*/false);
-  bool     simplified = false;
-
-  if (numEntry > 100000ULL) {
-
-    numEntry = computeWithMode(/*simplify=*/true);
-    simplified = true;
-    if (numEntry > 100000ULL) {
-
-      WARNF(
-          "Function %s has too many paths (>100,000) even after "
-          "simplification; skipping PATH instrumentation in this function.",
-          F.getName().str().c_str());
-      ++path_skipped_funcs;
-      return 0;
-
-    } else {
-
-      WARNF(
-          "Function %s simplified for PATH (multi-way branches collapsed): "
-          "%llu paths.",
-          F.getName().str().c_str(), (unsigned long long)numEntry);
-
-    }
-
-  }
-
-  if (numEntry <= 1) return 0;  // straight-line, no info
-
-  /* 4. Assign edge values per Ball-Larus prefix-sum.  Branches that were
-     max-merged during NumPaths computation must produce zero edge values
-     so that the runtime path register sees the same value regardless of
-     which arm was taken. */
-  llvm::DenseMap<std::pair<BasicBlock *, BasicBlock *>, uint64_t> EdgeVal;
-  for (auto &BB : F) {
-
-    if (ExitBBs.count(&BB)) continue;
-    if (!NumPaths.count(&BB)) continue;  // unreachable in DAG
-    auto succs = forwardSuccs(&BB);
-    if (succs.empty()) continue;
-    bool maxMerge = false;
-    if (simplified && succs.size() > 2) maxMerge = true;
-    if ((path_mode_level == 1 && succs.size() > 1 && isGuardOnlyBB(&BB)) ||
-        (path_mode_level == 2 && succs.size() == 2 && isGuardOnlyBB(&BB)))
-      maxMerge = true;
-    if (maxMerge) {
-
-      for (auto *S : succs) EdgeVal[{&BB, S}] = 0;
-      continue;
-
-    }
-    uint64_t prefix = 0;
-    for (auto *S : succs) {
-
-      EdgeVal[{&BB, S}] = prefix;
-      auto it = NumPaths.find(S);
-      if (it != NumPaths.end()) prefix += it->second;
-
-    }
-
-  }
+  uint64_t numEntry = R.numPaths;
+  const auto &Exits   = R.exits;
+  const auto &NumPaths = R.numPathsAtBB;
+  const auto &EdgeVal  = R.edgeValues;
 
   /* 5. Reserve afl_global_id range.  When CTX expanded this function,
      reserve NumPaths * call_counter so each (call_id, path) tuple has
@@ -2938,9 +2766,24 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
   bool     ctx_active = (call_counter > 1) && PrevCtxLoad != nullptr;
   uint64_t reservation = ctx_active ? numEntry * (uint64_t)call_counter
                                     : numEntry;
+  /* The IR uses i32 arithmetic for the path index, and afl_global_id
+     itself is a u32. Reservations that wrap either would silently corrupt
+     the bitmap. Skip the function rather than overflow. */
+  if (reservation > UINT32_MAX ||
+      (uint64_t)afl_global_id + reservation > UINT32_MAX) {
+
+    WARNF(
+        "Function %s would push afl_global_id past 2^32 "
+        "(current=%u, reservation=%llu); skipping PATH instrumentation.",
+        F.getName().str().c_str(), afl_global_id,
+        (unsigned long long)reservation);
+    ++path_skipped_funcs;
+    return 0;
+
+  }
   uint32_t path_base = afl_global_id;
   afl_global_id += (uint32_t)reservation;
-  extra_path_inst += (uint32_t)reservation;
+  extra_path_inst += reservation;
 
   if (debug) {
 
@@ -2995,11 +2838,12 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
 
   }
 
-  /* 6c. Path-ID writes at every exit point in DAG-reachable BBs. */
+  /* 6c. Path-ID writes at every exit point in DAG-reachable BBs.
+     E.first is the BB; E.second is the instruction to insert before. */
   for (auto &E : Exits) {
 
-    if (!NumPaths.count(E.BB)) continue;  // unreachable in DAG
-    IRBuilder<> IRB(E.insertBefore);
+    if (!NumPaths.count(E.first)) continue;  // unreachable in DAG
+    IRBuilder<> IRB(E.second);
 
     LoadInst *p = IRB.CreateLoad(Int32, path_reg);
     p->setMetadata("nosanitize", NoSan);

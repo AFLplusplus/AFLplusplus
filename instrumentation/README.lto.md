@@ -173,7 +173,7 @@ atomics):
 | Value | Mode | Behaviour | Map size |
 |-------|------|-----------|----------|
 | unset / `0` | off | no path coverage | smallest |
-| `1` (default if value is empty) | **relaxed** | every guard-only BB collapses via `max()` instead of `sum()` — short-circuit `&&`/`||`, switches on a bare loaded value, etc. all collapse to one decision | smallest with PATH on |
+| `1` | **relaxed** | every guard-only BB collapses via `max()` instead of `sum()` — short-circuit `&&`/`||`, switches on a bare loaded value, etc. all collapse to one decision | smallest with PATH on |
 | `2` | **restricted** | only collapse 2-successor guard-only BBs — switches and indirect branches keep their full path-multiplying effect | mid |
 | `3` | **strict** | full Ball-Larus: every IR-level acyclic path gets its own slot | largest |
 
@@ -191,7 +191,10 @@ slot range in the coverage map.
 
 Composes with `AFL_LLVM_LTO_CALLER`: when both are set, multi-caller
 functions get `NumPaths * call_counter` slots so each `(call_site, path)`
-pair is uniquely tracked.
+pair is uniquely tracked. **Only depth = 1 is supported with PATH** — at
+higher depths (`AFL_LLVM_CTX_DEPTH > 1` etc.) `AFLContext` holds an
+XOR-stack of caller IDs that is not bounded by `call_counter`, so the
+path index would go out of range. The compiler refuses the combination.
 
 Limits:
 

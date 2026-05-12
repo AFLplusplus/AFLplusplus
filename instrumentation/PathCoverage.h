@@ -1,0 +1,407 @@
+/*
+   AFL++ Ball-Larus path coverage — shared analysis.
+
+   Used by both SanitizerCoverageLTO.so.cc and SanitizerCoveragePCGUARD.so.cc.
+   Computes per-function:
+     - exit points (return, resume, unreachable, before noreturn calls)
+     - acyclic path count (back-edges stripped via iterative DFS)
+     - Ball-Larus prefix-sum edge values
+
+   Modes (level_):
+     1 = relaxed    : collapse every guard-only BB (more than one successor)
+                      via max() instead of sum() — short-circuit && / ||,
+                      pure-condition chains, switch-on-loaded-value collapse
+                      to a single decision. Smallest map.
+     2 = restricted : collapse only 2-successor guard-only BBs; switches and
+                      indirect branches keep their full multiplying effect.
+     3 = strict     : full Ball-Larus, every IR-level acyclic path is unique.
+
+   The IR-emit halves stay in the two passes: LTO emits with absolute
+   afl_global_id slots and CTX composition; PCGUARD emits through
+   FunctionGuardArray indirection with optional IJON state mixing.
+
+   The back-edge DFS and the NumPaths walk are both iterative — a recursive
+   formulation can blow the host stack on deeply chained CFGs (the `clang`
+   process driving the pass does not have a comfortable stack reserve).
+   Forward successors per BB are cached once per analysis to keep
+   NumPaths and edge-value passes linear in CFG size.
+*/
+
+#ifndef AFL_PATH_COVERAGE_H
+#define AFL_PATH_COVERAGE_H
+
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instructions.h"
+
+#include <cstdint>
+#include <utility>
+#include <vector>
+
+namespace afl {
+
+struct PathAnalysisResult {
+
+  /* NumPaths(entry). 0 means "skip this function" (no exits, single-path,
+     or over-cap). */
+  uint64_t numPaths = 0;
+  /* Exit points and where to insert the path-id write. */
+  std::vector<std::pair<llvm::BasicBlock *, llvm::Instruction *>> exits;
+  /* Per-BB path counts (only populated for reachable forward-DAG BBs). */
+  llvm::DenseMap<llvm::BasicBlock *, uint64_t> numPathsAtBB;
+  /* Edge values for prefix-sum path-id reconstruction; absent or 0 means
+     the edge contributes nothing to the path id. */
+  llvm::DenseMap<std::pair<llvm::BasicBlock *, llvm::BasicBlock *>, uint64_t>
+      edgeValues;
+  /* True if multi-way branches had to be collapsed to bring NumPaths(entry)
+     under maxPaths_. */
+  bool simplified = false;
+  /* True if NumPaths(entry) stayed above maxPaths_ even after collapsing
+     multi-way branches; the function is skipped (no slots reserved). */
+  bool overCap = false;
+
+};
+
+class PathAnalysis {
+
+ public:
+  PathAnalysis(unsigned level, uint64_t maxPaths)
+      : level_(level), maxPaths_(maxPaths) {}
+
+  PathAnalysisResult analyze(llvm::Function &F) const {
+
+    using namespace llvm;
+    PathAnalysisResult R;
+    if (F.empty()) return R;
+
+    /* 1. Exit points: first ReturnInst / ResumeInst / UnreachableInst /
+       noreturn call in each BB.  Anything after a noreturn is unreachable. */
+    DenseSet<BasicBlock *> exitBBs;
+    for (auto &BB : F) {
+
+      Instruction *firstExit = nullptr;
+      for (auto &I : BB) {
+
+        if (isa<ReturnInst>(&I) || isa<ResumeInst>(&I) ||
+            isa<UnreachableInst>(&I)) {
+
+          firstExit = &I;
+          break;
+
+        }
+        if (auto *Call = dyn_cast<CallBase>(&I)) {
+
+          if (Call->doesNotReturn()) {
+
+            firstExit = Call;
+            break;
+
+          }
+
+        }
+
+      }
+      if (firstExit) {
+
+        R.exits.push_back({&BB, firstExit});
+        exitBBs.insert(&BB);
+
+      }
+
+    }
+    if (R.exits.empty()) return R;
+
+    /* 2. Back-edges via iterative DFS — recursion would blow the host
+       stack on deep CFGs. */
+    auto backEdges = findBackEdges(F);
+
+    /* 3. Cache forward successors per BB once. */
+    DenseMap<BasicBlock *, SmallVector<BasicBlock *, 4>> fwdSuccs;
+    for (auto &BB : F) {
+
+      SmallVector<BasicBlock *, 4> out;
+      if (!exitBBs.count(&BB)) {
+
+        for (auto *S : successors(&BB)) {
+
+          if (backEdges.count({&BB, S})) continue;
+          out.push_back(S);
+
+        }
+
+      }
+      fwdSuccs[&BB] = std::move(out);
+
+    }
+
+    /* 4. NumPaths bottom-up — iterative two-state worklist. */
+    R.numPaths = computeNumPaths(F, exitBBs, fwdSuccs,
+                                 /*simplifyMultiWay=*/false, R.numPathsAtBB);
+
+    if (R.numPaths > maxPaths_) {
+
+      R.numPathsAtBB.clear();
+      R.numPaths = computeNumPaths(F, exitBBs, fwdSuccs,
+                                   /*simplifyMultiWay=*/true, R.numPathsAtBB);
+      R.simplified = true;
+      if (R.numPaths > maxPaths_) {
+
+        R.overCap = true;
+        R.numPathsAtBB.clear();
+        R.exits.clear();
+        R.numPaths = 0;
+        return R;
+
+      }
+
+    }
+
+    if (R.numPaths <= 1) {
+
+      R.numPathsAtBB.clear();
+      R.exits.clear();
+      R.numPaths = 0;
+      return R;
+
+    }
+
+    /* 5. Ball-Larus prefix-sum edge values.  Collapsed branches get 0
+       so both arms produce identical path ids. */
+    for (auto &BB : F) {
+
+      if (exitBBs.count(&BB)) continue;
+      auto numIt = R.numPathsAtBB.find(&BB);
+      if (numIt == R.numPathsAtBB.end()) continue;
+      auto succIt = fwdSuccs.find(&BB);
+      if (succIt == fwdSuccs.end() || succIt->second.empty()) continue;
+      const auto &succs = succIt->second;
+      if (shouldMaxMerge(&BB, succs, R.simplified)) {
+
+        for (auto *S : succs) R.edgeValues[{&BB, S}] = 0;
+        continue;
+
+      }
+      uint64_t prefix = 0;
+      for (auto *S : succs) {
+
+        R.edgeValues[{&BB, S}] = prefix;
+        auto it = R.numPathsAtBB.find(S);
+        if (it != R.numPathsAtBB.end()) prefix += it->second;
+
+      }
+
+    }
+
+    return R;
+
+  }
+
+  static bool isGuardOnlyBB(llvm::BasicBlock *BB) {
+
+    using namespace llvm;
+    for (auto &I : *BB) {
+
+      if (I.isTerminator()) continue;
+      if (isa<LoadInst>(&I)) continue;
+      if (isa<CastInst>(&I)) continue;
+      if (isa<GetElementPtrInst>(&I)) continue;
+      if (isa<CmpInst>(&I)) continue;
+      if (isa<PHINode>(&I)) continue;
+      if (isa<FreezeInst>(&I)) continue;
+      if (isa<AllocaInst>(&I)) continue;
+      if (isa<SelectInst>(&I)) continue;
+      if (isa<BinaryOperator>(&I)) continue;
+      if (isa<UnaryOperator>(&I)) continue;
+      if (isa<ExtractValueInst>(&I) || isa<InsertValueInst>(&I)) continue;
+      /* Anything else (call, store, atomicrmw, cmpxchg, fence, ...) counts
+         as "real work" — not guard-only. */
+      return false;
+
+    }
+    return true;
+
+  }
+
+ private:
+  unsigned level_;
+  uint64_t maxPaths_;
+
+  bool shouldMaxMerge(llvm::BasicBlock                              *BB,
+                      const llvm::SmallVector<llvm::BasicBlock *, 4> &succs,
+                      bool simplified) const {
+
+    if (simplified && succs.size() > 2) return true;
+    if (level_ == 1 && succs.size() > 1 && isGuardOnlyBB(BB)) return true;
+    if (level_ == 2 && succs.size() == 2 && isGuardOnlyBB(BB)) return true;
+    return false;
+
+  }
+
+  static llvm::DenseSet<std::pair<llvm::BasicBlock *, llvm::BasicBlock *>>
+  findBackEdges(llvm::Function &F) {
+
+    using namespace llvm;
+    DenseSet<std::pair<BasicBlock *, BasicBlock *>> backEdges;
+    DenseSet<BasicBlock *>                          visited;
+    DenseSet<BasicBlock *>                          onStack;
+    struct Frame {
+
+      BasicBlock         *bb;
+      succ_iterator       it;
+      succ_iterator       end;
+
+    };
+
+    std::vector<Frame> stack;
+
+    auto startAt = [&](BasicBlock *BB) {
+
+      if (visited.count(BB)) return;
+      visited.insert(BB);
+      onStack.insert(BB);
+      stack.push_back({BB, succ_begin(BB), succ_end(BB)});
+      while (!stack.empty()) {
+
+        Frame &top = stack.back();
+        if (top.it == top.end) {
+
+          onStack.erase(top.bb);
+          stack.pop_back();
+          continue;
+
+        }
+        BasicBlock *S = *top.it;
+        ++top.it;
+        if (onStack.count(S)) {
+
+          backEdges.insert({top.bb, S});
+
+        } else if (!visited.count(S)) {
+
+          visited.insert(S);
+          onStack.insert(S);
+          stack.push_back({S, succ_begin(S), succ_end(S)});
+
+        }
+
+      }
+
+    };
+
+    startAt(&F.getEntryBlock());
+    /* Walk from any BB unreachable-from-entry so we don't accidentally
+       treat their forward edges as back-edges. Rare in practice. */
+    for (auto &BB : F)
+      if (!visited.count(&BB)) startAt(&BB);
+    return backEdges;
+
+  }
+
+  uint64_t computeNumPaths(
+      llvm::Function                                              &F,
+      const llvm::DenseSet<llvm::BasicBlock *>                    &exitBBs,
+      const llvm::DenseMap<llvm::BasicBlock *,
+                           llvm::SmallVector<llvm::BasicBlock *, 4>>
+                                                                  &fwdSuccs,
+      bool                                                         simplify,
+      llvm::DenseMap<llvm::BasicBlock *, uint64_t>                &out) const {
+
+    using namespace llvm;
+    out.clear();
+    /* Two-state worklist: state 0 = visit children first; state 1 = aggregate
+       once children are resolved. Back-edges already stripped so DAG only. */
+    struct Frame {
+
+      BasicBlock *bb;
+      unsigned    state;
+
+    };
+
+    std::vector<Frame> stack;
+    stack.push_back({&F.getEntryBlock(), 0});
+
+    while (!stack.empty()) {
+
+      Frame      top = stack.back();
+      BasicBlock *BB = top.bb;
+      if (top.state == 0) {
+
+        if (out.count(BB)) {
+
+          stack.pop_back();
+          continue;
+
+        }
+        /* Sentinel — also blocks re-entry on cycles (defensive; back-edges
+           are already stripped). */
+        out[BB] = 0;
+        stack.back().state = 1;
+        if (!exitBBs.count(BB)) {
+
+          auto it = fwdSuccs.find(BB);
+          if (it != fwdSuccs.end()) {
+
+            for (auto *S : it->second) stack.push_back({S, 0});
+
+          }
+
+        }
+        continue;
+
+      }
+
+      /* state == 1: children resolved. */
+      uint64_t total = 0;
+      if (exitBBs.count(BB)) {
+
+        total = 1;
+
+      } else {
+
+        auto succIt = fwdSuccs.find(BB);
+        if (succIt != fwdSuccs.end() && !succIt->second.empty()) {
+
+          if (shouldMaxMerge(BB, succIt->second, simplify)) {
+
+            for (auto *S : succIt->second) {
+
+              auto cIt = out.find(S);
+              uint64_t c = (cIt == out.end()) ? 0 : cIt->second;
+              if (c > total) total = c;
+
+            }
+
+          } else {
+
+            for (auto *S : succIt->second) {
+
+              auto cIt = out.find(S);
+              uint64_t c = (cIt == out.end()) ? 0 : cIt->second;
+              total += c;
+
+            }
+
+          }
+
+        }
+
+      }
+      out[BB] = total;
+      stack.pop_back();
+
+    }
+    auto entryIt = out.find(&F.getEntryBlock());
+    return (entryIt == out.end()) ? 0 : entryIt->second;
+
+  }
+
+};
+
+}  // namespace afl
+
+#endif  // AFL_PATH_COVERAGE_H

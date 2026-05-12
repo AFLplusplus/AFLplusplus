@@ -37,9 +37,13 @@ compile_total() {
   line=$(grep -E 'Instrumented [0-9]+ locations' "$logfile" | tail -n1)
   local n
   n=$(echo "$line" | sed -E 's/.*Instrumented ([0-9]+) locations.*/\1/')
-  # If banner says "X extra map entries for PATH", that count is already
-  # included in N (the PCGUARD banner reports total instr).
-  echo "$n"
+  # PCGUARD reports edge slots in N and PATH slots separately in the
+  # "X extra map entries for PATH" suffix — sum them.
+  local extra
+  extra=$(echo "$line" | grep -oE '[0-9]+ extra map entries' \
+                       | grep -oE '^[0-9]+' \
+                       | awk '{s+=$1} END{print s+0}')
+  echo $((n + extra))
 }
 
 # 1. plain
@@ -113,14 +117,24 @@ for bin in plain.bin p1.bin p2.bin p3.bin a1.bin a2.bin; do
 done
 
 # PATH should differentiate paths in if_chain across inputs.
+# `printf '%b'` (unlike '%c') interprets backslash escapes so '\\001'..'\\007'
+# emit distinct bytes.
+emit_byte() {
+  printf '%b' "$(printf '\\%03o' "$1")"
+}
 for v in 0 1 2 3 4 5 6 7; do
-  printf '%c' "$(printf '\\%03o' "$v")" | \
+  emit_byte "$v" | \
     AFL_QUIET=1 ../afl-showmap -m none -o "/tmp/pcg_pathmap.$v" -q -- \
       ./p3.bin >/dev/null 2>&1
-  printf '%c' "$(printf '\\%03o' "$v")" | \
+  emit_byte "$v" | \
     AFL_QUIET=1 ../afl-showmap -m none -o "/tmp/pcg_plainmap.$v" -q -- \
       ./plain.bin >/dev/null 2>&1
 done
+SRC_UNIQ=$(for v in 0 1 2 3 4 5 6 7; do emit_byte "$v" | od -An -tx1; done \
+             | sort -u | wc -l | tr -d ' ')
+if [ "$SRC_UNIQ" -lt 8 ]; then
+  ko "test fed only $SRC_UNIQ unique bytes (need 8) — oracle would not probe path differentiation"
+fi
 UNIQ_P=$(cat /tmp/pcg_pathmap.* 2>/dev/null | sort -u | wc -l)
 UNIQ_PLAIN=$(cat /tmp/pcg_plainmap.* 2>/dev/null | sort -u | wc -l)
 if [ "$UNIQ_P" -gt "$UNIQ_PLAIN" ]; then
@@ -128,6 +142,52 @@ if [ "$UNIQ_P" -gt "$UNIQ_PLAIN" ]; then
 else
   ko "PATH=3 should expand distinct slots ($UNIQ_P vs $UNIQ_PLAIN)"
 fi
+
+# IJON-with-PATH must compile and produce a map.
+N_IJON=$(compile_total ijon.bin ijon.log AFL_LLVM_PATH=1 AFL_LLVM_IJON=1)
+if [ -z "$N_IJON" ]; then
+  ko "IJON+PATH compile failed"
+  tail -10 ijon.log
+else
+  ok "IJON+PATH compiles (total = $N_IJON)"
+  emit_byte 1 | AFL_QUIET=1 ../afl-showmap -m none -o ijon.map -q -- \
+      ./ijon.bin >/dev/null 2>&1
+  if [ -s ijon.map ]; then
+    ok "IJON+PATH binary produces coverage"
+  else
+    ko "IJON+PATH binary produced no coverage"
+  fi
+fi
+rm -f ijon.bin ijon.log ijon.map
+
+# AFL_LLVM_PATH_MAX_PATHS lowers the 100k cap.
+N_LOWCAP=$(compile_total lowcap.bin lowcap.log \
+              AFL_LLVM_PATH=3 AFL_LLVM_PATH_MAX_PATHS=4)
+if [ -z "$N_LOWCAP" ]; then
+  ko "AFL_LLVM_PATH_MAX_PATHS=4 compile failed"
+  cat lowcap.log
+else
+  if grep -qiE 'too many.*paths|skip.*path' lowcap.log; then
+    ok "AFL_LLVM_PATH_MAX_PATHS=4 triggers skip for functions over the cap"
+  else
+    ko "AFL_LLVM_PATH_MAX_PATHS=4 produced no skip warnings"
+  fi
+  if [ "$N_LOWCAP" -lt "$N3" ]; then
+    ok "lowered cap shrinks total ($N_LOWCAP < $N3)"
+  else
+    ko "lowered cap should shrink total ($N_LOWCAP vs $N3)"
+  fi
+fi
+rm -f lowcap.bin lowcap.log
+
+# Empty AFL_LLVM_PATH= must be rejected.
+if env AFL_LLVM_PATH= ../afl-clang-fast -O0 -o empty.bin test-llvm-lto-path.c \
+     > empty.log 2>&1; then
+  ko "AFL_LLVM_PATH= (empty) should be rejected"
+else
+  ok "AFL_LLVM_PATH= (empty) rejected"
+fi
+rm -f empty.bin empty.log
 
 # Cleanup
 rm -f plain.bin plain.log p1.bin p1.log p2.bin p2.log p3.bin p3.log \

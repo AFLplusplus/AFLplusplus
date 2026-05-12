@@ -84,6 +84,7 @@
 #include "config.h"
 #include "debug.h"
 #include "afl-llvm-common.h"
+#include "PathCoverage.h"
 
 using namespace llvm;
 
@@ -206,8 +207,9 @@ class ModuleSanitizerCoverageAFL
      3=strict.  Activated also via AFL_LLVM_LTO_PATH or AFL_LLVM_PATH_MODE. */
   bool                                   path_mode = false;
   uint32_t                               path_mode_level = 0;
-  uint32_t                               extra_path_inst = 0;
+  uint64_t                               extra_path_inst = 0;
   uint32_t                               path_skipped_funcs = 0;
+  uint64_t                               path_max_paths = 100000;
 
   /* Per-function path state, populated by analyzePathCoverage() before
      InjectCoverage() runs and consumed by emitPathCoverage() afterwards. */
@@ -407,7 +409,16 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
     if (!p) p = getenv("AFL_LLVM_PATH_MODE");
     if (p) {
 
-      if (*p == 0 || strcmp(p, "1") == 0) {
+      if (*p == 0) {
+
+        /* Reject the empty value rather than silently enabling level 1 —
+           users who want level 1 should pass "1". */
+        FATAL(
+            "AFL_LLVM_PATH/AFL_LLVM_LTO_PATH/AFL_LLVM_PATH_MODE was set to "
+            "an empty value. Use \"1\" (relaxed), \"2\" (restricted), "
+            "\"3\" (strict), or \"0\" (off).");
+
+      } else if (strcmp(p, "1") == 0) {
 
         path_mode_level = 1;
 
@@ -427,14 +438,30 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
 
         FATAL(
             "AFL_LLVM_PATH/AFL_LLVM_LTO_PATH/AFL_LLVM_PATH_MODE only "
-            "accepts \"0\" (off), \"1\" (relaxed, default), \"2\" "
-            "(restricted), or \"3\" (strict). Got %s.",
+            "accepts \"0\" (off), \"1\" (relaxed), \"2\" (restricted), or "
+            "\"3\" (strict). Got %s.",
             p);
 
       }
       path_mode = (path_mode_level > 0);
 
     }
+
+  }
+
+  if (const char *mp = getenv("AFL_LLVM_PATH_MAX_PATHS")) {
+
+    char *end = nullptr;
+    unsigned long long v = strtoull(mp, &end, 10);
+    if (!end || *end || v < 2) {
+
+      FATAL(
+          "AFL_LLVM_PATH_MAX_PATHS must be a positive integer >= 2 "
+          "(got %s).",
+          mp);
+
+    }
+    path_max_paths = (uint64_t)v;
 
   }
 
@@ -558,240 +585,45 @@ uint32_t ModuleSanitizerCoverageAFL::analyzePathCoverage(Function &F) {
 
   if (!path_mode || F.empty()) return 0;
 
-  /* 1. Find exit points: ReturnInst, ResumeInst, before NoReturn calls,
-     before UnreachableInst terminators.  Only the FIRST exit per BB
-     matters — anything after a noreturn is unreachable.                */
-  llvm::DenseSet<BasicBlock *> ExitBBs;
-  for (auto &BB : F) {
+  /* Defensive re-check of the function-level skip predicates so a future
+     refactor that moves the call site can't silently bypass them. Today
+     instrumentFunction already gates these — this is belt + braces. */
+  if (F.hasFnAttribute(llvm::Attribute::NoSanitizeCoverage)) return 0;
+#if LLVM_VERSION_MAJOR >= 19
+  if (F.hasFnAttribute(llvm::Attribute::DisableSanitizerInstrumentation))
+    return 0;
+#endif
+  if (!isInInstrumentList(&F, FMNAME)) return 0;
 
-    Instruction *firstExit = nullptr;
-    for (auto &I : BB) {
+  /* Analysis lives in instrumentation/PathCoverage.h — issues #1 (dedup),
+     #2 (iterative DFS), #16 (cached forward successors). */
+  afl::PathAnalysis       PA(path_mode_level, path_max_paths);
+  afl::PathAnalysisResult R = PA.analyze(F);
 
-      if (isa<ReturnInst>(&I) || isa<ResumeInst>(&I) ||
-          isa<UnreachableInst>(&I)) {
+  if (R.overCap) {
 
-        firstExit = &I;
-        break;
-
-      }
-      if (auto *Call = dyn_cast<CallBase>(&I)) {
-
-        if (Call->doesNotReturn()) {
-
-          firstExit = Call;
-          break;
-
-        }
-
-      }
-
-    }
-    if (firstExit) {
-
-      pathExits.push_back({&BB, firstExit});
-      ExitBBs.insert(&BB);
-
-    }
-
-  }
-  if (pathExits.empty()) return 0;
-
-  /* 2. Identify back-edges via DFS: edge a->b is a back-edge iff b is on
-     the active DFS stack from a. */
-  llvm::DenseSet<std::pair<BasicBlock *, BasicBlock *>> BackEdges;
-  {
-
-    llvm::DenseSet<BasicBlock *>     visited;
-    llvm::DenseSet<BasicBlock *>     onStack;
-    std::function<void(BasicBlock *)> dfs = [&](BasicBlock *BB) {
-
-      visited.insert(BB);
-      onStack.insert(BB);
-      for (auto *S : successors(BB)) {
-
-        if (onStack.count(S)) {
-
-          BackEdges.insert({BB, S});
-
-        } else if (!visited.count(S)) {
-
-          dfs(S);
-
-        }
-
-      }
-      onStack.erase(BB);
-
-    };
-    dfs(&F.getEntryBlock());
-    for (auto &BB : F) {
-
-      if (!visited.count(&BB)) dfs(&BB);
-
-    }
-
-  }
-
-  auto forwardSuccs =
-      [&](BasicBlock *BB) -> llvm::SmallVector<BasicBlock *, 4> {
-
-    llvm::SmallVector<BasicBlock *, 4> out;
-    if (ExitBBs.count(BB)) return out;
-    for (auto *S : successors(BB)) {
-
-      if (BackEdges.count({BB, S})) continue;
-      out.push_back(S);
-
-    }
-    return out;
-
-  };
-
-  /* Helper: a "guard-only" BB has no calls, no stores, no atomics —
-     just pure condition-check work + a terminator. */
-  auto isGuardOnlyBB = [&](BasicBlock *BB) -> bool {
-
-    for (auto &I : *BB) {
-
-      if (I.isTerminator()) continue;
-      if (isa<LoadInst>(&I)) continue;
-      if (isa<CastInst>(&I)) continue;
-      if (isa<GetElementPtrInst>(&I)) continue;
-      if (isa<CmpInst>(&I)) continue;
-      if (isa<PHINode>(&I)) continue;
-      if (isa<FreezeInst>(&I)) continue;
-      if (isa<AllocaInst>(&I)) continue;
-      if (isa<SelectInst>(&I)) continue;
-      if (isa<BinaryOperator>(&I)) continue;
-      if (isa<UnaryOperator>(&I)) continue;
-      if (isa<ExtractValueInst>(&I) || isa<InsertValueInst>(&I)) continue;
-      return false;
-
-    }
-    return true;
-
-  };
-
-  /* 3. Compute NumPaths(v) on the forward DAG, recursive + memoized.
-     Two passes if we need to simplify multi-way branches after the
-     first pass exceeds 100k. */
-  auto computeWithMode = [&](bool simplify) -> uint64_t {
-
-    pathNumPaths.clear();
-    std::function<uint64_t(BasicBlock *)> rec =
-        [&](BasicBlock *BB) -> uint64_t {
-
-      auto it = pathNumPaths.find(BB);
-      if (it != pathNumPaths.end()) return it->second;
-      pathNumPaths[BB] = 0;  // sentinel
-      uint64_t total = 0;
-      if (ExitBBs.count(BB)) {
-
-        total = 1;
-
-      } else {
-
-        auto succs = forwardSuccs(BB);
-        bool maxMerge = false;
-        if (simplify && succs.size() > 2) maxMerge = true;
-        if ((path_mode_level == 1 && succs.size() > 1 && isGuardOnlyBB(BB)) ||
-            (path_mode_level == 2 && succs.size() == 2 && isGuardOnlyBB(BB)))
-          maxMerge = true;
-        if (succs.empty()) {
-
-          total = 0;
-
-        } else if (maxMerge) {
-
-          for (auto *S : succs) {
-
-            uint64_t c = rec(S);
-            if (c > total) total = c;
-
-          }
-
-        } else {
-
-          for (auto *S : succs) { total += rec(S); }
-
-        }
-
-      }
-      pathNumPaths[BB] = total;
-      return total;
-
-    };
-    return rec(&F.getEntryBlock());
-
-  };
-
-  uint64_t numEntry = computeWithMode(/*simplify=*/false);
-  bool     simplified = false;
-  if (numEntry > 100000ULL) {
-
-    numEntry = computeWithMode(/*simplify=*/true);
-    simplified = true;
-    if (numEntry > 100000ULL) {
-
-      WARNF(
-          "Function %s has too many paths (>100,000) even after "
-          "simplification; skipping PATH instrumentation.",
-          F.getName().str().c_str());
-      ++path_skipped_funcs;
-      pathNumPaths.clear();
-      pathExits.clear();
-      return 0;
-
-    } else {
-
-      WARNF(
-          "Function %s simplified for PATH (multi-way branches collapsed): "
-          "%llu paths.",
-          F.getName().str().c_str(), (unsigned long long)numEntry);
-
-    }
-
-  }
-
-  if (numEntry <= 1) {
-
-    pathNumPaths.clear();
-    pathExits.clear();
+    WARNF(
+        "Function %s has too many paths (>%llu) even after simplification; "
+        "skipping PATH instrumentation.",
+        F.getName().str().c_str(), (unsigned long long)path_max_paths);
+    ++path_skipped_funcs;
     return 0;
 
   }
+  if (R.simplified) {
 
-  /* 4. Assign Ball-Larus prefix-sum edge values.  Branches that were
-     max-merged during NumPaths computation must produce zero edge values. */
-  for (auto &BB : F) {
-
-    if (ExitBBs.count(&BB)) continue;
-    if (!pathNumPaths.count(&BB)) continue;
-    auto succs = forwardSuccs(&BB);
-    if (succs.empty()) continue;
-    bool maxMerge = false;
-    if (simplified && succs.size() > 2) maxMerge = true;
-    if ((path_mode_level == 1 && succs.size() > 1 && isGuardOnlyBB(&BB)) ||
-        (path_mode_level == 2 && succs.size() == 2 && isGuardOnlyBB(&BB)))
-      maxMerge = true;
-    if (maxMerge) {
-
-      for (auto *S : succs) pathEdgeVal[{&BB, S}] = 0;
-      continue;
-
-    }
-    uint64_t prefix = 0;
-    for (auto *S : succs) {
-
-      pathEdgeVal[{&BB, S}] = prefix;
-      auto it = pathNumPaths.find(S);
-      if (it != pathNumPaths.end()) prefix += it->second;
-
-    }
+    WARNF(
+        "Function %s simplified for PATH (multi-way branches collapsed): "
+        "%llu paths.",
+        F.getName().str().c_str(), (unsigned long long)R.numPaths);
 
   }
+  if (R.numPaths == 0) return 0;
 
-  return (uint32_t)numEntry;
+  pathExits    = std::move(R.exits);
+  pathNumPaths = std::move(R.numPathsAtBB);
+  pathEdgeVal  = std::move(R.edgeValues);
+  return (uint32_t)R.numPaths;
 
 }
 
@@ -812,8 +644,16 @@ void ModuleSanitizerCoverageAFL::emitPathCoverage(Function &F) {
   LLVMContext &Ctx = F.getContext();
   IntegerType *Int32 = Type::getInt32Ty(Ctx);
 
-  /* path_reg alloca + init in the entry BB (which may now be the
-     hoist-map preamble; that's fine).                                */
+  /* INVARIANT: analyzePathCoverage() ran on the original CFG;
+     emitPathCoverage runs after InjectCoverage(), which may have prepended
+     a hoist-map preamble to the entry block but must not have removed any
+     BBs that appear in pathExits / pathEdgeVal / pathNumPaths. The only
+     modification InjectCoverage currently performs here is adding the
+     entry-block preamble — that does not invalidate the Instruction* /
+     BasicBlock* cached in our maps. If a future change to InjectCoverage
+     removes or replaces BBs, the analysis must be re-run after InjectCoverage
+     instead. The alloca for path_reg is inserted at the (new) entry block's
+     firstInsertionPt so it sits in the live entry, not in the original one. */
   BasicBlock          &EntryBB = F.getEntryBlock();
   BasicBlock::iterator entryIP = EntryBB.getFirstInsertionPt();
   IRBuilder<>          EntryIRB(&*entryIP);
@@ -1193,8 +1033,8 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
       }
       if (path_mode) {
 
-        int n = snprintf(bp, bleft, " %u extra map entries for PATH.",
-                         extra_path_inst);
+        int n = snprintf(bp, bleft, " %llu extra map entries for PATH.",
+                         (unsigned long long)extra_path_inst);
         if (n > 0 && (size_t)n < bleft) { bp += n; bleft -= n; }
         if (path_skipped_funcs) {
 
@@ -1388,7 +1228,9 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 
     emitPathCoverage(F);
     extra_path_inst += current_path_count;
-    instr += current_path_count;
+    /* Do NOT also bump `instr` — the banner already reports PATH slots
+       separately in the "extra map entries for PATH" suffix. Bumping both
+       would double-count them. */
 
   }
 
@@ -1614,7 +1456,21 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
   }
 
   /* PATH coverage: reserve current_path_count additional guard slots at
-     [AllBlocks.size() + xtra .. AllBlocks.size() + xtra + path_count). */
+     [AllBlocks.size() + xtra .. AllBlocks.size() + xtra + path_count).
+     Refuse to reserve when the resulting indexing would overflow u32 —
+     the GEP index into FunctionGuardArray is i32. */
+  uint64_t guardArrayLen = (uint64_t)AllBlocks.size() + xtra +
+                           (uint64_t)current_path_count;
+  if (guardArrayLen > UINT32_MAX) {
+
+    WARNF(
+        "Function %s would overflow FunctionGuardArray indexing "
+        "(len=%llu); skipping PATH instrumentation.",
+        F.getName().str().c_str(), (unsigned long long)guardArrayLen);
+    ++path_skipped_funcs;
+    current_path_count = 0;
+
+  }
   current_path_guard_base = (uint32_t)AllBlocks.size() + xtra;
   CreateFunctionLocalArrays(F, AllBlocks, xtra + current_path_count);
 

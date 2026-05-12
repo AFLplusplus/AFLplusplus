@@ -261,7 +261,11 @@ runtime cost per function exit is one map increment. Three levels:
 Functions with more than 100,000 paths that cannot be reduced by
 collapsing multi-way branches are skipped with a warning. Single-path
 (straight-line) functions and functions without any return point are
-also skipped.
+also skipped. The 100,000 cap can be raised or lowered with
+`AFL_LLVM_PATH_MAX_PATHS=N` (`N >= 2`).
+
+An empty value (`AFL_LLVM_PATH=`) is rejected — set the variable
+explicitly to `1`/`2`/`3`/`0`.
 
 This works under both `afl-clang-fast` (PCGUARD) and `afl-clang-lto`. The
 LTO build additionally composes with `AFL_LLVM_LTO_CALLER` to track
