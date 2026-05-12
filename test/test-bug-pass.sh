@@ -17,6 +17,28 @@ fi
 
 echo "[*] Testing: afl-llvm-bug-pass.so (SCALAR / BUDGET / SIZEFILL / SLACK / ALLOCSIZE)"
 
+# --- Aggregate selector ---
+AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-scalar.c" -o "$TMP/all_scalar.ll"
+AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-budget-bad.c" -o "$TMP/all_budget.ll"
+AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-sizefill-bad.c" -o "$TMP/all_sizefill.ll"
+AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-allocsize-bad.c" -o "$TMP/all_allocsize.ll"
+AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-slack-int.c" -o "$TMP/all_slack.ll"
+if grep -q "call.*__afl_bug_scalar_max" "$TMP/all_scalar.ll" && \
+   grep -q "call.*__afl_bug_ws_begin" "$TMP/all_budget.ll" && \
+   grep -q "call.*__afl_bug_sf_begin" "$TMP/all_sizefill.ll" && \
+   grep -q "call.*__afl_alloc_oracle" "$TMP/all_allocsize.ll" && \
+   grep -q "call.*__afl_bug_slack_min" "$TMP/all_slack.ll"; then
+  echo "[+] AFL_LLVM_BUG=1: aggregate selector enables all bug-pass oracles"
+else
+  echo "[!] AFL_LLVM_BUG=1: aggregate selector did not enable every oracle"
+  exit 1
+fi
+
 # --- SCALAR ---
 AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 "$CC" \
   "$SCRIPT_DIR/test-bug-scalar.c" -o "$TMP/scalar"

@@ -1,7 +1,7 @@
 // instrumentation/afl-llvm-bug-pass.cc
 //
 // AFL++ bug-finding pass: implements five independent oracles, each gated
-// by its own AFL_LLVM_BUG_<NAME>=1 (or AFL_LLVM_BUG=all):
+// by its own AFL_LLVM_BUG_<NAME>=1 (or AFL_LLVM_BUG=1):
 //   - SCALAR   : max-value-per-arithmetic-site coverage + loop iter counts
 //   - BUDGET   : ptr += func() write-extent contract
 //   - SIZEFILL : NULL-means-size idiom self-consistency

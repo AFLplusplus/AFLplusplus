@@ -4021,7 +4021,7 @@ void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size) {
 }
 
 /* Independent SIZEFILL stack so it can coexist with BUDGET under
-   AFL_LLVM_BUG=all without clobbering each other. Same begin/store/
+   AFL_LLVM_BUG=1 without clobbering each other. Same begin/store/
    check discipline as ws_*. */
 void __afl_bug_sf_begin(const void *ptr_arg, uint64_t caller_buf_size) {
 
