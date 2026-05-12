@@ -519,4 +519,23 @@ EOF
 
 fi
 
+# Issue: granule-collision in __afl_alloc_unregister.  Two small allocs
+# that share a 64-byte shadow granule: the shadow only holds the newer
+# alloc's idx, so freeing the older alloc without a fallback scan
+# silently leaves its record marked LIVE.  We inspect the record table
+# directly to assert no leak.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-allocsize-granule.c" -o "$TMP/ag2"
+set +e
+"$TMP/ag2" 2>"$TMP/ag2.err"
+ag2_rc=$?
+set -e
+if [ "$ag2_rc" -eq 0 ] && grep -q "^ok$" "$TMP/ag2.err"; then
+  echo "[+] granule unregister: no stale record after granule-shared free"
+else
+  echo "[!] granule unregister: rc=$ag2_rc"
+  cat "$TMP/ag2.err" || true
+  exit 1
+fi
+
 echo "[+] all bug-pass tests passed"

@@ -3286,15 +3286,25 @@ int main(int argc, char **argv_orig, char **envp) {
     // Restore AFL_NO_IJON for subsequent processes (cmplog/asan)
     if (need_restore_no_ijon) { setenv("AFL_NO_IJON", "1", 1); }
 
+    // Bug-map tail-trim must run on ANY fastresume of a bug-pass target,
+    // not just the IJON-restore case.  The main start path calls
+    // configure_bug_runtime before configure_ijon_runtime; the fastresume
+    // path must do the same.  A static guard prevents a double-trim when
+    // the IJON branch below also runs in the same restore.
+    static u8 bug_runtime_configured = 0;
+    if (afl->fsrv.use_bug_map && !bug_runtime_configured) {
+
+      configure_bug_runtime(afl);
+      bug_runtime_configured = 1;
+
+    }
+
     // Enable IJON after forkserver handshake (for IJON fastresume)
     if (has_saved_ijon_state()) {
 
       ijon_fastresume_state_t *restored_state = get_saved_ijon_state();
       if (restored_state && restored_state->is_initialized) {
 
-        // Trim the bug-map tail FIRST (mirrors the main start path), so
-        // IJON's own tail-trim addresses ijon_bits at the right offset.
-        if (afl->fsrv.use_bug_map) configure_bug_runtime(afl);
         // Enable IJON now that forkserver handshake is complete
         afl->fsrv.use_ijon = 1;
         configure_ijon_runtime(afl);

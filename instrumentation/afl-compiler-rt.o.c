@@ -4522,22 +4522,44 @@ void __afl_alloc_unregister(void *ptr) {
 
   if (!__afl_allocsize_active || !ptr || !__afl_alloc_shadow) return;
 
-  /* O(1) lookup via the shadow — the same path the oracles use.
-     Single-threaded by AFL++ design; no synchronisation needed. */
   uintptr_t a = (uintptr_t)ptr;
   if (a < __afl_alloc_shadow_origin) return;
   uintptr_t off = a - __afl_alloc_shadow_origin;
   if (off >= MAP_SIZE_ALLOCSHADOW_RANGE) return;
-  u16 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
-  if (!idx || idx >= MAP_SIZE_ALLOCRECORDS) return;
 
-  AllocSizeRecord *r = &__afl_alloc_records[idx];
-  if (r->in_use != __AFL_ALLOC_INUSE_LIVE) return;
-  /* Confirm the granule's idx actually points at our base — the granule
-     is 64 bytes wide; an arbitrary `ptr` that isn't the allocation base
-     would still resolve the granule but its `base != ptr` would tell us
-     to skip. */
-  if (r->base != a) return;
+  /* Fast path: the granule's shadow byte points directly at our record.
+     Granules are 64 bytes; malloc returns 16-byte-aligned chunks, so
+     several small allocations can share one granule and the shadow
+     holds only the most recently registered idx.  If the fast lookup
+     mismatches (different base), fall through to a bounded linear scan
+     to find the record whose base matches.  Without the fallback the
+     older allocation's slot leaks until the table fills. */
+  AllocSizeRecord *r = NULL;
+  u16 idx =
+      __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+  if (idx && idx < MAP_SIZE_ALLOCRECORDS &&
+      __afl_alloc_records[idx].in_use == __AFL_ALLOC_INUSE_LIVE &&
+      __afl_alloc_records[idx].base == a) {
+
+    r = &__afl_alloc_records[idx];
+
+  } else {
+
+    for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
+
+      AllocSizeRecord *cand = &__afl_alloc_records[i];
+      if (cand->in_use == __AFL_ALLOC_INUSE_LIVE && cand->base == a) {
+
+        r = cand;
+        break;
+
+      }
+
+    }
+
+  }
+
+  if (!r) return; /* not tracked (or already freed) */
 
   __afl_size_derive_log(r);
   __afl_alloc_shadow_paint(r->base, r->size, 0);
@@ -4573,24 +4595,30 @@ void *__afl_track_calloc(uint64_t nmemb, uint64_t size,
 
 void *__afl_track_realloc(void *ptr, uint64_t size, uint32_t alloc_site_id) {
 
-  /* Call realloc first, then act on its outcome — unregistering ptr
-     up-front would corrupt state when realloc fails (ptr still valid
-     per C11) or shrinks to zero (glibc frees ptr).
-       p != NULL                 - new buffer (possibly same address):
-                                   unregister old, register new.
-       p == NULL && s == 0       - glibc freed ptr; drop registration.
-       p == NULL && s != 0       - realloc failed; ptr still valid; keep
-                                   registration intact. */
+  /* Call realloc first, then act on its outcome.
+       p != NULL              - new buffer (possibly same address):
+                                unregister old, register new.
+       p == NULL              - either realloc failed (ptr still valid
+                                per C11) OR realloc(p, 0) was issued.
+                                On glibc >= 2.32 (and C23) realloc(p, 0)
+                                returns NULL without freeing ptr;
+                                older glibc freed it.  We cannot tell
+                                the two outcomes apart, so we leave the
+                                registration in place — the caller is
+                                expected to free(ptr) itself.  Cost:
+                                under old glibc this leaks one record
+                                slot per realloc(p,0); under new glibc
+                                it's correct. */
   size_t s = (size_t)size;
   void  *p = realloc(ptr, s);
 
   if (p != NULL) {
+
     if (ptr) __afl_alloc_unregister(ptr);
     __afl_alloc_register(p, size, alloc_site_id);
-    return p;
+
   }
-  if (s == 0 && ptr) __afl_alloc_unregister(ptr);
-  return NULL;
+  return p;
 
 }
 
@@ -4627,21 +4655,21 @@ void *__afl_track_aligned_alloc(uint64_t size, uint64_t alignment,
 void *__afl_track_reallocarray(void *ptr, uint64_t nmemb, uint64_t size,
                                uint32_t alloc_site_id) {
 
-  /* Saturating overflow check in size_t to match libc (same hazard as
-     __afl_track_calloc above). */
+  /* Saturating overflow check in size_t to match libc. */
   size_t n = (size_t)nmemb, sz = (size_t)size;
   if (n && sz && n > ((size_t)-1) / sz) return NULL;
   size_t total = n * sz;
 
-  /* Same unregister-after-success ordering as __afl_track_realloc above. */
+  /* Same outcome-driven flow as __afl_track_realloc.  p==NULL leaves the
+     registration in place (libc-dependent semantics for total==0). */
   void *p = realloc(ptr, total);
   if (p != NULL) {
+
     if (ptr) __afl_alloc_unregister(ptr);
     __afl_alloc_register(p, (uint64_t)total, alloc_site_id);
-    return p;
+
   }
-  if (total == 0 && ptr) __afl_alloc_unregister(ptr);
-  return NULL;
+  return p;
 
 }
 
@@ -4734,12 +4762,19 @@ static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
   u32 log_hr = headroom ? (64u - (u32)__builtin_clzll(headroom)) : 0;
   u32 inv = 64u - log_hr;
   if (!__afl_bug_map) return;
-  u32 slot1 = (r->alloc_site_id * 31u) & (MAP_SIZE_BUG_ENTRIES - 1);
+  /* The bug map is partitioned: SCALAR/loop occupy [0, half), SLACK
+     occupies [half, MAP_SIZE_BUG_ENTRIES).  Mask ALLOCSIZE writes into
+     the SCALAR half so they don't clobber SLACK's tight-comparison
+     signal.  Collisions with SCALAR are accepted (different channel
+     classes; allocator-bound vs arithmetic-bound sites rarely overlap
+     for the same site_id). */
+  const u32 half = MAP_SIZE_BUG_ENTRIES / 2;
+  u32 slot1 = (r->alloc_site_id * 31u) & (half - 1);
   if (__afl_bug_map[slot1] < inv) __afl_bug_map[slot1] = inv;
   /* (2) Proximity bucket as synthetic edge: hash(site, log2(headroom)). */
   u32 bucket = log_hr > 15 ? 15 : log_hr;
-  u32 slot2 = ((r->alloc_site_id * 1009u) ^ (bucket * 17u)) &
-              (MAP_SIZE_BUG_ENTRIES - 1);
+  u32 slot2 =
+      ((r->alloc_site_id * 1009u) ^ (bucket * 17u)) & (half - 1);
   if (__afl_bug_map[slot2] < (bucket + 1u)) __afl_bug_map[slot2] = bucket + 1u;
 
 }
@@ -4793,10 +4828,22 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
   if (r->type_warned) return;
   r->type_warned = 1;
 
-  fprintf(stderr,
-          "[afl-bug] ALLOCSIZE type-confusion: site=%u first elem_size=%u "
-          "(align=%u), later elem_size=%u (align=%u) at %p\n",
-          r->alloc_site_id, r->first_elem_size, r->first_elem_align,
-          elem_size, alignment, ptr);
+  /* Signal-safe report (matches the soft-OOB / BUDGET / SIZEFILL sites).
+     Typed-oracle is informational and does NOT _exit; it just emits the
+     diagnostic via write(2) so reentering stdio from a signal-handler-
+     instrumented store can't deadlock. */
+  __afl_bug_writes("[afl-bug] ALLOCSIZE type-confusion: site=");
+  __afl_bug_writeu((unsigned long long)r->alloc_site_id);
+  __afl_bug_writes(" first elem_size=");
+  __afl_bug_writeu((unsigned long long)r->first_elem_size);
+  __afl_bug_writes(" (align=");
+  __afl_bug_writeu((unsigned long long)r->first_elem_align);
+  __afl_bug_writes("), later elem_size=");
+  __afl_bug_writeu((unsigned long long)elem_size);
+  __afl_bug_writes(" (align=");
+  __afl_bug_writeu((unsigned long long)alignment);
+  __afl_bug_writes(") at ");
+  __afl_bug_writep(ptr);
+  __afl_bug_writes("\n");
 
 }

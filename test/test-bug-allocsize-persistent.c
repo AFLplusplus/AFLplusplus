@@ -10,11 +10,14 @@
 
 #include "bug-pass.h"
 
-extern AllocSizeRecord __afl_alloc_records[256];
+/* Unsized extern: see test-bug-allocsize-track.c for rationale. */
+extern AllocSizeRecord __afl_alloc_records[];
 
 static AllocSizeRecord *find_record(void *p) {
 
   uintptr_t a = (uintptr_t)p;
+  /* 256 is a sufficient scan bound for this test (single long-lived
+     allocation lands at idx=1). */
   for (unsigned i = 1; i < 256; ++i) {
 
     AllocSizeRecord *r = &__afl_alloc_records[i];
