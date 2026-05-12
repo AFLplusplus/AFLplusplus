@@ -1,7 +1,8 @@
 // instrumentation/afl-llvm-bug-pass.cc
 //
-// AFL++ bug-finding pass: implements five independent oracles, each gated
-// by its own AFL_LLVM_BUG_<NAME>=1 (or AFL_LLVM_BUG=1):
+// AFL++ bug-finding pass: implements five independent oracles plus
+// ALLOCSIZE_DERIVE CmpLog assistance, each gated by its own
+// AFL_LLVM_BUG_<NAME>=1 (or all together with AFL_LLVM_BUG=1):
 //   - SCALAR   : max-value-per-arithmetic-site coverage + loop iter counts
 //   - BUDGET   : ptr += func() write-extent contract
 //   - SIZEFILL : NULL-means-size idiom self-consistency
@@ -80,6 +81,7 @@ static BugPassConfig parseEnv() {
     if (*all && strcmp(all, "0") != 0) {
 
       c.scalar = c.budget = c.sizefill = c.allocsize = c.slack = true;
+      c.derive = true;
 
     }
 

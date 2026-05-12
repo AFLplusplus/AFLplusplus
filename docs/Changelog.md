@@ -33,7 +33,9 @@
                                        tripwire) per in-loop store
         * `AFL_LLVM_BUG_ALLOCSIZE_FUNCS=Name1,Name2,...` - extend tracking
                                        to user-listed custom allocators
-        * `AFL_LLVM_BUG=1`           - enable all four
+        * `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` - log tracked allocation sizes
+                                       into CmpLog RTN slots for `-l z`
+        * `AFL_LLVM_BUG=1`           - enable all bug-pass modes
       Per-site bug-map slots are kept in a private MAP_SIZE_BUG region and
       tracked max-rule (compatible with the IJON model)
     - cmplog scheduling extensions (companion to bug-pass):
@@ -42,7 +44,8 @@
           coverage event and mark the queue entry favoured. Catches the
           libwebp-1.3.1 / CVE-2023-4863 input pattern (validation
           predicates simultaneously at their tight edges).
-        * `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` (compile-time) and
+        * `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` or `AFL_LLVM_BUG=1`
+          (compile-time) and
           `-l z` (afl-fuzz) - size-derive logging. On every freed tracked
           allocation, write `(computed_size, max_observed_offset)` into a
           CmpLog RTN slot keyed by alloc-site. The existing CmpLog

@@ -15,7 +15,13 @@ if [ ! -x "$CC" ] || [ ! -e "$PLUGIN" ]; then
   exit 0
 fi
 
-echo "[*] Testing: afl-llvm-bug-pass.so (SCALAR / BUDGET / SIZEFILL / SLACK / ALLOCSIZE)"
+unset AFL_LLVM_BUG AFL_LLVM_BUG_SCALAR AFL_LLVM_BUG_BUDGET
+unset AFL_LLVM_BUG_SIZEFILL AFL_LLVM_BUG_SLACK AFL_LLVM_BUG_ALLOCSIZE
+unset AFL_LLVM_BUG_ALLOCSIZE_FUNCS AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS
+unset AFL_LLVM_BUG_ALLOCSIZE_DERIVE AFL_LLVM_BUG_SCALAR_SLICE
+unset AFL_LLVM_CMPLOG
+
+echo "[*] Testing: afl-llvm-bug-pass.so (SCALAR / BUDGET / SIZEFILL / SLACK / ALLOCSIZE / DERIVE)"
 
 # --- Aggregate selector ---
 AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -S -emit-llvm \
@@ -28,14 +34,24 @@ AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -S -emit-llvm \
   "$SCRIPT_DIR/test-bug-allocsize-bad.c" -o "$TMP/all_allocsize.ll"
 AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -S -emit-llvm \
   "$SCRIPT_DIR/test-bug-slack-int.c" -o "$TMP/all_slack.ll"
+AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-allocsize-derive.c" -o "$TMP/all_derive"
+set +e
+printf '\x00\x00\x00\x00' | AFL_CMPLOG_DEBUG=1 \
+  "$TMP/all_derive" 2>"$TMP/all_derive.err" >/dev/null
+all_derive_rc=$?
+set -e
 if grep -q "call.*__afl_bug_scalar_max" "$TMP/all_scalar.ll" && \
    grep -q "call.*__afl_bug_ws_begin" "$TMP/all_budget.ll" && \
    grep -q "call.*__afl_bug_sf_begin" "$TMP/all_sizefill.ll" && \
    grep -q "call.*__afl_alloc_oracle" "$TMP/all_allocsize.ll" && \
-   grep -q "call.*__afl_bug_slack_min" "$TMP/all_slack.ll"; then
-  echo "[+] AFL_LLVM_BUG=1: aggregate selector enables all bug-pass oracles"
+   grep -q "call.*__afl_bug_slack_min" "$TMP/all_slack.ll" && \
+   [ "$all_derive_rc" -eq 0 ] && \
+   grep -q "size=64 off=" "$TMP/all_derive.err"; then
+  echo "[+] AFL_LLVM_BUG=1: aggregate selector enables all bug-pass modes"
 else
-  echo "[!] AFL_LLVM_BUG=1: aggregate selector did not enable every oracle"
+  echo "[!] AFL_LLVM_BUG=1: aggregate selector did not enable every bug-pass mode"
+  cat "$TMP/all_derive.err" 2>/dev/null || true
   exit 1
 fi
 

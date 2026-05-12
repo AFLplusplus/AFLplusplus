@@ -185,9 +185,10 @@ Setting any `AFL_LLVM_BUG*` variable during compilation enables
 logical-OOB bugs that ASan does not catch (the CVE-2023-4863 / libwebp-Huffman
 class).
 
-  - `AFL_LLVM_BUG=1` — enable the main bug-pass oracles (`SCALAR`,
-    `BUDGET`, `SIZEFILL`, `SLACK`, and `ALLOCSIZE`). Size-derive still
-    needs `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1`.
+  - `AFL_LLVM_BUG=1` — enable all bug-pass modes (`SCALAR`, `BUDGET`,
+    `SIZEFILL`, `SLACK`, `ALLOCSIZE`, and `ALLOCSIZE_DERIVE`). The
+    size-derive mode only emits entries when a CmpLog map is available
+    (for example in a CmpLog binary or with `AFL_CMPLOG_DEBUG=1`).
   - `AFL_LLVM_BUG_SCALAR=1` — max-value-per-arithmetic-site coverage and
     per-loop iteration counts. Treats internal scalar growth as a fitness
     signal in addition to edge coverage. Useful for finding inputs that
@@ -234,7 +235,8 @@ class).
     by alloc-site ID. It needs a CmpLog binary (or `AFL_CMPLOG_DEBUG=1`) for
     the cmp_map to be allocated. Pair with `afl-fuzz -l 2z` to confirm the
     feature is in use; the fuzzer's existing CmpLog RTN dictionary mining
-    harvests the entries automatically.
+    harvests the entries automatically. This mode is also included by
+    `AFL_LLVM_BUG=1`.
 
 The runtime keeps its own private max-value bug-map (`MAP_SIZE_BUG`,
 16384 u32 slots), separate from the IJON map, and reports oracle violations
@@ -248,8 +250,9 @@ Recommended usage:
   - Use `BUDGET`, `SIZEFILL`, and `ALLOCSIZE` as oracle builds for bug-finding
     or confirmation runs; they intentionally abort on detected contract
     violations.
-  - Use `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` with `afl-fuzz -l 2Z` as a CmpLog
-    assistant build for mining allocation-size values.
+  - Use `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` (or `AFL_LLVM_BUG=1` when you want
+    every bug-pass mode) with `afl-fuzz -l 2Z` as a CmpLog assistant build for
+    mining allocation-size values.
   - Prefer LTO for `BUDGET` and `SIZEFILL` campaigns when the checked APIs are
     split across translation units.
 
