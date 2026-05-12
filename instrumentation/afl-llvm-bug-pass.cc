@@ -676,6 +676,9 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
       // increment, ~3x faster in tight loops than the alloca form.
       PHINode *cnt = PHINode::Create(I32, 2, "afl.loopcnt",
                                      &*Header->begin());
+#if LLVM_MAJOR >= 20
+      cnt->dropDbgRecords();
+#endif
       cnt->setDebugLoc(Header->getFirstNonPHI()->getDebugLoc());
       IRBuilder<> HB(Header->getFirstNonPHI());
       inheritDebugLoc(HB, Header->getFirstNonPHI());
@@ -726,6 +729,9 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         if (!seenExits.insert(Exit).second) continue;
         PHINode *xphi = PHINode::Create(
             I32, 0, "afl.loopcnt.lcssa", &*Exit->begin());
+#if LLVM_MAJOR >= 20
+        xphi->dropDbgRecords();
+#endif
         for (BasicBlock *Pred : predecessors(Exit)) {
 
           if (L->contains(Pred))
@@ -1809,6 +1815,9 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
     // PHINode::Create lets us insert before all non-PHIs in the block.
     PHINode *NewPN = PHINode::Create(I64, (unsigned)arms.size(),
                                      "afl.bufsz.phi", PN);
+#if LLVM_MAJOR >= 20
+    NewPN->dropDbgRecords();
+#endif
     for (auto &kv : arms) NewPN->addIncoming(kv.first, kv.second);
     return NewPN;
 
