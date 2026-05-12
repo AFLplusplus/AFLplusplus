@@ -84,6 +84,41 @@ else
   exit 1
 fi
 
+# --- Runtime map sizing ---
+dump_map_size() {
+  local out rc
+  set +e
+  out=$(AFL_DUMP_MAP_SIZE=1 "$1" 2>/dev/null)
+  rc=$?
+  set -e
+  if [ -z "$out" ]; then
+    echo "[!] map-size dump failed for $1 (rc=$rc)" >&2
+    return 1
+  fi
+  printf '%s\n' "$out" | tail -1
+}
+
+AFL_QUIET=1 "$CC" "$SCRIPT_DIR/test-bug-scalar.c" -o "$TMP/map_plain"
+AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 "$CC" \
+  "$SCRIPT_DIR/test-bug-scalar.c" -o "$TMP/map_budget"
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" \
+  "$SCRIPT_DIR/test-bug-scalar.c" -o "$TMP/map_sizefill"
+AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 "$CC" \
+  "$SCRIPT_DIR/test-bug-scalar.c" -o "$TMP/map_scalar"
+plain_map=$(dump_map_size "$TMP/map_plain")
+budget_map=$(dump_map_size "$TMP/map_budget")
+sizefill_map=$(dump_map_size "$TMP/map_sizefill")
+scalar_map=$(dump_map_size "$TMP/map_scalar")
+bug_map_bytes=$((16384 * 4))
+if [ "$budget_map" -eq "$plain_map" ] && \
+   [ "$sizefill_map" -eq "$plain_map" ] && \
+   [ "$scalar_map" -eq $((plain_map + bug_map_bytes)) ]; then
+  echo "[+] runtime map sizing: abort-only modes keep base map, SCALAR appends bug map"
+else
+  echo "[!] runtime map sizing: plain=$plain_map budget=$budget_map sizefill=$sizefill_map scalar=$scalar_map"
+  exit 1
+fi
+
 # --- ALLOCSIZE ---
 AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" \
   "$SCRIPT_DIR/test-bug-allocsize-good.c" -o "$TMP/ag"

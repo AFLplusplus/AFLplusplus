@@ -214,6 +214,7 @@ static u32 __afl_bug_map_local[MAP_SIZE_BUG_ENTRIES];
 u32        __afl_bug_mode __attribute__((weak)) = 0;
 static u8  __afl_bug_runtime_configured = 0;
 static u32 __afl_bug_configured_mode = 0;
+static u8  __afl_bug_map_active = 0;
 static u8  __afl_bug_map_increased = 0;
 /* Per-thread stack of nested BUDGET / SIZEFILL frames.
    Previously begin/check used a single global (base, max_off), so an
@@ -538,22 +539,31 @@ static void __afl_map_shm_fuzz() {
 static void __afl_bug_configure_runtime(void) {
 
   u32 mode = __afl_bug_mode;
-  if (likely(__afl_bug_runtime_configured && mode == __afl_bug_configured_mode))
+  if (likely(__afl_bug_runtime_configured &&
+             mode == __afl_bug_configured_mode &&
+             (!__afl_bug_map_active || __afl_bug_map)))
     return;
   __afl_bug_runtime_configured = 1;
   __afl_bug_configured_mode = mode;
   __afl_bug_mode = mode;
-  if (mode & (AFL_BUG_MODE_SCALAR | AFL_BUG_MODE_BUDGET |
-              AFL_BUG_MODE_SIZEFILL | AFL_BUG_MODE_ALLOCSIZE |
-              AFL_BUG_MODE_SLACK)) {
+  __afl_bug_active = !!(mode & (AFL_BUG_MODE_SCALAR | AFL_BUG_MODE_BUDGET |
+                                AFL_BUG_MODE_SIZEFILL |
+                                AFL_BUG_MODE_ALLOCSIZE | AFL_BUG_MODE_SLACK));
+  __afl_bug_map_active = !!(mode & (AFL_BUG_MODE_SCALAR |
+                                    AFL_BUG_MODE_ALLOCSIZE |
+                                    AFL_BUG_MODE_SLACK));
+  if (__afl_bug_map_active) {
 
-    __afl_bug_active = 1;
     if (!__afl_bug_map) {
 
       __afl_bug_map = __afl_bug_map_local;
       memset(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
 
     }
+
+  } else {
+
+    __afl_bug_map = NULL;
 
   }
 
@@ -564,7 +574,8 @@ static void __afl_bug_configure_runtime(void) {
 
 static inline void __afl_bug_ensure_runtime(void) {
 
-  if (unlikely(!__afl_bug_active || !__afl_bug_map ||
+  if (unlikely(!__afl_bug_runtime_configured ||
+      (__afl_bug_map_active && !__afl_bug_map) ||
       __afl_bug_mode != __afl_bug_configured_mode))
     __afl_bug_configure_runtime();
 
@@ -572,7 +583,7 @@ static inline void __afl_bug_ensure_runtime(void) {
 
 static void __afl_bug_append_map(void) {
 
-  if (likely(!__afl_bug_active || __afl_bug_map_increased)) return;
+  if (likely(!__afl_bug_map_active || __afl_bug_map_increased)) return;
   __afl_map_size += MAP_SIZE_BUG_BYTES;
   __afl_set_map_size += MAP_SIZE_BUG_BYTES;
   __afl_bug_map_increased = 1;
@@ -581,7 +592,7 @@ static void __afl_bug_append_map(void) {
 
 static void __afl_bug_bind_map(void) {
 
-  if (likely(!__afl_bug_active || !__afl_area_ptr || !__afl_set_map_size ||
+  if (likely(!__afl_bug_map_active || !__afl_area_ptr || !__afl_set_map_size ||
       __afl_set_map_size < MAP_SIZE_BUG_BYTES)) {
 
     return;
@@ -1178,7 +1189,7 @@ static void __afl_unmap_shm(void) {
   }
 
   __afl_area_ptr = __afl_area_ptr_dummy;
-  if (__afl_bug_active) __afl_bug_map = __afl_bug_map_local;
+  __afl_bug_map = __afl_bug_map_active ? __afl_bug_map_local : NULL;
   __afl_bug_map_increased = 0;
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
