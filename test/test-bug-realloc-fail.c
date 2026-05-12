@@ -1,40 +1,53 @@
 /* __afl_track_realloc must handle:
  *   (a) realloc(p, 0)            -- glibc frees p and returns NULL;
  *                                   runtime must NOT keep p in_use.
- *   (b) realloc(p, HUGE) failure  -- p still valid per C11;
- *                                   runtime must keep p tracked.
+ *   (b) realloc(p, HUGE) failure -- p still valid per C11;
+ *                                   runtime must keep p tracked and
+ *                                   subsequent writes must not abort.
  *   (c) realloc(NULL, sz)         -- equivalent to malloc;
  *                                   runtime must register the result.
  *
- * Compiled with AFL_LLVM_BUG_ALLOCSIZE=1; the test exits 0 on success
- * and relies on the absence of "ALLOCSIZE soft-OOB" on stderr to assert
- * no false aborts. */
+ * Emits path-{a,b,c} markers on stderr so the driver can assert which
+ * branches actually ran (overcommit makes path-b's failure case skip
+ * on Linux when realloc succeeds against a huge request — that's still
+ * useful; we just want to know which side fired and that no spurious
+ * ALLOCSIZE soft-OOB string appears). */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 int main(void) {
+
+  /* (a) shrink-to-zero */
   char *p = (char *)malloc(64);
   if (!p) return 1;
   memset(p, 0xab, 64);
-
-  /* (a) shrink-to-zero. On glibc this frees p; q is NULL. */
   char *q = (char *)realloc(p, 0);
-  (void)q;  /* do not touch p afterwards regardless of q */
+  fputs("path-a\n", stderr);
+  (void)q;
 
   /* (c) realloc(NULL, sz) */
   char *r = (char *)realloc(NULL, 128);
   if (!r) return 1;
   memset(r, 0x5a, 128);
+  fputs("path-c\n", stderr);
 
-  /* (b) realloc-failure: huge request usually fails on 64-bit too. */
-  char *s = (char *)realloc(r, ((size_t)-1) / 2);
+  /* (b) attempt a huge grow; outcome depends on overcommit. */
+  size_t huge = ((size_t)-1) / 2;
+  char  *s = (char *)realloc(r, huge);
   if (s) {
-    /* libc actually allocated; just free and exit. */
+
+    fputs("path-b-succ\n", stderr);
     free(s);
+
   } else {
-    /* r still valid; writes must not trigger spurious abort. */
+
+    /* r still valid per C11; write must NOT abort. */
+    fputs("path-b-fail\n", stderr);
     memset(r, 0x33, 128);
     free(r);
+
   }
   return 0;
+
 }

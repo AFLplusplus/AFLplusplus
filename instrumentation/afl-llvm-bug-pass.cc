@@ -100,7 +100,14 @@ static BugPassConfig parseEnv() {
   }
   // Slice filter is purely additive on top of SCALAR — it's a no-op
   // unless SCALAR is also enabled.
-  if (getenv(AFL_BUG_ENV_SCALAR_SLICE)) c.scalar_slice = true;
+  if (getenv(AFL_BUG_ENV_SCALAR_SLICE)) {
+
+    /* The slice filter is purely additive on top of SCALAR — it would
+       be a no-op on its own.  Setting the env implies SCALAR. */
+    c.scalar_slice = true;
+    c.scalar = true;
+
+  }
   if (const char *list = getenv(AFL_BUG_ENV_ALLOCSIZE_FUNCS)) {
 
     c.allocsize = true;
@@ -774,6 +781,11 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
       for (BasicBlock *Exit : Exits) {
 
         if (!seenExits.insert(Exit).second) continue;
+        // Skip EH landing-pad / cleanup-pad exit blocks: a CallInst
+        // before a LandingPad is invalid IR, and `getExitBlocks` returns
+        // exit blocks reached via in-loop invoke unwind edges in C++
+        // -fexceptions code.
+        if (Exit->isEHPad() || firstNonPHI(Exit)->isEHPad()) continue;
         PHINode *xphi = PHINode::Create(
             I32, 0, "afl.loopcnt.lcssa", &*Exit->begin());
 #if LLVM_MAJOR >= 20
@@ -2596,7 +2608,7 @@ static const AllocRewriteSpec kRewriteSpecs[] = {
     {"__libc_free",     "__afl_track_free",    AllocKind::Free},
     {"__libc_valloc",   "__afl_track_malloc",  AllocKind::Malloc},
     {"__libc_pvalloc",  "__afl_track_malloc",  AllocKind::Malloc},
-    {"__libc_memalign", "__afl_track_malloc",  AllocKind::Malloc},
+    {"__libc_memalign", "__afl_track_aligned_alloc", AllocKind::AlignedAlloc},
     {"__GI___libc_malloc",  "__afl_track_malloc",  AllocKind::Malloc},
     {"__GI___libc_calloc",  "__afl_track_calloc",  AllocKind::Calloc},
     {"__GI___libc_realloc", "__afl_track_realloc", AllocKind::Realloc},

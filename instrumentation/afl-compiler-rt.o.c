@@ -343,6 +343,11 @@ AllocSizeRecord __afl_alloc_records[MAP_SIZE_ALLOCRECORDS];
 static u32      __afl_alloc_next_idx = 1; /* 0 reserved */
 static void __afl_alloc_persistent_reset(u8 flush_derive);
 
+/* AllocSizeRecord.in_use state. AFL++ fuzzing targets are single-
+   threaded by design, so no atomic synchronisation is required. */
+#define __AFL_ALLOC_INUSE_FREE     ((u8)0)
+#define __AFL_ALLOC_INUSE_LIVE     ((u8)1)
+
 /* IJON state tracking globals */
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
 u32 __afl_ijon_state = 0;      // Current IJON state
@@ -688,23 +693,27 @@ static inline void __afl_bug_ensure_runtime(void) {
 static void __afl_bug_append_map(void) {
 
   if (likely(!__afl_bug_map_active || __afl_bug_map_increased)) return;
+  /* Bug map sits at the very end of trace_bits, AFTER any IJON region.
+     Only __afl_map_size grows; __afl_set_map_size (the persistent-reset
+     memset boundary and the IJON-tail offset) stays unchanged so IJON
+     addressing isn't shifted by the bug-map insertion. */
   __afl_map_size += MAP_SIZE_BUG_BYTES;
-  __afl_set_map_size += MAP_SIZE_BUG_BYTES;
   __afl_bug_map_increased = 1;
 
 }
 
 static void __afl_bug_bind_map(void) {
 
-  if (likely(!__afl_bug_map_active || !__afl_area_ptr || !__afl_set_map_size ||
-      __afl_set_map_size < MAP_SIZE_BUG_BYTES)) {
+  if (likely(!__afl_bug_map_active || !__afl_area_ptr || !__afl_map_size ||
+      __afl_map_size < MAP_SIZE_BUG_BYTES)) {
 
     return;
 
   }
 
+  /* Bug map is the trailing region of trace_bits. */
   __afl_bug_map =
-      (u32 *)(void *)(__afl_area_ptr + __afl_set_map_size - MAP_SIZE_BUG_BYTES);
+      (u32 *)(void *)(__afl_area_ptr + __afl_map_size - MAP_SIZE_BUG_BYTES);
   memset(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
 
 }
@@ -1713,6 +1722,15 @@ int __afl_persistent_loop(unsigned int max_cnt) {
        before the loop. */
 
     memset_noasan(__afl_area_ptr, 0, __afl_set_map_size);
+    /* Bug map lives past __afl_set_map_size (trailing tail of trace_bits);
+       it needs an explicit zero or stale MAX-channel values persist. */
+    if (__afl_bug_map_active && __afl_bug_map &&
+        __afl_bug_map == (u32 *)(__afl_area_ptr + __afl_map_size -
+                                 MAP_SIZE_BUG_BYTES)) {
+
+      memset_noasan(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
+
+    }
     __afl_area_ptr[0] = 1;
     memset_noasan(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
     __afl_alloc_persistent_reset(0);
@@ -4181,7 +4199,8 @@ void __afl_bug_sf_begin(const void *ptr_arg, uint64_t caller_buf_size) {
         if (idx) {
 
           AllocSizeRecord *r = &__afl_alloc_records[idx];
-          if (r->in_use && a >= r->base && a < r->base + r->size) {
+          if (r->in_use == __AFL_ALLOC_INUSE_LIVE &&
+              a >= r->base && a < r->base + r->size) {
 
             cap = (r->base + r->size) - a;
             resolved = 1;
@@ -4339,21 +4358,19 @@ static void __afl_alloc_shadow_init(uintptr_t hint) {
 
 static u32 __afl_alloc_pick_idx(void) {
 
-  /* Atomic round-robin claim: bump the cursor, then CAS in_use 0->1 on
-     the candidate slot.  A non-atomic "check empty, return idx, caller
-     writes in_use=1" sequence would let two threads return the same
-     idx.  Whoever wins the CAS owns the slot. */
+  /* Round-robin claim. AFL++ fuzzing targets are single-threaded; we
+     intentionally do not synchronise here. */
   for (u32 i = 0; i < MAP_SIZE_ALLOCRECORDS; ++i) {
 
-    u32 idx =
-        __atomic_fetch_add(&__afl_alloc_next_idx, 1, __ATOMIC_RELAXED) %
-        MAP_SIZE_ALLOCRECORDS;
+    u32 idx = __afl_alloc_next_idx % MAP_SIZE_ALLOCRECORDS;
+    __afl_alloc_next_idx++;
     if (idx == 0) continue;                       /* skip reserved 0 */
-    u8 expected = 0;
-    if (__atomic_compare_exchange_n(&__afl_alloc_records[idx].in_use,
-                                    &expected, (u8)1, false,
-                                    __ATOMIC_ACQUIRE, __ATOMIC_RELAXED))
+    if (__afl_alloc_records[idx].in_use == __AFL_ALLOC_INUSE_FREE) {
+
+      __afl_alloc_records[idx].in_use = __AFL_ALLOC_INUSE_LIVE;
       return idx;
+
+    }
 
   }
 
@@ -4396,10 +4413,7 @@ void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
 
   u32 idx = __afl_alloc_pick_idx();
   if (!idx) return;
-  /* pick_idx has already CAS'd in_use 0->1 with ACQUIRE; from here we own
-     the slot. Write the rest of the fields, then release-fence so the
-     shadow-paint that follows publishes a consistent view to oracle
-     readers via the in_use store visible on idx. */
+  /* pick_idx already marked the slot LIVE. Fill fields and paint shadow. */
   AllocSizeRecord *r = &__afl_alloc_records[idx];
   r->base = (uintptr_t)ptr;
   r->size = size;
@@ -4409,7 +4423,6 @@ void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
   r->first_elem_size = 0;
   r->first_elem_align = 0;
   r->type_warned = 0;
-  __atomic_thread_fence(__ATOMIC_RELEASE);
   __afl_alloc_shadow_paint((uintptr_t)ptr, size, (u16)idx);
 
 }
@@ -4493,7 +4506,7 @@ static inline void __afl_alloc_persistent_reset(u8 flush_derive) {
   for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
 
     AllocSizeRecord *r = &__afl_alloc_records[i];
-    if (!r->in_use) continue;
+    if (r->in_use != __AFL_ALLOC_INUSE_LIVE) continue;
     if (flush_derive) __afl_size_derive_log(r);
     r->max_observed_off = 0;
     r->derive_logged = 0;
@@ -4508,23 +4521,27 @@ static inline void __afl_alloc_persistent_reset(u8 flush_derive) {
 void __afl_alloc_unregister(void *ptr) {
 
   if (!__afl_allocsize_active || !ptr || !__afl_alloc_shadow) return;
-  for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
 
-    AllocSizeRecord *r = &__afl_alloc_records[i];
-    /* Atomic acquire pairs with the release store in
-       __afl_alloc_pick_idx / __afl_alloc_unregister. */
-    if (!__atomic_load_n(&r->in_use, __ATOMIC_ACQUIRE)) continue;
-    if (r->base != (uintptr_t)ptr) continue;
-    __afl_size_derive_log(r);
-    /* Order matters under concurrent oracle reads: clear the shadow paint
-       FIRST (so future lookups don't find this idx), then release-store
-       in_use=0 so any in-flight oracle that already loaded our idx sees
-       the change before it walks our fields. */
-    __afl_alloc_shadow_paint(r->base, r->size, 0);
-    __atomic_store_n(&r->in_use, (u8)0, __ATOMIC_RELEASE);
-    break;
+  /* O(1) lookup via the shadow — the same path the oracles use.
+     Single-threaded by AFL++ design; no synchronisation needed. */
+  uintptr_t a = (uintptr_t)ptr;
+  if (a < __afl_alloc_shadow_origin) return;
+  uintptr_t off = a - __afl_alloc_shadow_origin;
+  if (off >= MAP_SIZE_ALLOCSHADOW_RANGE) return;
+  u16 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+  if (!idx || idx >= MAP_SIZE_ALLOCRECORDS) return;
 
-  }
+  AllocSizeRecord *r = &__afl_alloc_records[idx];
+  if (r->in_use != __AFL_ALLOC_INUSE_LIVE) return;
+  /* Confirm the granule's idx actually points at our base — the granule
+     is 64 bytes wide; an arbitrary `ptr` that isn't the allocation base
+     would still resolve the granule but its `base != ptr` would tell us
+     to skip. */
+  if (r->base != a) return;
+
+  __afl_size_derive_log(r);
+  __afl_alloc_shadow_paint(r->base, r->size, 0);
+  r->in_use = __AFL_ALLOC_INUSE_FREE;
 
 }
 
@@ -4674,35 +4691,18 @@ static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
   if (a < __afl_alloc_shadow_origin) return;
   uintptr_t off = a - __afl_alloc_shadow_origin;
   if (off >= MAP_SIZE_ALLOCSHADOW_RANGE) return;
-  /* The u16 shadow store/load pair is naturally atomic on all supported
-     archs; the ACQUIRE on in_use below provides the happens-before
-     edge with the publishing thread (see __afl_alloc_register). */
-  u16 idx = __atomic_load_n(
-      &__afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2],
-      __ATOMIC_RELAXED);
+  u16 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
   if (!idx) return; /* untracked */
   if (idx >= MAP_SIZE_ALLOCRECORDS) return; /* defensive */
   AllocSizeRecord *r = &__afl_alloc_records[idx];
-  if (!__atomic_load_n(&r->in_use, __ATOMIC_ACQUIRE)) return;
+  if (r->in_use != __AFL_ALLOC_INUSE_LIVE) return;
   uintptr_t end = r->base + r->size;
   /* Treat zero-width (e.g. struct-of-size-0 or unknown) as one byte so the
      oracle still has a defined tripwire. */
   uint64_t sz = store_size ? store_size : 1;
-  /* Always update max_observed_off, regardless of OOB status — size-derive
-     wants to know "how far did the largest write reach" even on benign
-     runs. We track the byte just past the store (off + sz). Best-effort
-     atomic max — small lost updates are acceptable for this fuzzing
-     feedback channel. */
+  /* Track the byte just past the store (off + sz). */
   uint64_t off_now = (uint64_t)(a - r->base) + sz;
-  uint64_t prev = __atomic_load_n(&r->max_observed_off, __ATOMIC_RELAXED);
-  while (off_now > prev) {
-
-    if (__atomic_compare_exchange_n(&r->max_observed_off, &prev, off_now,
-                                    false, __ATOMIC_RELAXED,
-                                    __ATOMIC_RELAXED))
-      break;
-
-  }
+  if (off_now > r->max_observed_off) r->max_observed_off = off_now;
   /* (3) Soft-OOB tripwire: store extends past end. A 4-byte store one byte
      before the end of the buffer is OOB; the old `a >= end` check missed
      it. Use `a + sz > end`, written as `sz > end - a` to avoid wrap when
@@ -4761,13 +4761,7 @@ void __afl_alloc_oracle_n(const void *ptr, uint64_t store_size) {
    differs triggers a one-shot warning on stderr. This is informational,
    not fatal — type-punning is legal in C/C++ and we don't want to
    abort benign programs, only flag the smell so the fuzzer's stderr
-   pickups can correlate with crashes downstream.
-
-   Thread safety: under concurrent stores, multiple threads can race on
-   the same allocation. We use __atomic CAS for first_elem_size so the
-   "first wins" semantics hold, and an atomic test-and-set on
-   type_warned so the one-shot warning isn't duplicated. The align
-   field's update is best-effort (paired with the size CAS winner). */
+   pickups can correlate with crashes downstream. */
 void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
                               uint32_t alignment) {
 
@@ -4781,37 +4775,28 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
   u16 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
   if (!idx || idx >= MAP_SIZE_ALLOCRECORDS) return;
   AllocSizeRecord *r = &__afl_alloc_records[idx];
-  if (!__atomic_load_n(&r->in_use, __ATOMIC_RELAXED)) return;
+  if (r->in_use != __AFL_ALLOC_INUSE_LIVE) return;
 
-  /* First-elem-size CAS: only the thread that observes 0 wins and
-     stores its (size, align) pair. Losers fall through to the
-     mismatch check below. */
-  uint32_t expected = 0;
-  if (__atomic_compare_exchange_n(
-          &r->first_elem_size, &expected, elem_size,
-          /*weak=*/0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+  /* First-elem-size wins: only the first store at this allocation
+     stamps the (size, align) pair; later stores compare against it. */
+  if (r->first_elem_size == 0) {
 
-    /* We won; record the alignment to match. Not strictly atomic with
-       the size CAS, but it's only consulted in the warning printf
-       and a torn read still produces a useful (size, ~align) report. */
-    __atomic_store_n(&r->first_elem_align, alignment, __ATOMIC_RELAXED);
+    r->first_elem_size = elem_size;
+    r->first_elem_align = alignment;
     return;
 
   }
 
-  /* `expected` now holds the winner's size. */
-  if (expected == elem_size) return;
+  if (r->first_elem_size == elem_size) return;
 
-  /* Mismatch. One-shot warning gate via test-and-set. */
-  uint8_t already = __atomic_exchange_n(&r->type_warned, (uint8_t)1,
-                                        __ATOMIC_ACQ_REL);
-  if (already) return;
+  /* Mismatch. One-shot warning gate. */
+  if (r->type_warned) return;
+  r->type_warned = 1;
 
   fprintf(stderr,
           "[afl-bug] ALLOCSIZE type-confusion: site=%u first elem_size=%u "
           "(align=%u), later elem_size=%u (align=%u) at %p\n",
-          r->alloc_site_id, expected,
-          __atomic_load_n(&r->first_elem_align, __ATOMIC_RELAXED),
+          r->alloc_site_id, r->first_elem_size, r->first_elem_align,
           elem_size, alignment, ptr);
 
 }

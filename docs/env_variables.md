@@ -221,6 +221,16 @@ class).
     Cost is one shadow lookup + one subtract + 2–3 max-rule writes per
     qualifying store. Combine with `AFL_LLVM_BUG_BUDGET=1` and
     `AFL_LLVM_BUG_SIZEFILL=1` to layer the aborting oracles.
+
+    Coexistence with ASAN: when the target also links the AddressSanitizer
+    runtime, `ALLOCSIZE` and `ALLOCSIZE_DERIVE` are disabled at startup by
+    the bug-pass runtime — ASAN already enforces byte-granular OOB and
+    reserves part of the address space for its shadow, so running both at
+    once produces conflicting verdicts. The runtime emits a one-shot
+    stderr note `[afl-bug] ASAN detected; ALLOCSIZE/DERIVE modes disabled
+    to avoid double-instrumentation` and continues with the remaining
+    modes (SCALAR/BUDGET/SIZEFILL/SLACK) enabled. For ALLOCSIZE runs,
+    build the target without `AFL_USE_ASAN`.
   - `AFL_LLVM_BUG_ALLOCSIZE_FUNCS` — comma-separated list of custom
     allocator function names that the pass should treat as additional
     allocator entry points (e.g., `WebPSafeMalloc,WebPSafeCalloc`). The

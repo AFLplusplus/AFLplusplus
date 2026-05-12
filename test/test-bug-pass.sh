@@ -20,6 +20,10 @@ unset AFL_LLVM_BUG_SIZEFILL AFL_LLVM_BUG_SLACK AFL_LLVM_BUG_ALLOCSIZE
 unset AFL_LLVM_BUG_ALLOCSIZE_FUNCS AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS
 unset AFL_LLVM_BUG_ALLOCSIZE_DERIVE AFL_LLVM_BUG_SCALAR_SLICE
 unset AFL_LLVM_CMPLOG
+# ALLOCSIZE / DERIVE are disabled under sanitizers by the bug-pass
+# runtime (see docs/env_variables.md). Strip any sanitizer envs so the
+# tests exercise the full oracle set regardless of the user's shell.
+unset AFL_USE_ASAN AFL_USE_MSAN AFL_USE_UBSAN AFL_USE_TSAN AFL_USE_LSAN
 
 echo "[*] Testing: afl-llvm-bug-pass.so (SCALAR / BUDGET / SIZEFILL / SLACK / ALLOCSIZE / DERIVE)"
 
@@ -404,6 +408,114 @@ if [ -x "$AFL_DIR/afl-fuzz" ]; then
 else
 
   echo "[-] ALLOCSIZE persistent reset: afl-fuzz missing; skipping"
+
+fi
+
+# --- calloc overflow ordering (regression for the BLOCKER 6 fix) ---
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-calloc-overflow.c" -o "$TMP/co"
+set +e
+printf '' | "$TMP/co" 2>"$TMP/co.err"
+co_rc=$?
+set -e
+if [ "$co_rc" -eq 0 ] && ! grep -q "calloc returned non-NULL" "$TMP/co.err"; then
+  echo "[+] calloc overflow: __afl_track_calloc returns NULL cleanly (rc=0)"
+else
+  echo "[!] calloc overflow: rc=$co_rc"
+  cat "$TMP/co.err" || true
+  exit 1
+fi
+
+# --- realloc semantics: shrink-to-zero / NULL-in / failure (BLOCKER 8 fix) ---
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" \
+  "$SCRIPT_DIR/test-bug-realloc-fail.c" -o "$TMP/rf"
+set +e
+"$TMP/rf" 2>"$TMP/rf.err"
+rf_rc=$?
+set -e
+if [ "$rf_rc" -eq 0 ] && \
+   ! grep -q "ALLOCSIZE soft-OOB" "$TMP/rf.err" && \
+   grep -q "path-a" "$TMP/rf.err" && grep -q "path-c" "$TMP/rf.err" && \
+   grep -qE "path-b-(succ|fail)" "$TMP/rf.err"; then
+  pb=$(grep -oE 'path-b-(succ|fail)' "$TMP/rf.err" | head -1)
+  echo "[+] realloc semantics: paths a/c covered, $pb (no spurious abort)"
+else
+  echo "[!] realloc semantics: rc=$rf_rc"
+  cat "$TMP/rf.err" || true
+  exit 1
+fi
+
+# --- __libc_memalign must be rewritten to __afl_track_aligned_alloc ---
+cat > "$TMP/lm.c" <<'EOF'
+#include <stddef.h>
+extern void *__libc_memalign(size_t alignment, size_t size);
+int main(void) {
+  void *p = __libc_memalign(64, 256);
+  return p ? 0 : 1;
+}
+EOF
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -S -emit-llvm \
+  "$TMP/lm.c" -o "$TMP/lm.ll" 2>/dev/null
+if grep -q "call.*__afl_track_aligned_alloc" "$TMP/lm.ll"; then
+  echo "[+] __libc_memalign rewritten to __afl_track_aligned_alloc"
+else
+  echo "[!] __libc_memalign NOT rewritten as expected"
+  grep -E "call.*_memalign|call.*__afl_track" "$TMP/lm.ll" | head
+  exit 1
+fi
+
+# --- AFL_LLVM_BUG_SCALAR_SLICE alone must activate SCALAR ---
+# (SCALAR's loop-counter hook always fires; the arithmetic-site hook
+# is filtered to memory-size sinks under SLICE, so we look for the
+# loop hook as the unambiguous SCALAR signal.)
+unset AFL_LLVM_BUG_SCALAR
+AFL_QUIET=1 AFL_LLVM_BUG_SCALAR_SLICE=1 "$CC" -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-scalar.c" -o "$TMP/ss.ll" 2>/dev/null
+if grep -qE "call.*__afl_bug_(loop_iter_flush|scalar_max)" "$TMP/ss.ll"; then
+  echo "[+] SCALAR_SLICE implies SCALAR (loop/scalar hooks present)"
+else
+  echo "[!] SCALAR_SLICE did NOT activate SCALAR"
+  exit 1
+fi
+
+# --- SCALAR + C++ -fexceptions: loop body that may throw must still
+#     compile without "Instruction does not dominate all uses" or
+#     LandingPad-position verifier errors. ---
+CXX="$AFL_DIR/afl-clang-fast++"
+if [ -x "$CXX" ]; then
+
+  cat > "$TMP/eh.cc" <<'EOF'
+#include <cstdio>
+#include <cstdlib>
+#include <new>
+struct Foo { ~Foo() { puts("dtor"); } };
+static void mayThrow(int i) { if (i == 13) throw std::bad_alloc(); }
+int main(int argc, char **argv) {
+  (void)argv;
+  int sum = 0;
+  try {
+    for (int i = 0; i < argc + 4; ++i) {
+      Foo f;
+      mayThrow(i);
+      sum += i;
+    }
+  } catch (...) { sum = -1; }
+  printf("sum=%d\n", sum);
+  return 0;
+}
+EOF
+  set +e
+  AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 "$CXX" -fexceptions -O2 \
+    "$TMP/eh.cc" -o "$TMP/eh" 2>"$TMP/eh.err"
+  eh_rc=$?
+  set -e
+  if [ "$eh_rc" -eq 0 ]; then
+    echo "[+] SCALAR + C++ -fexceptions: compiled clean (no invalid IR)"
+  else
+    echo "[!] SCALAR + -fexceptions failed to compile"
+    cat "$TMP/eh.err" 2>/dev/null || true
+    exit 1
+  fi
 
 fi
 

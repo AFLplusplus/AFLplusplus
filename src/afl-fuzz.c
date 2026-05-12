@@ -198,12 +198,13 @@ static void at_exit() {
 
 }
 
-/* Targets compiled with AFL_LLVM_BUG_* append a 64 KiB bug map to the
-   tail of the shared region.  Subtract it from map_size so the rest of
-   the engine doesn't treat it as coverage edges.  Mirrors
-   configure_ijon_runtime; must run BEFORE that one since IJON sits at
-   the very end of __afl_set_map_size, with the bug map between IJON
-   and coverage. */
+/* Targets compiled with AFL_LLVM_BUG_* append a 64 KiB bug map at the
+   END of the shared trace_bits region.  Subtract it from map_size so
+   coverage code doesn't treat it as edges.  Call BEFORE
+   configure_ijon_runtime: with the bug map as the trailing tail, the
+   layout when both are active is [cov | IJON_MAP | IJON_BYTES | BUG] —
+   trimming BUG first leaves IJON at the new tail, and IJON's own
+   trim then addresses ijon_bits at the correct offset. */
 static void configure_bug_runtime(afl_state_t *afl) {
 
   if (afl->fsrv.map_size <= 4 + MAP_SIZE_BUG_BYTES) {
@@ -3291,6 +3292,9 @@ int main(int argc, char **argv_orig, char **envp) {
       ijon_fastresume_state_t *restored_state = get_saved_ijon_state();
       if (restored_state && restored_state->is_initialized) {
 
+        // Trim the bug-map tail FIRST (mirrors the main start path), so
+        // IJON's own tail-trim addresses ijon_bits at the right offset.
+        if (afl->fsrv.use_bug_map) configure_bug_runtime(afl);
         // Enable IJON now that forkserver handshake is complete
         afl->fsrv.use_ijon = 1;
         configure_ijon_runtime(afl);

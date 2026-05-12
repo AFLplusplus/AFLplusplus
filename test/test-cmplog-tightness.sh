@@ -7,6 +7,12 @@ AFL_DIR="$SCRIPT_DIR/.."
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 
+# Sanitizers interact badly with the bug-pass ALLOCSIZE/DERIVE runtime;
+# strip them so this test exercises CmpLog cleanly regardless of the
+# user's shell.
+unset AFL_USE_ASAN AFL_USE_MSAN AFL_USE_UBSAN AFL_USE_TSAN AFL_USE_LSAN
+unset AFL_LLVM_CMPLOG
+
 if [ ! -x "$AFL_DIR/afl-clang-fast" ] || [ ! -x "$AFL_DIR/afl-fuzz" ]; then
   echo "[-] afl-clang-fast or afl-fuzz missing; skipping"
   exit 0

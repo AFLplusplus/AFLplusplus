@@ -19,9 +19,13 @@
   - afl-cc:
     - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
       triggers in target binaries
-    - new instrumentation: `afl-llvm-bug-pass.so` provides six runtime
-      oracles for arithmetic-bound and logical-OOB bugs that ASan misses
-      (CVE-2023-4863 / libwebp-Huffman class):
+    - new instrumentation: `afl-llvm-bug-pass.so` provides five runtime
+      oracles (SCALAR, BUDGET, SIZEFILL, ALLOCSIZE, SLACK) plus a slice-
+      filter sub-mode for SCALAR, covering arithmetic-bound and logical-
+      OOB bugs that ASan misses (CVE-2023-4863 / libwebp-Huffman class).
+      Note: ALLOCSIZE/DERIVE are disabled automatically under
+      AFL_USE_ASAN to avoid double-instrumentation; see
+      docs/env_variables.md.
         * `AFL_LLVM_BUG_SCALAR=1`   - max-value-per-arithmetic-site coverage,
                                       plus per-loop iteration count
         * `AFL_LLVM_BUG_SCALAR_SLICE=1` - restrict SCALAR instrumentation to
