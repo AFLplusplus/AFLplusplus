@@ -261,8 +261,14 @@ runtime cost per function exit is one map increment. Three levels:
 Functions with more than 100,000 paths that cannot be reduced by
 collapsing multi-way branches are skipped with a warning. Single-path
 (straight-line) functions and functions without any return point are
-also skipped. The 100,000 cap can be raised or lowered with
-`AFL_LLVM_PATH_MAX_PATHS=N` (`N >= 2`).
+also skipped. Functions that call `setjmp` / `sigsetjmp` / a callee
+marked `returns_twice` are skipped because the path-id register lives
+on the stack and `longjmp` would leave it indeterminate. Functions
+that are part of a C++20 coroutine (ramp + post-split `.resume` /
+`.destroy` companions) are skipped because the path-id register would
+be spilled into the coroutine frame and reloaded after the frame is
+freed in the destroy path. The 100,000 cap can be raised or lowered
+with `AFL_LLVM_PATH_MAX_PATHS=N` (`N >= 2`).
 
 An empty value (`AFL_LLVM_PATH=`) is rejected — set the variable
 explicitly to `1`/`2`/`3`/`0`.

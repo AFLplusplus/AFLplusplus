@@ -367,6 +367,43 @@ else
 fi
 rm -f twomod.bin twomod.log twomod_a.o twomod_b.o twomod.map
 
+# Round-3 R1: PATH must skip C++20 coroutine functions because path_reg
+# (a stack alloca) would be spilled into the coroutine frame and reloaded
+# after frame destruction in the .destroy path — heap-use-after-free.
+rm -f coro.bin coro.log coro.map
+if env AFL_LLVM_LTO_PATH=3 AFL_DEBUG=1 ../afl-clang-lto++ -std=c++20 -O0 \
+       -o coro.bin test-llvm-path-coro.cc > coro.log 2>&1; then
+  # C++ name mangling: co_func → _Z7co_funch (plus .resume/.destroy
+  # post-split companions). PATH must skip ALL THREE since the .resume
+  # and .destroy halves are exactly where the spill-to-frame UAF lives.
+  if grep -qE 'DEBUG: PATH function=[^ ]*co_func' coro.log; then
+    ko "a co_func* variant was PATH-instrumented despite being a coroutine (R1)"
+    grep -E 'DEBUG: PATH function=[^ ]*co_func' coro.log | head -3
+  else
+    ok "co_func and its .resume/.destroy companions correctly skipped (R1)"
+  fi
+  if grep -qE 'DEBUG: PATH function=_Z11normal_funch' coro.log; then
+    ok "normal_func() still PATH-instrumented alongside the coroutine skip"
+  else
+    ko "normal_func() was not PATH-instrumented — coroutine skip is too broad"
+  fi
+  emit_byte 1 | AFL_QUIET=1 ../afl-showmap -m none -o coro.map -q -- \
+        ./coro.bin >/dev/null 2>&1 || true
+  if [ -s coro.map ]; then
+    ok "coroutine+PATH binary produces coverage"
+  else
+    ko "coroutine+PATH binary produced no coverage"
+  fi
+else
+  if grep -qiE 'coroutine|<coroutine>|no member named' coro.log; then
+    note "skipping R1 coroutine test — toolchain lacks C++20 coroutine support"
+  else
+    ko "coroutine test compile failed for non-toolchain reasons"
+    tail -10 coro.log
+  fi
+fi
+rm -f coro.bin coro.log coro.map
+
 # Cleanup
 rm -f plain.bin plain.log ctx.bin ctx.log path.bin path.log \
       alias_a.bin alias_a.log alias_b.bin alias_b.log \

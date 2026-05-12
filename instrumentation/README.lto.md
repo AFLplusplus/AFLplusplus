@@ -220,6 +220,13 @@ Limits:
 - Single-path (straight-line) functions are skipped: a constant path ID
   carries no information.
 - Functions with no return points are skipped.
+- Functions calling `setjmp` / `sigsetjmp` (or any callee tagged
+  `returns_twice`) are skipped: the path-id register sits on the stack
+  and `longjmp` would leave it indeterminate.
+- Functions that are part of a C++20 coroutine (the ramp plus
+  `.resume` / `.destroy` post-split companions) are skipped: the
+  path-id register would be spilled into the coroutine frame and
+  reloaded after the frame is freed in the destroy path.
 - Per-function map size grows roughly with `NumPaths(F)`, which is exponential
   in independent if/else branches (`2^N` for `N` such branches). On large
   targets this can produce a very large map; consider scoping with

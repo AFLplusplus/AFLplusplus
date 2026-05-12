@@ -102,6 +102,12 @@ class PathAnalysis {
        callee marked `returns_twice`). */
     if (callsSetjmp(F)) return R;
 
+    /* Same alloca-pattern problem for C++20 coroutines: CoroSplitPass
+       moves locals across suspend points into the coroutine frame, and
+       the .destroy companion reads spilled values after the frame is
+       freed → heap-use-after-free.  Skip ramp + split companions. */
+    if (isCoroutineFunction(F)) return R;
+
     /* 1. Exit points: first ReturnInst / ResumeInst / UnreachableInst /
        noreturn call in each BB.  Anything after a noreturn is unreachable. */
     DenseSet<BasicBlock *> exitBBs;
@@ -221,6 +227,51 @@ class PathAnalysis {
     }
 
     return R;
+
+  }
+
+  /* Any function that is part of an LLVM coroutine — either the original
+     ramp (has `coro.id`) or one of the post-split `.resume`/`.destroy`
+     companions (have `coro.suspend`/`coro.end`/`coro.frame`/etc.).  PATH
+     instrumentation must skip these because `path_reg` is a stack alloca:
+     in the destroy path the coroutine frame is freed before CoroSplitPass's
+     spilled reload runs, producing a heap-use-after-free.  We detect by
+     scanning for *any* `llvm.coro.*` intrinsic (covers both pre- and
+     post-split shapes — CoroSplitPass typically runs before
+     SanitizerCoverageLTO under `afl-clang-lto`). */
+  /* CoroSplitPass typically runs BEFORE SanitizerCoverage under
+     `afl-clang-lto` / `afl-clang-fast`, so by the time we look at the IR
+     all the `llvm.coro.*` intrinsics have been lowered away.  We detect
+     the three split companions by the name suffixes CoroSplitPass uses
+     (`.resume`, `.destroy`, `.cleanup`, `.async_resume`) and the
+     remaining ramp by the existence of a sibling `<name>.resume` in the
+     same module. */
+  static bool isCoroutineFunction(llvm::Function &F) {
+
+    using namespace llvm;
+    StringRef name = F.getName();
+    auto endsWith = [&](StringRef s) {
+
+#if LLVM_VERSION_MAJOR >= 18
+      return name.ends_with(s);
+#else
+      return name.endswith(s);
+#endif
+
+    };
+
+    if (endsWith(".resume") || endsWith(".destroy") ||
+        endsWith(".cleanup") || endsWith(".async_resume"))
+      return true;
+
+    if (Module *M = F.getParent()) {
+
+      SmallString<128> ramp(name);
+      ramp.append(".resume");
+      if (M->getFunction(ramp)) return true;
+
+    }
+    return false;
 
   }
 

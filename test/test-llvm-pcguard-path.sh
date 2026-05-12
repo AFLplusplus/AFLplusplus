@@ -221,6 +221,27 @@ else
 fi
 rm -f cap_hi.bin cap_hi.log
 
+# Round-3 R1 — coroutine skip on PCGUARD (smoke: build, run, coverage).
+rm -f coro.bin coro.log coro.map
+if env AFL_LLVM_PATH=3 AFL_DEBUG=1 ../afl-clang-fast++ -std=c++20 -O0 \
+       -o coro.bin test-llvm-path-coro.cc > coro.log 2>&1; then
+  emit_byte 1 | AFL_QUIET=1 ../afl-showmap -m none -o coro.map -q -- \
+        ./coro.bin >/dev/null 2>&1 || true
+  if [ -s coro.map ]; then
+    ok "PCGUARD coroutine+PATH binary builds and runs (R1)"
+  else
+    ko "PCGUARD coroutine+PATH binary produced no coverage"
+  fi
+else
+  if grep -qiE 'coroutine|<coroutine>|no member named' coro.log; then
+    note "skipping R1 coroutine test — toolchain lacks C++20 coroutine support"
+  else
+    ko "PCGUARD coroutine test compile failed for non-toolchain reasons"
+    tail -10 coro.log
+  fi
+fi
+rm -f coro.bin coro.log coro.map
+
 # Cleanup
 rm -f plain.bin plain.log p1.bin p1.log p2.bin p2.log p3.bin p3.log \
       a1.bin a1.log a2.bin a2.log \
