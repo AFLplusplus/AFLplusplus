@@ -453,12 +453,14 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
 
     char *end = nullptr;
     unsigned long long v = strtoull(mp, &end, 10);
-    if (!end || *end || v < 2) {
+    if (!end || *end || v < 2 || v > (unsigned long long)INT32_MAX) {
 
+      /* INT32_MAX upper bound: the IR path index is held in a signed
+         i32 register, so any value beyond that would let path_base +
+         path_reg overflow the bitmap GEP. */
       FATAL(
-          "AFL_LLVM_PATH_MAX_PATHS must be a positive integer >= 2 "
-          "(got %s).",
-          mp);
+          "AFL_LLVM_PATH_MAX_PATHS must be an integer in [2, %d] (got %s).",
+          INT32_MAX, mp);
 
     }
     path_max_paths = (uint64_t)v;
@@ -654,45 +656,15 @@ void ModuleSanitizerCoverageAFL::emitPathCoverage(Function &F) {
      removes or replaces BBs, the analysis must be re-run after InjectCoverage
      instead. The alloca for path_reg is inserted at the (new) entry block's
      firstInsertionPt so it sits in the live entry, not in the original one. */
-  BasicBlock          &EntryBB = F.getEntryBlock();
-  BasicBlock::iterator entryIP = EntryBB.getFirstInsertionPt();
-  IRBuilder<>          EntryIRB(&*entryIP);
-  AllocaInst          *path_reg =
-      EntryIRB.CreateAlloca(Int32, nullptr, "path_reg");
-  StoreInst *initStore =
-      EntryIRB.CreateStore(ConstantInt::get(Int32, 0), path_reg);
-  setNoSanitizeMetadata(initStore);
-  setNoInstrumentMetadata(initStore);
+  /* Shared alloca + edge-increment emitter; exit-point writes follow below. */
+  AllocaInst *path_reg = afl::emitPathCoverageEdges(
+      F, pathEdgeVal,
+      /*setMD=*/[&](Instruction *I) {
 
-  /* Edge increments. */
-  for (auto &kv : pathEdgeVal) {
+        setNoSanitizeMetadata(I);
+        setNoInstrumentMetadata(I);
 
-    BasicBlock *a = kv.first.first;
-    BasicBlock *b = kv.first.second;
-    uint64_t    val = kv.second;
-    if (val == 0) continue;
-    Instruction *insertPt = nullptr;
-    if (a->getTerminator()->getNumSuccessors() > 1) {
-
-      insertPt = &*b->getFirstInsertionPt();
-
-    } else {
-
-      insertPt = a->getTerminator();
-
-    }
-    IRBuilder<> IRB(insertPt);
-    LoadInst   *cur = IRB.CreateLoad(Int32, path_reg);
-    setNoSanitizeMetadata(cur);
-    setNoInstrumentMetadata(cur);
-    Value *next =
-        IRB.CreateAdd(cur, ConstantInt::get(Int32, (uint32_t)val));
-    setNoInstrumentMetadata(next);
-    StoreInst *st = IRB.CreateStore(next, path_reg);
-    setNoSanitizeMetadata(st);
-    setNoInstrumentMetadata(st);
-
-  }
+      });
 
   /* Path-ID writes at every exit point in DAG-reachable BBs. */
   for (auto &E : pathExits) {
@@ -705,9 +677,12 @@ void ModuleSanitizerCoverageAFL::emitPathCoverage(Function &F) {
     setNoInstrumentMetadata(p);
 
     /* Index into FunctionGuardArray at base + path_reg, then load the
-       i32 bitmap-ID stored there at runtime. */
-    Value *guardIdx =
+       i32 bitmap-ID stored there at runtime.  Zero-extend to i64 before
+       the GEP so the byte offset is unsigned. */
+    Value *guardIdx32 =
         IRB.CreateAdd(p, ConstantInt::get(Int32, current_path_guard_base));
+    Value *guardIdx =
+        IRB.CreateZExt(guardIdx32, IntegerType::getInt64Ty(Ctx));
     Value *guardSlot =
         IRB.CreateGEP(Int32, FunctionGuardArray, guardIdx);
     LoadInst *bitmapId = IRB.CreateLoad(Int32, guardSlot);
@@ -1457,11 +1432,12 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   /* PATH coverage: reserve current_path_count additional guard slots at
      [AllBlocks.size() + xtra .. AllBlocks.size() + xtra + path_count).
-     Refuse to reserve when the resulting indexing would overflow u32 —
-     the GEP index into FunctionGuardArray is i32. */
+     Refuse to reserve when the resulting indexing would overflow the
+     signed i32 used for the GEP — values >= 2^31 sign-extend to
+     negative byte offsets. */
   uint64_t guardArrayLen = (uint64_t)AllBlocks.size() + xtra +
                            (uint64_t)current_path_count;
-  if (guardArrayLen > UINT32_MAX) {
+  if (guardArrayLen > (uint64_t)INT32_MAX) {
 
     WARNF(
         "Function %s would overflow FunctionGuardArray indexing "

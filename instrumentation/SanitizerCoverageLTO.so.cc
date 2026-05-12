@@ -210,6 +210,10 @@ class ModuleSanitizerCoverageLTO
      path register, edge increments on non-back edges, and a bitmap write
      at every exit point.  No-op if path_mode == false or function is
      ineligible.  Returns the number of slots reserved (0 if skipped).    */
+  /* Analyse the function's CFG *before* InjectCoverage mutates it (so
+     isGuardOnlyBB sees the source-level BBs, not BBs polluted by edge-
+     counter stores).  Stores per-function results in path* members. */
+  bool     analyzePathCoverage(Function &F);
   uint64_t instrumentPathCoverage(Function           &F,
                                   const DominatorTree *DT,
                                   uint32_t            call_counter,
@@ -248,6 +252,14 @@ class ModuleSanitizerCoverageLTO
   uint64_t                         extra_path_inst = 0;     // sum of paths
   uint32_t                         path_skipped_funcs = 0;  // skipped funcs
   uint64_t                         path_max_paths = 100000;
+  /* Populated by analyzePathCoverage() before InjectCoverage runs and
+     consumed by instrumentPathCoverage() afterwards.  See PathCoverage.h. */
+  llvm::DenseMap<llvm::BasicBlock *, uint64_t> pathNumPaths;
+  llvm::DenseMap<std::pair<llvm::BasicBlock *, llvm::BasicBlock *>, uint64_t>
+                                                pathEdgeVal;
+  std::vector<std::pair<llvm::BasicBlock *, llvm::Instruction *>>
+                                                pathExits;
+  uint64_t                                      pathNumEntry = 0;
   uint64_t                         map_addr = 0;
   const char                      *skip_nozero = NULL;
   const char                      *use_threadsafe_counters = nullptr;
@@ -568,12 +580,14 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
     char *end = nullptr;
     unsigned long long v = strtoull(mp, &end, 10);
-    if (!end || *end || v < 2) {
+    if (!end || *end || v < 2 || v > (unsigned long long)INT32_MAX) {
 
+      /* INT32_MAX upper bound: the IR path index is held in a signed
+         i32 register, so any value beyond that would let path_base +
+         path_reg overflow the bitmap GEP. */
       FATAL(
-          "AFL_LLVM_PATH_MAX_PATHS must be a positive integer >= 2 "
-          "(got %s).",
-          mp);
+          "AFL_LLVM_PATH_MAX_PATHS must be an integer in [2, %d] (got %s).",
+          INT32_MAX, mp);
 
     }
     path_max_paths = (uint64_t)v;
@@ -2424,6 +2438,11 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
   }
 
+  /* PATH analysis must run BEFORE InjectCoverage so that the guard-only
+     classification sees the source-level CFG, not the post-instrumented
+     CFG where most BBs have an edge-counter store at their head. */
+  if (path_mode) { analyzePathCoverage(F); }
+
   InjectCoverage(F, BlocksToInstrument, IsLeafFunc);
   // InjectCoverageForIndirectCalls(F, IndirCalls);
 
@@ -2695,43 +2714,27 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
 
 }
 
-/* Ball-Larus path coverage:
-   - Identify exit instructions (Return, Resume, before NoReturn calls,
-     before Unreachable terminators).
-   - Treat the function CFG as a DAG by stripping back-edges (edge a->b is
-     a back-edge iff b dominates a).
-   - Compute NumPaths(v) bottom-up: 1 for exit BBs, sum-of-children for
-     interior BBs.  Path IDs at exit are unique in [0, NumPaths(entry)).
-   - If NumPaths(entry) > 100,000: re-compute with multi-way branches
-     (>2 successors) using max() instead of sum().  If still > 100,000,
-     skip path instrumentation in this function (warn).
-   - Allocate a per-function i32 path register, init 0; insert
-     `path_reg += edge_val` on each forward edge with edge_val != 0;
-     at every exit insert a bitmap update with index =
-     base + path_reg [+ call_id * NumPaths under CTX composition]. */
-uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
-    Function &F, const DominatorTree *DT, uint32_t call_counter,
-    LoadInst *PrevCtxLoad) {
+/* Ball-Larus path coverage — analysis phase.
 
-  if (!path_mode) return 0;
-  if (F.empty()) return 0;
-  /* Defensive re-check of the function-level skip predicates so a future
-     refactor that moves the call site can't silently bypass them. Today
-     instrumentFunction already gates these — this is belt + braces. */
-  if (F.hasFnAttribute(llvm::Attribute::NoSanitizeCoverage)) return 0;
+   Runs BEFORE InjectCoverage(F) so isGuardOnlyBB() sees the pristine
+   source-level CFG (edge-coverage stores added later would make most
+   BBs ineligible for the PATH=1 collapse).  Persists the analysis
+   results in per-function members consumed by instrumentPathCoverage(). */
+bool ModuleSanitizerCoverageLTO::analyzePathCoverage(Function &F) {
+
+  pathNumPaths.clear();
+  pathEdgeVal.clear();
+  pathExits.clear();
+  pathNumEntry = 0;
+
+  if (!path_mode || F.empty()) return false;
+  if (F.hasFnAttribute(llvm::Attribute::NoSanitizeCoverage)) return false;
 #if LLVM_VERSION_MAJOR >= 19
   if (F.hasFnAttribute(llvm::Attribute::DisableSanitizerInstrumentation))
-    return 0;
+    return false;
 #endif
-  if (!isInInstrumentList(&F, FMNAME)) return 0;
+  if (!isInInstrumentList(&F, FMNAME)) return false;
 
-  LLVMContext &Ctx = F.getContext();
-  IntegerType *Int32 = Type::getInt32Ty(Ctx);
-  MDNode      *NoSan = MDNode::get(Ctx, MDString::get(Ctx, "nosanitize"));
-  (void)DT;  // PathAnalysis uses an iterative DFS — no DominatorTree needed.
-
-  /* Analysis (issues #1 dedup, #2 iterative DFS, #16 cached forward
-     successors) — see instrumentation/PathCoverage.h. */
   afl::PathAnalysis       PA(path_mode_level, path_max_paths);
   afl::PathAnalysisResult R = PA.analyze(F);
 
@@ -2742,7 +2745,7 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
         "skipping PATH instrumentation in this function.",
         F.getName().str().c_str(), (unsigned long long)path_max_paths);
     ++path_skipped_funcs;
-    return 0;
+    return false;
 
   }
   if (R.simplified) {
@@ -2753,12 +2756,41 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
         F.getName().str().c_str(), (unsigned long long)R.numPaths);
 
   }
-  if (R.numPaths == 0) return 0;  // skipped: no exits / single path
+  if (R.numPaths == 0) return false;
 
-  uint64_t numEntry = R.numPaths;
-  const auto &Exits   = R.exits;
-  const auto &NumPaths = R.numPathsAtBB;
-  const auto &EdgeVal  = R.edgeValues;
+  pathExits    = std::move(R.exits);
+  pathNumPaths = std::move(R.numPathsAtBB);
+  pathEdgeVal  = std::move(R.edgeValues);
+  pathNumEntry = R.numPaths;
+  return true;
+
+}
+
+/* Ball-Larus path coverage — emission phase.
+   Consumes the per-function state stashed by analyzePathCoverage and
+   emits IR after InjectCoverage has finished.
+   - Reserves afl_global_id range (NumPaths or NumPaths * call_counter
+     under CTX composition).
+   - Allocates a per-function i32 path register.
+   - Inserts `path_reg += edge_val` on each forward edge with edge_val != 0.
+   - At every exit point writes the path id into the reserved bitmap range.
+     CTX composition adds cid * NumPaths to the index. */
+uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
+    Function &F, const DominatorTree *DT, uint32_t call_counter,
+    LoadInst *PrevCtxLoad) {
+
+  (void)DT;
+  if (!path_mode) return 0;
+  if (pathNumEntry == 0) return 0;  // analyzePathCoverage said skip
+
+  LLVMContext &Ctx = F.getContext();
+  IntegerType *Int32 = Type::getInt32Ty(Ctx);
+  MDNode      *NoSan = MDNode::get(Ctx, MDString::get(Ctx, "nosanitize"));
+
+  uint64_t numEntry = pathNumEntry;
+  const auto &Exits    = pathExits;
+  const auto &NumPaths = pathNumPaths;
+  const auto &EdgeVal  = pathEdgeVal;
 
   /* 5. Reserve afl_global_id range.  When CTX expanded this function,
      reserve NumPaths * call_counter so each (call_id, path) tuple has
@@ -2766,14 +2798,15 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
   bool     ctx_active = (call_counter > 1) && PrevCtxLoad != nullptr;
   uint64_t reservation = ctx_active ? numEntry * (uint64_t)call_counter
                                     : numEntry;
-  /* The IR uses i32 arithmetic for the path index, and afl_global_id
-     itself is a u32. Reservations that wrap either would silently corrupt
-     the bitmap. Skip the function rather than overflow. */
-  if (reservation > UINT32_MAX ||
-      (uint64_t)afl_global_id + reservation > UINT32_MAX) {
+  /* The IR uses a signed i32 for the path index. The GEP into the
+     bitmap sign-extends i32 → pointer-width, so any index >= 2^31
+     becomes a large negative byte offset and writes OOB. Cap at
+     INT32_MAX rather than UINT32_MAX. */
+  if (reservation > (uint64_t)INT32_MAX ||
+      (uint64_t)afl_global_id + reservation > (uint64_t)INT32_MAX) {
 
     WARNF(
-        "Function %s would push afl_global_id past 2^32 "
+        "Function %s would push afl_global_id past 2^31 "
         "(current=%u, reservation=%llu); skipping PATH instrumentation.",
         F.getName().str().c_str(), afl_global_id,
         (unsigned long long)reservation);
@@ -2795,48 +2828,11 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
 
   }
 
-  /* 6. IR insertion. */
-
-  /* 6a. path_reg alloca + init in the entry BB (after existing
-     allocas/landingpads). */
-  BasicBlock         &EntryBB = F.getEntryBlock();
-  BasicBlock::iterator entryIP = EntryBB.getFirstInsertionPt();
-  IRBuilder<>         EntryIRB(&*entryIP);
-  AllocaInst         *path_reg =
-      EntryIRB.CreateAlloca(Int32, nullptr, "path_reg");
-  StoreInst *initStore =
-      EntryIRB.CreateStore(ConstantInt::get(Int32, 0), path_reg);
-  initStore->setMetadata("nosanitize", NoSan);
-
-  /* 6b. Edge increments.  After SplitAllCriticalEdges (already invoked
-     by instrumentFunction), every edge has either a single-successor
-     source (insert at end of source) or a single-predecessor destination
-     (insert at top of destination). */
-  for (auto &kv : EdgeVal) {
-
-    BasicBlock *a = kv.first.first;
-    BasicBlock *b = kv.first.second;
-    uint64_t    val = kv.second;
-    if (val == 0) continue;
-    Instruction *insertPt = nullptr;
-    if (a->getTerminator()->getNumSuccessors() > 1) {
-
-      insertPt = &*b->getFirstInsertionPt();
-
-    } else {
-
-      insertPt = a->getTerminator();
-
-    }
-    IRBuilder<> IRB(insertPt);
-    LoadInst   *cur = IRB.CreateLoad(Int32, path_reg);
-    cur->setMetadata("nosanitize", NoSan);
-    Value     *next =
-        IRB.CreateAdd(cur, ConstantInt::get(Int32, (uint32_t)val));
-    StoreInst *st = IRB.CreateStore(next, path_reg);
-    st->setMetadata("nosanitize", NoSan);
-
-  }
+  /* 6. IR insertion: alloca path_reg + edge increments via the shared
+     emitter; exit-point writes follow below (LTO-specific). */
+  AllocaInst *path_reg = afl::emitPathCoverageEdges(
+      F, EdgeVal,
+      /*setMD=*/[&](Instruction *I) { I->setMetadata("nosanitize", NoSan); });
 
   /* 6c. Path-ID writes at every exit point in DAG-reachable BBs.
      E.first is the BB; E.second is the instruction to insert before. */
@@ -2860,6 +2856,11 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
 
     }
 
+    /* Zero-extend to i64 before the GEP so the byte offset is unsigned —
+       GEP otherwise sign-extends an i32 index and a value >= 2^31 would
+       become a large negative offset. */
+    Value *idx64 = IRB.CreateZExt(idx, IntegerType::getInt64Ty(Ctx));
+
     /* Bitmap update (mirrors InjectCoverageAtBlock, minus the CTX_add
        handling — the path index already includes the per-call offset). */
     Value *EffMapPtr = HoistedMapPtr;
@@ -2870,7 +2871,7 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
       EffMapPtr = L;
 
     }
-    Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, EffMapPtr, idx);
+    Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, EffMapPtr, idx64);
 
     if (use_threadsafe_counters) {
 

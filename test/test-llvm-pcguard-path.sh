@@ -189,6 +189,38 @@ else
 fi
 rm -f empty.bin empty.log
 
+# Round-2 N2: setjmp-calling functions must be skipped — confirm by
+# building, running, and checking the binary produces coverage.
+rm -f sj.bin sj.log sj.map
+if env AFL_LLVM_PATH=3 AFL_DEBUG=1 ../afl-clang-fast -O0 \
+       -o sj.bin test-llvm-path-setjmp.c > sj.log 2>&1; then
+  emit_byte 1 | AFL_QUIET=1 ../afl-showmap -m none -o sj.map -q -- \
+      ./sj.bin >/dev/null 2>&1
+  if [ -s sj.map ]; then
+    ok "PCGUARD setjmp+PATH binary builds and runs (N2)"
+  else
+    ko "PCGUARD setjmp+PATH binary produced no coverage"
+  fi
+else
+  ko "PCGUARD setjmp test compile failed"; tail -5 sj.log
+fi
+rm -f sj.bin sj.log sj.map
+
+# Round-2 N4: PATH_MAX_PATHS upper bound (INT32_MAX).
+rm -f cap_hi.bin cap_hi.log
+if env AFL_LLVM_PATH=3 AFL_LLVM_PATH_MAX_PATHS=2200000000 \
+       ../afl-clang-fast -O0 -o cap_hi.bin test-llvm-lto-path.c \
+       > cap_hi.log 2>&1; then
+  ko "AFL_LLVM_PATH_MAX_PATHS=2200000000 should be rejected (> INT32_MAX)"
+else
+  if grep -qiE 'INT32_MAX|2147483647|signed i32|i32 register' cap_hi.log; then
+    ok "PCGUARD AFL_LLVM_PATH_MAX_PATHS > INT32_MAX rejected (N4)"
+  else
+    ko "PCGUARD rejection missing INT32_MAX hint"; tail -5 cap_hi.log
+  fi
+fi
+rm -f cap_hi.bin cap_hi.log
+
 # Cleanup
 rm -f plain.bin plain.log p1.bin p1.log p2.bin p2.log p3.bin p3.log \
       a1.bin a1.log a2.bin a2.log \

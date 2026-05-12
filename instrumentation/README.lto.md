@@ -181,6 +181,21 @@ The relaxed/restricted modes give numbers closer to "distinct
 user-visible behaviours"; strict gives the literal answer to "every
 possible path is a unique route".
 
+**Stability:** path IDs are deterministic within a single build but
+NOT stable across LLVM major versions — the back-edge DFS order and
+SwitchInst case iteration both depend on LLVM internals and can change
+between versions, producing different Ball-Larus prefix sums and
+different per-path map slots. Do not merge corpora collected with
+different toolchains on the basis of PATH coverage.
+
+**LTO vs PCGUARD divergence:** the LTO build runs `afl-llvm-bug-pass`
+(SCALAR/SLACK/ALLOCSIZE/etc.) upstream of `SanitizerCoverageLTO`, which
+mutates the CFG before PATH analysis ever sees it. PATH=1's guard-only
+collapse therefore catches fewer branches under LTO than under
+`afl-clang-fast` PCGUARD, and the two toolchains produce different
+totals for the same source. Use PCGUARD if you specifically want the
+documented PATH=1 collapse on guard-only conditions.
+
 Each acyclic path through a function (DAG view of the CFG, with back-edges
 stripped — loops do not contribute path differentiation) is assigned a
 unique integer ID. A small per-function `i32` register accumulates the ID at

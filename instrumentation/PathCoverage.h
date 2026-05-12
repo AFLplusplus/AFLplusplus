@@ -25,6 +25,21 @@
    process driving the pass does not have a comfortable stack reserve).
    Forward successors per BB are cached once per analysis to keep
    NumPaths and edge-value passes linear in CFG size.
+
+   Stability note: path IDs are deterministic within a single build but
+   NOT stable across LLVM major versions or optimisation-pass changes.
+   Both the back-edge DFS order and SwitchInst case iteration can shift
+   between LLVM versions, producing different Ball-Larus prefix sums and
+   therefore different per-path map slots. Two corpora collected against
+   binaries built with different toolchains cannot be merged on the basis
+   of PATH coverage alone.
+
+   LTO caveat: the LTO build runs afl-llvm-bug-pass (SCALAR/SLACK/etc.)
+   UPSTREAM of SanitizerCoverageLTO, which adds stores/calls to many BBs
+   before this analysis ever runs. PATH=1's guard-only collapse therefore
+   sees a more polluted CFG under LTO than under PCGUARD, and collapses
+   fewer branches in practice. The two passes produce different totals
+   for the same source — that is expected, not a bug.
 */
 
 #ifndef AFL_PATH_COVERAGE_H
@@ -78,6 +93,14 @@ class PathAnalysis {
     using namespace llvm;
     PathAnalysisResult R;
     if (F.empty()) return R;
+
+    /* path_reg is a stack alloca initialised once at function entry.
+       longjmp() back into a setjmp target leaves locals modified since
+       setjmp() with indeterminate values (C99 7.13.2.1), so the next
+       exit-point write would index outside the reserved bitmap range.
+       Skip any function that contains a setjmp / sigsetjmp call (or any
+       callee marked `returns_twice`). */
+    if (callsSetjmp(F)) return R;
 
     /* 1. Exit points: first ReturnInst / ResumeInst / UnreachableInst /
        noreturn call in each BB.  Anything after a noreturn is unreachable. */
@@ -198,6 +221,31 @@ class PathAnalysis {
     }
 
     return R;
+
+  }
+
+  static bool callsSetjmp(llvm::Function &F) {
+
+    using namespace llvm;
+    for (auto &BB : F) {
+
+      for (auto &I : BB) {
+
+        auto *Call = dyn_cast<CallBase>(&I);
+        if (!Call) continue;
+        if (Call->hasFnAttr(Attribute::ReturnsTwice)) return true;
+        Function *Callee = Call->getCalledFunction();
+        if (!Callee) continue;
+        StringRef N = Callee->getName();
+        if (N == "setjmp" || N == "_setjmp" || N == "sigsetjmp" ||
+            N == "__sigsetjmp" || N == "__builtin_setjmp" ||
+            N == "__sigsetjmp14")
+          return true;
+
+      }
+
+    }
+    return false;
 
   }
 
@@ -401,6 +449,57 @@ class PathAnalysis {
   }
 
 };
+
+/* Emit the per-function path register (alloca) and the edge-increment
+   instructions on every forward edge that carries a non-zero edge value.
+   The exit-point writes are NOT emitted here — those differ between LTO
+   (absolute slot index + CTX composition) and PCGUARD (FunctionGuardArray
+   indirection + optional IJON state).
+
+   `setMD` is a per-instruction metadata setter — pass-private helpers
+   differ between LTO and PCGUARD, so a callback keeps this header free
+   of pass-internal knowledge. */
+template <typename SetMD>
+llvm::AllocaInst *emitPathCoverageEdges(
+    llvm::Function &F,
+    const llvm::DenseMap<std::pair<llvm::BasicBlock *, llvm::BasicBlock *>,
+                         uint64_t>                                       &edgeValues,
+    SetMD                                                                 setMD) {
+
+  using namespace llvm;
+  LLVMContext         &Ctx     = F.getContext();
+  IntegerType         *Int32   = Type::getInt32Ty(Ctx);
+  BasicBlock          &EntryBB = F.getEntryBlock();
+  BasicBlock::iterator entryIP = EntryBB.getFirstInsertionPt();
+  IRBuilder<>          EntryIRB(&*entryIP);
+  AllocaInst *path_reg = EntryIRB.CreateAlloca(Int32, nullptr, "path_reg");
+  StoreInst  *initStore =
+      EntryIRB.CreateStore(ConstantInt::get(Int32, 0), path_reg);
+  setMD(initStore);
+  for (auto &kv : edgeValues) {
+
+    BasicBlock *a = kv.first.first;
+    BasicBlock *b = kv.first.second;
+    uint64_t    val = kv.second;
+    if (val == 0) continue;
+    /* After SplitAllCriticalEdges, every edge has either |succ(a)| == 1
+       (insert at end of a) or |pred(b)| == 1 (insert at top of b). */
+    Instruction *insertPt =
+        (a->getTerminator()->getNumSuccessors() > 1)
+            ? &*b->getFirstInsertionPt()
+            : a->getTerminator();
+    IRBuilder<> IRB(insertPt);
+    LoadInst   *cur = IRB.CreateLoad(Int32, path_reg);
+    setMD(cur);
+    Value *next =
+        IRB.CreateAdd(cur, ConstantInt::get(Int32, (uint32_t)val));
+    StoreInst *st = IRB.CreateStore(next, path_reg);
+    setMD(st);
+
+  }
+  return path_reg;
+
+}
 
 }  // namespace afl
 

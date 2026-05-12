@@ -267,6 +267,12 @@ also skipped. The 100,000 cap can be raised or lowered with
 An empty value (`AFL_LLVM_PATH=`) is rejected — set the variable
 explicitly to `1`/`2`/`3`/`0`.
 
+**Stability note:** path IDs are deterministic within a single build but
+not stable across LLVM major versions. Both the back-edge DFS order and
+SwitchInst case iteration are LLVM-version-sensitive, so two binaries
+built with different toolchains can assign different bitmap slots to the
+same source path. Do not cross-merge corpora based on PATH coverage.
+
 This works under both `afl-clang-fast` (PCGUARD) and `afl-clang-lto`. The
 LTO build additionally composes with `AFL_LLVM_LTO_CALLER` to track
 `(call_site, path)` tuples — see

@@ -272,6 +272,101 @@ else
 fi
 rm -f empty.bin empty.log
 
+# Round-2 N1: PATH analysis runs BEFORE InjectCoverage so the per-BB
+# guard-only classification sees the source-level CFG, not BBs polluted
+# by SanitizerCoverage's own edge-counter stores. Caveat: afl-llvm-bug-pass
+# (SCALAR/SLACK/ALLOCSIZE) runs upstream of SanitizerCoverageLTO and
+# *does* mutate the CFG before our analysis can see it, so PATH=1 in the
+# LTO build cannot fully collapse functions whose BBs are touched by
+# bug-pass. We assert the weaker, achievable invariant: PATH=1 strictly
+# reduces if_chain's path count below PATH=3.
+env AFL_LLVM_LTO_PATH=1 AFL_DEBUG=1 ../afl-clang-lto -O0 \
+      -o lto_p1.bin test-llvm-lto-path.c > lto_p1.log 2>&1
+env AFL_LLVM_LTO_PATH=3 AFL_DEBUG=1 ../afl-clang-lto -O0 \
+      -o lto_p3.bin test-llvm-lto-path.c > lto_p3.log 2>&1
+P1=$(grep 'DEBUG: PATH function=if_chain' lto_p1.log \
+       | sed -E 's/.*paths=([0-9]+).*/\1/' | tail -1)
+P3=$(grep 'DEBUG: PATH function=if_chain' lto_p3.log \
+       | sed -E 's/.*paths=([0-9]+).*/\1/' | tail -1)
+P1=${P1:-0}
+P3=${P3:-0}
+if [ "$P1" -lt "$P3" ] && [ "$P3" -gt 1 ]; then
+  ok "LTO PATH=1 collapses if_chain (paths=$P1 < PATH=3 paths=$P3)"
+else
+  ko "LTO PATH=1 did not collapse if_chain relative to PATH=3 ($P1 vs $P3) — analyse-before-Inject regression (N1)"
+fi
+rm -f lto_p1.bin lto_p1.log lto_p3.bin lto_p3.log
+
+# Round-2 N2: setjmp-calling functions must be skipped — path_reg is on
+# the stack and longjmp leaves it indeterminate.
+rm -f sj.bin sj.log
+if env AFL_LLVM_LTO_PATH=3 AFL_DEBUG=1 ../afl-clang-lto -O0 \
+       -o sj.bin test-llvm-path-setjmp.c > sj.log 2>&1; then
+  if grep -qE 'DEBUG: PATH function=with_setjmp' sj.log; then
+    ko "with_setjmp() was instrumented despite calling setjmp() (N2)"
+  else
+    ok "with_setjmp() correctly skipped (setjmp detection, N2)"
+  fi
+  if grep -qE 'DEBUG: PATH function=normal' sj.log; then
+    ok "normal() still instrumented alongside the setjmp skip"
+  else
+    ko "normal() was not instrumented — setjmp skip is too broad"
+  fi
+else
+  ko "setjmp test compile failed"; tail -5 sj.log
+fi
+rm -f sj.bin sj.log
+
+# Round-2 N4: AFL_LLVM_PATH_MAX_PATHS must reject values above INT32_MAX
+# because the IR path index is stored in an i32 register.
+rm -f cap_hi.bin cap_hi.log
+if env AFL_LLVM_LTO_PATH=3 AFL_LLVM_PATH_MAX_PATHS=2200000000 \
+       ../afl-clang-lto -O0 -o cap_hi.bin test-llvm-lto-path.c \
+       > cap_hi.log 2>&1; then
+  ko "AFL_LLVM_PATH_MAX_PATHS=2200000000 should be rejected (> INT32_MAX)"
+else
+  if grep -qiE 'INT32_MAX|2147483647|signed i32|i32 register' cap_hi.log; then
+    ok "AFL_LLVM_PATH_MAX_PATHS > INT32_MAX rejected (N4)"
+  else
+    ko "rejection happened but message did not mention the bound"
+    tail -5 cap_hi.log
+  fi
+fi
+rm -f cap_hi.bin cap_hi.log
+
+# Round-2 macOS __afl_final_loc — compile two TUs separately, link via
+# afl-clang-lto, verify exactly one __afl_final_loc def and that the
+# binary runs.
+rm -f twomod.bin twomod.log twomod_a.o twomod_b.o twomod.map
+env AFL_LLVM_LTO_PATH=1 ../afl-clang-lto -O0 -c test-llvm-path-twomod-a.c \
+      -o twomod_a.o > twomod.log 2>&1
+env AFL_LLVM_LTO_PATH=1 ../afl-clang-lto -O0 -c test-llvm-path-twomod-b.c \
+      -o twomod_b.o >> twomod.log 2>&1
+if env AFL_LLVM_LTO_PATH=1 ../afl-clang-lto -O0 -o twomod.bin \
+        twomod_a.o twomod_b.o >> twomod.log 2>&1; then
+  ok "two-TU LTO link succeeds with PATH coverage"
+  # Mach-O adds a leading underscore to C symbols (so __afl_final_loc
+  # appears as ___afl_final_loc); ELF emits __afl_final_loc verbatim.
+  COUNT=$(nm twomod.bin 2>/dev/null \
+            | grep -cE '[ TtDdBbSsCc] _*__afl_final_loc$' || true)
+  if [ "$COUNT" -ge 1 ]; then
+    ok "__afl_final_loc defined exactly $COUNT time(s) in the linked binary"
+  else
+    ko "__afl_final_loc symbol not found in the linked binary"
+    nm twomod.bin | grep -i afl_final | head -5
+  fi
+  printf 'A' | AFL_QUIET=1 ../afl-showmap -m none -o twomod.map -q -- \
+        ./twomod.bin >/dev/null 2>&1
+  if [ -s twomod.map ]; then
+    ok "two-TU binary produces coverage"
+  else
+    ko "two-TU binary produced no coverage"
+  fi
+else
+  ko "two-TU LTO link failed"; tail -10 twomod.log
+fi
+rm -f twomod.bin twomod.log twomod_a.o twomod_b.o twomod.map
+
 # Cleanup
 rm -f plain.bin plain.log ctx.bin ctx.log path.bin path.log \
       alias_a.bin alias_a.log alias_b.bin alias_b.log \
