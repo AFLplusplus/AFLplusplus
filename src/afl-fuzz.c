@@ -198,6 +198,31 @@ static void at_exit() {
 
 }
 
+/* Targets compiled with AFL_LLVM_BUG_* append a 64 KiB bug map to the
+   tail of the shared region.  Subtract it from map_size so the rest of
+   the engine doesn't treat it as coverage edges.  Mirrors
+   configure_ijon_runtime; must run BEFORE that one since IJON sits at
+   the very end of __afl_set_map_size, with the bug map between IJON
+   and coverage. */
+static void configure_bug_runtime(afl_state_t *afl) {
+
+  if (afl->fsrv.map_size <= 4 + MAP_SIZE_BUG_BYTES) {
+
+    FATAL("target forkserver reports too small map for bug-pass - BUG!");
+
+  }
+
+  afl->fsrv.map_size -= MAP_SIZE_BUG_BYTES;
+  afl->fsrv.real_map_size -= MAP_SIZE_BUG_BYTES;
+  if (!afl->non_instrumented_mode && afl->debug) {
+
+    ACTF("Bug-pass map detected; subtracted %u bytes from coverage region.",
+         (u32)MAP_SIZE_BUG_BYTES);
+
+  }
+
+}
+
 static void configure_ijon_runtime(afl_state_t *afl) {
 
 #ifdef __linux__
@@ -1883,6 +1908,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  /* -l m / -l z are CmpLog-only features; without a CmpLog binary they
+     would silently no-op.  Mirror the existing -l Z FATAL check. */
+  if (afl->cmplog_tightness && !afl->shm.cmplog_mode) {
+
+    FATAL(
+        "-l with 'm' selector (predicate-tightness scheduling) requires "
+        "CmpLog enabled. Pass -c <cmplog-target> as well.");
+
+  }
+  if (afl->cmplog_size_derive && !afl->shm.cmplog_mode) {
+
+    FATAL(
+        "-l with 'z' selector (size-derive logging) requires CmpLog enabled. "
+        "Pass -c <cmplog-target> as well.");
+
+  }
+
   if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 
     WARNF(cLRD
@@ -2799,6 +2841,11 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
   }
+
+  /* Subtract bug-pass map (if any) BEFORE IJON.  The runtime carves
+     the bug map between the coverage region and IJON tail (see
+     __afl_bug_append_map). */
+  if (unlikely(afl->fsrv.use_bug_map)) { configure_bug_runtime(afl); }
 
   /* Set up IJON state if enabled - MOVED here to use correct map size from
    * forkserver handshake */

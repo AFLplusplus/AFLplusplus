@@ -19,11 +19,15 @@
   - afl-cc:
     - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
       triggers in target binaries
-    - new instrumentation: `afl-llvm-bug-pass.so` provides three runtime
+    - new instrumentation: `afl-llvm-bug-pass.so` provides six runtime
       oracles for arithmetic-bound and logical-OOB bugs that ASan misses
       (CVE-2023-4863 / libwebp-Huffman class):
         * `AFL_LLVM_BUG_SCALAR=1`   - max-value-per-arithmetic-site coverage,
                                       plus per-loop iteration count
+        * `AFL_LLVM_BUG_SCALAR_SLICE=1` - restrict SCALAR instrumentation to
+                                      arithmetic that flows into a memory-
+                                      size sink (allocator size, GEP index,
+                                      memcpy/memset length). Implies SCALAR.
         * `AFL_LLVM_BUG_BUDGET=1`   - check `ptr += func()` write-extent
                                       contract
         * `AFL_LLVM_BUG_SIZEFILL=1`  - check NULL-means-size-only idioms
@@ -31,8 +35,13 @@
                                        feed three signals (headroom IJON-min,
                                        proximity-bucket coverage edge, soft-OOB
                                        tripwire) per in-loop store
+        * `AFL_LLVM_BUG_SLACK=1`    - per-icmp |op0-op1| feedback, mapped
+                                      MIN-style onto the bug map (inverse-
+                                      bucket) for tight-comparison signal
         * `AFL_LLVM_BUG_ALLOCSIZE_FUNCS=Name1,Name2,...` - extend tracking
                                        to user-listed custom allocators
+        * `AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS=Name1,Name2,...` - matching
+                                       custom-free functions for the above
         * `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` - log tracked allocation sizes
                                        into CmpLog RTN slots for `-l z`
         * `AFL_LLVM_BUG=1`           - enable all bug-pass modes

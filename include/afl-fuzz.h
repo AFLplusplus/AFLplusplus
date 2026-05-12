@@ -318,6 +318,10 @@ struct queue_entry {
                       /*   1: explored                    */
   fs_meta_t *fs_meta;                   /* Frameshift metadata              */
 
+  /* Cycle at which tightness_novel was set, so cull_queue can decay the
+     flag instead of letting the favoured set grow monotonically. */
+  u32 tightness_novel_cycle;            /* cycle when tightness_novel set   */
+
 };
 
 struct extra_data {

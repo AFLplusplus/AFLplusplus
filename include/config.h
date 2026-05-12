@@ -520,17 +520,20 @@ We add 4 byte for one u32 length field. */
 #define MAP_SIZE_BUG_BYTES (MAP_SIZE_BUG_ENTRIES * sizeof(u32))
 
 /* AllocSizeOracle (AFL_LLVM_BUG_ALLOCSIZE) shadow.
-   1 byte per 64-byte granule, covering a 16 GB tracked address range.
-   mmap'd MAP_NORESERVE so physical pages are lazy. */
+   1 u16 per 64-byte granule covering 16 GB of tracked address space.
+   The u16 width caps MAP_SIZE_ALLOCRECORDS at 65535.  mmap'd
+   MAP_NORESERVE so physical pages are lazy. */
 #define MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2 6                    /* 64 bytes */
 #define MAP_SIZE_ALLOCSHADOW_RANGE        (1ULL << 34)         /* 16 GB */
+#define MAP_SIZE_ALLOCSHADOW_GRANULES \
+  (MAP_SIZE_ALLOCSHADOW_RANGE >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2)
 #define MAP_SIZE_ALLOCSHADOW_BYTES \
-  (MAP_SIZE_ALLOCSHADOW_RANGE >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2)  /* 256 MB */
+  (MAP_SIZE_ALLOCSHADOW_GRANULES * sizeof(u16))                /* 512 MB */
 
-/* Live allocation records. Index 0 is reserved for "untracked"; 1..255
-   correspond to active allocations. 255 simultaneous tracked allocations
-   is more than libwebp's worst case (~100). */
-#define MAP_SIZE_ALLOCRECORDS 256
+/* Live allocation records. Index 0 is reserved for "untracked"; 1..N-1
+   correspond to active allocations. Coupled to the u16 shadow byte
+   (see MAP_SIZE_ALLOCSHADOW_BYTES). */
+#define MAP_SIZE_ALLOCRECORDS 4096
 
 /* Maximum allocator request size (keep well under INT_MAX): */
 

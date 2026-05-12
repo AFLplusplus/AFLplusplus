@@ -1031,8 +1031,23 @@ void cull_queue(afl_state_t *afl) {
 
   for (i = 0; i < afl->queued_items; i++) {
 
-    /* Keep entries flagged tightness_novel favoured across cull cycles. */
-    afl->queue_buf[i]->favored = afl->queue_buf[i]->tightness_novel;
+    /* Keep tightness_novel entries favoured for a bounded number of
+       queue cycles, then decay.  Without the decay every entry that
+       ever held a per-site minimum stays favoured for the rest of the
+       campaign and culling stops working.  Three cycles balances
+       "exercise the new minimum" against unbounded growth. */
+    struct queue_entry *q = afl->queue_buf[i];
+    if (q->tightness_novel) {
+
+      if (afl->queue_cycle - q->tightness_novel_cycle >= 3) {
+
+        q->tightness_novel = 0;
+        q->tightness_novel_cycle = 0;
+
+      }
+
+    }
+    q->favored = q->tightness_novel;
 
   }
 

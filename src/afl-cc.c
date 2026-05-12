@@ -3754,6 +3754,7 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     /* Bug-finding pass: enabled by any AFL_LLVM_BUG* var. Single .so handles
        all five sub-modes internally (SCALAR/BUDGET/SIZEFILL/ALLOCSIZE/SLACK). */
     if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_SCALAR") ||
+        getenv("AFL_LLVM_BUG_SCALAR_SLICE") ||
         getenv("AFL_LLVM_BUG_BUDGET") || getenv("AFL_LLVM_BUG_SIZEFILL") ||
         getenv("AFL_LLVM_BUG_ALLOCSIZE") ||
         getenv("AFL_LLVM_BUG_ALLOCSIZE_FUNCS") ||

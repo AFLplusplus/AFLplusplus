@@ -229,6 +229,24 @@ class).
     `AFL_LLVM_BUG_ALLOCSIZE=1`. Note: targets must export the named
     function (non-static / extern linkage) so LLVM's IPO does not strip
     the size argument; static helpers can be specialized away by `-O3`.
+  - `AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS` — comma-separated list of the
+    matching custom-free function names for the allocators listed in
+    `AFL_LLVM_BUG_ALLOCSIZE_FUNCS`. Each free is rewritten to
+    `__afl_track_free` so the runtime can drop the registration. Use a
+    parallel ordering (same index = matching pair) when both are sets.
+  - `AFL_LLVM_BUG_SLACK=1` — per-icmp instrumentation: at every signed/
+    unsigned integer comparison the pass records `|op0 - op1|` mapped MIN-
+    style (inverse-bucket) onto the shared bug map. Smaller slack = tighter
+    match = more interesting. Helps the fuzzer drive multiple validation
+    predicates toward their tight edges simultaneously (the libwebp
+    CVE-2023-4863 pattern). Cheap; can be combined with any other mode.
+  - `AFL_LLVM_BUG_SCALAR_SLICE=1` — restrict SCALAR's arithmetic-site
+    instrumentation to BinaryOperators that flow into a memory-size sink
+    (allocator size args, GEP indices, memcpy/memset lengths). Implies
+    `AFL_LLVM_BUG_SCALAR=1`. Off by default; turning it on silences pure-
+    compute accumulators (hash builders, non-memory counters) but cuts
+    SCALAR map pollution on very large targets at the cost of pure-
+    compute coverage signal.
   - `AFL_LLVM_BUG_ALLOCSIZE_DERIVE` — enables `ALLOCSIZE` and, at every
     `__afl_alloc_unregister` (free of a tracked allocation), logs
     `(record.size, record.max_observed_off)` into a CmpLog routine slot keyed

@@ -26,8 +26,17 @@
 // Number of u32 slots in the bug map (max-value coverage channel).
 // Must be a power of two. Sized like IJON (512) but wider because we
 // instrument many arithmetic sites.
-#define MAP_SIZE_BUG_ENTRIES (1U << 14)              // 16384 slots
-#define MAP_SIZE_BUG (MAP_SIZE_BUG_ENTRIES * sizeof(uint32_t))
+//
+// Canonical definition lives in include/config.h. We include it here so
+// instrumentation pass code (which doesn't always pull config.h) sees the
+// same value as the fuzzer and runtime.
+#include "config.h"
+#ifndef MAP_SIZE_BUG_ENTRIES
+#  error "include/config.h must define MAP_SIZE_BUG_ENTRIES"
+#endif
+#ifndef MAP_SIZE_BUG
+#  define MAP_SIZE_BUG MAP_SIZE_BUG_BYTES
+#endif
 
 #define AFL_BUG_MODE_SCALAR    (1U << 0)
 #define AFL_BUG_MODE_BUDGET    (1U << 1)

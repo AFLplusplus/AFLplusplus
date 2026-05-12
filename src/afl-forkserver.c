@@ -1596,6 +1596,16 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+      /* Target reports an appended bug-pass map; configure_bug_runtime
+         in afl-fuzz.c subtracts MAP_SIZE_BUG_BYTES from fsrv->map_size
+         before the coverage code touches that region. */
+      if (status & FS_NEW_OPT_BUG_MAP) {
+
+        fsrv->use_bug_map = 1;
+        if (!be_quiet) { ACTF("Bug-pass map detected in target."); }
+
+      }
+
       if (status & FS_NEW_OPT_AUTODICT) {
 
         // even if we do not need the dictionary we have to read it

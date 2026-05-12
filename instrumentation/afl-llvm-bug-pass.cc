@@ -195,6 +195,15 @@ enum : uint32_t {
 // space collision pattern across sites can't pile up on the same slot,
 // and so that the same site index across functions/modes lands
 // elsewhere. Stable across builds of the same function — no PRNG.
+//
+// The bug map is shared MAX-rule between SCALAR/loop (max-channel
+// semantics) and SLACK (inverse-bucket MIN-disguised-as-max).  Without
+// partitioning, a collision lets the larger of (scalar_value,
+// INV(slack)) win and the two channels overwrite each other silently.
+// Partition the slot space: SCALAR/loop in the lower half, SLACK in the
+// upper half.  Halves the per-channel capacity but eliminates cross-
+// channel collisions.  ALLOCSIZE's runtime-side hash still maps over
+// the full map and can collide with either half — separate concern.
 static uint32_t siteSlotId(StringRef func_name, uint32_t site_idx,
                            uint32_t mode_salt) {
 
@@ -213,7 +222,14 @@ static uint32_t siteSlotId(StringRef func_name, uint32_t site_idx,
   // Mix once more — small inputs (short names, low ids) otherwise leave
   // the upper bits poorly distributed for a tiny mask.
   h ^= h >> 16;
-  return h & (MAP_SIZE_BUG_ENTRIES - 1);
+
+  constexpr uint32_t half = MAP_SIZE_BUG_ENTRIES / 2;
+  if (mode_salt == BUG_MODE_SALT_SLACK) {
+
+    return half + (h & (half - 1));  // upper half
+
+  }
+  return h & (half - 1);              // lower half (scalar + loop)
 
 }
 
@@ -228,10 +244,37 @@ static Type *pointerTyTo(LLVMContext &C, Type *ElemTy) {
 
 }
 
+// BasicBlock::getFirstNonPHI() returning Instruction* is deprecated in
+// LLVM 18+ and removed in LLVM 22+; getFirstNonPHIIt() returns an
+// iterator instead.  Wrap once so call sites stay short.
+static inline Instruction *firstNonPHI(BasicBlock *BB) {
+
+#if LLVM_MAJOR >= 20
+  return &*BB->getFirstNonPHIIt();
+#else
+  return BB->getFirstNonPHI();
+#endif
+
+}
+
 static Value *castToPtrTy(IRBuilder<> &B, Value *V, Type *PtrTy) {
 
   if (!V || V->getType() == PtrTy) return V;
   return B.CreateBitOrPointerCast(V, PtrTy);
+
+}
+
+// Bug-pass runtime hooks never throw and always return.  Mark hook
+// declarations nounwind (so EH machinery doesn't grow phantom unwind
+// edges at every instrumented store) and willreturn (so the optimizer
+// can keep reasoning about side-effects).
+static void markBugHookAttrs(FunctionCallee FC) {
+
+  if (!FC.getCallee()) return;
+  auto *F = dyn_cast<Function>(FC.getCallee()->stripPointerCasts());
+  if (!F) return;
+  F->addFnAttr(Attribute::NoUnwind);
+  F->addFnAttr(Attribute::WillReturn);
 
 }
 
@@ -573,8 +616,10 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 
   FunctionCallee scalarHook =
       M.getOrInsertFunction("__afl_bug_scalar_max", VoidTy, I32, I64);
+  markBugHookAttrs(scalarHook);
   FunctionCallee loopFlush =
       M.getOrInsertFunction("__afl_bug_loop_iter_flush", VoidTy, I32, I32);
+  markBugHookAttrs(loopFlush);
 
   // No per-site active-flag guard. The earlier Enhancement J emitted
   // load/icmp/branch around every SCALAR call, which inflates IR
@@ -681,9 +726,9 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 #if LLVM_MAJOR >= 20
       cnt->dropDbgRecords();
 #endif
-      cnt->setDebugLoc(Header->getFirstNonPHI()->getDebugLoc());
-      IRBuilder<> HB(Header->getFirstNonPHI());
-      inheritDebugLoc(HB, Header->getFirstNonPHI());
+      cnt->setDebugLoc(firstNonPHI(Header)->getDebugLoc());
+      IRBuilder<> HB(firstNonPHI(Header));
+      inheritDebugLoc(HB, firstNonPHI(Header));
       Value      *inc = HB.CreateAdd(cnt, ConstantInt::get(I32, 1),
                                      "afl.loopcnt.inc");
       cnt->addIncoming(ConstantInt::get(I32, 0), Preheader);
@@ -748,7 +793,7 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         // loops share an exit block (we insert a new PHI for each loop
         // and the next inserted-PHI would then sit AFTER a non-PHI flush
         // call, breaking the "PHIs at top" invariant).
-        Instruction *FlushAt = Exit->getFirstNonPHI();
+        Instruction *FlushAt = firstNonPHI(Exit);
         IRBuilder<> XB(FlushAt);
         inheritDebugLoc(XB, FlushAt);
         XB.CreateCall(loopFlush, {ConstantInt::get(I32, id), xphi});
@@ -944,10 +989,13 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
 
   FunctionCallee wsBegin =
       M.getOrInsertFunction("__afl_bug_ws_begin", VoidTy, PtrTy);
+  markBugHookAttrs(wsBegin);
   FunctionCallee wsCheck =
       M.getOrInsertFunction("__afl_bug_ws_check_budget", VoidTy, PtrTy, I64);
+  markBugHookAttrs(wsCheck);
   FunctionCallee wsStore =
       M.getOrInsertFunction("__afl_bug_ws_store", VoidTy, PtrTy, I32);
+  markBugHookAttrs(wsStore);
 
   // Per-callee set of argument indices that are budget-traced. A store
   // inside such a callee only counts toward __afl_bug_ws_max_off if it
@@ -2018,15 +2066,18 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
   FunctionCallee sfCheck = M.getOrInsertFunction(
       "__afl_bug_sizefill_check", VoidTy, PtrTy, I64, I64);
+  markBugHookAttrs(sfCheck);
   // Bug 4: sfBegin now takes (ptr, size). Lets the runtime range-check
   // every store as `addr < base + size` rather than the over-permissive
   // `addr >= base` walk that pollutes a tracked buffer's max-off with
   // writes through unrelated higher-address buffers.
   FunctionCallee sfBegin =
       M.getOrInsertFunction("__afl_bug_sf_begin", VoidTy, PtrTy, I64);
+  markBugHookAttrs(sfBegin);
   FunctionCallee sfStore =
       M.getOrInsertFunction("__afl_bug_sf_store", VoidTy, PtrTy,
                             IntegerType::getInt32Ty(C));
+  markBugHookAttrs(sfStore);
 
   // 1) Find sentinel-param functions in this module. Each may declare its
   // size either via the integer return value (legacy path) or via a
@@ -2231,6 +2282,7 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
 
   FunctionCallee slackHook =
       M.getOrInsertFunction("__afl_bug_slack_min", VoidTy, I32, I64);
+  markBugHookAttrs(slackHook);
 
   uint32_t sites = 0;
   bool     changed = false;
@@ -2532,6 +2584,48 @@ static const AllocRewriteSpec kRewriteSpecs[] = {
     {"??_V@YAXPEAX@Z",  "__afl_track_free",   AllocKind::Free},     /* del[] x64 */
     {"??3@YAXPAX@Z",    "__afl_track_free",   AllocKind::Free},     /* del   x86 */
     {"??_V@YAXPAX@Z",   "__afl_track_free",   AllocKind::Free},     /* del[] x86 */
+
+    // glibc internal symbols (visible in thinLTO and direct-bind
+    // builds), legacy POSIX allocators, and nothrow C++ ABI overloads.
+
+    // glibc internal allocator names (sometimes called directly by libc
+    // itself in static-linked targets or by user code that uses dlsym).
+    {"__libc_malloc",   "__afl_track_malloc",  AllocKind::Malloc},
+    {"__libc_calloc",   "__afl_track_calloc",  AllocKind::Calloc},
+    {"__libc_realloc",  "__afl_track_realloc", AllocKind::Realloc},
+    {"__libc_free",     "__afl_track_free",    AllocKind::Free},
+    {"__libc_valloc",   "__afl_track_malloc",  AllocKind::Malloc},
+    {"__libc_pvalloc",  "__afl_track_malloc",  AllocKind::Malloc},
+    {"__libc_memalign", "__afl_track_malloc",  AllocKind::Malloc},
+    {"__GI___libc_malloc",  "__afl_track_malloc",  AllocKind::Malloc},
+    {"__GI___libc_calloc",  "__afl_track_calloc",  AllocKind::Calloc},
+    {"__GI___libc_realloc", "__afl_track_realloc", AllocKind::Realloc},
+    {"__GI___libc_free",    "__afl_track_free",    AllocKind::Free},
+
+    // Legacy POSIX allocators. Treated as malloc (1-arg) since the
+    // alignment/granularity is internal to the allocator and the runtime
+    // shadow only cares about (base, size).
+    {"valloc",   "__afl_track_malloc", AllocKind::Malloc},
+    {"pvalloc",  "__afl_track_malloc", AllocKind::Malloc},
+    {"memalign", "__afl_track_aligned_alloc", AllocKind::AlignedAlloc}, /* (align, size) */
+
+    // Nothrow new variants (`new(std::nothrow) T`). The pass already wraps
+    // throwing-new, but the runtime-equivalent nothrow forms have distinct
+    // mangled names and were silently missed.
+    {"_ZnwmRKSt9nothrow_t", "__afl_track_malloc", AllocKind::Malloc}, /* new       nothrow x64 */
+    {"_ZnamRKSt9nothrow_t", "__afl_track_malloc", AllocKind::Malloc}, /* new[]     nothrow x64 */
+    {"_ZnwjRKSt9nothrow_t", "__afl_track_malloc", AllocKind::Malloc}, /* new       nothrow x86 */
+    {"_ZnajRKSt9nothrow_t", "__afl_track_malloc", AllocKind::Malloc}, /* new[]     nothrow x86 */
+    {"_ZdlPvRKSt9nothrow_t", "__afl_track_free", AllocKind::Free},    /* delete    nothrow */
+    {"_ZdaPvRKSt9nothrow_t", "__afl_track_free", AllocKind::Free},    /* delete[]  nothrow */
+
+    // Aligned + nothrow new/delete (C++17).
+    {"_ZnwmSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
+    {"_ZnamSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
+    {"_ZnwjSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
+    {"_ZnajSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
+    {"_ZdlPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free", AllocKind::AlignedDelete},
+    {"_ZdaPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free", AllocKind::AlignedDelete},
 };
 
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
@@ -2550,29 +2644,40 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
   FunctionCallee trackMalloc =
       M.getOrInsertFunction("__afl_track_malloc", PtrTy, I64, I32);
+  markBugHookAttrs(trackMalloc);
   FunctionCallee trackCalloc =
       M.getOrInsertFunction("__afl_track_calloc", PtrTy, I64, I64, I32);
+  markBugHookAttrs(trackCalloc);
   FunctionCallee trackRealloc = M.getOrInsertFunction(
       "__afl_track_realloc", PtrTy, PtrTy, I64, I32);
+  markBugHookAttrs(trackRealloc);
   FunctionCallee trackReallocarray = M.getOrInsertFunction(
       "__afl_track_reallocarray", PtrTy, PtrTy, I64, I64, I32);
+  markBugHookAttrs(trackReallocarray);
   FunctionCallee trackPmemalign = M.getOrInsertFunction(
       "__afl_track_posix_memalign", I32, PtrTy, I64, I64, I32);
+  markBugHookAttrs(trackPmemalign);
   // aligned_alloc / aligned-new share the same runtime hook. The hook
   // takes (size, align) — note the order matches the underlying
   // posix_memalign-based runtime, NOT C11's (align, size).
   FunctionCallee trackAlignedAlloc = M.getOrInsertFunction(
       "__afl_track_aligned_alloc", PtrTy, I64, I64, I32);
+  markBugHookAttrs(trackAlignedAlloc);
   FunctionCallee trackStrdup =
       M.getOrInsertFunction("__afl_track_strdup", PtrTy, PtrTy, I32);
+  markBugHookAttrs(trackStrdup);
   FunctionCallee trackStrndup = M.getOrInsertFunction(
       "__afl_track_strndup", PtrTy, PtrTy, I64, I32);
+  markBugHookAttrs(trackStrndup);
   FunctionCallee trackFree =
       M.getOrInsertFunction("__afl_track_free", VoidTy, PtrTy);
+  markBugHookAttrs(trackFree);
   FunctionCallee allocReg = M.getOrInsertFunction(
       "__afl_alloc_register", VoidTy, PtrTy, I64, I32);
+  markBugHookAttrs(allocReg);
   FunctionCallee allocUnreg =
       M.getOrInsertFunction("__afl_alloc_unregister", VoidTy, PtrTy);
+  markBugHookAttrs(allocUnreg);
 
   uint32_t              next_alloc_id = 1;
   uint32_t              rewrites = 0, custom_inserts = 0, custom_frees = 0;
@@ -2602,7 +2707,14 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
           continue;
         Function *cf = Call->getCalledFunction();
         if (!cf) continue;
+        // nobuiltin means the user told the compiler "treat this as an
+        // ordinary function call, not as the libc primitive" — rewriting
+        // would violate that contract.
+        if (Call->isNoBuiltin()) continue;
         StringRef name = cf->getName();
+        // Strip clang's leading 0x01 escape (used for asm-name aliases)
+        // so `\01_malloc` resolves the same as `malloc`.
+        if (!name.empty() && name[0] == '\x01') name = name.drop_front();
         // 1) Direct rewrite for libc allocators.
         bool matched = false;
         for (const AllocRewriteSpec &spec : kRewriteSpecs) {
@@ -2866,6 +2978,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   // passed through helper functions.
   FunctionCallee oracle =
       M.getOrInsertFunction("__afl_alloc_oracle", VoidTy, PtrTy, I32);
+  markBugHookAttrs(oracle);
   // Enhancement I: separate hook with i64 length for memcpy/memmove/memset.
   // Integer-overflow bugs that wrap a memcpy length to a small value
   // (e.g., size_t computed from input where the high bits got truncated)
@@ -2873,6 +2986,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   // the i32 hook used to silently truncate, hiding the overflow.
   FunctionCallee oracle_n =
       M.getOrInsertFunction("__afl_alloc_oracle_n", VoidTy, PtrTy, I64);
+  markBugHookAttrs(oracle_n);
   // Enhancement H: type-confusion signal. The runtime tracks the first
   // (elem_size, alignment-class) pair seen at each allocation; a later
   // store with a mismatched element size is reported as a type-confusion
@@ -2881,6 +2995,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   // `Bar*` store of different size.
   FunctionCallee oracle_typed = M.getOrInsertFunction(
       "__afl_alloc_oracle_typed", VoidTy, PtrTy, I32, I32);
+  markBugHookAttrs(oracle_typed);
 
   uint32_t store_sites = 0;
   uint32_t mem_sites = 0;
