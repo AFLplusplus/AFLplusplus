@@ -1545,6 +1545,14 @@ static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source) {
 // do the same or risk leaking hook calls into user-excluded code.
 //
 // `hook` must be void-returning with signature (i8*, i32).
+static bool isConstantTooWideForBugStoreHook(Value *Len) {
+
+  auto *CI = dyn_cast<ConstantInt>(Len);
+  if (!CI) return false;
+  return CI->getValue().ugt(UINT32_MAX);
+
+}
+
 static unsigned instrumentArgReachingStores(
     Function &F, FunctionCallee hook,
     const std::set<unsigned> &arg_indices, Type *PtrTy, IntegerType *I32,
@@ -1560,6 +1568,7 @@ static unsigned instrumentArgReachingStores(
         Value *dest = MI->getRawDest();
         Value *len = MI->getLength();
         if (!dest || !len) continue;
+        if (isConstantTooWideForBugStoreHook(len)) continue;
         if (!ptrValueReachesArg(dest, arg_indices)) continue;
         IRBuilder<> MB(MI);
         inheritDebugLoc(MB, MI);
@@ -1577,6 +1586,7 @@ static unsigned instrumentArgReachingStores(
         Value *len = nullptr;
         if (getLibcMemoryWriteDestAndSize(CB, dest, len)) {
 
+          if (isConstantTooWideForBugStoreHook(len)) continue;
           if (!ptrValueReachesArg(dest, arg_indices)) continue;
           IRBuilder<> MB(CB);
           inheritDebugLoc(MB, CB);
@@ -1598,6 +1608,7 @@ static unsigned instrumentArgReachingStores(
       Value *addr =
           castToPtrTy(SB, S->getPointerOperand(), PtrTy);
       uint64_t sz = DL.getTypeStoreSize(S->getValueOperand()->getType());
+      if (sz > UINT32_MAX) continue;
       SB.CreateCall(hook, {addr, ConstantInt::get(I32, (uint32_t)sz)});
       ++count;
 

@@ -60,6 +60,14 @@ else
   exit 1
 fi
 
+AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 "$CC" -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-huge-copy.c" -o "$TMP/huge_budget.ll"
+if grep -q "call.*__afl_bug_ws_store" "$TMP/huge_budget.ll"; then
+  echo "[!] BUDGET: huge constant copy length was truncated into ws_store"
+  exit 1
+fi
+echo "[+] BUDGET: huge constant copy lengths skipped without runtime guard"
+
 # --- SIZEFILL ---
 AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" \
   "$SCRIPT_DIR/test-bug-sizefill-good.c" -o "$TMP/sg"
@@ -83,6 +91,14 @@ else
   cat "$TMP/sberr" "$TMP/smerr" || true
   exit 1
 fi
+
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-huge-copy.c" -o "$TMP/huge_sizefill.ll"
+if grep -q "call.*__afl_bug_sf_store" "$TMP/huge_sizefill.ll"; then
+  echo "[!] SIZEFILL: huge constant copy length was truncated into sf_store"
+  exit 1
+fi
+echo "[+] SIZEFILL: huge constant copy lengths skipped without runtime guard"
 
 # --- Runtime map sizing ---
 dump_map_size() {
