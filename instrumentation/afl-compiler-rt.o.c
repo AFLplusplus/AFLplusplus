@@ -1388,11 +1388,29 @@ static void __afl_start_forkserver(void) {
 
   if (__afl_ijon_enabled && !__afl_ijon_map_increased) {
 
+    /* Reachable in PCGUARD mode when __afl_final_loc was 0 at
+       __afl_map_shm time: that call's else branch ran __afl_bug_append_map
+       but skipped the IJON expansion, leaving __afl_bug_map pointing at
+       what is about to become the IJON_MAP region.  Detach and re-bind
+       the bug map AFTER the IJON expansion so the layout ends up as
+       [cov | IJON_MAP | IJON_BYTES | BUG] — matching the fuzzer's
+       trim-BUG-then-trim-IJON_BYTES sequence. */
     __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
+    if (__afl_bug_map_increased) {
+
+      /* Strip the trailing BUG region we already appended; we'll
+         re-append after the IJON bump. */
+      __afl_map_size -= MAP_SIZE_BUG_BYTES;
+      __afl_bug_map_increased = 0;
+      __afl_bug_map = NULL;
+
+    }
     __afl_cov_map_size = __afl_map_size;
     __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
     __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
     __afl_ijon_map_increased = 1;
+    __afl_bug_append_map();
+    __afl_bug_bind_map();
 
   } else if (!__afl_cov_map_size) {
 
@@ -4489,7 +4507,7 @@ static inline void __afl_alloc_persistent_reset(u8 flush_derive) {
   /* (2) Local bug map (when we couldn't bind to shared mem). The shared-mem
          path lives at the tail of __afl_area_ptr, which afl-fuzz / the
          forkserver already memsets between runs; that case is a no-op. */
-  if __afl_bug_map_active && __afl_bug_map == __afl_bug_map_local) {
+  if (__afl_bug_map_active && __afl_bug_map == __afl_bug_map_local) {
 
     memset(__afl_bug_map_local, 0, MAP_SIZE_BUG_BYTES);
 

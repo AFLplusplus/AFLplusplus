@@ -2843,9 +2843,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  /* Subtract bug-pass map (if any) BEFORE IJON.  The runtime carves
-     the bug map between the coverage region and IJON tail (see
-     __afl_bug_append_map). */
+  /* Subtract bug-pass map (if any) BEFORE IJON.  Layout when both are
+     active is [cov | IJON_MAP | IJON_BYTES | BUG] — trim the trailing
+     BUG tail first, then IJON's own trim addresses ijon_bits at the
+     right offset.  See __afl_bug_append_map in afl-compiler-rt.o.c. */
   if (unlikely(afl->fsrv.use_bug_map)) { configure_bug_runtime(afl); }
 
   /* Set up IJON state if enabled - MOVED here to use correct map size from
