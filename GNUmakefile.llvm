@@ -534,7 +534,7 @@ ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-./afl-llvm-bug-pass.so:	instrumentation/afl-llvm-bug-pass.cc instrumentation/afl-llvm-common.o | test_deps
+./afl-llvm-bug-pass.so:	instrumentation/afl-llvm-bug-pass.so.cc instrumentation/afl-llvm-common.o | test_deps
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }

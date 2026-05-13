@@ -1,4 +1,4 @@
-// instrumentation/afl-llvm-bug-pass.cc
+// instrumentation/afl-llvm-bug-pass.so.cc
 //
 // AFL++ bug-finding pass: implements five independent oracles plus
 // ALLOCSIZE_DERIVE CmpLog assistance, each gated by its own
