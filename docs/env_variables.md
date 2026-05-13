@@ -188,7 +188,8 @@ class).
   - `AFL_LLVM_BUG=1` — enable all bug-pass modes (`SCALAR`, `BUDGET`,
     `SIZEFILL`, `SLACK`, `ALLOCSIZE`, and `ALLOCSIZE_DERIVE`). The
     size-derive mode only emits entries when a CmpLog map is available
-    (for example in a CmpLog binary or with `AFL_CMPLOG_DEBUG=1`).
+    (needs a CmpLog binary for main fuzzing, so `-c 0`, not only
+    `-c target.cmplog`).
   - `AFL_LLVM_BUG_SCALAR=1` — max-value-per-arithmetic-site coverage and
     per-loop iteration counts. Treats internal scalar growth as a fitness
     signal in addition to edge coverage. Useful for finding inputs that

@@ -1037,7 +1037,7 @@ void cull_queue(afl_state_t *afl) {
        campaign and culling stops working.  Three cycles balances
        "exercise the new minimum" against unbounded growth. */
     struct queue_entry *q = afl->queue_buf[i];
-    if (q->tightness_novel) {
+    if (unlikely(q->tightness_novel)) {
 
       if (afl->queue_cycle - q->tightness_novel_cycle >= 3) {
 

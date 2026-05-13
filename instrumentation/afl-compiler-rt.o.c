@@ -4470,6 +4470,8 @@ static void __afl_size_derive_log(AllocSizeRecord *r) {
 
 static inline void __afl_alloc_persistent_reset(u8 flush_derive) {
 
+  if (likely(!__afl_bug_active)) return;
+
   /* Reset per-iteration bug-pass state at the __AFL_LOOP boundary:
        - BUDGET / SIZEFILL frame stacks: a longjmp out of an
          instrumented site can leave orphan frames whose ptr_before
@@ -4481,17 +4483,13 @@ static inline void __afl_alloc_persistent_reset(u8 flush_derive) {
          not allocation state. */
 
   /* (1) Per-iteration bug-pass frame stacks. */
-  if (__afl_bug_active) {
-
-    __afl_bug_ws_top = -1;
-    __afl_bug_sf_top = -1;
-
-  }
+  __afl_bug_ws_top = -1;
+  __afl_bug_sf_top = -1;
 
   /* (2) Local bug map (when we couldn't bind to shared mem). The shared-mem
          path lives at the tail of __afl_area_ptr, which afl-fuzz / the
          forkserver already memsets between runs; that case is a no-op. */
-  if (__afl_bug_map_active && __afl_bug_map == __afl_bug_map_local) {
+  if __afl_bug_map_active && __afl_bug_map == __afl_bug_map_local) {
 
     memset(__afl_bug_map_local, 0, MAP_SIZE_BUG_BYTES);
 

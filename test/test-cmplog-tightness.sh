@@ -1,5 +1,5 @@
 #!/bin/bash
-# test/test-cmplog-tightness.sh — smoke test for -l m
+# test/test-cmplog-tightness.sh — smoke test for -l -M
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -38,7 +38,7 @@ rc=$?
 set -e
 
 if grep -q "Unknown option value" "$TMP/log"; then
-  echo "[!] tightness: -l m parser regressed"
+  echo "[!] tightness: -l -M parser regressed"
   exit 1
 fi
 

@@ -1909,7 +1909,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  /* -l m / -l z are CmpLog-only features; without a CmpLog binary they
+  /* -l -M / -l -Z are CmpLog-only features; without a CmpLog binary they
      would silently no-op.  Mirror the existing -l Z FATAL check. */
   if (afl->cmplog_tightness && !afl->shm.cmplog_mode) {
 
