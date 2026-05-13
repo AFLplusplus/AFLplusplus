@@ -231,6 +231,8 @@ static void configure_ijon_runtime(afl_state_t *afl) {
   afl->ijon_shared_access = setup_dynamic_shared_access(
       afl->fsrv.trace_bits, afl->fsrv.map_size, afl->fsrv.real_map_size);
 
+  afl_ijon_retire_max = getenv("AFL_IJON_RETIRE_MAX") != NULL;
+
 }
 
 /* Display usage hints. */

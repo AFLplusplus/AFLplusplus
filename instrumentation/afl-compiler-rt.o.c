@@ -3526,6 +3526,13 @@ void ijon_min(uint32_t addr, u64 val) {
 
 }
 
+void ijon_max_until(uint32_t addr, u64 val, u64 limit) {
+
+  u64 encoded = val >= limit ? UINT64_MAX : UINT64_MAX - limit + val;
+  ijon_max(addr, encoded);
+
+}
+
 void ijon_set(uint32_t loc_addr, uint32_t val) {
 
   if (unlikely(!__afl_ijon_enabled)) return;
@@ -3746,4 +3753,3 @@ uint32_t ijon_strdist(char *a, char *b) {
   return IJON_DIST_FUNC(a, b, len);
 
 }
-
