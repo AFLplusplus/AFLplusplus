@@ -819,8 +819,8 @@ std::pair<bool, bool> detectIJONUsage(Module &M) {
 
         // Check for other IJON functions (max/min/set/inc)
         if (funcName == "ijon_max" || funcName == "ijon_min" ||
-            funcName == "ijon_set" || funcName == "ijon_inc" ||
-            funcName == "ijon_max_variadic" ||
+            funcName == "ijon_max_until" || funcName == "ijon_set" ||
+            funcName == "ijon_inc" || funcName == "ijon_max_variadic" ||
             funcName == "ijon_min_variadic") {
 
           uses_ijon_functions = true;
@@ -881,4 +881,3 @@ GlobalVariable *createIJONStateGlobal(Module &M, Type *Int32Ty,
 #endif
 
 }
-

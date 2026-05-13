@@ -56,6 +56,9 @@ typedef struct {
 
 } dynamic_shared_access_t;
 
+/* ijon global state variable*/
+extern int afl_ijon_retire_max;
+
 /* Function prototypes */
 ijon_min_state  *new_ijon_min_state(char *max_dir);
 u8               ijon_should_schedule(ijon_min_state *self);
@@ -108,6 +111,7 @@ extern "C" {
 
 void ijon_max(uint32_t addr, u64 val);
 void ijon_min(uint32_t addr, u64 val);
+void ijon_max_until(uint32_t addr, u64 val, u64 limit);
 void ijon_max_variadic(uint32_t addr, ...);
 void ijon_min_variadic(uint32_t addr, ...);
 void ijon_set(uint32_t addr, uint32_t val);
@@ -212,6 +216,20 @@ uint32_t ijon_memdist(char *a, char *b, size_t len);
 // Alternative: explicit address version for high-performance cases
 #define IJON_MAX_AT(addr, x) ijon_max((addr), (x))
 #define IJON_MIN_AT(addr, x) ijon_min((addr), (x))
+#define IJON_MAX_UNTIL_AT(addr, x, limit) ijon_max_until((addr), (x), (limit))
+
+#define IJON_MAX_UNTIL(x, limit)                                \
+  do {                                                          \
+                                                                \
+    static uint32_t _ijon_until_loc_cache = 0;                  \
+    if (unlikely(_ijon_until_loc_cache == 0)) {                 \
+                                                                \
+      _ijon_until_loc_cache = ijon_hashstr(__LINE__, __FILE__); \
+                                                                \
+    }                                                           \
+    ijon_max_until(_ijon_until_loc_cache, (x), (limit));        \
+                                                                \
+  } while (0)
 
 // Helper macro for absolute distance calculation
 #define _IJON_ABS_DIST(x, y) ((x) < (y) ? (y) - (x) : (x) - (y))
@@ -257,4 +275,3 @@ uint32_t ijon_memdist(char *a, char *b, size_t len);
   } while (0)
 
 #endif                                              /* _HAVE_AFL_IJON_MIN_H */
-
