@@ -1559,7 +1559,11 @@ static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
   Function *Callee = CB ? CB->getCalledFunction() : nullptr;
   if (!Callee) return false;
   StringRef Name = Callee->getName();
+#if LLVM_VERSION_MAJOR >= 18
   if (Name.starts_with("\01")) Name = Name.drop_front();
+#else
+  if (Name.startswith("\01")) Name = Name.drop_front();
+#endif
 
   auto useArgs = [&](unsigned DestIdx, unsigned LenIdx) -> bool {
 
