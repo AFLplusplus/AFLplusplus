@@ -4541,6 +4541,115 @@ static void __afl_alloc_shadow_paint(uintptr_t base, uint64_t size, u16 idx) {
 
 }
 
+static inline int __afl_alloc_record_contains(AllocSizeRecord *r,
+                                              uintptr_t        a) {
+
+  return r && r->in_use == __AFL_ALLOC_INUSE_LIVE && a >= r->base &&
+         (uint64_t)(a - r->base) < r->size;
+
+}
+
+static int __afl_alloc_record_granules(AllocSizeRecord *r, u16 **table_out,
+                                       uint64_t *g_start_out,
+                                       uint64_t *g_end_out) {
+
+  if (!r || r->in_use != __AFL_ALLOC_INUSE_LIVE || !r->size) return 0;
+  if (r->size > MAP_SIZE_ALLOCSHADOW_RANGE) return 0;
+  uintptr_t off = 0;
+  u16      *table = __afl_alloc_shadow_find(r->base, &off);
+  if (!table) return 0;
+  if (off > MAP_SIZE_ALLOCSHADOW_RANGE - r->size) return 0;
+
+  uint64_t g_start = off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  uint64_t g_end =
+      (off + r->size + ((1ULL << MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2) - 1)) >>
+      MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  if (g_end > MAP_SIZE_ALLOCSHADOW_GRANULES)
+    g_end = MAP_SIZE_ALLOCSHADOW_GRANULES;
+  if (g_end <= g_start) return 0;
+
+  if (table_out) *table_out = table;
+  if (g_start_out) *g_start_out = g_start;
+  if (g_end_out) *g_end_out = g_end;
+  return 1;
+
+}
+
+static void __afl_alloc_shadow_repaint_overlaps(uintptr_t base,
+                                                uint64_t  size) {
+
+  if (!size || size > MAP_SIZE_ALLOCSHADOW_RANGE) return;
+  uintptr_t off = 0;
+  u16      *table = __afl_alloc_shadow_find(base, &off);
+  if (!table) return;
+  if (off > MAP_SIZE_ALLOCSHADOW_RANGE - size) return;
+
+  uint64_t clear_start = off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  uint64_t clear_end =
+      (off + size + ((1ULL << MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2) - 1)) >>
+      MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  if (clear_end > MAP_SIZE_ALLOCSHADOW_GRANULES)
+    clear_end = MAP_SIZE_ALLOCSHADOW_GRANULES;
+
+  for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
+
+    AllocSizeRecord *cand = &__afl_alloc_records[i];
+    u16             *cand_table = NULL;
+    uint64_t         cand_start = 0, cand_end = 0;
+    if (!__afl_alloc_record_granules(cand, &cand_table, &cand_start,
+                                     &cand_end))
+      continue;
+    if (cand_table != table) continue;
+    if (cand_end <= clear_start || cand_start >= clear_end) continue;
+    __afl_alloc_shadow_paint(cand->base, cand->size, (u16)i);
+
+  }
+
+}
+
+static inline int __afl_alloc_range_is_whole_granules(uintptr_t base,
+                                                      uint64_t  size) {
+
+  const uintptr_t mask =
+      ((uintptr_t)1 << MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2) - 1;
+  return size && ((base | (uintptr_t)size) & mask) == 0;
+
+}
+
+static AllocSizeRecord *__afl_alloc_find_oracle_record(uintptr_t a, u16 *table,
+                                                       uintptr_t off,
+                                                       u16 idx) {
+
+  if (!table) return NULL;
+  if (idx && idx < MAP_SIZE_ALLOCRECORDS) {
+
+    AllocSizeRecord *fast = &__afl_alloc_records[idx];
+    if (__afl_alloc_record_contains(fast, a)) return fast;
+
+  }
+
+  uint64_t         g = off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  AllocSizeRecord *best = NULL;
+  for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
+
+    AllocSizeRecord *cand = &__afl_alloc_records[i];
+    u16             *cand_table = NULL;
+    uint64_t         cand_start = 0, cand_end = 0;
+    if (!__afl_alloc_record_granules(cand, &cand_table, &cand_start,
+                                     &cand_end))
+      continue;
+    if (cand_table != table) continue;
+    if (g < cand_start || g >= cand_end) continue;
+
+    if (__afl_alloc_record_contains(cand, a)) return cand;
+    if (a >= cand->base && (!best || cand->base > best->base)) best = cand;
+
+  }
+
+  return best;
+
+}
+
 void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
 
   __afl_bug_ensure_runtime();
@@ -4707,9 +4816,13 @@ void __afl_alloc_unregister(void *ptr) {
 
   if (!r) return; /* not tracked (or already freed) */
 
+  uintptr_t old_base = r->base;
+  uint64_t  old_size = r->size;
   __afl_size_derive_log(r);
-  __afl_alloc_shadow_paint(r->base, r->size, 0);
   r->in_use = __AFL_ALLOC_INUSE_FREE;
+  __afl_alloc_shadow_paint(old_base, old_size, 0);
+  if (!__afl_alloc_range_is_whole_granules(old_base, old_size))
+    __afl_alloc_shadow_repaint_overlaps(old_base, old_size);
 
 }
 
@@ -4867,9 +4980,8 @@ static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
   if (!tbl) return;
   u16 idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
   if (!idx) return; /* untracked */
-  if (idx >= MAP_SIZE_ALLOCRECORDS) return; /* defensive */
-  AllocSizeRecord *r = &__afl_alloc_records[idx];
-  if (r->in_use != __AFL_ALLOC_INUSE_LIVE) return;
+  AllocSizeRecord *r = __afl_alloc_find_oracle_record(a, tbl, off, idx);
+  if (!r) return;
   uintptr_t end = r->base + r->size;
   /* Treat zero-width (e.g. struct-of-size-0 or unknown) as one byte so the
      oracle still has a defined tripwire. */
@@ -4955,8 +5067,8 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
   if (!tbl) return;
   u16 idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
   if (!idx || idx >= MAP_SIZE_ALLOCRECORDS) return;
-  AllocSizeRecord *r = &__afl_alloc_records[idx];
-  if (r->in_use != __AFL_ALLOC_INUSE_LIVE) return;
+  AllocSizeRecord *r = __afl_alloc_find_oracle_record(a, tbl, off, idx);
+  if (!r) return;
 
   /* First-elem-size wins: only the first store at this allocation
      stamps the (size, align) pair; later stores compare against it. */

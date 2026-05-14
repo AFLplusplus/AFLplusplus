@@ -154,14 +154,11 @@ static BugPassConfig parseEnv() {
 
 }
 
-// Cross-mode dedup state. SCALAR populates `covered` per Function during
-// its run; SLACK consults it to skip icmps whose operand SCALAR already
-// instruments (saves a redundant hook call without changing semantics).
-// Held in BugPass (not file scope) so Function* keys can't dangle across
-// modules. Cleared at the start of every BugPass::run().
+// Per-module state shared by optional mode helpers. Held in BugPass (not file
+// scope) so Function* keys can't dangle across modules. Cleared at the start
+// of every BugPass::run().
 struct BugPassState {
 
-  std::map<Function *, SmallPtrSet<Value *, 32>> scalar_covered;
   bool                                           scalar_slice = false;
   // Shared set populated from AFL_LLVM_BUG_ALLOCSIZE_FUNCS. Used by
   // ALLOCSIZE (registers them), SIZEFILL (recovers buffer size from
@@ -412,11 +409,8 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
 
   }
 
-  // Fresh state per module — `scalar_covered`'s Function* keys are only
-  // valid for the lifetime of THIS Module. Clearing here is the load-
-  // bearing line that prevents UAFs across compilations sharing a pass
-  // plugin instance.
-  state_.scalar_covered.clear();
+  // Fresh state per module. Function* keys and module-local names are only
+  // valid for the lifetime of THIS Module.
   state_.scalar_slice = cfg.scalar_slice;
   state_.custom_allocs.clear();
   for (const std::string &name : cfg.custom_alloc_funcs)
@@ -610,6 +604,56 @@ computeScalarSinkSlice(Function &F, const std::set<std::string> &customs,
 // or loop-induction. Conservative — we'd rather miss a site than spam the map.
 static bool ScalarSiteWorthInstrumenting(BinaryOperator *I, LoopInfo &LI) {
 
+  auto isAflInternalValue = [](Value *Root) -> bool {
+
+    SmallVector<Value *, 8>  work;
+    SmallPtrSet<Value *, 16> seen;
+    work.push_back(Root);
+    unsigned depth = 0;
+    while (!work.empty() && depth++ < 32) {
+
+      Value *V = work.pop_back_val();
+      if (!V || !seen.insert(V).second) continue;
+      if (auto *Inst = dyn_cast<Instruction>(V)) {
+
+        if (Inst->hasMetadata("nosanitize")) return true;
+
+      }
+
+      if (auto *GV = dyn_cast<GlobalValue>(V->stripPointerCasts())) {
+
+        StringRef N = GV->getName();
+#if LLVM_VERSION_MAJOR >= 18
+        if (N.starts_with("__afl_") || N.starts_with("__sancov_"))
+          return true;
+#else
+        if (N.startswith("__afl_") || N.startswith("__sancov_"))
+          return true;
+#endif
+
+      }
+
+      if (auto *Op = dyn_cast<Operator>(V)) {
+
+        for (Use &U : Op->operands()) work.push_back(U.get());
+        continue;
+
+      }
+
+      if (auto *Ld = dyn_cast<LoadInst>(V)) {
+
+        work.push_back(Ld->getPointerOperand());
+        continue;
+
+      }
+
+    }
+
+    return false;
+
+  };
+
+  if (isAflInternalValue(I)) return false;
   // Reject pure induction-variable updates first — cheap structural check.
   if (isInductionVariableUpdate(I, LI)) return false;
   // Skip if any operand is the result of a GEP (address-arithmetic).
@@ -690,9 +734,6 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
     SmallPtrSet<Value *, 32> slice;
     if (S.scalar_slice) computeScalarSinkSlice(F, S.custom_allocs, slice);
 
-    // Track which Values get instrumented here, for SLACK dedup.
-    SmallPtrSet<Value *, 32> &covered = S.scalar_covered[&F];
-
     for (BasicBlock &BB : F) {
 
       for (Instruction &I : BB) {
@@ -733,7 +774,6 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         uint32_t id = siteSlotId(func_name, site_idx++,
                                  BUG_MODE_SALT_SCALAR_ARITH);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
-        covered.insert(Bin);
         ++arith_sites;
         changed = true;
 
@@ -783,7 +823,6 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         uint32_t id = siteSlotId(func_name, site_idx++,
                                  BUG_MODE_SALT_SCALAR_ARITH);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
-        covered.insert(EV);
         ++arith_sites;
         changed = true;
       }
@@ -832,7 +871,6 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         uint32_t id = siteSlotId(func_name, site_idx++,
                                  BUG_MODE_SALT_SCALAR_ARITH);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
-        covered.insert(Sel);
         ++arith_sites;
         changed = true;
       }
@@ -2602,21 +2640,24 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
     int  out_idx = -1;
     int  out_bits = 0;
     bool out_is_inout = false;
+    bool return_size_ok = false;
     if (F.getReturnType()->isIntegerTy()) {
 
       auto *RT = cast<IntegerType>(F.getReturnType());
       unsigned ret_bits = RT->getBitWidth();
-      if (ret_bits < 16 || ret_bits > 64) continue;
-      if (!functionHasStoreThroughArg(F, (unsigned)idx)) continue;
-
-    } else {
-
-      // Fall back to output-param convention. Only adopt if we find a
-      // distinct pointer-to-integer arg that the function writes to.
-      out_idx = findOutSizeParam(F, idx, &out_bits, &out_is_inout);
-      if (out_idx < 0) continue;
+      if (ret_bits >= 16 && ret_bits <= 64 &&
+          functionHasStoreThroughArg(F, (unsigned)idx))
+        return_size_ok = true;
 
     }
+
+    // Prefer output-param convention when present, even for integer-
+    // returning functions. Many real APIs return an int status and write the
+    // size through `size_t *out`; treating the status as a size causes both
+    // false positives (errno/status > buffer size) and false negatives
+    // (status 0 while *out reports overflow).
+    out_idx = findOutSizeParam(F, idx, &out_bits, &out_is_inout);
+    if (out_idx < 0 && !return_size_ok) continue;
 
     sentinel[&F] = {idx, out_idx, out_bits, out_is_inout};
 
@@ -2797,6 +2838,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
 bool runSlackMode(Module &M, ModuleAnalysisManager &,
                   const BugPassState &S) {
 
+  (void)S;
   LLVMContext &C = M.getContext();
   Type        *VoidTy = Type::getVoidTy(C);
   IntegerType *I32 = IntegerType::getInt32Ty(C);
@@ -2818,24 +2860,9 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
     uint32_t pf_start = sites;
 
     // Collect first, instrument afterwards — avoid the iterator visiting
-    // our own inserted Sub/Neg/Select instructions.
-    //
-    // Enhancement B: if SCALAR already instrumented an operand value
-    // (which itself produces a MAX-rule update on growth), and that
-    // value is one of THIS cmp's operands, we can skip the SLACK hook —
-    // the fuzzer already gets a gradient signal from the SCALAR hook on
-    // that value's growth. SLACK still fires when no operand was SCALAR-
-    // covered, or when both operands are constants/loads/etc. with no
-    // SCALAR coverage.
-    auto                            scalarIt = S.scalar_covered.find(&F);
-    const SmallPtrSet<Value *, 32> *scalarCov =
-        scalarIt != S.scalar_covered.end() ? &scalarIt->second : nullptr;
-    auto opAlreadyCovered = [&](Value *V) -> bool {
-
-      if (!scalarCov) return false;
-      return scalarCov->count(V) > 0;
-
-    };
+    // our own inserted Sub/Neg/Select instructions. Keep SLACK even when
+    // SCALAR is also enabled: SCALAR's growth signal and SLACK's distance-
+    // to-constant signal are complementary, especially for equality checks.
 
     std::vector<ICmpInst *>  targets;
     std::vector<FCmpInst *>  fp_targets;
@@ -2883,10 +2910,6 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
           // null — same intent.
           if (isa<Constant>(Cmp->getOperand(0)) &&
               isa<Constant>(Cmp->getOperand(1)))
-            continue;
-          // Enhancement B: dedup with SCALAR.
-          if (opAlreadyCovered(Cmp->getOperand(0)) ||
-              opAlreadyCovered(Cmp->getOperand(1)))
             continue;
           targets.push_back(Cmp);
           continue;
@@ -3120,9 +3143,6 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
     for (SwitchInst *SW : sw_targets) {
 
       Value *Cond = SW->getCondition();
-      // Skip if SCALAR already covered the condition value. Avoids
-      // redundancy with the SCALAR MAX channel.
-      if (opAlreadyCovered(Cond)) continue;
       IRBuilder<> B(SW);
       inheritDebugLoc(B, SW);
       Value *Cond_64 = B.CreateZExtOrTrunc(Cond, I64);
@@ -3175,7 +3195,6 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
         auto *Call = dyn_cast<IntrinsicInst>(EV->getAggregateOperand());
         if (!Call || !isOverflowIntrinsicS(Call->getIntrinsicID())) continue;
         if (!EV->getType()->isIntegerTy(1)) continue;
-        if (opAlreadyCovered(EV)) continue;
         IRBuilder<> B(EV->getNextNode());
         inheritDebugLoc(B, EV);
         Value *u64_max = ConstantInt::get(I64, (uint64_t)-1);
@@ -3219,6 +3238,10 @@ enum class AllocKind : uint8_t {
   AlignedDelete,     // ptr, align_val_t                         -> void
   SizedFree,         // ptr, size_t                              -> void (C++14)
   SizedAlignedFree,  // ptr, size_t, align_val_t                 -> void
+  NothrowNew,        // size_t, const nothrow_t&                 -> ptr
+  NothrowDelete,     // ptr, const nothrow_t&                    -> void
+  AlignedNothrowNew, // size_t, align_val_t, const nothrow_t&    -> ptr
+  AlignedNothrowDelete, // ptr, align_val_t, const nothrow_t&    -> void
   Strdup,            // const char*                              -> ptr
   Strndup,           // const char*, size_t                      -> ptr
   Reallocarray,      // ptr, size_t, size_t                      -> ptr
@@ -3323,20 +3346,20 @@ static const AllocRewriteSpec kRewriteSpecs[] = {
     // Nothrow new variants (`new(std::nothrow) T`). The pass already wraps
     // throwing-new, but the runtime-equivalent nothrow forms have distinct
     // mangled names and were silently missed.
-    {"_ZnwmRKSt9nothrow_t", "__afl_track_malloc", AllocKind::Malloc}, /* new       nothrow x64 */
-    {"_ZnamRKSt9nothrow_t", "__afl_track_malloc", AllocKind::Malloc}, /* new[]     nothrow x64 */
-    {"_ZnwjRKSt9nothrow_t", "__afl_track_malloc", AllocKind::Malloc}, /* new       nothrow x86 */
-    {"_ZnajRKSt9nothrow_t", "__afl_track_malloc", AllocKind::Malloc}, /* new[]     nothrow x86 */
-    {"_ZdlPvRKSt9nothrow_t", "__afl_track_free", AllocKind::Free},    /* delete    nothrow */
-    {"_ZdaPvRKSt9nothrow_t", "__afl_track_free", AllocKind::Free},    /* delete[]  nothrow */
+    {"_ZnwmRKSt9nothrow_t", "__afl_track_malloc", AllocKind::NothrowNew}, /* new       nothrow x64 */
+    {"_ZnamRKSt9nothrow_t", "__afl_track_malloc", AllocKind::NothrowNew}, /* new[]     nothrow x64 */
+    {"_ZnwjRKSt9nothrow_t", "__afl_track_malloc", AllocKind::NothrowNew}, /* new       nothrow x86 */
+    {"_ZnajRKSt9nothrow_t", "__afl_track_malloc", AllocKind::NothrowNew}, /* new[]     nothrow x86 */
+    {"_ZdlPvRKSt9nothrow_t", "__afl_track_free", AllocKind::NothrowDelete},    /* delete    nothrow */
+    {"_ZdaPvRKSt9nothrow_t", "__afl_track_free", AllocKind::NothrowDelete},    /* delete[]  nothrow */
 
     // Aligned + nothrow new/delete (C++17).
-    {"_ZnwmSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
-    {"_ZnamSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
-    {"_ZnwjSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
-    {"_ZnajSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
-    {"_ZdlPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free", AllocKind::AlignedDelete},
-    {"_ZdaPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free", AllocKind::AlignedDelete},
+    {"_ZnwmSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNothrowNew},
+    {"_ZnamSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNothrowNew},
+    {"_ZnwjSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNothrowNew},
+    {"_ZnajSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNothrowNew},
+    {"_ZdlPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free", AllocKind::AlignedNothrowDelete},
+    {"_ZdaPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free", AllocKind::AlignedNothrowDelete},
 };
 
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
@@ -3459,11 +3482,15 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
             case AllocKind::AlignedAlloc:
             case AllocKind::AlignedNew:
             case AllocKind::AlignedDelete:
+            case AllocKind::NothrowNew:
+            case AllocKind::NothrowDelete:
             case AllocKind::SizedFree:
             case AllocKind::Strndup:          expected_args = 2; break;
             case AllocKind::PosixMemalign:
             case AllocKind::Reallocarray:
-            case AllocKind::SizedAlignedFree: expected_args = 3; break;
+            case AllocKind::SizedAlignedFree:
+            case AllocKind::AlignedNothrowNew:
+            case AllocKind::AlignedNothrowDelete: expected_args = 3; break;
 
           }
 
@@ -3492,11 +3519,15 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
             case AllocKind::AlignedAlloc:     ok = isI(0) && isI(1); break;
             case AllocKind::AlignedNew:       ok = isI(0) && isI(1); break;
             case AllocKind::AlignedDelete:    ok = isP(0) && isI(1); break;
+            case AllocKind::NothrowNew:       ok = isI(0) && isP(1); break;
+            case AllocKind::NothrowDelete:    ok = isP(0) && isP(1); break;
             case AllocKind::SizedFree:        ok = isP(0) && isI(1); break;
             case AllocKind::Strndup:          ok = isP(0) && isI(1); break;
             case AllocKind::PosixMemalign:    ok = isP(0) && isI(1) && isI(2); break;
             case AllocKind::Reallocarray:     ok = isP(0) && isI(1) && isI(2); break;
             case AllocKind::SizedAlignedFree: ok = isP(0) && isI(1) && isI(2); break;
+            case AllocKind::AlignedNothrowNew: ok = isI(0) && isI(1) && isP(2); break;
+            case AllocKind::AlignedNothrowDelete: ok = isP(0) && isI(1) && isP(2); break;
 
           }
 
@@ -3512,6 +3543,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
             case AllocKind::Free:
             case AllocKind::SizedFree:
             case AllocKind::AlignedDelete:
+            case AllocKind::NothrowDelete:
+            case AllocKind::AlignedNothrowDelete:
             case AllocKind::SizedAlignedFree:
               // All deallocator variants collapse to plain free; size /
               // alignment args are advisory only.
@@ -3519,6 +3552,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
                   trackFree, {castToPtrTy(B, Call->getArgOperand(0), PtrTy)});
               break;
             case AllocKind::Malloc:
+            case AllocKind::NothrowNew:
               NewCall = B.CreateCall(
                   trackMalloc,
                   {B.CreateZExtOrTrunc(Call->getArgOperand(0), I64), idC});
@@ -3558,6 +3592,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
                    B.CreateZExtOrTrunc(Call->getArgOperand(0), I64), idC});
               break;
             case AllocKind::AlignedNew:
+            case AllocKind::AlignedNothrowNew:
               // C++17 operator new(size, align_val_t). Runtime hook
               // already takes (size, align) — pass through.
               NewCall = B.CreateCall(

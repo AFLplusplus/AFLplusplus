@@ -517,6 +517,26 @@ EOF
     exit 1
   fi
 
+  AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CXX" -O0 -S -emit-llvm \
+    "$SCRIPT_DIR/test-bug-allocsize-nothrow-new.cc" -o "$TMP/ntnew.ll" 2>/dev/null
+  ntnew_track=$(grep -c "call.*__afl_track_malloc" "$TMP/ntnew.ll" || true)
+  ntnew_raw=$(grep -c "call.*_ZnamRKSt9nothrow_t" "$TMP/ntnew.ll" || true)
+  AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CXX" -O0 \
+    "$SCRIPT_DIR/test-bug-allocsize-nothrow-new.cc" -o "$TMP/ntnew"
+  set +e
+  "$TMP/ntnew" 2>"$TMP/ntnew.err"
+  ntnew_rc=$?
+  set -e
+  if [ "${ntnew_track:-0}" -ge 1 ] && [ "${ntnew_raw:-0}" -eq 0 ] && \
+     [ "$ntnew_rc" -eq 0 ]; then
+    echo "[+] ALLOCSIZE nothrow new: rewritten and runtime clean"
+  else
+    echo "[!] ALLOCSIZE nothrow new: track=$ntnew_track raw=$ntnew_raw rc=$ntnew_rc"
+    grep -E "_ZnamRKSt9nothrow_t|__afl_track_malloc" "$TMP/ntnew.ll" | head
+    cat "$TMP/ntnew.err" 2>/dev/null || true
+    exit 1
+  fi
+
 fi
 
 # Issue: granule-collision in __afl_alloc_unregister.  Two small allocs
@@ -538,6 +558,31 @@ else
   exit 1
 fi
 
+# Shared-granule oracle fallback: same granule, multiple live records.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-allocsize-granule-oob.c" -o "$TMP/agog"
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-allocsize-granule-unpaint.c" -o "$TMP/agup"
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-allocsize-granule-inbounds.c" -o "$TMP/agin"
+set +e
+"$TMP/agog" 2>"$TMP/agog.err"
+agog_rc=$?
+"$TMP/agup" 2>"$TMP/agup.err"
+agup_rc=$?
+"$TMP/agin" 2>"$TMP/agin.err"
+agin_rc=$?
+set -e
+if [ "$agog_rc" -ne 0 ] && grep -q "ALLOCSIZE soft-OOB" "$TMP/agog.err" && \
+   [ "$agup_rc" -ne 0 ] && grep -q "ALLOCSIZE soft-OOB" "$TMP/agup.err" && \
+   [ "$agin_rc" -eq 0 ]; then
+  echo "[+] ALLOCSIZE granule oracle: shared-granule OOB caught, inbounds clean"
+else
+  echo "[!] ALLOCSIZE granule oracle: oob=$agog_rc unpaint=$agup_rc inbounds=$agin_rc"
+  cat "$TMP/agog.err" "$TMP/agup.err" "$TMP/agin.err" || true
+  exit 1
+fi
+
 # --- SCALAR covers UDiv/SDiv/URem/SRem ---
 AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 "$CC" -S -emit-llvm \
   "$SCRIPT_DIR/test-bug-scalar-div.c" -o "$TMP/sdv.ll" 2>/dev/null
@@ -547,6 +592,34 @@ if [ "${hits:-0}" -ge 4 ]; then
   echo "[+] SCALAR div/rem: $hits div/rem sites instrumented"
 else
   echo "[!] SCALAR div/rem: only $hits sites instrumented (expected >= 4)"
+  exit 1
+fi
+
+# --- SCALAR ignores AFL-generated coverage-counter arithmetic ---
+AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 "$CC" -O2 -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-scalar-empty.c" -o "$TMP/sempty.ll" 2>/dev/null
+empty_scalar_calls=$(grep -c "call.*__afl_bug_scalar_max" "$TMP/sempty.ll" || true)
+if [ "${empty_scalar_calls:-0}" -eq 0 ]; then
+  echo "[+] SCALAR internal skip: no hooks on AFL coverage arithmetic"
+else
+  echo "[!] SCALAR internal skip: found $empty_scalar_calls scalar hook(s)"
+  grep -n "__afl_bug_scalar_max" "$TMP/sempty.ll" | head
+  exit 1
+fi
+
+# --- SCALAR+SLACK keeps comparison-distance guidance ---
+printf 'fun: target_scalar_slack\n' > "$TMP/scalar_slack.allow"
+AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 AFL_LLVM_BUG_SLACK=1 \
+  AFL_LLVM_ALLOWLIST="$TMP/scalar_slack.allow" \
+  "$CC" -O2 -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-scalar-slack-dedup.c" -o "$TMP/ssd.ll" 2>/dev/null
+ssd_scalar=$(grep -c "call.*__afl_bug_scalar_max" "$TMP/ssd.ll" || true)
+ssd_slack=$(grep -c "call.*__afl_bug_slack_min" "$TMP/ssd.ll" || true)
+if [ "${ssd_scalar:-0}" -ge 1 ] && [ "${ssd_slack:-0}" -ge 1 ]; then
+  echo "[+] SCALAR+SLACK: scalar=$ssd_scalar slack=$ssd_slack hooks coexist"
+else
+  echo "[!] SCALAR+SLACK: scalar=$ssd_scalar slack=$ssd_slack"
+  grep -E "__afl_bug_(scalar_max|slack_min)|icmp" "$TMP/ssd.ll" | head
   exit 1
 fi
 
@@ -592,6 +665,26 @@ if [ "$sft_rc" -ne 0 ] && grep -q "SIZEFILL violation" "$TMP/sft.err"; then
 else
   echo "[!] SIZEFILL 2-arg: rc=$sft_rc"
   cat "$TMP/sft.err" || true
+  exit 1
+fi
+
+# --- SIZEFILL status-return + out-size APIs ---
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-sizefill-status-outparam-tp.c" -o "$TMP/sfstatp"
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-sizefill-status-outparam-tn.c" -o "$TMP/sfsttn"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/sfstatp" 2>"$TMP/sfstatp.err"
+sfstatp_rc=$?
+printf '\x00\x00\x00\x00' | "$TMP/sfsttn" 2>"$TMP/sfsttn.err"
+sfsttn_rc=$?
+set -e
+if [ "$sfstatp_rc" -ne 0 ] && grep -q "SIZEFILL violation" "$TMP/sfstatp.err" && \
+   [ "$sfsttn_rc" -eq 0 ]; then
+  echo "[+] SIZEFILL status out-param: TP caught, TN clean"
+else
+  echo "[!] SIZEFILL status out-param: tp=$sfstatp_rc tn=$sfsttn_rc"
+  cat "$TMP/sfstatp.err" "$TMP/sfsttn.err" || true
   exit 1
 fi
 
