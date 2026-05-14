@@ -663,6 +663,59 @@ else
   exit 1
 fi
 
+# --- Bug 26 (Tier 3 #1): BUDGET catches `ptr += *out_n` when callee lies
+#     about how much it wrote.  Matcher is gated to require BOTH
+#     AFL_LLVM_BUG_BUDGET and AFL_LLVM_BUG_SIZEFILL enabled.
+AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-budget-outparam.c" -o "$TMP/bopa"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/bopa" 2>"$TMP/bopa.err"
+bopa_rc=$?
+set -e
+if [ "$bopa_rc" -ne 0 ] && grep -q "BUDGET violation" "$TMP/bopa.err"; then
+  echo "[+] BUDGET outparam: caught lying fill_lying (rc=$bopa_rc)"
+else
+  echo "[!] BUDGET outparam: rc=$bopa_rc"
+  cat "$TMP/bopa.err" || true
+  exit 1
+fi
+
+# TN: honest callee — same shape, accurate *out_n — must NOT trip.
+AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-budget-outparam-honest.c" -o "$TMP/boph"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/boph" 2>"$TMP/boph.err"
+boph_rc=$?
+set -e
+if [ "$boph_rc" -eq 0 ]; then
+  echo "[+] BUDGET outparam honest: no false positive (rc=$boph_rc)"
+else
+  echo "[!] BUDGET outparam honest: rc=$boph_rc"
+  cat "$TMP/boph.err" || true
+  exit 1
+fi
+
+# TN: parse(buf, int *err) shape — int* is too narrow for the out-param
+# matcher to accept; the static IR must NOT show ws_begin/ws_check_budget
+# for the parse_err callee.  We verify rc=0 AND zero new ws_* calls.
+AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-budget-outparam-errcode.c" -o "$TMP/bope.ll" 2>/dev/null
+# grep -c returns 1 when count is 0; tolerate that under `set -e`.
+bope_ws_check=$(grep -c "call.*__afl_bug_ws_check_budget" "$TMP/bope.ll" || true)
+AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-budget-outparam-errcode.c" -o "$TMP/bope"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/bope" 2>"$TMP/bope.err"
+bope_rc=$?
+set -e
+if [ "$bope_rc" -eq 0 ] && [ "${bope_ws_check:-0}" -eq 0 ]; then
+  echo "[+] BUDGET outparam errcode: int* err rejected (rc=$bope_rc, ws_check=$bope_ws_check)"
+else
+  echo "[!] BUDGET outparam errcode: rc=$bope_rc, ws_check=$bope_ws_check"
+  cat "$TMP/bope.err" || true
+  exit 1
+fi
+
 # --- Bug 24 (Tier 3 #4): DERIVE slot ring spreads varied-size allocations
 #     from one site across multiple cmp_map slots instead of saturating one.
 AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -I"$AFL_DIR/include" \

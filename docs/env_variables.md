@@ -200,6 +200,16 @@ class).
     that write beyond what they claim to consume. This mode needs to see the
     callee body in the same LLVM module to instrument its stores; use LTO for
     cross-translation-unit APIs or expect those calls to be missed.
+
+    **Interaction with `AFL_LLVM_BUG_SIZEFILL`:** when both are enabled,
+    BUDGET additionally matches the out-param shape `void fill(buf,
+    size_t *out_n); fill(p, &n); p += n;` (iconv-style streaming-parser
+    APIs). The size value used for the budget check is the loaded
+    `*out_n` rather than a return value. The validation hand-off is via
+    the same `findOutSizeParam` precondition machinery SIZEFILL uses on
+    its own call sites — so the FP surface is paired with SIZEFILL's
+    existing one. Enabling BUDGET alone leaves the original
+    `ptr = gep(ptr, return_value)` shape as the only matched pattern.
   - `AFL_LLVM_BUG_SIZEFILL=1` — at every call site to a function that has a
     "NULL-means-size-only" sentinel parameter, verify the returned size and
     actual writes both fit the caller's known buffer. Like `BUDGET`, the

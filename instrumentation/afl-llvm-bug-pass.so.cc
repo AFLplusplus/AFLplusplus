@@ -176,7 +176,8 @@ class BugPass : public PassInfoMixin<BugPass> {
 // Forward decls.
 bool runScalarMode(Module &M, ModuleAnalysisManager &MAM,
                    BugPassState &S);
-bool runBudgetMode(Module &M, ModuleAnalysisManager &MAM);
+bool runBudgetMode(Module &M, ModuleAnalysisManager &MAM,
+                   bool out_param_enabled);
 bool runSizefillMode(Module &M, ModuleAnalysisManager &MAM,
                      const BugPassState &S);
 bool runSlackMode(Module &M, ModuleAnalysisManager &MAM,
@@ -414,7 +415,8 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
 
   bool changed = true;
   if (cfg.scalar) changed |= runScalarMode(M, MAM, state_);
-  if (cfg.budget) changed |= runBudgetMode(M, MAM);
+  if (cfg.budget)
+    changed |= runBudgetMode(M, MAM, /*out_param_enabled=*/cfg.sizefill);
   if (cfg.sizefill) changed |= runSizefillMode(M, MAM, state_);
   if (cfg.slack) changed |= runSlackMode(M, MAM, state_);
   if (cfg.allocsize)
@@ -905,15 +907,29 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 // Recognize: ptr_after = gep(ptr_before, call_result), where ptr_before was
 // passed as one of the call args. Returns the matched call + the pointer arg
 // index, or {nullptr,0,0}.
+//
+// Bug 26 (Tier 3 #1): a second shape — `ptr_after = gep(ptr_before, *out_n)`
+// — is matched when `out_param_enabled` is true (BUDGET+SIZEFILL both on).
+// For that shape `RetSize` holds the LoadInst whose value is the size and
+// `Call` is the call that filled the out-param. For the original GEP shape
+// `RetSize` is nullptr and the emitter uses the call's return value as the
+// size.
 struct BudgetMatch {
 
-  CallBase *Call;
-  unsigned  PtrArgIdx;
-  Value    *PtrBefore;
+  CallBase    *Call;
+  unsigned     PtrArgIdx;
+  Value       *PtrBefore;
+  LoadInst    *RetSize;     /* nullptr = use Call's return value */
 
 };
 
-static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
+// Forward decl — out-param matching shares findOutSizeParam's per-arg
+// preconditions (pointer-to-integer arg written through by callee, etc.).
+static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
+                            bool *out_is_inout);
+
+static std::vector<BudgetMatch> findBudgetCalls(Function &F,
+                                                bool      out_param_enabled) {
 
   std::vector<BudgetMatch> out;
   for (BasicBlock &BB : F) {
@@ -953,6 +969,16 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
         // reloads it. The cast-only walk caught the post-mem2reg form
         // but missed every unoptimized build. Mirror the 2-level
         // single-store-alloca walk used for base resolution below.
+        //
+        // Bug 26: remember the FIRST LoadInst the cast-walk produces.
+        // The spill walk's "single-store source" substitution will
+        // replace idx with the alloca's initializer when there is one
+        // (e.g. `size_t n = 0;`) — that turns the call-filled-out-param
+        // shape into a constant `0` and hides the load from the
+        // out-param matcher below. Capturing the load up-front lets
+        // the new BUDGET-out-param branch start from the load no
+        // matter what the spill walk did afterwards.
+        LoadInst *first_load_idx = nullptr;
         for (int spill = 0; spill < 3; ++spill) {
 
           while (auto *Cast = dyn_cast<CastInst>(idx)) {
@@ -968,6 +994,7 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
 
           auto *Ld = dyn_cast<LoadInst>(idx);
           if (!Ld) break;
+          if (!first_load_idx) first_load_idx = Ld;
           auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand());
           if (!AI) break;
           // Single-store source — multiple stores or non-int stores make
@@ -1040,6 +1067,80 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
             }
 
             if (Call) break;
+
+          }
+
+        }
+
+        // Bug 26 (Tier 3 #1): BUDGET out-param shape — when the existing
+        // walks haven't bound Call, see whether the GEP index is a load
+        // from an alloca that some preceding call's out-size param wrote
+        // into. Real-world: `void fill(buf, size_t *out_n); fill(p, &n);
+        // p += n;` (iconv/libxml2 streaming parsers).
+        //
+        // Gated to require BOTH BUDGET and SIZEFILL be enabled, because
+        // the matcher inherits SIZEFILL's "int* is an out-size" heuristic
+        // and its FP surface. The validation hand-off is via
+        // findOutSizeParam(callee, -1) — same precondition machinery
+        // SIZEFILL uses on its own call sites.
+        LoadInst *out_param_size = nullptr;
+        if (!Call && out_param_enabled && first_load_idx) {
+
+          LoadInst *LdSize = first_load_idx;
+          auto     *AI = dyn_cast<AllocaInst>(LdSize->getPointerOperand());
+          if (AI) {
+
+            // Find a CallBase that takes &AI as one of its args AND
+            // precedes LdSize in the same basic block (cheap dominance
+            // proxy — the canonical pattern lives in one BB at -O0).
+            // Cross-BB dominance would need a DominatorTree; defer.
+            for (User *U : AI->users()) {
+
+              auto *CB = dyn_cast<CallBase>(U);
+              if (!CB) continue;
+              if (!isa<CallInst>(CB) && !isa<InvokeInst>(CB)) continue;
+              if (CB->getParent() != LdSize->getParent()) continue;
+              // Order check: CB must come before LdSize in this BB.
+              bool cb_first = false;
+              for (Instruction &II : *CB->getParent()) {
+
+                if (&II == CB) { cb_first = true; break; }
+                if (&II == LdSize) break;
+
+              }
+
+              if (!cb_first) continue;
+              Function *Callee = CB->getCalledFunction();
+              if (!Callee || Callee->isDeclaration()) continue;
+              // Which arg position of CB is AI?
+              int cb_arg_pos = -1;
+              for (unsigned k = 0; k < CB->arg_size(); ++k) {
+
+                if (CB->getArgOperand(k) == AI) {
+
+                  cb_arg_pos = (int)k;
+                  break;
+
+                }
+
+              }
+
+              if (cb_arg_pos < 0) continue;
+              // Validate via the same helper SIZEFILL uses: the callee
+              // must have a qualifying out-size param at this position.
+              int  out_bits = 0;
+              bool out_is_inout = false;
+              int  validated =
+                  findOutSizeParam(*Callee, -1, &out_bits, &out_is_inout);
+              if (validated != cb_arg_pos) continue;
+              // Match. Promote CB to Call so the existing arg-matching
+              // loop below identifies the buf-arg position via the
+              // same alloca-aliasing logic the GEP-shape uses.
+              Call = CB;
+              out_param_size = LdSize;
+              break;
+
+            }
 
           }
 
@@ -1134,7 +1235,8 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
             // SSA value before its definition. The two values are equal
             // at runtime in the canonical pattern (no store to the
             // backing alloca between the call and the GEP).
-            out.push_back({Call, i, Call->getArgOperand(i)});
+            out.push_back(
+                {Call, i, Call->getArgOperand(i), out_param_size});
             break;
 
           }
@@ -1169,7 +1271,7 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
         if (Call->getArgOperand(i)->stripPointerCasts() ==
             base->stripPointerCasts()) {
 
-          out.push_back({Call, i, base});
+          out.push_back({Call, i, base, /*RetSize=*/nullptr});
           break;
 
         }
@@ -1184,7 +1286,8 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
 
 }
 
-bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
+bool runBudgetMode(Module &M, ModuleAnalysisManager &,
+                   bool out_param_enabled) {
 
   LLVMContext &C = M.getContext();
   Type        *VoidTy = Type::getVoidTy(C);
@@ -1219,15 +1322,19 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
 
     if (F.isDeclaration()) continue;
     if (!isInInstrumentList(&F, F.getName().str())) continue;
-    for (auto &m : findBudgetCalls(F)) {
+    for (auto &m : findBudgetCalls(F, out_param_enabled)) {
 
       Function *callee = m.Call->getCalledFunction();
       if (!callee || callee->isDeclaration()) continue;  // intra-module only
-      /* Defensive: if the matched call's return isn't integer, the post-call
-         CreateZExtOrTrunc would assert. Valid IR for `gep ptr, idx` and
-         `add p2i, idx` always has integer idx, but pass ordering with ASan
-         and unusual optimisation pipelines can produce surprises. */
-      if (!m.Call->getType()->isIntegerTy()) continue;
+      /* The size value differs by shape:
+           GEP shape (m.RetSize == nullptr): size is the call's return,
+             which must be integer-typed. Defensive check below — pass
+             ordering with ASan and unusual optimisation pipelines can
+             produce surprises.
+           Out-param shape (m.RetSize != nullptr): size is the loaded
+             value; LoadInst always has a typed result, and the matcher
+             enforced int-ness via findOutSizeParam. */
+      if (!m.RetSize && !m.Call->getType()->isIntegerTy()) continue;
       if (m.PtrArgIdx >= callee->arg_size()) continue;
 
       IRBuilder<> Pre(m.Call);
@@ -1235,12 +1342,27 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &) {
       Value *ptrCast = castToPtrTy(Pre, m.PtrBefore, PtrTy);
       Pre.CreateCall(wsBegin, {ptrCast});
 
-      Instruction *PostAt =
-          postCallInsertionPoint(m.Call, C, ".budget.edge");
+      Instruction *PostAt;
+      Value       *sizeValue;
+      if (m.RetSize) {
+
+        /* Out-param shape: insert immediately after the load so the
+           size value is in scope. The load lives in the same BB as the
+           call by construction (matcher enforces same-BB ordering). */
+        PostAt = m.RetSize->getNextNode();
+        sizeValue = m.RetSize;
+
+      } else {
+
+        PostAt = postCallInsertionPoint(m.Call, C, ".budget.edge");
+        sizeValue = m.Call;
+
+      }
+
       if (!PostAt) continue;
       IRBuilder<> Post(PostAt);
       inheritDebugLoc(Post, m.Call);
-      Value *ret64 = Post.CreateZExtOrTrunc(m.Call, I64);
+      Value *ret64 = Post.CreateZExtOrTrunc(sizeValue, I64);
       Value *ptrCast2 = castToPtrTy(Post, m.PtrBefore, PtrTy);
       Post.CreateCall(wsCheck, {ptrCast2, ret64});
 
