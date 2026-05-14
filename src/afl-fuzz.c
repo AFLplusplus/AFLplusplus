@@ -1935,22 +1935,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (afl->san_binary_length) {
-
-    if (afl->san_abstraction == UNIQUE_TRACE) {
-
-      afl->n_fuzz_dup = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
-
-    }
-
-    if (afl->san_abstraction == SIMPLIFY_TRACE) {
-
-      afl->simplified_n_fuzz = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
-
-    }
-
-  }
-
   if (get_afl_env("AFL_NO_FORKSRV")) { afl->no_forkserver = 1; }
   if (get_afl_env("AFL_NO_CPU_RED")) { afl->no_cpu_meter_red = 1; }
   if (get_afl_env("AFL_NO_ARITH")) { afl->no_arith = 1; }
@@ -2813,6 +2797,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!san_abstraction || !strcmp(san_abstraction, "simplify_trace")) {
 
     afl->san_abstraction = SIMPLIFY_TRACE;
+    afl->simplified_n_fuzz = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
 
   } else if (!strcmp(san_abstraction, "coverage_increase")) {
 
@@ -2821,6 +2806,7 @@ int main(int argc, char **argv_orig, char **envp) {
   } else if (!strcmp(san_abstraction, "unique_trace")) {
 
     afl->san_abstraction = UNIQUE_TRACE;
+    afl->n_fuzz_dup = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
 
   } else {
 
