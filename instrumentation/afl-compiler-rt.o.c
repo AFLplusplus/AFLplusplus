@@ -312,8 +312,7 @@ static void (*old_sigterm_handler)(int) = 0;
 static u8 is_persistent;
 
 /* Are we in sancov mode? */
-
-static u8 _is_sancov;
+//static u8 _is_sancov;
 
 /* Debug? */
 
@@ -2178,7 +2177,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   u32   inst_ratio = 100;
   char *x;
 
-  _is_sancov = 1;
+  //_is_sancov = 1;
 
   if (!getenv("AFL_DUMP_MAP_SIZE")) {
 
