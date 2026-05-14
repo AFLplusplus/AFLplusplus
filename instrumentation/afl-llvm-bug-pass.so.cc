@@ -56,6 +56,9 @@ struct BugPassConfig {
   bool allocsize = false;
   bool slack = false;
   bool derive = false;
+  // Stack-alloca tracking under ALLOCSIZE. Default on; opt out with
+  // AFL_LLVM_BUG_ALLOCSIZE_STACK=0. Only active when `allocsize` is also true.
+  bool allocsize_stack = true;
   // Opt-in: restricts SCALAR to BinaryOperators that flow into a memory-
   // size sink. Off by default — turning it on improves signal-to-noise
   // on huge targets but silences pure-compute accumulator patterns
@@ -96,6 +99,13 @@ static BugPassConfig parseEnv() {
 
     c.derive = true;
     c.allocsize = true;
+
+  }
+  // Stack-alloca tracking: default on; user disables with explicit "0".
+  // Any other value (including empty string) keeps the default.
+  if (const char *v = getenv(AFL_BUG_ENV_ALLOCSIZE_STACK)) {
+
+    if (strcmp(v, "0") == 0) c.allocsize_stack = false;
 
   }
   // Slice filter is purely additive on top of SCALAR — it's a no-op
@@ -184,7 +194,8 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &MAM,
                   const BugPassState &S);
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &MAM,
                       const std::vector<std::string> &custom,
-                      const std::vector<std::string> &custom_free);
+                      const std::vector<std::string> &custom_free,
+                      bool stack_enabled);
 static bool ptrStoreReachesArg(StoreInst                 *S,
                                const std::set<unsigned> &arg_indices);
 static unsigned instrumentArgReachingStores(
@@ -421,7 +432,8 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
   if (cfg.slack) changed |= runSlackMode(M, MAM, state_);
   if (cfg.allocsize)
     changed |= runAllocSizeMode(M, MAM, cfg.custom_alloc_funcs,
-                                cfg.custom_free_funcs);
+                                cfg.custom_free_funcs,
+                                /*stack_enabled=*/cfg.allocsize_stack);
   return changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 
 }
@@ -3151,7 +3163,8 @@ static const AllocRewriteSpec kRewriteSpecs[] = {
 
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
                       const std::vector<std::string> &custom,
-                      const std::vector<std::string> &custom_free) {
+                      const std::vector<std::string> &custom_free,
+                      bool stack_enabled) {
 
   LLVMContext &C = M.getContext();
   IntegerType *I32 = IntegerType::getInt32Ty(C);
@@ -3648,14 +3661,187 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
   }
 
+  // Phase 3 (Tier 3 item 2): stack-alloca tracking.  Heap allocations
+  // are rewritten in Phase 1; the per-store oracle is inserted in
+  // Phase 2 and acts as a no-op on untracked addresses.  Here we
+  // register stack allocas so the oracle's shadow lookup finds them
+  // too — turning the same oracle that catches heap OOB into a stack
+  // OOB tripwire.  Gated by AFL_LLVM_BUG_ALLOCSIZE_STACK (default on
+  // when ALLOCSIZE is enabled; set to "0" to opt out).
+  //
+  // Strategy: try lifetime intrinsics first (clang emits these under
+  // -O2+ and they precisely bound the live range); fall back to
+  // entry/exit instrumentation otherwise (-O0).  Per-function caps:
+  //   - Skip allocas whose static size is < 8 bytes (single-int locals).
+  //   - Stop after 16 instrumented allocas per function with a
+  //     one-shot stderr note ("stack cap reached"), so multi-exit
+  //     fanout is bounded.
+  uint32_t stack_regs = 0, stack_unregs = 0, stack_funcs = 0;
+  if (stack_enabled) {
+
+    constexpr unsigned kStackAllocaMax = 16;
+    // The ALLOCSIZE shadow is granule-resolved (64 bytes). To avoid the
+    // granule-aliasing FP class — stores into an unrelated stack
+    // neighbour that shares a partial granule with a registered alloca
+    // get attributed to the registered alloca and reported as OOB —
+    // we restrict stack registration to allocas that occupy WHOLE
+    // granules: size >= 64 AND multiple of 64.  We additionally force
+    // the alloca's alignment to 64 so it starts on a granule boundary;
+    // together these constraints make the painted granules exactly
+    // the alloca's bytes.  Smaller stack arrays (< 64 bytes) are not
+    // covered by this oracle — a known limitation; users wanting fine-
+    // grained stack-OOB detection can pair with -fsanitize=address.
+    constexpr uint64_t kStackGranuleBytes = 64;
+    const DataLayout &DL = M.getDataLayout();
+    for (Function &F : M) {
+
+      if (F.isDeclaration()) continue;
+      if (!isInInstrumentList(&F, F.getName().str())) continue;
+      // Defensive: avoid recursing into our own runtime hooks if any
+      // got linked into this module by accident.
+      if (F.getName().starts_with("__afl_")) continue;
+
+      // Collect candidate allocas from the entry block (clang places
+      // local-variable allocas there even at -O2; later blocks see
+      // them via SSA, not as new AllocaInst).
+      std::vector<AllocaInst *> candidates;
+      for (Instruction &I : F.getEntryBlock()) {
+
+        auto *AI = dyn_cast<AllocaInst>(&I);
+        if (!AI) continue;
+        // Reject dynamic-size (VLA) — no compile-time bound to register.
+        auto opt_size = AI->getAllocationSize(DL);
+        if (!opt_size) continue;
+        uint64_t bytes = opt_size->getFixedValue();
+        if (bytes < kStackGranuleBytes) continue;
+        if (bytes % kStackGranuleBytes) continue;
+        if (AI->use_empty()) continue;             /* dead alloca */
+        // Force alignment to granule boundary so the painted granules
+        // line up exactly with the alloca.  Llvm honors this in the
+        // backend's prologue/spill placement.
+        if (AI->getAlign().value() < kStackGranuleBytes)
+          AI->setAlignment(Align(kStackGranuleBytes));
+        candidates.push_back(AI);
+        if (candidates.size() >= kStackAllocaMax) {
+
+          if (getenv("AFL_QUIET") == nullptr)
+            errs() << "[afl-bug] ALLOCSIZE: stack cap reached in "
+                   << F.getName() << " (more allocas not instrumented)\n";
+          break;
+
+        }
+
+      }
+
+      if (candidates.empty()) continue;
+      ++stack_funcs;
+      // Collect function-level exit insertion points once for the
+      // fallback path (used per-alloca when no lifetime intrinsic is
+      // available).  Return / Resume cover normal return and C++
+      // exception propagation; Unreachable terminators follow
+      // noreturn calls (process is dead, no unregister needed).
+      std::vector<Instruction *> exit_points;
+      for (BasicBlock &BB : F) {
+
+        Instruction *T = BB.getTerminator();
+        if (!T) continue;
+        if (isa<ReturnInst>(T) || isa<ResumeInst>(T))
+          exit_points.push_back(T);
+
+      }
+
+      for (AllocaInst *AI : candidates) {
+
+        uint32_t id = next_alloc_id++;
+        uint64_t bytes = AI->getAllocationSize(DL)->getFixedValue();
+        Value   *sizeV = ConstantInt::get(I64, bytes);
+        Value   *idV = ConstantInt::get(I32, id);
+
+        // Look for paired llvm.lifetime.start/end intrinsics on AI.
+        // When present (typical for -O2 clang), they bound the alloca's
+        // live range more tightly than the function's prologue/exits.
+        std::vector<IntrinsicInst *> starts, ends;
+        for (User *U : AI->users()) {
+
+          auto *II = dyn_cast<IntrinsicInst>(U);
+          if (!II) continue;
+          Intrinsic::ID id_ii = II->getIntrinsicID();
+          if (id_ii == Intrinsic::lifetime_start)
+            starts.push_back(II);
+          else if (id_ii == Intrinsic::lifetime_end)
+            ends.push_back(II);
+
+        }
+
+        bool lifetime_path = !starts.empty() && !ends.empty();
+
+        Value *ptrCast = nullptr;
+        if (lifetime_path) {
+
+          for (IntrinsicInst *S : starts) {
+
+            IRBuilder<> B(S->getNextNode());
+            inheritDebugLoc(B, S);
+            Value *p = castToPtrTy(B, AI, PtrTy);
+            B.CreateCall(allocReg, {p, sizeV, idV});
+            ++stack_regs;
+            ptrCast = p;
+
+          }
+
+          for (IntrinsicInst *E : ends) {
+
+            IRBuilder<> B(E);
+            inheritDebugLoc(B, E);
+            Value *p = castToPtrTy(B, AI, PtrTy);
+            B.CreateCall(allocUnreg, {p});
+            ++stack_unregs;
+
+          }
+
+        } else {
+
+          // Fallback: register right after the alloca (still in the
+          // entry block, so the call dominates every use), and
+          // unregister before every exit terminator.  Note: a tail
+          // exit that's NEVER reached (e.g., after _exit) gets no
+          // unregister but the process is dead anyway.
+          IRBuilder<> AB(AI->getNextNode());
+          inheritDebugLoc(AB, AI);
+          Value *p = castToPtrTy(AB, AI, PtrTy);
+          AB.CreateCall(allocReg, {p, sizeV, idV});
+          ++stack_regs;
+
+          for (Instruction *T : exit_points) {
+
+            IRBuilder<> EB(T);
+            inheritDebugLoc(EB, T);
+            Value *up = castToPtrTy(EB, AI, PtrTy);
+            EB.CreateCall(allocUnreg, {up});
+            ++stack_unregs;
+
+          }
+
+        }
+
+        (void)ptrCast;
+
+      }
+
+    }
+
+  }
+
   if (getenv("AFL_QUIET") == nullptr)
     errs() << "[afl-bug] ALLOCSIZE rewrote " << rewrites
            << " libc allocator calls, " << custom_inserts
            << " custom-allocator registrations, " << custom_frees
            << " custom-free unregisters, " << store_sites
-           << " stores, " << mem_sites << " mem intrinsics instrumented\n";
+           << " stores, " << mem_sites << " mem intrinsics instrumented; "
+           << stack_regs << " stack registers / " << stack_unregs
+           << " unregisters across " << stack_funcs << " functions\n";
   return rewrites > 0 || custom_inserts > 0 || custom_frees > 0 ||
-         store_sites > 0 || mem_sites > 0;
+         store_sites > 0 || mem_sites > 0 || stack_regs > 0;
 
 }
 

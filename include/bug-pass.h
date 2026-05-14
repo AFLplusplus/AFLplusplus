@@ -13,6 +13,10 @@
 #define AFL_BUG_ENV_ALLOCSIZE_FUNCS  "AFL_LLVM_BUG_ALLOCSIZE_FUNCS"
 #define AFL_BUG_ENV_ALLOCSIZE_FREE_FUNCS "AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS"
 #define AFL_BUG_ENV_ALLOCSIZE_DERIVE "AFL_LLVM_BUG_ALLOCSIZE_DERIVE"
+// Stack-alloca tracking under ALLOCSIZE. On by default when ALLOCSIZE is
+// enabled; users hitting pathological targets (deep recursion, many tiny
+// locals) can opt out with AFL_LLVM_BUG_ALLOCSIZE_STACK=0.
+#define AFL_BUG_ENV_ALLOCSIZE_STACK  "AFL_LLVM_BUG_ALLOCSIZE_STACK"
 #define AFL_BUG_ENV_SLACK            "AFL_LLVM_BUG_SLACK"
 // Optional opt-in: restricts SCALAR's arithmetic-site instrumentation to
 // BinaryOperators that flow into a memory-size sink (allocator size args,

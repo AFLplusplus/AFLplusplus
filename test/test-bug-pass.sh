@@ -756,4 +756,88 @@ else
   exit 1
 fi
 
+# --- Bug 27 (Tier 3 #2): ALLOCSIZE catches OOB write on a stack array.
+#     The stack-alloca instrumentation registers entry-block allocas
+#     (size multiple of 64 bytes, align forced to 64) so the existing
+#     store oracle's shadow lookup finds them.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-allocsize-stack-oob.c" -o "$TMP/aso"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/aso" 2>"$TMP/aso.err"
+aso_rc=$?
+set -e
+if [ "$aso_rc" -ne 0 ] && grep -q "ALLOCSIZE soft-OOB" "$TMP/aso.err"; then
+  echo "[+] ALLOCSIZE stack OOB: caught 4-byte write past 64-byte stack buffer (rc=$aso_rc)"
+else
+  echo "[!] ALLOCSIZE stack OOB: rc=$aso_rc"
+  cat "$TMP/aso.err" || true
+  exit 1
+fi
+
+# TN inbounds: same shape, write inside buf — must NOT trip.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-allocsize-stack-inbounds.c" -o "$TMP/asi"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/asi" 2>"$TMP/asi.err"
+asi_rc=$?
+set -e
+if [ "$asi_rc" -eq 0 ]; then
+  echo "[+] ALLOCSIZE stack inbounds: no false positive (rc=$asi_rc)"
+else
+  echo "[!] ALLOCSIZE stack inbounds: rc=$asi_rc"
+  cat "$TMP/asi.err" || true
+  exit 1
+fi
+
+# TN helper: stack array passed to a noinline helper must register
+# EXACTLY ONCE (in the caller).  Verify via static IR count.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-allocsize-stack-helper.c" -o "$TMP/ash.ll" 2>/dev/null
+ash_regs=$(grep -c "call.*__afl_alloc_register\b" "$TMP/ash.ll" || true)
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-allocsize-stack-helper.c" -o "$TMP/ash"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/ash" 2>"$TMP/ash.err"
+ash_rc=$?
+set -e
+if [ "$ash_rc" -eq 0 ] && [ "${ash_regs:-0}" -eq 1 ]; then
+  echo "[+] ALLOCSIZE stack helper: caller registers once, helper passes through (rc=$ash_rc, regs=$ash_regs)"
+else
+  echo "[!] ALLOCSIZE stack helper: rc=$ash_rc regs=$ash_regs"
+  cat "$TMP/ash.err" || true
+  exit 1
+fi
+
+# TN recursion: recursive function with 64-byte stack alloca, depth 50.
+# Record table must not overflow; in-bounds writes must not FP.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-allocsize-stack-recursion.c" -o "$TMP/asr"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/asr" 2>"$TMP/asr.err"
+asr_rc=$?
+set -e
+if [ "$asr_rc" -eq 0 ]; then
+  echo "[+] ALLOCSIZE stack recursion: 50-deep recursion completed cleanly (rc=$asr_rc)"
+else
+  echo "[!] ALLOCSIZE stack recursion: rc=$asr_rc"
+  cat "$TMP/asr.err" || true
+  exit 1
+fi
+
+# Gating: AFL_LLVM_BUG_ALLOCSIZE_STACK=0 must restore pre-fix behavior.
+# Rebuild the TP source with the opt-out; OOB must slip past silently.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 AFL_LLVM_BUG_ALLOCSIZE_STACK=0 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-allocsize-stack-oob.c" -o "$TMP/aso_off"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/aso_off" 2>"$TMP/aso_off.err"
+aso_off_rc=$?
+set -e
+if [ "$aso_off_rc" -eq 0 ]; then
+  echo "[+] ALLOCSIZE stack gating: STACK=0 disables instrumentation (rc=$aso_off_rc)"
+else
+  echo "[!] ALLOCSIZE stack gating: rc=$aso_off_rc"
+  cat "$TMP/aso_off.err" || true
+  exit 1
+fi
+
 echo "[+] all bug-pass tests passed"

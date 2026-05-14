@@ -271,6 +271,22 @@ class).
     to avoid double-instrumentation` and continues with the remaining
     modes (SCALAR/BUDGET/SIZEFILL/SLACK) enabled. For ALLOCSIZE runs,
     build the target without `AFL_USE_ASAN`.
+  - `AFL_LLVM_BUG_ALLOCSIZE_STACK` — controls stack-alloca tracking.
+    Default on when `AFL_LLVM_BUG_ALLOCSIZE=1` is set; opt out with
+    `AFL_LLVM_BUG_ALLOCSIZE_STACK=0` for targets where the overhead is
+    problematic (deep recursion, hot helpers with many large stack
+    locals). When enabled, the pass walks each instrumented function's
+    entry-block allocas; allocas whose static size is a multiple of
+    the 64-byte shadow granule AND ≥ 64 bytes are registered via
+    `__afl_alloc_register` after the alloca (or after `llvm.lifetime.start`
+    when present) and unregistered before every `ReturnInst`/`ResumeInst`
+    (or before `llvm.lifetime.end`). The pass forces alignment 64 on
+    registered allocas so the painted shadow granules cover exactly the
+    alloca — adjacent stack slots cannot trigger granule-aliasing FPs.
+    Per-function cap: 16 instrumented allocas (more emit a one-shot
+    `[afl-bug] ALLOCSIZE: stack cap reached` note and are skipped). Stack
+    buffers < 64 bytes are not covered — pair with `-fsanitize=address`
+    when fine-grained stack-OOB matters.
   - `AFL_LLVM_BUG_ALLOCSIZE_FUNCS` — comma-separated list of custom
     allocator function names that the pass should treat as additional
     allocator entry points (e.g., `WebPSafeMalloc,WebPSafeCalloc`). The
