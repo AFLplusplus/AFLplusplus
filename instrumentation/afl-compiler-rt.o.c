@@ -334,14 +334,36 @@ static void __afl_bug_writep(const void *p) {
 
 u8              __afl_allocsize_active = 0;
 u8              __afl_size_derive_active = 0;
-/* Shadow byte is u16 so it can index up to MAP_SIZE_ALLOCRECORDS - 1. */
+/* Shadow byte is u16 so it can index up to MAP_SIZE_ALLOCRECORDS - 1.
+   `__afl_alloc_shadow` is the primary 16 GiB window pinned at the first
+   registered allocation's base.  Up to __AFL_ALLOC_SHADOW_EXTRAS additional
+   windows (total = 1 + EXTRAS) cover allocations whose address is more
+   than 16 GiB from the primary origin — common under ASLR with mmap heaps
+   and shared libraries.  Lookup is a linear scan over up to 4 origins
+   (branch-predictor-friendly); register lazily mmaps a new window on miss
+   until the cap is reached. */
 u16            *__afl_alloc_shadow = NULL;
 _Static_assert(MAP_SIZE_ALLOCRECORDS <= (1U << 16) - 1,
                "u16 shadow byte cannot index more than 65535 records");
 uintptr_t       __afl_alloc_shadow_origin = 0;
+
+#define __AFL_ALLOC_SHADOW_EXTRAS 3
+typedef struct {
+
+  uintptr_t origin;
+  u16      *table;
+
+} AflAllocShadowExtra;
+static AflAllocShadowExtra __afl_alloc_shadow_extra[__AFL_ALLOC_SHADOW_EXTRAS];
+static u32                 __afl_alloc_shadow_extra_count = 0;
+static u8                  __afl_alloc_shadow_oom_warned = 0;
+
 AllocSizeRecord __afl_alloc_records[MAP_SIZE_ALLOCRECORDS];
 static u32      __afl_alloc_next_idx = 1; /* 0 reserved */
 static void __afl_alloc_persistent_reset(u8 flush_derive);
+static inline u16 *__afl_alloc_shadow_find(uintptr_t a, uintptr_t *off_out);
+static u16        *__afl_alloc_shadow_get_or_init(uintptr_t  a,
+                                                  uintptr_t *off_out);
 
 /* AllocSizeRecord.in_use state. AFL++ fuzzing targets are single-
    threaded by design, so no atomic synchronisation is required. */
@@ -4205,25 +4227,22 @@ void __afl_bug_sf_begin(const void *ptr_arg, uint64_t caller_buf_size) {
   u64 cap = (u64)-1;
   int resolved = 0;
 
-  if (__afl_allocsize_active && __afl_alloc_shadow) {
+  if (__afl_allocsize_active) {
 
     uintptr_t a = (uintptr_t)ptr_arg;
-    if (a >= __afl_alloc_shadow_origin) {
+    uintptr_t off = 0;
+    u16      *tbl = __afl_alloc_shadow_find(a, &off);
+    if (tbl) {
 
-      uintptr_t off = a - __afl_alloc_shadow_origin;
-      if (off < MAP_SIZE_ALLOCSHADOW_RANGE) {
+      u16 idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+      if (idx) {
 
-        u16 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
-        if (idx) {
+        AllocSizeRecord *r = &__afl_alloc_records[idx];
+        if (r->in_use == __AFL_ALLOC_INUSE_LIVE && a >= r->base &&
+            a < r->base + r->size) {
 
-          AllocSizeRecord *r = &__afl_alloc_records[idx];
-          if (r->in_use == __AFL_ALLOC_INUSE_LIVE &&
-              a >= r->base && a < r->base + r->size) {
-
-            cap = (r->base + r->size) - a;
-            resolved = 1;
-
-          }
+          cap = (r->base + r->size) - a;
+          resolved = 1;
 
         }
 
@@ -4351,11 +4370,9 @@ void __afl_bug_slack_min(uint32_t id, uint64_t slack) {
 static void __afl_alloc_shadow_init(uintptr_t hint) {
 
   if (__afl_alloc_shadow) return;
-  /* Anchor the shadow at `hint` rounded down to the 16 GB tracked range.
-     KNOWN LIMITATION: under ASLR, heap and mmap regions can be > 16 GB
-     apart, so allocations outside this first window silently fail to
-     register.  Workaround: pin the target's allocator with
-     MALLOC_ARENA_MAX=1 (glibc) until multi-window support lands. */
+  /* Anchor the primary shadow at `hint` rounded down to the 16 GB tracked
+     range.  Additional windows are spawned by __afl_alloc_shadow_get_or_init
+     on demand when allocations land outside the primary 16 GiB span. */
   uintptr_t origin = hint & ~((uintptr_t)MAP_SIZE_ALLOCSHADOW_RANGE - 1);
   void     *m = mmap(NULL, MAP_SIZE_ALLOCSHADOW_BYTES, PROT_READ | PROT_WRITE,
                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
@@ -4371,6 +4388,104 @@ static void __afl_alloc_shadow_init(uintptr_t hint) {
 
   __afl_alloc_shadow = (u16 *)m;
   __afl_alloc_shadow_origin = origin;
+
+}
+
+/* Read-path lookup.  Returns the u16 *table covering `a` and writes
+   `(a - origin)` to `*off_out`, or NULL if `a` is not in any active
+   window.  Primary window is checked first so the common case is a
+   single subtract+compare. */
+static inline u16 *__afl_alloc_shadow_find(uintptr_t  a,
+                                           uintptr_t *off_out) {
+
+  if (__afl_alloc_shadow && a >= __afl_alloc_shadow_origin) {
+
+    uintptr_t off = a - __afl_alloc_shadow_origin;
+    if (off < MAP_SIZE_ALLOCSHADOW_RANGE) {
+
+      *off_out = off;
+      return __afl_alloc_shadow;
+
+    }
+
+  }
+
+  for (u32 i = 0; i < __afl_alloc_shadow_extra_count; ++i) {
+
+    AflAllocShadowExtra *s = &__afl_alloc_shadow_extra[i];
+    if (a < s->origin) continue;
+    uintptr_t off = a - s->origin;
+    if (off < MAP_SIZE_ALLOCSHADOW_RANGE) {
+
+      *off_out = off;
+      return s->table;
+
+    }
+
+  }
+
+  return NULL;
+
+}
+
+/* Write-path: like _find but lazily creates a new window if `a` falls
+   outside every existing one.  Returns NULL if both the primary window
+   cannot be created (initial mmap failure) and the extras table is full. */
+static u16 *__afl_alloc_shadow_get_or_init(uintptr_t  a,
+                                           uintptr_t *off_out) {
+
+  u16 *t = __afl_alloc_shadow_find(a, off_out);
+  if (t) return t;
+
+  /* No window covers `a`. Create the primary first if it isn't up yet, even
+     if `a` would land outside the primary's range: subsequent registers
+     for addresses in this primary's range get the cheaper hot path. */
+  if (!__afl_alloc_shadow) {
+
+    __afl_alloc_shadow_init(a);
+    if (!__afl_alloc_shadow) return NULL;
+    t = __afl_alloc_shadow_find(a, off_out);
+    if (t) return t;
+    /* Primary just landed on a different range than `a` — fall through to
+       spawn an extra window for `a`. */
+
+  }
+
+  if (__afl_alloc_shadow_extra_count >= __AFL_ALLOC_SHADOW_EXTRAS) {
+
+    if (!__afl_alloc_shadow_oom_warned) {
+
+      fprintf(stderr,
+              "[afl-bug] ALLOCSIZE: shadow window cap (%u + 1 primary) "
+              "reached; subsequent allocations outside existing windows "
+              "will not be tracked\n",
+              (unsigned)__AFL_ALLOC_SHADOW_EXTRAS);
+      __afl_alloc_shadow_oom_warned = 1;
+
+    }
+
+    return NULL;
+
+  }
+
+  uintptr_t origin = a & ~((uintptr_t)MAP_SIZE_ALLOCSHADOW_RANGE - 1);
+  void     *m = mmap(NULL, MAP_SIZE_ALLOCSHADOW_BYTES, PROT_READ | PROT_WRITE,
+                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+  if (m == MAP_FAILED) {
+
+    fprintf(stderr,
+            "[afl-bug] ALLOCSIZE: extra-window mmap failed (%zu bytes)\n",
+            (size_t)MAP_SIZE_ALLOCSHADOW_BYTES);
+    return NULL;
+
+  }
+
+  AflAllocShadowExtra *s =
+      &__afl_alloc_shadow_extra[__afl_alloc_shadow_extra_count++];
+  s->origin = origin;
+  s->table = (u16 *)m;
+  *off_out = a - origin;
+  return s->table;
 
 }
 
@@ -4396,14 +4511,18 @@ static u32 __afl_alloc_pick_idx(void) {
 
 }
 
+/* Paint up to `size` bytes starting at `base` with shadow byte `idx`.
+   When `idx == 0` (unregister), look the address up in any existing
+   window; do NOT mmap a new one for unpainting. When `idx != 0`
+   (register), lazily mmap a window covering `base` if none exists. */
 static void __afl_alloc_shadow_paint(uintptr_t base, uint64_t size, u16 idx) {
 
-  if (!__afl_alloc_shadow) return;
-  if (base < __afl_alloc_shadow_origin) return;
-  uintptr_t off = base - __afl_alloc_shadow_origin;
-  if (size > MAP_SIZE_ALLOCSHADOW_RANGE ||
-      off > MAP_SIZE_ALLOCSHADOW_RANGE - size)
-    return;
+  if (size > MAP_SIZE_ALLOCSHADOW_RANGE) return;
+  uintptr_t off = 0;
+  u16      *table = idx ? __afl_alloc_shadow_get_or_init(base, &off)
+                        : __afl_alloc_shadow_find(base, &off);
+  if (!table) return;
+  if (off > MAP_SIZE_ALLOCSHADOW_RANGE - size) return;
   uint64_t g_start = off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
   /* Paint exactly the allocation's granules, not one past: a +1
      sentinel byte would stomp the first granule of any immediately-
@@ -4418,7 +4537,7 @@ static void __afl_alloc_shadow_paint(uintptr_t base, uint64_t size, u16 idx) {
   if (g_end <= g_start) return;
   /* memset only works for u8; we need a per-granule u16 store loop. The
      compiler vectorizes this on x86_64 / arm64. */
-  for (uint64_t g = g_start; g < g_end; ++g) __afl_alloc_shadow[g] = idx;
+  for (uint64_t g = g_start; g < g_end; ++g) table[g] = idx;
 
 }
 
@@ -4426,8 +4545,9 @@ void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
 
   __afl_bug_ensure_runtime();
   if (!__afl_allocsize_active || !ptr || !size) return;
-  if (!__afl_alloc_shadow) __afl_alloc_shadow_init((uintptr_t)ptr);
-  if (!__afl_alloc_shadow) return;
+  /* shadow_paint with non-zero idx lazily creates the appropriate window
+     (primary if first call, or an extra if `ptr` is outside the primary
+     16 GiB span). No need for an explicit _init call here. */
 
   u32 idx = __afl_alloc_pick_idx();
   if (!idx) return;
@@ -4457,8 +4577,17 @@ static void __afl_size_derive_log(AllocSizeRecord *r) {
   if (r->derive_logged) return;
   if (!r->size) return;
 
-  /* Stable per-site key into cmp_map; Knuth multiplicative hash to disperse. */
-  u32                key = (r->alloc_site_id * 2654435761u) & (CMP_MAP_W - 1);
+  /* Per-(site, log2(size)) key into cmp_map; Knuth multiplicative hash on
+     site, a second golden-ratio multiplier on log2(size). Without the
+     size bucket the slot saturates fast at hot allocators called from
+     inner loops, dropping every later (size, max_off) pair from that
+     site. With the bucket, a site that mixes 16/64/256 byte allocations
+     spreads across three slots before saturation; a site that always
+     allocates the same size still maps to one slot (the bucket value is
+     constant). */
+  u32 lg = r->size ? (64u - (u32)__builtin_clzll(r->size)) : 0;
+  u32 key = ((r->alloc_site_id * 2654435761u) ^ (lg * 1597334677u)) &
+            (CMP_MAP_W - 1);
   struct cmp_header *h = &__afl_cmp_map->headers[key];
   if (h->hits >= CMP_MAP_RTN_H) return;  /* slot full — skip */
 
@@ -4536,12 +4665,11 @@ static inline void __afl_alloc_persistent_reset(u8 flush_derive) {
 
 void __afl_alloc_unregister(void *ptr) {
 
-  if (!__afl_allocsize_active || !ptr || !__afl_alloc_shadow) return;
+  if (!__afl_allocsize_active || !ptr) return;
 
   uintptr_t a = (uintptr_t)ptr;
-  if (a < __afl_alloc_shadow_origin) return;
-  uintptr_t off = a - __afl_alloc_shadow_origin;
-  if (off >= MAP_SIZE_ALLOCSHADOW_RANGE) return;
+  uintptr_t off = 0;
+  u16      *tbl = __afl_alloc_shadow_find(a, &off);
 
   /* Fast path: the granule's shadow byte points directly at our record.
      Granules are 64 bytes; malloc returns 16-byte-aligned chunks, so
@@ -4549,10 +4677,12 @@ void __afl_alloc_unregister(void *ptr) {
      holds only the most recently registered idx.  If the fast lookup
      mismatches (different base), fall through to a bounded linear scan
      to find the record whose base matches.  Without the fallback the
-     older allocation's slot leaks until the table fills. */
+     older allocation's slot leaks until the table fills.
+     Also fall through if tbl is NULL — ptr might be from a window that
+     was never created or has been exhausted; the records table still
+     has the live entry, find it by linear scan. */
   AllocSizeRecord *r = NULL;
-  u16 idx =
-      __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+  u16 idx = tbl ? tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2] : 0;
   if (idx && idx < MAP_SIZE_ALLOCRECORDS &&
       __afl_alloc_records[idx].in_use == __AFL_ALLOC_INUSE_LIVE &&
       __afl_alloc_records[idx].base == a) {
@@ -4730,12 +4860,12 @@ void __afl_track_free(void *ptr) {
 static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
 
   __afl_bug_ensure_runtime();
-  if (!__afl_allocsize_active || !__afl_alloc_shadow) return;
+  if (!__afl_allocsize_active) return;
   uintptr_t a = (uintptr_t)ptr;
-  if (a < __afl_alloc_shadow_origin) return;
-  uintptr_t off = a - __afl_alloc_shadow_origin;
-  if (off >= MAP_SIZE_ALLOCSHADOW_RANGE) return;
-  u16 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+  uintptr_t off = 0;
+  u16      *tbl = __afl_alloc_shadow_find(a, &off);
+  if (!tbl) return;
+  u16 idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
   if (!idx) return; /* untracked */
   if (idx >= MAP_SIZE_ALLOCRECORDS) return; /* defensive */
   AllocSizeRecord *r = &__afl_alloc_records[idx];
@@ -4817,13 +4947,13 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
                               uint32_t alignment) {
 
   __afl_bug_ensure_runtime();
-  if (!__afl_allocsize_active || !__afl_alloc_shadow) return;
+  if (!__afl_allocsize_active) return;
   if (!elem_size) return;  /* zero-width stores carry no type signal */
   uintptr_t a = (uintptr_t)ptr;
-  if (a < __afl_alloc_shadow_origin) return;
-  uintptr_t off = a - __afl_alloc_shadow_origin;
-  if (off >= MAP_SIZE_ALLOCSHADOW_RANGE) return;
-  u16 idx = __afl_alloc_shadow[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+  uintptr_t off = 0;
+  u16      *tbl = __afl_alloc_shadow_find(a, &off);
+  if (!tbl) return;
+  u16 idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
   if (!idx || idx >= MAP_SIZE_ALLOCRECORDS) return;
   AllocSizeRecord *r = &__afl_alloc_records[idx];
   if (r->in_use != __AFL_ALLOC_INUSE_LIVE) return;

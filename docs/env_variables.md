@@ -204,6 +204,20 @@ class).
     "NULL-means-size-only" sentinel parameter, verify the returned size and
     actual writes both fit the caller's known buffer. Like `BUDGET`, the
     store-tracking part is intra-module unless the target is built with LTO.
+
+    **Interaction with `AFL_LLVM_BUG_ALLOCSIZE`:** SIZEFILL alone derives
+    the per-call write-cap from the caller-buffer signature size plus a
+    64 KiB unrelated-store slack window (so an adjacent unrelated store
+    inside the callee won't trip a spurious abort). When ALLOCSIZE is
+    *also* enabled at compile time AND the buffer was registered by the
+    ALLOCSIZE runtime (heap/calloc/realloc/posix_memalign/mmap/custom-
+    allocator), the cap is tightened to the buffer's exact remaining
+    extent. Users hitting an FP from SIZEFILL alone — typically a
+    parser writing to an adjacent allocation within the 64 KiB slack —
+    can usually silence it by also building with
+    `AFL_LLVM_BUG_ALLOCSIZE=1`. Recommended canonical combination for
+    SIZEFILL precision:
+    `AFL_LLVM_BUG_SIZEFILL=1 AFL_LLVM_BUG_ALLOCSIZE=1`.
   - `AFL_LLVM_BUG_ALLOCSIZE` — enable the AllocSizeOracle pass: every call to
     `malloc`, `calloc`, `realloc`, `posix_memalign`, and `free` is rewritten
     to a tracked variant that records `(base, size, alloc_site_id)` in a
@@ -222,6 +236,21 @@ class).
     Cost is one shadow lookup + one subtract + 2–3 max-rule writes per
     qualifying store. Combine with `AFL_LLVM_BUG_BUDGET=1` and
     `AFL_LLVM_BUG_SIZEFILL=1` to layer the aborting oracles.
+
+    **Interaction with `AFL_LLVM_BUG_SIZEFILL`:** when both modes are
+    enabled, SIZEFILL uses the ALLOCSIZE shadow to derive an exact
+    per-call write-cap (the buffer's remaining extent), eliminating
+    SIZEFILL's 64 KiB unrelated-store slack window. This both tightens
+    SIZEFILL's tripwire (catches OOB at the buffer end precisely) and
+    suppresses FPs from unrelated nearby allocations. See the
+    `AFL_LLVM_BUG_SIZEFILL` entry above for details. The shadow itself
+    spans up to 4 × 16 GiB windows pinned to live allocation bases —
+    under glibc ASLR you typically need 1 (heap-only) or 2 (heap +
+    mmap arena). When the cap is reached the runtime prints a one-shot
+    `[afl-bug] ALLOCSIZE: shadow window cap reached` warning and
+    subsequent allocations outside existing windows are silently
+    untracked; pin the target's allocator with `MALLOC_ARENA_MAX=1`
+    (glibc) to mitigate.
 
     Coexistence with ASAN: when the target also links the AddressSanitizer
     runtime, `ALLOCSIZE` and `ALLOCSIZE_DERIVE` are disabled at startup by
@@ -260,12 +289,18 @@ class).
     compute coverage signal.
   - `AFL_LLVM_BUG_ALLOCSIZE_DERIVE` — enables `ALLOCSIZE` and, at every
     `__afl_alloc_unregister` (free of a tracked allocation), logs
-    `(record.size, record.max_observed_off)` into a CmpLog routine slot keyed
-    by alloc-site ID. It needs a CmpLog binary (or `AFL_CMPLOG_DEBUG=1`) for
-    the cmp_map to be allocated. Pair with `afl-fuzz -l 2z` to confirm the
-    feature is in use; the fuzzer's existing CmpLog RTN dictionary mining
-    harvests the entries automatically. This mode is also included by
-    `AFL_LLVM_BUG=1`.
+    `(record.size, record.max_observed_off)` into a CmpLog routine slot
+    keyed by `(alloc-site ID, log2(record.size))`. It needs a CmpLog
+    binary (or `AFL_CMPLOG_DEBUG=1`) for the cmp_map to be allocated.
+    Pair with `afl-fuzz -l 2z` to confirm the feature is in use; the
+    fuzzer's existing CmpLog RTN dictionary mining harvests the entries
+    automatically. This mode is also included by `AFL_LLVM_BUG=1`.
+
+    The log-size component of the slot key spreads entries from a hot
+    allocator (called from inner loops with varied sizes) across
+    multiple CmpLog slots — without it, the slot's `CMP_MAP_RTN_H` hit
+    cap saturates fast and every later size from that site is dropped.
+    A site that allocates one fixed size still maps to one slot.
 
 The runtime keeps its own private max-value bug-map (`MAP_SIZE_BUG`,
 16384 u32 slots), separate from the IJON map, and reports oracle violations

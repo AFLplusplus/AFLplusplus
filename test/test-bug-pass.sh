@@ -663,4 +663,44 @@ else
   exit 1
 fi
 
+# --- Bug 24 (Tier 3 #4): DERIVE slot ring spreads varied-size allocations
+#     from one site across multiple cmp_map slots instead of saturating one.
+AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-derive-slot-ring.c" -o "$TMP/dsr"
+set +e
+printf '\x00\x00\x00\x00' | AFL_CMPLOG_DEBUG=1 \
+  "$TMP/dsr" 2>"$TMP/dsr.err" >/dev/null
+dsr_rc=$?
+set -e
+if [ "$dsr_rc" -eq 0 ] && grep -q "BUG_DERIVE_SLOT_RING: distinct=" "$TMP/dsr.err"; then
+  dsr_distinct=$(grep -o "distinct=[0-9]*" "$TMP/dsr.err" | head -1 | cut -d= -f2)
+  echo "[+] DERIVE slot ring: $dsr_distinct/8 distinct size buckets landed in distinct slots"
+else
+  echo "[!] DERIVE slot ring: rc=$dsr_rc"
+  cat "$TMP/dsr.err" || true
+  exit 1
+fi
+
+# --- Bug 25 (Tier 3 #3): ALLOCSIZE multi-window shadow catches OOB in
+#     allocations placed far outside the primary 16 GiB window.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -I"$AFL_DIR/include" \
+  "$SCRIPT_DIR/test-bug-allocsize-multiwindow.c" -o "$TMP/amw"
+set +e
+printf '\x10\x00\x00\x00' | "$TMP/amw" 2>"$TMP/amw.err"
+amw_rc=$?
+set -e
+# Two acceptable outcomes:
+#   (a) Kernel honored MAP_FIXED_NOREPLACE hints and the OOB tripped (rc=134).
+#   (b) Kernel refused the hint; test skipped (rc=0 + "skipping" message).
+# Anything else is a regression.
+if [ "$amw_rc" -eq 134 ] && grep -q "ALLOCSIZE soft-OOB" "$TMP/amw.err"; then
+  echo "[+] ALLOCSIZE multi-window: caught OOB in 2nd 16 GiB window (rc=$amw_rc)"
+elif [ "$amw_rc" -eq 0 ] && grep -q "skipping" "$TMP/amw.err"; then
+  echo "[~] ALLOCSIZE multi-window: kernel refused hinted addresses; skipped"
+else
+  echo "[!] ALLOCSIZE multi-window: rc=$amw_rc"
+  cat "$TMP/amw.err" || true
+  exit 1
+fi
+
 echo "[+] all bug-pass tests passed"
