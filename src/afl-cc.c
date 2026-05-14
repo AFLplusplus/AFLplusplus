@@ -3626,11 +3626,10 @@ static u8 file_contains_ijon_usage(const char *source_file) {
         strstr(line, "IJON_MAX_UNTIL_AT(") || strstr(line, "IJON_MIN(") ||
         strstr(line, "IJON_SET(") || strstr(line, "IJON_INC(") ||
         strstr(line, "IJON_STATE(") || strstr(line, "IJON_CTX(") ||
-        strstr(line, "IJON_MAX_AT(") ||
-        strstr(line, "IJON_MIN_AT(") || strstr(line, "IJON_BITS(") ||
-        strstr(line, "IJON_STRDIST(") || strstr(line, "IJON_DIST(") ||
-        strstr(line, "IJON_CMP(") || strstr(line, "IJON_STACK_MAX(") ||
-        strstr(line, "IJON_STACK_MIN(")) {
+        strstr(line, "IJON_MAX_AT(") || strstr(line, "IJON_MIN_AT(") ||
+        strstr(line, "IJON_BITS(") || strstr(line, "IJON_STRDIST(") ||
+        strstr(line, "IJON_DIST(") || strstr(line, "IJON_CMP(") ||
+        strstr(line, "IJON_STACK_MAX(") || strstr(line, "IJON_STACK_MIN(")) {
 
       found_ijon = 1;
       break;
@@ -3950,3 +3949,4 @@ int main(int argc, char **argv, char **envp) {
   return 0;
 
 }
+

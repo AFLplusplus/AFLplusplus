@@ -889,3 +889,4 @@ GlobalVariable *createIJONStateGlobal(Module &M, Type *Int32Ty,
 #endif
 
 }
+

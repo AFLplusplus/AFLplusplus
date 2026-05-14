@@ -312,7 +312,7 @@ static void (*old_sigterm_handler)(int) = 0;
 static u8 is_persistent;
 
 /* Are we in sancov mode? */
-//static u8 _is_sancov;
+// static u8 _is_sancov;
 
 /* Debug? */
 
@@ -1143,14 +1143,15 @@ static void __afl_start_forkserver(void) {
 
   }
 
-/* Disable as this seems to create problems in corner cases
-  if (getenv("LD_BIND_LAZY") == NULL) {
+  /* Disable as this seems to create problems in corner cases
+    if (getenv("LD_BIND_LAZY") == NULL) {
 
-    // prevent further executed programs to fuck up the coverage
-    setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 1);
+      // prevent further executed programs to fuck up the coverage
+      setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 1);
 
-  }
-*/
+    }
+
+  */
 
   if (getenv("AFL_OLD_FORKSERVER")) {
 
@@ -3752,3 +3753,4 @@ uint32_t ijon_strdist(char *a, char *b) {
   return IJON_DIST_FUNC(a, b, len);
 
 }
+

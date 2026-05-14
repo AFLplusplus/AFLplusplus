@@ -28,7 +28,7 @@
 /* Global IJON history limit - initialized from environment or AFL state */
 static int  afl_ijon_history_limit_global = 0;
 static bool afl_ijon_history_limit_initialized = false;
-int afl_ijon_retire_max = 0;
+int         afl_ijon_retire_max = 0;
 
 /* Global comprehensive IJON state for fastresume save/load */
 static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
@@ -438,11 +438,7 @@ void ijon_update_max_dynamic(ijon_min_state          *self,
 
     u64 cur = shared->ijon_max_area[i];
 
-    if (afl_ijon_retire_max && self->max_map[i] == UINT64_MAX) {
-
-      continue;
-
-    }
+    if (afl_ijon_retire_max && self->max_map[i] == UINT64_MAX) { continue; }
 
     if (afl_ijon_retire_max && cur == UINT64_MAX) {
 
@@ -506,3 +502,4 @@ void ijon_update_max_dynamic(ijon_min_state          *self,
 #endif
 
 }
+

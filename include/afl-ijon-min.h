@@ -275,3 +275,4 @@ uint32_t ijon_memdist(char *a, char *b, size_t len);
   } while (0)
 
 #endif                                              /* _HAVE_AFL_IJON_MIN_H */
+
