@@ -753,9 +753,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
         IRBuilder<> cur_lenchk_IRB(cur_lenchk_bb);
         Value      *icmp = cur_lenchk_IRB.CreateICmpEQ(
             sizedValue, ConstantInt::get(sizedValue->getType(), i));
-        if (cur_lenchk_bb->getTerminator()) {
+        if (auto *T = aflTerminatorOrNull(cur_lenchk_bb)) {
 
-          cur_lenchk_bb->getTerminator()->eraseFromParent();
+          T->eraseFromParent();
 
         }
 
@@ -830,9 +830,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
         Value *icmp =
             cur_cmp_IRB.CreateICmpEQ(isub, ConstantInt::get(Int8Ty, 0));
-        if (cur_cmp_bb->getTerminator()) {
+        if (auto *T = aflTerminatorOrNull(cur_cmp_bb)) {
 
-          cur_cmp_bb->getTerminator()->eraseFromParent();
+          T->eraseFromParent();
 
         }
 
@@ -842,9 +842,9 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
       } else {
 
         // Last iteration - add terminator to current block
-        if (cur_cmp_bb->getTerminator()) {
+        if (auto *T = aflTerminatorOrNull(cur_cmp_bb)) {
 
-          cur_cmp_bb->getTerminator()->eraseFromParent();
+          T->eraseFromParent();
 
         }
 

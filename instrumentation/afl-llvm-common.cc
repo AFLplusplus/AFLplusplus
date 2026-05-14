@@ -765,11 +765,19 @@ bool isExecCall(llvm::Instruction *IN) {
   if (!Callee || !Callee->hasName() || Callee->isIntrinsic()) return false;
 
   return llvm::StringSwitch<bool>(Callee->getName())
+#if LLVM_VERSION_MAJOR >= 22
+      .Cases({"execve", "execl", "execlp", "execle"}, true)
+      .Cases({"execv", "execvp", "execvP", "execvpe"}, true)
+      .Cases({"fexecve", "execveat"}, true)
+      .Cases({"posix_spawn", "posix_spawnp"}, true)
+      .Cases({"system", "popen"}, true)
+#else
       .Cases("execve", "execl", "execlp", "execle", true)
       .Cases("execv", "execvp", "execvP", "execvpe", true)
       .Cases("fexecve", "execveat", true)
       .Cases("posix_spawn", "posix_spawnp", true)
       .Cases("system", "popen", true)
+#endif
       .Default(false);
 
 }

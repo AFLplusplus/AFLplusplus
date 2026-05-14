@@ -82,6 +82,18 @@ IS_EXTERN int be_quiet;
                                                \
   } while (0)
 
+/* LLVM 23 made BasicBlock::getTerminator() assert on non-well-formed
+   blocks; getTerminatorOrNull() restores the prior nullable behavior. */
+inline llvm::Instruction *aflTerminatorOrNull(llvm::BasicBlock *BB) {
+
+#if LLVM_VERSION_MAJOR >= 23
+  return BB->getTerminatorOrNull();
+#else
+  return BB->getTerminator();
+#endif
+
+}
+
 /* Mark an instruction so sanitizer passes ignore it. */
 inline void setNoSanitizeMetadata(llvm::Instruction *I) {
 
