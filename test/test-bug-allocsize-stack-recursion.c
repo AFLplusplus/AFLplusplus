@@ -1,11 +1,6 @@
-// test/test-bug-allocsize-stack-recursion.c
-// Bug 27 TN: a recursive function with a stack alloca must not exhaust
-// the runtime's allocation record table.  Each recursive call's
-// register/unregister pair frees its slot before the function returns,
-// so live records are bounded by stack depth × allocas-per-frame.
-//
-// We recurse 50 levels deep with one 16-byte alloca per frame and
-// touch one in-bounds byte at each level.  Must complete with rc=0.
+// ALLOCSIZE stack-alloca TN: deep recursion with a per-frame alloca
+// must not exhaust the runtime's allocation record table — each call's
+// register/unregister pair frees its slot before the function returns.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,10 +10,8 @@
 __attribute__((noinline, optnone))
 static int recurse(int depth, uint8_t key) {
 
-  /* 64-byte buffer (one shadow granule) so registration paints exactly
-     this buffer and not adjacent stack slots. */
   uint8_t buf[64] = {0};
-  buf[depth & 0x3f] = key;             /* in-bounds touch */
+  buf[depth & 0x3f] = key;
   if (depth <= 0) return (int)buf[0];
   return recurse(depth - 1, key) + (int)buf[depth & 0x3f];
 

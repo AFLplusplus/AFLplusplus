@@ -1,11 +1,10 @@
-// test/test-bug-budget-returned.c
-// Bug 20: BUDGET must catch lying calls even when LLVM applies the
-// `returned` attribute to the callee's size argument. The optimizer
-// substitutes the arg for the call result at every use, so the GEP
-// indexes by the arg directly — the call result is invisible. We must
-// rediscover it via the returned-attribute on the callee.
+// BUDGET on the `returned`-attribute shape: under -O2 the optimizer
+// marks a callee's size argument with `returned` and substitutes the
+// arg for the call result at every use, so the GEP indexes by the arg
+// directly.  The matcher must rediscover the call via the
+// returned-attribute walk.
 //
-// Compile at -O2 (returned attribute is only emitted under opt).
+// Compile at -O2 (the attribute is only emitted under opt).
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

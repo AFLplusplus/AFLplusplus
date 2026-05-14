@@ -1,15 +1,10 @@
-// test/test-bug-derive-slot-ring.c
-// Bug 24 (Tier 3 item 4): DERIVE used to hash alloc_site_id alone into
-// __afl_cmp_map, so a hot allocator called with varied sizes saturated
-// one slot fast and lost every later (size, max_off) pair. The fix mixes
-// log2(size) into the key so distinct size buckets land in distinct slots.
-//
-// TP: allocate from ONE pinned site (single noinline wrapper) with sizes
-// spanning 8 distinct log2 buckets. Without the fix: exactly one slot
-// has hits. With the fix: > 1 slot. Asserts >= 2.
+// DERIVE per-site slot distribution: one allocation site called with
+// varied sizes must spread its (size, max_off) entries across multiple
+// cmp_map slots so the per-slot CMP_MAP_RTN_H cap doesn't drop later
+// sizes at hot allocators.
 //
 // Uses AFL_CMPLOG_DEBUG=1 so the runtime allocates cmp_map even without
-// a real fuzz harness (same trick as test-bug-allocsize-derive.c).
+// a real fuzz harness.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +19,7 @@ extern uint8_t         __afl_size_derive_active;
 
 /* All allocations come from this single inlined-pinned site; the pass
    hashes the call's IR location, so one source location => one
-   alloc_site_id. optnone keeps the call from being specialized away. */
+   alloc_site_id. */
 __attribute__((noinline, optnone))
 static uint8_t *alloc_at_site(uint64_t n) {
   return (uint8_t *)malloc((size_t)n);
@@ -34,16 +29,11 @@ int main(void) {
   uint8_t buf[4] = {0};
   if (read(0, buf, 4) != 4) return 1;
 
-  /* 8 distinct log2 buckets: 8, 16, 32, 64, 128, 256, 512, 1024.
-     Touch each allocation so max_observed_off is non-zero and the
-     derive entry is meaningful. Free unregisters and flushes. */
   static const uint64_t sizes[8] = {8, 16, 32, 64, 128, 256, 512, 1024};
   for (uint32_t i = 0; i < 8; ++i) {
     uint64_t n = sizes[i];
     uint8_t *p = alloc_at_site(n);
     if (!p) return 2;
-    /* Touch first and last byte so the oracle records a non-trivial
-       max_observed_off (== n) for each size. */
     p[0] = buf[0];
     p[n - 1] = buf[1];
     free(p);
@@ -55,10 +45,6 @@ int main(void) {
     return 0;
   }
 
-  /* Count distinct cmp_map slots with RTN entries whose v0 matches one
-     of our 8 sizes. Without the slot-ring fix this is 1 (one site,
-     CMP_MAP_RTN_H caps further hits). With the fix it is >= 2 (size
-     buckets disperse). */
   uint32_t distinct = 0;
   uint32_t seen[8] = {0};
   for (uint32_t k = 0; k < CMP_MAP_W; ++k) {
@@ -83,8 +69,5 @@ int main(void) {
     fprintf(stderr, "%c%u", seen[i] ? '+' : '-', (unsigned)sizes[i]);
   fprintf(stderr, "}\n");
 
-  /* PASS if at least 2 of the 8 distinct sizes landed in their own slot
-     (proves the key mixes log2(size), not just site). The exact count
-     depends on hash collisions; >= 2 is a stable lower bound. */
   return (distinct >= 2) ? 0 : 1;
 }

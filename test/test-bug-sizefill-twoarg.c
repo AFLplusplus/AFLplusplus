@@ -1,10 +1,6 @@
-// test/test-bug-sizefill-twoarg.c
-// Bug 18: SIZEFILL must accept 2-arg sentinel signatures `parse(buf,
-// size_t *out)`. zlib/libpng/OpenSSL EVP have many such APIs. Previously
-// findOutSizeParam's has_int_arg_before precondition silently rejected
-// them.
-//
-// TP path: `parse(buf, size_t *out)` lying about size must abort.
+// SIZEFILL must accept 2-arg sentinel signatures `parse(buf,
+// size_t *out)` (zlib/libpng/OpenSSL EVP have many such APIs).  A
+// 2-arg parser that lies about size must trip SIZEFILL.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

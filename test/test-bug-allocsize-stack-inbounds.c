@@ -1,9 +1,5 @@
-// test/test-bug-allocsize-stack-inbounds.c
-// Bug 27 TN: same stack-alloca shape as the OOB test, but the write
-// lands strictly inside the buffer (offset 12..15 of a 32-byte
-// buffer). With ALLOCSIZE+stack instrumentation the register/unregister
-// pair fires and the store-oracle sees the in-bounds extent — must
-// NOT abort.
+// ALLOCSIZE stack-alloca TN: same shape as the OOB test, but the
+// write lands strictly inside the buffer — must not abort.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,9 +9,8 @@
 __attribute__((noinline, optnone))
 static void do_inbounds(uint8_t key) {
 
-  /* 64-byte buffer: registered, write strictly inside. */
   uint8_t buf[64] = {0};
-  uint32_t off = 12u + ((uint32_t)key & 3u);  /* 12..15 — well inside */
+  uint32_t off = 12u + ((uint32_t)key & 3u);
   memcpy(buf + off, "OKOK", 4);
   fprintf(stderr,
           "BUG_ALLOCSIZE_STACK_INBOUNDS: wrote_at=%u first_byte=%02x\n",

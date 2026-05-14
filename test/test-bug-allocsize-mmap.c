@@ -1,16 +1,9 @@
-// test/test-bug-allocsize-mmap.c
-// Bug 23: anonymous mmap regions must be tracked by ALLOCSIZE so
-// out-of-bounds writes against them trip the soft-OOB oracle. Many
-// allocators (v8, jemalloc internals, custom arenas) use mmap directly.
-//
-// TP: a 4-byte write that extends past the allocated end of an
-// mmap'd region must abort. We use a 32-byte allocation and a write
-// at offset 30 (spans [30, 34)) so the OOB falls within the same
-// 64-byte shadow granule as the alloc — the shadow-painting only
-// covers the allocated granules, so a write 100 bytes past the end
-// (in an unpainted granule) would silently slip past the oracle.
-// That's a pre-existing granule-shadow limitation, not a mmap-
-// specific bug.
+// ALLOCSIZE tracks anonymous mmap regions (used by v8, jemalloc
+// internals, custom arenas).  A 32-byte allocation with a 4-byte
+// write at offset 30 spans [30, 34); the OOB stays inside the same
+// painted shadow granule as the alloc so the oracle finds the record.
+// Writes ≫ granule_size past the end land in unpainted granules and
+// slip past — a known granule-shadow precision limitation.
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

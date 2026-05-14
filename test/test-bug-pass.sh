@@ -538,11 +538,7 @@ else
   exit 1
 fi
 
-# ============================================================
-#  Bug 13-23 regression tests (added 2026-05-14)
-# ============================================================
-
-# --- Bug 13: SCALAR covers UDiv/SDiv/URem/SRem ---
+# --- SCALAR covers UDiv/SDiv/URem/SRem ---
 AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 "$CC" -S -emit-llvm \
   "$SCRIPT_DIR/test-bug-scalar-div.c" -o "$TMP/sdv.ll" 2>/dev/null
 hits=$(awk '/= (udiv|urem|sdiv|srem) i/{op=$0; getline n; if(n~/__afl_bug_scalar_max/) print n}' \
@@ -554,7 +550,7 @@ else
   exit 1
 fi
 
-# --- Bug 15: SLACK on SwitchInst (gradient + IR hook count) ---
+# --- SLACK on SwitchInst (gradient + IR hook count) ---
 printf 'fun: target_switch\n' > "$TMP/slack_sw.allow"
 AFL_QUIET=1 AFL_LLVM_BUG_SLACK=1 AFL_LLVM_ALLOWLIST="$TMP/slack_sw.allow" \
   "$CC" "$SCRIPT_DIR/test-bug-slack-switch.c" -o "$TMP/slack_sw"
@@ -569,7 +565,7 @@ else
   exit 1
 fi
 
-# --- Bug 17: SIZEFILL accepts uint32_t* out_size on 64-bit ---
+# --- SIZEFILL accepts uint32_t* out_size on 64-bit ---
 AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
   "$SCRIPT_DIR/test-bug-sizefill-u32out.c" -o "$TMP/sfu"
 set +e
@@ -584,7 +580,7 @@ else
   exit 1
 fi
 
-# --- Bug 18: SIZEFILL accepts 2-arg `parse(buf, *out)` ---
+# --- SIZEFILL accepts 2-arg `parse(buf, *out)` ---
 AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
   "$SCRIPT_DIR/test-bug-sizefill-twoarg.c" -o "$TMP/sft"
 set +e
@@ -599,7 +595,7 @@ else
   exit 1
 fi
 
-# --- Bug 19: BUDGET catches `s = call; p += s` at -O0 ---
+# --- BUDGET catches `s = call; p += s` at -O0 ---
 AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 "$CC" -O0 \
   "$SCRIPT_DIR/test-bug-budget-spill.c" -o "$TMP/bsp"
 set +e
@@ -614,7 +610,7 @@ else
   exit 1
 fi
 
-# --- Bug 20: BUDGET catches callees with `returned` attribute (-O2) ---
+# --- BUDGET catches callees with `returned` attribute (-O2) ---
 AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 "$CC" -O2 \
   "$SCRIPT_DIR/test-bug-budget-returned.c" -o "$TMP/brt"
 set +e
@@ -629,7 +625,7 @@ else
   exit 1
 fi
 
-# --- Bug 21: SIZEFILL recognizes buffers from AFL_LLVM_BUG_ALLOCSIZE_FUNCS ---
+# --- SIZEFILL recognizes buffers from AFL_LLVM_BUG_ALLOCSIZE_FUNCS ---
 # Verify the IR by counting sf_begin sites: with MyAlloc registered, the
 # parse() call against MyAlloc-buffer produces an extra sf_begin (versus
 # only the NULL-probe call when unregistered).
@@ -648,7 +644,7 @@ else
   exit 1
 fi
 
-# --- Bug 23: ALLOCSIZE registers anonymous mmap ---
+# --- ALLOCSIZE registers anonymous mmap ---
 AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" \
   "$SCRIPT_DIR/test-bug-allocsize-mmap.c" -o "$TMP/amm"
 set +e
@@ -663,9 +659,8 @@ else
   exit 1
 fi
 
-# --- Bug 26 (Tier 3 #1): BUDGET catches `ptr += *out_n` when callee lies
-#     about how much it wrote.  Matcher is gated to require BOTH
-#     AFL_LLVM_BUG_BUDGET and AFL_LLVM_BUG_SIZEFILL enabled.
+# --- BUDGET out-param: catches `ptr += *out_n` when callee lies about
+#     how much it wrote.  Matcher is gated on BUDGET + SIZEFILL both on.
 AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
   "$SCRIPT_DIR/test-bug-budget-outparam.c" -o "$TMP/bopa"
 set +e
@@ -716,8 +711,8 @@ else
   exit 1
 fi
 
-# --- Bug 24 (Tier 3 #4): DERIVE slot ring spreads varied-size allocations
-#     from one site across multiple cmp_map slots instead of saturating one.
+# --- DERIVE slot ring: varied-size allocations from one site spread
+#     across multiple cmp_map slots instead of saturating one.
 AFL_QUIET=1 AFL_LLVM_BUG=1 "$CC" -I"$AFL_DIR/include" \
   "$SCRIPT_DIR/test-bug-derive-slot-ring.c" -o "$TMP/dsr"
 set +e
@@ -734,8 +729,8 @@ else
   exit 1
 fi
 
-# --- Bug 25 (Tier 3 #3): ALLOCSIZE multi-window shadow catches OOB in
-#     allocations placed far outside the primary 16 GiB window.
+# --- ALLOCSIZE multi-window shadow: catches OOB in allocations placed
+#     outside the primary 16 GiB window.
 AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -I"$AFL_DIR/include" \
   "$SCRIPT_DIR/test-bug-allocsize-multiwindow.c" -o "$TMP/amw"
 set +e
@@ -756,10 +751,9 @@ else
   exit 1
 fi
 
-# --- Bug 27 (Tier 3 #2): ALLOCSIZE catches OOB write on a stack array.
-#     The stack-alloca instrumentation registers entry-block allocas
-#     (size multiple of 64 bytes, align forced to 64) so the existing
-#     store oracle's shadow lookup finds them.
+# --- ALLOCSIZE stack-alloca: catches OOB on stack arrays.  Registers
+#     entry-block allocas (size multiple of 64 bytes, alignment 64) so
+#     the existing store oracle's shadow lookup finds them.
 AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 \
   "$SCRIPT_DIR/test-bug-allocsize-stack-oob.c" -o "$TMP/aso"
 set +e

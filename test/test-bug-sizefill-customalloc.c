@@ -1,11 +1,6 @@
-// test/test-bug-sizefill-customalloc.c
-// Bug 21: SIZEFILL must recognize custom allocators registered via
-// AFL_LLVM_BUG_ALLOCSIZE_FUNCS. Without the propagation, SIZEFILL could
-// never infer the buffer size for buffers allocated by user wrappers like
-// WebPSafeMalloc, so the sentinel-call check was silently skipped.
-//
-// TP: a parse() that lies about size, called with a MyAlloc-allocated
-// buffer, must trip SIZEFILL.
+// SIZEFILL recognizes buffers from custom allocators registered via
+// AFL_LLVM_BUG_ALLOCSIZE_FUNCS.  A parse() that lies about size, called
+// with a MyAlloc-allocated buffer, must trip SIZEFILL.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

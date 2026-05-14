@@ -1,9 +1,7 @@
-// test/test-bug-slack-switch.c
-// SLACK on SwitchInst (Bug 15). Previously a 256-case opcode dispatcher
-// had zero "near magic value" gradient because clang emits a `switch`
-// terminator rather than a chain of icmps. This test confirms inputs
-// closer to a known case value get a strictly higher SLACK map signal
-// than inputs far from every case.
+// SLACK on SwitchInst: inputs closer to a known case value must get a
+// strictly higher SLACK map signal than inputs far from every case.
+// Clang emits a `switch` terminator (not a chain of icmps) for dense
+// opcode dispatchers, so SLACK must instrument SwitchInst directly.
 
 #include <stdint.h>
 #include <stdio.h>

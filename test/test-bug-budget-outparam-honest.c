@@ -1,11 +1,6 @@
-// test/test-bug-budget-outparam-honest.c
-// Bug 26 TN: same out-param shape as test-bug-budget-outparam.c, but the
-// callee tells the truth. With BUDGET+SIZEFILL active the matcher still
-// instruments the site; ws_check_budget(buf, 16) sees max_off (16) <=
-// ret_size (16) → NO abort, rc=0.
-//
-// If this test ever rc=134 it means the new matcher is too eager (FP) or
-// the ws_check_budget threshold is off-by-one.
+// BUDGET out-param TN: same shape as test-bug-budget-outparam.c, but
+// the callee writes 16 bytes and reports 16.  Must rc=0 — if this ever
+// fires, the matcher is over-eager or the threshold is off-by-one.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

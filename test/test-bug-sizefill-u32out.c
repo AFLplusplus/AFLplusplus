@@ -1,11 +1,6 @@
-// test/test-bug-sizefill-u32out.c
-// Bug 17: SIZEFILL must accept uint32_t* out_size args on 64-bit (most
-// real targets — libpng, libxml2, OpenSSL all use `unsigned int *outlen`
-// patterns). Previously `findOutSizeParam` precondition (b) required
-// `bits >= ptr_bits` (=64) and silently dropped 32-bit out-params.
-//
-// TP path: a void-returning parser lies about size via a uint32_t* out
-// and SIZEFILL must abort.
+// SIZEFILL must accept uint32_t* out_size on 64-bit (libpng/libxml2/
+// OpenSSL all use `unsigned int *outlen` shapes).  A void-returning
+// parser that lies about size via a uint32_t* out must trip SIZEFILL.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,8 +1,6 @@
-// test/test-bug-budget-spill.c
-// Bug 19: BUDGET must catch `s = call(); p += s;` at -O0 where the call
-// result is spilled to an alloca and reloaded for the GEP index. Without
-// the spill walk on the index AND the alloca-aliasing on the base, every
-// -O0 / -Og budget call was silently invisible.
+// BUDGET on the spill+reload shape: at -O0 the call result is stored
+// to an alloca and reloaded for the GEP index.  The matcher must walk
+// through that spill on both the GEP index and the buf alloca alias.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

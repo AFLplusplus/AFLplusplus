@@ -1,15 +1,8 @@
-// test/test-bug-sizefill-inout.c
-//
-// Exercises in/out semantics on a SIZEFILL out-size parameter. The
-// callee passes the out-pointer to a helper that READS through it
-// (escape — the pass can't see what the helper does, must assume
-// in/out). With the conservative escape-aware in/out detection, the
-// pass skips Bug 2's pre-call zero so the caller's initial hint
-// survives.
-//
-// Verification: the helper prints the hint it observed. With the fix,
-// the print shows the caller's initial value (0x12345678). Without
-// the fix, the pre-zero clobbers it to 0.
+// SIZEFILL in/out semantics: when the callee passes the out-pointer
+// to a helper that READS through it (escape), the pass must treat the
+// parameter as in/out and skip its pre-call zero so the caller's
+// initial hint survives.  The helper prints the hint it observed —
+// with the fix it shows 0x12345678, without it shows 0.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

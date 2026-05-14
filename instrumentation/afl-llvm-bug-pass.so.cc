@@ -163,11 +163,10 @@ struct BugPassState {
 
   std::map<Function *, SmallPtrSet<Value *, 32>> scalar_covered;
   bool                                           scalar_slice = false;
-  // Bug 21: shared custom-allocator set populated from
-  // AFL_LLVM_BUG_ALLOCSIZE_FUNCS. Used by ALLOCSIZE (registers them),
-  // SIZEFILL (recovers buffer size from the call's size arg), and
-  // SCALAR_SLICE (treats their size args as sinks). Without this all
-  // three modes silently ignored user-listed allocators.
+  // Shared set populated from AFL_LLVM_BUG_ALLOCSIZE_FUNCS. Used by
+  // ALLOCSIZE (registers them), SIZEFILL (recovers buffer size from
+  // the call's size arg), and SCALAR_SLICE (treats their size args as
+  // sinks).
   std::set<std::string> custom_allocs;
 
 };
@@ -448,9 +447,9 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
 // and is therefore NOT loop-invariant. Such data-dependent accumulators
 // are exactly what we want to track.
 //
-// Bug 7 extension: also walks through ONE level of zext/sext/trunc
-// between the BinOp and its PHI user, catching `i_next = i + 1; i_w = sext
-// i_next` patterns that appear under -O0 + indvar-widening.
+// Also walks through ONE level of zext/sext/trunc between the BinOp
+// and its PHI user, catching `i_next = i + 1; i_w = sext i_next`
+// patterns that appear under -O0 + indvar-widening.
 static bool isInductionVariableUpdate(BinaryOperator *I, LoopInfo &LI) {
 
   // Build the set of users to inspect: direct users plus values that are
@@ -519,10 +518,9 @@ computeScalarSinkSlice(Function &F, const std::set<std::string> &customs,
   // Allocator size arguments. Matched by name to avoid hard-coding the
   // AllocKind table layout here; this is a small subset (the size-arg
   // positions) of what runAllocSizeMode consumes.
-  // Bug 21: include user-listed custom allocators
-  // (AFL_LLVM_BUG_ALLOCSIZE_FUNCS) so SCALAR_SLICE treats their size
-  // args as sinks too. Without this, slice-filtered SCALAR misses every
-  // computation that flows into a custom allocator.
+  // User-listed custom allocators (AFL_LLVM_BUG_ALLOCSIZE_FUNCS) count
+  // as sinks too, so slice-filtered SCALAR picks up the size
+  // computations feeding them.
   auto isAllocSizeCallee = [&](StringRef n) -> bool {
 
     if (!customs.empty() && customs.count(n.str())) return true;
@@ -705,10 +703,9 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
           case Instruction::Shl:
           case Instruction::LShr:
           case Instruction::AShr:
-          // Bug 13: division and remainder. Size-relevant in many decoders
-          // (chunk_size = total / count, align_off = addr % stride). The
-          // map-MAX rule still applies — `q = a / b` produces a bucketed
-          // log2 value that grows with q.
+          // Division/remainder are size-relevant in decoders
+          // (chunk_size = total / count, align_off = addr % stride).
+          // The map-MAX rule still applies.
           case Instruction::UDiv:
           case Instruction::SDiv:
           case Instruction::URem:
@@ -740,15 +737,13 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 
     }
 
-    // Bug 14: *WithOverflow intrinsic results. `__builtin_mul_overflow`
-    // and friends lower to `llvm.{u,s}{add,sub,mul}.with.overflow.iN`
+    // *WithOverflow intrinsic results: `__builtin_mul_overflow` and
+    // friends lower to `llvm.{u,s}{add,sub,mul}.with.overflow.iN`,
     // whose `{value, overflow}` aggregate is consumed via extractvalue.
-    // The value (index 0) carries the same MAX-channel signal as a plain
-    // Add/Mul/Sub but slips past the BinaryOperator filter above.
-    //
-    // We instrument the extractvalue with id=0 only (value); the i1
-    // overflow extract is uninteresting for the MAX bucket (a 1-bit
-    // value never grows past bucket 1).
+    // The value (index 0) carries the same MAX-channel signal as a
+    // plain Add/Mul/Sub but slips past the BinaryOperator filter.
+    // Only the value extract is interesting — a 1-bit overflow flag
+    // never grows past bucket 1.
     auto isOverflowIntrinsic = [](Intrinsic::ID iid) -> bool {
       switch (iid) {
         case Intrinsic::uadd_with_overflow:
@@ -829,14 +824,13 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
       cnt->addIncoming(ConstantInt::get(I32, 0), Preheader);
       cnt->addIncoming(inc, Latch);
 
-      // Bug 11 hardening: validate the PHI ended up well-formed. With
-      // simplified-form preconditions above (preheader + latch + header
-      // all non-null and distinct) the standard case has exactly 2
-      // incomings. Degenerate cases (latch == preheader for a single-
-      // block loop, or a header reachable from outside the loop via an
-      // unexpected edge) would yield wrong/extra incomings and feed
-      // garbage into the iteration counter. Roll back rather than
-      // emit corrupt IR.
+      // Validate the PHI is well-formed.  The standard case has
+      // exactly 2 incomings under the simplified-form preconditions
+      // (preheader + latch + header all non-null and distinct).
+      // Degenerate cases (latch == preheader for a single-block loop,
+      // or a header reached from outside the loop via an unexpected
+      // edge) yield wrong/extra incomings and feed garbage into the
+      // iteration counter.  Roll back rather than emit corrupt IR.
       if (cnt->getNumIncomingValues() != 2 ||
           cnt->getIncomingBlock(0) == cnt->getIncomingBlock(1)) {
 
@@ -854,15 +848,13 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
       // the loop entirely. SmallPtrSet dedups exit blocks reached by
       // multiple edges.
       //
-      // Bug 12 note: when multiple loops share an exit block, each loop
-      // inserts its own xphi at top and its own flush after the PHIs.
-      // Because new PHIs are inserted at &*Exit->begin() they go ABOVE
-      // any previously-inserted xphi, so the PHIs-at-top invariant is
-      // preserved. Flushes inserted at getFirstNonPHI() land after ALL
-      // PHIs (including ones inserted later), so order is "newest-loop
-      // flush precedes older-loop flush" — reverse of pre-order Loop
-      // iteration. If a future change relies on flush order, fix this
-      // by inserting flushes at a stable anchor (e.g., the terminator).
+      // When multiple loops share an exit block, each loop inserts its
+      // own xphi at top and its own flush after the PHIs.  New PHIs go
+      // ABOVE any previously-inserted xphi (because they're inserted at
+      // &*Exit->begin()), preserving the PHIs-at-top invariant.  Flush
+      // order is "newest-loop flush precedes older-loop flush" — the
+      // reverse of pre-order Loop iteration.  Code relying on flush
+      // order should switch to a stable anchor (the terminator).
       SmallVector<BasicBlock *, 4> Exits;
       L->getExitBlocks(Exits);
       SmallPtrSet<BasicBlock *, 4> seenExits;
@@ -920,12 +912,12 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 // passed as one of the call args. Returns the matched call + the pointer arg
 // index, or {nullptr,0,0}.
 //
-// Bug 26 (Tier 3 #1): a second shape — `ptr_after = gep(ptr_before, *out_n)`
-// — is matched when `out_param_enabled` is true (BUDGET+SIZEFILL both on).
-// For that shape `RetSize` holds the LoadInst whose value is the size and
-// `Call` is the call that filled the out-param. For the original GEP shape
-// `RetSize` is nullptr and the emitter uses the call's return value as the
-// size.
+// A second shape — `ptr_after = gep(ptr_before, *out_n)` — is matched
+// when `out_param_enabled` is true (BUDGET+SIZEFILL both on).  For
+// that shape `RetSize` holds the LoadInst whose value is the size and
+// `Call` is the call that filled the out-param.  For the original GEP
+// shape `RetSize` is nullptr and the emitter uses the call's return
+// value as the size.
 struct BudgetMatch {
 
   CallBase    *Call;
@@ -975,21 +967,17 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
         Value *base = GEP->getPointerOperand();
         Value *idx = GEP->getOperand(GEP->getNumOperands() - 1);
         // Look through zero/sign-extending casts: clang produces
-        // `zext i32 %ret to i64` between the call and the GEP.
-        // Bug 19: ALSO walk through alloca-spill on the index — at -O0
-        // / -Og clang stores the call result to a stack slot and
-        // reloads it. The cast-only walk caught the post-mem2reg form
-        // but missed every unoptimized build. Mirror the 2-level
+        // `zext i32 %ret to i64` between the call and the GEP.  Also
+        // walk through alloca-spill on the index — at -O0 / -Og clang
+        // stores the call result to a stack slot and reloads it,
+        // hiding it from a cast-only walk.  Mirrors the 2-level
         // single-store-alloca walk used for base resolution below.
         //
-        // Bug 26: remember the FIRST LoadInst the cast-walk produces.
-        // The spill walk's "single-store source" substitution will
-        // replace idx with the alloca's initializer when there is one
-        // (e.g. `size_t n = 0;`) — that turns the call-filled-out-param
-        // shape into a constant `0` and hides the load from the
-        // out-param matcher below. Capturing the load up-front lets
-        // the new BUDGET-out-param branch start from the load no
-        // matter what the spill walk did afterwards.
+        // Remember the FIRST LoadInst the cast-walk produces: the
+        // spill walk's single-store substitution replaces idx with the
+        // alloca's initializer when there is one (e.g. `size_t n = 0;`),
+        // turning the call-filled-out-param shape into a constant 0 and
+        // hiding the load from the out-param matcher below.
         LoadInst *first_load_idx = nullptr;
         for (int spill = 0; spill < 3; ++spill) {
 
@@ -1038,20 +1026,20 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
 
         auto *Call = dyn_cast<CallBase>(idx);
 
-        // Bug 20: `returned` attribute. When the callee's parameter is
-        // marked `returned`, LLVM's opt substitutes the parameter for
-        // the call result at use sites — so `p += call(buf, n)`
-        // becomes `p += n` in IR when fill_lying does `return n`. The
-        // call result is gone; we must rediscover it by walking from
-        // `idx` (which is now the parameter value) to a CallBase that
-        // uses idx as a returned-tagged operand.
+        // `returned` attribute: when the callee's parameter is marked
+        // `returned`, opt substitutes the parameter for the call
+        // result at use sites — so `p += call(buf, n)` becomes `p += n`
+        // in IR when the callee does `return n`.  The call result is
+        // gone; rediscover it by walking from `idx` (which is now the
+        // parameter value) to a CallBase that uses idx as a
+        // returned-tagged operand.
         //
         // Constants don't have a tracked user-list (LLVM asserts on
         // user_begin for ConstantInt et al.), so skip the walk when
-        // idx is a plain constant. Also skip if Argument because no
-        // call inside this function can have a Function::Argument of
-        // this same function as its returned-arg substitute (the
-        // optimizer would have folded earlier).
+        // idx is a plain constant.  Also skip Arguments: no call
+        // inside this function can have a Function::Argument of this
+        // same function as its returned-arg substitute (the optimizer
+        // would have folded earlier).
         if (!Call && !isa<Constant>(idx) && idx->hasUseList()) {
 
           unsigned probes = 0;
@@ -1084,17 +1072,16 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
 
         }
 
-        // Bug 26 (Tier 3 #1): BUDGET out-param shape — when the existing
-        // walks haven't bound Call, see whether the GEP index is a load
-        // from an alloca that some preceding call's out-size param wrote
-        // into. Real-world: `void fill(buf, size_t *out_n); fill(p, &n);
+        // BUDGET out-param shape: when the existing walks haven't bound
+        // Call, see whether the GEP index is a load from an alloca
+        // that some preceding call's out-size param wrote into.
+        // Real-world: `void fill(buf, size_t *out_n); fill(p, &n);
         // p += n;` (iconv/libxml2 streaming parsers).
         //
-        // Gated to require BOTH BUDGET and SIZEFILL be enabled, because
-        // the matcher inherits SIZEFILL's "int* is an out-size" heuristic
-        // and its FP surface. The validation hand-off is via
-        // findOutSizeParam(callee, -1) — same precondition machinery
-        // SIZEFILL uses on its own call sites.
+        // Gated to require BOTH BUDGET and SIZEFILL be enabled —
+        // inherits SIZEFILL's "int* is an out-size" heuristic and its
+        // FP surface.  Validation hand-off is via
+        // findOutSizeParam(callee, -1).
         LoadInst *out_param_size = nullptr;
         if (!Call && out_param_enabled && first_load_idx) {
 
@@ -1160,30 +1147,25 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
 
         if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
           continue;
-        // Match base against any pointer arg of the call, peering through
-        // up to TWO levels of alloca-spill (load-from-alloca written
-        // exactly once with a load-from-alloca written with the arg).
-        // Bug 8 extension: a single level catches optnone code; two
-        // levels catches post-Inlining-without-mem2reg IR where the
-        // inlined callee re-spills its arg into a second slot.
-        //
-        // Bug 19 extension: walk allocas with MULTIPLE stores too — the
-        // canonical `p += s` pattern stores once with the initial value
-        // and once with the post-GEP update, so requiring a single
-        // store dropped every -O0 budget call. We DFS over every
+        // Match base against any pointer arg of the call, peering
+        // through up to TWO levels of alloca-spill (a single level
+        // catches optnone code; two catches post-Inlining-without-
+        // mem2reg IR where the inlined callee re-spills its arg into
+        // a second slot).  Walk allocas with MULTIPLE stores too —
+        // the canonical `p += s` pattern stores once with the initial
+        // value and once with the post-GEP update.  DFS over every
         // possible source value; if ANY source matches the call's
-        // pointer arg, accept. Risk: wrong-frame match if the alloca
-        // held an unrelated value at some point — bounded because the
-        // runtime check uses the matched ptr_before to find its frame
-        // and silently no-ops on mismatch (no FP abort).
+        // pointer arg, accept.  Wrong-frame match risk is bounded
+        // because the runtime check uses the matched ptr_before to
+        // find its frame and silently no-ops on mismatch.
         auto matches_arg = [&](Value *arg_val, Value *needle) -> bool {
 
-          // Bug 19: normalize each side to either its source SSA value
-          // or its backing alloca. Two loads from the same alloca alias
-          // to the same logical variable (e.g. `p` at -O0 is loaded
-          // separately at the call site and at the GEP — different SSA,
-          // same alloca). The DFS then accepts (alloca == alloca) or
-          // any store-source overlap.
+          // Normalize each side to either its source SSA value or its
+          // backing alloca: two loads from the same alloca alias to
+          // the same logical variable (e.g. `p` at -O0 is loaded
+          // separately at the call site and at the GEP — different
+          // SSA, same alloca).  The DFS then accepts (alloca ==
+          // alloca) or any store-source overlap.
           auto stripped = [](Value *v) {
 
             return v ? v->stripPointerCasts() : v;
@@ -1239,14 +1221,15 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
 
           if (matches_arg(Call->getArgOperand(i), base)) {
 
-            // Bug 19: use the call's actual pointer arg as PtrBefore,
-            // not the GEP's base. The call arg DOMINATES the call (it's
-            // the call's own operand); the GEP base may not — under -O0
-            // it's a separate load that post-dates the call, and using
-            // it at the pre-call ws_begin site emits IR that reads an
-            // SSA value before its definition. The two values are equal
-            // at runtime in the canonical pattern (no store to the
-            // backing alloca between the call and the GEP).
+            // Use the call's actual pointer arg as PtrBefore, not the
+            // GEP's base.  The call arg DOMINATES the call (it's the
+            // call's own operand); the GEP base may not — under -O0
+            // it's a separate load that post-dates the call, and
+            // using it at the pre-call ws_begin site emits IR that
+            // reads an SSA value before its definition.  The two
+            // values are equal at runtime in the canonical pattern
+            // (no store to the backing alloca between the call and
+            // the GEP).
             out.push_back(
                 {Call, i, Call->getArgOperand(i), out_param_size});
             break;
@@ -1421,15 +1404,15 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &,
 //                    Critical: loading wider than the actual pointee
 //                    reads adjacent caller-stack garbage and almost
 //                    always trips the SIZEFILL `ret_size > buf_size`
-//                    check spuriously (Bug 1).
+//                    check spuriously.
 struct SentinelDesc {
 
   int  sentinel_idx;
   int  out_size_idx;
   int  out_size_bits;
-  // True if the callee reads through args[out_size_idx] (in/out param).
-  // Caller MUST skip the Bug 2 pre-call zero on these — otherwise the
-  // zero clobbers an initial value the callee expects.
+  // True if the callee reads through args[out_size_idx] (in/out
+  // param).  Caller MUST skip the pre-call zero on these — otherwise
+  // the zero clobbers an initial value the callee expects.
   bool out_is_inout;
 
 };
@@ -1445,21 +1428,19 @@ struct SentinelDesc {
 // would clobber an initial value the callee depends on; the caller
 // MUST honor this flag.
 //
-// Tightening (Bug 5 — `findOutSizeParam` was over-permissive and matched
-// generic error-code out-params):
+// Preconditions guarding against `parse(buf, int *err_code)`-style
+// error-code out-params:
 //   (a) Function must have at least one non-pointer integer arg BEFORE
 //       the candidate out-param (the typical `parse(buf, size_t len,
-//       size_t *out)` shape). This excludes `parse(buf, &err_code)`
-//       patterns. Any width is accepted — clang doesn't preserve arg
-//       names on IR Argument values even under -g (names live in
-//       DILocalVariable metadata), so a name-based filter is unreliable.
+//       size_t *out)` shape). Any width is accepted — clang doesn't
+//       preserve arg names on IR Argument values even under -g (names
+//       live in DILocalVariable metadata), so a name-based filter is
+//       unreliable.
 //   (b) Stored value's width must be pointer-wide (`size_t`-class).
-//       This is the strongest single signal that the stored quantity
-//       is a buffer size rather than an error code: nearly all size_t
-//       APIs use pointer-width integers, while error-code out-params
-//       are int (smaller than pointer width on 64-bit). On 32-bit
-//       targets the distinction collapses; a small false-positive
-//       rate is acceptable.
+//       Nearly all size_t APIs use pointer-width integers, while
+//       error-code out-params are int (smaller than pointer width on
+//       64-bit).  On 32-bit targets the distinction collapses; a
+//       small false-positive rate is acceptable.
 //
 // This catches `int parse(const buf*, size_t len, size_t *out)` and
 // `void parse(buf, size_t len, size_t *out)` patterns, while rejecting
@@ -1481,14 +1462,14 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
     // Precondition (a): at least one non-pointer integer arg appears
     // earlier in the signature. Excludes the `parse(buf, &err)` shape.
     //
-    // Bug 18: BUT — 2-arg signatures `parse(buf, size_t *out)` are also
-    // valid SIZEFILL targets (zlib, libpng, OpenSSL EVP variants). They
-    // have no int arg at all. We allow the 2-arg form when the stored
-    // value through the out-param is pointer-wide; that's a stronger
-    // signal of "size_t" than has_int_arg_before. The `parse(buf, int
-    // *err)` case fails this because `int` is < ptr_bits on 64-bit. On
-    // 32-bit targets where int == ptr_bits, FP risk on `&err` is
-    // accepted (same trade-off as Bug 5's original precondition (b)).
+    // 2-arg signatures `parse(buf, size_t *out)` are also valid
+    // SIZEFILL targets (zlib, libpng, OpenSSL EVP variants).  They
+    // have no int arg at all.  Allowed when the stored value through
+    // the out-param is pointer-wide — a stronger signal of "size_t"
+    // than has_int_arg_before.  `parse(buf, int *err)` fails this
+    // because `int` is < ptr_bits on 64-bit.  On 32-bit targets where
+    // int == ptr_bits the distinction collapses; FP risk on `&err` is
+    // accepted.
     bool has_int_arg_before = false;
     for (Argument &B : F.args()) {
 
@@ -1596,17 +1577,12 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
         unsigned bits = VT->getIntegerBitWidth();
         if (bits < 16 || bits > 64) continue;
 
-        // Bug 17: previously required `bits >= ptr_bits`, meant to
-        // reject the `int *err_code` shape. That rule also rejected
-        // *every* `uint32_t *out_size` on 64-bit targets — by far the
-        // largest practical miss class (libpng, libxml2, OpenSSL all
-        // use `unsigned int *outlen` patterns). When `has_int_arg_before`
-        // is true (`parse(buf, len, *out)` shape) the int-arg already
-        // signals "this is a real parser API, not error-code-only", so
-        // 32-bit out widths are safe.
-        //
-        // Bug 18: the 2-arg form `parse(buf, *out)` has no int arg to
-        // disambiguate. There we still require ptr-width to reject
+        // Width threshold depends on signature shape.  In the 3-arg+
+        // `parse(buf, len, *out)` shape the int-arg signals "real
+        // parser API, not error-code-only" so 32-bit out widths
+        // (uint32_t *outlen — libpng/libxml2/OpenSSL) are safe.  In
+        // the 2-arg form `parse(buf, *out)` there's no int arg to
+        // disambiguate, so still require ptr-width to reject
         // `parse(buf, *err)`.
         unsigned min_bits = is_two_arg_form ? ptr_bits : 32;
         if (bits < min_bits) continue;
@@ -1630,11 +1606,9 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
 // Return without any store through the parameter. Returns the index of
 // the matching parameter, or -1.
 //
-// Bug 6 fix: previously the forward walk stopped after 4 unconditional
-// hops, which missed real functions whose null-branch goes through
-// cleanup code, debug-logging blocks, or fall-through error labels
-// before reaching the return. Now uses a proper visited-set forward
-// CFG walk with a generous depth cap.
+// The forward walk uses a visited-set with a generous depth cap so
+// null branches passing through cleanup code, debug-logging blocks,
+// or fall-through error labels still reach the return.
 static int findSentinelParam(Function &F) {
 
   for (Argument &A : F.args()) {
@@ -2089,19 +2063,18 @@ static bool functionHasStoreThroughArg(Function &F, unsigned arg_idx) {
 // size operand dominates the malloc, which dominates any use of its
 // return.
 //
-// PHI/Select join semantics (Bug 10 fix): take the MIN of incoming
-// sizes, not the MAX. SIZEFILL semantics — "did the function write past
-// the buffer end?" — are answered correctly only if we use the SMALLEST
-// possible buffer on any reaching path: writes within the small arm's
-// size are in-bounds; writes between the small and large arm's sizes
-// are OOB on the small-arm path and we must flag them. Taking MAX would
-// under-report (false negatives on the small arm).
+// PHI/Select join semantics: take the MIN of incoming sizes, not the
+// MAX.  SIZEFILL's question — "did the function write past the buffer
+// end?" — is answered correctly only with the SMALLEST possible buffer
+// on any reaching path: writes between the small and large arm's
+// sizes are OOB on the small-arm path and must be flagged.  Taking
+// MAX under-reports.
 //
-// Enhancement G: when both PHI arms have a Value* (constant or not), we
-// emit a PHI of those Values at the original PHI's location. Dominance
-// is guaranteed because each per-arm size is derived from a malloc/
-// alloca that itself dominates the original PHI's edge. Same for Select
-// — emit a Select of the two sizes.
+// When both PHI arms have a Value* (constant or not), emit a PHI of
+// those Values at the original PHI's location.  Dominance is
+// guaranteed because each per-arm size is derived from a malloc/
+// alloca that itself dominates the original PHI's edge.  Same for
+// Select — emit a Select of the two sizes.
 //
 // Critically, this is what catches the libwebp-1.3.2-style idiom:
 //   size = sentinel_fn(NULL, ...);   // returns runtime size
@@ -2415,9 +2388,9 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
 
     }
 
-    // Bug 21: user-listed custom allocators (AFL_LLVM_BUG_ALLOCSIZE_FUNCS).
-    // The pass-side ALLOCSIZE block picks the widest integer arg as the
-    // size; mirror the heuristic here so SIZEFILL recognizes a buf
+    // User-listed custom allocators (AFL_LLVM_BUG_ALLOCSIZE_FUNCS).
+    // The ALLOCSIZE block picks the widest integer arg as the size;
+    // mirror that heuristic here so SIZEFILL recognizes a buf
     // allocated by `MyAlloc(n)` and can range-check writes against it.
     if (!customs.empty() && customs.count(name.str())) {
 
@@ -2462,10 +2435,10 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
   FunctionCallee sfCheck = M.getOrInsertFunction(
       "__afl_bug_sizefill_check", VoidTy, PtrTy, I64, I64);
   markBugHookAttrs(sfCheck);
-  // Bug 4: sfBegin now takes (ptr, size). Lets the runtime range-check
-  // every store as `addr < base + size` rather than the over-permissive
-  // `addr >= base` walk that pollutes a tracked buffer's max-off with
-  // writes through unrelated higher-address buffers.
+  // sfBegin takes (ptr, size) so the runtime can range-check every
+  // store as `addr < base + size`.  A bare `addr >= base` check
+  // would pollute a tracked buffer's max-off with writes through
+  // unrelated higher-address buffers.
   FunctionCallee sfBegin =
       M.getOrInsertFunction("__afl_bug_sf_begin", VoidTy, PtrTy, I64);
   markBugHookAttrs(sfBegin);
@@ -2521,10 +2494,10 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
   // mark the callee for store-instrumentation.
   bool                 changed = false;
   unsigned             instrumented = 0;
-  // Bug 3: per-callee set of which arg indices are sentinel-traced.
-  // Stores in the callee only count toward the SIZEFILL max-off if they
-  // reach one of these specific args. Prevents the callee's own write
-  // to *out_size from being counted against the buffer's frame.
+  // Per-callee set of arg indices that are sentinel-traced.  Stores
+  // in the callee only count toward the SIZEFILL max-off if they
+  // reach one of these specific args; the callee's own write to
+  // *out_size doesn't get counted against the buffer's frame.
   std::map<Function *, std::set<unsigned>> callee_sentinel_args;
   for (Function &F : M) {
 
@@ -2555,15 +2528,14 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
                                             S.custom_allocs);
         if (!bufsz) continue;
 
-        // Bug 2: defensively zero the out-param BEFORE the call. If the
-        // callee returns early without writing it (e.g., an internal
-        // error path), the post-call load would otherwise pick up
-        // garbage from the caller's stack and almost certainly trip
-        // the SIZEFILL abort. Zero is the only safe pre-call value:
-        // it under-reports rather than over-reports, so any abort
-        // signal is real. We zero at the actual width discovered by
-        // findOutSizeParam (Bug 1) so we don't accidentally clobber
-        // a neighboring field.
+        // Defensively zero the out-param BEFORE the call.  If the
+        // callee returns early without writing it (an internal error
+        // path), the post-call load would otherwise pick up garbage
+        // from the caller's stack and almost certainly trip the
+        // SIZEFILL abort.  Zero is the only safe pre-call value: it
+        // under-reports rather than over-reports, so any abort signal
+        // is real.  Zero at the exact width discovered by
+        // findOutSizeParam to avoid clobbering a neighboring field.
         //
         // CRITICAL: skip the zero when the callee reads through this
         // arg (in/out semantics). Some APIs pass a max-size or hint via
@@ -2597,8 +2569,8 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
         inheritDebugLoc(Post, Call);
         // Source the returned-size value: from the integer return if
         // out_idx < 0, otherwise by loading through the out-param at
-        // the EXACT width discovered (Bug 1). Loading wider than the
-        // pointee reads adjacent caller-stack garbage.
+        // the EXACT width discovered.  Loading wider than the pointee
+        // reads adjacent caller-stack garbage.
         Value *ret64 = nullptr;
         if (oi < 0) {
 
@@ -2635,12 +2607,12 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
 
   }
 
-  // Instrument stores in candidate callees. Bug 3: only stores that
-  // reach the sentinel arg (the buffer), NOT every pointer arg. The
-  // callee's own write to *out_size, *status, etc. would otherwise be
-  // counted against the buffer's max-off and trip a false-positive abort.
-  // Honor the user's instrument-list blocklist on the callee too —
-  // otherwise excluded code would still get its stores instrumented
+  // Instrument stores in candidate callees: only stores that reach
+  // the sentinel arg (the buffer), NOT every pointer arg.  The
+  // callee's own write to *out_size, *status, etc. would otherwise
+  // be counted against the buffer's max-off and trip a false-positive
+  // abort.  Honor the user's instrument-list blocklist on the callee
+  // too — otherwise excluded code still gets its stores instrumented
   // when it happens to be a sentinel callee.
   IntegerType *I32 = IntegerType::getInt32Ty(C);
   for (auto &kv : callee_sentinel_args) {
@@ -2709,16 +2681,17 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
     };
 
     std::vector<ICmpInst *>  targets;
-    std::vector<FCmpInst *>  fp_targets;   // Enh D
-    std::vector<SwitchInst *> sw_targets;  // Bug 15
+    std::vector<FCmpInst *>  fp_targets;
+    std::vector<SwitchInst *> sw_targets;
     for (BasicBlock &BB : F) {
 
       for (Instruction &I : BB) {
 
-        // Bug 15: SwitchInst. clang emits `switch` rather than a chain
-        // of icmps for dispatchers > a few cases. Without coverage here
-        // a 256-case opcode parser gets zero "near magic value"
-        // gradient. We compute `|cond - case_i|` per case below.
+        // SwitchInst: clang emits `switch` rather than a chain of
+        // icmps for dispatchers larger than a few cases.  Without
+        // coverage here a 256-case opcode parser gets zero
+        // "near magic value" gradient.  Computes `|cond - case_i|`
+        // per case below.
         if (auto *SW = dyn_cast<SwitchInst>(&I)) {
 
           Type *CT = SW->getCondition()->getType();
@@ -2734,21 +2707,18 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
         if (auto *Cmp = dyn_cast<ICmpInst>(&I)) {
 
           Type *OpTy = Cmp->getOperand(0)->getType();
-          // Bug 16: allow pointer ICmps. Many parsers test
-          // `if (p == sentinel)` or `if (p < end)`; without coverage
-          // here the SLACK channel sees only the integer comparisons,
-          // missing pointer-distance gradients. Vector compares stay
-          // unsupported (slack semantics don't lift cleanly to vectors).
-          // For pointer compares, we ptrtoint at emit time below.
+          // Allow pointer ICmps so parsers using `if (p == sentinel)`
+          // or `if (p < end)` get a slack gradient.  Vector compares
+          // stay unsupported (slack semantics don't lift cleanly to
+          // vectors).  Pointer compares are ptrtoint'd at emit time.
           auto *IT = dyn_cast<IntegerType>(OpTy);
           bool  is_ptr_cmp = !IT && OpTy->isPointerTy();
           if (!IT && !is_ptr_cmp) continue;
-          // Bug 22: accept i128 too. Crypto code (curve arithmetic, big-
-          // int comparisons) routinely uses i128. We trunc the i128
-          // distance to i64 with a saturating sticky-bit: if the high
-          // 64 bits are non-zero, slack is saturated to UINT64_MAX
-          // (= MIN bucket = no signal); else the low 64 bits carry the
-          // real gradient. Same emit logic, plus a single icmp+select.
+          // Accept i128 too (crypto code: curve arithmetic, big-int
+          // comparisons).  The i128 distance is truncated to i64 with
+          // a saturating sticky-bit: if the high 64 bits are non-zero,
+          // slack is saturated to UINT64_MAX (= MIN bucket = no
+          // signal); else the low 64 bits carry the real gradient.
           if (IT && (IT->getBitWidth() < 8 || IT->getBitWidth() > 128))
             continue;
           // Skip if both operands constant — optimizer would fold; defensive.
@@ -2799,10 +2769,10 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
       Value *Op0 = Cmp->getOperand(0);
       Value *Op1 = Cmp->getOperand(1);
 
-      // Bug 16: pointer compares get ptrtoint'd to i64 and treated as
-      // unsigned distance. Heap addresses are within a single 47-bit
-      // user range on Linux/x86_64 and the unsigned subtraction is the
-      // natural "byte-distance" gradient. Pointer ICmps never use
+      // Pointer compares get ptrtoint'd to i64 and treated as unsigned
+      // distance.  Heap addresses are within a single 47-bit user
+      // range on Linux/x86_64 and the unsigned subtraction is the
+      // natural "byte-distance" gradient.  Pointer ICmps never use
       // signed predicates in C, and SExt-defined inference doesn't
       // apply to pointers, so we shortcut directly to the unsigned
       // path.
@@ -2854,9 +2824,9 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
 
       }
 
-      // Bug 22: compute slack at the operand's native width when it
-      // exceeds i64 (i.e. i128). The hook takes an i64 so we truncate;
-      // a non-zero high half saturates to UINT64_MAX (= MIN bucket =
+      // Compute slack at the operand's native width when it exceeds
+      // i64 (i.e. i128).  The hook takes an i64 so we truncate; a
+      // non-zero high half saturates to UINT64_MAX (= MIN bucket =
       // no-signal, won't overwrite a tight match from another path).
       Type     *NativeTy = Op0->getType();
       bool     wide = NativeTy->isIntegerTy() &&
@@ -2975,12 +2945,12 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
 
     }
 
-    // Bug 15: SwitchInst slack. For each case, emit `|cond - case_i|`
-    // as a separate hook with its own site id. Each case has the same
+    // SwitchInst slack: for each case, emit `|cond - case_i|` as a
+    // separate hook with its own site id.  Each case has the same
     // MIN-disguised-as-MAX semantics as an ICmp EQ — an input that
-    // approaches one of the cases lights up that case's slot. Multiple
-    // simultaneously-tight cases produce a richer gradient than a
-    // single shared site.
+    // approaches one of the cases lights up that case's slot.
+    // Multiple simultaneously-tight cases produce a richer gradient
+    // than a single shared site.
     //
     // Unsigned distance: switch cases in LLVM IR are always integer
     // constants and the case value's signedness is opaque (no signed/
@@ -2988,8 +2958,8 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
     // a tight EQ produces slack=0 regardless of signedness.
     //
     // Cost: one hook per case per switch site. A 256-case dispatcher
-    // adds 256 hooks. Worth it — that's exactly the dispatcher pattern
-    // that was previously invisible.
+    // adds 256 hooks — the same dispatcher pattern an icmp-chain
+    // pass would miss entirely.
     for (SwitchInst *SW : sw_targets) {
 
       Value *Cond = SW->getCondition();
@@ -3435,14 +3405,14 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         }
 
         if (matched) continue;
-        // Bug 23: anonymous mmap. mmap(addr, len, prot, flags, fd, off)
-        // returns a fresh region invisible to the malloc family. We
-        // detect the canonical anonymous form by `fd == -1` (a
-        // ConstantInt) and register the result against the size arg.
-        // File-backed mmaps (fd != -1) are NOT tracked — they alias
-        // existing storage and shadow-painting them risks false OOBs
-        // against the caller's view of the file. munmap is paired
-        // unconditionally (free is safe to no-op on untracked regions).
+        // Anonymous mmap returns a fresh region invisible to the
+        // malloc family.  Detect the canonical anonymous form by
+        // `fd == -1` (a ConstantInt) and register the result against
+        // the size arg.  File-backed mmaps (fd != -1) are NOT tracked
+        // — they alias existing storage and shadow-painting them
+        // risks false OOBs against the caller's view of the file.
+        // munmap is paired unconditionally (free is safe to no-op on
+        // untracked regions).
         if (name == "mmap") {
 
           if (Call->arg_size() == 6 &&
@@ -3661,21 +3631,17 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
   }
 
-  // Phase 3 (Tier 3 item 2): stack-alloca tracking.  Heap allocations
-  // are rewritten in Phase 1; the per-store oracle is inserted in
-  // Phase 2 and acts as a no-op on untracked addresses.  Here we
-  // register stack allocas so the oracle's shadow lookup finds them
-  // too — turning the same oracle that catches heap OOB into a stack
-  // OOB tripwire.  Gated by AFL_LLVM_BUG_ALLOCSIZE_STACK (default on
-  // when ALLOCSIZE is enabled; set to "0" to opt out).
+  // Phase 3: stack-alloca tracking.  Phase 1 rewrites heap allocators
+  // and Phase 2 inserts the per-store oracle, which acts as a no-op
+  // on untracked addresses.  Registering stack allocas makes that
+  // same oracle a stack-OOB tripwire.  Gated by
+  // AFL_LLVM_BUG_ALLOCSIZE_STACK (default on when ALLOCSIZE is
+  // enabled; set to "0" to opt out).
   //
   // Strategy: try lifetime intrinsics first (clang emits these under
   // -O2+ and they precisely bound the live range); fall back to
-  // entry/exit instrumentation otherwise (-O0).  Per-function caps:
-  //   - Skip allocas whose static size is < 8 bytes (single-int locals).
-  //   - Stop after 16 instrumented allocas per function with a
-  //     one-shot stderr note ("stack cap reached"), so multi-exit
-  //     fanout is bounded.
+  // entry/exit instrumentation otherwise.  Per-function caps cap
+  // multi-exit fanout cost.
   uint32_t stack_regs = 0, stack_unregs = 0, stack_funcs = 0;
   if (stack_enabled) {
 
