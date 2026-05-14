@@ -26,6 +26,11 @@
 // captures. Use only when you want to cut SCALAR map pollution on very
 // large targets and accept the loss of pure-compute coverage.
 #define AFL_BUG_ENV_SCALAR_SLICE     "AFL_LLVM_BUG_SCALAR_SLICE"
+// When set, every mode prints per-function instrumentation counts
+// after its module pass (in addition to the existing aggregate
+// one-liner).  Useful for auditing "is mode X actually firing in
+// my function Y?" without parsing the post-pass IR by hand.
+#define AFL_BUG_ENV_DUMP_SUMMARY     "AFL_LLVM_BUG_DUMP_SUMMARY"
 
 // Number of u32 slots in the bug map (max-value coverage channel).
 // Must be a power of two. Sized like IJON (512) but wider because we

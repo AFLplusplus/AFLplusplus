@@ -834,4 +834,152 @@ else
   exit 1
 fi
 
+# --- BUDGET catches strncpy-based over-writers ---
+AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-budget-strncpy.c" -o "$TMP/bsn"
+set +e
+printf '\x10\x00\x00\x00' | "$TMP/bsn" 2>"$TMP/bsn.err"
+bsn_rc=$?
+set -e
+if [ "$bsn_rc" -ne 0 ] && grep -q "BUDGET violation" "$TMP/bsn.err"; then
+  echo "[+] BUDGET strncpy: caught 2n-byte strncpy with return n (rc=$bsn_rc)"
+else
+  echo "[!] BUDGET strncpy: rc=$bsn_rc"
+  cat "$TMP/bsn.err" || true
+  exit 1
+fi
+
+# --- SIZEFILL catches read()-based bounded over-writers ---
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-sizefill-read.c" -o "$TMP/sfr"
+set +e
+# Feed plenty of bytes so the in-callee read() can write past the buf end.
+head -c 256 /dev/urandom | "$TMP/sfr" 2>"$TMP/sfr.err"
+sfr_rc=$?
+set -e
+if [ "$sfr_rc" -ne 0 ] && grep -q "SIZEFILL violation" "$TMP/sfr.err"; then
+  echo "[+] SIZEFILL read: caught bounded read() overrun (rc=$sfr_rc)"
+else
+  echo "[!] SIZEFILL read: rc=$sfr_rc"
+  cat "$TMP/sfr.err" || true
+  exit 1
+fi
+
+# --- SCALAR instruments SelectInst with constant arm ---
+# Compile at -O1 — clang at -O0 emits branch+PHI for ternaries
+# rather than a real `select` instruction.  At -O1+ the (cond ? K1
+# : K2) pattern becomes a SelectInst which our SCALAR walker
+# instruments.
+AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 "$CC" -O1 -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-scalar-select.c" -o "$TMP/sel.ll" 2>/dev/null
+# Find every `= select iN` line (ignore sancov's pointer-select)
+# whose result feeds a `__afl_bug_scalar_max` call within 3 IR
+# lines.  Optional intervening zext/trunc is normal.
+sel_hits=$(awk '
+  /= select i[0-9]+/ {
+    # extract SSA result name (token before "=")
+    n=split($0,a,"="); name=a[1]; sub(/^[ \t]+/,"",name); sub(/[ \t]+$/,"",name);
+    pending[name]=NR+3
+  }
+  /__afl_bug_scalar_max/ {
+    for (k in pending) {
+      if (NR <= pending[k] && index($0,k) > 0) { print; break }
+    }
+    # zext/trunc renames the SSA value; track that too
+  }
+  /^[ \t]*%[0-9]+ = (zext|trunc|sext) / {
+    # Map new SSA to its source if source is in pending
+    n=split($0,a,"="); newname=a[1]; sub(/^[ \t]+/,"",newname); sub(/[ \t]+$/,"",newname);
+    # last token of the rhs is the source operand
+    src=""
+    for (i=NF; i>0; --i) { if ($i ~ /^%/) { src=$i; sub(/,/,"",src); break } }
+    if (src in pending) pending[newname]=pending[src]
+  }
+' "$TMP/sel.ll" | wc -l | tr -d ' ')
+if [ "${sel_hits:-0}" -ge 1 ]; then
+  echo "[+] SCALAR select: $sel_hits select sites instrumented"
+else
+  echo "[!] SCALAR select: only $sel_hits sites instrumented (expected >= 1)"
+  grep -E "select i|__afl_bug_scalar_max" "$TMP/sel.ll" | head
+  exit 1
+fi
+
+# --- SIZEFILL VLA mul saturates on overflow ---
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-sizefill-vla.c" -o "$TMP/svla.ll" 2>/dev/null
+if grep -q "umul.with.overflow" "$TMP/svla.ll"; then
+  echo "[+] SIZEFILL VLA: saturating umul emitted in IR"
+else
+  echo "[!] SIZEFILL VLA: no umul.with.overflow in IR"
+  exit 1
+fi
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-sizefill-vla.c" -o "$TMP/svla"
+set +e
+printf '\x10\x00\x00\x00' | "$TMP/svla" 2>"$TMP/svla.err"
+svla_rc=$?
+set -e
+if [ "$svla_rc" -eq 0 ] && ! grep -q "SIZEFILL violation" "$TMP/svla.err"; then
+  echo "[+] SIZEFILL VLA runtime: honest fill survives saturating mul"
+else
+  echo "[!] SIZEFILL VLA runtime: rc=$svla_rc"
+  cat "$TMP/svla.err" || true
+  exit 1
+fi
+
+# --- SLACK covers overflow flag (index-1 extractvalue) ---
+AFL_QUIET=1 AFL_LLVM_BUG_SLACK=1 "$CC" \
+  "$SCRIPT_DIR/test-bug-slack-overflow.c" -o "$TMP/sov"
+set +e
+"$TMP/sov" 2 3 2>"$TMP/sov.no" >/dev/null
+"$TMP/sov" 0xffffffffffffffff 2 2>"$TMP/sov.yes" >/dev/null
+set -e
+# An overflow-only slot must show up in the overflow run that is
+# absent (or smaller) in the non-overflow run.
+sort "$TMP/sov.no"  | grep -E '^slot' > "$TMP/sov.no.s"  || true
+sort "$TMP/sov.yes" | grep -E '^slot' > "$TMP/sov.yes.s" || true
+ov_unique=$(comm -13 "$TMP/sov.no.s" "$TMP/sov.yes.s" | wc -l | tr -d ' ')
+if [ "${ov_unique:-0}" -ge 1 ]; then
+  echo "[+] SLACK overflow flag: overflow input lit $ov_unique unique slot(s)"
+else
+  echo "[!] SLACK overflow flag: no overflow-unique slot"
+  echo "--- no-overflow ---"
+  cat "$TMP/sov.no" || true
+  echo "--- overflow ---"
+  cat "$TMP/sov.yes" || true
+  exit 1
+fi
+
+# --- AFL_LLVM_BUG_DUMP_SUMMARY emits per-function lines ---
+set +e
+AFL_LLVM_BUG=1 AFL_LLVM_BUG_DUMP_SUMMARY=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-dump-summary.c" -o "$TMP/dsum" 2>"$TMP/dsum.cerr"
+dsum_cc=$?
+set -e
+sum_lines=$(grep -c "^\[afl-bug-summary\]" "$TMP/dsum.cerr" || true)
+sum_has_a=$(grep -c "^\[afl-bug-summary\].*func_a"      "$TMP/dsum.cerr" || true)
+sum_has_b=$(grep -c "^\[afl-bug-summary\].*func_b"      "$TMP/dsum.cerr" || true)
+if [ "$dsum_cc" -eq 0 ] && [ "${sum_lines:-0}" -ge 2 ] && \
+   [ "${sum_has_a:-0}" -ge 1 ] && [ "${sum_has_b:-0}" -ge 1 ]; then
+  echo "[+] DUMP_SUMMARY: $sum_lines summary lines (func_a=$sum_has_a func_b=$sum_has_b)"
+else
+  echo "[!] DUMP_SUMMARY: cc=$dsum_cc lines=$sum_lines a=$sum_has_a b=$sum_has_b"
+  cat "$TMP/dsum.cerr" || true
+  exit 1
+fi
+
+# Without the env, no summary lines should appear.
+set +e
+AFL_LLVM_BUG=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-dump-summary.c" -o "$TMP/dsum_off" 2>"$TMP/dsum_off.cerr"
+dsum_off_cc=$?
+set -e
+sum_off_lines=$(grep -c "^\[afl-bug-summary\]" "$TMP/dsum_off.cerr" || true)
+if [ "$dsum_off_cc" -eq 0 ] && [ "${sum_off_lines:-0}" -eq 0 ]; then
+  echo "[+] DUMP_SUMMARY: silent without env"
+else
+  echo "[!] DUMP_SUMMARY: leaked summary lines without env ($sum_off_lines)"
+  exit 1
+fi
+
 echo "[+] all bug-pass tests passed"

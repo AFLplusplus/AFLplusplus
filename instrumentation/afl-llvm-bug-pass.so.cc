@@ -200,7 +200,7 @@ static bool ptrStoreReachesArg(StoreInst                 *S,
 static unsigned instrumentArgReachingStores(
     Function &F, FunctionCallee hook,
     const std::set<unsigned> &arg_indices, Type *PtrTy, IntegerType *I32,
-    const DataLayout &DL);
+    const DataLayout &DL, bool libc_exact_only);
 static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source);
 
 // Mode salts for siteSlotId() — fed into the hash so the same site index
@@ -666,6 +666,8 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 
   uint32_t arith_sites = 0, loop_sites = 0;
   bool     changed = false;
+  bool     dump_summary = getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
+  std::map<Function *, std::pair<uint32_t, uint32_t>> per_func;
 
   for (Function &F : M) {
 
@@ -677,6 +679,8 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
     LoopInfo      LI(DT);
     StringRef     func_name = F.getName();
     uint32_t      site_idx = 0;
+    uint32_t      pf_arith_start = arith_sites;
+    uint32_t      pf_loop_start = loop_sites;
 
     // Optional size-sink slice (AFL_LLVM_BUG_SCALAR_SLICE). Off by
     // default — turning it on silences pure-compute accumulators like
@@ -780,6 +784,55 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
                                  BUG_MODE_SALT_SCALAR_ARITH);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
         covered.insert(EV);
+        ++arith_sites;
+        changed = true;
+      }
+    }
+
+    // SelectInst with a ConstantInt arm: a `cond ? K : x` size-decision
+    // pattern is a strong fuzzer signal (the clamp arm hides the
+    // original value, but the OTHER arm still grows).  Without this
+    // sites like `size = (n > MAX) ? MAX : n` are invisible to SCALAR
+    // unless the underlying icmp/sub gets covered — which it often is
+    // not at -O0.  Restricted to selects with at least one ConstantInt
+    // operand to keep noise low: pure runtime-vs-runtime selects rarely
+    // carry size signal.
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        auto *Sel = dyn_cast<SelectInst>(&I);
+        if (!Sel) continue;
+        auto *IT = dyn_cast<IntegerType>(Sel->getType());
+        if (!IT) continue;
+        if (IT->getBitWidth() < 8 || IT->getBitWidth() > 64) continue;
+        if (!isa<ConstantInt>(Sel->getTrueValue()) &&
+            !isa<ConstantInt>(Sel->getFalseValue()))
+          continue;
+        // Skip address-arithmetic operands (mirrors the BinaryOperator
+        // filter — selects on GEP-derived addresses produce noise).
+        bool addr_arith = false;
+        for (Use &U : Sel->operands())
+          if (isa<GetElementPtrInst>(U.get()) ||
+              isa<PtrToIntInst>(U.get())) {
+            addr_arith = true;
+            break;
+          }
+        if (addr_arith) continue;
+        // Skip if used only as a branch / icmp condition (no value flow).
+        bool any_non_br = false;
+        for (User *U : Sel->users())
+          if (!isa<BranchInst>(U) && !isa<ICmpInst>(U)) {
+            any_non_br = true;
+            break;
+          }
+        if (!any_non_br) continue;
+        if (S.scalar_slice && !slice.count(Sel)) continue;
+        IRBuilder<> B(Sel->getNextNode());
+        inheritDebugLoc(B, Sel);
+        Value   *v64 = B.CreateZExtOrTrunc(Sel, I64);
+        uint32_t id = siteSlotId(func_name, site_idx++,
+                                 BUG_MODE_SALT_SCALAR_ARITH);
+        B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
+        covered.insert(Sel);
         ++arith_sites;
         changed = true;
       }
@@ -898,12 +951,23 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
     // sufficient and avoid conflating multiple loop runs in one call.)
 
     changed = true;
+    if (dump_summary && (arith_sites > pf_arith_start ||
+                         loop_sites > pf_loop_start)) {
+      per_func[&F] = {arith_sites - pf_arith_start,
+                      loop_sites - pf_loop_start};
+    }
 
   }
 
   if (getenv("AFL_QUIET") == nullptr)
     errs() << "[afl-bug] SCALAR instrumented " << arith_sites
            << " arithmetic sites, " << loop_sites << " loops\n";
+  if (dump_summary) {
+    for (auto &kv : per_func)
+      errs() << "[afl-bug-summary] SCALAR " << kv.first->getName()
+             << " arith=" << kv.second.first
+             << " loop=" << kv.second.second << "\n";
+  }
   return changed;
 
 }
@@ -1312,7 +1376,10 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &,
   // tracked buffer head.
   std::map<Function *, std::set<unsigned>> callee_arg_indices;
 
-  bool changed = false;
+  bool                              changed = false;
+  bool                              dump_summary =
+      getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
+  std::map<Function *, uint32_t>    per_func_sites;
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
@@ -1363,6 +1430,7 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &,
 
       callee_arg_indices[callee].insert(m.PtrArgIdx);
       changed = true;
+      if (dump_summary) ++per_func_sites[&F];
 
     }
 
@@ -1380,14 +1448,23 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &,
     Function                  *F = kv.first;
     if (!isInInstrumentList(F, F->getName().str())) continue;
     const std::set<unsigned>  &arg_indices = kv.second;
+    // BUDGET aborts when `max_off > ret_size` — over-reporting writes
+    // via bounded-libc functions (snprintf, read, ...) would FP.
+    // Restrict to deterministic-write libc functions only.
     instrumentArgReachingStores(*F, wsStore, arg_indices, PtrTy,
-                                I32_for_store, M.getDataLayout());
+                                I32_for_store, M.getDataLayout(),
+                                /*libc_exact_only=*/true);
 
   }
 
   if (getenv("AFL_QUIET") == nullptr)
     errs() << "[afl-bug] BUDGET instrumented " << callee_arg_indices.size()
            << " callees\n";
+  if (dump_summary) {
+    for (auto &kv : per_func_sites)
+      errs() << "[afl-bug-summary] BUDGET " << kv.first->getName()
+             << " sites=" << kv.second << "\n";
+  }
   return changed;
 
 }
@@ -1876,8 +1953,17 @@ static bool ptrStoreReachesArg(StoreInst                 *S,
 
 }
 
+// `exact_only` selects between deterministic-write libc functions
+// (memset / memcpy / strncpy — the runtime can use `len` as the
+// definitive write count) and bounded-write libc functions
+// (snprintf / read / recv — `len` is the upper bound; actual writes
+// may be smaller, so recording `len` as the write extent over-reports).
+// BUDGET aborts when `max_off > ret_size` and is sensitive to
+// over-reporting, so it asks for exact_only=true.  SIZEFILL aborts
+// only on writes past the buffer end (clamped by sf_cap), so it is
+// robust to over-reporting and asks for exact_only=false.
 static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
-                                          Value *&Len) {
+                                          Value *&Len, bool exact_only) {
 
   Function *Callee = CB ? CB->getCalledFunction() : nullptr;
   if (!Callee) return false;
@@ -1898,6 +1984,7 @@ static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
 
   };
 
+  // --- Exact writers: byte count == arg.  Always safe ---
   if (Name == "memset" || Name == "__memset_chk" || Name == "memcpy" ||
       Name == "__memcpy_chk" || Name == "memmove" ||
       Name == "__memmove_chk" || Name == "mempcpy" ||
@@ -1908,6 +1995,40 @@ static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
 
   // BSD bcopy has source/dest/length argument order.
   if (Name == "bcopy") return useArgs(1, 2);
+
+  // strncpy always writes exactly `n` bytes (NUL-pads short src,
+  // truncates long src — never fewer than n).
+  if (Name == "strncpy" || Name == "__strncpy_chk") return useArgs(0, 2);
+
+  if (exact_only) return false;
+
+  // --- Bounded writers: byte count <= arg.  SIZEFILL-only ---
+  // strncat: appends up to `n` chars + 1 NUL.  Upper bound n+1.
+  // We use `n` as a slightly under-estimating bound (the runtime
+  // adds 1 byte slack via sf_cap; SIZEFILL is robust to this).
+  if (Name == "strncat" || Name == "__strncat_chk") return useArgs(0, 2);
+
+  // BSD strlcpy/strlcat: at most `size` bytes total.
+  if (Name == "strlcpy" || Name == "strlcat") return useArgs(0, 2);
+
+  // (v)snprintf: at most `size` bytes (incl NUL) when size>0.
+  if (Name == "snprintf" || Name == "__snprintf_chk" ||
+      Name == "vsnprintf" || Name == "__vsnprintf_chk")
+    return useArgs(0, 1);
+
+  // fgets: writes at most `size` bytes (incl NUL) into dest.
+  if (Name == "fgets") return useArgs(0, 1);
+
+  // read / pread: write up to `count` bytes into buf.
+  if (Name == "read" || Name == "pread" || Name == "__read_chk" ||
+      Name == "__pread_chk" || Name == "__pread64_chk" || Name == "pread64")
+    return useArgs(1, 2);
+
+  // recv: buf at arg1, len at arg2.  recvfrom shares the same shape
+  // for those two args (extra trailing args are immaterial).
+  if (Name == "recv" || Name == "recvfrom" || Name == "__recv_chk" ||
+      Name == "__recvfrom_chk")
+    return useArgs(1, 2);
 
   return false;
 
@@ -1951,7 +2072,7 @@ static bool isConstantTooWideForBugStoreHook(Value *Len) {
 static unsigned instrumentArgReachingStores(
     Function &F, FunctionCallee hook,
     const std::set<unsigned> &arg_indices, Type *PtrTy, IntegerType *I32,
-    const DataLayout &DL) {
+    const DataLayout &DL, bool libc_exact_only) {
 
   unsigned count = 0;
   for (BasicBlock &BB : F) {
@@ -1979,7 +2100,7 @@ static unsigned instrumentArgReachingStores(
 
         Value *dest = nullptr;
         Value *len = nullptr;
-        if (getLibcMemoryWriteDestAndSize(CB, dest, len)) {
+        if (getLibcMemoryWriteDestAndSize(CB, dest, len, libc_exact_only)) {
 
           if (isConstantTooWideForBugStoreHook(len)) continue;
           if (!ptrValueReachesArg(dest, arg_indices)) continue;
@@ -2026,7 +2147,10 @@ static bool functionHasStoreThroughArg(Function &F, unsigned arg_idx) {
       if (auto *CB = dyn_cast<CallBase>(&I)) {
         Value *dest = nullptr;
         Value *len = nullptr;
-        if (getLibcMemoryWriteDestAndSize(CB, dest, len) &&
+        // Heuristic — accept the bounded set so we don't miss callees
+        // whose only write to the arg is via read()/recv()/snprintf().
+        if (getLibcMemoryWriteDestAndSize(CB, dest, len,
+                                          /*exact_only=*/false) &&
             ptrValueReachesArg(dest, args))
           return true;
       }
@@ -2093,6 +2217,22 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
                                        const DataLayout       &DL,
                                        const std::set<std::string> &customs,
                                        SmallPtrSetImpl<Value *> &visited);
+
+// Emit `N * S` with saturating semantics: on overflow, returns
+// UINT64_MAX so downstream SIZEFILL comparisons (`ret > buf_size`)
+// can't be tripped by a wrapped product.  Shared between calloc/
+// reallocarray and the VLA path.
+static Value *emitSaturatingMul(IRBuilder<> &B, Value *N, Value *S,
+                                IntegerType *I64) {
+
+  Value *uo =
+      B.CreateIntrinsic(Intrinsic::umul_with_overflow, {I64}, {N, S});
+  Value *prod = B.CreateExtractValue(uo, 0);
+  Value *ovf = B.CreateExtractValue(uo, 1);
+  Value *maxU = ConstantInt::get(I64, UINT64_MAX);
+  return B.CreateSelect(ovf, maxU, prod);
+
+}
 
 static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
                                    const DataLayout            &DL,
@@ -2246,16 +2386,24 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
     uint64_t   eltBytes = DL.getTypeStoreSize(A->getAllocatedType());
     if (auto *Cst = dyn_cast<ConstantInt>(arrSize)) {
 
-      return ConstantInt::get(I64, Cst->getZExtValue() * eltBytes);
+      // Saturate the constant fold too: arrSize * eltBytes overflowing
+      // i64 would otherwise wrap silently to a tiny size and trip a
+      // bogus SIZEFILL abort.
+      __uint128_t prod =
+          (__uint128_t)Cst->getZExtValue() * (__uint128_t)eltBytes;
+      if (prod > (__uint128_t)UINT64_MAX)
+        return ConstantInt::get(I64, UINT64_MAX);
+      return ConstantInt::get(I64, (uint64_t)prod);
 
     }
 
     // Enhancement F: VLA / dynamic-sized alloca — emit `arrSize * eltBytes`.
     // arrSize dominates the alloca, which dominates any use of its result,
-    // so emitting at B's position (a use-site) is dominance-safe.
+    // so emitting at B's position (a use-site) is dominance-safe.  Use the
+    // saturating mul so an attacker-controlled arrSize that wraps the
+    // product cannot synthesize a tiny "buffer size" and FP-abort.
     Value *n64 = B.CreateZExtOrTrunc(arrSize, I64);
-    return B.CreateMul(n64, ConstantInt::get(I64, eltBytes),
-                       "afl.vla.bytes");
+    return emitSaturatingMul(B, n64, ConstantInt::get(I64, eltBytes), I64);
 
   }
 
@@ -2281,17 +2429,10 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
     /* The size-arg is always integer; CreateZExtOrTrunc to i64. The arg's
        Value at the Call site dominates any use of the Call's return. */
 
-    // Helper: emit a saturating N*S product, returning UINT64_MAX on
-    // overflow so SIZEFILL's `ret_size > buf_size` check can't trip a
-    // false-positive abort. libc would return NULL on overflow anyway.
+    // Helper bound to this builder; emitSaturatingMul does the real work.
     auto satMul = [&](Value *N, Value *S) -> Value * {
 
-      Value *uoCall =
-          B.CreateIntrinsic(Intrinsic::umul_with_overflow, {I64}, {N, S});
-      Value *prod = B.CreateExtractValue(uoCall, 0);
-      Value *ovf = B.CreateExtractValue(uoCall, 1);
-      Value *maxU = ConstantInt::get(I64, UINT64_MAX);
-      return B.CreateSelect(ovf, maxU, prod);
+      return emitSaturatingMul(B, N, S, I64);
 
     };
 
@@ -2494,6 +2635,9 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
   // mark the callee for store-instrumentation.
   bool                 changed = false;
   unsigned             instrumented = 0;
+  bool                 dump_summary =
+      getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
+  std::map<Function *, uint32_t> per_func_sites;
   // Per-callee set of arg indices that are sentinel-traced.  Stores
   // in the callee only count toward the SIZEFILL max-off if they
   // reach one of these specific args; the callee's own write to
@@ -2600,6 +2744,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
         ++instrumented;
         callee_sentinel_args[cf].insert(pi);
         changed = true;
+        if (dump_summary) ++per_func_sites[&F];
 
       }
 
@@ -2620,14 +2765,23 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
     Function                 *F = kv.first;
     const std::set<unsigned> &args = kv.second;
     if (!isInInstrumentList(F, F->getName().str())) continue;
+    // SIZEFILL caps every recorded write by sf_cap (buffer end + slack),
+    // so bounded-libc over-reporting cannot cause an FP — accept the
+    // wider model.
     instrumentArgReachingStores(*F, sfStore, args, PtrTy, I32,
-                                M.getDataLayout());
+                                M.getDataLayout(),
+                                /*libc_exact_only=*/false);
 
   }
 
   if (getenv("AFL_QUIET") == nullptr)
     errs() << "[afl-bug] SIZEFILL instrumented " << instrumented
            << " call sites across " << sentinel.size() << " callees\n";
+  if (dump_summary) {
+    for (auto &kv : per_func_sites)
+      errs() << "[afl-bug-summary] SIZEFILL " << kv.first->getName()
+             << " sites=" << kv.second << "\n";
+  }
   return changed;
 
 }
@@ -2654,11 +2808,14 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
 
   uint32_t sites = 0;
   bool     changed = false;
+  bool     dump_summary = getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
+  std::map<Function *, uint32_t> per_func_sites;
 
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
     if (!isInInstrumentList(&F, F.getName().str())) continue;
+    uint32_t pf_start = sites;
 
     // Collect first, instrument afterwards — avoid the iterator visiting
     // our own inserted Sub/Neg/Select instructions.
@@ -2989,10 +3146,61 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
 
     }
 
+    // `*.with.overflow.*` flag bit (extractvalue index 1).  SCALAR
+    // covers the value (index 0); the flag is an i1 binary signal —
+    // "did this arithmetic overflow?" — that fuzzers want as
+    // dedicated coverage.  Encode as a SLACK slot so an overflow
+    // (flag=1) → slack=0 → inv=64 (max bucket = tightest match),
+    // and no-overflow (flag=0) → slack=UINT64_MAX → inv=0 (no
+    // overwrite).  An input that newly triggers overflow at a site
+    // dominates the slot.
+    auto isOverflowIntrinsicS = [](Intrinsic::ID iid) -> bool {
+      switch (iid) {
+        case Intrinsic::uadd_with_overflow:
+        case Intrinsic::sadd_with_overflow:
+        case Intrinsic::usub_with_overflow:
+        case Intrinsic::ssub_with_overflow:
+        case Intrinsic::umul_with_overflow:
+        case Intrinsic::smul_with_overflow:
+          return true;
+        default:
+          return false;
+      }
+    };
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        auto *EV = dyn_cast<ExtractValueInst>(&I);
+        if (!EV) continue;
+        if (EV->getNumIndices() != 1 || EV->getIndices()[0] != 1) continue;
+        auto *Call = dyn_cast<IntrinsicInst>(EV->getAggregateOperand());
+        if (!Call || !isOverflowIntrinsicS(Call->getIntrinsicID())) continue;
+        if (!EV->getType()->isIntegerTy(1)) continue;
+        if (opAlreadyCovered(EV)) continue;
+        IRBuilder<> B(EV->getNextNode());
+        inheritDebugLoc(B, EV);
+        Value *u64_max = ConstantInt::get(I64, (uint64_t)-1);
+        Value *zero = ConstantInt::get(I64, 0);
+        Value *slack = B.CreateSelect(EV, zero, u64_max);
+        uint32_t id =
+            siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
+        B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack});
+        ++sites;
+        changed = true;
+      }
+    }
+
+    if (dump_summary && sites > pf_start)
+      per_func_sites[&F] = sites - pf_start;
+
   }
 
   if (getenv("AFL_QUIET") == nullptr)
     errs() << "[afl-bug] SLACK instrumented " << sites << " icmp sites\n";
+  if (dump_summary) {
+    for (auto &kv : per_func_sites)
+      errs() << "[afl-bug-summary] SLACK " << kv.first->getName()
+             << " sites=" << kv.second << "\n";
+  }
   return changed;
 
 }
@@ -3185,6 +3393,16 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
   uint32_t              next_alloc_id = 1;
   uint32_t              rewrites = 0, custom_inserts = 0, custom_frees = 0;
+  bool                  dump_summary =
+      getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
+  struct AllocSummary {
+    uint32_t rewrites = 0;
+    uint32_t customs = 0;
+    uint32_t stores = 0;
+    uint32_t mems = 0;
+    uint32_t stack_regs = 0;
+  };
+  std::map<Function *, AllocSummary> per_func;
   std::set<std::string> custom_set(custom.begin(), custom.end());
   std::set<std::string> custom_free_set(custom_free.begin(), custom_free.end());
 
@@ -3193,6 +3411,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     if (F.isDeclaration()) continue;
     if (!isInInstrumentList(&F, F.getName().str())) continue;
     std::vector<Instruction *> dead;
+    uint32_t pf_rew_start = rewrites;
+    uint32_t pf_cust_start = custom_inserts + custom_frees;
     for (BasicBlock &BB : F) {
 
       // Manual advance-before-process iteration: rewriting an InvokeInst
@@ -3531,6 +3751,14 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     }
 
     for (auto *I : dead) I->eraseFromParent();
+    if (dump_summary) {
+      uint32_t r = rewrites - pf_rew_start;
+      uint32_t cu = (custom_inserts + custom_frees) - pf_cust_start;
+      if (r || cu) {
+        per_func[&F].rewrites = r;
+        per_func[&F].customs = cu;
+      }
+    }
 
   }
 
@@ -3565,6 +3793,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
     if (F.isDeclaration()) continue;
     if (!isInInstrumentList(&F, F.getName().str())) continue;
+    uint32_t pf_store_start = store_sites;
+    uint32_t pf_mem_start = mem_sites;
     // Walk every store in the function, not just loop-internal ones. The
     // oracle runtime is cheap on shadow miss, and OOB writes happen
     // outside loops too (e.g., one-shot `arr[computed_idx] = x`).
@@ -3627,6 +3857,14 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
       }
 
+    }
+    if (dump_summary) {
+      uint32_t s = store_sites - pf_store_start;
+      uint32_t m = mem_sites - pf_mem_start;
+      if (s || m) {
+        per_func[&F].stores += s;
+        per_func[&F].mems += m;
+      }
     }
 
   }
@@ -3701,6 +3939,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
       if (candidates.empty()) continue;
       ++stack_funcs;
+      uint32_t pf_stack_start = stack_regs;
       // Collect function-level exit insertion points once for the
       // fallback path (used per-alloca when no lifetime intrinsic is
       // available).  Return / Resume cover normal return and C++
@@ -3794,6 +4033,11 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
       }
 
+      if (dump_summary) {
+        uint32_t s = stack_regs - pf_stack_start;
+        if (s) per_func[&F].stack_regs += s;
+      }
+
     }
 
   }
@@ -3806,6 +4050,15 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
            << " stores, " << mem_sites << " mem intrinsics instrumented; "
            << stack_regs << " stack registers / " << stack_unregs
            << " unregisters across " << stack_funcs << " functions\n";
+  if (dump_summary) {
+    for (auto &kv : per_func)
+      errs() << "[afl-bug-summary] ALLOCSIZE " << kv.first->getName()
+             << " rew=" << kv.second.rewrites
+             << " cust=" << kv.second.customs
+             << " stores=" << kv.second.stores
+             << " mem=" << kv.second.mems
+             << " stack=" << kv.second.stack_regs << "\n";
+  }
   return rewrites > 0 || custom_inserts > 0 || custom_frees > 0 ||
          store_sites > 0 || mem_sites > 0 || stack_regs > 0;
 
