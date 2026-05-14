@@ -153,6 +153,12 @@ struct BugPassState {
 
   std::map<Function *, SmallPtrSet<Value *, 32>> scalar_covered;
   bool                                           scalar_slice = false;
+  // Bug 21: shared custom-allocator set populated from
+  // AFL_LLVM_BUG_ALLOCSIZE_FUNCS. Used by ALLOCSIZE (registers them),
+  // SIZEFILL (recovers buffer size from the call's size arg), and
+  // SCALAR_SLICE (treats their size args as sinks). Without this all
+  // three modes silently ignored user-listed allocators.
+  std::set<std::string> custom_allocs;
 
 };
 
@@ -171,7 +177,8 @@ class BugPass : public PassInfoMixin<BugPass> {
 bool runScalarMode(Module &M, ModuleAnalysisManager &MAM,
                    BugPassState &S);
 bool runBudgetMode(Module &M, ModuleAnalysisManager &MAM);
-bool runSizefillMode(Module &M, ModuleAnalysisManager &MAM);
+bool runSizefillMode(Module &M, ModuleAnalysisManager &MAM,
+                     const BugPassState &S);
 bool runSlackMode(Module &M, ModuleAnalysisManager &MAM,
                   const BugPassState &S);
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &MAM,
@@ -400,12 +407,15 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
   // plugin instance.
   state_.scalar_covered.clear();
   state_.scalar_slice = cfg.scalar_slice;
+  state_.custom_allocs.clear();
+  for (const std::string &name : cfg.custom_alloc_funcs)
+    state_.custom_allocs.insert(name);
   emitBugModeGlobal(M, cfg);
 
   bool changed = true;
   if (cfg.scalar) changed |= runScalarMode(M, MAM, state_);
   if (cfg.budget) changed |= runBudgetMode(M, MAM);
-  if (cfg.sizefill) changed |= runSizefillMode(M, MAM);
+  if (cfg.sizefill) changed |= runSizefillMode(M, MAM, state_);
   if (cfg.slack) changed |= runSlackMode(M, MAM, state_);
   if (cfg.allocsize)
     changed |= runAllocSizeMode(M, MAM, cfg.custom_alloc_funcs,
@@ -480,7 +490,8 @@ static bool isInductionVariableUpdate(BinaryOperator *I, LoopInfo &LI) {
 // AllocKind table's allocator names match the post-rewrite forms too,
 // so this works whether ALLOCSIZE has already run or not).
 static void
-computeScalarSinkSlice(Function &F, SmallPtrSetImpl<Value *> &out) {
+computeScalarSinkSlice(Function &F, const std::set<std::string> &customs,
+                       SmallPtrSetImpl<Value *> &out) {
 
   SmallVector<Value *, 32> work;
   auto                     pushIfInt = [&](Value *V) {
@@ -494,8 +505,13 @@ computeScalarSinkSlice(Function &F, SmallPtrSetImpl<Value *> &out) {
   // Allocator size arguments. Matched by name to avoid hard-coding the
   // AllocKind table layout here; this is a small subset (the size-arg
   // positions) of what runAllocSizeMode consumes.
-  auto isAllocSizeCallee = [](StringRef n) -> bool {
+  // Bug 21: include user-listed custom allocators
+  // (AFL_LLVM_BUG_ALLOCSIZE_FUNCS) so SCALAR_SLICE treats their size
+  // args as sinks too. Without this, slice-filtered SCALAR misses every
+  // computation that flows into a custom allocator.
+  auto isAllocSizeCallee = [&](StringRef n) -> bool {
 
+    if (!customs.empty() && customs.count(n.str())) return true;
     return n == "malloc" || n == "calloc" || n == "realloc" ||
            n == "reallocarray" || n == "posix_memalign" ||
            n == "aligned_alloc" || n == "strndup" ||
@@ -656,7 +672,7 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
     // libwebp-class signal SCALAR otherwise captures. Useful only for
     // very large targets where map pollution outweighs lost coverage.
     SmallPtrSet<Value *, 32> slice;
-    if (S.scalar_slice) computeScalarSinkSlice(F, slice);
+    if (S.scalar_slice) computeScalarSinkSlice(F, S.custom_allocs, slice);
 
     // Track which Values get instrumented here, for SLACK dedup.
     SmallPtrSet<Value *, 32> &covered = S.scalar_covered[&F];
@@ -675,6 +691,14 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
           case Instruction::Shl:
           case Instruction::LShr:
           case Instruction::AShr:
+          // Bug 13: division and remainder. Size-relevant in many decoders
+          // (chunk_size = total / count, align_off = addr % stride). The
+          // map-MAX rule still applies — `q = a / b` produces a bucketed
+          // log2 value that grows with q.
+          case Instruction::UDiv:
+          case Instruction::SDiv:
+          case Instruction::URem:
+          case Instruction::SRem:
             break;
           default:
             continue;
@@ -700,6 +724,56 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 
       }
 
+    }
+
+    // Bug 14: *WithOverflow intrinsic results. `__builtin_mul_overflow`
+    // and friends lower to `llvm.{u,s}{add,sub,mul}.with.overflow.iN`
+    // whose `{value, overflow}` aggregate is consumed via extractvalue.
+    // The value (index 0) carries the same MAX-channel signal as a plain
+    // Add/Mul/Sub but slips past the BinaryOperator filter above.
+    //
+    // We instrument the extractvalue with id=0 only (value); the i1
+    // overflow extract is uninteresting for the MAX bucket (a 1-bit
+    // value never grows past bucket 1).
+    auto isOverflowIntrinsic = [](Intrinsic::ID iid) -> bool {
+      switch (iid) {
+        case Intrinsic::uadd_with_overflow:
+        case Intrinsic::sadd_with_overflow:
+        case Intrinsic::usub_with_overflow:
+        case Intrinsic::ssub_with_overflow:
+        case Intrinsic::umul_with_overflow:
+        case Intrinsic::smul_with_overflow:
+          return true;
+        default:
+          return false;
+      }
+    };
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        auto *EV = dyn_cast<ExtractValueInst>(&I);
+        if (!EV) continue;
+        if (EV->getNumIndices() != 1 || EV->getIndices()[0] != 0) continue;
+        auto *Call = dyn_cast<IntrinsicInst>(EV->getAggregateOperand());
+        if (!Call) continue;
+        if (!isOverflowIntrinsic(Call->getIntrinsicID())) continue;
+        auto *IT = dyn_cast<IntegerType>(EV->getType());
+        if (!IT) continue;
+        if (IT->getBitWidth() < 8 || IT->getBitWidth() > 64) continue;
+        // Optional slice filter: only instrument if the value reaches a
+        // size sink (the overflow intrinsic's slice membership was
+        // computed for ITS operands; the extractvalue inherits via the
+        // backward-BFS through the Operator chain).
+        if (S.scalar_slice && !slice.count(EV)) continue;
+        IRBuilder<> B(EV->getNextNode());
+        inheritDebugLoc(B, EV);
+        Value   *v64 = B.CreateZExtOrTrunc(EV, I64);
+        uint32_t id = siteSlotId(func_name, site_idx++,
+                                 BUG_MODE_SALT_SCALAR_ARITH);
+        B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
+        covered.insert(EV);
+        ++arith_sites;
+        changed = true;
+      }
     }
 
     // Loop-header iteration counters in the SAME function — re-use the
@@ -874,18 +948,103 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
         Value *idx = GEP->getOperand(GEP->getNumOperands() - 1);
         // Look through zero/sign-extending casts: clang produces
         // `zext i32 %ret to i64` between the call and the GEP.
-        while (auto *Cast = dyn_cast<CastInst>(idx)) {
+        // Bug 19: ALSO walk through alloca-spill on the index — at -O0
+        // / -Og clang stores the call result to a stack slot and
+        // reloads it. The cast-only walk caught the post-mem2reg form
+        // but missed every unoptimized build. Mirror the 2-level
+        // single-store-alloca walk used for base resolution below.
+        for (int spill = 0; spill < 3; ++spill) {
 
-          if (Cast->getOpcode() == Instruction::ZExt ||
-              Cast->getOpcode() == Instruction::SExt ||
-              Cast->getOpcode() == Instruction::Trunc)
-            idx = Cast->getOperand(0);
-          else
-            break;
+          while (auto *Cast = dyn_cast<CastInst>(idx)) {
+
+            if (Cast->getOpcode() == Instruction::ZExt ||
+                Cast->getOpcode() == Instruction::SExt ||
+                Cast->getOpcode() == Instruction::Trunc)
+              idx = Cast->getOperand(0);
+            else
+              break;
+
+          }
+
+          auto *Ld = dyn_cast<LoadInst>(idx);
+          if (!Ld) break;
+          auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand());
+          if (!AI) break;
+          // Single-store source — multiple stores or non-int stores make
+          // the origin ambiguous; treat as a hard stop.
+          Value   *src = nullptr;
+          unsigned nstore = 0;
+          bool     ambig = false;
+          for (User *U : AI->users()) {
+
+            auto *St = dyn_cast<StoreInst>(U);
+            if (!St || St->getPointerOperand() != AI) continue;
+            ++nstore;
+            Value *sv = St->getValueOperand();
+            if (src && src != sv) {
+
+              ambig = true;
+              break;
+
+            }
+
+            src = sv;
+
+          }
+
+          if (ambig || !src || nstore != 1) break;
+          idx = src;
 
         }
 
         auto *Call = dyn_cast<CallBase>(idx);
+
+        // Bug 20: `returned` attribute. When the callee's parameter is
+        // marked `returned`, LLVM's opt substitutes the parameter for
+        // the call result at use sites — so `p += call(buf, n)`
+        // becomes `p += n` in IR when fill_lying does `return n`. The
+        // call result is gone; we must rediscover it by walking from
+        // `idx` (which is now the parameter value) to a CallBase that
+        // uses idx as a returned-tagged operand.
+        //
+        // Constants don't have a tracked user-list (LLVM asserts on
+        // user_begin for ConstantInt et al.), so skip the walk when
+        // idx is a plain constant. Also skip if Argument because no
+        // call inside this function can have a Function::Argument of
+        // this same function as its returned-arg substitute (the
+        // optimizer would have folded earlier).
+        if (!Call && !isa<Constant>(idx) && idx->hasUseList()) {
+
+          unsigned probes = 0;
+          for (User *U : idx->users()) {
+
+            if (++probes > 32) break;
+            auto *CB = dyn_cast<CallBase>(U);
+            if (!CB || (!isa<CallInst>(CB) && !isa<InvokeInst>(CB)))
+              continue;
+            Function *Callee = CB->getCalledFunction();
+            if (!Callee) continue;
+            // The same value can appear at multiple arg positions of
+            // the same call; accept any position that carries
+            // `returned` AND must match the call's own returned-arg
+            // (LLVM only allows one returned attribute per signature).
+            for (unsigned k = 0; k < CB->arg_size(); ++k) {
+
+              if (CB->getArgOperand(k) != idx) continue;
+              if (k >= Callee->arg_size()) continue;
+              if (!Callee->getArg(k)->hasAttribute(Attribute::Returned))
+                continue;
+              Call = CB;
+              break;
+
+            }
+
+            if (Call) break;
+
+          }
+
+        }
+
         if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
           continue;
         // Match base against any pointer arg of the call, peering through
@@ -894,42 +1053,72 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
         // Bug 8 extension: a single level catches optnone code; two
         // levels catches post-Inlining-without-mem2reg IR where the
         // inlined callee re-spills its arg into a second slot.
+        //
+        // Bug 19 extension: walk allocas with MULTIPLE stores too — the
+        // canonical `p += s` pattern stores once with the initial value
+        // and once with the post-GEP update, so requiring a single
+        // store dropped every -O0 budget call. We DFS over every
+        // possible source value; if ANY source matches the call's
+        // pointer arg, accept. Risk: wrong-frame match if the alloca
+        // held an unrelated value at some point — bounded because the
+        // runtime check uses the matched ptr_before to find its frame
+        // and silently no-ops on mismatch (no FP abort).
         auto matches_arg = [&](Value *arg_val, Value *needle) -> bool {
 
-          Value *a = arg_val->stripPointerCasts();
-          // Walk needle through up to 2 spill-loads.
-          Value *b = needle->stripPointerCasts();
-          for (int depth = 0; depth < 3; ++depth) {
+          // Bug 19: normalize each side to either its source SSA value
+          // or its backing alloca. Two loads from the same alloca alias
+          // to the same logical variable (e.g. `p` at -O0 is loaded
+          // separately at the call site and at the GEP — different SSA,
+          // same alloca). The DFS then accepts (alloca == alloca) or
+          // any store-source overlap.
+          auto stripped = [](Value *v) {
 
+            return v ? v->stripPointerCasts() : v;
+
+          };
+
+          auto loadAlloca = [&](Value *v) -> AllocaInst * {
+
+            if (auto *Ld = dyn_cast<LoadInst>(v))
+              return dyn_cast<AllocaInst>(Ld->getPointerOperand());
+            return nullptr;
+
+          };
+
+          Value       *a = stripped(arg_val);
+          AllocaInst  *a_alloca = loadAlloca(a);
+
+          SmallVector<Value *, 8>  work;
+          SmallPtrSet<Value *, 16> seen;
+          work.push_back(stripped(needle));
+          unsigned iters = 0;
+          while (!work.empty()) {
+
+            if (++iters > 32) break;
+            Value *b = work.pop_back_val();
+            b = stripped(b);
+            if (!seen.insert(b).second) continue;
             if (a == b) return true;
+            // Same alloca on both sides — aliased load.
+            if (a_alloca && a_alloca == loadAlloca(b)) return true;
             auto *Ld = dyn_cast<LoadInst>(b);
-            if (!Ld) break;
+            if (!Ld) continue;
             auto *AI = dyn_cast<AllocaInst>(Ld->getPointerOperand());
-            if (!AI) break;
-            Value *next = nullptr;
-            bool   multi = false;
+            if (!AI) continue;
+            // Push every store source — multi-store allocas (the `p =
+            // call_or_init; p += s` idiom) yield multiple candidates.
             for (User *U : AI->users()) {
 
               auto *St = dyn_cast<StoreInst>(U);
               if (!St || St->getPointerOperand() != AI) continue;
               Value *sv = St->getValueOperand()->stripPointerCasts();
-              if (next && next != sv) {
-
-                multi = true;
-                break;
-
-              }
-
-              next = sv;
+              work.push_back(sv);
 
             }
 
-            if (multi || !next) break;
-            b = next;
-
           }
 
-          return a == b;
+          return false;
 
         };
 
@@ -937,7 +1126,15 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F) {
 
           if (matches_arg(Call->getArgOperand(i), base)) {
 
-            out.push_back({Call, i, base});
+            // Bug 19: use the call's actual pointer arg as PtrBefore,
+            // not the GEP's base. The call arg DOMINATES the call (it's
+            // the call's own operand); the GEP base may not — under -O0
+            // it's a separate load that post-dates the call, and using
+            // it at the pre-call ws_begin site emits IR that reads an
+            // SSA value before its definition. The two values are equal
+            // at runtime in the canonical pattern (no store to the
+            // backing alloca between the call and the GEP).
+            out.push_back({Call, i, Call->getArgOperand(i)});
             break;
 
           }
@@ -1149,6 +1346,15 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
 
     // Precondition (a): at least one non-pointer integer arg appears
     // earlier in the signature. Excludes the `parse(buf, &err)` shape.
+    //
+    // Bug 18: BUT — 2-arg signatures `parse(buf, size_t *out)` are also
+    // valid SIZEFILL targets (zlib, libpng, OpenSSL EVP variants). They
+    // have no int arg at all. We allow the 2-arg form when the stored
+    // value through the out-param is pointer-wide; that's a stronger
+    // signal of "size_t" than has_int_arg_before. The `parse(buf, int
+    // *err)` case fails this because `int` is < ptr_bits on 64-bit. On
+    // 32-bit targets where int == ptr_bits, FP risk on `&err` is
+    // accepted (same trade-off as Bug 5's original precondition (b)).
     bool has_int_arg_before = false;
     for (Argument &B : F.args()) {
 
@@ -1162,7 +1368,8 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
 
     }
 
-    if (!has_int_arg_before) continue;
+    bool is_two_arg_form = (F.arg_size() == 2);
+    if (!has_int_arg_before && !is_two_arg_form) continue;
 
     // Walk users (including spill-load idiom) for a store of an integer
     // through this arg.
@@ -1255,12 +1462,20 @@ static int findOutSizeParam(Function &F, int sentinel_idx, int *out_bits,
         unsigned bits = VT->getIntegerBitWidth();
         if (bits < 16 || bits > 64) continue;
 
-        // Precondition (b): stored value must be pointer-wide. The
-        // strongest single signal that we're seeing a size_t store
-        // rather than an error-code (int) store. On 32-bit targets
-        // the test collapses and `int *err` would also match — an
-        // accepted false-positive on a niche architecture.
-        if (bits < ptr_bits) continue;
+        // Bug 17: previously required `bits >= ptr_bits`, meant to
+        // reject the `int *err_code` shape. That rule also rejected
+        // *every* `uint32_t *out_size` on 64-bit targets — by far the
+        // largest practical miss class (libpng, libxml2, OpenSSL all
+        // use `unsigned int *outlen` patterns). When `has_int_arg_before`
+        // is true (`parse(buf, len, *out)` shape) the int-arg already
+        // signals "this is a real parser API, not error-code-only", so
+        // 32-bit out widths are safe.
+        //
+        // Bug 18: the 2-arg form `parse(buf, *out)` has no int arg to
+        // disambiguate. There we still require ptr-width to reject
+        // `parse(buf, *err)`.
+        unsigned min_bits = is_two_arg_form ? ptr_bits : 32;
+        if (bits < min_bits) continue;
 
         if (out_bits) *out_bits = (int)bits;
         if (out_is_inout) *out_is_inout = is_inout;
@@ -1769,18 +1984,21 @@ static bool functionHasStoreThroughArg(Function &F, unsigned arg_idx) {
 // and tracking them here would block legitimate joins.
 static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
                                        const DataLayout       &DL,
+                                       const std::set<std::string> &customs,
                                        SmallPtrSetImpl<Value *> &visited);
 
 static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
-                                   const DataLayout &DL) {
+                                   const DataLayout            &DL,
+                                   const std::set<std::string> &customs) {
 
   SmallPtrSet<Value *, 16> visited;
-  return inferBufferSizeValueImpl(V, B, DL, visited);
+  return inferBufferSizeValueImpl(V, B, DL, customs, visited);
 
 }
 
 static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
                                        const DataLayout       &DL,
+                                       const std::set<std::string> &customs,
                                        SmallPtrSetImpl<Value *> &visited) {
 
   IntegerType *I64 = IntegerType::getInt64Ty(B.getContext());
@@ -1851,7 +2069,7 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
       // recursive call walks back to ITS malloc, which dominates the
       // terminator (it's in this same predecessor or an ancestor).
       IRBuilder<> PB(Pred->getTerminator());
-      Value      *s = inferBufferSizeValueImpl(Inc, PB, DL, visited);
+      Value      *s = inferBufferSizeValueImpl(Inc, PB, DL, customs, visited);
       if (!s) {
 
         ok = false;
@@ -1897,9 +2115,9 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
 
     if (!visited.insert(Sel).second) return nullptr;
     Value *st =
-        inferBufferSizeValueImpl(Sel->getTrueValue(), B, DL, visited);
+        inferBufferSizeValueImpl(Sel->getTrueValue(), B, DL, customs, visited);
     Value *sf =
-        inferBufferSizeValueImpl(Sel->getFalseValue(), B, DL, visited);
+        inferBufferSizeValueImpl(Sel->getFalseValue(), B, DL, customs, visited);
     if (!st || !sf) return nullptr;
     auto *Ct = dyn_cast<ConstantInt>(st);
     auto *Cf = dyn_cast<ConstantInt>(sf);
@@ -2063,13 +2281,40 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
 
     }
 
+    // Bug 21: user-listed custom allocators (AFL_LLVM_BUG_ALLOCSIZE_FUNCS).
+    // The pass-side ALLOCSIZE block picks the widest integer arg as the
+    // size; mirror the heuristic here so SIZEFILL recognizes a buf
+    // allocated by `MyAlloc(n)` and can range-check writes against it.
+    if (!customs.empty() && customs.count(name.str())) {
+
+      Value   *sizeArg = nullptr;
+      unsigned bestBits = 0;
+      for (unsigned i = 0; i < Call->arg_size(); ++i) {
+
+        auto *AIT =
+            dyn_cast<IntegerType>(Call->getArgOperand(i)->getType());
+        if (!AIT) continue;
+        if (AIT->getBitWidth() >= bestBits) {
+
+          bestBits = AIT->getBitWidth();
+          sizeArg = Call->getArgOperand(i);
+
+        }
+
+      }
+
+      if (sizeArg) return B.CreateZExtOrTrunc(sizeArg, I64);
+
+    }
+
   }
 
   return nullptr;
 
 }
 
-bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
+bool runSizefillMode(Module &M, ModuleAnalysisManager &,
+                     const BugPassState &S) {
 
   LLVMContext &C = M.getContext();
   Type        *VoidTy = Type::getVoidTy(C);
@@ -2172,7 +2417,8 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &) {
 
         IRBuilder<> Pre(Call);
         inheritDebugLoc(Pre, Call);
-        Value *bufsz = inferBufferSizeValue(p, Pre, M.getDataLayout());
+        Value *bufsz = inferBufferSizeValue(p, Pre, M.getDataLayout(),
+                                            S.custom_allocs);
         if (!bufsz) continue;
 
         // Bug 2: defensively zero the out-param BEFORE the call. If the
@@ -2328,19 +2574,52 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
 
     };
 
-    std::vector<ICmpInst *> targets;
-    std::vector<FCmpInst *> fp_targets;  // Enh D
+    std::vector<ICmpInst *>  targets;
+    std::vector<FCmpInst *>  fp_targets;   // Enh D
+    std::vector<SwitchInst *> sw_targets;  // Bug 15
     for (BasicBlock &BB : F) {
 
       for (Instruction &I : BB) {
 
+        // Bug 15: SwitchInst. clang emits `switch` rather than a chain
+        // of icmps for dispatchers > a few cases. Without coverage here
+        // a 256-case opcode parser gets zero "near magic value"
+        // gradient. We compute `|cond - case_i|` per case below.
+        if (auto *SW = dyn_cast<SwitchInst>(&I)) {
+
+          Type *CT = SW->getCondition()->getType();
+          auto *IT = dyn_cast<IntegerType>(CT);
+          if (!IT) continue;
+          if (IT->getBitWidth() < 8 || IT->getBitWidth() > 64) continue;
+          if (SW->getNumCases() == 0) continue;  // unreachable / default-only
+          sw_targets.push_back(SW);
+          continue;
+
+        }
+
         if (auto *Cmp = dyn_cast<ICmpInst>(&I)) {
 
           Type *OpTy = Cmp->getOperand(0)->getType();
+          // Bug 16: allow pointer ICmps. Many parsers test
+          // `if (p == sentinel)` or `if (p < end)`; without coverage
+          // here the SLACK channel sees only the integer comparisons,
+          // missing pointer-distance gradients. Vector compares stay
+          // unsupported (slack semantics don't lift cleanly to vectors).
+          // For pointer compares, we ptrtoint at emit time below.
           auto *IT = dyn_cast<IntegerType>(OpTy);
-          if (!IT) continue;  // skip pointer / vector comparisons
-          if (IT->getBitWidth() < 8 || IT->getBitWidth() > 64) continue;
+          bool  is_ptr_cmp = !IT && OpTy->isPointerTy();
+          if (!IT && !is_ptr_cmp) continue;
+          // Bug 22: accept i128 too. Crypto code (curve arithmetic, big-
+          // int comparisons) routinely uses i128. We trunc the i128
+          // distance to i64 with a saturating sticky-bit: if the high
+          // 64 bits are non-zero, slack is saturated to UINT64_MAX
+          // (= MIN bucket = no signal); else the low 64 bits carry the
+          // real gradient. Same emit logic, plus a single icmp+select.
+          if (IT && (IT->getBitWidth() < 8 || IT->getBitWidth() > 128))
+            continue;
           // Skip if both operands constant — optimizer would fold; defensive.
+          // For pointer compares this also drops `p == NULL` against another
+          // null — same intent.
           if (isa<Constant>(Cmp->getOperand(0)) &&
               isa<Constant>(Cmp->getOperand(1)))
             continue;
@@ -2386,6 +2665,30 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
       Value *Op0 = Cmp->getOperand(0);
       Value *Op1 = Cmp->getOperand(1);
 
+      // Bug 16: pointer compares get ptrtoint'd to i64 and treated as
+      // unsigned distance. Heap addresses are within a single 47-bit
+      // user range on Linux/x86_64 and the unsigned subtraction is the
+      // natural "byte-distance" gradient. Pointer ICmps never use
+      // signed predicates in C, and SExt-defined inference doesn't
+      // apply to pointers, so we shortcut directly to the unsigned
+      // path.
+      if (Op0->getType()->isPointerTy() || Op1->getType()->isPointerTy()) {
+
+        Value *Op0_64 = B.CreatePtrToInt(Op0, I64);
+        Value *Op1_64 = B.CreatePtrToInt(Op1, I64);
+        Value *lt = B.CreateICmpULT(Op0_64, Op1_64);
+        Value *small = B.CreateSelect(lt, Op0_64, Op1_64);
+        Value *large = B.CreateSelect(lt, Op1_64, Op0_64);
+        Value *slack = B.CreateSub(large, small);
+        uint32_t id =
+            siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
+        B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack});
+        ++sites;
+        changed = true;
+        continue;
+
+      }
+
       // Sign-extend for signed predicates, zero-extend for unsigned /
       // equality. The choice is load-bearing here: a naive `|diff|` via
       // select-on-sign breaks for i64 unsigned operands whose true
@@ -2417,25 +2720,61 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
 
       }
 
-      Value *Op0_64, *Op1_64;
-      Value *lt;
-      if (signed_mode) {
+      // Bug 22: compute slack at the operand's native width when it
+      // exceeds i64 (i.e. i128). The hook takes an i64 so we truncate;
+      // a non-zero high half saturates to UINT64_MAX (= MIN bucket =
+      // no-signal, won't overwrite a tight match from another path).
+      Type     *NativeTy = Op0->getType();
+      bool     wide = NativeTy->isIntegerTy() &&
+                  cast<IntegerType>(NativeTy)->getBitWidth() > 64;
+      Value    *Op0_n, *Op1_n;
+      Value    *lt;
+      if (wide) {
 
-        Op0_64 = B.CreateSExtOrTrunc(Op0, I64);
-        Op1_64 = B.CreateSExtOrTrunc(Op1, I64);
-        lt = B.CreateICmpSLT(Op0_64, Op1_64);
+        // Always zext for wide-mode and use unsigned ordering; signed
+        // i128 distance isn't a common pattern and the unsigned bucket
+        // collapses sign-mismatched cases to the saturated bucket
+        // which is the conservative "no signal" choice.
+        Op0_n = B.CreateZExtOrTrunc(Op0, NativeTy);
+        Op1_n = B.CreateZExtOrTrunc(Op1, NativeTy);
+        lt = B.CreateICmpULT(Op0_n, Op1_n);
+
+      } else if (signed_mode) {
+
+        Op0_n = B.CreateSExtOrTrunc(Op0, I64);
+        Op1_n = B.CreateSExtOrTrunc(Op1, I64);
+        lt = B.CreateICmpSLT(Op0_n, Op1_n);
 
       } else {
 
-        Op0_64 = B.CreateZExtOrTrunc(Op0, I64);
-        Op1_64 = B.CreateZExtOrTrunc(Op1, I64);
-        lt = B.CreateICmpULT(Op0_64, Op1_64);
+        Op0_n = B.CreateZExtOrTrunc(Op0, I64);
+        Op1_n = B.CreateZExtOrTrunc(Op1, I64);
+        lt = B.CreateICmpULT(Op0_n, Op1_n);
 
       }
 
-      Value *small = B.CreateSelect(lt, Op0_64, Op1_64);
-      Value *large = B.CreateSelect(lt, Op1_64, Op0_64);
-      Value *slack = B.CreateSub(large, small);
+      Value *small = B.CreateSelect(lt, Op0_n, Op1_n);
+      Value *large = B.CreateSelect(lt, Op1_n, Op0_n);
+      Value *slack_n = B.CreateSub(large, small);
+      Value *slack;
+      if (wide) {
+
+        // Truncate to i64 with sticky saturation: if any high bit is
+        // set, force slack to UINT64_MAX.
+        Value *lo = B.CreateTrunc(slack_n, I64);
+        Value *hi = B.CreateTrunc(
+            B.CreateLShr(slack_n,
+                         ConstantInt::get(NativeTy, 64)),
+            I64);
+        Value *anyHi = B.CreateICmpNE(hi, ConstantInt::get(I64, 0));
+        slack = B.CreateSelect(anyHi,
+                               ConstantInt::get(I64, (uint64_t)-1), lo);
+
+      } else {
+
+        slack = slack_n;
+
+      }
 
       // Pass-side hash. With a 16K-slot map and many sites per TU, the
       // old `next_id++ & MASK` produced deterministic wrap-collisions
@@ -2498,6 +2837,50 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
           siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
       B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack_fp});
       ++sites;
+      changed = true;
+
+    }
+
+    // Bug 15: SwitchInst slack. For each case, emit `|cond - case_i|`
+    // as a separate hook with its own site id. Each case has the same
+    // MIN-disguised-as-MAX semantics as an ICmp EQ — an input that
+    // approaches one of the cases lights up that case's slot. Multiple
+    // simultaneously-tight cases produce a richer gradient than a
+    // single shared site.
+    //
+    // Unsigned distance: switch cases in LLVM IR are always integer
+    // constants and the case value's signedness is opaque (no signed/
+    // unsigned bit on `switch`). We use unsigned ordered subtraction —
+    // a tight EQ produces slack=0 regardless of signedness.
+    //
+    // Cost: one hook per case per switch site. A 256-case dispatcher
+    // adds 256 hooks. Worth it — that's exactly the dispatcher pattern
+    // that was previously invisible.
+    for (SwitchInst *SW : sw_targets) {
+
+      Value *Cond = SW->getCondition();
+      // Skip if SCALAR already covered the condition value. Avoids
+      // redundancy with the SCALAR MAX channel.
+      if (opAlreadyCovered(Cond)) continue;
+      IRBuilder<> B(SW);
+      inheritDebugLoc(B, SW);
+      Value *Cond_64 = B.CreateZExtOrTrunc(Cond, I64);
+      for (auto It = SW->case_begin(), E = SW->case_end(); It != E; ++It) {
+
+        ConstantInt *CaseV = It->getCaseValue();
+        Value       *CV64 = ConstantInt::get(I64, CaseV->getZExtValue());
+        // |Cond - CaseV| via unsigned ordered subtraction.
+        Value *lt = B.CreateICmpULT(Cond_64, CV64);
+        Value *small = B.CreateSelect(lt, Cond_64, CV64);
+        Value *large = B.CreateSelect(lt, CV64, Cond_64);
+        Value *slack = B.CreateSub(large, small);
+        uint32_t id =
+            siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
+        B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack});
+        ++sites;
+
+      }
+
       changed = true;
 
     }
@@ -2917,6 +3300,64 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         }
 
         if (matched) continue;
+        // Bug 23: anonymous mmap. mmap(addr, len, prot, flags, fd, off)
+        // returns a fresh region invisible to the malloc family. We
+        // detect the canonical anonymous form by `fd == -1` (a
+        // ConstantInt) and register the result against the size arg.
+        // File-backed mmaps (fd != -1) are NOT tracked — they alias
+        // existing storage and shadow-painting them risks false OOBs
+        // against the caller's view of the file. munmap is paired
+        // unconditionally (free is safe to no-op on untracked regions).
+        if (name == "mmap") {
+
+          if (Call->arg_size() == 6 &&
+              Call->getArgOperand(1)->getType()->isIntegerTy() &&
+              Call->getArgOperand(4)->getType()->isIntegerTy() &&
+              Call->getType()->isPointerTy()) {
+
+            auto *FdC = dyn_cast<ConstantInt>(Call->getArgOperand(4));
+            if (FdC && FdC->isMinusOne()) {
+
+              Instruction *PostAt =
+                  postCallInsertionPoint(Call, C, ".mmap.edge");
+              if (PostAt) {
+
+                IRBuilder<> Post(PostAt);
+                inheritDebugLoc(Post, Call);
+                uint32_t id = next_alloc_id++;
+                Post.CreateCall(
+                    allocReg,
+                    {castToPtrTy(Post, Call, PtrTy),
+                     Post.CreateZExtOrTrunc(Call->getArgOperand(1), I64),
+                     ConstantInt::get(I32, id)});
+                ++custom_inserts;
+
+              }
+
+            }
+
+          }
+          continue;
+
+        }
+
+        if (name == "munmap") {
+
+          if (Call->arg_size() >= 1 &&
+              Call->getArgOperand(0)->getType()->isPointerTy()) {
+
+            IRBuilder<> MB(Call);
+            inheritDebugLoc(MB, Call);
+            MB.CreateCall(
+                allocUnreg,
+                {castToPtrTy(MB, Call->getArgOperand(0), PtrTy)});
+            ++custom_frees;
+
+          }
+          continue;
+
+        }
+
         // 2) Manual unregister for user-listed custom deallocators.
         if (custom_free_set.count(name.str())) {
 

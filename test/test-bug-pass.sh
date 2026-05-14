@@ -538,4 +538,129 @@ else
   exit 1
 fi
 
+# ============================================================
+#  Bug 13-23 regression tests (added 2026-05-14)
+# ============================================================
+
+# --- Bug 13: SCALAR covers UDiv/SDiv/URem/SRem ---
+AFL_QUIET=1 AFL_LLVM_BUG_SCALAR=1 "$CC" -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-scalar-div.c" -o "$TMP/sdv.ll" 2>/dev/null
+hits=$(awk '/= (udiv|urem|sdiv|srem) i/{op=$0; getline n; if(n~/__afl_bug_scalar_max/) print n}' \
+  "$TMP/sdv.ll" | wc -l | tr -d ' ')
+if [ "${hits:-0}" -ge 4 ]; then
+  echo "[+] SCALAR div/rem: $hits div/rem sites instrumented"
+else
+  echo "[!] SCALAR div/rem: only $hits sites instrumented (expected >= 4)"
+  exit 1
+fi
+
+# --- Bug 15: SLACK on SwitchInst (gradient + IR hook count) ---
+printf 'fun: target_switch\n' > "$TMP/slack_sw.allow"
+AFL_QUIET=1 AFL_LLVM_BUG_SLACK=1 AFL_LLVM_ALLOWLIST="$TMP/slack_sw.allow" \
+  "$CC" "$SCRIPT_DIR/test-bug-slack-switch.c" -o "$TMP/slack_sw"
+sw_far=$("$TMP/slack_sw" 0          2>&1 | sed -n 's/.*maxval=\([0-9]*\).*/\1/p')
+sw_near=$("$TMP/slack_sw" 0x1001    2>&1 | sed -n 's/.*maxval=\([0-9]*\).*/\1/p')
+sw_exact=$("$TMP/slack_sw" 0x1000   2>&1 | sed -n 's/.*maxval=\([0-9]*\).*/\1/p')
+if [ "${sw_exact:-0}" -gt "${sw_near:-0}" ] && \
+   [ "${sw_near:-0}" -gt "${sw_far:-0}" ]; then
+  echo "[+] SLACK switch: gradient far=$sw_far near=$sw_near exact=$sw_exact"
+else
+  echo "[!] SLACK switch: far=$sw_far near=$sw_near exact=$sw_exact"
+  exit 1
+fi
+
+# --- Bug 17: SIZEFILL accepts uint32_t* out_size on 64-bit ---
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-sizefill-u32out.c" -o "$TMP/sfu"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/sfu" 2>"$TMP/sfu.err"
+sfu_rc=$?
+set -e
+if [ "$sfu_rc" -ne 0 ] && grep -q "SIZEFILL violation" "$TMP/sfu.err"; then
+  echo "[+] SIZEFILL u32 out: caught lying parser (rc=$sfu_rc)"
+else
+  echo "[!] SIZEFILL u32 out: rc=$sfu_rc"
+  cat "$TMP/sfu.err" || true
+  exit 1
+fi
+
+# --- Bug 18: SIZEFILL accepts 2-arg `parse(buf, *out)` ---
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-sizefill-twoarg.c" -o "$TMP/sft"
+set +e
+printf '\x00\x00\x00\x00' | "$TMP/sft" 2>"$TMP/sft.err"
+sft_rc=$?
+set -e
+if [ "$sft_rc" -ne 0 ] && grep -q "SIZEFILL violation" "$TMP/sft.err"; then
+  echo "[+] SIZEFILL 2-arg: caught lying parser (rc=$sft_rc)"
+else
+  echo "[!] SIZEFILL 2-arg: rc=$sft_rc"
+  cat "$TMP/sft.err" || true
+  exit 1
+fi
+
+# --- Bug 19: BUDGET catches `s = call; p += s` at -O0 ---
+AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 "$CC" -O0 \
+  "$SCRIPT_DIR/test-bug-budget-spill.c" -o "$TMP/bsp"
+set +e
+printf '\x10\x00\x00\x00' | "$TMP/bsp" 2>"$TMP/bsp.err"
+bsp_rc=$?
+set -e
+if [ "$bsp_rc" -ne 0 ] && grep -q "BUDGET violation" "$TMP/bsp.err"; then
+  echo "[+] BUDGET spill: caught -O0 spill+reload pattern (rc=$bsp_rc)"
+else
+  echo "[!] BUDGET spill: rc=$bsp_rc"
+  cat "$TMP/bsp.err" || true
+  exit 1
+fi
+
+# --- Bug 20: BUDGET catches callees with `returned` attribute (-O2) ---
+AFL_QUIET=1 AFL_LLVM_BUG_BUDGET=1 "$CC" -O2 \
+  "$SCRIPT_DIR/test-bug-budget-returned.c" -o "$TMP/brt"
+set +e
+"$TMP/brt" a b c 2>"$TMP/brt.err"
+brt_rc=$?
+set -e
+if [ "$brt_rc" -ne 0 ] && grep -q "BUDGET violation" "$TMP/brt.err"; then
+  echo "[+] BUDGET returned: caught optimizer-substituted call (rc=$brt_rc)"
+else
+  echo "[!] BUDGET returned: rc=$brt_rc"
+  cat "$TMP/brt.err" || true
+  exit 1
+fi
+
+# --- Bug 21: SIZEFILL recognizes buffers from AFL_LLVM_BUG_ALLOCSIZE_FUNCS ---
+# Verify the IR by counting sf_begin sites: with MyAlloc registered, the
+# parse() call against MyAlloc-buffer produces an extra sf_begin (versus
+# only the NULL-probe call when unregistered).
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 AFL_LLVM_BUG_ALLOCSIZE_FUNCS=MyAlloc \
+  "$CC" -O0 -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-sizefill-customalloc.c" -o "$TMP/sfca.ll" 2>/dev/null
+n_with=$(grep -c "__afl_bug_sf_begin" "$TMP/sfca.ll")
+AFL_QUIET=1 AFL_LLVM_BUG_SIZEFILL=1 \
+  "$CC" -O0 -S -emit-llvm \
+  "$SCRIPT_DIR/test-bug-sizefill-customalloc.c" -o "$TMP/sfca2.ll" 2>/dev/null
+n_without=$(grep -c "__afl_bug_sf_begin" "$TMP/sfca2.ll")
+if [ "${n_with:-0}" -gt "${n_without:-0}" ]; then
+  echo "[+] SIZEFILL custom alloc: sf_begin sites with=$n_with without=$n_without"
+else
+  echo "[!] SIZEFILL custom alloc: with=$n_with without=$n_without"
+  exit 1
+fi
+
+# --- Bug 23: ALLOCSIZE registers anonymous mmap ---
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" \
+  "$SCRIPT_DIR/test-bug-allocsize-mmap.c" -o "$TMP/amm"
+set +e
+printf '\x10\x00\x00\x00' | "$TMP/amm" 2>"$TMP/amm.err"
+amm_rc=$?
+set -e
+if [ "$amm_rc" -ne 0 ] && grep -q "ALLOCSIZE soft-OOB" "$TMP/amm.err"; then
+  echo "[+] ALLOCSIZE mmap: caught OOB in anonymous mapping (rc=$amm_rc)"
+else
+  echo "[!] ALLOCSIZE mmap: rc=$amm_rc"
+  cat "$TMP/amm.err" || true
+  exit 1
+fi
+
 echo "[+] all bug-pass tests passed"
