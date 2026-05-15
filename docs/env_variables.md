@@ -296,6 +296,38 @@ collisions occur.
 For more information, see
 [instrumentation/README.llvm.md#7) AFL++ N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage).
 
+#### PATH (LTO and PCGUARD)
+
+Setting `AFL_LLVM_PATH` (or `AFL_LLVM_LTO_PATH` / `AFL_LLVM_PATH_MODE`)
+under `afl-clang-lto` **or** `afl-clang-fast` (PCGUARD) enables
+Ball-Larus per-function path coverage in addition to the default edge
+coverage. Loops are treated as a single iteration (back-edges stripped).
+Functions with more than 100,000 acyclic paths that cannot be reduced
+by collapsing multi-way branches are skipped with a warning. The LTO
+build additionally composes with `AFL_LLVM_LTO_CALLER` to track
+`(call_site, path)` tuples.
+
+Levels:
+- `=1` — **relaxed**: every "guard-only" basic block (only loads/casts/
+  GEPs/cmps/phis/freezes/allocas/plain arithmetic + a terminator — no
+  calls/stores/atomics) collapses via `max()` instead of `sum()`.
+  Short-circuit `&&`/`||` and switches on a bare loaded value collapse to
+  one decision. Smallest map. An *empty* value (`AFL_LLVM_PATH=`) is
+  rejected — set explicitly to `1`/`2`/`3`/`0`.
+- `=2` — **restricted**: like `=1` but only 2-successor guard-only BBs
+  collapse; switches/indirectbr keep their full multiplying effect.
+- `=3` — **strict** Ball-Larus: every IR-level acyclic path is a unique
+  slot.
+
+`AFL_LLVM_PATH_MAX_PATHS=N` overrides the default 100,000-path cap above
+which a function is skipped (`N >= 2`). Useful for tightening or relaxing
+the cutoff on a per-target basis.
+
+See [instrumentation/README.lto.md](../instrumentation/README.lto.md)
+and
+[instrumentation/README.llvm.md](../instrumentation/README.llvm.md)
+for details.
+
 #### NOT_ZERO
 
   - Setting `AFL_LLVM_NOT_ZERO=1` during compilation will use counters that skip

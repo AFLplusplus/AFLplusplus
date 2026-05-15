@@ -186,7 +186,13 @@ static u32 __afl_fuzz_len_dummy;
 u32       *__afl_fuzz_len = &__afl_fuzz_len_dummy;
 int        __afl_sharedmem_fuzzing __attribute__((weak));
 
-u32 __afl_final_loc;
+// Weak so the LTO instrumentation can override with a strong static
+// initializer (see SanitizerCoverageLTO). On macOS this makes the
+// map size visible at load time, before any constructor runs --
+// otherwise AFL_DUMP_MAP_SIZE would always print MAP_SIZE because the
+// LTO-bitcode constructor that previously stored __afl_final_loc runs
+// after afl-compiler-rt.o's constructors on Mach-O.
+__attribute__((weak)) u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
 u32 __afl_cov_map_size = MAP_SIZE;
 u32 __afl_set_map_size = MAP_SIZE;
