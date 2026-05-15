@@ -20,6 +20,10 @@
     - Add LLVM 23 support
     - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
       triggers in target binaries
+  - afl-cmin:
+    - nyx_mode is now working for all minimizer variants
+  - afl-showmap:
+    - no more .afl-showmap-temp-* files lying around
   - IJON dist was changed to original IJON implementation: initial matching
     bytes, max length is 1024
   - lib* tools:
