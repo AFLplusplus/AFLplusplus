@@ -28,6 +28,7 @@
 /* Global IJON history limit - initialized from environment or AFL state */
 static int  afl_ijon_history_limit_global = 0;
 static bool afl_ijon_history_limit_initialized = false;
+int         afl_ijon_retire_max = 0;
 
 /* Global comprehensive IJON state for fastresume save/load */
 static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
@@ -198,7 +199,8 @@ ijon_input_info *ijon_get_input(ijon_min_state *self) {
 
   for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
 
-    if (self->max_map[i] > 0) {
+    if (self->max_map[i] > 0 &&
+        (!afl_ijon_retire_max || self->max_map[i] != UINT64_MAX)) {
 
       if (rnd == 0) { return self->infos[i]; }
       rnd--;
@@ -434,11 +436,28 @@ void ijon_update_max_dynamic(ijon_min_state          *self,
 
   for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
 
-    if (shared->ijon_max_area[i] > self->max_map[i]) {
+    u64 cur = shared->ijon_max_area[i];
+
+    if (afl_ijon_retire_max && self->max_map[i] == UINT64_MAX) { continue; }
+
+    if (afl_ijon_retire_max && cur == UINT64_MAX) {
+
+      if (self->max_map[i] > 0) { self->num_entries--; }
+
+      self->max_map[i] = UINT64_MAX;
+      self->infos[i]->len = 0;
+      unlink(self->infos[i]->filename);
+      self->num_updates++;
+
+      continue;
+
+    }
+
+    if (cur > self->max_map[i]) {
 
       if (self->max_map[i] == 0) { self->num_entries++; }
 
-      self->max_map[i] = shared->ijon_max_area[i];
+      self->max_map[i] = cur;
       self->num_updates++;
 
       ijon_store_max_input(self, i, data, len);

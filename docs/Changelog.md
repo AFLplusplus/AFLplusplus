@@ -17,8 +17,7 @@
     - minor speed, leak and zombie enhancements
     - somewhere we removed .state/variable/... now it is back :-)
   - afl-cc:
-    - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
-      triggers in target binaries
+    - Add LLVM 23 support
     - LTO and PCGUARD: new `AFL_LLVM_PATH` (also `AFL_LLVM_LTO_PATH` /
       `AFL_LLVM_PATH_MODE`) Ball-Larus per-function path coverage on top
       of edge coverage. Three levels: `=1` relaxed (collapse all
@@ -26,6 +25,12 @@
       guard-only BBs), `=3` strict Ball-Larus. LTO additionally composes
       with `AFL_LLVM_LTO_CALLER`. See
       instrumentation/README.llvm.md and instrumentation/README.lto.md.
+    - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
+      triggers in target binaries
+  - afl-cmin:
+    - nyx_mode is now working for all minimizer variants
+  - afl-showmap:
+    - no more .afl-showmap-temp-* files lying around
   - IJON dist was changed to original IJON implementation: initial matching
     bytes, max length is 1024
   - lib* tools:

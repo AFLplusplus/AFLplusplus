@@ -1733,11 +1733,14 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
       ++call_depth;
 
+      // returnOnlyCaller() returns non-NULL only when callee has exactly
+      // one caller, so the loop walks up the chain through single-caller
+      // functions and stops at the first ancestor with !=1 callers or
+      // when the depth budget is exhausted.
       while (instrument_ctx_max_depth >= call_depth &&
-             ((caller = returnOnlyCaller(callee)) || 1 == 1) &&
-             (call_counter = countCallers(callee)) == 1) {
+             (caller = returnOnlyCaller(callee)) != NULL) {
 
-        if (debug && caller && callee)
+        if (debug)
           fprintf(stderr, "DEBUG: another depth: %s <- %s [%u]\n",
                   callee->getName().str().c_str(),
                   caller->getName().str().c_str(), call_depth);
@@ -1746,15 +1749,19 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
       }
 
-      if (!caller && callee) {
+      if (!caller && callee) { caller = callee; }
 
-        caller = callee;
-        if (debug)
-          fprintf(stderr, "DEBUG: depth found: %s <- %s [count=%u, depth=%u]\n",
-                  caller->getName().str().c_str(), F.getName().str().c_str(),
-                  call_counter, call_depth);
+      // Refresh call_counter for the function we actually landed on; on
+      // depth-limit exit it would otherwise still hold the previous
+      // ancestor's count (always 1, which is what allowed us to keep
+      // walking), causing the call_counter==1 reset below to wipe a
+      // perfectly good multi-caller ancestor.
+      if (caller) call_counter = countCallers(caller);
 
-      }
+      if (debug)
+        fprintf(stderr, "DEBUG: depth found: %s <- %s [count=%u, depth=%u]\n",
+                caller ? caller->getName().str().c_str() : "(null)",
+                F.getName().str().c_str(), call_counter, call_depth);
 
     }
 
