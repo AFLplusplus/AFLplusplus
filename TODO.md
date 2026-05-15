@@ -22,7 +22,7 @@
  - cmplog: add loop count resolving (byte -> loop cnt change, calc special values)
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values
- - afl-plot to support multiple plot_data
+ - ~~afl-plot to support multiple plot_data~~
  - parallel builds for source-only targets
  - get rid of check_binary, replace with more forkserver communication
  - first fuzzer should be a main automatically? not sure.
