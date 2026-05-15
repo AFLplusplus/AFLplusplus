@@ -1102,6 +1102,7 @@ may_save_fault:
 #else
     WARNF("command execution unsupported");
 #endif
+
   }
 
 #ifdef __linux__

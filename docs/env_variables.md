@@ -262,9 +262,13 @@ use (which only ever the author of this LTO implementation will use). These are
 used if several separated instrumentations are performed which are then later
 combined.
 
-  - `AFL_LLVM_LTO_CALLER` activates collision free CALLER instrumentation
-  - `AFL_LLVM_LTO_CALLER` sets the maximum number of single block functions
-    to dig deeper into a real function. Default 0.
+  - `AFL_LLVM_LTO_CALLER` activates collision free CALLER instrumentation.
+    `AFL_LLVM_LTO_CTX` is a synonym; `AFL_LLVM_CALLER` / `AFL_LLVM_CTX` also
+    enable it.
+  - `AFL_LLVM_LTO_CALLER_DEPTH` sets the maximum number of single-caller
+    functions to walk up the call chain through to find a useful context
+    split point. Default 0. Synonyms (checked in this precedence order):
+    `AFL_LLVM_LTO_CTX_DEPTH`, `AFL_LLVM_CALLER_DEPTH`, `AFL_LLVM_CTX_DEPTH`.
   - `AFL_LLVM_DOCUMENT_IDS=file` will document to a file which edge ID was given
     to which function. This helps to identify functions with variable bytes or
     which functions were touched by an input.
@@ -668,6 +672,11 @@ checks or alter some of the more exotic semantics of the tool:
 
   - Setting `AFL_TRY_AFFINITY` tries to attempt binding to a specific CPU core
     on Linux systems, but will not terminate if that fails.
+
+  - By default on Linux, persistent mode uses shared memory and futexes for
+    child synchronization. This reduces the overhead of communication between
+    afl-fuzz and the persistent target child. Setting `AFL_OLD_CHILD_SYNC`
+    restores the old file descriptor based persistent synchronization behavior.
 
   - The following environment variables are only needed if you implemented
     your own forkserver or persistent mode, or if __AFL_LOOP or __AFL_INIT

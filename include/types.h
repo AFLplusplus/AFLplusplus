@@ -55,7 +55,24 @@ typedef uint128_t         u128;
 #define FS_NEW_ERROR 0xeffe0000
 #define FS_NEW_OPT_MAPSIZE 0x00000001      // parameter: 32 bit value
 #define FS_NEW_OPT_SHDMEM_FUZZ 0x00000002  // parameter: none
+#define FS_NEW_OPT_FUTEX 0x00000004        // parameter: none
 #define FS_NEW_OPT_AUTODICT 0x00000800     // autodictionary data
+
+#ifdef __linux__
+/* Protocol phases for the futex-based forkserver handshake.
+   A single 32-bit shared-memory word (child_sync) carries these values so
+   that afl-fuzz and the persistent target child can coordinate each execution
+   cycle without going through the normal pipe path. */
+typedef enum {
+
+  AFL_CHILD_IDLE = 0,  /* child not started, or dead                        */
+  AFL_CHILD_RUN = 1,   /* fuzzer → child: execute the next test case        */
+  AFL_CHILD_DONE = 2,  /* child → fuzzer: this iteration is complete        */
+  AFL_CHILD_EXITED = 3, /* child → fuzzer: child is exiting (crash/end)      */
+
+} afl_child_state_t;
+
+#endif                                                         /* __linux__ */
 
 /* Reporting options */
 #define FS_OPT_ENABLED 0x80000001

@@ -137,6 +137,20 @@ state_log = (state_log << 8) + msg.type;
 IJON_STATE(state_log); // reward new message sequences
 ```
 
+### Retiring completed max targets
+
+Use `IJON_MAX_UNTIL(x, limit)` when an IJON max objective has a known upper
+bound and continuing to schedule its seed after that point is no longer useful:
+
+```c
+IJON_MAX_UNTIL(depth, 100);
+IJON_MAX_UNTIL_AT(0x1234, score, target_score);
+```
+
+The fuzzer keeps guiding `x` upward while `x < limit`. When `x >= limit`, the
+slot writes the terminal value `UINT64_MAX`. If `AFL_IJON_RETIRE_MAX` is set
+during fuzzing, AFL++ removes that IJON max input from the IJON scheduling pool.
+
 ## Usage Instructions
 
 ### Building AFL++ with IJON
@@ -198,6 +212,7 @@ AFL_IJON_HISTORY_LIMIT=1000 afl-fuzz -S worker -i input_dir -o output_dir -- ./t
 
 - **`AFL_LLVM_IJON=1`**: Enables IJON instrumentation during compilation
 - **`AFL_IJON_HISTORY_LIMIT=N`**: Sets the maximum number of IJON max-value inputs stored on the host (default: 20)
+- **`AFL_IJON_RETIRE_MAX=1`**: Treats `UINT64_MAX` IJON max values as completed targets and stops scheduling their stored IJON input
 
 ## Performance (Super Mario Bros. Level 1.1, ijon_max(pos_y/16, world_pos))
 
@@ -286,5 +301,4 @@ Base Address    ┌────────────────────�
 - **Dynamic Offsets**: IJON offset calculated at runtime based on actual coverage size
 - **Consistent Layout**: Same memory organization regardless of target size
 - **Fastresume Support**: IJON offsets preserved across fuzzing sessions
-
 

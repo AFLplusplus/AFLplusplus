@@ -1639,6 +1639,14 @@ int main(int argc, char **argv_orig, char **envp) {
         open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", stdin_file); }
 
+    /* If we created the temp file ourselves and the target reads from stdin
+       (no @@ substitution), unlink the directory entry now. The open fd keeps
+       the file alive for writes, but SIGKILL / SIGSEGV / parent process kill
+       can no longer leave a stray .afl-showmap-temp-<pid> behind. With @@ the
+       path is baked into argv and must stay visible to the child, so we leave
+       it for the atexit / signal handler to clean up. */
+    if (!at_file && fsrv->use_stdin) { unlink(stdin_file); }
+
   } else {
 
     // If @@ are in the target args, replace them and also set use_stdin=false.

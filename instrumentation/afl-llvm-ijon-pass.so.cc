@@ -260,6 +260,7 @@ int IJONInstrumentation::instrumentFunction(Function &F) {
 
           if (calledFunc->getName() == "ijon_max" ||
               calledFunc->getName() == "ijon_max_variadic" ||
+              calledFunc->getName() == "ijon_max_until" ||
               calledFunc->getName() == "ijon_set" ||
               calledFunc->getName() == "ijon_inc" ||
               calledFunc->getName() == "ijon_xor_state") {
@@ -336,6 +337,11 @@ int IJONInstrumentation::instrumentFunction(Function &F) {
 
         // For ijon_xor_state, we don't transform - just count and pass through
         ijon_state_calls++;
+
+      } else if (calledFunc->getName() == "ijon_max_until") {
+
+        // Preserve ijon_max_until's encoded max value semantics.
+        ijon_max_calls++;
 
       } else {
 

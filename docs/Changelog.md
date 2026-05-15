@@ -8,14 +8,22 @@
   - Switched https://github.com/AFLplusplus/cov-analysis for outdated afl-cov
   - MacOS most current version support for afl-fuzz, afl-cc (incl. LTO) and
     frida mode
+  - Linux persistent mode uses futex now which increases speed and reduces
+    system call overhead (opt out with AFL_FAST_CHILD_SYNC), thanks to
+    @martinus for most of the implementation!
   - afl-fuzz:
     - `-I tool` call now receives the new crash as a command line parameter
     - changed to a better map classifier
     - minor speed, leak and zombie enhancements
     - somewhere we removed .state/variable/... now it is back :-)
   - afl-cc:
+    - Add LLVM 23 support
     - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
       triggers in target binaries
+  - afl-cmin:
+    - nyx_mode is now working for all minimizer variants
+  - afl-showmap:
+    - no more .afl-showmap-temp-* files lying around
   - IJON dist was changed to original IJON implementation: initial matching
     bytes, max length is 1024
   - lib* tools:

@@ -161,12 +161,9 @@ The following branches exist:
 
 ## Help wanted
 
-We have several [ideas](docs/ideas.md) we would like to see in AFL++ to make it
-even better. However, we already work on so many things that we do not have the
-time for all the big ideas.
-
+Check out our [issues list with the "help wanted" tag](https://github.com/AFLplusplus/AFLplusplus/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)].
 This can be your way to support and contribute to AFL++ - extend it to do
-something cool.
+something cool. If you have other ideas - just create an issue and propose it!
 
 For everyone who wants to contribute (and send pull requests), please read our
 [contributing guidelines](CONTRIBUTING.md) before you submit.

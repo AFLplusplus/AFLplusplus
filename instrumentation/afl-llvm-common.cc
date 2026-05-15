@@ -765,11 +765,19 @@ bool isExecCall(llvm::Instruction *IN) {
   if (!Callee || !Callee->hasName() || Callee->isIntrinsic()) return false;
 
   return llvm::StringSwitch<bool>(Callee->getName())
+#if LLVM_VERSION_MAJOR >= 22
+      .Cases({"execve", "execl", "execlp", "execle"}, true)
+      .Cases({"execv", "execvp", "execvP", "execvpe"}, true)
+      .Cases({"fexecve", "execveat"}, true)
+      .Cases({"posix_spawn", "posix_spawnp"}, true)
+      .Cases({"system", "popen"}, true)
+#else
       .Cases("execve", "execl", "execlp", "execle", true)
       .Cases("execv", "execvp", "execvP", "execvpe", true)
       .Cases("fexecve", "execveat", true)
       .Cases("posix_spawn", "posix_spawnp", true)
       .Cases("system", "popen", true)
+#endif
       .Default(false);
 
 }
@@ -819,8 +827,8 @@ std::pair<bool, bool> detectIJONUsage(Module &M) {
 
         // Check for other IJON functions (max/min/set/inc)
         if (funcName == "ijon_max" || funcName == "ijon_min" ||
-            funcName == "ijon_set" || funcName == "ijon_inc" ||
-            funcName == "ijon_max_variadic" ||
+            funcName == "ijon_max_until" || funcName == "ijon_set" ||
+            funcName == "ijon_inc" || funcName == "ijon_max_variadic" ||
             funcName == "ijon_min_variadic") {
 
           uses_ijon_functions = true;
