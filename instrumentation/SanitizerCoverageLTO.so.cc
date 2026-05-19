@@ -72,6 +72,7 @@
 #include "config.h"
 #include "debug.h"
 #include "afl-llvm-common.h"
+#include "PathCoverage.h"
 
 using namespace llvm;
 
@@ -205,6 +206,19 @@ class ModuleSanitizerCoverageLTO
   void InjectCoverageAtBlock(Function &F, BasicBlock &BB, size_t Idx,
                              bool IsLeafFunc = true);
 
+  /* Ball-Larus path coverage (AFL_LLVM_LTO_PATH).  Inserts a per-function
+     path register, edge increments on non-back edges, and a bitmap write
+     at every exit point.  No-op if path_mode == false or function is
+     ineligible.  Returns the number of slots reserved (0 if skipped).    */
+  /* Analyse the function's CFG *before* InjectCoverage mutates it (so
+     isGuardOnlyBB sees the source-level BBs, not BBs polluted by edge-
+     counter stores).  Stores per-function results in path* members. */
+  bool     analyzePathCoverage(Function &F);
+  uint64_t instrumentPathCoverage(Function           &F,
+                                  const DominatorTree *DT,
+                                  uint32_t            call_counter,
+                                  LoadInst           *PrevCtxLoad);
+
   std::string    getSectionName(const std::string &Section) const;
   FunctionCallee SanCovTracePC /*, SanCovTracePCGuard*/;
   Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
@@ -233,6 +247,19 @@ class ModuleSanitizerCoverageLTO
   uint32_t                         instrument_ctx = 0;
   uint32_t                         instrument_ctx_max_depth = 0;
   uint32_t                         extra_ctx_inst = 0;
+  bool                             path_mode = false;       // Ball-Larus path
+  uint32_t                         path_mode_level = 0;     // 1=relaxed, 2=restricted, 3=strict
+  uint64_t                         extra_path_inst = 0;     // sum of paths
+  uint32_t                         path_skipped_funcs = 0;  // skipped funcs
+  uint64_t                         path_max_paths = 100000;
+  /* Populated by analyzePathCoverage() before InjectCoverage runs and
+     consumed by instrumentPathCoverage() afterwards.  See PathCoverage.h. */
+  llvm::DenseMap<llvm::BasicBlock *, uint64_t> pathNumPaths;
+  llvm::DenseMap<std::pair<llvm::BasicBlock *, llvm::BasicBlock *>, uint64_t>
+                                                pathEdgeVal;
+  std::vector<std::pair<llvm::BasicBlock *, llvm::Instruction *>>
+                                                pathExits;
+  uint64_t                                      pathNumEntry = 0;
   uint64_t                         map_addr = 0;
   const char                      *skip_nozero = NULL;
   const char                      *use_threadsafe_counters = nullptr;
@@ -485,13 +512,139 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   }
 
+  /* AFL_LLVM_LTO_PATH (and aliases AFL_LLVM_PATH / AFL_LLVM_PATH_MODE):
+     Ball-Larus per-function path coverage on top of edge coverage.
+     Levels:
+       (unset/"0") — disabled.
+       "1" / ""    — relaxed: collapse every guard-only basic block (no
+                     calls, no stores, no atomics) via max(succ) instead
+                     of sum(succ).  Short-circuit `&&`/`||`, pure-condition
+                     chains, and switch-on-loaded-value collapse to a
+                     single decision.  Smallest map.
+       "2"         — restricted: like "1" but only collapse 2-successor
+                     guard-only BBs.  Switches and indirect branches
+                     remain as sum-merged decisions.  Slightly larger
+                     map than "1".
+       "3"         — strict Ball-Larus: every IR-level acyclic path has
+                     its own slot.  Largest map; matches the literal
+                     "every possible path is a unique route" reading.
+     Other values are rejected. */
+  {
+
+    const char *p = getenv("AFL_LLVM_LTO_PATH");
+    if (!p) p = getenv("AFL_LLVM_PATH");
+    if (!p) p = getenv("AFL_LLVM_PATH_MODE");
+    if (p) {
+
+      if (*p == 0) {
+
+        /* Reject the empty value rather than silently enabling level 1 —
+           users who want level 1 should pass "1". */
+        FATAL(
+            "AFL_LLVM_LTO_PATH/AFL_LLVM_PATH/AFL_LLVM_PATH_MODE was set to "
+            "an empty value. Use \"1\" (relaxed), \"2\" (restricted), "
+            "\"3\" (strict), or \"0\" (off).");
+
+      } else if (strcmp(p, "1") == 0) {
+
+        path_mode_level = 1;
+
+      } else if (strcmp(p, "2") == 0) {
+
+        path_mode_level = 2;
+
+      } else if (strcmp(p, "3") == 0) {
+
+        path_mode_level = 3;
+
+      } else if (strcmp(p, "0") == 0) {
+
+        path_mode_level = 0;
+
+      } else {
+
+        FATAL(
+            "AFL_LLVM_LTO_PATH/AFL_LLVM_PATH/AFL_LLVM_PATH_MODE only "
+            "accepts \"0\" (off), \"1\" (relaxed), \"2\" (restricted), or "
+            "\"3\" (strict). Got %s.",
+            p);
+
+      }
+      path_mode = (path_mode_level > 0);
+
+    }
+
+  }
+
+  if (const char *mp = getenv("AFL_LLVM_PATH_MAX_PATHS")) {
+
+    char *end = nullptr;
+    unsigned long long v = strtoull(mp, &end, 10);
+    if (!end || *end || v < 2 || v > (unsigned long long)INT32_MAX) {
+
+      /* INT32_MAX upper bound: the IR path index is held in a signed
+         i32 register, so any value beyond that would let path_base +
+         path_reg overflow the bitmap GEP. */
+      FATAL(
+          "AFL_LLVM_PATH_MAX_PATHS must be an integer in [2, %d] (got %s).",
+          INT32_MAX, mp);
+
+    }
+    path_max_paths = (uint64_t)v;
+
+  }
+
+  /* CTX_DEPTH > 1 + PATH would compute
+       idx = path_base + path_reg + cid * NumPaths
+     in i32, but `cid` is the AFLContext XOR-stack value which is *not*
+     bounded by call_counter when depth > 1. The result can fall outside
+     the reserved [path_base, path_base + numPaths * call_counter) range
+     and either alias another function's slots or write out-of-bounds.
+     Refuse the combination loudly rather than silently corrupt coverage. */
+  if (path_mode && instrument_ctx_max_depth > 1) {
+
+    FATAL(
+        "AFL_LLVM_CTX_DEPTH/AFL_LLVM_CALLER_DEPTH > 1 cannot be combined "
+        "with AFL_LLVM_PATH: at depth > 1 AFLContext is an XOR-stack of "
+        "caller IDs and is not bounded by call_counter, so the path "
+        "index math (path_base + cid * NumPaths + path) cannot stay in "
+        "range. Use depth = 1 with PATH, or disable PATH.");
+
+  }
+
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
-    char buf[64] = {};
-    if (instrument_ctx) {
+    char buf[160] = {};
+    const char *path_label;
+    switch (path_mode_level) {
 
-      snprintf(buf, sizeof(buf), " (CTX mode, depth %u)\n",
+      case 1:
+        path_label = "PATH mode (relaxed)";
+        break;
+      case 2:
+        path_label = "PATH mode (restricted)";
+        break;
+      case 3:
+        path_label = "PATH mode (strict)";
+        break;
+      default:
+        path_label = "PATH mode";
+        break;
+
+    }
+    if (instrument_ctx && path_mode) {
+
+      snprintf(buf, sizeof(buf), " (CTX mode, depth %u, %s)",
+               instrument_ctx_max_depth, path_label);
+
+    } else if (instrument_ctx) {
+
+      snprintf(buf, sizeof(buf), " (CTX mode, depth %u)",
                instrument_ctx_max_depth);
+
+    } else if (path_mode) {
+
+      snprintf(buf, sizeof(buf), " (%s)", path_label);
 
     }
 
@@ -1180,12 +1333,15 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
       write_loc = (((afl_global_id + 8) >> 3) << 3);
 
-      GlobalVariable *AFLFinalLoc =
-          new GlobalVariable(M, Int32Tyi, false, GlobalValue::ExternalLinkage,
-                             0, "__afl_final_loc");
+      // Define __afl_final_loc as a strong global with a static initializer
+      // (load-time value) instead of a runtime store inside a constructor.
+      // afl-compiler-rt.o has a tentative (common) definition that gets
+      // overridden at link time. This guarantees the value is set before any
+      // constructor runs, which matters on macOS where mod_init_func ordering
+      // does not honor cross-translation-unit constructor priorities.
       ConstantInt *const_loc = ConstantInt::get(Int32Tyi, write_loc);
-      StoreInst   *StoreFinalLoc = IRB.CreateStore(const_loc, AFLFinalLoc);
-      setNoSanitizeMetadata(StoreFinalLoc);
+      new GlobalVariable(M, Int32Tyi, false, GlobalValue::ExternalLinkage,
+                         const_loc, "__afl_final_loc");
 
     }
 
@@ -1275,11 +1431,28 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
                getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      char buf[64] = {};
+      char buf[160] = {};
+      char *p = buf;
+      size_t left = sizeof(buf);
       if (instrument_ctx) {
 
-        snprintf(buf, sizeof(buf), " with %u extra map entries for CTX",
-                 extra_ctx_inst);
+        int n =
+            snprintf(p, left, " with %u extra map entries for CTX",
+                     extra_ctx_inst);
+        if (n > 0 && (size_t)n < left) { p += n; left -= n; }
+
+      }
+      if (path_mode) {
+
+        int n = snprintf(p, left, " with %llu extra map entries for PATH",
+                         (unsigned long long)extra_path_inst);
+        if (n > 0 && (size_t)n < left) { p += n; left -= n; }
+        if (path_skipped_funcs) {
+
+          n = snprintf(p, left, " (%u funcs skipped)", path_skipped_funcs);
+          if (n > 0 && (size_t)n < left) { p += n; left -= n; }
+
+        }
 
       }
 
@@ -1560,11 +1733,14 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
       ++call_depth;
 
+      // returnOnlyCaller() returns non-NULL only when callee has exactly
+      // one caller, so the loop walks up the chain through single-caller
+      // functions and stops at the first ancestor with !=1 callers or
+      // when the depth budget is exhausted.
       while (instrument_ctx_max_depth >= call_depth &&
-             ((caller = returnOnlyCaller(callee)) || 1 == 1) &&
-             (call_counter = countCallers(callee)) == 1) {
+             (caller = returnOnlyCaller(callee)) != NULL) {
 
-        if (debug && caller && callee)
+        if (debug)
           fprintf(stderr, "DEBUG: another depth: %s <- %s [%u]\n",
                   callee->getName().str().c_str(),
                   caller->getName().str().c_str(), call_depth);
@@ -1573,15 +1749,19 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
       }
 
-      if (!caller && callee) {
+      if (!caller && callee) { caller = callee; }
 
-        caller = callee;
-        if (debug)
-          fprintf(stderr, "DEBUG: depth found: %s <- %s [count=%u, depth=%u]\n",
-                  caller->getName().str().c_str(), F.getName().str().c_str(),
-                  call_counter, call_depth);
+      // Refresh call_counter for the function we actually landed on; on
+      // depth-limit exit it would otherwise still hold the previous
+      // ancestor's count (always 1, which is what allowed us to keep
+      // walking), causing the call_counter==1 reset below to wipe a
+      // perfectly good multi-caller ancestor.
+      if (caller) call_counter = countCallers(caller);
 
-      }
+      if (debug)
+        fprintf(stderr, "DEBUG: depth found: %s <- %s [count=%u, depth=%u]\n",
+                caller ? caller->getName().str().c_str() : "(null)",
+                F.getName().str().c_str(), call_counter, call_depth);
 
     }
 
@@ -2265,6 +2445,11 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
   }
 
+  /* PATH analysis must run BEFORE InjectCoverage so that the guard-only
+     classification sees the source-level CFG, not the post-instrumented
+     CFG where most BBs have an edge-counter store at their head. */
+  if (path_mode) { analyzePathCoverage(F); }
+
   InjectCoverage(F, BlocksToInstrument, IsLeafFunc);
   // InjectCoverageForIndirectCalls(F, IndirCalls);
 
@@ -2292,6 +2477,8 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
     afl_global_id += extra_ctx_inst_in_this_func;
 
   }
+
+  if (path_mode) { instrumentPathCoverage(F, DT, call_counter, PrevCtxLoad); }
 
 }
 
@@ -2531,6 +2718,195 @@ void ModuleSanitizerCoverageLTO::InjectCoverageAtBlock(Function   &F,
     */
 
   }
+
+}
+
+/* Ball-Larus path coverage — analysis phase.
+
+   Runs BEFORE InjectCoverage(F) so isGuardOnlyBB() sees the pristine
+   source-level CFG (edge-coverage stores added later would make most
+   BBs ineligible for the PATH=1 collapse).  Persists the analysis
+   results in per-function members consumed by instrumentPathCoverage(). */
+bool ModuleSanitizerCoverageLTO::analyzePathCoverage(Function &F) {
+
+  pathNumPaths.clear();
+  pathEdgeVal.clear();
+  pathExits.clear();
+  pathNumEntry = 0;
+
+  if (!path_mode || F.empty()) return false;
+  if (F.hasFnAttribute(llvm::Attribute::NoSanitizeCoverage)) return false;
+#if LLVM_VERSION_MAJOR >= 19
+  if (F.hasFnAttribute(llvm::Attribute::DisableSanitizerInstrumentation))
+    return false;
+#endif
+  if (!isInInstrumentList(&F, FMNAME)) return false;
+
+  afl::PathAnalysis       PA(path_mode_level, path_max_paths);
+  afl::PathAnalysisResult R = PA.analyze(F);
+
+  if (R.overCap) {
+
+    WARNF(
+        "Function %s has too many paths (>%llu) even after simplification; "
+        "skipping PATH instrumentation in this function.",
+        F.getName().str().c_str(), (unsigned long long)path_max_paths);
+    ++path_skipped_funcs;
+    return false;
+
+  }
+  if (R.simplified) {
+
+    WARNF(
+        "Function %s simplified for PATH (multi-way branches collapsed): "
+        "%llu paths.",
+        F.getName().str().c_str(), (unsigned long long)R.numPaths);
+
+  }
+  if (R.numPaths == 0) return false;
+
+  pathExits    = std::move(R.exits);
+  pathNumPaths = std::move(R.numPathsAtBB);
+  pathEdgeVal  = std::move(R.edgeValues);
+  pathNumEntry = R.numPaths;
+  return true;
+
+}
+
+/* Ball-Larus path coverage — emission phase.
+   Consumes the per-function state stashed by analyzePathCoverage and
+   emits IR after InjectCoverage has finished.
+   - Reserves afl_global_id range (NumPaths or NumPaths * call_counter
+     under CTX composition).
+   - Allocates a per-function i32 path register.
+   - Inserts `path_reg += edge_val` on each forward edge with edge_val != 0.
+   - At every exit point writes the path id into the reserved bitmap range.
+     CTX composition adds cid * NumPaths to the index. */
+uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
+    Function &F, const DominatorTree *DT, uint32_t call_counter,
+    LoadInst *PrevCtxLoad) {
+
+  (void)DT;
+  if (!path_mode) return 0;
+  if (pathNumEntry == 0) return 0;  // analyzePathCoverage said skip
+
+  LLVMContext &Ctx = F.getContext();
+  IntegerType *Int32 = Type::getInt32Ty(Ctx);
+  MDNode      *NoSan = MDNode::get(Ctx, MDString::get(Ctx, "nosanitize"));
+
+  uint64_t numEntry = pathNumEntry;
+  const auto &Exits    = pathExits;
+  const auto &NumPaths = pathNumPaths;
+  const auto &EdgeVal  = pathEdgeVal;
+
+  /* 5. Reserve afl_global_id range.  When CTX expanded this function,
+     reserve NumPaths * call_counter so each (call_id, path) tuple has
+     its own slot.  Otherwise reserve NumPaths.                         */
+  bool     ctx_active = (call_counter > 1) && PrevCtxLoad != nullptr;
+  uint64_t reservation = ctx_active ? numEntry * (uint64_t)call_counter
+                                    : numEntry;
+  /* The IR uses a signed i32 for the path index. The GEP into the
+     bitmap sign-extends i32 → pointer-width, so any index >= 2^31
+     becomes a large negative byte offset and writes OOB. Cap at
+     INT32_MAX rather than UINT32_MAX. */
+  if (reservation > (uint64_t)INT32_MAX ||
+      (uint64_t)afl_global_id + reservation > (uint64_t)INT32_MAX) {
+
+    WARNF(
+        "Function %s would push afl_global_id past 2^31 "
+        "(current=%u, reservation=%llu); skipping PATH instrumentation.",
+        F.getName().str().c_str(), afl_global_id,
+        (unsigned long long)reservation);
+    ++path_skipped_funcs;
+    return 0;
+
+  }
+  uint32_t path_base = afl_global_id;
+  afl_global_id += (uint32_t)reservation;
+  extra_path_inst += reservation;
+
+  if (debug) {
+
+    fprintf(stderr,
+            "DEBUG: PATH function=%s paths=%llu reservation=%llu base=%u%s\n",
+            F.getName().str().c_str(), (unsigned long long)numEntry,
+            (unsigned long long)reservation, path_base,
+            ctx_active ? " (CTX-composed)" : "");
+
+  }
+
+  /* 6. IR insertion: alloca path_reg + edge increments via the shared
+     emitter; exit-point writes follow below (LTO-specific). */
+  AllocaInst *path_reg = afl::emitPathCoverageEdges(
+      F, EdgeVal,
+      /*setMD=*/[&](Instruction *I) { I->setMetadata("nosanitize", NoSan); });
+
+  /* 6c. Path-ID writes at every exit point in DAG-reachable BBs.
+     E.first is the BB; E.second is the instruction to insert before. */
+  for (auto &E : Exits) {
+
+    if (!NumPaths.count(E.first)) continue;  // unreachable in DAG
+    IRBuilder<> IRB(E.second);
+
+    LoadInst *p = IRB.CreateLoad(Int32, path_reg);
+    p->setMetadata("nosanitize", NoSan);
+
+    Value *idx = IRB.CreateAdd(p, ConstantInt::get(Int32, path_base));
+
+    if (ctx_active) {
+
+      LoadInst *cid = IRB.CreateLoad(Int32, AFLContext);
+      cid->setMetadata("nosanitize", NoSan);
+      Value *ctxOff =
+          IRB.CreateMul(cid, ConstantInt::get(Int32, (uint32_t)numEntry));
+      idx = IRB.CreateAdd(idx, ctxOff);
+
+    }
+
+    /* Zero-extend to i64 before the GEP so the byte offset is unsigned —
+       GEP otherwise sign-extends an i32 index and a value >= 2^31 would
+       become a large negative offset. */
+    Value *idx64 = IRB.CreateZExt(idx, IntegerType::getInt64Ty(Ctx));
+
+    /* Bitmap update (mirrors InjectCoverageAtBlock, minus the CTX_add
+       handling — the path index already includes the per-call offset). */
+    Value *EffMapPtr = HoistedMapPtr;
+    if (!EffMapPtr) {
+
+      auto *L = IRB.CreateLoad(PtrTy, AFLMapPtr);
+      L->setMetadata("nosanitize", NoSan);
+      EffMapPtr = L;
+
+    }
+    Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, EffMapPtr, idx64);
+
+    if (use_threadsafe_counters) {
+
+      IRB.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, MapPtrIdx, One,
+#if LLVM_VERSION_MAJOR >= 13
+                          llvm::MaybeAlign(1),
+#endif
+                          llvm::AtomicOrdering::Monotonic);
+
+    } else {
+
+      LoadInst *Counter =
+          IRB.CreateLoad(IntegerType::getInt8Ty(Ctx), MapPtrIdx);
+      Counter->setMetadata("nosanitize", NoSan);
+      Value *Incr = IRB.CreateAdd(Counter, One);
+      if (skip_nozero == NULL) {
+
+        Incr = IRB.CreateBinaryIntrinsic(Intrinsic::umax, Incr, One);
+
+      }
+      StoreInst *st = IRB.CreateStore(Incr, MapPtrIdx);
+      st->setMetadata("nosanitize", NoSan);
+
+    }
+
+  }
+
+  return reservation;
 
 }
 

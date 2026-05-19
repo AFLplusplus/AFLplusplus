@@ -14,9 +14,18 @@
   - afl-fuzz:
     - `-I tool` call now receives the new crash as a command line parameter
     - changed to a better map classifier
+    - frameshift is disabled now if AFL_CUSTOM_MUTATOR_ONLY is set
     - minor speed, leak and zombie enhancements
     - somewhere we removed .state/variable/... now it is back :-)
   - afl-cc:
+    - Add LLVM 23 support
+    - LTO and PCGUARD: new `AFL_LLVM_PATH` (also `AFL_LLVM_LTO_PATH` /
+      `AFL_LLVM_PATH_MODE`) Ball-Larus per-function path coverage on top
+      of edge coverage. Three levels: `=1` relaxed (collapse all
+      guard-only BBs), `=2` restricted (collapse only 2-successor
+      guard-only BBs), `=3` strict Ball-Larus. LTO additionally composes
+      with `AFL_LLVM_LTO_CALLER`. See
+      instrumentation/README.llvm.md and instrumentation/README.lto.md.
     - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
       triggers in target binaries
     - new instrumentation: `afl-llvm-bug-pass.so` provides five runtime
@@ -64,6 +73,10 @@
           CmpLog RTN slot keyed by alloc-site. The existing CmpLog
           dictionary mining harvests `computed_size` as a magic constant
           and feeds the producing input bytes back into havoc.
+  - afl-cmin:
+    - nyx_mode is now working for all minimizer variants
+  - afl-showmap:
+    - no more .afl-showmap-temp-* files lying around
   - IJON dist was changed to original IJON implementation: initial matching
     bytes, max length is 1024
   - lib* tools:

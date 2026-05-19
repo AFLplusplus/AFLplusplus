@@ -186,7 +186,13 @@ static u32 __afl_fuzz_len_dummy;
 u32       *__afl_fuzz_len = &__afl_fuzz_len_dummy;
 int        __afl_sharedmem_fuzzing __attribute__((weak));
 
-u32 __afl_final_loc;
+// Weak so the LTO instrumentation can override with a strong static
+// initializer (see SanitizerCoverageLTO). On macOS this makes the
+// map size visible at load time, before any constructor runs --
+// otherwise AFL_DUMP_MAP_SIZE would always print MAP_SIZE because the
+// LTO-bitcode constructor that previously stored __afl_final_loc runs
+// after afl-compiler-rt.o's constructors on Mach-O.
+__attribute__((weak)) u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
 u32 __afl_cov_map_size = MAP_SIZE;
 u32 __afl_set_map_size = MAP_SIZE;
@@ -477,8 +483,7 @@ static void (*old_sigterm_handler)(int) = 0;
 static u8 is_persistent;
 
 /* Are we in sancov mode? */
-
-static u8 _is_sancov;
+// static u8 _is_sancov;
 
 /* Debug? */
 
@@ -1440,14 +1445,15 @@ static void __afl_start_forkserver(void) {
 
   }
 
-/* Disable as this seems to create problems in corner cases
-  if (getenv("LD_BIND_LAZY") == NULL) {
+  /* Disable as this seems to create problems in corner cases
+    if (getenv("LD_BIND_LAZY") == NULL) {
 
-    // prevent further executed programs to fuck up the coverage
-    setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 1);
+      // prevent further executed programs to fuck up the coverage
+      setenv("AFL_DISABLE_LLVM_INSTRUMENTATION", "1", 1);
 
-  }
-*/
+    }
+
+  */
 
   if (getenv("AFL_OLD_FORKSERVER")) {
 
@@ -2507,7 +2513,7 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
   u32   inst_ratio = 100;
   char *x;
 
-  _is_sancov = 1;
+  //_is_sancov = 1;
 
   if (!getenv("AFL_DUMP_MAP_SIZE")) {
 
@@ -3858,6 +3864,13 @@ void ijon_min(uint32_t addr, u64 val) {
 
   val = 0xffffffffffffffff - val;
   ijon_max(addr, val);
+
+}
+
+void ijon_max_until(uint32_t addr, u64 val, u64 limit) {
+
+  u64 encoded = val >= limit ? UINT64_MAX : UINT64_MAX - limit + val;
+  ijon_max(addr, encoded);
 
 }
 

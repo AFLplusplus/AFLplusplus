@@ -84,6 +84,7 @@
 #include "config.h"
 #include "debug.h"
 #include "afl-llvm-common.h"
+#include "PathCoverage.h"
 
 using namespace llvm;
 
@@ -200,6 +201,27 @@ class ModuleSanitizerCoverageAFL
   ConstantInt    *Zero = NULL;
   bool            deny_exec = false;
   uint32_t        first = 1;
+
+  /* AFL_LLVM_PATH (Ball-Larus per-function path coverage).  Same semantics
+     as AFL_LLVM_LTO_PATH in the LTO pass: 0=off, 1=relaxed, 2=restricted,
+     3=strict.  Activated also via AFL_LLVM_LTO_PATH or AFL_LLVM_PATH_MODE. */
+  bool                                   path_mode = false;
+  uint32_t                               path_mode_level = 0;
+  uint64_t                               extra_path_inst = 0;
+  uint32_t                               path_skipped_funcs = 0;
+  uint64_t                               path_max_paths = 100000;
+
+  /* Per-function path state, populated by analyzePathCoverage() before
+     InjectCoverage() runs and consumed by emitPathCoverage() afterwards. */
+  uint32_t                                                       current_path_count = 0;
+  uint32_t                                                       current_path_guard_base = 0;
+  llvm::DenseMap<BasicBlock *, uint64_t>                         pathNumPaths;
+  llvm::DenseMap<std::pair<BasicBlock *, BasicBlock *>, uint64_t>
+                                                                 pathEdgeVal;
+  std::vector<std::pair<BasicBlock *, Instruction *>>            pathExits;
+
+  uint32_t analyzePathCoverage(Function &F);
+  void     emitPathCoverage(Function &F);
 
 };
 
@@ -371,6 +393,104 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
   ijon_enabled = getenv("AFL_LLVM_IJON");
   if (getenv("AFL_LLVM_DENY_EXEC")) { deny_exec = true; }
 
+  /* AFL_LLVM_PATH (and aliases AFL_LLVM_LTO_PATH / AFL_LLVM_PATH_MODE):
+     Ball-Larus per-function path coverage on top of edge coverage.
+     Levels:
+       (unset/"0") — disabled.
+       "1" / ""    — relaxed: collapse every guard-only basic block
+                     (no calls, no stores, no atomics) via max(succ).
+       "2"         — restricted: like "1" but only collapse 2-successor
+                     guard-only BBs (preserves switches/indirectbr).
+       "3"         — strict Ball-Larus.  Other values are rejected. */
+  {
+
+    const char *p = getenv("AFL_LLVM_LTO_PATH");
+    if (!p) p = getenv("AFL_LLVM_PATH");
+    if (!p) p = getenv("AFL_LLVM_PATH_MODE");
+    if (p) {
+
+      if (*p == 0) {
+
+        /* Reject the empty value rather than silently enabling level 1 —
+           users who want level 1 should pass "1". */
+        FATAL(
+            "AFL_LLVM_PATH/AFL_LLVM_LTO_PATH/AFL_LLVM_PATH_MODE was set to "
+            "an empty value. Use \"1\" (relaxed), \"2\" (restricted), "
+            "\"3\" (strict), or \"0\" (off).");
+
+      } else if (strcmp(p, "1") == 0) {
+
+        path_mode_level = 1;
+
+      } else if (strcmp(p, "2") == 0) {
+
+        path_mode_level = 2;
+
+      } else if (strcmp(p, "3") == 0) {
+
+        path_mode_level = 3;
+
+      } else if (strcmp(p, "0") == 0) {
+
+        path_mode_level = 0;
+
+      } else {
+
+        FATAL(
+            "AFL_LLVM_PATH/AFL_LLVM_LTO_PATH/AFL_LLVM_PATH_MODE only "
+            "accepts \"0\" (off), \"1\" (relaxed), \"2\" (restricted), or "
+            "\"3\" (strict). Got %s.",
+            p);
+
+      }
+      path_mode = (path_mode_level > 0);
+
+    }
+
+  }
+
+  if (const char *mp = getenv("AFL_LLVM_PATH_MAX_PATHS")) {
+
+    char *end = nullptr;
+    unsigned long long v = strtoull(mp, &end, 10);
+    if (!end || *end || v < 2 || v > (unsigned long long)INT32_MAX) {
+
+      /* INT32_MAX upper bound: the IR path index is held in a signed
+         i32 register, so any value beyond that would let path_base +
+         path_reg overflow the bitmap GEP. */
+      FATAL(
+          "AFL_LLVM_PATH_MAX_PATHS must be an integer in [2, %d] (got %s).",
+          INT32_MAX, mp);
+
+    }
+    path_max_paths = (uint64_t)v;
+
+  }
+
+  if (path_mode && !be_quiet) {
+
+    const char *path_label;
+    switch (path_mode_level) {
+
+      case 1:
+        path_label = "relaxed";
+        break;
+      case 2:
+        path_label = "restricted";
+        break;
+      case 3:
+        path_label = "strict";
+        break;
+      default:
+        path_label = "?";
+        break;
+
+    }
+    SAYF(cCYA "SanitizerCoveragePCGUARD" VERSION cRST " (PATH mode: %s)\n",
+         path_label);
+
+  }
+
 }
 
 Value *ModuleSanitizerCoverageAFL::createGuardPointer(IRBuilder<> &IRB,
@@ -448,6 +568,153 @@ void ModuleSanitizerCoverageAFL::printDebugInfo(Instruction &IN) {
   }
 
   errs() << *(&IN) << "\n";
+
+}
+
+/* Ball-Larus path coverage — analysis phase.
+   Identifies exit points, strips back-edges via DFS, computes NumPaths(v)
+   bottom-up, applies the level-1/2 collapse and the >100k simplification
+   fallback, and assigns Ball-Larus prefix-sum edge values.
+   Stores all results in the per-function members so emitPathCoverage()
+   can consume them.
+   Returns the number of path slots to reserve, or 0 if the function should
+   be skipped (no exits, single-path, too many paths). */
+uint32_t ModuleSanitizerCoverageAFL::analyzePathCoverage(Function &F) {
+
+  pathNumPaths.clear();
+  pathEdgeVal.clear();
+  pathExits.clear();
+
+  if (!path_mode || F.empty()) return 0;
+
+  /* Defensive re-check of the function-level skip predicates so a future
+     refactor that moves the call site can't silently bypass them. Today
+     instrumentFunction already gates these — this is belt + braces. */
+  if (F.hasFnAttribute(llvm::Attribute::NoSanitizeCoverage)) return 0;
+#if LLVM_VERSION_MAJOR >= 19
+  if (F.hasFnAttribute(llvm::Attribute::DisableSanitizerInstrumentation))
+    return 0;
+#endif
+  if (!isInInstrumentList(&F, FMNAME)) return 0;
+
+  /* Analysis lives in instrumentation/PathCoverage.h — issues #1 (dedup),
+     #2 (iterative DFS), #16 (cached forward successors). */
+  afl::PathAnalysis       PA(path_mode_level, path_max_paths);
+  afl::PathAnalysisResult R = PA.analyze(F);
+
+  if (R.overCap) {
+
+    WARNF(
+        "Function %s has too many paths (>%llu) even after simplification; "
+        "skipping PATH instrumentation.",
+        F.getName().str().c_str(), (unsigned long long)path_max_paths);
+    ++path_skipped_funcs;
+    return 0;
+
+  }
+  if (R.simplified) {
+
+    WARNF(
+        "Function %s simplified for PATH (multi-way branches collapsed): "
+        "%llu paths.",
+        F.getName().str().c_str(), (unsigned long long)R.numPaths);
+
+  }
+  if (R.numPaths == 0) return 0;
+
+  pathExits    = std::move(R.exits);
+  pathNumPaths = std::move(R.numPathsAtBB);
+  pathEdgeVal  = std::move(R.edgeValues);
+  return (uint32_t)R.numPaths;
+
+}
+
+/* Ball-Larus path coverage — emission phase.
+   Allocates the per-function path register, inserts edge increments on
+   non-back edges, and emits a bitmap update at every exit point.  The
+   path register's value indexes into a region of FunctionGuardArray
+   reserved by InjectCoverage at [current_path_guard_base,
+   current_path_guard_base + current_path_count).  The runtime constructor
+   fills those guards with sequential bitmap IDs, exactly as for normal
+   block coverage. */
+void ModuleSanitizerCoverageAFL::emitPathCoverage(Function &F) {
+
+  if (!path_mode || current_path_count == 0) return;
+  if (!FunctionGuardArray) return;
+  if (pathExits.empty()) return;
+
+  LLVMContext &Ctx = F.getContext();
+  IntegerType *Int32 = Type::getInt32Ty(Ctx);
+
+  /* INVARIANT: analyzePathCoverage() ran on the original CFG;
+     emitPathCoverage runs after InjectCoverage(), which may have prepended
+     a hoist-map preamble to the entry block but must not have removed any
+     BBs that appear in pathExits / pathEdgeVal / pathNumPaths. The only
+     modification InjectCoverage currently performs here is adding the
+     entry-block preamble — that does not invalidate the Instruction* /
+     BasicBlock* cached in our maps. If a future change to InjectCoverage
+     removes or replaces BBs, the analysis must be re-run after InjectCoverage
+     instead. The alloca for path_reg is inserted at the (new) entry block's
+     firstInsertionPt so it sits in the live entry, not in the original one. */
+  /* Shared alloca + edge-increment emitter; exit-point writes follow below. */
+  AllocaInst *path_reg = afl::emitPathCoverageEdges(
+      F, pathEdgeVal,
+      /*setMD=*/[&](Instruction *I) {
+
+        setNoSanitizeMetadata(I);
+        setNoInstrumentMetadata(I);
+
+      });
+
+  /* Path-ID writes at every exit point in DAG-reachable BBs. */
+  for (auto &E : pathExits) {
+
+    if (!pathNumPaths.count(E.first)) continue;  // unreachable in DAG
+    IRBuilder<> IRB(E.second);
+
+    LoadInst *p = IRB.CreateLoad(Int32, path_reg);
+    setNoSanitizeMetadata(p);
+    setNoInstrumentMetadata(p);
+
+    /* Index into FunctionGuardArray at base + path_reg, then load the
+       i32 bitmap-ID stored there at runtime.  Zero-extend to i64 before
+       the GEP so the byte offset is unsigned. */
+    Value *guardIdx32 =
+        IRB.CreateAdd(p, ConstantInt::get(Int32, current_path_guard_base));
+    Value *guardIdx =
+        IRB.CreateZExt(guardIdx32, IntegerType::getInt64Ty(Ctx));
+    Value *guardSlot =
+        IRB.CreateGEP(Int32, FunctionGuardArray, guardIdx);
+    LoadInst *bitmapId = IRB.CreateLoad(Int32, guardSlot);
+    setNoSanitizeMetadata(bitmapId);
+    setNoInstrumentMetadata(bitmapId);
+
+    Value *CoverageIndex = bitmapId;
+
+    /* Apply IJON state-aware coverage if enabled (mirroring
+       InjectCoverageAtBlock). */
+    if (ijon_enabled && AFLIJONState) {
+
+      LoadInst *IJONStateVal = IRB.CreateLoad(Int32, AFLIJONState);
+      setNoSanitizeMetadata(IJONStateVal);
+      Value    *XorResult = IRB.CreateXor(IJONStateVal, CoverageIndex);
+      LoadInst *CovMapSize = IRB.CreateLoad(Int32, AFLCovMapSize);
+      setNoSanitizeMetadata(CovMapSize);
+      CoverageIndex = IRB.CreateURem(XorResult, CovMapSize);
+
+    }
+
+    Value *EffMapPtr = HoistedMapPtr;
+    if (!EffMapPtr) {
+
+      auto *L = IRB.CreateLoad(PtrTy, AFLMapPtr);
+      setNoSanitizeMetadata(L);
+      EffMapPtr = L;
+
+    }
+    updateCoverageBitmap(IRB, CoverageIndex, EffMapPtr);
+
+  }
 
 }
 
@@ -729,11 +996,27 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
                getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      char buf[32] = "";
+      char buf[160] = "";
+      char *bp = buf;
+      size_t bleft = sizeof(buf);
       if (skippedbb) {
 
-        snprintf(buf, sizeof(buf), " %u instrumentation%s saved.", skippedbb,
-                 skippedbb == 1 ? "" : "s");
+        int n = snprintf(bp, bleft, " %u instrumentation%s saved.",
+                         skippedbb, skippedbb == 1 ? "" : "s");
+        if (n > 0 && (size_t)n < bleft) { bp += n; bleft -= n; }
+
+      }
+      if (path_mode) {
+
+        int n = snprintf(bp, bleft, " %llu extra map entries for PATH.",
+                         (unsigned long long)extra_path_inst);
+        if (n > 0 && (size_t)n < bleft) { bp += n; bleft -= n; }
+        if (path_skipped_funcs) {
+
+          n = snprintf(bp, bleft, " (%u funcs skipped)", path_skipped_funcs);
+          if (n > 0 && (size_t)n < bleft) { bp += n; bleft -= n; }
+
+        }
 
       }
 
@@ -902,7 +1185,29 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 
   }
 
+  /* PATH analysis must run BEFORE InjectCoverage so that
+     CreateFunctionLocalArrays reserves enough guard slots for path IDs.
+     emitPathCoverage runs AFTER InjectCoverage so it can use the
+     populated FunctionGuardArray and the (possibly hoisted-preamble)
+     entry block. */
+  current_path_count = 0;
+  current_path_guard_base = 0;
+  pathNumPaths.clear();
+  pathEdgeVal.clear();
+  pathExits.clear();
+  if (path_mode) { current_path_count = analyzePathCoverage(F); }
+
   InjectCoverage(F, BlocksToInstrument);
+
+  if (current_path_count) {
+
+    emitPathCoverage(F);
+    extra_path_inst += current_path_count;
+    /* Do NOT also bump `instr` — the banner already reports PATH slots
+       separately in the "extra map entries for PATH" suffix. Bumping both
+       would double-count them. */
+
+  }
 
   if (dump_cc) { calcCyclomaticComplexity(&F); }
 
@@ -1125,7 +1430,25 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
   }
 
-  CreateFunctionLocalArrays(F, AllBlocks, xtra);
+  /* PATH coverage: reserve current_path_count additional guard slots at
+     [AllBlocks.size() + xtra .. AllBlocks.size() + xtra + path_count).
+     Refuse to reserve when the resulting indexing would overflow the
+     signed i32 used for the GEP — values >= 2^31 sign-extend to
+     negative byte offsets. */
+  uint64_t guardArrayLen = (uint64_t)AllBlocks.size() + xtra +
+                           (uint64_t)current_path_count;
+  if (guardArrayLen > (uint64_t)INT32_MAX) {
+
+    WARNF(
+        "Function %s would overflow FunctionGuardArray indexing "
+        "(len=%llu); skipping PATH instrumentation.",
+        F.getName().str().c_str(), (unsigned long long)guardArrayLen);
+    ++path_skipped_funcs;
+    current_path_count = 0;
+
+  }
+  current_path_guard_base = (uint32_t)AllBlocks.size() + xtra;
+  CreateFunctionLocalArrays(F, AllBlocks, xtra + current_path_count);
 
   if (!FunctionGuardArray) {
 

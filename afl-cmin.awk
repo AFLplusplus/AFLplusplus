@@ -334,7 +334,10 @@ BEGIN {
     target_bin = tnew
   }
 
-  if (0 == system ( "grep -aq AFL_DUMP_MAP_SIZE " target_bin )) {
+  # In Nyx mode, target_bin is the share dir (a directory), so skip this
+  # AFL_DUMP_MAP_SIZE probe entirely. Without the guard, grep prints a
+  # noisy "Is a directory" warning.
+  if (!nyx_mode && 0 == system ( "grep -aq AFL_DUMP_MAP_SIZE " target_bin )) {
     print "[!] Trying to obtain the map size of the target ..."
     get_map_size = "AFL_DUMP_MAP_SIZE=1 " target_bin
     get_map_size | getline mapsize
@@ -357,13 +360,17 @@ BEGIN {
     exit 1
   }
 
-  #if (0 == system( "test -d "in_dir"/default" )) {
-  #  in_dir = in_dir "/default"
-  #}
-  #
-  #if (0 == system( "test -d "in_dir"/queue" )) {
-  #  in_dir = in_dir "/queue"
-  #}
+  # Follow afl-cmin.bash: if the input dir looks like an AFL output dir
+  # (contains default/ and/or queue/), descend into the queue automatically.
+  # Without this, feeding the raw output dir would also pick up internal AFL
+  # state files (e.g. out/workdir/*) which can crash afl-showmap in Nyx mode.
+  if (0 == system( "test -d \""in_dir"/default\"" )) {
+    in_dir = in_dir "/default"
+  }
+
+  if (0 == system( "test -d \""in_dir"/queue\"" )) {
+    in_dir = in_dir "/queue"
+  }
 
   system("rm -rf "trace_dir" 2>/dev/null");
   system("rm "out_dir"/id[:_]* 2>/dev/null")

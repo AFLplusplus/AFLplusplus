@@ -3619,16 +3619,17 @@ static u8 file_contains_ijon_usage(const char *source_file) {
     // Look for IJON patterns
     if (strstr(line, "#ifdef _USE_IJON") ||
         strstr(line, "#if defined(_USE_IJON)") || strstr(line, "ijon_max(") ||
-        strstr(line, "ijon_min(") || strstr(line, "ijon_set(") ||
-        strstr(line, "ijon_inc(") || strstr(line, "ijon_xor_state(") ||
-        strstr(line, "ijon_reset_state(") || strstr(line, "IJON_MAX(") ||
-        strstr(line, "IJON_MIN(") || strstr(line, "IJON_SET(") ||
-        strstr(line, "IJON_INC(") || strstr(line, "IJON_STATE(") ||
-        strstr(line, "IJON_CTX(") || strstr(line, "IJON_MAX_AT(") ||
-        strstr(line, "IJON_MIN_AT(") || strstr(line, "IJON_BITS(") ||
-        strstr(line, "IJON_STRDIST(") || strstr(line, "IJON_DIST(") ||
-        strstr(line, "IJON_CMP(") || strstr(line, "IJON_STACK_MAX(") ||
-        strstr(line, "IJON_STACK_MIN(")) {
+        strstr(line, "ijon_max_until(") || strstr(line, "ijon_min(") ||
+        strstr(line, "ijon_set(") || strstr(line, "ijon_inc(") ||
+        strstr(line, "ijon_xor_state(") || strstr(line, "ijon_reset_state(") ||
+        strstr(line, "IJON_MAX(") || strstr(line, "IJON_MAX_UNTIL(") ||
+        strstr(line, "IJON_MAX_UNTIL_AT(") || strstr(line, "IJON_MIN(") ||
+        strstr(line, "IJON_SET(") || strstr(line, "IJON_INC(") ||
+        strstr(line, "IJON_STATE(") || strstr(line, "IJON_CTX(") ||
+        strstr(line, "IJON_MAX_AT(") || strstr(line, "IJON_MIN_AT(") ||
+        strstr(line, "IJON_BITS(") || strstr(line, "IJON_STRDIST(") ||
+        strstr(line, "IJON_DIST(") || strstr(line, "IJON_CMP(") ||
+        strstr(line, "IJON_STACK_MAX(") || strstr(line, "IJON_STACK_MIN(")) {
 
       found_ijon = 1;
       break;

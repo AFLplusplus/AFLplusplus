@@ -168,7 +168,11 @@ static u32 get_nyx_map_size(u8 *target_path) {
 
   void *nyx_config = nyx_handlers->nyx_config_load(target_path);
 
-  char *workdir_path = create_nyx_tmp_workdir();
+  /* Mirror afl_fsrv_start()'s nyx setup: libnyx must write its files under
+     <outer>/workdir/, otherwise remove_nyx_tmp_workdir() can't clean up and
+     the next create_nyx_tmp_workdir() (same PID) fails with EEXIST. */
+  char *outdir_path = create_nyx_tmp_workdir();
+  char *workdir_path = alloc_printf("%s/workdir", outdir_path);
   nyx_handlers->nyx_config_set_workdir_path(nyx_config, workdir_path);
   nyx_handlers->nyx_config_set_process_role(nyx_config, StandAlone);
 
@@ -183,7 +187,8 @@ static u32 get_nyx_map_size(u8 *target_path) {
 
   afl_forkserver_t fsrv = {0};
   fsrv.nyx_handlers = nyx_handlers;
-  remove_nyx_tmp_workdir(&fsrv, workdir_path);
+  ck_free(workdir_path);
+  remove_nyx_tmp_workdir(&fsrv, outdir_path);
 
   return size;
 
