@@ -17,18 +17,28 @@ __attribute__((noinline)) static void *call_calloc(size_t n, size_t s) {
 
 /* Read a multiplier from stdin so clang can't constant-fold the call. */
 int main(int argc, char **argv) {
-  (void)argc; (void)argv;
+
+  (void)argc;
+  (void)argv;
   size_t nmemb = 0;
   if (fread(&nmemb, sizeof(nmemb), 1, stdin) != 1) {
+
     /* Default to an overflowing value if no stdin is provided. */
     nmemb = ((size_t)-1) / 2;
+
   }
+
   void *p = call_calloc(nmemb, 4);
   if (p) {
+
     /* Should not happen for an overflowing pair on a sane system. */
     fprintf(stderr, "calloc returned non-NULL for overflowing size\n");
     free(p);
     return 2;
+
   }
+
   return 0;
+
 }
+

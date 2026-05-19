@@ -15,11 +15,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static uint32_t build_table_bad(uint32_t *out, uint32_t n) {
+__attribute__((noinline, optnone)) static uint32_t build_table_bad(
+    uint32_t *out, uint32_t n) {
 
   if (out == NULL) return 16;
-  for (uint32_t i = 0; i < 18; ++i) out[i] = (uint32_t)(i + n);
+  for (uint32_t i = 0; i < 18; ++i)
+    out[i] = (uint32_t)(i + n);
   return 16;
 
 }
@@ -50,3 +51,4 @@ int main(void) {
   return 0;
 
 }
+

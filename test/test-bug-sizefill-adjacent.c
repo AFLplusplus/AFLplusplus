@@ -21,18 +21,19 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static uint32_t inner(uint32_t *p, uint32_t n) {
+__attribute__((noinline, optnone)) static uint32_t inner(uint32_t *p,
+                                                         uint32_t  n) {
 
   if (p == NULL) return 64;
   // Inner writes the full extent of its OWN (large) buffer.
-  for (uint32_t i = 0; i < 64; ++i) p[i] = i + n;
+  for (uint32_t i = 0; i < 64; ++i)
+    p[i] = i + n;
   return 64;
 
 }
 
-__attribute__((noinline, optnone))
-static uint32_t outer(uint32_t *p, uint32_t n) {
+__attribute__((noinline, optnone)) static uint32_t outer(uint32_t *p,
+                                                         uint32_t  n) {
 
   if (p == NULL) return 4;
   // Allocate a separate, larger buffer and run the inner sentinel
@@ -43,7 +44,8 @@ static uint32_t outer(uint32_t *p, uint32_t n) {
   if (!inner_buf) return 0;
   (void)inner(inner_buf, n);
   // Outer's own honest write: 4 entries, exactly its declared size.
-  for (uint32_t i = 0; i < 4; ++i) p[i] = i;
+  for (uint32_t i = 0; i < 4; ++i)
+    p[i] = i;
   free(inner_buf);
   return 4;
 
@@ -64,3 +66,4 @@ int main(void) {
   return 0;
 
 }
+

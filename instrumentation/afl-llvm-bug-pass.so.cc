@@ -65,10 +65,10 @@ struct BugPassConfig {
   // (libwebp-style `total_size += table_size` works either way because
   // total_size feeds a malloc, but hash-builders, counters, and
   // non-memory sums are filtered out).
-  bool scalar_slice = false;
+  bool                     scalar_slice = false;
   std::vector<std::string> custom_alloc_funcs;
   std::vector<std::string> custom_free_funcs;
-  bool any() const {
+  bool                     any() const {
 
     return scalar || budget || sizefill || allocsize || slack || derive;
 
@@ -101,6 +101,7 @@ static BugPassConfig parseEnv() {
     c.allocsize = true;
 
   }
+
   // Stack-alloca tracking: default on; user disables with explicit "0".
   // Any other value (including empty string) keeps the default.
   if (const char *v = getenv(AFL_BUG_ENV_ALLOCSIZE_STACK)) {
@@ -108,6 +109,7 @@ static BugPassConfig parseEnv() {
     if (strcmp(v, "0") == 0) c.allocsize_stack = false;
 
   }
+
   // Slice filter is purely additive on top of SCALAR — it's a no-op
   // unless SCALAR is also enabled.
   if (getenv(AFL_BUG_ENV_SCALAR_SLICE)) {
@@ -118,6 +120,7 @@ static BugPassConfig parseEnv() {
     c.scalar = true;
 
   }
+
   if (const char *list = getenv(AFL_BUG_ENV_ALLOCSIZE_FUNCS)) {
 
     c.allocsize = true;
@@ -159,7 +162,7 @@ static BugPassConfig parseEnv() {
 // of every BugPass::run().
 struct BugPassState {
 
-  bool                                           scalar_slice = false;
+  bool scalar_slice = false;
   // Shared set populated from AFL_LLVM_BUG_ALLOCSIZE_FUNCS. Used by
   // ALLOCSIZE (registers them), SIZEFILL (recovers buffer size from
   // the call's size arg), and SCALAR_SLICE (treats their size args as
@@ -171,7 +174,12 @@ struct BugPassState {
 class BugPass : public PassInfoMixin<BugPass> {
 
  public:
-  BugPass() { initInstrumentList(); }
+  BugPass() {
+
+    initInstrumentList();
+
+  }
+
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
  private:
@@ -180,24 +188,21 @@ class BugPass : public PassInfoMixin<BugPass> {
 };
 
 // Forward decls.
-bool runScalarMode(Module &M, ModuleAnalysisManager &MAM,
-                   BugPassState &S);
+bool runScalarMode(Module &M, ModuleAnalysisManager &MAM, BugPassState &S);
 bool runBudgetMode(Module &M, ModuleAnalysisManager &MAM,
                    bool out_param_enabled);
 bool runSizefillMode(Module &M, ModuleAnalysisManager &MAM,
                      const BugPassState &S);
-bool runSlackMode(Module &M, ModuleAnalysisManager &MAM,
-                  const BugPassState &S);
+bool runSlackMode(Module &M, ModuleAnalysisManager &MAM, const BugPassState &S);
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &MAM,
                       const std::vector<std::string> &custom,
                       const std::vector<std::string> &custom_free,
-                      bool stack_enabled);
-static bool ptrStoreReachesArg(StoreInst                 *S,
-                               const std::set<unsigned> &arg_indices);
+                      bool                            stack_enabled);
+static bool     ptrStoreReachesArg(StoreInst                *S,
+                                   const std::set<unsigned> &arg_indices);
 static unsigned instrumentArgReachingStores(
-    Function &F, FunctionCallee hook,
-    const std::set<unsigned> &arg_indices, Type *PtrTy, IntegerType *I32,
-    const DataLayout &DL, bool libc_exact_only);
+    Function &F, FunctionCallee hook, const std::set<unsigned> &arg_indices,
+    Type *PtrTy, IntegerType *I32, const DataLayout &DL, bool libc_exact_only);
 static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source);
 
 // Mode salts for siteSlotId() — fed into the hash so the same site index
@@ -207,8 +212,8 @@ static void inheritDebugLoc(IRBuilder<> &B, Instruction *Source);
 enum : uint32_t {
 
   BUG_MODE_SALT_SCALAR_ARITH = 0x53415243u,  // 'SARC'
-  BUG_MODE_SALT_SCALAR_LOOP  = 0x534C4F50u,  // 'SLOP'
-  BUG_MODE_SALT_SLACK        = 0x534C434Bu,  // 'SLCK'
+  BUG_MODE_SALT_SCALAR_LOOP = 0x534C4F50u,   // 'SLOP'
+  BUG_MODE_SALT_SLACK = 0x534C434Bu,         // 'SLCK'
 
 };
 
@@ -233,7 +238,7 @@ static uint32_t siteSlotId(StringRef func_name, uint32_t site_idx,
   for (char c : func_name) {
 
     h ^= (uint8_t)c;
-    h *= 0x01000193u;        // FNV prime
+    h *= 0x01000193u;  // FNV prime
 
   }
 
@@ -251,7 +256,8 @@ static uint32_t siteSlotId(StringRef func_name, uint32_t site_idx,
     return half + (h & (half - 1));  // upper half
 
   }
-  return h & (half - 1);              // lower half (scalar + loop)
+
+  return h & (half - 1);  // lower half (scalar + loop)
 
 }
 
@@ -310,9 +316,9 @@ static void emitBugModeGlobal(Module &M, const BugPassConfig &cfg) {
   if (cfg.slack) mode |= AFL_BUG_MODE_SLACK;
   if (cfg.derive) mode |= AFL_BUG_MODE_DERIVE;
 
-  LLVMContext &C = M.getContext();
-  auto *I32 = IntegerType::getInt32Ty(C);
-  auto *Existing = M.getGlobalVariable("__afl_bug_mode");
+  LLVMContext    &C = M.getContext();
+  auto           *I32 = IntegerType::getInt32Ty(C);
+  auto           *Existing = M.getGlobalVariable("__afl_bug_mode");
   GlobalVariable *ModeGlobal = nullptr;
   if (Existing) {
 
@@ -322,6 +328,7 @@ static void emitBugModeGlobal(Module &M, const BugPassConfig &cfg) {
         mode |= (uint32_t)Old->getZExtValue();
 
     }
+
     Existing->setConstant(false);
     Existing->setLinkage(GlobalValue::WeakAnyLinkage);
     Existing->setInitializer(ConstantInt::get(I32, mode));
@@ -329,9 +336,9 @@ static void emitBugModeGlobal(Module &M, const BugPassConfig &cfg) {
 
   } else {
 
-    ModeGlobal = new GlobalVariable(M, I32, false, GlobalValue::WeakAnyLinkage,
-                                    ConstantInt::get(I32, mode),
-                                    "__afl_bug_mode");
+    ModeGlobal =
+        new GlobalVariable(M, I32, false, GlobalValue::WeakAnyLinkage,
+                           ConstantInt::get(I32, mode), "__afl_bug_mode");
     ModeGlobal->setVisibility(GlobalValue::DefaultVisibility);
 
   }
@@ -344,12 +351,12 @@ static void emitBugModeGlobal(Module &M, const BugPassConfig &cfg) {
   // in the same translation unit and ORs this TU's bits into the final
   // runtime variable. Multiple instrumented TUs compose naturally.
   FunctionType *FT = FunctionType::get(Type::getVoidTy(C), false);
-  Function *Ctor = Function::Create(FT, GlobalValue::InternalLinkage,
-                                    "__afl_bug_mode_ctor", M);
-  BasicBlock *BB = BasicBlock::Create(C, "entry", Ctor);
-  IRBuilder<> B(BB);
-  Value *Old = B.CreateLoad(I32, ModeGlobal);
-  Value *New = B.CreateOr(Old, ConstantInt::get(I32, mode));
+  Function     *Ctor = Function::Create(FT, GlobalValue::InternalLinkage,
+                                        "__afl_bug_mode_ctor", M);
+  BasicBlock   *BB = BasicBlock::Create(C, "entry", Ctor);
+  IRBuilder<>   B(BB);
+  Value        *Old = B.CreateLoad(I32, ModeGlobal);
+  Value        *New = B.CreateOr(Old, ConstantInt::get(I32, mode));
   B.CreateStore(New, ModeGlobal);
   B.CreateRetVoid();
   appendToGlobalCtors(M, Ctor, 1);
@@ -373,8 +380,8 @@ static Instruction *postCallInsertionPoint(CallBase *CB, LLVMContext &C,
   if (NormalDest->getUniquePredecessor() == Parent)
     return &*NormalDest->getFirstInsertionPt();
 
-  BasicBlock *EdgeBB = BasicBlock::Create(
-      C, Parent->getName() + Suffix, II->getFunction(), NormalDest);
+  BasicBlock *EdgeBB = BasicBlock::Create(C, Parent->getName() + Suffix,
+                                          II->getFunction(), NormalDest);
   BranchInst *Br = BranchInst::Create(NormalDest, EdgeBB);
   II->setNormalDest(EdgeBB);
 
@@ -402,10 +409,9 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
   if (getenv("AFL_QUIET") == nullptr) {
 
     errs() << "[afl-bug] enabled modes:" << (cfg.scalar ? " SCALAR" : "")
-           << (cfg.budget ? " BUDGET" : "")
-           << (cfg.sizefill ? " SIZEFILL" : "")
-           << (cfg.allocsize ? " ALLOCSIZE" : "")
-           << (cfg.slack ? " SLACK" : "") << "\n";
+           << (cfg.budget ? " BUDGET" : "") << (cfg.sizefill ? " SIZEFILL" : "")
+           << (cfg.allocsize ? " ALLOCSIZE" : "") << (cfg.slack ? " SLACK" : "")
+           << "\n";
 
   }
 
@@ -424,9 +430,9 @@ PreservedAnalyses BugPass::run(Module &M, ModuleAnalysisManager &MAM) {
   if (cfg.sizefill) changed |= runSizefillMode(M, MAM, state_);
   if (cfg.slack) changed |= runSlackMode(M, MAM, state_);
   if (cfg.allocsize)
-    changed |= runAllocSizeMode(M, MAM, cfg.custom_alloc_funcs,
-                                cfg.custom_free_funcs,
-                                /*stack_enabled=*/cfg.allocsize_stack);
+    changed |=
+        runAllocSizeMode(M, MAM, cfg.custom_alloc_funcs, cfg.custom_free_funcs,
+                         /*stack_enabled=*/cfg.allocsize_stack);
   return changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 
 }
@@ -450,7 +456,8 @@ static bool isInductionVariableUpdate(BinaryOperator *I, LoopInfo &LI) {
   // a single cast away. Bounded by 1 cast level — anything deeper isn't
   // a simple IV anyway and should be tracked.
   SmallVector<User *, 4> candidates;
-  for (User *U : I->users()) candidates.push_back(U);
+  for (User *U : I->users())
+    candidates.push_back(U);
   for (User *U : I->users()) {
 
     if (auto *Cast = dyn_cast<CastInst>(U)) {
@@ -459,7 +466,8 @@ static bool isInductionVariableUpdate(BinaryOperator *I, LoopInfo &LI) {
       if (op == Instruction::ZExt || op == Instruction::SExt ||
           op == Instruction::Trunc) {
 
-        for (User *UU : Cast->users()) candidates.push_back(UU);
+        for (User *UU : Cast->users())
+          candidates.push_back(UU);
 
       }
 
@@ -496,9 +504,9 @@ static bool isInductionVariableUpdate(BinaryOperator *I, LoopInfo &LI) {
 // Sinks intentionally include all OpenMP/Clang-emitted size args (the
 // AllocKind table's allocator names match the post-rewrite forms too,
 // so this works whether ALLOCSIZE has already run or not).
-static void
-computeScalarSinkSlice(Function &F, const std::set<std::string> &customs,
-                       SmallPtrSetImpl<Value *> &out) {
+static void computeScalarSinkSlice(Function                    &F,
+                                   const std::set<std::string> &customs,
+                                   SmallPtrSetImpl<Value *>    &out) {
 
   SmallVector<Value *, 32> work;
   auto                     pushIfInt = [&](Value *V) {
@@ -564,7 +572,8 @@ computeScalarSinkSlice(Function &F, const std::set<std::string> &customs,
         // tracking too much is safe (we already filter by BinaryOperator
         // and IV-update); tracking too little is the failure mode A
         // exists to avoid.
-        for (Use &U : Call->args()) pushIfInt(U.get());
+        for (Use &U : Call->args())
+          pushIfInt(U.get());
         continue;
 
       }
@@ -624,18 +633,17 @@ static bool ScalarSiteWorthInstrumenting(BinaryOperator *I, LoopInfo &LI) {
 
         StringRef N = GV->getName();
 #if LLVM_VERSION_MAJOR >= 18
-        if (N.starts_with("__afl_") || N.starts_with("__sancov_"))
-          return true;
+        if (N.starts_with("__afl_") || N.starts_with("__sancov_")) return true;
 #else
-        if (N.startswith("__afl_") || N.startswith("__sancov_"))
-          return true;
+        if (N.startswith("__afl_") || N.startswith("__sancov_")) return true;
 #endif
 
       }
 
       if (auto *Op = dyn_cast<Operator>(V)) {
 
-        for (Use &U : Op->operands()) work.push_back(U.get());
+        for (Use &U : Op->operands())
+          work.push_back(U.get());
         continue;
 
       }
@@ -771,8 +779,8 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         IRBuilder<> B(Bin->getNextNode());
         inheritDebugLoc(B, Bin);
         Value   *v64 = B.CreateZExtOrTrunc(Bin, I64);
-        uint32_t id = siteSlotId(func_name, site_idx++,
-                                 BUG_MODE_SALT_SCALAR_ARITH);
+        uint32_t id =
+            siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SCALAR_ARITH);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
         ++arith_sites;
         changed = true;
@@ -789,7 +797,9 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
     // Only the value extract is interesting — a 1-bit overflow flag
     // never grows past bucket 1.
     auto isOverflowIntrinsic = [](Intrinsic::ID iid) -> bool {
+
       switch (iid) {
+
         case Intrinsic::uadd_with_overflow:
         case Intrinsic::sadd_with_overflow:
         case Intrinsic::usub_with_overflow:
@@ -799,10 +809,15 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
           return true;
         default:
           return false;
+
       }
+
     };
+
     for (BasicBlock &BB : F) {
+
       for (Instruction &I : BB) {
+
         auto *EV = dyn_cast<ExtractValueInst>(&I);
         if (!EV) continue;
         if (EV->getNumIndices() != 1 || EV->getIndices()[0] != 0) continue;
@@ -820,12 +835,14 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         IRBuilder<> B(EV->getNextNode());
         inheritDebugLoc(B, EV);
         Value   *v64 = B.CreateZExtOrTrunc(EV, I64);
-        uint32_t id = siteSlotId(func_name, site_idx++,
-                                 BUG_MODE_SALT_SCALAR_ARITH);
+        uint32_t id =
+            siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SCALAR_ARITH);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
         ++arith_sites;
         changed = true;
+
       }
+
     }
 
     // SelectInst with a ConstantInt arm: a `cond ? K : x` size-decision
@@ -837,7 +854,9 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
     // operand to keep noise low: pure runtime-vs-runtime selects rarely
     // carry size signal.
     for (BasicBlock &BB : F) {
+
       for (Instruction &I : BB) {
+
         auto *Sel = dyn_cast<SelectInst>(&I);
         if (!Sel) continue;
         auto *IT = dyn_cast<IntegerType>(Sel->getType());
@@ -850,30 +869,37 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         // filter — selects on GEP-derived addresses produce noise).
         bool addr_arith = false;
         for (Use &U : Sel->operands())
-          if (isa<GetElementPtrInst>(U.get()) ||
-              isa<PtrToIntInst>(U.get())) {
+          if (isa<GetElementPtrInst>(U.get()) || isa<PtrToIntInst>(U.get())) {
+
             addr_arith = true;
             break;
+
           }
+
         if (addr_arith) continue;
         // Skip if used only as a branch / icmp condition (no value flow).
         bool any_non_br = false;
         for (User *U : Sel->users())
           if (!isa<BranchInst>(U) && !isa<ICmpInst>(U)) {
+
             any_non_br = true;
             break;
+
           }
+
         if (!any_non_br) continue;
         if (S.scalar_slice && !slice.count(Sel)) continue;
         IRBuilder<> B(Sel->getNextNode());
         inheritDebugLoc(B, Sel);
         Value   *v64 = B.CreateZExtOrTrunc(Sel, I64);
-        uint32_t id = siteSlotId(func_name, site_idx++,
-                                 BUG_MODE_SALT_SCALAR_ARITH);
+        uint32_t id =
+            siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SCALAR_ARITH);
         B.CreateCall(scalarHook, {ConstantInt::get(I32, id), v64});
         ++arith_sites;
         changed = true;
+
       }
+
     }
 
     // Loop-header iteration counters in the SAME function — re-use the
@@ -902,16 +928,15 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
       // through an alloca — which would survive optimizer-last since
       // mem2reg has already run. Codegen lowers this to a register
       // increment, ~3x faster in tight loops than the alloca form.
-      PHINode *cnt = PHINode::Create(I32, 2, "afl.loopcnt",
-                                     &*Header->begin());
+      PHINode *cnt = PHINode::Create(I32, 2, "afl.loopcnt", &*Header->begin());
 #if LLVM_MAJOR >= 20
       cnt->dropDbgRecords();
 #endif
       cnt->setDebugLoc(firstNonPHI(Header)->getDebugLoc());
       IRBuilder<> HB(firstNonPHI(Header));
       inheritDebugLoc(HB, firstNonPHI(Header));
-      Value      *inc = HB.CreateAdd(cnt, ConstantInt::get(I32, 1),
-                                     "afl.loopcnt.inc");
+      Value *inc =
+          HB.CreateAdd(cnt, ConstantInt::get(I32, 1), "afl.loopcnt.inc");
       cnt->addIncoming(ConstantInt::get(I32, 0), Preheader);
       cnt->addIncoming(inc, Latch);
 
@@ -957,8 +982,8 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         // exit blocks reached via in-loop invoke unwind edges in C++
         // -fexceptions code.
         if (Exit->isEHPad() || firstNonPHI(Exit)->isEHPad()) continue;
-        PHINode *xphi = PHINode::Create(
-            I32, 0, "afl.loopcnt.lcssa", &*Exit->begin());
+        PHINode *xphi =
+            PHINode::Create(I32, 0, "afl.loopcnt.lcssa", &*Exit->begin());
 #if LLVM_MAJOR >= 20
         xphi->dropDbgRecords();
 #endif
@@ -977,7 +1002,7 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
         // and the next inserted-PHI would then sit AFTER a non-PHI flush
         // call, breaking the "PHIs at top" invariant).
         Instruction *FlushAt = firstNonPHI(Exit);
-        IRBuilder<> XB(FlushAt);
+        IRBuilder<>  XB(FlushAt);
         inheritDebugLoc(XB, FlushAt);
         XB.CreateCall(loopFlush, {ConstantInt::get(I32, id), xphi});
 
@@ -989,10 +1014,11 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
     // sufficient and avoid conflating multiple loop runs in one call.)
 
     changed = true;
-    if (dump_summary && (arith_sites > pf_arith_start ||
-                         loop_sites > pf_loop_start)) {
-      per_func[&F] = {arith_sites - pf_arith_start,
-                      loop_sites - pf_loop_start};
+    if (dump_summary &&
+        (arith_sites > pf_arith_start || loop_sites > pf_loop_start)) {
+
+      per_func[&F] = {arith_sites - pf_arith_start, loop_sites - pf_loop_start};
+
     }
 
   }
@@ -1001,11 +1027,14 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
     errs() << "[afl-bug] SCALAR instrumented " << arith_sites
            << " arithmetic sites, " << loop_sites << " loops\n";
   if (dump_summary) {
+
     for (auto &kv : per_func)
       errs() << "[afl-bug-summary] SCALAR " << kv.first->getName()
-             << " arith=" << kv.second.first
-             << " loop=" << kv.second.second << "\n";
+             << " arith=" << kv.second.first << " loop=" << kv.second.second
+             << "\n";
+
   }
+
   return changed;
 
 }
@@ -1022,10 +1051,10 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
 // value as the size.
 struct BudgetMatch {
 
-  CallBase    *Call;
-  unsigned     PtrArgIdx;
-  Value       *PtrBefore;
-  LoadInst    *RetSize;     /* nullptr = use Call's return value */
+  CallBase *Call;
+  unsigned  PtrArgIdx;
+  Value    *PtrBefore;
+  LoadInst *RetSize;                   /* nullptr = use Call's return value */
 
 };
 
@@ -1149,8 +1178,7 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
 
             if (++probes > 32) break;
             auto *CB = dyn_cast<CallBase>(U);
-            if (!CB || (!isa<CallInst>(CB) && !isa<InvokeInst>(CB)))
-              continue;
+            if (!CB || (!isa<CallInst>(CB) && !isa<InvokeInst>(CB))) continue;
             Function *Callee = CB->getCalledFunction();
             if (!Callee) continue;
             // The same value can appear at multiple arg positions of
@@ -1205,7 +1233,13 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
               bool cb_first = false;
               for (Instruction &II : *CB->getParent()) {
 
-                if (&II == CB) { cb_first = true; break; }
+                if (&II == CB) {
+
+                  cb_first = true;
+                  break;
+
+                }
+
                 if (&II == LdSize) break;
 
               }
@@ -1247,8 +1281,7 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
 
         }
 
-        if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
-          continue;
+        if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call))) continue;
         // Match base against any pointer arg of the call, peering
         // through up to TWO levels of alloca-spill (a single level
         // catches optnone code; two catches post-Inlining-without-
@@ -1282,8 +1315,8 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
 
           };
 
-          Value       *a = stripped(arg_val);
-          AllocaInst  *a_alloca = loadAlloca(a);
+          Value      *a = stripped(arg_val);
+          AllocaInst *a_alloca = loadAlloca(a);
 
           SmallVector<Value *, 8>  work;
           SmallPtrSet<Value *, 16> seen;
@@ -1332,8 +1365,7 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
             // values are equal at runtime in the canonical pattern
             // (no store to the backing alloca between the call and
             // the GEP).
-            out.push_back(
-                {Call, i, Call->getArgOperand(i), out_param_size});
+            out.push_back({Call, i, Call->getArgOperand(i), out_param_size});
             break;
 
           }
@@ -1358,8 +1390,7 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
 
       }
 
-      if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
-        continue;
+      if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call))) continue;
       auto *P2I = dyn_cast<PtrToIntInst>(Ptr);
       if (!P2I) continue;
       Value *base = P2I->getOperand(0);
@@ -1383,8 +1414,7 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
 
 }
 
-bool runBudgetMode(Module &M, ModuleAnalysisManager &,
-                   bool out_param_enabled) {
+bool runBudgetMode(Module &M, ModuleAnalysisManager &, bool out_param_enabled) {
 
   LLVMContext &C = M.getContext();
   Type        *VoidTy = Type::getVoidTy(C);
@@ -1414,10 +1444,9 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &,
   // tracked buffer head.
   std::map<Function *, std::set<unsigned>> callee_arg_indices;
 
-  bool                              changed = false;
-  bool                              dump_summary =
-      getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
-  std::map<Function *, uint32_t>    per_func_sites;
+  bool changed = false;
+  bool dump_summary = getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
+  std::map<Function *, uint32_t> per_func_sites;
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
@@ -1483,14 +1512,14 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &,
   IntegerType *I32_for_store = IntegerType::getInt32Ty(C);
   for (auto &kv : callee_arg_indices) {
 
-    Function                  *F = kv.first;
+    Function *F = kv.first;
     if (!isInInstrumentList(F, F->getName().str())) continue;
-    const std::set<unsigned>  &arg_indices = kv.second;
+    const std::set<unsigned> &arg_indices = kv.second;
     // BUDGET aborts when `max_off > ret_size` — over-reporting writes
     // via bounded-libc functions (snprintf, read, ...) would FP.
     // Restrict to deterministic-write libc functions only.
-    instrumentArgReachingStores(*F, wsStore, arg_indices, PtrTy,
-                                I32_for_store, M.getDataLayout(),
+    instrumentArgReachingStores(*F, wsStore, arg_indices, PtrTy, I32_for_store,
+                                M.getDataLayout(),
                                 /*libc_exact_only=*/true);
 
   }
@@ -1499,10 +1528,13 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &,
     errs() << "[afl-bug] BUDGET instrumented " << callee_arg_indices.size()
            << " callees\n";
   if (dump_summary) {
+
     for (auto &kv : per_func_sites)
       errs() << "[afl-bug-summary] BUDGET " << kv.first->getName()
              << " sites=" << kv.second << "\n";
+
   }
+
   return changed;
 
 }
@@ -1522,9 +1554,9 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &,
 //                    check spuriously.
 struct SentinelDesc {
 
-  int  sentinel_idx;
-  int  out_size_idx;
-  int  out_size_bits;
+  int sentinel_idx;
+  int out_size_idx;
+  int out_size_bits;
   // True if the callee reads through args[out_size_idx] (in/out
   // param).  Caller MUST skip the pre-call zero on these — otherwise
   // the zero clobbers an initial value the callee expects.
@@ -1837,11 +1869,7 @@ static int findSentinelParam(Function &F) {
 
           }
 
-          if (reached_return_clean) {
-
-            found_null_branch = true;
-
-          }
+          if (reached_return_clean) { found_null_branch = true; }
 
           if (found_null_branch) break;
 
@@ -1873,7 +1901,7 @@ static int findSentinelParam(Function &F) {
 // index is in `arg_indices` (or any Argument when the set is empty). A
 // store via a stack-local alloca, a global, or a pointer through a
 // different arg returns false.
-static bool ptrValueReachesArg(Value *Root,
+static bool ptrValueReachesArg(Value                    *Root,
                                const std::set<unsigned> &arg_indices) {
 
   auto argAcceptable = [&](Argument *Arg) -> bool {
@@ -1887,7 +1915,7 @@ static bool ptrValueReachesArg(Value *Root,
   // aliases make the origin ambiguous; treat those as untrusted roots.
   auto singleAllocaSpillSource = [&](AllocaInst *AI) -> Value * {
 
-    Value *source = nullptr;
+    Value   *source = nullptr;
     unsigned stores = 0;
     for (User *U : AI->users()) {
 
@@ -1949,7 +1977,8 @@ static bool ptrValueReachesArg(Value *Root,
 
     if (auto *PN = dyn_cast<PHINode>(ptr)) {
 
-      for (Value *Inc : PN->incoming_values()) work.push_back(Inc);
+      for (Value *Inc : PN->incoming_values())
+        work.push_back(Inc);
       continue;
 
     }
@@ -1984,7 +2013,7 @@ static bool ptrValueReachesArg(Value *Root,
 
 }
 
-static bool ptrStoreReachesArg(StoreInst                 *S,
+static bool ptrStoreReachesArg(StoreInst                *S,
                                const std::set<unsigned> &arg_indices) {
 
   return ptrValueReachesArg(S->getPointerOperand(), arg_indices);
@@ -2024,9 +2053,8 @@ static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
 
   // --- Exact writers: byte count == arg.  Always safe ---
   if (Name == "memset" || Name == "__memset_chk" || Name == "memcpy" ||
-      Name == "__memcpy_chk" || Name == "memmove" ||
-      Name == "__memmove_chk" || Name == "mempcpy" ||
-      Name == "__mempcpy_chk")
+      Name == "__memcpy_chk" || Name == "memmove" || Name == "__memmove_chk" ||
+      Name == "mempcpy" || Name == "__mempcpy_chk")
     return useArgs(0, 2);
 
   if (Name == "bzero" || Name == "explicit_bzero") return useArgs(0, 1);
@@ -2050,8 +2078,8 @@ static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
   if (Name == "strlcpy" || Name == "strlcat") return useArgs(0, 2);
 
   // (v)snprintf: at most `size` bytes (incl NUL) when size>0.
-  if (Name == "snprintf" || Name == "__snprintf_chk" ||
-      Name == "vsnprintf" || Name == "__vsnprintf_chk")
+  if (Name == "snprintf" || Name == "__snprintf_chk" || Name == "vsnprintf" ||
+      Name == "__vsnprintf_chk")
     return useArgs(0, 1);
 
   // fgets: writes at most `size` bytes (incl NUL) into dest.
@@ -2108,9 +2136,8 @@ static bool isConstantTooWideForBugStoreHook(Value *Len) {
 }
 
 static unsigned instrumentArgReachingStores(
-    Function &F, FunctionCallee hook,
-    const std::set<unsigned> &arg_indices, Type *PtrTy, IntegerType *I32,
-    const DataLayout &DL, bool libc_exact_only) {
+    Function &F, FunctionCallee hook, const std::set<unsigned> &arg_indices,
+    Type *PtrTy, IntegerType *I32, const DataLayout &DL, bool libc_exact_only) {
 
   unsigned count = 0;
   for (BasicBlock &BB : F) {
@@ -2159,8 +2186,7 @@ static unsigned instrumentArgReachingStores(
       if (!ptrStoreReachesArg(S, arg_indices)) continue;
       IRBuilder<> SB(S);
       inheritDebugLoc(SB, S);
-      Value *addr =
-          castToPtrTy(SB, S->getPointerOperand(), PtrTy);
+      Value   *addr = castToPtrTy(SB, S->getPointerOperand(), PtrTy);
       uint64_t sz = DL.getTypeStoreSize(S->getValueOperand()->getType());
       if (sz > UINT32_MAX) continue;
       SB.CreateCall(hook, {addr, ConstantInt::get(I32, (uint32_t)sz)});
@@ -2180,9 +2206,11 @@ static bool functionHasStoreThroughArg(Function &F, unsigned arg_idx) {
   args.insert(arg_idx);
   for (BasicBlock &BB : F)
     for (Instruction &I : BB) {
+
       if (auto *MI = dyn_cast<MemIntrinsic>(&I))
         if (ptrValueReachesArg(MI->getRawDest(), args)) return true;
       if (auto *CB = dyn_cast<CallBase>(&I)) {
+
         Value *dest = nullptr;
         Value *len = nullptr;
         // Heuristic — accept the bounded set so we don't miss callees
@@ -2191,10 +2219,14 @@ static bool functionHasStoreThroughArg(Function &F, unsigned arg_idx) {
                                           /*exact_only=*/false) &&
             ptrValueReachesArg(dest, args))
           return true;
+
       }
+
       if (auto *S = dyn_cast<StoreInst>(&I))
         if (ptrStoreReachesArg(S, args)) return true;
+
     }
+
   return false;
 
 }
@@ -2252,9 +2284,9 @@ static bool functionHasStoreThroughArg(Function &F, unsigned arg_idx) {
 // inputs (two PHI arms sharing a common ancestor malloc, for instance)
 // and tracking them here would block legitimate joins.
 static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
-                                       const DataLayout       &DL,
+                                       const DataLayout            &DL,
                                        const std::set<std::string> &customs,
-                                       SmallPtrSetImpl<Value *> &visited);
+                                       SmallPtrSetImpl<Value *>    &visited);
 
 // Emit `N * S` with saturating semantics: on overflow, returns
 // UINT64_MAX so downstream SIZEFILL comparisons (`ret > buf_size`)
@@ -2263,8 +2295,7 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
 static Value *emitSaturatingMul(IRBuilder<> &B, Value *N, Value *S,
                                 IntegerType *I64) {
 
-  Value *uo =
-      B.CreateIntrinsic(Intrinsic::umul_with_overflow, {I64}, {N, S});
+  Value *uo = B.CreateIntrinsic(Intrinsic::umul_with_overflow, {I64}, {N, S});
   Value *prod = B.CreateExtractValue(uo, 0);
   Value *ovf = B.CreateExtractValue(uo, 1);
   Value *maxU = ConstantInt::get(I64, UINT64_MAX);
@@ -2282,9 +2313,9 @@ static Value *inferBufferSizeValue(Value *V, IRBuilder<> &B,
 }
 
 static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
-                                       const DataLayout       &DL,
+                                       const DataLayout            &DL,
                                        const std::set<std::string> &customs,
-                                       SmallPtrSetImpl<Value *> &visited) {
+                                       SmallPtrSetImpl<Value *>    &visited) {
 
   IntegerType *I64 = IntegerType::getInt64Ty(B.getContext());
   if (!V) return nullptr;
@@ -2341,9 +2372,9 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
     // and must be allowed to recurse independently.
     if (!visited.insert(PN).second) return nullptr;
     SmallVector<std::pair<Value *, BasicBlock *>, 4> arms;
-    bool ok = true;
-    bool all_const = true;
-    uint64_t min_const = UINT64_MAX;
+    bool                                             ok = true;
+    bool                                             all_const = true;
+    uint64_t                                         min_const = UINT64_MAX;
     for (unsigned i = 0, e = PN->getNumIncomingValues(); i < e; ++i) {
 
       Value      *Inc = PN->getIncomingValue(i);
@@ -2382,12 +2413,13 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
     // Emit a PHI of sizes at the original PHI's location, sharing its
     // incoming-block structure. IRBuilder doesn't help here — direct
     // PHINode::Create lets us insert before all non-PHIs in the block.
-    PHINode *NewPN = PHINode::Create(I64, (unsigned)arms.size(),
-                                     "afl.bufsz.phi", PN);
+    PHINode *NewPN =
+        PHINode::Create(I64, (unsigned)arms.size(), "afl.bufsz.phi", PN);
 #if LLVM_MAJOR >= 20
     NewPN->dropDbgRecords();
 #endif
-    for (auto &kv : arms) NewPN->addIncoming(kv.first, kv.second);
+    for (auto &kv : arms)
+      NewPN->addIncoming(kv.first, kv.second);
     return NewPN;
 
   }
@@ -2420,8 +2452,8 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
 
   if (auto *A = dyn_cast<AllocaInst>(V)) {
 
-    Value     *arrSize = A->getArraySize();
-    uint64_t   eltBytes = DL.getTypeStoreSize(A->getAllocatedType());
+    Value   *arrSize = A->getArraySize();
+    uint64_t eltBytes = DL.getTypeStoreSize(A->getAllocatedType());
     if (auto *Cst = dyn_cast<ConstantInt>(arrSize)) {
 
       // Saturate the constant fold too: arrSize * eltBytes overflowing
@@ -2479,9 +2511,8 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
     //         strndup-arg-1 (handled separately), realloc-arg-1 (sep.)
     //   arg1: realloc family (ptr, size), strndup (str, n)
     //   arg-of-aligned-alloc: see below
-    if ((name == "malloc" || name == "__afl_track_malloc" ||
-         name == "_Znwm" || name == "_Znam" || name == "_Znwj" ||
-         name == "_Znaj") &&
+    if ((name == "malloc" || name == "__afl_track_malloc" || name == "_Znwm" ||
+         name == "_Znam" || name == "_Znwj" || name == "_Znaj") &&
         Call->arg_size() >= 1 &&
         Call->getArgOperand(0)->getType()->isIntegerTy()) {
 
@@ -2577,8 +2608,7 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
       unsigned bestBits = 0;
       for (unsigned i = 0; i < Call->arg_size(); ++i) {
 
-        auto *AIT =
-            dyn_cast<IntegerType>(Call->getArgOperand(i)->getType());
+        auto *AIT = dyn_cast<IntegerType>(Call->getArgOperand(i)->getType());
         if (!AIT) continue;
         if (AIT->getBitWidth() >= bestBits) {
 
@@ -2599,7 +2629,7 @@ static Value *inferBufferSizeValueImpl(Value *V, IRBuilder<> &B,
 
 }
 
-bool runSizefillMode(Module &M, ModuleAnalysisManager &,
+bool runSizefillMode(Module             &M, ModuleAnalysisManager &,
                      const BugPassState &S) {
 
   LLVMContext &C = M.getContext();
@@ -2611,8 +2641,8 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
   Type *PtrTy = PointerType::get(IntegerType::getInt8Ty(C), 0);
 #endif
 
-  FunctionCallee sfCheck = M.getOrInsertFunction(
-      "__afl_bug_sizefill_check", VoidTy, PtrTy, I64, I64);
+  FunctionCallee sfCheck = M.getOrInsertFunction("__afl_bug_sizefill_check",
+                                                 VoidTy, PtrTy, I64, I64);
   markBugHookAttrs(sfCheck);
   // sfBegin takes (ptr, size) so the runtime can range-check every
   // store as `addr < base + size`.  A bare `addr >= base` check
@@ -2621,9 +2651,8 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
   FunctionCallee sfBegin =
       M.getOrInsertFunction("__afl_bug_sf_begin", VoidTy, PtrTy, I64);
   markBugHookAttrs(sfBegin);
-  FunctionCallee sfStore =
-      M.getOrInsertFunction("__afl_bug_sf_store", VoidTy, PtrTy,
-                            IntegerType::getInt32Ty(C));
+  FunctionCallee sfStore = M.getOrInsertFunction(
+      "__afl_bug_sf_store", VoidTy, PtrTy, IntegerType::getInt32Ty(C));
   markBugHookAttrs(sfStore);
 
   // 1) Find sentinel-param functions in this module. Each may declare its
@@ -2635,7 +2664,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
-    int  idx = findSentinelParam(F);
+    int idx = findSentinelParam(F);
     if (idx < 0) continue;
     int  out_idx = -1;
     int  out_bits = 0;
@@ -2643,7 +2672,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
     bool return_size_ok = false;
     if (F.getReturnType()->isIntegerTy()) {
 
-      auto *RT = cast<IntegerType>(F.getReturnType());
+      auto    *RT = cast<IntegerType>(F.getReturnType());
       unsigned ret_bits = RT->getBitWidth();
       if (ret_bits >= 16 && ret_bits <= 64 &&
           functionHasStoreThroughArg(F, (unsigned)idx))
@@ -2674,10 +2703,9 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
   // 2) For every call to such a function with a non-null pointer arg whose
   // buffer size we can infer, instrument sf_begin + post-call check, and
   // mark the callee for store-instrumentation.
-  bool                 changed = false;
-  unsigned             instrumented = 0;
-  bool                 dump_summary =
-      getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
+  bool     changed = false;
+  unsigned instrumented = 0;
+  bool     dump_summary = getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
   std::map<Function *, uint32_t> per_func_sites;
   // Per-callee set of arg indices that are sentinel-traced.  Stores
   // in the callee only count toward the SIZEFILL max-off if they
@@ -2693,8 +2721,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
       for (Instruction &I : BB) {
 
         auto *Call = dyn_cast<CallBase>(&I);
-        if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
-          continue;
+        if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call))) continue;
         Function *cf = Call->getCalledFunction();
         if (!cf) continue;
         auto it = sentinel.find(cf);
@@ -2709,8 +2736,8 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
 
         IRBuilder<> Pre(Call);
         inheritDebugLoc(Pre, Call);
-        Value *bufsz = inferBufferSizeValue(p, Pre, M.getDataLayout(),
-                                            S.custom_allocs);
+        Value *bufsz =
+            inferBufferSizeValue(p, Pre, M.getDataLayout(), S.custom_allocs);
         if (!bufsz) continue;
 
         // Defensively zero the out-param BEFORE the call.  If the
@@ -2731,13 +2758,12 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
         // "wrote but also dead-loaded" are preferable to clobbering a
         // legitimate input.
         if (oi >= 0 && (unsigned)oi < Call->arg_size() &&
-            Call->getArgOperand(oi)->getType()->isPointerTy() &&
-            obits > 0 && !is_inout) {
+            Call->getArgOperand(oi)->getType()->isPointerTy() && obits > 0 &&
+            !is_inout) {
 
-          IntegerType *outTy =
-              IntegerType::get(C, (unsigned)obits);
-          Type *outPtrTy = pointerTyTo(C, outTy);
-          Value *outPtrZ =
+          IntegerType *outTy = IntegerType::get(C, (unsigned)obits);
+          Type        *outPtrTy = pointerTyTo(C, outTy);
+          Value       *outPtrZ =
               Pre.CreateBitOrPointerCast(Call->getArgOperand(oi), outPtrTy);
           Pre.CreateAlignedStore(ConstantInt::get(outTy, 0), outPtrZ,
                                  llvm::MaybeAlign(1));
@@ -2747,8 +2773,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
         Value *ptrCast = castToPtrTy(Pre, p, PtrTy);
         Pre.CreateCall(sfBegin, {ptrCast, bufsz});
 
-        Instruction *PostAt =
-            postCallInsertionPoint(Call, C, ".sizefill.edge");
+        Instruction *PostAt = postCallInsertionPoint(Call, C, ".sizefill.edge");
         if (!PostAt) continue;
         IRBuilder<> Post(PostAt);
         inheritDebugLoc(Post, Call);
@@ -2762,15 +2787,15 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
           ret64 = Post.CreateZExtOrTrunc(Call, I64);
 
         } else if ((unsigned)oi < Call->arg_size() &&
+
                    Call->getArgOperand(oi)->getType()->isPointerTy() &&
                    obits > 0) {
 
           Value       *outPtr = Call->getArgOperand(oi);
           IntegerType *outIntTy = IntegerType::get(C, (unsigned)obits);
           Type        *outPtrTy = pointerTyTo(C, outIntTy);
-          Value       *castPtr =
-              Post.CreateBitOrPointerCast(outPtr, outPtrTy);
-          Value *narrow = Post.CreateAlignedLoad(
+          Value       *castPtr = Post.CreateBitOrPointerCast(outPtr, outPtrTy);
+          Value       *narrow = Post.CreateAlignedLoad(
               outIntTy, castPtr, llvm::MaybeAlign(1), "afl.sf.outsize");
           ret64 = Post.CreateZExtOrTrunc(narrow, I64);
 
@@ -2819,10 +2844,13 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
     errs() << "[afl-bug] SIZEFILL instrumented " << instrumented
            << " call sites across " << sentinel.size() << " callees\n";
   if (dump_summary) {
+
     for (auto &kv : per_func_sites)
       errs() << "[afl-bug-summary] SIZEFILL " << kv.first->getName()
              << " sites=" << kv.second << "\n";
+
   }
+
   return changed;
 
 }
@@ -2835,8 +2863,7 @@ bool runSizefillMode(Module &M, ModuleAnalysisManager &,
 // `num_nodes == 2*offset[15]-1` — the triggering input sits at the tight
 // edge of all four simultaneously, and edge-coverage alone cannot
 // distinguish "barely passed" from "passed with room to spare".
-bool runSlackMode(Module &M, ModuleAnalysisManager &,
-                  const BugPassState &S) {
+bool runSlackMode(Module &M, ModuleAnalysisManager &, const BugPassState &S) {
 
   (void)S;
   LLVMContext &C = M.getContext();
@@ -2864,8 +2891,8 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
     // SCALAR is also enabled: SCALAR's growth signal and SLACK's distance-
     // to-constant signal are complementary, especially for equality checks.
 
-    std::vector<ICmpInst *>  targets;
-    std::vector<FCmpInst *>  fp_targets;
+    std::vector<ICmpInst *>   targets;
+    std::vector<FCmpInst *>   fp_targets;
     std::vector<SwitchInst *> sw_targets;
     for (BasicBlock &BB : F) {
 
@@ -2958,14 +2985,13 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
       // path.
       if (Op0->getType()->isPointerTy() || Op1->getType()->isPointerTy()) {
 
-        Value *Op0_64 = B.CreatePtrToInt(Op0, I64);
-        Value *Op1_64 = B.CreatePtrToInt(Op1, I64);
-        Value *lt = B.CreateICmpULT(Op0_64, Op1_64);
-        Value *small = B.CreateSelect(lt, Op0_64, Op1_64);
-        Value *large = B.CreateSelect(lt, Op1_64, Op0_64);
-        Value *slack = B.CreateSub(large, small);
-        uint32_t id =
-            siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
+        Value   *Op0_64 = B.CreatePtrToInt(Op0, I64);
+        Value   *Op1_64 = B.CreatePtrToInt(Op1, I64);
+        Value   *lt = B.CreateICmpULT(Op0_64, Op1_64);
+        Value   *small = B.CreateSelect(lt, Op0_64, Op1_64);
+        Value   *large = B.CreateSelect(lt, Op1_64, Op0_64);
+        Value   *slack = B.CreateSub(large, small);
+        uint32_t id = siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
         B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack});
         ++sites;
         changed = true;
@@ -2997,8 +3023,7 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
       };
 
       bool signed_mode = Cmp->isSigned();
-      if (Cmp->isEquality() &&
-          (isSExtDefined(Op0) || isSExtDefined(Op1))) {
+      if (Cmp->isEquality() && (isSExtDefined(Op0) || isSExtDefined(Op1))) {
 
         signed_mode = true;
 
@@ -3008,11 +3033,11 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
       // i64 (i.e. i128).  The hook takes an i64 so we truncate; a
       // non-zero high half saturates to UINT64_MAX (= MIN bucket =
       // no-signal, won't overwrite a tight match from another path).
-      Type     *NativeTy = Op0->getType();
-      bool     wide = NativeTy->isIntegerTy() &&
+      Type *NativeTy = Op0->getType();
+      bool  wide = NativeTy->isIntegerTy() &&
                   cast<IntegerType>(NativeTy)->getBitWidth() > 64;
-      Value    *Op0_n, *Op1_n;
-      Value    *lt;
+      Value *Op0_n, *Op1_n;
+      Value *lt;
       if (wide) {
 
         // Always zext for wide-mode and use unsigned ordering; signed
@@ -3047,12 +3072,9 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
         // set, force slack to UINT64_MAX.
         Value *lo = B.CreateTrunc(slack_n, I64);
         Value *hi = B.CreateTrunc(
-            B.CreateLShr(slack_n,
-                         ConstantInt::get(NativeTy, 64)),
-            I64);
+            B.CreateLShr(slack_n, ConstantInt::get(NativeTy, 64)), I64);
         Value *anyHi = B.CreateICmpNE(hi, ConstantInt::get(I64, 0));
-        slack = B.CreateSelect(anyHi,
-                               ConstantInt::get(I64, (uint64_t)-1), lo);
+        slack = B.CreateSelect(anyHi, ConstantInt::get(I64, (uint64_t)-1), lo);
 
       } else {
 
@@ -3093,9 +3115,9 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
     // match), drowning real-signal updates. Detect NaN via `fcmp uno`
     // and substitute UINT64_MAX so the slack hook's MAX update rule
     // treats NaN as "no signal" (inv = 0, no overwrite).
-    Type      *F64 = Type::getDoubleTy(C);
-    Constant  *u64_max = ConstantInt::get(I64, (uint64_t)-1);
-    Constant  *scale = ConstantFP::get(F64, (double)(1u << 20));
+    Type     *F64 = Type::getDoubleTy(C);
+    Constant *u64_max = ConstantInt::get(I64, (uint64_t)-1);
+    Constant *scale = ConstantFP::get(F64, (double)(1u << 20));
     for (FCmpInst *FCmp : fp_targets) {
 
       IRBuilder<> B(FCmp);
@@ -3114,11 +3136,10 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
       // Scale to preserve sub-unit precision, then saturating cast.
       // FMul of NaN stays NaN; that's still caught by isNaN above.
       Value *scaled = B.CreateFMul(absD, scale);
-      Value *slack_sat = B.CreateIntrinsic(
-          Intrinsic::fptoui_sat, {I64, F64}, {scaled});
-      Value *slack_fp = B.CreateSelect(isNaN, u64_max, slack_sat);
-      uint32_t id =
-          siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
+      Value *slack_sat =
+          B.CreateIntrinsic(Intrinsic::fptoui_sat, {I64, F64}, {scaled});
+      Value   *slack_fp = B.CreateSelect(isNaN, u64_max, slack_sat);
+      uint32_t id = siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
       B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack_fp});
       ++sites;
       changed = true;
@@ -3142,7 +3163,7 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
     // pass would miss entirely.
     for (SwitchInst *SW : sw_targets) {
 
-      Value *Cond = SW->getCondition();
+      Value      *Cond = SW->getCondition();
       IRBuilder<> B(SW);
       inheritDebugLoc(B, SW);
       Value *Cond_64 = B.CreateZExtOrTrunc(Cond, I64);
@@ -3151,12 +3172,11 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
         ConstantInt *CaseV = It->getCaseValue();
         Value       *CV64 = ConstantInt::get(I64, CaseV->getZExtValue());
         // |Cond - CaseV| via unsigned ordered subtraction.
-        Value *lt = B.CreateICmpULT(Cond_64, CV64);
-        Value *small = B.CreateSelect(lt, Cond_64, CV64);
-        Value *large = B.CreateSelect(lt, CV64, Cond_64);
-        Value *slack = B.CreateSub(large, small);
-        uint32_t id =
-            siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
+        Value   *lt = B.CreateICmpULT(Cond_64, CV64);
+        Value   *small = B.CreateSelect(lt, Cond_64, CV64);
+        Value   *large = B.CreateSelect(lt, CV64, Cond_64);
+        Value   *slack = B.CreateSub(large, small);
+        uint32_t id = siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
         B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack});
         ++sites;
 
@@ -3175,7 +3195,9 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
     // overwrite).  An input that newly triggers overflow at a site
     // dominates the slot.
     auto isOverflowIntrinsicS = [](Intrinsic::ID iid) -> bool {
+
       switch (iid) {
+
         case Intrinsic::uadd_with_overflow:
         case Intrinsic::sadd_with_overflow:
         case Intrinsic::usub_with_overflow:
@@ -3185,10 +3207,15 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
           return true;
         default:
           return false;
+
       }
+
     };
+
     for (BasicBlock &BB : F) {
+
       for (Instruction &I : BB) {
+
         auto *EV = dyn_cast<ExtractValueInst>(&I);
         if (!EV) continue;
         if (EV->getNumIndices() != 1 || EV->getIndices()[0] != 1) continue;
@@ -3197,29 +3224,32 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &,
         if (!EV->getType()->isIntegerTy(1)) continue;
         IRBuilder<> B(EV->getNextNode());
         inheritDebugLoc(B, EV);
-        Value *u64_max = ConstantInt::get(I64, (uint64_t)-1);
-        Value *zero = ConstantInt::get(I64, 0);
-        Value *slack = B.CreateSelect(EV, zero, u64_max);
-        uint32_t id =
-            siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
+        Value   *u64_max = ConstantInt::get(I64, (uint64_t)-1);
+        Value   *zero = ConstantInt::get(I64, 0);
+        Value   *slack = B.CreateSelect(EV, zero, u64_max);
+        uint32_t id = siteSlotId(func_name, site_idx++, BUG_MODE_SALT_SLACK);
         B.CreateCall(slackHook, {ConstantInt::get(I32, id), slack});
         ++sites;
         changed = true;
+
       }
+
     }
 
-    if (dump_summary && sites > pf_start)
-      per_func_sites[&F] = sites - pf_start;
+    if (dump_summary && sites > pf_start) per_func_sites[&F] = sites - pf_start;
 
   }
 
   if (getenv("AFL_QUIET") == nullptr)
     errs() << "[afl-bug] SLACK instrumented " << sites << " icmp sites\n";
   if (dump_summary) {
+
     for (auto &kv : per_func_sites)
       errs() << "[afl-bug-summary] SLACK " << kv.first->getName()
              << " sites=" << kv.second << "\n";
+
   }
+
   return changed;
 
 }
@@ -3240,11 +3270,11 @@ enum class AllocKind : uint8_t {
   SizedAlignedFree,  // ptr, size_t, align_val_t                 -> void
   NothrowNew,        // size_t, const nothrow_t&                 -> ptr
   NothrowDelete,     // ptr, const nothrow_t&                    -> void
-  AlignedNothrowNew, // size_t, align_val_t, const nothrow_t&    -> ptr
-  AlignedNothrowDelete, // ptr, align_val_t, const nothrow_t&    -> void
-  Strdup,            // const char*                              -> ptr
-  Strndup,           // const char*, size_t                      -> ptr
-  Reallocarray,      // ptr, size_t, size_t                      -> ptr
+  AlignedNothrowNew,     // size_t, align_val_t, const nothrow_t&    -> ptr
+  AlignedNothrowDelete,  // ptr, align_val_t, const nothrow_t&    -> void
+  Strdup,                // const char*                              -> ptr
+  Strndup,               // const char*, size_t                      -> ptr
+  Reallocarray,          // ptr, size_t, size_t                      -> ptr
 
 };
 
@@ -3271,19 +3301,20 @@ struct AllocRewriteSpec {
 // MSVC mangling is included so Windows targets get the same coverage as
 // Itanium. _K is size_t on x64; I is uint on x86.
 static const AllocRewriteSpec kRewriteSpecs[] = {
-    {"malloc",          "__afl_track_malloc",         AllocKind::Malloc},
-    {"calloc",          "__afl_track_calloc",         AllocKind::Calloc},
-    {"realloc",         "__afl_track_realloc",        AllocKind::Realloc},
-    {"reallocarray",    "__afl_track_reallocarray",   AllocKind::Reallocarray},
-    {"posix_memalign",  "__afl_track_posix_memalign", AllocKind::PosixMemalign},
-    {"aligned_alloc",   "__afl_track_aligned_alloc",  AllocKind::AlignedAlloc},
-    {"free",            "__afl_track_free",           AllocKind::Free},
-    {"strdup",          "__afl_track_strdup",         AllocKind::Strdup},
-    {"strndup",         "__afl_track_strndup",        AllocKind::Strndup},
+
+    {"malloc", "__afl_track_malloc", AllocKind::Malloc},
+    {"calloc", "__afl_track_calloc", AllocKind::Calloc},
+    {"realloc", "__afl_track_realloc", AllocKind::Realloc},
+    {"reallocarray", "__afl_track_reallocarray", AllocKind::Reallocarray},
+    {"posix_memalign", "__afl_track_posix_memalign", AllocKind::PosixMemalign},
+    {"aligned_alloc", "__afl_track_aligned_alloc", AllocKind::AlignedAlloc},
+    {"free", "__afl_track_free", AllocKind::Free},
+    {"strdup", "__afl_track_strdup", AllocKind::Strdup},
+    {"strndup", "__afl_track_strndup", AllocKind::Strndup},
     // Itanium C++ ABI.
     {"_Znwm", "__afl_track_malloc", AllocKind::Malloc},
     {"_Znam", "__afl_track_malloc", AllocKind::Malloc},
-    {"_Znwj", "__afl_track_malloc", AllocKind::Malloc},  /* 32-bit ABI */
+    {"_Znwj", "__afl_track_malloc", AllocKind::Malloc},       /* 32-bit ABI */
     {"_Znaj", "__afl_track_malloc", AllocKind::Malloc},
     {"_ZdlPv", "__afl_track_free", AllocKind::Free},
     {"_ZdaPv", "__afl_track_free", AllocKind::Free},
@@ -3291,17 +3322,21 @@ static const AllocRewriteSpec kRewriteSpecs[] = {
     // is advisory for allocator hint only).
     {"_ZdlPvm", "__afl_track_free", AllocKind::SizedFree},
     {"_ZdaPvm", "__afl_track_free", AllocKind::SizedFree},
-    {"_ZdlPvj", "__afl_track_free", AllocKind::SizedFree},  /* 32-bit */
+    {"_ZdlPvj", "__afl_track_free", AllocKind::SizedFree},        /* 32-bit */
     {"_ZdaPvj", "__afl_track_free", AllocKind::SizedFree},
     // C++17 aligned new / delete. Routed to __afl_track_aligned_alloc
     // (posix_memalign-backed) so the alignment contract is preserved;
     // rewriting to plain malloc would hand out an under-aligned buffer
     // and any SIMD/over-aligned access would fault, manufacturing
     // crashes that don't reflect real bugs in the target.
-    {"_ZnwmSt11align_val_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
-    {"_ZnamSt11align_val_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
-    {"_ZnwjSt11align_val_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
-    {"_ZnajSt11align_val_t", "__afl_track_aligned_alloc", AllocKind::AlignedNew},
+    {"_ZnwmSt11align_val_t", "__afl_track_aligned_alloc",
+     AllocKind::AlignedNew},
+    {"_ZnamSt11align_val_t", "__afl_track_aligned_alloc",
+     AllocKind::AlignedNew},
+    {"_ZnwjSt11align_val_t", "__afl_track_aligned_alloc",
+     AllocKind::AlignedNew},
+    {"_ZnajSt11align_val_t", "__afl_track_aligned_alloc",
+     AllocKind::AlignedNew},
     {"_ZdlPvSt11align_val_t", "__afl_track_free", AllocKind::AlignedDelete},
     {"_ZdaPvSt11align_val_t", "__afl_track_free", AllocKind::AlignedDelete},
     // Sized + aligned delete (C++17).
@@ -3310,62 +3345,77 @@ static const AllocRewriteSpec kRewriteSpecs[] = {
     {"_ZdlPvjSt11align_val_t", "__afl_track_free", AllocKind::SizedAlignedFree},
     {"_ZdaPvjSt11align_val_t", "__afl_track_free", AllocKind::SizedAlignedFree},
     // MSVC mangling. x64 (_K = size_t = u64), x86 (I = uint = u32).
-    {"??2@YAPEAX_K@Z",  "__afl_track_malloc", AllocKind::Malloc},   /* new   x64 */
-    {"??_U@YAPEAX_K@Z", "__afl_track_malloc", AllocKind::Malloc},   /* new[] x64 */
-    {"??2@YAPAXI@Z",    "__afl_track_malloc", AllocKind::Malloc},   /* new   x86 */
-    {"??_U@YAPAXI@Z",   "__afl_track_malloc", AllocKind::Malloc},   /* new[] x86 */
-    {"??3@YAXPEAX@Z",   "__afl_track_free",   AllocKind::Free},     /* del   x64 */
-    {"??_V@YAXPEAX@Z",  "__afl_track_free",   AllocKind::Free},     /* del[] x64 */
-    {"??3@YAXPAX@Z",    "__afl_track_free",   AllocKind::Free},     /* del   x86 */
-    {"??_V@YAXPAX@Z",   "__afl_track_free",   AllocKind::Free},     /* del[] x86 */
+    {"??2@YAPEAX_K@Z", "__afl_track_malloc", AllocKind::Malloc}, /* new   x64 */
+    {"??_U@YAPEAX_K@Z", "__afl_track_malloc",
+     AllocKind::Malloc},                                        /* new[] x64 */
+    {"??2@YAPAXI@Z", "__afl_track_malloc", AllocKind::Malloc},  /* new   x86 */
+    {"??_U@YAPAXI@Z", "__afl_track_malloc", AllocKind::Malloc}, /* new[] x86 */
+    {"??3@YAXPEAX@Z", "__afl_track_free", AllocKind::Free},     /* del   x64 */
+    {"??_V@YAXPEAX@Z", "__afl_track_free", AllocKind::Free},    /* del[] x64 */
+    {"??3@YAXPAX@Z", "__afl_track_free", AllocKind::Free},      /* del   x86 */
+    {"??_V@YAXPAX@Z", "__afl_track_free", AllocKind::Free},     /* del[] x86 */
 
     // glibc internal symbols (visible in thinLTO and direct-bind
     // builds), legacy POSIX allocators, and nothrow C++ ABI overloads.
 
     // glibc internal allocator names (sometimes called directly by libc
     // itself in static-linked targets or by user code that uses dlsym).
-    {"__libc_malloc",   "__afl_track_malloc",  AllocKind::Malloc},
-    {"__libc_calloc",   "__afl_track_calloc",  AllocKind::Calloc},
-    {"__libc_realloc",  "__afl_track_realloc", AllocKind::Realloc},
-    {"__libc_free",     "__afl_track_free",    AllocKind::Free},
-    {"__libc_valloc",   "__afl_track_malloc",  AllocKind::Malloc},
-    {"__libc_pvalloc",  "__afl_track_malloc",  AllocKind::Malloc},
+    {"__libc_malloc", "__afl_track_malloc", AllocKind::Malloc},
+    {"__libc_calloc", "__afl_track_calloc", AllocKind::Calloc},
+    {"__libc_realloc", "__afl_track_realloc", AllocKind::Realloc},
+    {"__libc_free", "__afl_track_free", AllocKind::Free},
+    {"__libc_valloc", "__afl_track_malloc", AllocKind::Malloc},
+    {"__libc_pvalloc", "__afl_track_malloc", AllocKind::Malloc},
     {"__libc_memalign", "__afl_track_aligned_alloc", AllocKind::AlignedAlloc},
-    {"__GI___libc_malloc",  "__afl_track_malloc",  AllocKind::Malloc},
-    {"__GI___libc_calloc",  "__afl_track_calloc",  AllocKind::Calloc},
+    {"__GI___libc_malloc", "__afl_track_malloc", AllocKind::Malloc},
+    {"__GI___libc_calloc", "__afl_track_calloc", AllocKind::Calloc},
     {"__GI___libc_realloc", "__afl_track_realloc", AllocKind::Realloc},
-    {"__GI___libc_free",    "__afl_track_free",    AllocKind::Free},
+    {"__GI___libc_free", "__afl_track_free", AllocKind::Free},
 
     // Legacy POSIX allocators. Treated as malloc (1-arg) since the
     // alignment/granularity is internal to the allocator and the runtime
     // shadow only cares about (base, size).
-    {"valloc",   "__afl_track_malloc", AllocKind::Malloc},
-    {"pvalloc",  "__afl_track_malloc", AllocKind::Malloc},
-    {"memalign", "__afl_track_aligned_alloc", AllocKind::AlignedAlloc}, /* (align, size) */
+    {"valloc", "__afl_track_malloc", AllocKind::Malloc},
+    {"pvalloc", "__afl_track_malloc", AllocKind::Malloc},
+    {"memalign", "__afl_track_aligned_alloc",
+     AllocKind::AlignedAlloc},                             /* (align, size) */
 
     // Nothrow new variants (`new(std::nothrow) T`). The pass already wraps
     // throwing-new, but the runtime-equivalent nothrow forms have distinct
     // mangled names and were silently missed.
-    {"_ZnwmRKSt9nothrow_t", "__afl_track_malloc", AllocKind::NothrowNew}, /* new       nothrow x64 */
-    {"_ZnamRKSt9nothrow_t", "__afl_track_malloc", AllocKind::NothrowNew}, /* new[]     nothrow x64 */
-    {"_ZnwjRKSt9nothrow_t", "__afl_track_malloc", AllocKind::NothrowNew}, /* new       nothrow x86 */
-    {"_ZnajRKSt9nothrow_t", "__afl_track_malloc", AllocKind::NothrowNew}, /* new[]     nothrow x86 */
-    {"_ZdlPvRKSt9nothrow_t", "__afl_track_free", AllocKind::NothrowDelete},    /* delete    nothrow */
-    {"_ZdaPvRKSt9nothrow_t", "__afl_track_free", AllocKind::NothrowDelete},    /* delete[]  nothrow */
+    {"_ZnwmRKSt9nothrow_t", "__afl_track_malloc",
+     AllocKind::NothrowNew},                       /* new       nothrow x64 */
+    {"_ZnamRKSt9nothrow_t", "__afl_track_malloc",
+     AllocKind::NothrowNew},                       /* new[]     nothrow x64 */
+    {"_ZnwjRKSt9nothrow_t", "__afl_track_malloc",
+     AllocKind::NothrowNew},                       /* new       nothrow x86 */
+    {"_ZnajRKSt9nothrow_t", "__afl_track_malloc",
+     AllocKind::NothrowNew},                       /* new[]     nothrow x86 */
+    {"_ZdlPvRKSt9nothrow_t", "__afl_track_free",
+     AllocKind::NothrowDelete},                        /* delete    nothrow */
+    {"_ZdaPvRKSt9nothrow_t", "__afl_track_free",
+     AllocKind::NothrowDelete},                        /* delete[]  nothrow */
 
     // Aligned + nothrow new/delete (C++17).
-    {"_ZnwmSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNothrowNew},
-    {"_ZnamSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNothrowNew},
-    {"_ZnwjSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNothrowNew},
-    {"_ZnajSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc", AllocKind::AlignedNothrowNew},
-    {"_ZdlPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free", AllocKind::AlignedNothrowDelete},
-    {"_ZdaPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free", AllocKind::AlignedNothrowDelete},
+    {"_ZnwmSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc",
+     AllocKind::AlignedNothrowNew},
+    {"_ZnamSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc",
+     AllocKind::AlignedNothrowNew},
+    {"_ZnwjSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc",
+     AllocKind::AlignedNothrowNew},
+    {"_ZnajSt11align_val_tRKSt9nothrow_t", "__afl_track_aligned_alloc",
+     AllocKind::AlignedNothrowNew},
+    {"_ZdlPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free",
+     AllocKind::AlignedNothrowDelete},
+    {"_ZdaPvSt11align_val_tRKSt9nothrow_t", "__afl_track_free",
+     AllocKind::AlignedNothrowDelete},
+
 };
 
 bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
                       const std::vector<std::string> &custom,
                       const std::vector<std::string> &custom_free,
-                      bool stack_enabled) {
+                      bool                            stack_enabled) {
 
   LLVMContext &C = M.getContext();
   IntegerType *I32 = IntegerType::getInt32Ty(C);
@@ -3383,8 +3433,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   FunctionCallee trackCalloc =
       M.getOrInsertFunction("__afl_track_calloc", PtrTy, I64, I64, I32);
   markBugHookAttrs(trackCalloc);
-  FunctionCallee trackRealloc = M.getOrInsertFunction(
-      "__afl_track_realloc", PtrTy, PtrTy, I64, I32);
+  FunctionCallee trackRealloc =
+      M.getOrInsertFunction("__afl_track_realloc", PtrTy, PtrTy, I64, I32);
   markBugHookAttrs(trackRealloc);
   FunctionCallee trackReallocarray = M.getOrInsertFunction(
       "__afl_track_reallocarray", PtrTy, PtrTy, I64, I64, I32);
@@ -3395,38 +3445,40 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   // aligned_alloc / aligned-new share the same runtime hook. The hook
   // takes (size, align) — note the order matches the underlying
   // posix_memalign-based runtime, NOT C11's (align, size).
-  FunctionCallee trackAlignedAlloc = M.getOrInsertFunction(
-      "__afl_track_aligned_alloc", PtrTy, I64, I64, I32);
+  FunctionCallee trackAlignedAlloc =
+      M.getOrInsertFunction("__afl_track_aligned_alloc", PtrTy, I64, I64, I32);
   markBugHookAttrs(trackAlignedAlloc);
   FunctionCallee trackStrdup =
       M.getOrInsertFunction("__afl_track_strdup", PtrTy, PtrTy, I32);
   markBugHookAttrs(trackStrdup);
-  FunctionCallee trackStrndup = M.getOrInsertFunction(
-      "__afl_track_strndup", PtrTy, PtrTy, I64, I32);
+  FunctionCallee trackStrndup =
+      M.getOrInsertFunction("__afl_track_strndup", PtrTy, PtrTy, I64, I32);
   markBugHookAttrs(trackStrndup);
   FunctionCallee trackFree =
       M.getOrInsertFunction("__afl_track_free", VoidTy, PtrTy);
   markBugHookAttrs(trackFree);
-  FunctionCallee allocReg = M.getOrInsertFunction(
-      "__afl_alloc_register", VoidTy, PtrTy, I64, I32);
+  FunctionCallee allocReg =
+      M.getOrInsertFunction("__afl_alloc_register", VoidTy, PtrTy, I64, I32);
   markBugHookAttrs(allocReg);
   FunctionCallee allocUnreg =
       M.getOrInsertFunction("__afl_alloc_unregister", VoidTy, PtrTy);
   markBugHookAttrs(allocUnreg);
 
-  uint32_t              next_alloc_id = 1;
-  uint32_t              rewrites = 0, custom_inserts = 0, custom_frees = 0;
-  bool                  dump_summary =
-      getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
+  uint32_t next_alloc_id = 1;
+  uint32_t rewrites = 0, custom_inserts = 0, custom_frees = 0;
+  bool     dump_summary = getenv(AFL_BUG_ENV_DUMP_SUMMARY) != nullptr;
   struct AllocSummary {
+
     uint32_t rewrites = 0;
     uint32_t customs = 0;
     uint32_t stores = 0;
     uint32_t mems = 0;
     uint32_t stack_regs = 0;
+
   };
+
   std::map<Function *, AllocSummary> per_func;
-  std::set<std::string> custom_set(custom.begin(), custom.end());
+  std::set<std::string>              custom_set(custom.begin(), custom.end());
   std::set<std::string> custom_free_set(custom_free.begin(), custom_free.end());
 
   for (Function &F : M) {
@@ -3434,8 +3486,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     if (F.isDeclaration()) continue;
     if (!isInInstrumentList(&F, F.getName().str())) continue;
     std::vector<Instruction *> dead;
-    uint32_t pf_rew_start = rewrites;
-    uint32_t pf_cust_start = custom_inserts + custom_frees;
+    uint32_t                   pf_rew_start = rewrites;
+    uint32_t                   pf_cust_start = custom_inserts + custom_frees;
     for (BasicBlock &BB : F) {
 
       // Manual advance-before-process iteration: rewriting an InvokeInst
@@ -3450,8 +3502,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         // handling, every aligned-new and throwing-new in exception-
         // enabled C++ code would silently bypass instrumentation.
         auto *Call = dyn_cast<CallBase>(&I);
-        if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call)))
-          continue;
+        if (!Call || (!isa<CallInst>(Call) && !isa<InvokeInst>(Call))) continue;
         Function *cf = Call->getCalledFunction();
         if (!cf) continue;
         // nobuiltin means the user told the compiler "treat this as an
@@ -3476,7 +3527,9 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
             case AllocKind::Free:
             case AllocKind::Malloc:
-            case AllocKind::Strdup:           expected_args = 1; break;
+            case AllocKind::Strdup:
+              expected_args = 1;
+              break;
             case AllocKind::Calloc:
             case AllocKind::Realloc:
             case AllocKind::AlignedAlloc:
@@ -3485,12 +3538,16 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
             case AllocKind::NothrowNew:
             case AllocKind::NothrowDelete:
             case AllocKind::SizedFree:
-            case AllocKind::Strndup:          expected_args = 2; break;
+            case AllocKind::Strndup:
+              expected_args = 2;
+              break;
             case AllocKind::PosixMemalign:
             case AllocKind::Reallocarray:
             case AllocKind::SizedAlignedFree:
             case AllocKind::AlignedNothrowNew:
-            case AllocKind::AlignedNothrowDelete: expected_args = 3; break;
+            case AllocKind::AlignedNothrowDelete:
+              expected_args = 3;
+              break;
 
           }
 
@@ -3511,23 +3568,57 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
           bool ok = false;
           switch (spec.kind) {
 
-            case AllocKind::Free:             ok = isP(0); break;
-            case AllocKind::Malloc:           ok = isI(0); break;
-            case AllocKind::Strdup:           ok = isP(0); break;
-            case AllocKind::Realloc:          ok = isP(0) && isI(1); break;
-            case AllocKind::Calloc:           ok = isI(0) && isI(1); break;
-            case AllocKind::AlignedAlloc:     ok = isI(0) && isI(1); break;
-            case AllocKind::AlignedNew:       ok = isI(0) && isI(1); break;
-            case AllocKind::AlignedDelete:    ok = isP(0) && isI(1); break;
-            case AllocKind::NothrowNew:       ok = isI(0) && isP(1); break;
-            case AllocKind::NothrowDelete:    ok = isP(0) && isP(1); break;
-            case AllocKind::SizedFree:        ok = isP(0) && isI(1); break;
-            case AllocKind::Strndup:          ok = isP(0) && isI(1); break;
-            case AllocKind::PosixMemalign:    ok = isP(0) && isI(1) && isI(2); break;
-            case AllocKind::Reallocarray:     ok = isP(0) && isI(1) && isI(2); break;
-            case AllocKind::SizedAlignedFree: ok = isP(0) && isI(1) && isI(2); break;
-            case AllocKind::AlignedNothrowNew: ok = isI(0) && isI(1) && isP(2); break;
-            case AllocKind::AlignedNothrowDelete: ok = isP(0) && isI(1) && isP(2); break;
+            case AllocKind::Free:
+              ok = isP(0);
+              break;
+            case AllocKind::Malloc:
+              ok = isI(0);
+              break;
+            case AllocKind::Strdup:
+              ok = isP(0);
+              break;
+            case AllocKind::Realloc:
+              ok = isP(0) && isI(1);
+              break;
+            case AllocKind::Calloc:
+              ok = isI(0) && isI(1);
+              break;
+            case AllocKind::AlignedAlloc:
+              ok = isI(0) && isI(1);
+              break;
+            case AllocKind::AlignedNew:
+              ok = isI(0) && isI(1);
+              break;
+            case AllocKind::AlignedDelete:
+              ok = isP(0) && isI(1);
+              break;
+            case AllocKind::NothrowNew:
+              ok = isI(0) && isP(1);
+              break;
+            case AllocKind::NothrowDelete:
+              ok = isP(0) && isP(1);
+              break;
+            case AllocKind::SizedFree:
+              ok = isP(0) && isI(1);
+              break;
+            case AllocKind::Strndup:
+              ok = isP(0) && isI(1);
+              break;
+            case AllocKind::PosixMemalign:
+              ok = isP(0) && isI(1) && isI(2);
+              break;
+            case AllocKind::Reallocarray:
+              ok = isP(0) && isI(1) && isI(2);
+              break;
+            case AllocKind::SizedAlignedFree:
+              ok = isP(0) && isI(1) && isI(2);
+              break;
+            case AllocKind::AlignedNothrowNew:
+              ok = isI(0) && isI(1) && isP(2);
+              break;
+            case AllocKind::AlignedNothrowDelete:
+              ok = isP(0) && isI(1) && isP(2);
+              break;
 
           }
 
@@ -3625,13 +3716,15 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
               if (!InsertBefore) InsertBefore = cast<Instruction>(Call);
               IRBuilder<> CastB(InsertBefore);
               inheritDebugLoc(CastB, Call);
-              Replacement = CastB.CreateBitOrPointerCast(NewCall, Call->getType());
+              Replacement =
+                  CastB.CreateBitOrPointerCast(NewCall, Call->getType());
 
             }
 
             Call->replaceAllUsesWith(Replacement);
 
           }
+
           if (auto *II = dyn_cast<InvokeInst>(Call)) {
 
             // Invoke is a terminator with normal + unwind successors.
@@ -3685,11 +3778,10 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
                 IRBuilder<> Post(PostAt);
                 inheritDebugLoc(Post, Call);
                 uint32_t id = next_alloc_id++;
-                Post.CreateCall(
-                    allocReg,
-                    {castToPtrTy(Post, Call, PtrTy),
-                     Post.CreateZExtOrTrunc(Call->getArgOperand(1), I64),
-                     ConstantInt::get(I32, id)});
+                Post.CreateCall(allocReg, {castToPtrTy(Post, Call, PtrTy),
+                                           Post.CreateZExtOrTrunc(
+                                               Call->getArgOperand(1), I64),
+                                           ConstantInt::get(I32, id)});
                 ++custom_inserts;
 
               }
@@ -3697,6 +3789,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
             }
 
           }
+
           continue;
 
         }
@@ -3708,12 +3801,12 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
             IRBuilder<> MB(Call);
             inheritDebugLoc(MB, Call);
-            MB.CreateCall(
-                allocUnreg,
-                {castToPtrTy(MB, Call->getArgOperand(0), PtrTy)});
+            MB.CreateCall(allocUnreg,
+                          {castToPtrTy(MB, Call->getArgOperand(0), PtrTy)});
             ++custom_frees;
 
           }
+
           continue;
 
         }
@@ -3761,8 +3854,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         unsigned bestBits = 0;
         for (unsigned i = 0; i < Call->arg_size(); ++i) {
 
-          auto *IT =
-              dyn_cast<IntegerType>(Call->getArgOperand(i)->getType());
+          auto *IT = dyn_cast<IntegerType>(Call->getArgOperand(i)->getType());
           if (!IT) continue;
           if (IT->getBitWidth() >= bestBits) {
 
@@ -3775,24 +3867,28 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
         if (!sizeArg) continue;
         uint32_t id = next_alloc_id++;
-        Post.CreateCall(allocReg,
-                        {castToPtrTy(Post, Call, PtrTy),
-                         Post.CreateZExtOrTrunc(sizeArg, I64),
-                         ConstantInt::get(I32, id)});
+        Post.CreateCall(allocReg, {castToPtrTy(Post, Call, PtrTy),
+                                   Post.CreateZExtOrTrunc(sizeArg, I64),
+                                   ConstantInt::get(I32, id)});
         ++custom_inserts;
 
       }
 
     }
 
-    for (auto *I : dead) I->eraseFromParent();
+    for (auto *I : dead)
+      I->eraseFromParent();
     if (dump_summary) {
+
       uint32_t r = rewrites - pf_rew_start;
       uint32_t cu = (custom_inserts + custom_frees) - pf_cust_start;
       if (r || cu) {
+
         per_func[&F].rewrites = r;
         per_func[&F].customs = cu;
+
       }
+
     }
 
   }
@@ -3862,10 +3958,9 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         if (!S) continue;
         IRBuilder<> SB(S);
         inheritDebugLoc(SB, S);
-        Value *addr =
-            castToPtrTy(SB, S->getPointerOperand(), PtrTy);
-        uint64_t sz = M.getDataLayout().getTypeStoreSize(
-            S->getValueOperand()->getType());
+        Value   *addr = castToPtrTy(SB, S->getPointerOperand(), PtrTy);
+        uint64_t sz =
+            M.getDataLayout().getTypeStoreSize(S->getValueOperand()->getType());
         SB.CreateCall(oracle, {addr, ConstantInt::get(I32, (uint32_t)sz)});
         // Enhancement H: feed a type-confusion signal. The runtime
         // remembers the first (element-size, alignment) pair observed
@@ -3893,13 +3988,18 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
       }
 
     }
+
     if (dump_summary) {
+
       uint32_t s = store_sites - pf_store_start;
       uint32_t m = mem_sites - pf_mem_start;
       if (s || m) {
+
         per_func[&F].stores += s;
         per_func[&F].mems += m;
+
       }
+
     }
 
   }
@@ -3931,7 +4031,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     // covered by this oracle — a known limitation; users wanting fine-
     // grained stack-OOB detection can pair with -fsanitize=address.
     constexpr uint64_t kStackGranuleBytes = 64;
-    const DataLayout &DL = M.getDataLayout();
+    const DataLayout  &DL = M.getDataLayout();
     for (Function &F : M) {
 
       if (F.isDeclaration()) continue;
@@ -3954,7 +4054,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         uint64_t bytes = opt_size->getFixedValue();
         if (bytes < kStackGranuleBytes) continue;
         if (bytes % kStackGranuleBytes) continue;
-        if (AI->use_empty()) continue;             /* dead alloca */
+        if (AI->use_empty()) continue;                       /* dead alloca */
         // Force alignment to granule boundary so the painted granules
         // line up exactly with the alloca.  Llvm honors this in the
         // backend's prologue/spill placement.
@@ -3985,8 +4085,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
         Instruction *T = BB.getTerminator();
         if (!T) continue;
-        if (isa<ReturnInst>(T) || isa<ResumeInst>(T))
-          exit_points.push_back(T);
+        if (isa<ReturnInst>(T) || isa<ResumeInst>(T)) exit_points.push_back(T);
 
       }
 
@@ -4069,8 +4168,10 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
       }
 
       if (dump_summary) {
+
         uint32_t s = stack_regs - pf_stack_start;
         if (s) per_func[&F].stack_regs += s;
+
       }
 
     }
@@ -4081,19 +4182,20 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     errs() << "[afl-bug] ALLOCSIZE rewrote " << rewrites
            << " libc allocator calls, " << custom_inserts
            << " custom-allocator registrations, " << custom_frees
-           << " custom-free unregisters, " << store_sites
-           << " stores, " << mem_sites << " mem intrinsics instrumented; "
-           << stack_regs << " stack registers / " << stack_unregs
-           << " unregisters across " << stack_funcs << " functions\n";
+           << " custom-free unregisters, " << store_sites << " stores, "
+           << mem_sites << " mem intrinsics instrumented; " << stack_regs
+           << " stack registers / " << stack_unregs << " unregisters across "
+           << stack_funcs << " functions\n";
   if (dump_summary) {
+
     for (auto &kv : per_func)
       errs() << "[afl-bug-summary] ALLOCSIZE " << kv.first->getName()
-             << " rew=" << kv.second.rewrites
-             << " cust=" << kv.second.customs
-             << " stores=" << kv.second.stores
-             << " mem=" << kv.second.mems
+             << " rew=" << kv.second.rewrites << " cust=" << kv.second.customs
+             << " stores=" << kv.second.stores << " mem=" << kv.second.mems
              << " stack=" << kv.second.stack_regs << "\n";
+
   }
+
   return rewrites > 0 || custom_inserts > 0 || custom_frees > 0 ||
          store_sites > 0 || mem_sites > 0 || stack_regs > 0;
 
@@ -4104,20 +4206,20 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
 
-  return {LLVM_PLUGIN_API_VERSION, "afl-bug-pass", "v0.1",
-          [](PassBuilder &PB) {
+  return {LLVM_PLUGIN_API_VERSION, "afl-bug-pass", "v0.1", [](PassBuilder &PB) {
 
 #if LLVM_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
 #endif
-            PB.registerOptimizerLastEPCallback(
-                [](ModulePassManager &MPM, OptimizationLevel
+            PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
+                                                  OptimizationLevel
 #if LLVM_MAJOR >= 20
-                   ,
-                   ThinOrFullLTOPhase
+                                                  ,
+                                                  ThinOrFullLTOPhase
 #endif
-                ) { MPM.addPass(BugPass()); });
+                                               ) { MPM.addPass(BugPass()); });
 
           }};
 
 }
+

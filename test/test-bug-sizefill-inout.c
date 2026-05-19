@@ -9,8 +9,7 @@
 #include <unistd.h>
 #include <stddef.h>
 
-__attribute__((noinline, optnone))
-static size_t read_hint(size_t *p) {
+__attribute__((noinline, optnone)) static size_t read_hint(size_t *p) {
 
   // Escape: the pass sees only that `p` is passed to a CallBase; it
   // can't prove the callee doesn't read through it. Must treat the
@@ -19,8 +18,8 @@ static size_t read_hint(size_t *p) {
 
 }
 
-__attribute__((noinline, optnone))
-static void parse(uint8_t *buf, uint32_t n, size_t *inout_size) {
+__attribute__((noinline, optnone)) static void parse(uint8_t *buf, uint32_t n,
+                                                     size_t *inout_size) {
 
   if (buf == NULL) {
 
@@ -37,7 +36,8 @@ static void parse(uint8_t *buf, uint32_t n, size_t *inout_size) {
   size_t hint = read_hint(inout_size);
   fprintf(stderr, "INOUT_HINT_SEEN=%zu\n", hint);
   size_t bytes = (hint < 8) ? hint : 8;
-  for (size_t i = 0; i < bytes; ++i) buf[i] = (uint8_t)(i + n);
+  for (size_t i = 0; i < bytes; ++i)
+    buf[i] = (uint8_t)(i + n);
   *inout_size = bytes;
 
 }
@@ -59,3 +59,4 @@ int main(void) {
   return 0;
 
 }
+

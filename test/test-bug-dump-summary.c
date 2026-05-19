@@ -8,17 +8,16 @@
 #include <stdio.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static uint32_t func_a(uint32_t x) {
+__attribute__((noinline, optnone)) static uint32_t func_a(uint32_t x) {
 
   uint32_t y = 0;
-  for (uint32_t i = 0; i < x; ++i) y += i * i;
+  for (uint32_t i = 0; i < x; ++i)
+    y += i * i;
   return y;
 
 }
 
-__attribute__((noinline, optnone))
-static uint32_t func_b(uint32_t x) {
+__attribute__((noinline, optnone)) static uint32_t func_b(uint32_t x) {
 
   if (x > 100) x = 100;
   return x * 7;
@@ -36,3 +35,4 @@ int main(void) {
   return 0;
 
 }
+

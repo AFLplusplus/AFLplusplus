@@ -8,16 +8,16 @@
 
 #define HUGE_COPY_LEN ((size_t)0x100000000ULL)
 
-__attribute__((noinline, optnone))
-static unsigned fill_budget(unsigned char *p, unsigned n) {
+__attribute__((noinline, optnone)) static unsigned fill_budget(unsigned char *p,
+                                                               unsigned n) {
 
   memset(p, 0x41, HUGE_COPY_LEN);
   return n;
 
 }
 
-__attribute__((noinline, optnone))
-static size_t need_or_fill(unsigned char *p) {
+__attribute__((noinline, optnone)) static size_t need_or_fill(
+    unsigned char *p) {
 
   if (!p) return 8;
   memset(p, 0x42, HUGE_COPY_LEN);
@@ -36,3 +36,4 @@ int main(void) {
   return (int)n;
 
 }
+

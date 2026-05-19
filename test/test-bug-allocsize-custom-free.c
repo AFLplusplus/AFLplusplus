@@ -9,15 +9,13 @@
 
 extern AllocSizeRecord __afl_alloc_records[256];
 
-__attribute__((noinline))
-static void *MyAlloc(size_t n) {
+__attribute__((noinline)) static void *MyAlloc(size_t n) {
 
   return malloc(n);
 
 }
 
-__attribute__((noinline))
-static void MyFree(void *p) {
+__attribute__((noinline)) static void MyFree(void *p) {
 
   free(p);
 
@@ -43,3 +41,4 @@ int main(void) {
   return 0;
 
 }
+

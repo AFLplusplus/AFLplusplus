@@ -7,10 +7,11 @@
 #include <string.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static void fill_honest(uint8_t *buf, size_t *out_n) {
+__attribute__((noinline, optnone)) static void fill_honest(uint8_t *buf,
+                                                           size_t  *out_n) {
 
-  for (int i = 0; i < 16; ++i) buf[i] = (uint8_t)(0x40 | i);
+  for (int i = 0; i < 16; ++i)
+    buf[i] = (uint8_t)(0x40 | i);
   *out_n = 16;
 
 }
@@ -29,9 +30,11 @@ int main(void) {
   fill_honest(p, &n);
   p += n;
 
-  fprintf(stderr,
-          "BUG_BUDGET_OUTPARAM_HONEST: reported_n=%zu, advanced_to_offset=%ld\n",
-          n, (long)(p - buf));
+  fprintf(
+      stderr,
+      "BUG_BUDGET_OUTPARAM_HONEST: reported_n=%zu, advanced_to_offset=%ld\n", n,
+      (long)(p - buf));
   return 0;
 
 }
+

@@ -193,13 +193,13 @@ int        __afl_sharedmem_fuzzing __attribute__((weak));
 // LTO-bitcode constructor that previously stored __afl_final_loc runs
 // after afl-compiler-rt.o's constructors on Mach-O.
 __attribute__((weak)) u32 __afl_final_loc;
-u32 __afl_map_size = MAP_SIZE;
-u32 __afl_cov_map_size = MAP_SIZE;
-u32 __afl_set_map_size = MAP_SIZE;
-u32 __afl_dictionary_len;
-u64 __afl_map_addr;
-u32 __afl_first_final_loc;
-u32 __afl_old_forkserver;
+u32                       __afl_map_size = MAP_SIZE;
+u32                       __afl_cov_map_size = MAP_SIZE;
+u32                       __afl_set_map_size = MAP_SIZE;
+u32                       __afl_dictionary_len;
+u64                       __afl_map_addr;
+u32                       __afl_first_final_loc;
+u32                       __afl_old_forkserver;
 
 u8 __afl_forkserver_setenv = 0;
 
@@ -251,12 +251,10 @@ static int             __afl_bug_ws_top = -1;
 static __afl_bug_frame __afl_bug_sf_stack[__AFL_BUG_FRAME_STACK_DEPTH];
 static int             __afl_bug_sf_top = -1;
 #else
-static __thread __afl_bug_frame
-    __afl_bug_ws_stack[__AFL_BUG_FRAME_STACK_DEPTH];
-static __thread int __afl_bug_ws_top = -1;
-static __thread __afl_bug_frame
-    __afl_bug_sf_stack[__AFL_BUG_FRAME_STACK_DEPTH];
-static __thread int __afl_bug_sf_top = -1;
+static __thread __afl_bug_frame __afl_bug_ws_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static __thread int             __afl_bug_ws_top = -1;
+static __thread __afl_bug_frame __afl_bug_sf_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static __thread int             __afl_bug_sf_top = -1;
 #endif
 
 /* Signal-safe violation reporting.  Instrumented stores can be reached
@@ -268,7 +266,8 @@ static __thread int __afl_bug_sf_top = -1;
 static void __afl_bug_writes(const char *s) {
 
   size_t n = 0;
-  while (s[n]) ++n;
+  while (s[n])
+    ++n;
   (void)!write(2, s, n);
 
 }
@@ -291,6 +290,7 @@ static void __afl_bug_writeu(unsigned long long v) {
     }
 
   }
+
   for (int i = 0, j = n - 1; i < j; ++i, --j) {
 
     char t = buf[i];
@@ -298,6 +298,7 @@ static void __afl_bug_writeu(unsigned long long v) {
     buf[j] = t;
 
   }
+
   (void)!write(2, buf, (size_t)n);
 
 }
@@ -314,6 +315,7 @@ static void __afl_bug_writep(const void *p) {
     return;
 
   }
+
   while (v) {
 
     unsigned d = (unsigned)(v & 0xf);
@@ -321,6 +323,7 @@ static void __afl_bug_writep(const void *p) {
     v >>= 4;
 
   }
+
   for (int i = 0, j = n - 1; i < j; ++i, --j) {
 
     char t = buf[i];
@@ -328,6 +331,7 @@ static void __afl_bug_writep(const void *p) {
     buf[j] = t;
 
   }
+
   (void)!write(2, buf, (size_t)n);
 
 }
@@ -338,8 +342,8 @@ static void __afl_bug_writep(const void *p) {
    AllocSizeRecord layout lives in include/bug-pass.h so consumers see
    the canonical fields without copy-pasting. */
 
-u8              __afl_allocsize_active = 0;
-u8              __afl_size_derive_active = 0;
+u8 __afl_allocsize_active = 0;
+u8 __afl_size_derive_active = 0;
 /* Shadow byte is u16 so it can index up to MAP_SIZE_ALLOCRECORDS - 1.
    `__afl_alloc_shadow` is the primary 16 GiB window pinned at the first
    registered allocation's base.  Up to __AFL_ALLOC_SHADOW_EXTRAS additional
@@ -348,10 +352,10 @@ u8              __afl_size_derive_active = 0;
    and shared libraries.  Lookup is a linear scan over up to 4 origins
    (branch-predictor-friendly); register lazily mmaps a new window on miss
    until the cap is reached. */
-u16            *__afl_alloc_shadow = NULL;
+u16 *__afl_alloc_shadow = NULL;
 _Static_assert(MAP_SIZE_ALLOCRECORDS <= (1U << 16) - 1,
                "u16 shadow byte cannot index more than 65535 records");
-uintptr_t       __afl_alloc_shadow_origin = 0;
+uintptr_t __afl_alloc_shadow_origin = 0;
 
 #define __AFL_ALLOC_SHADOW_EXTRAS 3
 typedef struct {
@@ -360,21 +364,21 @@ typedef struct {
   u16      *table;
 
 } AflAllocShadowExtra;
+
 static AflAllocShadowExtra __afl_alloc_shadow_extra[__AFL_ALLOC_SHADOW_EXTRAS];
 static u32                 __afl_alloc_shadow_extra_count = 0;
 static u8                  __afl_alloc_shadow_oom_warned = 0;
 
-AllocSizeRecord __afl_alloc_records[MAP_SIZE_ALLOCRECORDS];
-static u32      __afl_alloc_next_idx = 1; /* 0 reserved */
-static void __afl_alloc_persistent_reset(u8 flush_derive);
+AllocSizeRecord    __afl_alloc_records[MAP_SIZE_ALLOCRECORDS];
+static u32         __afl_alloc_next_idx = 1;                  /* 0 reserved */
+static void        __afl_alloc_persistent_reset(u8 flush_derive);
 static inline u16 *__afl_alloc_shadow_find(uintptr_t a, uintptr_t *off_out);
-static u16        *__afl_alloc_shadow_get_or_init(uintptr_t  a,
-                                                  uintptr_t *off_out);
+static u16 *__afl_alloc_shadow_get_or_init(uintptr_t a, uintptr_t *off_out);
 
 /* AllocSizeRecord.in_use state. AFL++ fuzzing targets are single-
    threaded by design, so no atomic synchronisation is required. */
-#define __AFL_ALLOC_INUSE_FREE     ((u8)0)
-#define __AFL_ALLOC_INUSE_LIVE     ((u8)1)
+#define __AFL_ALLOC_INUSE_FREE ((u8)0)
+#define __AFL_ALLOC_INUSE_LIVE ((u8)1)
 
 /* IJON state tracking globals */
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
@@ -683,11 +687,11 @@ static void __afl_bug_configure_runtime(void) {
 
   __afl_bug_mode = mode;
   __afl_bug_active = !!(mode & (AFL_BUG_MODE_SCALAR | AFL_BUG_MODE_BUDGET |
-                                AFL_BUG_MODE_SIZEFILL |
-                                AFL_BUG_MODE_ALLOCSIZE | AFL_BUG_MODE_SLACK));
-  __afl_bug_map_active = !!(mode & (AFL_BUG_MODE_SCALAR |
-                                    AFL_BUG_MODE_ALLOCSIZE |
-                                    AFL_BUG_MODE_SLACK));
+                                AFL_BUG_MODE_SIZEFILL | AFL_BUG_MODE_ALLOCSIZE |
+                                AFL_BUG_MODE_SLACK));
+  __afl_bug_map_active =
+      !!(mode &
+         (AFL_BUG_MODE_SCALAR | AFL_BUG_MODE_ALLOCSIZE | AFL_BUG_MODE_SLACK));
   if (__afl_bug_map_active) {
 
     if (!__afl_bug_map) {
@@ -711,8 +715,8 @@ static void __afl_bug_configure_runtime(void) {
 static inline void __afl_bug_ensure_runtime(void) {
 
   if (unlikely(!__afl_bug_runtime_configured ||
-      (__afl_bug_map_active && !__afl_bug_map) ||
-      __afl_bug_mode != __afl_bug_configured_mode))
+               (__afl_bug_map_active && !__afl_bug_map) ||
+               __afl_bug_mode != __afl_bug_configured_mode))
     __afl_bug_configure_runtime();
 
 }
@@ -732,7 +736,7 @@ static void __afl_bug_append_map(void) {
 static void __afl_bug_bind_map(void) {
 
   if (likely(!__afl_bug_map_active || !__afl_area_ptr || !__afl_map_size ||
-      __afl_map_size < MAP_SIZE_BUG_BYTES)) {
+             __afl_map_size < MAP_SIZE_BUG_BYTES)) {
 
     return;
 
@@ -1432,6 +1436,7 @@ static void __afl_start_forkserver(void) {
       __afl_bug_map = NULL;
 
     }
+
     __afl_cov_map_size = __afl_map_size;
     __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
     __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
@@ -1771,12 +1776,13 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     /* Bug map lives past __afl_set_map_size (trailing tail of trace_bits);
        it needs an explicit zero or stale MAX-channel values persist. */
     if (__afl_bug_map_active && __afl_bug_map &&
-        __afl_bug_map == (u32 *)(__afl_area_ptr + __afl_map_size -
-                                 MAP_SIZE_BUG_BYTES)) {
+        __afl_bug_map ==
+            (u32 *)(__afl_area_ptr + __afl_map_size - MAP_SIZE_BUG_BYTES)) {
 
       memset_noasan(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
 
     }
+
     __afl_area_ptr[0] = 1;
     memset_noasan(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
     __afl_alloc_persistent_reset(0);
@@ -4137,7 +4143,7 @@ void __afl_bug_ws_begin(const void *ptr_before) {
   __afl_bug_ws_stack[__afl_bug_ws_top].base = ptr_before;
   __afl_bug_ws_stack[__afl_bug_ws_top].max_off = 0;
   __afl_bug_ws_stack[__afl_bug_ws_top].total = 0;
-  __afl_bug_ws_stack[__afl_bug_ws_top].cap = (u64)-1; /* unbounded */
+  __afl_bug_ws_stack[__afl_bug_ws_top].cap = (u64)-1;          /* unbounded */
 
 }
 
@@ -4372,7 +4378,7 @@ void __afl_bug_slack_min(uint32_t id, uint64_t slack) {
   if (!__afl_bug_active || !__afl_bug_map) return;
   /* ceil(log2(slack+1)), capped at 64. Slack==0 (tight equality) -> 0. */
   u32 log_slack = slack ? (64u - (u32)__builtin_clzll(slack)) : 0;
-  u32 inv = 64u - log_slack;  /* 64 for slack==0, shrinks as slack grows */
+  u32 inv = 64u - log_slack;     /* 64 for slack==0, shrinks as slack grows */
   u32 slot = id & (MAP_SIZE_BUG_ENTRIES - 1);
   if (__afl_bug_map[slot] < inv) __afl_bug_map[slot] = inv;
 
@@ -4408,8 +4414,7 @@ static void __afl_alloc_shadow_init(uintptr_t hint) {
    `(a - origin)` to `*off_out`, or NULL if `a` is not in any active
    window.  Primary window is checked first so the common case is a
    single subtract+compare. */
-static inline u16 *__afl_alloc_shadow_find(uintptr_t  a,
-                                           uintptr_t *off_out) {
+static inline u16 *__afl_alloc_shadow_find(uintptr_t a, uintptr_t *off_out) {
 
   if (__afl_alloc_shadow && a >= __afl_alloc_shadow_origin) {
 
@@ -4444,8 +4449,7 @@ static inline u16 *__afl_alloc_shadow_find(uintptr_t  a,
 /* Write-path: like _find but lazily creates a new window if `a` falls
    outside every existing one.  Returns NULL if both the primary window
    cannot be created (initial mmap failure) and the extras table is full. */
-static u16 *__afl_alloc_shadow_get_or_init(uintptr_t  a,
-                                           uintptr_t *off_out) {
+static u16 *__afl_alloc_shadow_get_or_init(uintptr_t a, uintptr_t *off_out) {
 
   u16 *t = __afl_alloc_shadow_find(a, off_out);
   if (t) return t;
@@ -4510,7 +4514,7 @@ static u32 __afl_alloc_pick_idx(void) {
 
     u32 idx = __afl_alloc_next_idx % MAP_SIZE_ALLOCRECORDS;
     __afl_alloc_next_idx++;
-    if (idx == 0) continue;                       /* skip reserved 0 */
+    if (idx == 0) continue;                              /* skip reserved 0 */
     if (__afl_alloc_records[idx].in_use == __AFL_ALLOC_INUSE_FREE) {
 
       __afl_alloc_records[idx].in_use = __AFL_ALLOC_INUSE_LIVE;
@@ -4520,7 +4524,7 @@ static u32 __afl_alloc_pick_idx(void) {
 
   }
 
-  return 0; /* table full */
+  return 0;                                                   /* table full */
 
 }
 
@@ -4546,16 +4550,17 @@ static void __afl_alloc_shadow_paint(uintptr_t base, uint64_t size, u16 idx) {
   uint64_t g_end =
       (off + size + ((1ULL << MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2) - 1)) >>
       MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
-  if (g_end > MAP_SIZE_ALLOCSHADOW_GRANULES) g_end = MAP_SIZE_ALLOCSHADOW_GRANULES;
+  if (g_end > MAP_SIZE_ALLOCSHADOW_GRANULES)
+    g_end = MAP_SIZE_ALLOCSHADOW_GRANULES;
   if (g_end <= g_start) return;
   /* memset only works for u8; we need a per-granule u16 store loop. The
      compiler vectorizes this on x86_64 / arm64. */
-  for (uint64_t g = g_start; g < g_end; ++g) table[g] = idx;
+  for (uint64_t g = g_start; g < g_end; ++g)
+    table[g] = idx;
 
 }
 
-static inline int __afl_alloc_record_contains(AllocSizeRecord *r,
-                                              uintptr_t        a) {
+static inline int __afl_alloc_record_contains(AllocSizeRecord *r, uintptr_t a) {
 
   return r && r->in_use == __AFL_ALLOC_INUSE_LIVE && a >= r->base &&
          (uint64_t)(a - r->base) < r->size;
@@ -4588,8 +4593,7 @@ static int __afl_alloc_record_granules(AllocSizeRecord *r, u16 **table_out,
 
 }
 
-static void __afl_alloc_shadow_repaint_overlaps(uintptr_t base,
-                                                uint64_t  size) {
+static void __afl_alloc_shadow_repaint_overlaps(uintptr_t base, uint64_t size) {
 
   if (!size || size > MAP_SIZE_ALLOCSHADOW_RANGE) return;
   uintptr_t off = 0;
@@ -4609,8 +4613,7 @@ static void __afl_alloc_shadow_repaint_overlaps(uintptr_t base,
     AllocSizeRecord *cand = &__afl_alloc_records[i];
     u16             *cand_table = NULL;
     uint64_t         cand_start = 0, cand_end = 0;
-    if (!__afl_alloc_record_granules(cand, &cand_table, &cand_start,
-                                     &cand_end))
+    if (!__afl_alloc_record_granules(cand, &cand_table, &cand_start, &cand_end))
       continue;
     if (cand_table != table) continue;
     if (cand_end <= clear_start || cand_start >= clear_end) continue;
@@ -4630,8 +4633,7 @@ static inline int __afl_alloc_range_is_whole_granules(uintptr_t base,
 }
 
 static AllocSizeRecord *__afl_alloc_find_oracle_record(uintptr_t a, u16 *table,
-                                                       uintptr_t off,
-                                                       u16 idx) {
+                                                       uintptr_t off, u16 idx) {
 
   if (!table) return NULL;
   if (idx && idx < MAP_SIZE_ALLOCRECORDS) {
@@ -4648,8 +4650,7 @@ static AllocSizeRecord *__afl_alloc_find_oracle_record(uintptr_t a, u16 *table,
     AllocSizeRecord *cand = &__afl_alloc_records[i];
     u16             *cand_table = NULL;
     uint64_t         cand_start = 0, cand_end = 0;
-    if (!__afl_alloc_record_granules(cand, &cand_table, &cand_start,
-                                     &cand_end))
+    if (!__afl_alloc_record_granules(cand, &cand_table, &cand_start, &cand_end))
       continue;
     if (cand_table != table) continue;
     if (g < cand_start || g >= cand_end) continue;
@@ -4708,15 +4709,15 @@ static void __afl_size_derive_log(AllocSizeRecord *r) {
      allocates the same size still maps to one slot (the bucket value is
      constant). */
   u32 lg = r->size ? (64u - (u32)__builtin_clzll(r->size)) : 0;
-  u32 key = ((r->alloc_site_id * 2654435761u) ^ (lg * 1597334677u)) &
-            (CMP_MAP_W - 1);
+  u32 key =
+      ((r->alloc_site_id * 2654435761u) ^ (lg * 1597334677u)) & (CMP_MAP_W - 1);
   struct cmp_header *h = &__afl_cmp_map->headers[key];
-  if (h->hits >= CMP_MAP_RTN_H) return;  /* slot full — skip */
+  if (h->hits >= CMP_MAP_RTN_H) return;                 /* slot full — skip */
 
   u32 slot = h->hits;
   if (slot >= CMP_MAP_RTN_H) return;
   h->type = CMP_TYPE_RTN;
-  h->shape = 7;                          /* 8-byte values */
+  h->shape = 7;                                            /* 8-byte values */
   h->attribute = 0;
 
   struct cmpfn_operands *op =
@@ -4827,7 +4828,7 @@ void __afl_alloc_unregister(void *ptr) {
 
   }
 
-  if (!r) return; /* not tracked (or already freed) */
+  if (!r) return;                         /* not tracked (or already freed) */
 
   uintptr_t old_base = r->base;
   uint64_t  old_size = r->size;
@@ -4890,12 +4891,13 @@ void *__afl_track_realloc(void *ptr, uint64_t size, uint32_t alloc_site_id) {
     __afl_alloc_register(p, size, alloc_site_id);
 
   }
+
   return p;
 
 }
 
-int __afl_track_posix_memalign(void **memptr, uint64_t alignment,
-                               uint64_t size, uint32_t alloc_site_id) {
+int __afl_track_posix_memalign(void **memptr, uint64_t alignment, uint64_t size,
+                               uint32_t alloc_site_id) {
 
   int rc = posix_memalign(memptr, (size_t)alignment, (size_t)size);
   if (rc == 0) __afl_alloc_register(*memptr, size, alloc_site_id);
@@ -4941,6 +4943,7 @@ void *__afl_track_reallocarray(void *ptr, uint64_t nmemb, uint64_t size,
     __afl_alloc_register(p, (uint64_t)total, alloc_site_id);
 
   }
+
   return p;
 
 }
@@ -4963,7 +4966,8 @@ char *__afl_track_strndup(const char *s, uint64_t n, uint32_t alloc_site_id) {
   /* strndup copies at most n bytes, stopping at the first NUL, and always
      appends one. The malloc size is (effective_len + 1). */
   size_t len = 0;
-  while (len < (size_t)n && s[len]) ++len;
+  while (len < (size_t)n && s[len])
+    ++len;
   char *p = (char *)malloc(len + 1);
   if (!p) return NULL;
   memcpy(p, s, len);
@@ -4992,7 +4996,7 @@ static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
   u16      *tbl = __afl_alloc_shadow_find(a, &off);
   if (!tbl) return;
   u16 idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
-  if (!idx) return; /* untracked */
+  if (!idx) return;                                            /* untracked */
   AllocSizeRecord *r = __afl_alloc_find_oracle_record(a, tbl, off, idx);
   if (!r) return;
   uintptr_t end = r->base + r->size;
@@ -5040,12 +5044,11 @@ static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
      classes; allocator-bound vs arithmetic-bound sites rarely overlap
      for the same site_id). */
   const u32 half = MAP_SIZE_BUG_ENTRIES / 2;
-  u32 slot1 = (r->alloc_site_id * 31u) & (half - 1);
+  u32       slot1 = (r->alloc_site_id * 31u) & (half - 1);
   if (__afl_bug_map[slot1] < inv) __afl_bug_map[slot1] = inv;
   /* (2) Proximity bucket as synthetic edge: hash(site, log2(headroom)). */
   u32 bucket = log_hr > 15 ? 15 : log_hr;
-  u32 slot2 =
-      ((r->alloc_site_id * 1009u) ^ (bucket * 17u)) & (half - 1);
+  u32 slot2 = ((r->alloc_site_id * 1009u) ^ (bucket * 17u)) & (half - 1);
   if (__afl_bug_map[slot2] < (bucket + 1u)) __afl_bug_map[slot2] = bucket + 1u;
 
 }
@@ -5073,7 +5076,7 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
 
   __afl_bug_ensure_runtime();
   if (!__afl_allocsize_active) return;
-  if (!elem_size) return;  /* zero-width stores carry no type signal */
+  if (!elem_size) return;         /* zero-width stores carry no type signal */
   uintptr_t a = (uintptr_t)ptr;
   uintptr_t off = 0;
   u16      *tbl = __afl_alloc_shadow_find(a, &off);
@@ -5118,3 +5121,4 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
   __afl_bug_writes("\n");
 
 }
+

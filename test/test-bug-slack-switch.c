@@ -10,22 +10,35 @@
 extern uint32_t *__afl_bug_map;
 extern uint8_t   __afl_bug_active;
 
-__attribute__((noinline, optnone))
-int target_switch(uint32_t x) {
+__attribute__((noinline, optnone)) int target_switch(uint32_t x) {
 
   switch (x) {
-    case 0x1000: return 1;
-    case 0x2000: return 2;
-    case 0x3000: return 3;
-    case 0x4000: return 4;
-    case 0x5000: return 5;
-    case 0x6000: return 6;
-    case 0x7000: return 7;
-    case 0x8000: return 8;
-    case 0x9000: return 9;
-    case 0xa000: return 10;
-    case 0xb000: return 11;
-    default: return 0;
+
+    case 0x1000:
+      return 1;
+    case 0x2000:
+      return 2;
+    case 0x3000:
+      return 3;
+    case 0x4000:
+      return 4;
+    case 0x5000:
+      return 5;
+    case 0x6000:
+      return 6;
+    case 0x7000:
+      return 7;
+    case 0x8000:
+      return 8;
+    case 0x9000:
+      return 9;
+    case 0xa000:
+      return 10;
+    case 0xb000:
+      return 11;
+    default:
+      return 0;
+
   }
 
 }
@@ -44,8 +57,9 @@ int main(int argc, char **argv) {
 
   }
 
-  fprintf(stderr, "BUG_SLACK_SWITCH: x=0x%x maxval=%u result=%d\n",
-          x, maxval, r);
+  fprintf(stderr, "BUG_SLACK_SWITCH: x=0x%x maxval=%u result=%d\n", x, maxval,
+          r);
   return 0;
 
 }
+

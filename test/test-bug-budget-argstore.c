@@ -5,10 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-__attribute__((noinline, optnone))
-static unsigned fill_arg(unsigned char *p, unsigned n, unsigned char c) {
+__attribute__((noinline, optnone)) static unsigned fill_arg(unsigned char *p,
+                                                            unsigned       n,
+                                                            unsigned char  c) {
 
-  for (unsigned i = 0; i < n + 4; ++i) p[i] = c;
+  for (unsigned i = 0; i < n + 4; ++i)
+    p[i] = c;
   return n;
 
 }
@@ -27,3 +29,4 @@ int main(void) {
   return 0;
 
 }
+

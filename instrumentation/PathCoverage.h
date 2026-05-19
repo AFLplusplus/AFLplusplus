@@ -86,7 +86,9 @@ class PathAnalysis {
 
  public:
   PathAnalysis(unsigned level, uint64_t maxPaths)
-      : level_(level), maxPaths_(maxPaths) {}
+      : level_(level), maxPaths_(maxPaths) {
+
+  }
 
   PathAnalysisResult analyze(llvm::Function &F) const {
 
@@ -123,6 +125,7 @@ class PathAnalysis {
           break;
 
         }
+
         if (auto *Call = dyn_cast<CallBase>(&I)) {
 
           if (Call->doesNotReturn()) {
@@ -135,6 +138,7 @@ class PathAnalysis {
         }
 
       }
+
       if (firstExit) {
 
         R.exits.push_back({&BB, firstExit});
@@ -143,6 +147,7 @@ class PathAnalysis {
       }
 
     }
+
     if (R.exits.empty()) return R;
 
     /* 2. Back-edges via iterative DFS — recursion would blow the host
@@ -164,6 +169,7 @@ class PathAnalysis {
         }
 
       }
+
       fwdSuccs[&BB] = std::move(out);
 
     }
@@ -211,10 +217,12 @@ class PathAnalysis {
       const auto &succs = succIt->second;
       if (shouldMaxMerge(&BB, succs, R.simplified)) {
 
-        for (auto *S : succs) R.edgeValues[{&BB, S}] = 0;
+        for (auto *S : succs)
+          R.edgeValues[{&BB, S}] = 0;
         continue;
 
       }
+
       uint64_t prefix = 0;
       for (auto *S : succs) {
 
@@ -250,7 +258,7 @@ class PathAnalysis {
 
     using namespace llvm;
     StringRef name = F.getName();
-    auto endsWith = [&](StringRef s) {
+    auto      endsWith = [&](StringRef s) {
 
 #if LLVM_VERSION_MAJOR >= 18
       return name.ends_with(s);
@@ -260,8 +268,8 @@ class PathAnalysis {
 
     };
 
-    if (endsWith(".resume") || endsWith(".destroy") ||
-        endsWith(".cleanup") || endsWith(".async_resume"))
+    if (endsWith(".resume") || endsWith(".destroy") || endsWith(".cleanup") ||
+        endsWith(".async_resume"))
       return true;
 
     if (Module *M = F.getParent()) {
@@ -271,6 +279,7 @@ class PathAnalysis {
       if (M->getFunction(ramp)) return true;
 
     }
+
     return false;
 
   }
@@ -296,6 +305,7 @@ class PathAnalysis {
       }
 
     }
+
     return false;
 
   }
@@ -322,6 +332,7 @@ class PathAnalysis {
       return false;
 
     }
+
     return true;
 
   }
@@ -330,7 +341,7 @@ class PathAnalysis {
   unsigned level_;
   uint64_t maxPaths_;
 
-  bool shouldMaxMerge(llvm::BasicBlock                              *BB,
+  bool shouldMaxMerge(llvm::BasicBlock                               *BB,
                       const llvm::SmallVector<llvm::BasicBlock *, 4> &succs,
                       bool simplified) const {
 
@@ -350,9 +361,9 @@ class PathAnalysis {
     DenseSet<BasicBlock *>                          onStack;
     struct Frame {
 
-      BasicBlock         *bb;
-      succ_iterator       it;
-      succ_iterator       end;
+      BasicBlock   *bb;
+      succ_iterator it;
+      succ_iterator end;
 
     };
 
@@ -374,6 +385,7 @@ class PathAnalysis {
           continue;
 
         }
+
         BasicBlock *S = *top.it;
         ++top.it;
         if (onStack.count(S)) {
@@ -402,13 +414,10 @@ class PathAnalysis {
   }
 
   uint64_t computeNumPaths(
-      llvm::Function                                              &F,
-      const llvm::DenseSet<llvm::BasicBlock *>                    &exitBBs,
+      llvm::Function &F, const llvm::DenseSet<llvm::BasicBlock *> &exitBBs,
       const llvm::DenseMap<llvm::BasicBlock *,
-                           llvm::SmallVector<llvm::BasicBlock *, 4>>
-                                                                  &fwdSuccs,
-      bool                                                         simplify,
-      llvm::DenseMap<llvm::BasicBlock *, uint64_t>                &out) const {
+                           llvm::SmallVector<llvm::BasicBlock *, 4>> &fwdSuccs,
+      bool simplify, llvm::DenseMap<llvm::BasicBlock *, uint64_t> &out) const {
 
     using namespace llvm;
     out.clear();
@@ -426,7 +435,7 @@ class PathAnalysis {
 
     while (!stack.empty()) {
 
-      Frame      top = stack.back();
+      Frame       top = stack.back();
       BasicBlock *BB = top.bb;
       if (top.state == 0) {
 
@@ -436,6 +445,7 @@ class PathAnalysis {
           continue;
 
         }
+
         /* Sentinel — also blocks re-entry on cycles (defensive; back-edges
            are already stripped). */
         out[BB] = 0;
@@ -445,11 +455,13 @@ class PathAnalysis {
           auto it = fwdSuccs.find(BB);
           if (it != fwdSuccs.end()) {
 
-            for (auto *S : it->second) stack.push_back({S, 0});
+            for (auto *S : it->second)
+              stack.push_back({S, 0});
 
           }
 
         }
+
         continue;
 
       }
@@ -469,7 +481,7 @@ class PathAnalysis {
 
             for (auto *S : succIt->second) {
 
-              auto cIt = out.find(S);
+              auto     cIt = out.find(S);
               uint64_t c = (cIt == out.end()) ? 0 : cIt->second;
               if (c > total) total = c;
 
@@ -479,7 +491,7 @@ class PathAnalysis {
 
             for (auto *S : succIt->second) {
 
-              auto cIt = out.find(S);
+              auto     cIt = out.find(S);
               uint64_t c = (cIt == out.end()) ? 0 : cIt->second;
               total += c;
 
@@ -490,10 +502,12 @@ class PathAnalysis {
         }
 
       }
+
       out[BB] = total;
       stack.pop_back();
 
     }
+
     auto entryIt = out.find(&F.getEntryBlock());
     return (entryIt == out.end()) ? 0 : entryIt->second;
 
@@ -512,14 +526,14 @@ class PathAnalysis {
    of pass-internal knowledge. */
 template <typename SetMD>
 llvm::AllocaInst *emitPathCoverageEdges(
-    llvm::Function &F,
+    llvm::Function                 &F,
     const llvm::DenseMap<std::pair<llvm::BasicBlock *, llvm::BasicBlock *>,
-                         uint64_t>                                       &edgeValues,
-    SetMD                                                                 setMD) {
+                         uint64_t> &edgeValues,
+    SetMD                           setMD) {
 
   using namespace llvm;
-  LLVMContext         &Ctx     = F.getContext();
-  IntegerType         *Int32   = Type::getInt32Ty(Ctx);
+  LLVMContext         &Ctx = F.getContext();
+  IntegerType         *Int32 = Type::getInt32Ty(Ctx);
   BasicBlock          &EntryBB = F.getEntryBlock();
   BasicBlock::iterator entryIP = EntryBB.getFirstInsertionPt();
   IRBuilder<>          EntryIRB(&*entryIP);
@@ -535,19 +549,18 @@ llvm::AllocaInst *emitPathCoverageEdges(
     if (val == 0) continue;
     /* After SplitAllCriticalEdges, every edge has either |succ(a)| == 1
        (insert at end of a) or |pred(b)| == 1 (insert at top of b). */
-    Instruction *insertPt =
-        (a->getTerminator()->getNumSuccessors() > 1)
-            ? &*b->getFirstInsertionPt()
-            : a->getTerminator();
-    IRBuilder<> IRB(insertPt);
-    LoadInst   *cur = IRB.CreateLoad(Int32, path_reg);
+    Instruction *insertPt = (a->getTerminator()->getNumSuccessors() > 1)
+                                ? &*b->getFirstInsertionPt()
+                                : a->getTerminator();
+    IRBuilder<>  IRB(insertPt);
+    LoadInst    *cur = IRB.CreateLoad(Int32, path_reg);
     setMD(cur);
-    Value *next =
-        IRB.CreateAdd(cur, ConstantInt::get(Int32, (uint32_t)val));
+    Value *next = IRB.CreateAdd(cur, ConstantInt::get(Int32, (uint32_t)val));
     StoreInst *st = IRB.CreateStore(next, path_reg);
     setMD(st);
 
   }
+
   return path_reg;
 
 }
@@ -555,3 +568,4 @@ llvm::AllocaInst *emitPathCoverageEdges(
 }  // namespace afl
 
 #endif  // AFL_PATH_COVERAGE_H
+

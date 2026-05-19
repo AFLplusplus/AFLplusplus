@@ -7,3 +7,4 @@ __attribute__((noinline)) int b_func(unsigned char x) {
   return x + 60;
 
 }
+

@@ -7,17 +7,15 @@
 #include <string.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static void do_oob(uint8_t key) {
+__attribute__((noinline, optnone)) static void do_oob(uint8_t key) {
 
   /* 64-byte buffer = one whole shadow granule, so registration paints
      exactly granule 0.  The 4-byte write at offset 62 spans the end. */
-  uint8_t buf[64] = {0};
+  uint8_t  buf[64] = {0};
   uint32_t off = 62u + ((uint32_t)key & 3u);
   memcpy(buf + off, "DEAD", 4);
-  fprintf(stderr,
-          "BUG_ALLOCSIZE_STACK_OOB: wrote_at=%u first_byte=%02x\n",
-          off, (unsigned)buf[off]);
+  fprintf(stderr, "BUG_ALLOCSIZE_STACK_OOB: wrote_at=%u first_byte=%02x\n", off,
+          (unsigned)buf[off]);
 
 }
 
@@ -29,3 +27,4 @@ int main(void) {
   return 0;
 
 }
+

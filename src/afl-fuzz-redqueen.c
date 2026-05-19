@@ -107,7 +107,6 @@ static struct range *add_range(struct range *ranges, u32 start, u32 end) {
 
 }
 
-
 static struct range *pop_biggest_range(struct range **ranges) {
 
   struct range *r = *ranges;
@@ -2964,7 +2963,8 @@ static void collect_tightness_minima(afl_state_t *afl) {
   if (unlikely(!afl->min_slack)) {
 
     afl->min_slack = ck_alloc(sizeof(u64) * CMP_MAP_W);
-    for (u32 i = 0; i < CMP_MAP_W; ++i) afl->min_slack[i] = (u64)-1;
+    for (u32 i = 0; i < CMP_MAP_W; ++i)
+      afl->min_slack[i] = (u64)-1;
 
   }
 
@@ -3371,3 +3371,4 @@ exit_its:
   return r;
 
 }
+

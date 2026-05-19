@@ -5,15 +5,19 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static int parse_status(uint8_t *buf, size_t max, size_t *out_size) {
+__attribute__((noinline, optnone)) static int parse_status(uint8_t *buf,
+                                                           size_t   max,
+                                                           size_t  *out_size) {
 
   if (buf == NULL) {
+
     *out_size = 8;
     return 22;
+
   }
 
-  for (size_t i = 0; i < 8 && i < max; ++i) buf[i] = (uint8_t)i;
+  for (size_t i = 0; i < 8 && i < max; ++i)
+    buf[i] = (uint8_t)i;
   *out_size = 8;
   return 22;
 
@@ -36,3 +40,4 @@ int main(void) {
   return 0;
 
 }
+

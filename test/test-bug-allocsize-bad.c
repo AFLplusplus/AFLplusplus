@@ -9,6 +9,7 @@
 static uint8_t *volatile g_sink;
 
 int main(void) {
+
   uint8_t buf[4] = {0};
   if (read(0, buf, 4) != 4) return 1;
   /* n in [72, 87] — always past 64-byte buffer end. Data-dependent so the
@@ -16,9 +17,12 @@ int main(void) {
   uint32_t n = 72u + ((uint32_t)buf[0] & 15u);
   uint8_t *p = (uint8_t *)malloc(64);
   if (!p) return 2;
-  for (uint32_t i = 0; i < n; ++i) p[i] = (uint8_t)(buf[0] + i);
+  for (uint32_t i = 0; i < n; ++i)
+    p[i] = (uint8_t)(buf[0] + i);
   g_sink = p;
   fprintf(stderr, "BUG_ALLOCSIZE_BAD: wrote=%u\n", n);
   free(p);
   return 0;
+
 }
+

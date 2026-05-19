@@ -205,20 +205,19 @@ class ModuleSanitizerCoverageAFL
   /* AFL_LLVM_PATH (Ball-Larus per-function path coverage).  Same semantics
      as AFL_LLVM_LTO_PATH in the LTO pass: 0=off, 1=relaxed, 2=restricted,
      3=strict.  Activated also via AFL_LLVM_LTO_PATH or AFL_LLVM_PATH_MODE. */
-  bool                                   path_mode = false;
-  uint32_t                               path_mode_level = 0;
-  uint64_t                               extra_path_inst = 0;
-  uint32_t                               path_skipped_funcs = 0;
-  uint64_t                               path_max_paths = 100000;
+  bool     path_mode = false;
+  uint32_t path_mode_level = 0;
+  uint64_t extra_path_inst = 0;
+  uint32_t path_skipped_funcs = 0;
+  uint64_t path_max_paths = 100000;
 
   /* Per-function path state, populated by analyzePathCoverage() before
      InjectCoverage() runs and consumed by emitPathCoverage() afterwards. */
-  uint32_t                                                       current_path_count = 0;
-  uint32_t                                                       current_path_guard_base = 0;
-  llvm::DenseMap<BasicBlock *, uint64_t>                         pathNumPaths;
-  llvm::DenseMap<std::pair<BasicBlock *, BasicBlock *>, uint64_t>
-                                                                 pathEdgeVal;
-  std::vector<std::pair<BasicBlock *, Instruction *>>            pathExits;
+  uint32_t                               current_path_count = 0;
+  uint32_t                               current_path_guard_base = 0;
+  llvm::DenseMap<BasicBlock *, uint64_t> pathNumPaths;
+  llvm::DenseMap<std::pair<BasicBlock *, BasicBlock *>, uint64_t> pathEdgeVal;
+  std::vector<std::pair<BasicBlock *, Instruction *>>             pathExits;
 
   uint32_t analyzePathCoverage(Function &F);
   void     emitPathCoverage(Function &F);
@@ -443,6 +442,7 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
             p);
 
       }
+
       path_mode = (path_mode_level > 0);
 
     }
@@ -451,18 +451,18 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
 
   if (const char *mp = getenv("AFL_LLVM_PATH_MAX_PATHS")) {
 
-    char *end = nullptr;
+    char              *end = nullptr;
     unsigned long long v = strtoull(mp, &end, 10);
     if (!end || *end || v < 2 || v > (unsigned long long)INT32_MAX) {
 
       /* INT32_MAX upper bound: the IR path index is held in a signed
          i32 register, so any value beyond that would let path_base +
          path_reg overflow the bitmap GEP. */
-      FATAL(
-          "AFL_LLVM_PATH_MAX_PATHS must be an integer in [2, %d] (got %s).",
-          INT32_MAX, mp);
+      FATAL("AFL_LLVM_PATH_MAX_PATHS must be an integer in [2, %d] (got %s).",
+            INT32_MAX, mp);
 
     }
+
     path_max_paths = (uint64_t)v;
 
   }
@@ -486,6 +486,7 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
         break;
 
     }
+
     SAYF(cCYA "SanitizerCoveragePCGUARD" VERSION cRST " (PATH mode: %s)\n",
          path_label);
 
@@ -612,6 +613,7 @@ uint32_t ModuleSanitizerCoverageAFL::analyzePathCoverage(Function &F) {
     return 0;
 
   }
+
   if (R.simplified) {
 
     WARNF(
@@ -620,11 +622,12 @@ uint32_t ModuleSanitizerCoverageAFL::analyzePathCoverage(Function &F) {
         F.getName().str().c_str(), (unsigned long long)R.numPaths);
 
   }
+
   if (R.numPaths == 0) return 0;
 
-  pathExits    = std::move(R.exits);
+  pathExits = std::move(R.exits);
   pathNumPaths = std::move(R.numPathsAtBB);
-  pathEdgeVal  = std::move(R.edgeValues);
+  pathEdgeVal = std::move(R.edgeValues);
   return (uint32_t)R.numPaths;
 
 }
@@ -657,14 +660,14 @@ void ModuleSanitizerCoverageAFL::emitPathCoverage(Function &F) {
      instead. The alloca for path_reg is inserted at the (new) entry block's
      firstInsertionPt so it sits in the live entry, not in the original one. */
   /* Shared alloca + edge-increment emitter; exit-point writes follow below. */
-  AllocaInst *path_reg = afl::emitPathCoverageEdges(
-      F, pathEdgeVal,
-      /*setMD=*/[&](Instruction *I) {
+  AllocaInst *path_reg =
+      afl::emitPathCoverageEdges(F, pathEdgeVal,
+                                 /*setMD=*/[&](Instruction *I) {
 
-        setNoSanitizeMetadata(I);
-        setNoInstrumentMetadata(I);
+                                   setNoSanitizeMetadata(I);
+                                   setNoInstrumentMetadata(I);
 
-      });
+                                 });
 
   /* Path-ID writes at every exit point in DAG-reachable BBs. */
   for (auto &E : pathExits) {
@@ -681,10 +684,8 @@ void ModuleSanitizerCoverageAFL::emitPathCoverage(Function &F) {
        the GEP so the byte offset is unsigned. */
     Value *guardIdx32 =
         IRB.CreateAdd(p, ConstantInt::get(Int32, current_path_guard_base));
-    Value *guardIdx =
-        IRB.CreateZExt(guardIdx32, IntegerType::getInt64Ty(Ctx));
-    Value *guardSlot =
-        IRB.CreateGEP(Int32, FunctionGuardArray, guardIdx);
+    Value *guardIdx = IRB.CreateZExt(guardIdx32, IntegerType::getInt64Ty(Ctx));
+    Value *guardSlot = IRB.CreateGEP(Int32, FunctionGuardArray, guardIdx);
     LoadInst *bitmapId = IRB.CreateLoad(Int32, guardSlot);
     setNoSanitizeMetadata(bitmapId);
     setNoInstrumentMetadata(bitmapId);
@@ -712,6 +713,7 @@ void ModuleSanitizerCoverageAFL::emitPathCoverage(Function &F) {
       EffMapPtr = L;
 
     }
+
     updateCoverageBitmap(IRB, CoverageIndex, EffMapPtr);
 
   }
@@ -996,25 +998,42 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
                getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      char buf[160] = "";
-      char *bp = buf;
+      char   buf[160] = "";
+      char  *bp = buf;
       size_t bleft = sizeof(buf);
       if (skippedbb) {
 
-        int n = snprintf(bp, bleft, " %u instrumentation%s saved.",
-                         skippedbb, skippedbb == 1 ? "" : "s");
-        if (n > 0 && (size_t)n < bleft) { bp += n; bleft -= n; }
+        int n = snprintf(bp, bleft, " %u instrumentation%s saved.", skippedbb,
+                         skippedbb == 1 ? "" : "s");
+        if (n > 0 && (size_t)n < bleft) {
+
+          bp += n;
+          bleft -= n;
+
+        }
 
       }
+
       if (path_mode) {
 
         int n = snprintf(bp, bleft, " %llu extra map entries for PATH.",
                          (unsigned long long)extra_path_inst);
-        if (n > 0 && (size_t)n < bleft) { bp += n; bleft -= n; }
+        if (n > 0 && (size_t)n < bleft) {
+
+          bp += n;
+          bleft -= n;
+
+        }
+
         if (path_skipped_funcs) {
 
           n = snprintf(bp, bleft, " (%u funcs skipped)", path_skipped_funcs);
-          if (n > 0 && (size_t)n < bleft) { bp += n; bleft -= n; }
+          if (n > 0 && (size_t)n < bleft) {
+
+            bp += n;
+            bleft -= n;
+
+          }
 
         }
 
@@ -1435,8 +1454,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
      Refuse to reserve when the resulting indexing would overflow the
      signed i32 used for the GEP — values >= 2^31 sign-extend to
      negative byte offsets. */
-  uint64_t guardArrayLen = (uint64_t)AllBlocks.size() + xtra +
-                           (uint64_t)current_path_count;
+  uint64_t guardArrayLen =
+      (uint64_t)AllBlocks.size() + xtra + (uint64_t)current_path_count;
   if (guardArrayLen > (uint64_t)INT32_MAX) {
 
     WARNF(
@@ -1447,6 +1466,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
     current_path_count = 0;
 
   }
+
   current_path_guard_base = (uint32_t)AllBlocks.size() + xtra;
   CreateFunctionLocalArrays(F, AllBlocks, xtra + current_path_count);
 

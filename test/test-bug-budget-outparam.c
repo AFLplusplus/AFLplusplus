@@ -9,10 +9,11 @@
 #include <string.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static void fill_lying(uint8_t *buf, size_t *out_n) {
+__attribute__((noinline, optnone)) static void fill_lying(uint8_t *buf,
+                                                          size_t  *out_n) {
 
-  for (int i = 0; i < 32; ++i) buf[i] = (uint8_t)(0xc0 | i);
+  for (int i = 0; i < 32; ++i)
+    buf[i] = (uint8_t)(0xc0 | i);
   *out_n = 16;
 
 }
@@ -32,8 +33,9 @@ int main(void) {
   p += n;
 
   fprintf(stderr,
-          "BUG_BUDGET_OUTPARAM: reported_n=%zu, advanced_to_offset=%ld\n",
-          n, (long)(p - buf));
+          "BUG_BUDGET_OUTPARAM: reported_n=%zu, advanced_to_offset=%ld\n", n,
+          (long)(p - buf));
   return 0;
 
 }
+

@@ -6,14 +6,12 @@
 #include <string.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static void do_inbounds(uint8_t key) {
+__attribute__((noinline, optnone)) static void do_inbounds(uint8_t key) {
 
-  uint8_t buf[64] = {0};
+  uint8_t  buf[64] = {0};
   uint32_t off = 12u + ((uint32_t)key & 3u);
   memcpy(buf + off, "OKOK", 4);
-  fprintf(stderr,
-          "BUG_ALLOCSIZE_STACK_INBOUNDS: wrote_at=%u first_byte=%02x\n",
+  fprintf(stderr, "BUG_ALLOCSIZE_STACK_INBOUNDS: wrote_at=%u first_byte=%02x\n",
           off, (unsigned)buf[off]);
 
 }
@@ -26,3 +24,4 @@ int main(void) {
   return 0;
 
 }
+

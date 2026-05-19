@@ -6,13 +6,20 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static void parse_bad(uint8_t *buf, int max, uint32_t *out_size) {
+__attribute__((noinline, optnone)) static void parse_bad(uint8_t *buf, int max,
+                                                         uint32_t *out_size) {
 
   (void)max;
-  if (buf == NULL) { *out_size = 16; return; }
+  if (buf == NULL) {
+
+    *out_size = 16;
+    return;
+
+  }
+
   /* lies: writes 24 entries, reports 16 */
-  for (int i = 0; i < 24; ++i) buf[i] = (uint8_t)i;
+  for (int i = 0; i < 24; ++i)
+    buf[i] = (uint8_t)i;
   *out_size = 16;
 
 }
@@ -31,3 +38,4 @@ int main(void) {
   return 0;
 
 }
+

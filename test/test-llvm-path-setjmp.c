@@ -13,7 +13,7 @@ static jmp_buf jb;
 __attribute__((noinline)) int with_setjmp(unsigned char x) {
 
   int v = setjmp(jb);
-  if (v) return v; /* longjmp landing */
+  if (v) return v;                                       /* longjmp landing */
   if (x & 1) { longjmp(jb, 42); }
   return x + 1;
 
@@ -36,3 +36,4 @@ int main(int argc, char **argv) {
   return s & 0xff;
 
 }
+

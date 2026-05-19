@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-__attribute__((noinline, optnone))
-static unsigned fill_memset(unsigned char *p, unsigned n) {
+__attribute__((noinline, optnone)) static unsigned fill_memset(unsigned char *p,
+                                                               unsigned n) {
 
   memset(p, 0x41, n + 4);
   return n;
@@ -28,3 +28,4 @@ int main(void) {
   return 0;
 
 }
+

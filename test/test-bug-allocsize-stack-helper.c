@@ -9,21 +9,19 @@
 #include <string.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static void writer_helper(uint8_t *p, uint8_t key) {
+__attribute__((noinline, optnone)) static void writer_helper(uint8_t *p,
+                                                             uint8_t  key) {
 
   uint32_t off = 4u + ((uint32_t)key & 3u);
   memcpy(p + off, "HELO", 4);
 
 }
 
-__attribute__((noinline, optnone))
-static void caller_main(uint8_t key) {
+__attribute__((noinline, optnone)) static void caller_main(uint8_t key) {
 
   uint8_t buf[64] = {0};
   writer_helper(buf, key);
-  fprintf(stderr,
-          "BUG_ALLOCSIZE_STACK_HELPER: buf[5]=%02x\n",
+  fprintf(stderr, "BUG_ALLOCSIZE_STACK_HELPER: buf[5]=%02x\n",
           (unsigned)buf[5]);
 
 }
@@ -36,3 +34,4 @@ int main(void) {
   return 0;
 
 }
+

@@ -19,8 +19,8 @@ extern uint8_t   __afl_bug_active;
 
 // Sole FCmp site in the program — only one SLACK slot will be touched,
 // so the harness can find it by scanning for the non-zero entry.
-__attribute__((noinline, optnone))
-static int compare_floats(double a, double b) {
+__attribute__((noinline, optnone)) static int compare_floats(double a,
+                                                             double b) {
 
   if (a < b) return 1;
   return 0;
@@ -59,3 +59,4 @@ int main(int argc, char **argv) {
   return r;
 
 }
+

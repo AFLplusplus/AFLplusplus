@@ -9,8 +9,8 @@
 #include <string.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static void parse_err(uint8_t *buf, int *err) {
+__attribute__((noinline, optnone)) static void parse_err(uint8_t *buf,
+                                                         int     *err) {
 
   buf[0] = 0x55;
   *err = 42;
@@ -30,8 +30,9 @@ int main(void) {
   p += err;
 
   fprintf(stderr,
-          "BUG_BUDGET_OUTPARAM_ERRCODE: err=%d, advanced_to_offset=%ld\n",
-          err, (long)(p - buf));
+          "BUG_BUDGET_OUTPARAM_ERRCODE: err=%d, advanced_to_offset=%ld\n", err,
+          (long)(p - buf));
   return 0;
 
 }
+

@@ -8,8 +8,7 @@
 extern uint32_t *__afl_bug_map;
 extern uint8_t   __afl_bug_active;
 
-__attribute__((noinline, optnone))
-int target_cmp(uint64_t x) {
+__attribute__((noinline, optnone)) int target_cmp(uint64_t x) {
 
   return x == 0x12345678ULL;
 
@@ -34,3 +33,4 @@ int main(int argc, char **argv) {
   return 0;
 
 }
+

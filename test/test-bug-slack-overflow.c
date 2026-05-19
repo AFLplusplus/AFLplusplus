@@ -14,15 +14,18 @@
 extern uint32_t *__afl_bug_map;
 extern uint8_t   __afl_bug_active;
 
-__attribute__((noinline, optnone))
-static uint64_t target_overflow(uint64_t a, uint64_t b) {
+__attribute__((noinline, optnone)) static uint64_t target_overflow(uint64_t a,
+                                                                   uint64_t b) {
 
   uint64_t out;
   if (__builtin_mul_overflow(a, b, &out)) {
+
     /* On overflow, the *WithOverflow intrinsic's flag is 1; SLACK
        must see this as a tight (slack=0) update to its slot. */
     return 0;
+
   }
+
   return out;
 
 }
@@ -36,12 +39,16 @@ int main(int argc, char **argv) {
   /* Dump every non-zero map slot so the test script can compare
      overflow vs non-overflow runs. */
   if (__afl_bug_active && __afl_bug_map) {
+
     for (uint32_t i = 0; i < (1U << 14); ++i)
       if (__afl_bug_map[i])
         fprintf(stderr, "slot %u = %u\n", i, __afl_bug_map[i]);
+
   }
+
   fprintf(stderr, "BUG_SLACK_OVERFLOW: a=%llu b=%llu r=%llu\n",
           (unsigned long long)a, (unsigned long long)b, (unsigned long long)r);
   return 0;
 
 }
+

@@ -14,8 +14,7 @@
 extern uint32_t *__afl_bug_map;
 extern uint8_t   __afl_bug_active;
 
-__attribute__((noinline))
-static uint32_t cap_size(uint32_t n) {
+__attribute__((noinline)) static uint32_t cap_size(uint32_t n) {
 
   /* Trick clang into emitting `select` rather than branches:
      read the operands through volatile so the optimizer can't
@@ -39,12 +38,10 @@ int main(void) {
 
   uint8_t in[4] = {0};
   if (read(0, in, 4) != 4) return 1;
-  uint32_t n = (uint32_t)in[0] |
-               ((uint32_t)in[1] << 8) |
-               ((uint32_t)in[2] << 16) |
-               ((uint32_t)in[3] << 24);
+  uint32_t n = (uint32_t)in[0] | ((uint32_t)in[1] << 8) |
+               ((uint32_t)in[2] << 16) | ((uint32_t)in[3] << 24);
   uint32_t sz = cap_size(n);
-  char *buf = (char *)malloc(sz + 1);
+  char    *buf = (char *)malloc(sz + 1);
   if (!buf) return 2;
   buf[0] = (char)sz;
   fprintf(stderr, "BUG_SCALAR_SELECT: sz=%u\n", sz);
@@ -52,3 +49,4 @@ int main(void) {
   return 0;
 
 }
+

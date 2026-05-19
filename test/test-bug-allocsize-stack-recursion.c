@@ -7,8 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static int recurse(int depth, uint8_t key) {
+__attribute__((noinline, optnone)) static int recurse(int depth, uint8_t key) {
 
   uint8_t buf[64] = {0};
   buf[depth & 0x3f] = key;
@@ -26,3 +25,4 @@ int main(void) {
   return 0;
 
 }
+

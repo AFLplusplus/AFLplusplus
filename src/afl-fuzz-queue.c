@@ -1047,6 +1047,7 @@ void cull_queue(afl_state_t *afl) {
       }
 
     }
+
     q->favored = q->tightness_novel;
 
   }

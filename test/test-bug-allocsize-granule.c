@@ -37,6 +37,7 @@ int main(void) {
     return 1;
 
   }
+
   a[0] = 1;
   b[0] = 2;
 
@@ -56,7 +57,9 @@ int main(void) {
     return 2;
 
   }
+
   fputs("ok\n", stderr);
   return 0;
 
 }
+

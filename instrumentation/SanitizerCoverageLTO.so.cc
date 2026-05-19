@@ -214,10 +214,8 @@ class ModuleSanitizerCoverageLTO
      isGuardOnlyBB sees the source-level BBs, not BBs polluted by edge-
      counter stores).  Stores per-function results in path* members. */
   bool     analyzePathCoverage(Function &F);
-  uint64_t instrumentPathCoverage(Function           &F,
-                                  const DominatorTree *DT,
-                                  uint32_t            call_counter,
-                                  LoadInst           *PrevCtxLoad);
+  uint64_t instrumentPathCoverage(Function &F, const DominatorTree *DT,
+                                  uint32_t call_counter, LoadInst *PrevCtxLoad);
 
   std::string    getSectionName(const std::string &Section) const;
   FunctionCallee SanCovTracePC /*, SanCovTracePCGuard*/;
@@ -238,28 +236,27 @@ class ModuleSanitizerCoverageLTO
   // AFL++ START
   // const SpecialCaseList *          Allowlist;
   // const SpecialCaseList *          Blocklist;
-  uint32_t                         autodictionary = 1;
-  uint32_t                         autodictionary_no_main = 0;
-  uint32_t                         inst = 0;
-  uint32_t                         afl_global_id = 0;
-  uint32_t                         unhandled = 0;
-  uint32_t                         decision_cnt = 0;
-  uint32_t                         instrument_ctx = 0;
-  uint32_t                         instrument_ctx_max_depth = 0;
-  uint32_t                         extra_ctx_inst = 0;
-  bool                             path_mode = false;       // Ball-Larus path
-  uint32_t                         path_mode_level = 0;     // 1=relaxed, 2=restricted, 3=strict
-  uint64_t                         extra_path_inst = 0;     // sum of paths
-  uint32_t                         path_skipped_funcs = 0;  // skipped funcs
-  uint64_t                         path_max_paths = 100000;
+  uint32_t autodictionary = 1;
+  uint32_t autodictionary_no_main = 0;
+  uint32_t inst = 0;
+  uint32_t afl_global_id = 0;
+  uint32_t unhandled = 0;
+  uint32_t decision_cnt = 0;
+  uint32_t instrument_ctx = 0;
+  uint32_t instrument_ctx_max_depth = 0;
+  uint32_t extra_ctx_inst = 0;
+  bool     path_mode = false;       // Ball-Larus path
+  uint32_t path_mode_level = 0;     // 1=relaxed, 2=restricted, 3=strict
+  uint64_t extra_path_inst = 0;     // sum of paths
+  uint32_t path_skipped_funcs = 0;  // skipped funcs
+  uint64_t path_max_paths = 100000;
   /* Populated by analyzePathCoverage() before InjectCoverage runs and
      consumed by instrumentPathCoverage() afterwards.  See PathCoverage.h. */
   llvm::DenseMap<llvm::BasicBlock *, uint64_t> pathNumPaths;
   llvm::DenseMap<std::pair<llvm::BasicBlock *, llvm::BasicBlock *>, uint64_t>
-                                                pathEdgeVal;
-  std::vector<std::pair<llvm::BasicBlock *, llvm::Instruction *>>
-                                                pathExits;
-  uint64_t                                      pathNumEntry = 0;
+                                                                  pathEdgeVal;
+  std::vector<std::pair<llvm::BasicBlock *, llvm::Instruction *>> pathExits;
+  uint64_t                         pathNumEntry = 0;
   uint64_t                         map_addr = 0;
   const char                      *skip_nozero = NULL;
   const char                      *use_threadsafe_counters = nullptr;
@@ -570,6 +567,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
             p);
 
       }
+
       path_mode = (path_mode_level > 0);
 
     }
@@ -578,18 +576,18 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   if (const char *mp = getenv("AFL_LLVM_PATH_MAX_PATHS")) {
 
-    char *end = nullptr;
+    char              *end = nullptr;
     unsigned long long v = strtoull(mp, &end, 10);
     if (!end || *end || v < 2 || v > (unsigned long long)INT32_MAX) {
 
       /* INT32_MAX upper bound: the IR path index is held in a signed
          i32 register, so any value beyond that would let path_base +
          path_reg overflow the bitmap GEP. */
-      FATAL(
-          "AFL_LLVM_PATH_MAX_PATHS must be an integer in [2, %d] (got %s).",
-          INT32_MAX, mp);
+      FATAL("AFL_LLVM_PATH_MAX_PATHS must be an integer in [2, %d] (got %s).",
+            INT32_MAX, mp);
 
     }
+
     path_max_paths = (uint64_t)v;
 
   }
@@ -614,7 +612,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || debug) {
 
-    char buf[160] = {};
+    char        buf[160] = {};
     const char *path_label;
     switch (path_mode_level) {
 
@@ -632,6 +630,7 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
         break;
 
     }
+
     if (instrument_ctx && path_mode) {
 
       snprintf(buf, sizeof(buf), " (CTX mode, depth %u, %s)",
@@ -1431,26 +1430,42 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
                getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
-      char buf[160] = {};
-      char *p = buf;
+      char   buf[160] = {};
+      char  *p = buf;
       size_t left = sizeof(buf);
       if (instrument_ctx) {
 
-        int n =
-            snprintf(p, left, " with %u extra map entries for CTX",
-                     extra_ctx_inst);
-        if (n > 0 && (size_t)n < left) { p += n; left -= n; }
+        int n = snprintf(p, left, " with %u extra map entries for CTX",
+                         extra_ctx_inst);
+        if (n > 0 && (size_t)n < left) {
+
+          p += n;
+          left -= n;
+
+        }
 
       }
+
       if (path_mode) {
 
         int n = snprintf(p, left, " with %llu extra map entries for PATH",
                          (unsigned long long)extra_path_inst);
-        if (n > 0 && (size_t)n < left) { p += n; left -= n; }
+        if (n > 0 && (size_t)n < left) {
+
+          p += n;
+          left -= n;
+
+        }
+
         if (path_skipped_funcs) {
 
           n = snprintf(p, left, " (%u funcs skipped)", path_skipped_funcs);
-          if (n > 0 && (size_t)n < left) { p += n; left -= n; }
+          if (n > 0 && (size_t)n < left) {
+
+            p += n;
+            left -= n;
+
+          }
 
         }
 
@@ -2755,6 +2770,7 @@ bool ModuleSanitizerCoverageLTO::analyzePathCoverage(Function &F) {
     return false;
 
   }
+
   if (R.simplified) {
 
     WARNF(
@@ -2763,11 +2779,12 @@ bool ModuleSanitizerCoverageLTO::analyzePathCoverage(Function &F) {
         F.getName().str().c_str(), (unsigned long long)R.numPaths);
 
   }
+
   if (R.numPaths == 0) return false;
 
-  pathExits    = std::move(R.exits);
+  pathExits = std::move(R.exits);
   pathNumPaths = std::move(R.numPathsAtBB);
-  pathEdgeVal  = std::move(R.edgeValues);
+  pathEdgeVal = std::move(R.edgeValues);
   pathNumEntry = R.numPaths;
   return true;
 
@@ -2794,17 +2811,17 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
   IntegerType *Int32 = Type::getInt32Ty(Ctx);
   MDNode      *NoSan = MDNode::get(Ctx, MDString::get(Ctx, "nosanitize"));
 
-  uint64_t numEntry = pathNumEntry;
-  const auto &Exits    = pathExits;
+  uint64_t    numEntry = pathNumEntry;
+  const auto &Exits = pathExits;
   const auto &NumPaths = pathNumPaths;
-  const auto &EdgeVal  = pathEdgeVal;
+  const auto &EdgeVal = pathEdgeVal;
 
   /* 5. Reserve afl_global_id range.  When CTX expanded this function,
      reserve NumPaths * call_counter so each (call_id, path) tuple has
      its own slot.  Otherwise reserve NumPaths.                         */
   bool     ctx_active = (call_counter > 1) && PrevCtxLoad != nullptr;
-  uint64_t reservation = ctx_active ? numEntry * (uint64_t)call_counter
-                                    : numEntry;
+  uint64_t reservation =
+      ctx_active ? numEntry * (uint64_t)call_counter : numEntry;
   /* The IR uses a signed i32 for the path index. The GEP into the
      bitmap sign-extends i32 → pointer-width, so any index >= 2^31
      becomes a large negative byte offset and writes OOB. Cap at
@@ -2821,6 +2838,7 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
     return 0;
 
   }
+
   uint32_t path_base = afl_global_id;
   afl_global_id += (uint32_t)reservation;
   extra_path_inst += reservation;
@@ -2878,6 +2896,7 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
       EffMapPtr = L;
 
     }
+
     Value *MapPtrIdx = IRB.CreateGEP(Int8Ty, EffMapPtr, idx64);
 
     if (use_threadsafe_counters) {
@@ -2899,6 +2918,7 @@ uint64_t ModuleSanitizerCoverageLTO::instrumentPathCoverage(
         Incr = IRB.CreateBinaryIntrinsic(Intrinsic::umax, Incr, One);
 
       }
+
       StoreInst *st = IRB.CreateStore(Incr, MapPtrIdx);
       st->setMetadata("nosanitize", NoSan);
 

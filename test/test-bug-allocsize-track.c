@@ -14,17 +14,19 @@
 extern AllocSizeRecord __afl_alloc_records[];
 
 int main(void) {
-  void *p = malloc(64);
-  void *q = malloc(128);
+
+  void    *p = malloc(64);
+  void    *q = malloc(128);
   unsigned tracked = 0;
   /* 256 is a sufficient scan bound for this test: pick_idx starts at
      idx=1 and we only register two allocations, so they land in the low
      range.  Widen if the test ever registers more allocations. */
   for (unsigned i = 1; i < 256; ++i)
     if (__afl_alloc_records[i].in_use) ++tracked;
-  fprintf(stderr, "BUG_ALLOCSIZE_TRACK: tracked=%u p=%p q=%p\n",
-          tracked, p, q);
+  fprintf(stderr, "BUG_ALLOCSIZE_TRACK: tracked=%u p=%p q=%p\n", tracked, p, q);
   free(p);
   free(q);
   return 0;
+
 }
+

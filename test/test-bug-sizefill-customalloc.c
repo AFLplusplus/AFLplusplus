@@ -7,15 +7,25 @@
 #include <stddef.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static uint8_t *MyAlloc(size_t n) { return (uint8_t *)malloc(n); }
+__attribute__((noinline, optnone)) static uint8_t *MyAlloc(size_t n) {
 
-__attribute__((noinline, optnone))
-static int parse_bad(uint8_t *out, int max, size_t *out_size) {
+  return (uint8_t *)malloc(n);
+
+}
+
+__attribute__((noinline, optnone)) static int parse_bad(uint8_t *out, int max,
+                                                        size_t *out_size) {
 
   (void)max;
-  if (out == NULL) { *out_size = 16; return 0; }
-  for (int i = 0; i < 24; ++i) out[i] = (uint8_t)i;   /* lies */
+  if (out == NULL) {
+
+    *out_size = 16;
+    return 0;
+
+  }
+
+  for (int i = 0; i < 24; ++i)
+    out[i] = (uint8_t)i;                                            /* lies */
   *out_size = 16;
   return 0;
 
@@ -35,3 +45,4 @@ int main(void) {
   return 0;
 
 }
+

@@ -575,8 +575,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_kill_signal = from->child_kill_signal;
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
-  fsrv_to->cmplog_size_derive_requested =
-      from->cmplog_size_derive_requested;
+  fsrv_to->cmplog_size_derive_requested = from->cmplog_size_derive_requested;
   fsrv_to->supports_allocsize_derive = false;
 
 #ifdef __AFL_CODE_COVERAGE
@@ -2939,3 +2938,4 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
+

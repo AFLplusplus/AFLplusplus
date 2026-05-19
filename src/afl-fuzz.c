@@ -1921,6 +1921,7 @@ int main(int argc, char **argv_orig, char **envp) {
         "CmpLog enabled. Pass -c <cmplog-target> as well.");
 
   }
+
   if (afl->cmplog_size_derive && !afl->shm.cmplog_mode) {
 
     FATAL(
@@ -2980,8 +2981,7 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
-    afl->cmplog_fsrv.cmplog_size_derive_requested =
-        afl->cmplog_size_derive;
+    afl->cmplog_fsrv.cmplog_size_derive_requested = afl->cmplog_size_derive;
     afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
@@ -4126,3 +4126,4 @@ stop_fuzzing:
 }
 
 #endif                                                          /* !AFL_LIB */
+

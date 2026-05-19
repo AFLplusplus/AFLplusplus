@@ -12,10 +12,10 @@
 #include <string.h>
 #include <unistd.h>
 
-__attribute__((noinline, optnone))
-static long parse_lying(char *buf, size_t cap) {
+__attribute__((noinline, optnone)) static long parse_lying(char  *buf,
+                                                           size_t cap) {
 
-  if (!buf) return 16;  /* sentinel: caller-buffer size we claim to need */
+  if (!buf) return 16;     /* sentinel: caller-buffer size we claim to need */
   /* Lie: read() in callee writes up to 2*cap bytes into buf,
      blowing past the caller-allocated size.  Returns the value
      we promised to write (16). */
@@ -38,3 +38,4 @@ int main(void) {
   return 0;
 
 }
+

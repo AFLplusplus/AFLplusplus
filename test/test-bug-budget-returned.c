@@ -12,12 +12,12 @@
 
 /* noinline keeps the call from being inlined; the body `return n`
  * causes opt to mark arg1 with `returned`. */
-__attribute__((noinline))
-static uint32_t fill_lying(uint8_t *p, uint32_t n) {
+__attribute__((noinline)) static uint32_t fill_lying(uint8_t *p, uint32_t n) {
 
   uint32_t doubled = 2 * n;
-  for (uint32_t i = 0; i < doubled; ++i) p[i] = (uint8_t)i;
-  return n;  /* lies */
+  for (uint32_t i = 0; i < doubled; ++i)
+    p[i] = (uint8_t)i;
+  return n;                                                         /* lies */
 
 }
 
@@ -34,3 +34,4 @@ int main(int argc, char **argv) {
   return 0;
 
 }
+
