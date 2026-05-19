@@ -401,11 +401,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60\n"
       "                      minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
-      "AFL_OLD_CHILD_SYNC: use file descriptor persistent-mode synchronization\n"
-      "                    instead of the default shared memory + futex path\n"
-      "                    (Linux only)\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in ms)\n"
+      "AFL_FRAMESHIFT_DISABLE: disable FRAMESHIFT algorithm\n"
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected\n"
@@ -449,6 +447,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NYX_REUSE_SNAPSHOT: reuse an existing Nyx root snapshot\n"
       DYN_COLOR
 
+      "AFL_OLD_CHILD_SYNC: use file descriptor persistent-mode synchronization\n"
+      "                    instead of the default shared memory + futex path\n"
+      "                    (Linux only)\n"
       "AFL_PATH: path to AFL support binaries\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
@@ -2080,6 +2081,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   OKF("Generating fuzz data with a length of min=%u max=%u", afl->min_length,
       afl->max_length);
+
+  if (afl->afl_env.afl_custom_mutator_only) {
+
+    afl->afl_env.afl_frameshift_disabled = 1;
+
+  }
 
   if (afl->afl_env.afl_frameshift_disabled) {
 
