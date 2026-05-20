@@ -1171,7 +1171,11 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
         // inside this function can have a Function::Argument of this
         // same function as its returned-arg substitute (the optimizer
         // would have folded earlier).
+#if LLVM_VERSION_MAJOR >= 21
         if (!Call && !isa<Constant>(idx) && idx->hasUseList()) {
+#else
+        if (!Call && !isa<Constant>(idx)) {
+#endif
 
           unsigned probes = 0;
           for (User *U : idx->users()) {
@@ -4038,7 +4042,11 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
       if (!isInInstrumentList(&F, F.getName().str())) continue;
       // Defensive: avoid recursing into our own runtime hooks if any
       // got linked into this module by accident.
+#if LLVM_VERSION_MAJOR >= 18
       if (F.getName().starts_with("__afl_")) continue;
+#else
+      if (F.getName().startswith("__afl_")) continue;
+#endif
 
       // Collect candidate allocas from the entry block (clang places
       // local-variable allocas there even at -O2; later blocks see
@@ -4049,9 +4057,17 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         auto *AI = dyn_cast<AllocaInst>(&I);
         if (!AI) continue;
         // Reject dynamic-size (VLA) — no compile-time bound to register.
+#if LLVM_VERSION_MAJOR >= 16
         auto opt_size = AI->getAllocationSize(DL);
         if (!opt_size) continue;
+        if (opt_size->isScalable()) continue;
         uint64_t bytes = opt_size->getFixedValue();
+#else
+        auto opt_size_bits = AI->getAllocationSizeInBits(DL);
+        if (!opt_size_bits) continue;
+        if (opt_size_bits->isScalable()) continue;
+        uint64_t bytes = opt_size_bits->getFixedValue() / 8;
+#endif
         if (bytes < kStackGranuleBytes) continue;
         if (bytes % kStackGranuleBytes) continue;
         if (AI->use_empty()) continue;                       /* dead alloca */
@@ -4092,7 +4108,11 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
       for (AllocaInst *AI : candidates) {
 
         uint32_t id = next_alloc_id++;
+#if LLVM_VERSION_MAJOR >= 16
         uint64_t bytes = AI->getAllocationSize(DL)->getFixedValue();
+#else
+        uint64_t bytes = AI->getAllocationSizeInBits(DL)->getFixedValue() / 8;
+#endif
         Value   *sizeV = ConstantInt::get(I64, bytes);
         Value   *idV = ConstantInt::get(I32, id);
 
