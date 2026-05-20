@@ -31,7 +31,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#if LLVM_MAJOR >= 22
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
   #include "llvm/Plugins/PassPlugin.h"
 #else
   #include "llvm/Passes/PassPlugin.h"
