@@ -27,6 +27,12 @@ _LDFLAGS_ADD=$(UNAME_SAYS_LINUX:1=)
 LDFLAGS_ADD=$(_LDFLAGS_ADD:0=-ldl)
 LDFLAGS  += $(LDFLAGS_ADD)
 
+# Needed for backtrace under FreeBSD
+ifeq "$(SYS)" "FreeBSD"
+    LDFLAGS += -lexecinfo
+	COMPILER_RT_LDFLAGS += -lexecinfo
+endif
+
 # on gcc for arm there is no -m32, but -mbe32
 M32FLAG = -m32
 M64FLAG = -m64
@@ -55,10 +61,18 @@ install: argvfuzz32.so argvfuzz64.so
 	if [ -f argvfuzz64.so ]; then set -e; install -m 755 argvfuzz64.so $(DESTDIR)$(HELPER_PATH)/; fi
 
 argv_fuzz_persistent_demo: argv_fuzz_persistent_demo.c
-	../../afl-cc -g -o $@ $^
+	ifeq "$(SYS)" "FreeBSD"
+		../../afl-cc -lexecinfo -g -o $@ $^
+	else
+		../../afl-cc -g -o $@ $^
+	endif
 
 argv_fuzz_demo: argv_fuzz_demo.c
-	../../afl-cc -g -o $@ $^
+	ifeq "$(SYS)" "FreeBSD"
+		../../afl-cc -lexecinfo -g -o $@ $^
+	else
+		../../afl-cc -g -o $@ $^
+	endif
 
 demo: argv_fuzz_persistent_demo argv_fuzz_demo
 

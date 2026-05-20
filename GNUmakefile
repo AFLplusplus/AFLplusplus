@@ -178,7 +178,10 @@ override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-
 
 ifeq "$(SYS)" "FreeBSD"
   override CFLAGS  += -I /usr/local/include/
-  override LDFLAGS += -L /usr/local/lib/
+  # execinfo needed for backtrace under FreeBSD
+  override LDFLAGS += -L /usr/local/lib/ -lexecinfo
+  # Unicorn doesn't work on FreeBSD: doesn't get native library.
+  NO_UNICORN=1
 endif
 
 ifeq "$(SYS)" "DragonFly"

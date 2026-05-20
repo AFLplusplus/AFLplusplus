@@ -3812,6 +3812,12 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     }
 
+// link in execinfo on FreeBSD to include backtrace library used by
+// instrumentation.
+#ifdef __FreeBSD__
+    insert_param(aflcc, "-lexecinfo");
+#endif
+
   }
 
   /* Inspect the command line parameters. */
