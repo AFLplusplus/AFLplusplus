@@ -1563,8 +1563,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           !fsrv->supports_allocsize_derive) {
 
         FATAL(
-            "-l Z requires a CmpLog target compiled with "
-            "AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1");
+            "-l z (size-derive) requested but target does not announce "
+            "ALLOCSIZE_DERIVE support. Note that AFL_USE_ASAN disables "
+            "ALLOCSIZE/DERIVE.");
 
       }
 
@@ -1716,9 +1717,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         if (fsrv->cmplog_size_derive_requested) {
 
-          FATAL(
-              "-l Z requires a CmpLog target with new forkserver support and "
-              "AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1");
+          WARNF(
+              "-l z (size-derive) requested but target uses the old forkserver "
+              "protocol — ignored");
+          fsrv->cmplog_size_derive_requested = false;
 
         }
 
