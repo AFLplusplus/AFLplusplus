@@ -708,6 +708,44 @@ restart_poll:
 
 }
 
+/* Read child_status from the forkserver pipe after a timeout, escalating
+   to SIGKILL if the configured child_kill_signal failed to terminate the
+   child within FORKSRV_KILL_GRACE_MS. child_kill_signal defaults to
+   SIGTERM in persistent mode; targets that catch or defer it (e.g.,
+   CPython delivers signals only between bytecodes, so a target stuck in
+   a long-running C function such as bignum multiplication never sees the
+   signal) would otherwise leave the forkserver wedged in waitpid() and
+   the fuzzer wedged in this read forever. SIGKILL is delivered by the
+   kernel regardless of target state, so it always unsticks waitpid().
+
+   Returns 1 on success, 0 if *stop_soon_p was raised.
+   Hard pipe errors abort via RPFATAL. */
+#define FORKSRV_KILL_GRACE_MS 1000U
+static inline u8 read_status_or_escalate(afl_forkserver_t *fsrv,
+                                         volatile u8      *stop_soon_p) {
+
+  s32 res = -1;
+  u32 read_ms = read_s32_timed(fsrv->fsrv_st_fd, &fsrv->child_status,
+                               FORKSRV_KILL_GRACE_MS, stop_soon_p);
+
+  if (likely(read_ms > 0 && read_ms <= FORKSRV_KILL_GRACE_MS)) { return 1; }
+
+  if (read_ms > FORKSRV_KILL_GRACE_MS) {
+
+    if (fsrv->child_pid > 0) { kill(fsrv->child_pid, SIGKILL); }
+    if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_status, 4)) == 4) {
+
+      return 1;
+
+    }
+
+  }
+
+  if (*stop_soon_p) { return 0; }
+  RPFATAL(res, "Unable to communicate with fork server");
+
+}
+
 /* Internal forkserver for non_instrumented_mode=1 and non-forkserver mode runs.
   It execvs for each fork, forwarding exit codes and child pids to afl. */
 
@@ -2593,12 +2631,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
     /* EXITED or timeout/stop: read child status from forkserver pipe. */
   futex_read_status:
-    if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_status, 4)) < 4) {
-
-      if (*stop_soon_p) { return 0; }
-      RPFATAL(res, "Unable to communicate with fork server");
-
-    }
+    if (!read_status_or_escalate(fsrv, stop_soon_p)) { return 0; }
 
     fsrv->child_pid = -1;
     __atomic_store_n(fsrv->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
@@ -2690,12 +2723,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     }
 
     /* EXITED or timeout/stop: read child status from forkserver pipe. */
-    if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_status, 4)) < 4) {
-
-      if (*stop_soon_p) { return 0; }
-      RPFATAL(res, "Unable to communicate with fork server");
-
-    }
+    if (!read_status_or_escalate(fsrv, stop_soon_p)) { return 0; }
 
     fsrv->child_pid = -1;
     __atomic_store_n(fsrv->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
