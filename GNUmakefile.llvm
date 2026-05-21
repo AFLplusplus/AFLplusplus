@@ -450,7 +450,7 @@ ifdef IS_IOS
 endif
 
 instrumentation/afl-llvm-common.o: instrumentation/afl-llvm-common.cc instrumentation/afl-llvm-common.h
-	$(CXX) $(CFLAGS) $(CPPFLAGS) $$($(LLVM_CONFIG) --cxxflags) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -c $< -o $@
+	$(CXX) $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) $$($(LLVM_CONFIG) --cxxflags) -fno-rtti -fPIC -std=$(LLVM_STDCXX) -c $< -o $@
 
 ./afl-llvm-pass.so: instrumentation/afl-llvm-pass.so.cc instrumentation/afl-llvm-common.o | test_deps
 ifeq "$(LLVM_MIN_4_0_1)" "0"

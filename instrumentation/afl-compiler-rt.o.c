@@ -186,7 +186,13 @@ static u32 __afl_fuzz_len_dummy;
 u32       *__afl_fuzz_len = &__afl_fuzz_len_dummy;
 int        __afl_sharedmem_fuzzing __attribute__((weak));
 
-u32 __afl_final_loc;
+// Weak so the LTO instrumentation can override with a strong static
+// initializer (see SanitizerCoverageLTO). On macOS this makes the
+// map size visible at load time, before any constructor runs --
+// otherwise AFL_DUMP_MAP_SIZE would always print MAP_SIZE because the
+// LTO-bitcode constructor that previously stored __afl_final_loc runs
+// after afl-compiler-rt.o's constructors on Mach-O.
+__attribute__((weak)) u32 __afl_final_loc;
 u32 __afl_map_size = MAP_SIZE;
 u32 __afl_cov_map_size = MAP_SIZE;
 u32 __afl_set_map_size = MAP_SIZE;
@@ -1507,8 +1513,26 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 #ifdef __linux__
     if (likely(__afl_child_sync)) {
 
-      /* Signal the fuzzer that this iteration is complete. */
-      __atomic_store_n(__afl_child_sync, AFL_CHILD_DONE, __ATOMIC_RELEASE);
+      /* Signal the fuzzer that this iteration is complete.
+         A blind store would deadlock the next FUTEX_WAIT in the race where
+         the fuzzer just wrote AFL_CHILD_EXITED on a timeout: we would
+         overwrite EXITED with DONE, then sleep in FUTEX_WAIT(DONE), and
+         the fuzzer (already past its wake) never writes anything again.
+         This bites whenever child_kill_signal is non-fatal (SIGTERM is the
+         default in persistent mode) and the target catches or blocks it.
+         CAS so we exit cleanly instead of overwriting EXITED. The loop
+         iterates at most twice -- once on the very first call when the
+         futex is still AFL_CHILD_IDLE because the fuzzer hasn't written
+         RUN yet, then once with the updated expected value. */
+      u32 expected = AFL_CHILD_RUN;
+      while (!__atomic_compare_exchange_n(__afl_child_sync, &expected,
+                                          AFL_CHILD_DONE, 0, __ATOMIC_ACQ_REL,
+                                          __ATOMIC_ACQUIRE)) {
+
+        if (unlikely(expected == AFL_CHILD_EXITED)) { _exit(0); }
+
+      }
+
       sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
 
       /* Wait until the fuzzer signals us to run the next test case.

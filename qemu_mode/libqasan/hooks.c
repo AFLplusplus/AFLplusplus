@@ -28,6 +28,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <sys/syscall.h>
 
+/* Newer glibc <string.h> exposes these as type-generic _Generic macros for
+   const-correctness, which collides with our function definitions below. */
+#undef memchr
+#undef strchr
+#undef strrchr
+#undef strstr
+
 char *(*__lq_libc_fgets)(char *, int, FILE *);
 int (*__lq_libc_atoi)(const char *);
 long (*__lq_libc_atol)(const char *);
