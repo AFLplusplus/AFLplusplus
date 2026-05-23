@@ -76,8 +76,8 @@ ENV AFL_SKIP_CPUFREQ=1
 ENV AFL_TRY_AFFINITY=1
 ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 
-RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-cov && \
-    (cd afl-cov && make install) && rm -rf afl-cov
+RUN git clone --depth=1 https://github.com/AFLplusplus/cov-analysis && \
+    (cd cov-analysis && make install) && rm -rf cov-analysis
 
 WORKDIR /AFLplusplus
 COPY . .
