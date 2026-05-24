@@ -2397,8 +2397,10 @@ void show_init_stats(afl_state_t *afl) {
     q = afl->queue_buf[i];
     if (unlikely(q->disabled)) { continue; }
 
+    u64 q_max_us = MAX(q->exec_us, q->exec_us_max);
+
     if (!min_us || q->exec_us < min_us) { min_us = q->exec_us; }
-    if (q->exec_us > max_us) { max_us = q->exec_us; }
+    if (q_max_us > max_us) { max_us = q_max_us; }
 
     if (!min_bits || q->bitmap_size < min_bits) { min_bits = q->bitmap_size; }
     if (q->bitmap_size > max_bits) { max_bits = q->bitmap_size; }

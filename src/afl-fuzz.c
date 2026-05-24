@@ -3316,10 +3316,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
       u64 max_ms = 0;
 
-      for (entry = 0; entry < afl->queued_items; ++entry)
-        if (!afl->queue_buf[entry]->disabled)
-          if ((afl->queue_buf[entry]->exec_us / 1000) > max_ms)
-            max_ms = afl->queue_buf[entry]->exec_us / 1000;
+      for (entry = 0; entry < afl->queued_items; ++entry) {
+
+        struct queue_entry *q = afl->queue_buf[entry];
+        u64                 q_max_us;
+
+        if (q->disabled) { continue; }
+
+        q_max_us = MAX(q->exec_us, q->exec_us_max);
+        if ((q_max_us / 1000) > max_ms) { max_ms = q_max_us / 1000; }
+
+      }
 
       // Add 20% as a safety margin, capped to exec_tmout given in -t option
       max_ms *= 1.2;

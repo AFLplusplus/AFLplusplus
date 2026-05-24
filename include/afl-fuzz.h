@@ -288,7 +288,8 @@ struct queue_entry {
       fuzz_level,                       /* Number of fuzzing iterations     */
       n_fuzz_entry;                     /* offset in n_fuzz                 */
 
-  u64 exec_us,                          /* Execution time (us)              */
+  u64 exec_us,                          /* Average execution time (us)      */
+      exec_us_max,                      /* Slowest calibration run (us)     */
       handicap,                         /* Number of queue cycles behind    */
       depth,                            /* Path depth                       */
       exec_cksum,                       /* Checksum of the execution trace  */
