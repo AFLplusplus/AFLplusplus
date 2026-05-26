@@ -20,3 +20,4 @@ int main(int argc, char **argv) {
   return (a_func(buf[0]) + b_func(buf[0])) & 0xff;
 
 }
+

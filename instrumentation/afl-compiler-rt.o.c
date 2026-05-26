@@ -193,13 +193,13 @@ int        __afl_sharedmem_fuzzing __attribute__((weak));
 // LTO-bitcode constructor that previously stored __afl_final_loc runs
 // after afl-compiler-rt.o's constructors on Mach-O.
 __attribute__((weak)) u32 __afl_final_loc;
-u32 __afl_map_size = MAP_SIZE;
-u32 __afl_cov_map_size = MAP_SIZE;
-u32 __afl_set_map_size = MAP_SIZE;
-u32 __afl_dictionary_len;
-u64 __afl_map_addr;
-u32 __afl_first_final_loc;
-u32 __afl_old_forkserver;
+u32                       __afl_map_size = MAP_SIZE;
+u32                       __afl_cov_map_size = MAP_SIZE;
+u32                       __afl_set_map_size = MAP_SIZE;
+u32                       __afl_dictionary_len;
+u64                       __afl_map_addr;
+u32                       __afl_first_final_loc;
+u32                       __afl_old_forkserver;
 
 u8 __afl_forkserver_setenv = 0;
 
