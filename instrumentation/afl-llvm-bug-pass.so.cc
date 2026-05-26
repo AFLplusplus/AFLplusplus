@@ -9,6 +9,9 @@
 //   - SLACK    : |op0 - op1| per icmp site, fed as inverse-bucket MAX
 //   - ALLOCSIZE: malloc/free rewrite + per-store OOB oracle
 //
+// Important: This ignores a ALLOW/DENY list, because for some bug analysis
+// this would break tracking!
+//
 // Modeled on cmplog-instructions-pass.cc.
 
 #include <stdio.h>
@@ -724,7 +727,6 @@ bool runScalarMode(Module &M, ModuleAnalysisManager &, BugPassState &S) {
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
-    if (!isInInstrumentList(&F, F.getName().str())) continue;
     // Build DT + LoopInfo once per function and use it for both the
     // arithmetic-site walk (IV-filter) and the loop-counter walk below.
     DominatorTree DT(F);
@@ -1454,7 +1456,6 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &, bool out_param_enabled) {
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
-    if (!isInInstrumentList(&F, F.getName().str())) continue;
     for (auto &m : findBudgetCalls(F, out_param_enabled)) {
 
       Function *callee = m.Call->getCalledFunction();
@@ -1517,7 +1518,6 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &, bool out_param_enabled) {
   for (auto &kv : callee_arg_indices) {
 
     Function *F = kv.first;
-    if (!isInInstrumentList(F, F->getName().str())) continue;
     const std::set<unsigned> &arg_indices = kv.second;
     // BUDGET aborts when `max_off > ret_size` — over-reporting writes
     // via bounded-libc functions (snprintf, read, ...) would FP.
@@ -2719,7 +2719,6 @@ bool runSizefillMode(Module             &M, ModuleAnalysisManager &,
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
-    if (!isInInstrumentList(&F, F.getName().str())) continue;
     for (BasicBlock &BB : F) {
 
       for (Instruction &I : BB) {
@@ -2834,7 +2833,6 @@ bool runSizefillMode(Module             &M, ModuleAnalysisManager &,
 
     Function                 *F = kv.first;
     const std::set<unsigned> &args = kv.second;
-    if (!isInInstrumentList(F, F->getName().str())) continue;
     // SIZEFILL caps every recorded write by sf_cap (buffer end + slack),
     // so bounded-libc over-reporting cannot cause an FP — accept the
     // wider model.
@@ -2887,7 +2885,6 @@ bool runSlackMode(Module &M, ModuleAnalysisManager &, const BugPassState &S) {
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
-    if (!isInInstrumentList(&F, F.getName().str())) continue;
     uint32_t pf_start = sites;
 
     // Collect first, instrument afterwards — avoid the iterator visiting
@@ -3488,7 +3485,6 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
-    if (!isInInstrumentList(&F, F.getName().str())) continue;
     std::vector<Instruction *> dead;
     uint32_t                   pf_rew_start = rewrites;
     uint32_t                   pf_cust_start = custom_inserts + custom_frees;
@@ -3927,7 +3923,6 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
   for (Function &F : M) {
 
     if (F.isDeclaration()) continue;
-    if (!isInInstrumentList(&F, F.getName().str())) continue;
     uint32_t pf_store_start = store_sites;
     uint32_t pf_mem_start = mem_sites;
     // Walk every store in the function, not just loop-internal ones. The
@@ -4039,7 +4034,6 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     for (Function &F : M) {
 
       if (F.isDeclaration()) continue;
-      if (!isInInstrumentList(&F, F.getName().str())) continue;
       // Defensive: avoid recursing into our own runtime hooks if any
       // got linked into this module by accident.
 #if LLVM_VERSION_MAJOR >= 18
