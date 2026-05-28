@@ -485,6 +485,9 @@ typedef struct py_mutator {
   u8    *havoc_buf;
   size_t havoc_size;
 
+  u8 *describe_buf;
+  u8 *introspection_buf;
+
 } py_mutator_t;
 
 #endif
@@ -1266,7 +1269,6 @@ void run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
 #ifdef USE_PYTHON
 
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
-void                   finalize_py_module(void *);
 
 u32         fuzz_count_py(void *, const u8 *, size_t);
 void        fuzz_send_py(void *, const u8 *, size_t);

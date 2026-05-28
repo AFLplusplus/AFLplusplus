@@ -16,6 +16,7 @@
     - `-I tool` call now receives the new crash as a command line parameter
     - changed to a better map classifier
     - frameshift is disabled now if AFL_CUSTOM_MUTATOR_ONLY is set
+    - python module fixes
     - minor speed, leak and zombie enhancements
     - somewhere we removed .state/variable/... now it is back :-)
   - afl-cc:
