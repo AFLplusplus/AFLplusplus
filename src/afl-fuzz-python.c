@@ -171,8 +171,7 @@ static const char *custom_describe_py(void  *py_mutator,
 
   PyTuple_SetItem(py_args, 0, py_value);
 
-  py_value =
-      PyObject_CallObject(py->py_functions[PY_FUNC_DESCRIBE], py_args);
+  py_value = PyObject_CallObject(py->py_functions[PY_FUNC_DESCRIBE], py_args);
 
   Py_DECREF(py_args);
 
@@ -355,6 +354,7 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
       }
 
     }
+
     if (py_functions[PY_FUNC_SPLICE_OPTOUT]) { afl->custom_splice_optout = 1; }
     if (!py_functions[PY_FUNC_DEINIT])
       WARNF("deinit function not found in python module");
