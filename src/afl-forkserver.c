@@ -725,6 +725,7 @@ restart_poll:
    Returns 1 on success, 0 if *stop_soon_p was raised.
    Hard pipe errors abort via RPFATAL. */
 #define FORKSRV_KILL_GRACE_MS 1000U
+#ifdef __linux__
 static inline u8 read_status_or_escalate(afl_forkserver_t *fsrv,
                                          volatile u8      *stop_soon_p) {
 
@@ -749,6 +750,7 @@ static inline u8 read_status_or_escalate(afl_forkserver_t *fsrv,
   RPFATAL(res, "Unable to communicate with fork server");
 
 }
+#endif
 
 /* Internal forkserver for non_instrumented_mode=1 and non-forkserver mode runs.
   It execvs for each fork, forwarding exit codes and child pids to afl. */
