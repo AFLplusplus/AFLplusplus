@@ -213,12 +213,12 @@ install: all
 	install -m 755 ./afl-gcc-pass.so $${DESTDIR}$(HELPER_PATH)
 	install -m 755 ./afl-gcc-cmplog-pass.so $${DESTDIR}$(HELPER_PATH)
 	install -m 755 ./afl-gcc-cmptrs-pass.so $${DESTDIR}$(HELPER_PATH)
-	ifneq "$(SYS)" "FreeBSD"
+ifneq "$(SYS)" "FreeBSD"
 		install -m 644 -T instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
-	else
+else
 		# no -T on FreeBSD/CheriBSD
 		install -m 644 instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
-	endif
+endif
 
 .PHONY: clean
 clean:
