@@ -7,7 +7,7 @@
 
 FROM ubuntu:24.04 AS aflplusplus
 LABEL "maintainer"="AFL++ team <afl@aflplus.plus>"
-LABEL "about"="AFLplusplus container image"
+LABEL "about"="AFL++ docker container image"
 
 ### Comment out to enable these features
 # Only available on specific ARM64 boards
@@ -16,8 +16,8 @@ ENV NO_CORESIGHT=1
 ENV NO_NYX=1
 
 ### Only change these if you know what you are doing:
-# Current recommended LLVM version is 16
-ENV LLVM_VERSION=19
+# Set only to a version that is available in the used Ubuntu released
+ENV LLVM_VERSION=20
 # GCC 12 is producing compile errors for some targets so we stay at GCC 11
 ENV GCC_VERSION=11
 
