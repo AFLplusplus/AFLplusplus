@@ -1,3 +1,29 @@
+/*
+   american fuzzy lop++ - LLVM bug-finding instrumentation pass
+   ------------------------------------------------------------
+
+   Originally based on AFL by Michal "lcamtuf" Zalewski.
+   Now maintained by the AFLplusplus project.
+
+   Copyright 2024-2026 AFLplusplus Project. All rights reserved.
+
+   This file is part of AFL++ and, unlike the original Apache-2.0 source files,
+   is licensed under the GNU Affero General Public License as published by the
+   Free Software Foundation, either version 3 of the License, or (at your
+   option) any later version.
+
+   AFL++ is distributed in the hope that it will be useful, but WITHOUT ANY
+   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+   FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+   details: https://www.gnu.org/licenses/agpl-3.0.html
+
+   A commercial license is available for organizations that cannot use the
+   AGPL; see LICENSE.COMMERCIAL.
+
+   SPDX-License-Identifier: AGPL-3.0-or-later
+
+ */
+
 // instrumentation/afl-llvm-bug-pass.so.cc
 //
 // AFL++ bug-finding pass: implements five independent oracles plus
