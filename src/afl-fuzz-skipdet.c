@@ -11,8 +11,6 @@
 
  */
 
-
-
 #include "afl-fuzz.h"
 
 void flip_range(u8 *input, u32 pos, u32 size) {

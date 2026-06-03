@@ -11,7 +11,6 @@
 
  */
 
-
 #include "afl-fuzz.h"
 
 #define FRAMESHIFT_DEBUG 0

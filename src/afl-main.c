@@ -457,26 +457,27 @@ void afl_spawn_ui(afl_state_t *afl) {
 
 int main(int argc, char **argv_orig, char **envp) {
 
-  afl_handle_version_help(argc, argv_orig);    // --version/--help: print and exit
-  afl_state_t *afl = afl_init();               // allocate and zero-init fuzzer state
-  afl_parse_env(afl, envp);                    // read AFL_* environment variables
-  afl_parse_commandline(afl, argc, argv_orig); // parse flags, validate target path
-  setup_signal_handlers();                     // handle SIGINT/SIGTERM for clean exit
-  afl_check_environment(afl);                  // verify system settings, CPU affinity
-  afl_setup_environment(afl);                  // create output dirs, load corpus
-  afl_alloc_shared_memory(afl);               // start forkserver, map coverage bitmap
-  afl_load_seeds(afl);                        // dry-run seeds, calibrate, cull queue
+  afl_handle_version_help(argc, argv_orig);  // --version/--help: print and exit
+  afl_state_t *afl = afl_init();  // allocate and zero-init fuzzer state
+  afl_parse_env(afl, envp);       // read AFL_* environment variables
+  afl_parse_commandline(afl, argc,
+                        argv_orig);  // parse flags, validate target path
+  setup_signal_handlers();           // handle SIGINT/SIGTERM for clean exit
+  afl_check_environment(afl);        // verify system settings, CPU affinity
+  afl_setup_environment(afl);        // create output dirs, load corpus
+  afl_alloc_shared_memory(afl);      // start forkserver, map coverage bitmap
+  afl_load_seeds(afl);               // dry-run seeds, calibrate, cull queue
 
-  afl_import_first(afl);                      // sync peers before first cycle if AFL_IMPORT_FIRST
+  afl_import_first(afl);  // sync peers before first cycle if AFL_IMPORT_FIRST
 
   while (likely(!afl->stop_soon)) {
 
-    cull_queue(afl);                           // update favored entries
-    afl_advance_queue_cycle(afl);              // start a new cycle when queue is exhausted
+    cull_queue(afl);               // update favored entries
+    afl_advance_queue_cycle(afl);  // start a new cycle when queue is exhausted
     ++afl->runs_in_current_cycle;
-    afl_fuzz_queue(afl);                       // pick and fuzz one queue entry
-    afl_maybe_switch_mode(afl);               // switch to exploitation if no new finds
-    afl_maybe_sync(afl);                      // periodically import other fuzzers' finds
+    afl_fuzz_queue(afl);         // pick and fuzz one queue entry
+    afl_maybe_switch_mode(afl);  // switch to exploitation if no new finds
+    afl_maybe_sync(afl);         // periodically import other fuzzers' finds
 
   }
 
