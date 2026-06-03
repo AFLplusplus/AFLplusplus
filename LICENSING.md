@@ -10,12 +10,12 @@ the license files themselves (linked below).
 
 - **Using AFL++ under the AGPL is free** and always will be. Most users need
   nothing more than this.
-- The project as a whole is **AGPL-3.0-or-later**, because AGPL-licensed files
-  ([`src/afl-main.c`](src/afl-main.c) and [`src/hashmap.c`](src/hashmap.c)) are
-  part of the `afl-fuzz` fuzzer.
-- **The original source files remain individually available under the
-  Apache-2.0 License.** Relicensing them did not happen — only `src/afl-main.c`
-  and `src/hashmap.c` are AGPL.
+- The project as a whole is **AGPL-3.0-or-later**, because some AGPL-licensed
+  files are part of the `afl-fuzz` fuzzer.
+- **Many source files are individually available under the Apache-2.0
+  License**, while others are AGPL-3.0-or-later. Each file declares its own
+  license in its `SPDX-License-Identifier` header — that header is what applies,
+  so check the file you use and adhere to it.
 - A **commercial license** is available for organizations that cannot or do not
   want to comply with the AGPL. It is **not sold** — you obtain it by donating
   to a good cause (see below). The project or its inviduals receives no money.
@@ -30,17 +30,18 @@ modify AFL++ and let others interact with your modified version over a network,
 the AGPL requires you to offer them the corresponding source code. If that is
 fine for you, you are done — no payment, no donation, nothing else required.
 
-### 2. Per-file under Apache-2.0 (for the original files only)
+### 2. Per file under Apache-2.0 (for files marked Apache-2.0)
 
-Every original AFL++ source file (everything except `src/afl-main.c`) carries an
-`SPDX-License-Identifier: Apache-2.0` marker and remains available under the
-[Apache License 2.0](LICENSE.Apache-2.0). You may reuse those individual files
-in your own projects under Apache-2.0.
+Many AFL++ source files carry an `SPDX-License-Identifier: Apache-2.0` marker and
+remain available under the [Apache License 2.0](LICENSE.Apache-2.0); you may
+reuse those individual files in your own projects under Apache-2.0. Other files
+are marked `SPDX-License-Identifier: AGPL-3.0-or-later`. Always check the header
+of the file you use and adhere to the license stated there.
 
-Note: the **combined** `afl-fuzz` program links the AGPL file `src/afl-main.c`,
-so any binary or larger work that includes `src/afl-main.c` is AGPL as a whole.
-The Apache-2.0 option applies to the original files taken individually, not to
-the combined AGPL work.
+Note: the **combined** `afl-fuzz` program links AGPL-licensed files, so any
+binary or larger work that includes them is AGPL as a whole. The Apache-2.0
+option applies to the Apache-2.0 files taken individually, not to the combined
+AGPL work.
 
 ### 3. Under the commercial license (optional, for companies)
 
@@ -76,7 +77,7 @@ carries its own `SPDX-License-Identifier`.
 | File | What it is |
 |------|------------|
 | [`LICENSE`](LICENSE) | Full AGPL-3.0 text — the project's overall license |
-| [`LICENSE.Apache-2.0`](LICENSE.Apache-2.0) | Full Apache-2.0 text — the original files' license |
+| [`LICENSE.Apache-2.0`](LICENSE.Apache-2.0) | Full Apache-2.0 text — the license of the Apache-2.0 files |
 | [`LICENSE.COMMERCIAL`](LICENSE.COMMERCIAL) | The optional, donation-based commercial license |
 | `SPDX-License-Identifier:` headers | Per-file license markers in the source |
 

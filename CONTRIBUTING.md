@@ -70,8 +70,8 @@ By submitting a contribution (for example a pull request) you agree that:
 * Your contribution to a file that is marked `SPDX-License-Identifier:
   Apache-2.0` is provided under the **Apache-2.0** license, and your
   contribution to a file marked `SPDX-License-Identifier: AGPL-3.0-or-later`
-  (currently `src/afl-main.c` and `src/hashmap.c`) is provided under the
-  **AGPL-3.0-or-later**. (Some bundled files carry other licenses, e.g. the GCC
+  is provided under the **AGPL-3.0-or-later**. (Some bundled files carry other
+  licenses, e.g. the GCC
   plugin under `GPL-3.0-or-later`; always match the file's existing identifier.)
   Match the existing `SPDX-License-Identifier` of the file you edit; do not
   change a file's license without explicit agreement from the maintainers.

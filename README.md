@@ -22,10 +22,12 @@ Originally developed by Michal "lcamtuf" Zalewski.
 AFL++ is a superior fork to Google's AFL - more speed, more and better
 mutations, more and better instrumentation, custom module support, etc.
 
-AFL++ is licensed under the **AGPL-3.0-or-later**. The original source files
-remain individually available under the Apache-2.0 License, and an optional
-**commercial license** is available for organizations that cannot use the AGPL
-(obtained by donating to a good cause — the project and its maintainers receives no money).
+AFL++ is licensed under the **AGPL-3.0-or-later**, and it also contains files
+under the Apache-2.0 License. Each file states its own license in its
+`SPDX-License-Identifier` header — that is the license you must follow for that
+file. An optional **commercial license** is available for organizations that
+cannot use the AGPL (obtained by donating to a good cause — the project and its
+maintainers receives no money).
 See [LICENSING.md](LICENSING.md) for a plain-language overview and the
 [License section](#license) below for details.
 
@@ -276,15 +278,16 @@ AFL++ three ways:
    AFL++; if you run a modified version as a network service, the AGPL requires
    you to offer your users the corresponding source. Full text: [LICENSE](LICENSE).
 
-2. **Per original file, under Apache-2.0** — every original source file (all
-   except the AGPL files [`src/afl-main.c`](src/afl-main.c) and
-   [`src/hashmap.c`](src/hashmap.c)) is marked `SPDX-License-Identifier:
-   Apache-2.0` and may be reused individually under the
-   [Apache-2.0 License](LICENSE.Apache-2.0). (A few bundled third-party files
-   carry other licenses, e.g. the GCC plugin under GPL-3.0-or-later and the LLVM
-   SanitizerCoverage passes under Apache-2.0-WITH-LLVM-exception — each marked by
-   its own SPDX identifier.) Note that the combined `afl-fuzz` binary includes
-   AGPL files, so the program as a whole is AGPL.
+2. **Per file, under the license in its header** — the project contains files
+   under both `SPDX-License-Identifier: AGPL-3.0-or-later` and
+   `SPDX-License-Identifier: Apache-2.0`. Always check the header of the file you
+   use and adhere to the license stated there; files marked Apache-2.0 may be
+   reused individually under the [Apache-2.0 License](LICENSE.Apache-2.0). (A few
+   bundled third-party files carry other licenses, e.g. the GCC plugin under
+   GPL-3.0-or-later and the LLVM SanitizerCoverage passes under
+   Apache-2.0-WITH-LLVM-exception — each marked by its own SPDX identifier.) Note
+   that the combined `afl-fuzz` binary includes AGPL files, so the program as a
+   whole is AGPL.
 
 3. **Commercial license** — optional, for organizations that cannot or do not
    want to comply with the AGPL. **The project receives no money.** Instead you

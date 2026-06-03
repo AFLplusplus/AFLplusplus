@@ -39,11 +39,11 @@ SECTION A — DEFINITIONS
 
 "Licensor" means the AFL++ project, acting through its maintainers, in their
 capacity as copyright holders of the AGPL-licensed portions of the Covered
-Software (in particular the files src/afl-main.c and src/hashmap.c).
+Software.
 
 "Covered Software" means the AFL++ software as distributed by the Licensor,
-including the file src/afl-main.c and all other first-party files of the
-project, in source or binary form, together with any modifications You make.
+including all first-party files of the project, in source or binary form,
+together with any modifications You make.
 "Covered Software" does NOT include third-party components that are distributed
 under their own separate licenses (for example xxHash, t1ha, libFuzzer, and any
 git submodules); those components remain governed solely by their own licenses.

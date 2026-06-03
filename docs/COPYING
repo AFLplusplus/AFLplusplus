@@ -1,14 +1,14 @@
 AFL++ licensing has moved to the repository root.
 
-AFL++ is licensed under the GNU AGPL-3.0-or-later. The original source files
-remain individually available under the Apache-2.0 License, and an optional
-commercial license is available.
+AFL++ is licensed under the GNU AGPL-3.0-or-later, and it also contains files
+under the Apache-2.0 License. Each file states its own license in its
+SPDX-License-Identifier header. An optional commercial license is available.
 
 Please see, in the repository root:
 
   - LICENSING.md          - plain-language overview of the whole scheme
   - LICENSE               - full AGPL-3.0 text (the project's overall license)
-  - LICENSE.Apache-2.0    - full Apache-2.0 text (the original files' license)
+  - LICENSE.Apache-2.0    - full Apache-2.0 text (the license of Apache-2.0 files)
   - LICENSE.COMMERCIAL    - the optional, donation-based commercial license
 
 Each source file carries an SPDX-License-Identifier indicating its license.
