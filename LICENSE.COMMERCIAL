@@ -1,0 +1,193 @@
+AFL++ COMMERCIAL LICENSE
+Version 1.0 — 2026
+
+================================================================================
+PLAIN-LANGUAGE SUMMARY (informational; the binding terms are in Section B below)
+================================================================================
+
+- AFL++ is free and open-source software, licensed to everyone under the
+  GNU Affero General Public License, version 3 or later ("AGPL-3.0-or-later").
+  If the AGPL works for you, you do NOT need this commercial license, and you
+  do NOT need to pay or donate anything. Just use AFL++ under the AGPL.
+
+- This commercial license exists only for organizations that cannot or do not
+  want to comply with the AGPL (for example, because they do not want to be
+  subject to the AGPL's requirement to offer their corresponding source code
+  to users who interact with the software over a network).
+
+- The AFL++ project, its maintainers, and its contributors receive NO money
+  for this commercial license. We do not sell it. Instead, you make a
+  charitable donation to a good cause, and that donation is what grants you
+  the license.
+
+- To obtain the commercial license, you donate EUR 20,000 (twenty thousand
+  euros, EUR 20.000 / €20,000) to EITHER the Electronic Frontier Foundation
+  (EFF) OR the Chaos Computer Club (CCC), and then email proof of that
+  donation to afl@aflplus.plus.
+
+- The commercial license lasts for ONE YEAR. When the year ends, it fully
+  expires: to keep using AFL++ you must either renew it (make a new qualifying
+  donation), switch to using AFL++ under the AGPL, or stop using AFL++ —
+  including versions you already downloaded.
+
+If anything in this summary appears to conflict with the binding terms in
+Section B, the binding terms control.
+
+================================================================================
+SECTION A — DEFINITIONS
+================================================================================
+
+"Licensor" means the AFL++ project, acting through its maintainers, in their
+capacity as copyright holders of the AGPL-licensed portions of the Covered
+Software.
+
+"Covered Software" means the AFL++ software as distributed by the Licensor,
+including all first-party files of the project, in source or binary form,
+together with any modifications You make.
+"Covered Software" does NOT include third-party components that are distributed
+under their own separate licenses (for example xxHash, t1ha, libFuzzer, and any
+git submodules); those components remain governed solely by their own licenses.
+
+"You" / "Licensee" means the single legal entity that makes (or on whose behalf
+is made) a Qualifying Donation, together with that entity's majority-owned
+affiliates. A Qualifying Donation covers one Licensee only.
+
+"Qualifying Donation" means a single, genuine, non-refundable charitable
+donation of at least EUR 20,000 (twenty thousand euros), or the equivalent in
+another currency converted at a publicly available exchange rate on the date of
+the donation, made on or after 1 January 2026, by You or on Your behalf and
+attributable to You, to EITHER of the following organizations:
+
+  - the Electronic Frontier Foundation (EFF), https://www.eff.org/ ; or
+  - the Chaos Computer Club (CCC), https://www.ccc.de/ .
+
+A single Qualifying Donation must go entirely to one of those two
+organizations; You do not need to donate to both, and splitting the amount
+across both does not qualify.
+
+"Proof" means an email sent to afl@aflplus.plus that includes the official
+donation receipt or acknowledgment issued by EFF or CCC, clearly showing:
+  (a) the recipient organization (EFF or CCC);
+  (b) the donated amount;
+  (c) the date of the donation; and
+  (d) the identity of the donor (You).
+
+"Effective Date" means the calendar date on which the Qualifying Donation was
+made, as shown on the Proof.
+
+"Term" means the period of one (1) year beginning on the Effective Date.
+
+================================================================================
+SECTION B — TERMS AND CONDITIONS (BINDING)
+================================================================================
+
+1. RELATIONSHIP TO THE AGPL.
+   The Covered Software is, and remains, available to everyone under the
+   AGPL-3.0-or-later. This commercial license is an OPTIONAL alternative offered
+   in addition to the AGPL. You only need it if you do not wish to comply with
+   the AGPL. Nothing in this commercial license removes anyone's rights under
+   the AGPL.
+
+2. GRANT.
+   Subject to Your full compliance with this license, and conditioned on a valid
+   Qualifying Donation and Proof, the Licensor grants You, for the Term, a
+   non-exclusive, non-transferable, worldwide license to use, reproduce, modify,
+   and distribute the Covered Software under the terms of the Apache License,
+   Version 2.0 IN PLACE OF the AGPL-3.0-or-later. In other words, for the Term,
+   the obligations of the AGPL (including its copyleft and its Section 13
+   "network use" source-offer requirement) do not apply to You with respect to
+   the Covered Software; the modest notice-and-attribution obligations of the
+   Apache License 2.0 continue to apply to the files that are originally licensed
+   under Apache 2.0. A copy of the Apache License 2.0 is provided in the file
+   LICENSE.Apache-2.0.
+
+3. HOW THE LICENSE IS OBTAINED (AUTOMATIC ON DONATION DATE).
+   This commercial license becomes effective AUTOMATICALLY on the Effective Date
+   (the donation date), provided that:
+     (a) a Qualifying Donation has actually been made; and
+     (b) Proof has been emailed to afl@aflplus.plus.
+   You do not need to wait for any reply from the Licensor before relying on the
+   license. The Term is measured from the Effective Date regardless of when the
+   Proof email is sent; therefore You should donate and send Proof promptly, as
+   any delay shortens the remaining Term.
+
+4. NO PAYMENT TO THE PROJECT.
+   The Licensor, the AFL++ maintainers, and the AFL++ contributors receive no
+   payment, fee, commission, or other consideration of any kind for this license.
+   The Licensor is not a party to, and has no involvement in, the donation; the
+   donation is solely a transaction between You and EFF or CCC. This license is
+   granted in consideration of Your charitable donation to that good cause, and
+   for no other consideration.
+
+5. VERIFICATION AND REVOCATION.
+   The Licensor may verify any donation directly with EFF or CCC. If the Proof is
+   false, altered, incomplete, or relates to a donation that is refunded,
+   reversed, charged back, or otherwise not genuinely received and retained by
+   EFF or CCC, then this commercial license is void from the Effective Date (as
+   if it had never been granted), and Your use of the Covered Software is again
+   governed solely by the AGPL.
+
+6. TERM AND EXPIRY (NO PERPETUAL RIGHTS).
+   This commercial license lasts only for the Term (one year from the Effective
+   Date). When the Term ends, ALL rights granted by this commercial license cease
+   completely. There is no perpetual or "version You already have" right: the
+   expiry applies even to copies and versions of the Covered Software that You
+   obtained during the Term. After the Term ends, You must do ONE of the
+   following:
+     (a) RENEW — obtain a new commercial license by making a new Qualifying
+         Donation and sending new Proof; or
+     (b) COMPLY WITH THE AGPL — continue using the Covered Software under the
+         AGPL-3.0-or-later and meet all of its obligations; or
+     (c) STOP — cease all use, reproduction, modification, and distribution of
+         the Covered Software.
+   Renewals are not automatic and do not stack; each Qualifying Donation grants
+   exactly one one-year Term.
+
+7. SCOPE AND LIMITS.
+   This license:
+     (a) covers only the Covered Software, and does not grant any rights in
+         third-party components (which remain under their own licenses);
+     (b) does not grant any trademark rights in "AFL", "AFL++", "American Fuzzy
+         Lop", or related names or logos;
+     (c) is non-transferable and non-sublicensable, except that You may convey
+         the Covered Software to Your own end users in the ordinary course,
+         provided Your own products and obligations remain consistent with this
+         license; and
+     (d) does not reduce or waive any third party's rights under the AGPL.
+
+8. TERMINATION FOR BREACH.
+   If You breach this license, it terminates automatically, and Your use of the
+   Covered Software immediately reverts to being governed solely by the AGPL.
+   Sections 4, 9, and 10 survive termination or expiry.
+
+9. NO WARRANTY.
+   THE COVERED SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. TO THE
+   MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE LICENSOR OR ANY AFL++
+   CONTRIBUTOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM,
+   OUT OF, OR IN CONNECTION WITH THE COVERED SOFTWARE OR THIS LICENSE.
+
+10. MISCELLANEOUS.
+   If any provision of this license is held unenforceable, the remaining
+   provisions remain in effect. This license is the entire agreement regarding
+   the optional commercial licensing of the Covered Software and supersedes any
+   prior understanding on that subject. The Licensor may publish revised versions
+   of this commercial license for future donations; the version in effect on Your
+   Effective Date governs Your Term.
+
+================================================================================
+HOW TO GET A COMMERCIAL LICENSE — STEP BY STEP
+================================================================================
+
+  1. Decide you need it (you cannot or do not want to comply with the AGPL).
+  2. Donate EUR 20,000 (or currency-equivalent) to EITHER EFF (https://www.eff.org/)
+     OR CCC (https://www.ccc.de/). The donation must be in your organization's
+     name (or clearly on its behalf).
+  3. Email the donation receipt to afl@aflplus.plus, showing recipient, amount,
+     date, and donor.
+  4. Your one-year commercial license is effective as of your donation date.
+  5. Before the year ends, renew (donate again), switch to AGPL compliance, or
+     stop using AFL++.
+
+Questions: afl@aflplus.plus

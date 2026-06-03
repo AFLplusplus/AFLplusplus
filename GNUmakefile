@@ -206,7 +206,7 @@ ifeq "$(SYS)" "Haiku"
   #SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
 
-AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
+AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c) src/afl-main.c
 
 ifneq "$(shell command -v python3m 2>/dev/null)" ""
   ifneq "$(shell command -v python3m-config 2>/dev/null)" ""
@@ -867,7 +867,7 @@ endif
 	@echo  The homepage of AFL++ is: https://github.com/AFLplusplus/AFLplusplus >> $@
 	@echo >> $@
 	@echo .SH LICENSE >> $@
-	@echo Apache License Version 2.0, January 2004 >> $@
+	@echo "AFL++ is licensed under AGPL-3.0-or-later, with original components under Apache-2.0; an optional commercial license is available. See https://github.com/AFLplusplus/AFLplusplus/blob/stable/LICENSING.md" >> $@
 
 .PHONY: install
 install: all $(MANPAGES)

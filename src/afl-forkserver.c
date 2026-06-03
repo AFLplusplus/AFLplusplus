@@ -21,6 +21,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    Shared code that implements a forkserver. This is used by the fuzzer
    as well the other components like afl-tmin.
 
@@ -522,6 +524,8 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->debug = false;
   fsrv->uses_crash_exitcode = false;
   fsrv->uses_asan = 0;
+  fsrv->cmplog_size_derive_requested = false;
+  fsrv->supports_allocsize_derive = false;
 
 #ifdef __AFL_CODE_COVERAGE
   fsrv->persistent_trace_bits = NULL;
@@ -573,6 +577,8 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_kill_signal = from->child_kill_signal;
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
+  fsrv_to->cmplog_size_derive_requested = from->cmplog_size_derive_requested;
+  fsrv_to->supports_allocsize_derive = false;
 
 #ifdef __AFL_CODE_COVERAGE
   fsrv_to->persistent_trace_bits = from->persistent_trace_bits;
@@ -721,6 +727,7 @@ restart_poll:
    Returns 1 on success, 0 if *stop_soon_p was raised.
    Hard pipe errors abort via RPFATAL. */
 #define FORKSRV_KILL_GRACE_MS 1000U
+#ifdef __linux__
 static inline u8 read_status_or_escalate(afl_forkserver_t *fsrv,
                                          volatile u8      *stop_soon_p) {
 
@@ -745,6 +752,8 @@ static inline u8 read_status_or_escalate(afl_forkserver_t *fsrv,
   RPFATAL(res, "Unable to communicate with fork server");
 
 }
+
+#endif
 
 /* Internal forkserver for non_instrumented_mode=1 and non-forkserver mode runs.
   It execvs for each fork, forwarding exit codes and child pids to afl. */
@@ -1591,6 +1600,19 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+      fsrv->supports_allocsize_derive =
+          !!(status & FS_NEW_OPT_ALLOCSIZE_DERIVE);
+      if (fsrv->cmplog_size_derive_requested &&
+          !fsrv->supports_allocsize_derive) {
+
+        FATAL(
+            "-l z (size-derive) requested but target does not announce "
+            "ALLOCSIZE_DERIVE support. Rebuild the target with "
+            "AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1 (note: AFL_USE_ASAN disables "
+            "ALLOCSIZE/DERIVE).");
+
+      }
+
 #ifdef __linux__
       if (fsrv->use_futex && !(status & FS_NEW_OPT_FUTEX)) {
 
@@ -1615,6 +1637,16 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         fsrv->use_ijon = 1;
         if (!be_quiet) { ACTF("Using IJON feature."); }
+
+      }
+
+      /* Target reports an appended bug-pass map; configure_bug_runtime
+         in afl-fuzz.c subtracts MAP_SIZE_BUG_BYTES from fsrv->map_size
+         before the coverage code touches that region. */
+      if (status & FS_NEW_OPT_BUG_MAP) {
+
+        fsrv->use_bug_map = 1;
+        if (!be_quiet) { ACTF("Bug-pass map detected in target."); }
 
       }
 
@@ -1726,6 +1758,15 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
           && !fsrv->nyx_mode
 #endif
       ) {
+
+        if (fsrv->cmplog_size_derive_requested) {
+
+          WARNF(
+              "-l z (size-derive) requested but target uses the old forkserver "
+              "protocol — ignored");
+          fsrv->cmplog_size_derive_requested = false;
+
+        }
 
         WARNF(
             "Old fork server model is used by the target, this still works "

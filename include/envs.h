@@ -1,3 +1,16 @@
+/*
+   american fuzzy lop++ - part of the AFL++ project
+   ------------------------------------------------
+
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may obtain a copy at https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
+
+ */
+
 #ifndef _ENVS_H
 
 #define _ENVS_H
@@ -67,7 +80,11 @@ static char *afl_environment_variables[] = {
     "AFL_KEEP_TRACES", "AFL_KEEP_ASSEMBLY", "AFL_LD_HARD_FAIL",
     "AFL_LD_LIMIT_MB", "AFL_LD_NO_CALLOC_OVER", "AFL_LD_PASSTHROUGH",
     "AFL_REAL_LD", "AFL_LD_PRELOAD", "AFL_LD_VERBOSE", "AFL_LLVM_ALLOWLIST",
-    "AFL_LLVM_DENYLIST", "AFL_LLVM_BLOCKLIST", "AFL_CMPLOG", "AFL_LLVM_CMPLOG",
+    "AFL_LLVM_DENYLIST", "AFL_LLVM_BLOCKLIST", "AFL_LLVM_BUG",
+    "AFL_LLVM_BUG_SCALAR", "AFL_LLVM_BUG_SCALAR_SLICE", "AFL_LLVM_BUG_BUDGET",
+    "AFL_LLVM_BUG_SIZEFILL", "AFL_LLVM_BUG_SLACK", "AFL_LLVM_BUG_ALLOCSIZE",
+    "AFL_LLVM_BUG_ALLOCSIZE_FUNCS", "AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS",
+    "AFL_LLVM_BUG_ALLOCSIZE_DERIVE", "AFL_CMPLOG", "AFL_LLVM_CMPLOG",
     "AFL_GCC_CMPLOG", "AFL_LLVM_INSTRIM", "AFL_LLVM_CALLER", "AFL_LLVM_CTX",
     "AFL_LLVM_NO_ERROR", "AFL_LLVM_LTO_CALLER", "AFL_LLVM_LTO_CTX",
     "AFL_LLVM_LTO_CALLER_DEPTH", "AFL_LLVM_LTO_CTX_DEPTH",

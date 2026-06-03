@@ -18,6 +18,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
  */
 
 #ifndef _HAVE_TYPES_H
@@ -53,10 +55,15 @@ typedef uint128_t         u128;
 #define FS_NEW_VERSION_MIN 1
 #define FS_NEW_VERSION_MAX 1
 #define FS_NEW_ERROR 0xeffe0000
-#define FS_NEW_OPT_MAPSIZE 0x00000001      // parameter: 32 bit value
-#define FS_NEW_OPT_SHDMEM_FUZZ 0x00000002  // parameter: none
-#define FS_NEW_OPT_FUTEX 0x00000004        // parameter: none
-#define FS_NEW_OPT_AUTODICT 0x00000800     // autodictionary data
+#define FS_NEW_OPT_MAPSIZE 0x00000001           // parameter: 32 bit value
+#define FS_NEW_OPT_SHDMEM_FUZZ 0x00000002       // parameter: none
+#define FS_NEW_OPT_FUTEX 0x00000004             // parameter: none
+#define FS_NEW_OPT_ALLOCSIZE_DERIVE 0x00000008  // parameter: none
+/* Target appended a bug-pass map tail (MAP_SIZE_BUG_BYTES) to
+ * __afl_set_map_size; the fuzzer subtracts it before treating the
+ * region as coverage. parameter: none */
+#define FS_NEW_OPT_BUG_MAP 0x00000010
+#define FS_NEW_OPT_AUTODICT 0x00000800  // autodictionary data
 
 #ifdef __linux__
 /* Protocol phases for the futex-based forkserver handshake.

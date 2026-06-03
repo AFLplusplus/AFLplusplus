@@ -20,6 +20,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    Shared code that implements a forkserver. This is used by the fuzzer
    as well the other components like afl-tmin.
 
@@ -257,6 +259,12 @@ typedef struct afl_forkserver {
   u8   *custom_input;
   u32   custom_input_len;
   void (*late_send)(void *, const u8 *, size_t);
+
+  /* Appended at end-of-struct to avoid shifting offsets for downstream
+     consumers linking against an older layout. */
+  bool cmplog_size_derive_requested;    /* -l Z requires target support     */
+  bool supports_allocsize_derive;       /* target reports derive support    */
+  bool use_bug_map;                     /* target reports bug-pass map      */
 
 } afl_forkserver_t;
 

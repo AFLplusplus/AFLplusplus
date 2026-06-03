@@ -18,6 +18,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
    how they affect the execution path.
@@ -38,6 +40,9 @@
 #endif
 
 #include "config.h"
+#ifdef HAVE_ZLIB
+  #include <zlib.h>
+#endif
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
@@ -275,7 +280,9 @@ struct queue_entry {
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
       is_ascii,                         /* Is the input just ascii text?    */
-      disabled;                         /* Is disabled from fuzz selection  */
+      disabled,                         /* Is disabled from fuzz selection  */
+      tightness_novel; /* New per-site min-slack on any
+                          inequality cmp; keep favoured.   */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
 #ifdef INTROSPECTION
@@ -315,6 +322,10 @@ struct queue_entry {
                       /*   0: unexplored                  */
                       /*   1: explored                    */
   fs_meta_t *fs_meta;                   /* Frameshift metadata              */
+
+  /* Cycle at which tightness_novel was set, so cull_queue can decay the
+     flag instead of letting the favoured set grow monotonically. */
+  u32 tightness_novel_cycle;            /* cycle when tightness_novel set   */
 
 };
 
@@ -841,6 +852,11 @@ typedef struct afl_state {
   u32 colorize_success;
   u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
       cmplog_enable_xtreme_transform, cmplog_random_colorization;
+  u8 cmplog_tightness, cmplog_size_derive;
+  /* Per-cmp-site minimum slack ever seen; UINT64_MAX = unseen. Indexed by
+     cmp_map header key. Lazily allocated on first slack scan. */
+  u64 *min_slack;
+  u64  cmplog_tightness_new;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;
@@ -962,6 +978,9 @@ typedef struct afl_state {
   char  m_tmp[4096];
   FILE *introspection_file;
   u32   bitsmap_size;
+  u64   prev_saved_crashes;     /* delta tracker for per-entry crash stats  */
+  u64   prev_saved_tmouts;      /* delta tracker for per-entry tmout stats  */
+  u32   stat_prev_queued_items; /* delta tracker for per-entry find stats   */
 #endif
   /* IJON max tracking state */
   ijon_min_state *ijon_state;                /* IJON input management state */
@@ -974,6 +993,30 @@ typedef struct afl_state {
   u8              is_doing_ijon;      /* Flag to track IJON execution state */
   dynamic_shared_access_t
       *ijon_shared_access;         /* IJON shared access for dynamic offset */
+
+  /* --- moved out of the original main() during the afl-main.c refactor --- */
+  u32    runs_in_current_cycle;
+  u32    prev_queued_items;
+  u32    seek_to;
+  u32    sync_interval_cnt;
+  u64    prev_queued;
+  u8     skipped_fuzz;
+  u8     exit_1;
+  u8    *extras_dir[4];
+  u8     extras_dir_cnt;
+  char **argv_cpy;
+  s32    argc_cpy;
+  u32    map_size;             /* own field — NOT an alias of fsrv.map_size */
+  s32    auto_sync;
+  char  *frida_afl_preload;
+  u32    default_output;          /* init to 1 in afl_init (not calloc's 0) */
+  s32    fast_resume;
+  u8     is_ijon_fastresume;
+#ifdef HAVE_ZLIB
+  gzFile fr_fd;          /* fast-resume file handle; type mirrors the local */
+#else
+  s32 fr_fd;
+#endif
 
 } afl_state_t;
 
@@ -1419,6 +1462,17 @@ u32    check_if_text_buf(u8 *buf, u32 len);
 void setup_signal_handlers(void);
 #endif
 char *get_fuzzing_state(afl_state_t *afl);
+
+afl_state_t *afl_init(void);
+void         afl_handle_version_help(int argc, char **argv);
+void         afl_parse_env(afl_state_t *afl, char **envp);
+void         afl_parse_commandline(afl_state_t *afl, int argc, char **argv);
+void         afl_check_environment(afl_state_t *afl);
+void         afl_setup_environment(afl_state_t *afl);
+void         afl_alloc_shared_memory(afl_state_t *afl);
+void         afl_load_seeds(afl_state_t *afl);
+void         stop_fuzzing(afl_state_t *afl);
+void maybe_sync_fuzzers(afl_state_t *afl, u64 cur_time, u32 *sync_interval_cnt);
 
 /* CmpLog */
 

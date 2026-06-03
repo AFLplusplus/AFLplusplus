@@ -1,3 +1,5 @@
+// SanitizerCoverage.cpp ported to AFL++ LTO; derived from the LLVM Project.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 /* SanitizeCoverage.cpp ported to AFL++ LTO :-) */
 
 #define AFL_LLVM_PASS
@@ -61,7 +63,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#if LLVM_MAJOR >= 22
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
   #include "llvm/Plugins/PassPlugin.h"
 #else
   #include "llvm/Passes/PassPlugin.h"
