@@ -62,6 +62,11 @@
 
 #include <dlfcn.h>
 
+#ifdef __APPLE__
+  /* fishhook is used and it is from https://github.com/facebook/fishhook */
+  #include "../macos_fishhook/fishhook.h"
+#endif
+
 #ifdef RTLD_NEXT
 /* The libc functions are a magnitude faster than our replacements.
    Use them when RTLD_NEXT is available. */
@@ -793,6 +798,25 @@ __attribute__((constructor)) void __tokencap_init(void) {
   __libc_strstr = dlsym(RTLD_NEXT, "strstr");
   __libc_strcasestr = dlsym(RTLD_NEXT, "strcasestr");
   __libc_memmem = dlsym(RTLD_NEXT, "memmem");
+#endif
+
+#ifdef __APPLE__
+  rebind_symbols(
+      (struct rebinding[]){
+
+          {"strcmp", strcmp, (void **)&__libc_strcmp},
+          {"strncmp", strncmp, (void **)&__libc_strncmp},
+          {"strcasecmp", strcasecmp, (void **)&__libc_strcasecmp},
+          {"strncasecmp", strncasecmp, (void **)&__libc_strncasecmp},
+          {"memcmp", memcmp, (void **)&__libc_memcmp},
+          {"bcmp", bcmp, (void **)&__libc_bcmp},
+          {"strstr", strstr, (void **)&__libc_strstr},
+          {"strcasestr", strcasestr, (void **)&__libc_strcasestr},
+          {"memmem", memmem, (void **)&__libc_memmem},
+
+      },
+
+      9);
 #endif
 
 }

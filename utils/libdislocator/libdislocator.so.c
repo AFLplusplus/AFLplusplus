@@ -28,9 +28,12 @@
 #include <limits.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #ifdef __APPLE__
   #include <mach/vm_statistics.h>
+  /* fishhook is used and it is from https://github.com/facebook/fishhook */
+  #include "../macos_fishhook/fishhook.h"
 #endif
 
 #ifdef __FreeBSD__
@@ -90,9 +93,11 @@ typedef struct {
 
 #define ALLOC_ALIGN_SIZE (_Alignof(max_align_t))
 
-#ifndef PAGE_SIZE
-  #define PAGE_SIZE 4096
-#endif                                                        /* !PAGE_SIZE */
+#ifdef PAGE_SIZE
+  #undef PAGE_SIZE
+#endif
+static size_t cached_page_size = 4096;
+#define PAGE_SIZE cached_page_size
 
 #ifndef MAP_ANONYMOUS
   #define MAP_ANONYMOUS MAP_ANON
@@ -163,6 +168,13 @@ static _Atomic size_t total_mem;        /* Currently allocated mem          */
 
 static __thread u32 call_depth;         /* To avoid recursion via fprintf() */
 static u32          alloc_canary = ALLOC_CANARY;
+
+#ifdef __APPLE__
+static void *(*__libc_malloc)(size_t);
+static void *(*__libc_calloc)(size_t, size_t);
+static void *(*__libc_realloc)(void *, size_t);
+static void (*__libc_free)(void *);
+#endif
 
 /* This is the main alloc function. It allocates one page more than necessary,
    sets that tailing page to PROT_NONE, and then increments the return address
@@ -554,6 +566,9 @@ size_t malloc_good_size(size_t len) {
 
 __attribute__((constructor)) void __dislocator_init(void) {
 
+  long page_size = sysconf(_SC_PAGESIZE);
+  if (page_size > 0) cached_page_size = (size_t)page_size;
+
   char *tmp = getenv("AFL_LD_LIMIT_MB");
 
   if (tmp) {
@@ -575,6 +590,20 @@ __attribute__((constructor)) void __dislocator_init(void) {
   hard_fail = !!getenv("AFL_LD_HARD_FAIL");
   no_calloc_over = !!getenv("AFL_LD_NO_CALLOC_OVER");
   align_allocations = !!getenv("AFL_ALIGNED_ALLOC");
+
+#ifdef __APPLE__
+  rebind_symbols(
+      (struct rebinding[]){
+
+          {"malloc", malloc, (void **)&__libc_malloc},
+          {"calloc", calloc, (void **)&__libc_calloc},
+          {"realloc", realloc, (void **)&__libc_realloc},
+          {"free", free, (void **)&__libc_free},
+
+      },
+
+      4);
+#endif
 
 }
 

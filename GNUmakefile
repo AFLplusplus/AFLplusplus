@@ -30,9 +30,9 @@ INCLUDE_PATH = $(PREFIX)/include/afl
 PROGNAME    = afl
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
-PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
-SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-cmin.py afl-whatsup afl-addseeds afl-system-config afl-persistent-config afl-cc
-HEADERS     = include/afl-fuzz.h include/afl-mutations.h include/afl-persistent-replay.h include/afl-prealloc.h include/afl-record-compat.h include/alloc-inl.h include/android-ashmem.h include/cmplog.h include/common.h include/config.h include/coverage-32.h include/coverage-64.h include/debug.h include/envs.h include/forkserver.h include/hash.h include/list.h include/sharedmem.h include/snapshot-inl.h include/t1ha.h include/t1ha0_ia32aes_b.h include/t1ha_bits.h include/t1ha_selfcheck.h include/types.h include/xxhash.h
+PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze afl-cmin
+SH_PROGS    = afl-plot afl-cmin.awk afl-cmin.bash afl-cmin.py afl-whatsup afl-addseeds afl-system-config afl-persistent-config afl-cc
+HEADERS     = include/afl-fuzz.h include/afl-mutations.h include/afl-persistent-replay.h include/afl-prealloc.h include/afl-record-compat.h include/alloc-inl.h include/android-ashmem.h include/cmplog.h include/common.h include/config.h include/coverage-32.h include/coverage-64.h include/debug.h include/envs.h include/forkserver.h include/hash.h include/list.h include/sharedmem.h include/snapshot-inl.h include/t1ha.h include/t1ha0_ia32aes_b.h include/t1ha_bits.h include/t1ha_selfcheck.h include/types.h include/xxhash.h include/afl-ijon-min.h
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 ASAN_OPTIONS=detect_leaks=0
 
@@ -64,8 +64,6 @@ endif
 ifdef NO_SPLICING
   $(info The NO_SPLICING parameter is deprecated)
 endif
-
-
 ifdef CODE_COVERAGE
   override CFLAGS += -D__AFL_CODE_COVERAGE=1
 endif
@@ -77,13 +75,13 @@ endif
 
 ifeq "$(findstring android, $(shell $(CC) --version 2>/dev/null))" ""
 ifndef ASAN_BUILD
- ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=full $(LDFLAGS) -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=full
  else
-  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto=thin $(LDFLAGS) -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto=thin
   else
-   ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+   ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -flto $(LDFLAGS) -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	CFLAGS_FLTO ?= -flto
    endif
   endif
@@ -99,7 +97,7 @@ ifdef PERFORMANCE
 	SPECIAL_PERFORMANCE += -mavx2 -D_HAVE_AVX2
     endif
   endif
-  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CC) $(CFLAGS) -Werror -x c - -march=native $(LDFLAGS) -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	HAVE_MARCHNATIVE = 1
 	SPECIAL_PERFORMANCE += -march=native
   endif
@@ -141,7 +139,7 @@ ifdef STATIC
   PYTHON_INCLUDE = /
 
   override CFLAGS_OPT += -static
-  override LDFLAGS += -lm -lpthread -lz -lutil
+  override LDFLAGS += -lm -lpthread -lutil
 endif
 
 ifdef PROFILING
@@ -169,7 +167,8 @@ ifdef DEBUG
   $(info Compiling DEBUG version of binaries)
   override CFLAGS += -ggdb3 -O0 -Wall -Wextra -Werror $(CFLAGS_OPT)
 else
-  CFLAGS ?= -O2 $(CFLAGS_OPT) # -funroll-loops is slower on modern compilers
+  CFLAGS ?= -O2
+  override CFLAGS += $(CFLAGS_OPT)
 endif
 
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
@@ -179,7 +178,10 @@ override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-
 
 ifeq "$(SYS)" "FreeBSD"
   override CFLAGS  += -I /usr/local/include/
-  override LDFLAGS += -L /usr/local/lib/
+  # execinfo needed for backtrace under FreeBSD
+  override LDFLAGS += -L /usr/local/lib/ -lexecinfo
+  # Unicorn doesn't work on FreeBSD: doesn't get native library.
+  NO_UNICORN=1
 endif
 
 ifeq "$(SYS)" "DragonFly"
@@ -204,7 +206,7 @@ ifeq "$(SYS)" "Haiku"
   #SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
 
-AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c)
+AFL_FUZZ_FILES = $(wildcard src/afl-fuzz*.c) src/afl-main.c
 
 ifneq "$(shell command -v python3m 2>/dev/null)" ""
   ifneq "$(shell command -v python3m-config 2>/dev/null)" ""
@@ -303,12 +305,12 @@ ifeq "$(shell command -v svn >/dev/null && svn proplist . 2>/dev/null && echo 1 
   IN_REPO=1
 endif
 
-ifeq "$(shell echo 'int main() { return 0;}' | $(CC) $(CFLAGS) -fsanitize=address -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
+ifeq "$(shell echo 'int main() { return 0;}' | $(CC) $(CFLAGS) -fsanitize=address -x c - $(LDFLAGS) -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
 	ASAN_CFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer -DASAN_BUILD -fno-lto
 	ASAN_LDFLAGS=-fsanitize=address -fstack-protector-all -fno-omit-frame-pointer -fno-lto
 endif
 
-ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
+ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - $(LDFLAGS) -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
 	SHMAT_OK=1
 else
 	SHMAT_OK=0
@@ -369,9 +371,18 @@ man:    $(MANPAGES)
 test:	tests
 
 .PHONY: tests
+ifdef ARCH
+tests:
+	@command -v docker >/dev/null 2>&1 || { echo "[-] Error: docker is required for ARCH testing"; exit 1; }
+	@echo "[*] Running tests in $(ARCH) Docker container via QEMU..."
+	@echo "[*] Output logged to test/test-$(ARCH).log"
+	@docker run --rm --privileged multiarch/qemu-user-static --reset -p yes > /dev/null 2>&1 || true
+	docker build --progress=plain --platform linux/$(ARCH) -f test/Dockerfile.qemu -t aflpp-test-$(ARCH) . 2>&1 | tee test/test-$(ARCH).log
+else
 tests:	source-only binary-only
 	@cd test ; ./test-all.sh
 	@rm -f test/errors
+endif
 
 .PHONY: performance-tests
 performance-tests:	performance-test
@@ -455,7 +466,7 @@ test_shm:
 	@echo "[-] shmat seems not to be working, switching to mmap implementation"
 endif
 
-ifeq "$(shell echo '$(HASH)include <zlib.h>@int main() {return 0; }' | tr @ '\n' | $(CC) $(CFLAGS) -Werror -x c - -lz -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+ifeq "$(shell echo '$(HASH)include <zlib.h>@int main() {return 0; }' | tr @ '\n' | $(CC) $(CFLAGS) -Werror -x c - $(LDFLAGS) -lz -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
   override SPECIAL_PERFORMANCE += -DHAVE_ZLIB
   override LDFLAGS += -lz
   $(info [+] ZLIB detected)
@@ -500,6 +511,13 @@ afl-showmap: src/afl-showmap.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
+
+afl-cmin: #src/afl-cmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
+	cp -f afl-cmin.py afl-cmin
+	#$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS) -pthread
+#ifdef IS_IOS
+#	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
+#endif
 
 afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o -o $@ $(PYFLAGS) $(LDFLAGS)
@@ -591,6 +609,18 @@ unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
 endif
 
+.PHONY: llvm-test
+llvm-test:
+	set -e; \
+	for ver in /usr/bin/llvm-config-*; do \
+		rm -f SanitizerCoveragePCGUARD.so; \
+		echo "LLVM Version: $$ver"; \
+		LLVM_CONFIG="$$ver" $(MAKE) -f GNUmakefile.llvm SanitizerCoveragePCGUARD.so; \
+		echo "LLVM Version: $$ver"; \
+		test -e SanitizerCoveragePCGUARD.so || exit 1; \
+		rm -f SanitizerCoveragePCGUARD.so; \
+	done
+
 .PHONY: code-format
 code-format:
 	./.custom-format.py -i src/*.c
@@ -613,6 +643,9 @@ code-format:
 	./.custom-format.py -i qemu_mode/libcompcov/*.h
 	./.custom-format.py -i qemu_mode/libqasan/*.c
 	./.custom-format.py -i qemu_mode/libqasan/*.h
+	-cargo +nightly fmt --manifest-path custom_mutators/rust/Cargo.toml --all
+	-cargo +nightly fmt --manifest-path custom_mutators/libafl_base/Cargo.toml
+	-cargo +nightly fmt --manifest-path custom_mutators/libafl_nautilus/Cargo.toml
 
 
 .PHONY: test_build
@@ -712,7 +745,7 @@ endif
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 ifndef NO_FRIDA
-	-$(MAKE) -C frida_mode
+	-$(MAKE) -C frida_mode -j1
 endif
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
@@ -726,7 +759,7 @@ ifndef NO_NYX
 endif
 endif
 ifndef NO_QEMU
-	-cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
 endif
 ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
@@ -744,7 +777,7 @@ endif
 	-$(MAKE) -C utils/argv_fuzzing
 	# -$(MAKE) -C utils/plot_ui
 ifndef NO_FRIDA
-	-$(MAKE) -C frida_mode
+	-$(MAKE) -C frida_mode -j1
 endif
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
@@ -758,7 +791,7 @@ ifndef NO_NYX
 endif
 endif
 ifndef NO_QEMU
-	-cd qemu_mode && sh ./build_qemu_support.sh
+	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
 endif
 ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
@@ -834,7 +867,7 @@ endif
 	@echo  The homepage of AFL++ is: https://github.com/AFLplusplus/AFLplusplus >> $@
 	@echo >> $@
 	@echo .SH LICENSE >> $@
-	@echo Apache License Version 2.0, January 2004 >> $@
+	@echo "AFL++ is licensed under AGPL-3.0-or-later, with original components under Apache-2.0; an optional commercial license is available. See https://github.com/AFLplusplus/AFLplusplus/blob/stable/LICENSING.md" >> $@
 
 .PHONY: install
 install: all $(MANPAGES)

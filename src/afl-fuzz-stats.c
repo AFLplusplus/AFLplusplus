@@ -10,13 +10,15 @@
                      Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -390,6 +392,9 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           "fuzz_time         : %llu\n"
           "calibration_time  : %llu\n"
           "cmplog_time       : %llu\n"
+          "cmplog_tightness  : %u\n"
+          "cmplog_tight_new  : %llu\n"
+          "cmplog_size_derive: %u\n"
           "sync_time         : %llu\n"
           "trim_time         : %llu\n"
           "execs_done        : %llu\n"
@@ -440,8 +445,9 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
                      : (cur_time - afl->last_find_time) / 1000),
           (runtime_ms - MIN(runtime_ms, overhead_ms)) / 1000,
           afl->calibration_time_us / 1000000, afl->cmplog_time_us / 1000000,
-          afl->sync_time_us / 1000000, afl->trim_time_us / 1000000,
-          afl->fsrv.total_execs,
+          afl->cmplog_tightness, afl->cmplog_tightness_new,
+          afl->cmplog_size_derive, afl->sync_time_us / 1000000,
+          afl->trim_time_us / 1000000, afl->fsrv.total_execs,
           afl->fsrv.total_execs / ((double)(runtime_ms) / 1000),
           afl->last_avg_execs_saved, afl->queued_items, afl->queued_favored,
           afl->queued_discovered, afl->queued_imported, afl->queued_variable,

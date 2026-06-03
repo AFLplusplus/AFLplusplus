@@ -5,7 +5,7 @@
    Written by Michal Zalewski, Laszlo Szekeres and Marc Heuse
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -13,12 +13,18 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
  */
 
 #define AFL_MAIN
 
 #ifndef _GNU_SOURCE
   #define _GNU_SOURCE 1
+#endif
+
+#ifndef AFL_INCLUDE_PATH
+  #define AFL_INCLUDE_PATH "/usr/local/include/afl"
 #endif
 
 #include "common.h"
@@ -523,13 +529,43 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
   if (!access(tmp, R_OK)) { return tmp; }
 
   ck_free(tmp);
-  tmp = alloc_printf("./%s", obj);
 
-  if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+  if (strlen(obj) > 2 && obj[strlen(obj) - 1] == 'h' &&
+      obj[strlen(obj) - 2] == '.') {
 
-  if (!access(tmp, R_OK)) { return tmp; }
+    tmp = alloc_printf("%s/include/%s", afl_path, obj);
 
-  ck_free(tmp);
+    if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+    tmp = alloc_printf("%s/include/%s", AFL_PATH, obj);
+
+    if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+    tmp = alloc_printf("%s/%s", AFL_INCLUDE_PATH, obj);
+
+    if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+    tmp = alloc_printf("include/%s", obj);
+
+    if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
+  }
 
   if (aflcc->debug) DEBUGF("Trying ... giving up\n");
 
@@ -1998,12 +2034,6 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
     if (getenv("AFL_HARDEN"))
       FATAL("ASAN and AFL_HARDEN are mutually exclusive");
 
-    if (aflcc->compiler_mode == GCC_PLUGIN && !aflcc->have_staticasan) {
-
-      insert_param(aflcc, "-static-libasan");
-
-    }
-
     add_defs_fortify(aflcc, 0);
     if (!aflcc->have_asan) {
 
@@ -2055,6 +2085,9 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
   if (getenv("AFL_USE_TSAN") || aflcc->have_tsan) {
 
+    if (getenv("AFL_USE_ASAN") || aflcc->have_asan)
+      FATAL("ASAN and TSAN are mutually exclusive");
+
     if (!aflcc->have_fp) {
 
       insert_param(aflcc, "-fno-omit-frame-pointer");
@@ -2068,6 +2101,9 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
   }
 
   if (getenv("AFL_USE_LSAN") && !aflcc->have_lsan) {
+
+    if (getenv("AFL_USE_TSAN") || aflcc->have_tsan)
+      FATAL("TSAN and LSAN are mutually exclusive");
 
     insert_param(aflcc, "-fsanitize=leak");
     add_defs_lsan_ctrl(aflcc);
@@ -2433,7 +2469,14 @@ void add_lto_linker(aflcc_state_t *aflcc) {
 
     }
 
+    /* On macOS the Mach-O lld backend is named ld64.lld; ld.lld is ELF only
+       and rejects the Mach-O flags clang emits (-arch, -platform_version,
+       -syslibroot, ...). */
+#ifdef __APPLE__
+    ld_path = strdup("ld64.lld");
+#else
     ld_path = strdup("ld.lld");
+#endif
 
   }
 
@@ -2462,7 +2505,9 @@ void add_lto_passes(aflcc_state_t *aflcc) {
   insert_object(aflcc, "SanitizerCoverageLTO.so", "-Wl,-mllvm=-load=%s", 0);
 #endif
 
+#ifndef __APPLE__
   insert_param(aflcc, "-Wl,--allow-multiple-definition");
+#endif
 
 }
 
@@ -2551,6 +2596,12 @@ void add_runtime(aflcc_state_t *aflcc) {
       insert_param(aflcc, "-Wl,___sanitizer_cov_trace_pc_guard_init");
 
     }
+
+    /* afl-compiler-rt.o weakly references __asan_region_is_poisoned; on
+       Mach-O the linker still requires resolution unless explicitly told
+       the symbol may be missing at runtime. */
+    insert_param(aflcc, "-Wl,-U");
+    insert_param(aflcc, "-Wl,___asan_region_is_poisoned");
 
   #endif
 
@@ -2799,7 +2850,9 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
     SCAN_KEEP(aflcc->preprocessor_only, 1);
 
-  } else if (!strcmp(cur_argv, "--target=wasm32-wasi")) {
+  } else if (!strcmp(cur_argv, "--target=wasm32-wasi") ||
+
+             !strcmp(cur_argv, "--target=wasm32-wasip1")) {
 
     SCAN_KEEP(aflcc->passthrough, 1);
 
@@ -3128,6 +3181,7 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
             "  AFL_LLVM_LAF_SPLIT_FLOATS: cascaded comparisons on floats\n"
             "  AFL_LLVM_LAF_TRANSFORM_COMPARES: cascade comparisons for string "
             "functions\n"
+            "  AFL_LLVM_DENY_EXEC: if set, abort on exec* calls\n"
             "  AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST: enable "
             "instrument allow/\n"
             "    deny listing (selective instrumentation)\n");
@@ -3567,16 +3621,17 @@ static u8 file_contains_ijon_usage(const char *source_file) {
     // Look for IJON patterns
     if (strstr(line, "#ifdef _USE_IJON") ||
         strstr(line, "#if defined(_USE_IJON)") || strstr(line, "ijon_max(") ||
-        strstr(line, "ijon_min(") || strstr(line, "ijon_set(") ||
-        strstr(line, "ijon_inc(") || strstr(line, "ijon_xor_state(") ||
-        strstr(line, "ijon_reset_state(") || strstr(line, "IJON_MAX(") ||
-        strstr(line, "IJON_MIN(") || strstr(line, "IJON_SET(") ||
-        strstr(line, "IJON_INC(") || strstr(line, "IJON_STATE(") ||
-        strstr(line, "IJON_CTX(") || strstr(line, "IJON_MAX_AT(") ||
-        strstr(line, "IJON_MIN_AT(") || strstr(line, "IJON_BITS(") ||
-        strstr(line, "IJON_STRDIST(") || strstr(line, "IJON_DIST(") ||
-        strstr(line, "IJON_CMP(") || strstr(line, "IJON_STACK_MAX(") ||
-        strstr(line, "IJON_STACK_MIN(")) {
+        strstr(line, "ijon_max_until(") || strstr(line, "ijon_min(") ||
+        strstr(line, "ijon_set(") || strstr(line, "ijon_inc(") ||
+        strstr(line, "ijon_xor_state(") || strstr(line, "ijon_reset_state(") ||
+        strstr(line, "IJON_MAX(") || strstr(line, "IJON_MAX_UNTIL(") ||
+        strstr(line, "IJON_MAX_UNTIL_AT(") || strstr(line, "IJON_MIN(") ||
+        strstr(line, "IJON_SET(") || strstr(line, "IJON_INC(") ||
+        strstr(line, "IJON_STATE(") || strstr(line, "IJON_CTX(") ||
+        strstr(line, "IJON_MAX_AT(") || strstr(line, "IJON_MIN_AT(") ||
+        strstr(line, "IJON_BITS(") || strstr(line, "IJON_STRDIST(") ||
+        strstr(line, "IJON_DIST(") || strstr(line, "IJON_CMP(") ||
+        strstr(line, "IJON_STACK_MAX(") || strstr(line, "IJON_STACK_MIN(")) {
 
       found_ijon = 1;
       break;
@@ -3699,6 +3754,52 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     }
 
+    /* ASAN already provides byte-granular OOB checks and reserves the
+       low address space for its shadow.  The bug-pass runtime detects
+       ASAN at startup and disables ALLOCSIZE/DERIVE to avoid
+       double-instrumentation, so this combination is a silent no-op
+       at runtime — warn at compile time. */
+    if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") &&
+        (getenv("AFL_USE_ASAN") || aflcc->have_asan)) {
+
+      WARNF("AFL_LLVM_BUG_ALLOCSIZE_DERIVE is incompatible with ASAN, ignored");
+
+    }
+
+    /* DERIVE writes size-derive entries into the CmpLog map.  That map is
+       supplied at run time by a CmpLog build, by afl-fuzz's cmplog mode, or by
+       AFL_CMPLOG_DEBUG; if none is present the feature is a harmless no-op.
+       Warn when DERIVE is requested without compile-time CmpLog so a plain
+       AFL_LLVM_BUG_ALLOCSIZE_DERIVE on a non-cmplog binary isn't silently
+       useless, but do NOT disable it: unsetting DERIVE here was inconsistent
+       with the AFL_LLVM_BUG=1 path (which keeps DERIVE) and broke setups that
+       provide the cmp_map themselves.  DERIVE implies ALLOCSIZE, so ensure the
+       OOB oracle is enabled too. */
+    if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") && !aflcc->cmplog_mode) {
+
+      WARNF(
+          "AFL_LLVM_BUG_ALLOCSIZE_DERIVE needs a CmpLog map at run time (a "
+          "CMPLOG build, afl-fuzz cmplog mode, or AFL_CMPLOG_DEBUG); without "
+          "one it is a no-op. Keeping DERIVE enabled.");
+      setenv("AFL_LLVM_BUG_ALLOCSIZE", "1", 1);
+
+    }
+
+    /* Bug-finding pass: enabled by any AFL_LLVM_BUG* var. Single .so handles
+       all five sub-modes internally (SCALAR/BUDGET/SIZEFILL/ALLOCSIZE/SLACK).
+     */
+    if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_SCALAR") ||
+        getenv("AFL_LLVM_BUG_SCALAR_SLICE") || getenv("AFL_LLVM_BUG_BUDGET") ||
+        getenv("AFL_LLVM_BUG_SIZEFILL") || getenv("AFL_LLVM_BUG_ALLOCSIZE") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_FUNCS") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") ||
+        getenv("AFL_LLVM_BUG_SLACK")) {
+
+      load_llvm_pass(aflcc, "afl-llvm-bug-pass.so");
+
+    }
+
     if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
         getenv("AFL_LLVM_INJECTIONS_SQL") ||
         getenv("AFL_LLVM_INJECTIONS_LDAP") ||
@@ -3718,11 +3819,16 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     /* Include IJON header only for files that actually use IJON */
     if (getenv("AFL_LLVM_IJON")) {
 
+      insert_param(aflcc, "-fpermissive");
+#ifndef __APPLE__
+      insert_param(aflcc, "-Wl,--allow-multiple-definition");
+#endif
+
       const char *source_file = get_source_filename(argc, argv);
 
       if (source_file && file_contains_ijon_usage(source_file)) {
 
-        u8 *ijon_header = find_object(aflcc, "include/afl-ijon-min.h");
+        u8 *ijon_header = find_object(aflcc, "afl-ijon-min.h");
         if (ijon_header) {
 
           insert_param(aflcc, "-include");
@@ -3753,6 +3859,12 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
       }
 
     }
+
+// link in execinfo on FreeBSD to include backtrace library used by
+// instrumentation.
+#ifdef __FreeBSD__
+    insert_param(aflcc, "-lexecinfo");
+#endif
 
   }
 

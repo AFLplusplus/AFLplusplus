@@ -10,13 +10,15 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
  */
 
@@ -33,9 +35,9 @@
  * Terminal colors *
  *******************/
 
-#ifndef MESSAGES_TO_STDOUT
-  #define MESSAGES_TO_STDOUT
-#endif
+/* Define MESSAGES_TO_STDOUT to send diagnostic messages to stdout.
+   By default, messages go to stderr (correct Unix convention).
+   afl-fuzz defines this in afl-fuzz.h for its TUI. */
 
 #ifdef USE_COLOR
 

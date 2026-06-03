@@ -4,6 +4,154 @@
   release of the tool. See README.md for the general instruction manual.
 
 
+### Version ++5.00c (release)
+  ! AFL++ is now an AGPL 3.0 project !
+  ! Files where the license could be switched were moved to AGPL 3.0+, files
+    that were under Apache 2.0 with contributations stay on that license.
+  ! Commercial license (donate to a good cause - no money for AFL++) is available
+  - Switched https://github.com/AFLplusplus/cov-analysis for outdated afl-cov
+  - MacOS most current version support for afl-fuzz, afl-cc (incl. LTO) and
+    frida mode!
+  - Refreshed FreeBSD support by jsaunders-rr, thanks!
+  - Linux persistent mode uses futex now which increases speed and reduces
+    system call overhead (opt out with AFL_FAST_CHILD_SYNC), thanks to
+    @martinus for most of the implementation!
+  - afl-fuzz:
+    - `-I tool` call now receives the new crash as a command line parameter
+    - changed to a better map classifier
+    - frameshift is disabled now if AFL_CUSTOM_MUTATOR_ONLY is set
+    - python module fixes
+    - minor speed, leak and zombie enhancements
+    - stability info was lost on fast resume - fixed
+    - somewhere we removed .state/variable/... now it is back :-)
+  - afl-cc:
+    - Add LLVM 23 support
+    - LTO and PCGUARD: new `AFL_LLVM_PATH` (also `AFL_LLVM_LTO_PATH` /
+      `AFL_LLVM_PATH_MODE`) Ball-Larus per-function path coverage on top
+      of edge coverage. Three levels: `=1` relaxed (collapse all
+      guard-only BBs), `=2` restricted (collapse only 2-successor
+      guard-only BBs), `=3` strict Ball-Larus. LTO additionally composes
+      with `AFL_LLVM_LTO_CALLER`. See
+      instrumentation/README.llvm.md and instrumentation/README.lto.md.
+    - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
+      triggers in target binaries
+    - new instrumentation: `afl-llvm-bug-pass.so` provides five runtime
+      oracles (SCALAR, BUDGET, SIZEFILL, ALLOCSIZE, SLACK) plus a slice-
+      filter sub-mode for SCALAR, covering arithmetic-bound and logical-
+      OOB bugs that ASan misses (CVE-2023-4863 / libwebp-Huffman class).
+      Note: ALLOCSIZE/DERIVE are disabled automatically under
+      AFL_USE_ASAN to avoid double-instrumentation; see
+      docs/env_variables.md.
+        * `AFL_LLVM_BUG_SCALAR=1`   - max-value-per-arithmetic-site coverage,
+                                      plus per-loop iteration count
+        * `AFL_LLVM_BUG_SCALAR_SLICE=1` - restrict SCALAR instrumentation to
+                                      arithmetic that flows into a memory-
+                                      size sink (allocator size, GEP index,
+                                      memcpy/memset length). Implies SCALAR.
+        * `AFL_LLVM_BUG_BUDGET=1`   - check `ptr += func()` write-extent
+                                      contract
+        * `AFL_LLVM_BUG_SIZEFILL=1`  - check NULL-means-size-only idioms
+        * `AFL_LLVM_BUG_ALLOCSIZE=1` - track every malloc/calloc/realloc and
+                                       feed three signals (headroom IJON-min,
+                                       proximity-bucket coverage edge, soft-OOB
+                                       tripwire) per in-loop store
+        * `AFL_LLVM_BUG_SLACK=1`    - per-icmp |op0-op1| feedback, mapped
+                                      MIN-style onto the bug map (inverse-
+                                      bucket) for tight-comparison signal
+        * `AFL_LLVM_BUG_ALLOCSIZE_FUNCS=Name1,Name2,...` - extend tracking
+                                       to user-listed custom allocators
+        * `AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS=Name1,Name2,...` - matching
+                                       custom-free functions for the above
+        * `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` - log tracked allocation sizes
+                                       into CmpLog RTN slots for `-l Z`
+        * `AFL_LLVM_BUG=1`           - enable all bug-pass modes
+      Per-site bug-map slots are kept in a private MAP_SIZE_BUG region and
+      tracked max-rule (compatible with the IJON model)
+    - cmplog scheduling extensions (companion to bug-pass):
+        * `-l M` (afl-fuzz) - predicate-tightness scheduling. Treat any
+          new per-site minimum slack on an inequality CmpLog cmp as a
+          coverage event and mark the queue entry favoured. Catches the
+          libwebp-1.3.1 / CVE-2023-4863 input pattern (validation
+          predicates simultaneously at their tight edges).
+        * `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` or `AFL_LLVM_BUG=1`
+          (compile-time) and
+          `-l Z` (afl-fuzz) - size-derive logging. On every freed tracked
+          allocation, write `(computed_size, max_observed_offset)` into a
+          CmpLog RTN slot keyed by alloc-site. The existing CmpLog
+          dictionary mining harvests `computed_size` as a magic constant
+          and feeds the producing input bytes back into havoc.
+  - afl-cmin*:
+    - nyx_mode is now working for all minimizer variants
+  - afl-showmap:
+    - no more .afl-showmap-temp-* files lying around
+  - IJON dist was changed to original IJON implementation: initial matching
+    bytes, max length is 1024
+  - lib* tools:
+    - MacOS support is back, thanks to @Jay-1409 !
+
+
+### Version ++4.40c (release)
+  - afl-fuzz:
+    - FrameShift integrated and enabled by default, disable with
+      AFL_FRAMESHIFT_DISABLE and configure effort via
+      AFL_FRAMESHIFT_MAX_OVERHEAD. In extensive fuzzbench analysis at worst
+      (on average) it does nothing, at best it improves time to new coverage
+      and total coverage unlocked. https://arxiv.org/pdf/2507.05421
+      Thanks to @hgarrereyn for the PR!
+    - Fixed several potential crashes when using IJON
+    - added `AFL_FORCE_FASTRESUME` which will ignore the saved hash of the
+      target - but note it will only work if the coverage map size did not
+      change
+    - prevent further executed instrumented programs by the fuzz target to
+      manipulate the coverage
+  - afl-cc:
+    - LLVM 22 support (they are again switching around include files ...)
+    - g_/curl_/xml_ string support for COMPCOV, thanks to @Prajwal-kp-18
+    - optimized hidden CFG instrumentation (don't instrument vector selects)
+    - plugin optimization and fixes by @nbars, @kyakdan and @koltiradw
+    - marked GCC plugins as unmaintained. We need someone who know gimple and
+      is willing to fix the plugin issues, workarounds for gcc bugs and
+      overall improve the plugin.
+    - env `AFL_LLVM_DENY_EXEC` will abort any common exec calls
+  - afl-cmin:
+    - new implementation in C by @kcwu - it is currenlty not built though
+      because of maturity issues, e.g. does not work with Nyx
+    - afl-cmin.py was changing behaviour to hash the original filenames,
+      this was reverted.
+    - afl-cmin and afl-cmin.py honor `AFL_SHA1_FILENAMES` now
+  - afl-showmap:
+    - -f support added by Prajwal-kp-18 - thanks!
+    - faster stream mode by @nbars
+  - qemu_mode:
+    - fix when AFL_EXITPOINT is not set, which could prevent detecting crashes
+  - afl-plot:
+    - multiple AFL++ out directories now supported, thanks to @Jay-1409 !
+
+
+### Version ++4.35a (release)
+  - GUIFuzz++ merged: Unleashing Grey-box Fuzzing on Desktop Graphical User
+                      Interfacing Applications
+    https://futures.cs.utah.edu/papers/25ASE.pdf
+  - afl-fuzz:
+    - fix syncing issues with crashes and custom mutators by @AndyH-1
+    - another attempt to kill every client, thanks to @leonasdev
+  - afl-cc:
+    - Huge refactor for default pcguard instrumentation, several minor and
+      medium bug fixes, complete hidden decision coverage
+    - LTO: also added complete hidden decision coverage
+    - Various small fixes by @nbars, thanks!
+    - IJON fix to search for the necessary include
+    - Allow compiling the gcc plugin with clang++, thanks to @exoosh
+    - Fix for unusual bit sizes in cmplog-instructions-pass by @forzafedor
+  - qemu_mode:
+    - IJON support, thanks to @nj00001! see qemu_mode/README.md
+    - leaner, less warnings, thanks to @McSinyx!
+  - afl-tmin
+    - fix custom trimmings, thanks to @renatahodovan!
+  - custom mutators:
+    - Gramatron: fixes + cjson switch by @CarvedCoder, fix by @jubnzv
+
+
 ### Version ++4.34c (release)
   - IJON integration by @vi3tL0u1s - thanks a lot!!
     - see docs/IJON.md on how to use it

@@ -58,3 +58,31 @@ And finally, here are some best practices for writing docs content:
   scan.
 * Use numbered lists for procedures or prioritizing.
 * Link to related content, for example, prerequisites or in-depth discussions.
+
+## Licensing of contributions
+
+AFL++ is licensed under the **AGPL-3.0-or-later**, with original files also
+available under Apache-2.0 and an optional commercial license. See
+[LICENSING.md](LICENSING.md) for the full picture.
+
+By submitting a contribution (for example a pull request) you agree that:
+
+* Your contribution to a file that is marked `SPDX-License-Identifier:
+  Apache-2.0` is provided under the **Apache-2.0** license, and your
+  contribution to a file marked `SPDX-License-Identifier: AGPL-3.0-or-later`
+  is provided under the **AGPL-3.0-or-later**. (Some bundled files carry other
+  licenses, e.g. the GCC
+  plugin under `GPL-3.0-or-later`; always match the file's existing identifier.)
+  Match the existing `SPDX-License-Identifier` of the file you edit; do not
+  change a file's license without explicit agreement from the maintainers.
+  New files must be licensed under AGPL-3.0-or-later, unless a maintainer of
+  AFL++ grants an exception (e.g. code that is linked in fuzzing targets).
+* You have the right to submit the contribution under those terms.
+* You grant the AFL++ maintainers a perpetual, worldwide, non-exclusive,
+  royalty-free, irrevocable right to use, distribute, and **re-license** your
+  contribution under any of the project's licensing options, **including the
+  commercial license** described in [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
+  This is what allows the project to keep offering the donation-based commercial
+  license; the project receives no money for it.
+
+If you cannot agree to the above, please do not submit a contribution.

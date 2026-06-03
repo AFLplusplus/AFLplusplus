@@ -32,7 +32,7 @@ the real collisions are between 750-18.000!
 
 Note that PCGUARD (our own modified implementation and the SANCOV PCGUARD
 implementation from libfuzzer) also provides collision free coverage.
-It is a bit slower though and can a few targets with very early constructors.
+It is slightly slower and can cause issues with targets with very early constructors.
 
 * We instrument at link time when we have all files pre-compiled.
 * To instrument at link time, we compile in LTO (link time optimization) mode.
@@ -159,6 +159,78 @@ To enable this feature, set `AFL_LLVM_MAP_ADDR` with the address.
 Setting `export AFL_LLVM_DOCUMENT_IDS=file` will document in a file which edge
 ID was given to which function. This helps to identify functions with variable
 bytes or which functions were touched by an input.
+
+## Path coverage (AFL_LLVM_LTO_PATH)
+
+Setting `AFL_LLVM_LTO_PATH` (also accepted: `AFL_LLVM_PATH`,
+`AFL_LLVM_PATH_MODE`) enables Ball-Larus per-function path coverage *in
+addition to* the default collision-free edge coverage. The value selects
+how aggressively to collapse "guard-only" basic blocks (BBs that only
+contain condition-check work — loads, casts, GEPs, comparisons, phis,
+freezes, allocas, plain arithmetic — no function calls, no stores, no
+atomics):
+
+| Value | Mode | Behaviour | Map size |
+|-------|------|-----------|----------|
+| unset / `0` | off | no path coverage | smallest |
+| `1` | **relaxed** | every guard-only BB collapses via `max()` instead of `sum()` — short-circuit `&&`/`||`, switches on a bare loaded value, etc. all collapse to one decision | smallest with PATH on |
+| `2` | **restricted** | only collapse 2-successor guard-only BBs — switches and indirect branches keep their full path-multiplying effect | mid |
+| `3` | **strict** | full Ball-Larus: every IR-level acyclic path gets its own slot | largest |
+
+The relaxed/restricted modes give numbers closer to "distinct
+user-visible behaviours"; strict gives the literal answer to "every
+possible path is a unique route".
+
+**Stability:** path IDs are deterministic within a single build but
+NOT stable across LLVM major versions — the back-edge DFS order and
+SwitchInst case iteration both depend on LLVM internals and can change
+between versions, producing different Ball-Larus prefix sums and
+different per-path map slots. Do not merge corpora collected with
+different toolchains on the basis of PATH coverage.
+
+**LTO vs PCGUARD divergence:** the LTO build runs `afl-llvm-bug-pass`
+(SCALAR/SLACK/ALLOCSIZE/etc.) upstream of `SanitizerCoverageLTO`, which
+mutates the CFG before PATH analysis ever sees it. PATH=1's guard-only
+collapse therefore catches fewer branches under LTO than under
+`afl-clang-fast` PCGUARD, and the two toolchains produce different
+totals for the same source. Use PCGUARD if you specifically want the
+documented PATH=1 collapse on guard-only conditions.
+
+Each acyclic path through a function (DAG view of the CFG, with back-edges
+stripped — loops do not contribute path differentiation) is assigned a
+unique integer ID. A small per-function `i32` register accumulates the ID at
+each branch; at every function exit (`return`, C++ `resume`, just before a
+`noreturn` call such as `abort`/`exit`/`__cxa_throw`, and just before
+`unreachable` terminators) the path ID is written into a reserved per-function
+slot range in the coverage map.
+
+Composes with `AFL_LLVM_LTO_CALLER`: when both are set, multi-caller
+functions get `NumPaths * call_counter` slots so each `(call_site, path)`
+pair is uniquely tracked. **Only depth = 1 is supported with PATH** — at
+higher depths (`AFL_LLVM_CTX_DEPTH > 1` etc.) `AFLContext` holds an
+XOR-stack of caller IDs that is not bounded by `call_counter`, so the
+path index would go out of range. The compiler refuses the combination.
+
+Limits:
+
+- Functions with `NumPaths(entry) > 100,000` are first re-counted with
+  multi-way branches (`switch`/`indirectbr`) collapsed (max instead of sum).
+  If the count is still too high, path instrumentation is skipped for that
+  function (a warning is emitted) — edge coverage continues unchanged.
+- Single-path (straight-line) functions are skipped: a constant path ID
+  carries no information.
+- Functions with no return points are skipped.
+- Functions calling `setjmp` / `sigsetjmp` (or any callee tagged
+  `returns_twice`) are skipped: the path-id register sits on the stack
+  and `longjmp` would leave it indeterminate.
+- Functions that are part of a C++20 coroutine (the ramp plus
+  `.resume` / `.destroy` post-split companions) are skipped: the
+  path-id register would be spilled into the coroutine frame and
+  reloaded after the frame is freed in the destroy path.
+- Per-function map size grows roughly with `NumPaths(F)`, which is exponential
+  in independent if/else branches (`2^N` for `N` such branches). On large
+  targets this can produce a very large map; consider scoping with
+  `AFL_LLVM_ALLOWLIST` if needed.
 
 ## Solving difficult targets
 

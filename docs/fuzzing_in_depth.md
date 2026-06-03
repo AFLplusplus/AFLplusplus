@@ -137,7 +137,7 @@ options are available:
   mode (with `-c 0`), however this will result in a performance loss of about
   20%.
   It is therefore better to compile a specific CMPLOG target with
-  `AFL_LLVM_ONLY_FSRV=1 AFL_LLVM_CMPLOG=1` and pass this binary name via
+  `AFL_LLVM_CMPLOG=1` and pass this binary name via
   `-c cmplog-fuzzing-target` and compile target again normally with `afl-cc`
    and use this is the fuzzing target as usual.
   You can read more about this in
@@ -741,12 +741,10 @@ To stop an afl-fuzz run, press Control-C.
 To restart an afl-fuzz run, just reuse the same command line but replace the `-i
 directory` with `-i -` or set `AFL_AUTORESUME=1`.
 
-If you want to add new seeds to a fuzzing campaign, you can run a temporary
-fuzzing instance, e.g., when your main fuzzer is using `-o out` and the new
-seeds are in `newseeds/` directory:
+If you want to add new seeds to a fuzzing campaign, you can use `afl-addseeds`:
 
 ```
-AFL_BENCH_JUST_ONE=1 AFL_FAST_CAL=1 afl-fuzz -i newseeds -o out -S newseeds -- ./target
+afl-addseeds -i newseeds-an-be-file-or-directory -o out-of-the-fuzzing-campaign
 ```
 
 ### g) Checking the coverage of the fuzzing
@@ -773,8 +771,8 @@ It is even better to check out the exact lines of code that have been reached -
 and which have not been found so far.
 
 An "easy" helper script for this is
-[https://github.com/vanhauser-thc/afl-cov](https://github.com/vanhauser-thc/afl-cov),
-just follow the README of that separate project.
+[https://github.com/AFLplusplus/cov-analysis](https://github.com/AFLplusplus/cov-analysis),
+just follow the README.md of our separate project.
 
 If you see that an important area or a feature has not been covered so far, then
 try to find an input that is able to reach that and start a new secondary in
@@ -938,6 +936,25 @@ contain severity and other information.
 casr-afl -i /path/to/afl/out/dir -o /path/to/casr/out/dir
 ```
 
+### If crashes do not reproduce
+
+Sometimes crashes AFL++ finds cannot be reproduced.
+
+This usually means that limits applied at the time of fuzzing that crashes the
+target process, e.g. running out of memory, or the limit of a set `-m` being
+reached.
+
+If you do persistent fuzzing, then it is also possible that the target keeps
+persistent state (this is mostly for AFL_LOOP/LLVMFuzzerTestOneInput type
+targets).
+In this case either fuzz with the env var `AFL_ALLOW_CORES` to create core
+files and analyze them where the cash occur (slows down fuzzing, so only use
+this for analysis), or you recompile AFL++ with a config.h setting that enables
+`AFL_PERSISTENT_RECORD` and `AFL_PERSISTENT_REPLAY_ARGPARSE`.
+[Read the documentation](../instrumentation/README.persistent_mode.md) on how
+to configure persistent record at runtime, and how to replay these.
+
+
 ## 5. CI fuzzing
 
 Some notes on continuous integration (CI) fuzzing - this fuzzing is different to
@@ -958,6 +975,7 @@ too long for your overall available fuzz run time.
       saturated corpus needs to be loaded.
     * `AFL_CMPLOG_ONLY_NEW` - only perform cmplog on new finds, not the initial
       corpus as this very likely has been done for them already.
+    * If you do not like surprises then set `AFL_PIZZA_MODE=-1`
     * Keep the generated corpus, use afl-cmin and reuse it every time!
 
 2. Additionally randomize the AFL++ compilation options, e.g.:

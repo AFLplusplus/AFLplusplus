@@ -9,13 +9,15 @@
                 Andrea Fioraldi <andreafioraldi@gmail.com>
                 Dominik Maier <domenukk@gmail.com>
 
-  Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+  Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at:
 
     https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
   The sole purpose of this wrapper is to preprocess clang LTO files when
   linking with lld and performing the instrumentation on the whole program.

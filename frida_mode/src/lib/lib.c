@@ -39,23 +39,6 @@ typedef struct {
 static guint64 text_base = 0;
 static guint64 text_limit = 0;
 
-static gboolean lib_find_exe(GumModule *module, gpointer user_data) {
-
-  lib_details_t        *lib_details = (lib_details_t *)user_data;
-  const gchar          *name = gum_module_get_name(module);
-  const gchar          *path = gum_module_get_path(module);
-  const GumMemoryRange *range = gum_module_get_range(module);
-
-  strncpy(lib_details->name, name, PATH_MAX);
-  strncpy(lib_details->path, path, PATH_MAX);
-  lib_details->name[PATH_MAX] = '\0';
-  lib_details->path[PATH_MAX] = '\0';
-  lib_details->base_address = range->base_address;
-  lib_details->size = range->size;
-  return FALSE;
-
-}
-
 static void lib_validate_hdr(Elf_Ehdr *hdr) {
 
   if (hdr->e_ident[0] != ELFMAG0) FFATAL("Invalid e_ident[0]");
@@ -167,8 +150,29 @@ void lib_config(void) {
 
 void lib_init(void) {
 
+  /*
+   * gum_process_enumerate_modules() does not guarantee that the main
+   * executable is the first module reported (and under FRIDA 17.x it isn't —
+   * the injected afl-frida-trace.so wins). Ask for the main module
+   * explicitly, otherwise we end up using the .text range of the FRIDA
+   * library and the target's basic blocks get excluded from instrumentation
+   * (no coverage map updates).
+   */
+  GumModule *main_module = gum_process_get_main_module();
+  if (main_module == NULL) FFATAL("Failed to resolve main module");
+
+  const gchar          *name = gum_module_get_name(main_module);
+  const gchar          *path = gum_module_get_path(main_module);
+  const GumMemoryRange *range = gum_module_get_range(main_module);
+
   lib_details_t lib_details;
-  gum_process_enumerate_modules(lib_find_exe, &lib_details);
+  strncpy(lib_details.name, name, PATH_MAX);
+  strncpy(lib_details.path, path, PATH_MAX);
+  lib_details.name[PATH_MAX] = '\0';
+  lib_details.path[PATH_MAX] = '\0';
+  lib_details.base_address = range->base_address;
+  lib_details.size = range->size;
+
   FVERBOSE("Image");
   FVERBOSE("\tbase:                   0x%016" G_GINT64_MODIFIER "x",
            lib_details.base_address);

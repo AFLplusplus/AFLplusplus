@@ -25,10 +25,15 @@ CFLAGS_ADD=$(USEHUGEPAGE:1=-DUSEHUGEPAGE)
 CFLAGS_ADD += $(USENAMEDPAGE:1=-DUSENAMEDPAGE)
 override CFLAGS += $(CFLAGS_ADD)
 
+SRCS = libdislocator.so.c
+ifeq ($(shell uname), Darwin)
+	SRCS += ../macos_fishhook/fishhook.c
+endif
+
 all: libdislocator.so
 
-libdislocator.so: libdislocator.so.c ../../config.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) -shared -fPIC libdislocator.so.c -o $@ $(LDFLAGS)
+libdislocator.so: $(SRCS) ../../config.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -shared -fPIC $(SRCS) -o $@ $(LDFLAGS)
 	cp -fv libdislocator.so ../../
 
 .NOTPARALLEL: clean

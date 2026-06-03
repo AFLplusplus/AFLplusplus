@@ -66,22 +66,69 @@ uint8_t *__libqasan_patch_jump(uint8_t *addr, uint8_t *dest) {
 
 uint8_t *__libqasan_patch_jump(uint8_t *addr, uint8_t *dest) {
 
-  // ldr r12, OFF
-  addr[0] = 0x0;
-  addr[1] = 0xc0;
-  addr[2] = 0x9f;
-  addr[3] = 0xe5;
+  int is_thumb = (uintptr_t)addr & 1;
+  addr = (uint8_t *)((uintptr_t)addr & ~1);
 
-  // add pc, pc, r12
-  addr[4] = 0xc;
-  addr[5] = 0xf0;
-  addr[6] = 0x8f;
-  addr[7] = 0xe0;
+  if (is_thumb) {
 
-  // OFF: .word dest
-  *(uint32_t *)&addr[8] = (uint32_t)dest;
+    // Thumb2 code (12 bytes total)
+    //
+    // Layout:
+    //   addr+0: ldr.w r12, [pc, #4]  (4 bytes)  loads from addr+8
+    //   addr+4: bx r12               (2 bytes)
+    //   addr+6: nop                  (2 bytes)   alignment padding
+    //   addr+8: .word dest           (4 bytes)
+    //
+    // PC in Thumb = instruction_address + 4, rounded down to 4-byte boundary
 
-  return &addr[12];
+    // ldr.w r12, [pc, #4]
+    addr[0] = 0xdf;
+    addr[1] = 0xf8;
+    addr[2] = 0x04;
+    addr[3] = 0xc0;
+
+    // bx r12
+    addr[4] = 0x60;
+    addr[5] = 0x47;
+
+    // nop (alignment padding)
+    addr[6] = 0x00;
+    addr[7] = 0xbf;
+
+    // OFF: .word dest (Thumb bit in dest preserved for bx)
+    *(uint32_t *)&addr[8] = (uint32_t)dest;
+
+    return &addr[12];
+
+  } else {
+
+    // ARM code (12 bytes total)
+    //
+    // Layout:
+    //   addr+0: ldr r12, [pc, #0]  (4 bytes) - loads from PC+8 = addr+8
+    //   addr+4: bx r12             (4 bytes)
+    //   addr+8: .word dest         (4 bytes)
+    //
+    // PC in ARM = instruction_address + 8
+
+    // ldr r12, [pc, #0]
+    addr[0] = 0x0;
+    addr[1] = 0xc0;
+    addr[2] = 0x9f;
+    addr[3] = 0xe5;
+
+    // bx r12
+    addr[4] = 0x1c;
+    addr[5] = 0xff;
+    addr[6] = 0x2f;
+    addr[7] = 0xe1;
+
+    // OFF: .word dest
+    *(uint32_t *)&addr[8] = (uint32_t)dest;
+
+    return &addr[12];
+
+  }
 
 }
 

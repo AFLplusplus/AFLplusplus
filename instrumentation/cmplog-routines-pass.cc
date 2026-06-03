@@ -5,13 +5,15 @@
    Written by Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
 */
 
@@ -27,7 +29,11 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Module.h"
@@ -98,7 +104,7 @@ llvmGetPassPluginInfo() {
 bool CmpLogRoutines::hookRtns(Module &M) {
 
   std::vector<CallInst *> calls, llvmStdStd, llvmStdC, gccStdStd, gccStdC,
-      Memcmp, Strcmp, Strncmp;
+      Memcmp, Strcmp, Strncmp, GStrstrLen, Memmem;
   LLVMContext &C = M.getContext();
 
   Type *VoidTy = Type::getVoidTy(C);
@@ -166,6 +172,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           Function *Callee = callInst->getCalledFunction();
           if (!Callee) continue;
+          if (Callee->isIntrinsic()) continue;
           if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
 
           FunctionType *FT = Callee->getFunctionType();
@@ -219,6 +226,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                !FuncName.compare("strcasecmp") ||
                !FuncName.compare("stricmp") ||
                !FuncName.compare("ap_cstr_casecmp") ||
+               !FuncName.compare("apr_cstr_casecmp") ||
                !FuncName.compare("OPENSSL_strcasecmp") ||
                !FuncName.compare("xmlStrcasecmp") ||
                !FuncName.compare("g_strcasecmp") ||
@@ -226,18 +234,20 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                !FuncName.compare("Curl_strcasecompare") ||
                !FuncName.compare("Curl_safe_strcasecompare") ||
                !FuncName.compare("cmsstrcasecmp") ||
-               !FuncName.compare("strstr") ||
-               !FuncName.compare("g_strstr_len") ||
-               !FuncName.compare("ap_strcasestr") ||
-               !FuncName.compare("xmlStrstr") ||
-               !FuncName.compare("xmlStrcasestr") ||
+               !FuncName.compare("sqlite3_stricmp") ||
+               !FuncName.compare("sqlite3StrICmp") ||
                !FuncName.compare("g_str_has_prefix") ||
                !FuncName.compare("g_str_has_suffix"));
-          isStrcmp &=
-              FT->getNumParams() == 2 && FT->getReturnType()->isIntegerTy(32) &&
-              FT->getParamType(0) == FT->getParamType(1) &&
-              FT->getParamType(0) ==
-                  IntegerType::getInt8Ty(M.getContext())->getPointerTo(0);
+          isStrcmp &= FT->getNumParams() == 2 &&
+                      FT->getReturnType()->isIntegerTy(32) &&
+                      FT->getParamType(0) == FT->getParamType(1) &&
+#if LLVM_MAJOR >= 17
+                      FT->getParamType(0)->isPointerTy();
+#else
+                      FT->getParamType(0) ==
+                          IntegerType::getInt8Ty(M.getContext())
+                              ->getPointerTo(0);
+#endif
 
           bool isStrncmp = (!FuncName.compare("strncmp") ||
                             !FuncName.compare("xmlStrncmp") ||
@@ -245,17 +255,64 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                             !FuncName.compare("strncasecmp") ||
                             !FuncName.compare("strnicmp") ||
                             !FuncName.compare("ap_cstr_casecmpn") ||
+                            !FuncName.compare("apr_cstr_casecmpn") ||
                             !FuncName.compare("OPENSSL_strncasecmp") ||
                             !FuncName.compare("xmlStrncasecmp") ||
                             !FuncName.compare("g_ascii_strncasecmp") ||
                             !FuncName.compare("Curl_strncasecompare") ||
-                            !FuncName.compare("g_strncasecmp"));
-          isStrncmp &=
-              FT->getNumParams() == 3 && FT->getReturnType()->isIntegerTy(32) &&
-              FT->getParamType(0) == FT->getParamType(1) &&
-              FT->getParamType(0) ==
-                  IntegerType::getInt8Ty(M.getContext())->getPointerTo(0) &&
-              FT->getParamType(2)->isIntegerTy();
+                            !FuncName.compare("g_strncasecmp") ||
+                            !FuncName.compare("sqlite3_strnicmp"));
+          isStrncmp &= FT->getNumParams() == 3 &&
+                       FT->getReturnType()->isIntegerTy(32) &&
+                       FT->getParamType(0) == FT->getParamType(1) &&
+#if LLVM_MAJOR >= 17
+                       FT->getParamType(0)->isPointerTy() &&
+#else
+                       FT->getParamType(0) ==
+                           IntegerType::getInt8Ty(M.getContext())
+                               ->getPointerTo(0) &&
+#endif
+                       FT->getParamType(2)->isIntegerTy();
+
+          // Functions like strstr that return a pointer to the found substring
+          // Signature: ptr strstr(ptr haystack, ptr needle)
+          bool isStrstr =
+              (!FuncName.compare("strstr") || !FuncName.compare("strcasestr") ||
+               !FuncName.compare("ap_strcasestr") ||
+               !FuncName.compare("xmlStrstr") ||
+               !FuncName.compare("xmlStrcasestr"));
+          isStrstr &= FT->getNumParams() == 2 &&
+                      FT->getReturnType()->isPointerTy() &&
+                      FT->getParamType(0)->isPointerTy() &&
+                      FT->getParamType(1)->isPointerTy();
+
+          // g_strstr_len: gchar* (const gchar *haystack, gssize haystack_len,
+          //                       const gchar *needle)
+          bool isGStrstrLen = (!FuncName.compare("g_strstr_len"));
+          isGStrstrLen &= FT->getNumParams() == 3 &&
+                          FT->getReturnType()->isPointerTy() &&
+                          FT->getParamType(0)->isPointerTy() &&
+                          FT->getParamType(1)->isIntegerTy() &&
+                          FT->getParamType(2)->isPointerTy();
+
+          // memmem: void* (const void *haystack, size_t haystacklen,
+          //                const void *needle, size_t needlelen)
+          bool isMemmem = (!FuncName.compare("memmem"));
+          isMemmem &= FT->getNumParams() == 4 &&
+                      FT->getReturnType()->isPointerTy() &&
+                      FT->getParamType(0)->isPointerTy() &&
+                      FT->getParamType(1)->isIntegerTy() &&
+                      FT->getParamType(2)->isPointerTy() &&
+                      FT->getParamType(3)->isIntegerTy();
+
+          // strnstr: char* (const char *big, const char *little, size_t len)
+          // BSD-specific function
+          bool isStrnstr = (!FuncName.compare("strnstr"));
+          isStrnstr &= FT->getNumParams() == 3 &&
+                       FT->getReturnType()->isPointerTy() &&
+                       FT->getParamType(0)->isPointerTy() &&
+                       FT->getParamType(1)->isPointerTy() &&
+                       FT->getParamType(2)->isIntegerTy();
 
           bool isGccStdStringStdString =
               Callee->getName().find("__is_charIT_EE7__value") !=
@@ -305,7 +362,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           if (isGccStdStringCString || isGccStdStringStdString ||
               isLlvmStdStringStdString || isLlvmStdStringCString || isMemcmp ||
-              isStrcmp || isStrncmp) {
+              isStrcmp || isStrncmp || isStrstr || isGStrstrLen || isMemmem ||
+              isStrnstr) {
 
             isPtrRtnN = isPtrRtn = false;
 
@@ -315,8 +373,10 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           if (isPtrRtn) { calls.push_back(callInst); }
           if (isMemcmp || isPtrRtnN) { Memcmp.push_back(callInst); }
-          if (isStrcmp) { Strcmp.push_back(callInst); }
-          if (isStrncmp) { Strncmp.push_back(callInst); }
+          if (isStrcmp || isStrstr) { Strcmp.push_back(callInst); }
+          if (isStrncmp || isStrnstr) { Strncmp.push_back(callInst); }
+          if (isGStrstrLen) { GStrstrLen.push_back(callInst); }
+          if (isMemmem) { Memmem.push_back(callInst); }
           if (isGccStdStringStdString) { gccStdStd.push_back(callInst); }
           if (isGccStdStringCString) { gccStdC.push_back(callInst); }
           if (isLlvmStdStringStdString) { llvmStdStd.push_back(callInst); }
@@ -332,7 +392,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
   if (!calls.size() && !gccStdStd.size() && !gccStdC.size() &&
       !llvmStdStd.size() && !llvmStdC.size() && !Memcmp.size() &&
-      !Strcmp.size() && !Strncmp.size())
+      !Strcmp.size() && !Strncmp.size() && !GStrstrLen.size() && !Memmem.size())
     return false;
 
   /*
@@ -604,6 +664,84 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     args.push_back(v2Pcasted);
 
     IRB.CreateCall(cmplogLlvmStdC, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  // g_strstr_len: gchar* (const gchar *haystack, gssize haystack_len,
+  //                       const gchar *needle)
+  // Extract arg0 (haystack) and arg2 (needle)
+  for (auto &callInst : GStrstrLen) {
+
+    Value *v1P = callInst->getArgOperand(0),  // haystack
+        *v2P = callInst->getArgOperand(2);    // needle
+
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
+
+    std::vector<Value *> args;
+    Value               *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value               *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+
+    IRB.CreateCall(cmplogHookFnStr, args);
+
+    // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  // memmem: void* (const void *haystack, size_t haystacklen,
+  //                const void *needle, size_t needlelen)
+  // Extract arg0 (haystack), arg2 (needle), arg3 (needlelen)
+  for (auto &callInst : Memmem) {
+
+    Value *v1P = callInst->getArgOperand(0),    // haystack
+        *v2P = callInst->getArgOperand(2),      // needle
+            *v3P = callInst->getArgOperand(3);  // needlelen
+
+    IRBuilder<> IRB2(callInst->getParent());
+    IRB2.SetInsertPoint(callInst);
+
+    LoadInst *CmpPtr =
+        IRB2.CreateLoad(PointerType::get(Int8Ty, 0), AFLCmplogPtr);
+    CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                        MDNode::get(C, {}));
+#else
+                        MDNode::get(C, None));
+#endif
+    auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
+    auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, callInst, false);
+
+    IRBuilder<> IRB(ThenTerm);
+
+    std::vector<Value *> args;
+    Value               *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value               *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    Value               *v3Pbitcast = IRB.CreateBitCast(
+        v3P, IntegerType::get(C, v3P->getType()->getPrimitiveSizeInBits()));
+    Value *v3Pcasted =
+        IRB.CreateIntCast(v3Pbitcast, IntegerType::get(C, 64), false);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+    args.push_back(v3Pcasted);
+
+    IRB.CreateCall(cmplogHookFnN, args);
 
     // errs() << callInst->getCalledFunction()->getName() << "\n";
 

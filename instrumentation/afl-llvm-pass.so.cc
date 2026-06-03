@@ -9,13 +9,15 @@
    NGRAM previous location coverage comes from Adrian Herrera.
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
  */
 
@@ -38,7 +40,11 @@ typedef long double max_align_t;
 #endif
 
 #include "llvm/Pass.h"
-#include "llvm/Passes/PassPlugin.h"
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/BasicBlock.h"
@@ -51,6 +57,7 @@ typedef long double max_align_t;
 #include "llvm/IR/CFG.h"
 
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Intrinsics.h"
 
 #include "afl-llvm-common.h"
 #include "llvm-alternative-coverage.h"
@@ -478,9 +485,12 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
             if ((callInst = dyn_cast<CallInst>(&IN))) {
 
               Function *Callee = callInst->getCalledFunction();
-              if (!Callee || Callee->size() < function_minimum_size)
+              if (!Callee || Callee->size() < function_minimum_size ||
+                  Callee->isIntrinsic()) {
+
                 continue;
-              else {
+
+              } else {
 
                 has_calls = 1;
                 break;
@@ -593,7 +603,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
             StoreInst *RestoreCtx;
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
             if (ctx_k)
-              RestoreCtx = IRB.CreateStore(PrevCaller, AFLPrevCaller);
+              RestoreCtx = Post_IRB.CreateStore(PrevCaller, AFLPrevCaller);
             else
 #endif
               RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);
@@ -722,10 +732,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
            * Counter + OverflowFlag -> Counter
            */
 
-          ConstantInt *Zero = ConstantInt::get(Int8Ty, 0);
-          auto         cf = IRB.CreateICmpEQ(Incr, Zero);
-          auto         carry = IRB.CreateZExt(cf, Int8Ty);
-          Incr = IRB.CreateAdd(Incr, carry);
+          Incr = IRB.CreateBinaryIntrinsic(llvm::Intrinsic::umax, Incr, One);
 
         }
 
@@ -789,7 +796,7 @@ PreservedAnalyses AFLCoverage::run(Module &M, ModuleAnalysisManager &MAM) {
           StoreInst *RestoreCtx;
 #ifdef AFL_HAVE_VECTOR_INTRINSICS
           if (ctx_k)
-            RestoreCtx = IRB.CreateStore(PrevCaller, AFLPrevCaller);
+            RestoreCtx = Post_IRB.CreateStore(PrevCaller, AFLPrevCaller);
           else
 #endif
             RestoreCtx = Post_IRB.CreateStore(PrevCtx, AFLContext);

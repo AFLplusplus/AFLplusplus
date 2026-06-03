@@ -23,9 +23,9 @@ def run_cmd(cmd: str, cwd: Path = None, quiet: bool = False, envs: dict = None):
     if not cwd:
         cwd = Path(__file__).parent
     if quiet:
-        print(f"[*] Running quietly: \"{cmd}\" under workding directory {cwd}")
+        print(f"[*] Running quietly: \"{cmd}\" under working directory {cwd}")
     else:
-        print(f"[*] Running: \"{cmd}\" under workding directory {cwd}")
+        print(f"[*] Running: \"{cmd}\" under working directory {cwd}")
     if quiet:
         try:
             out = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, cwd=cwd, env=passed_envs)
@@ -59,6 +59,7 @@ cwd = Path(__file__).parent
 libs_path = cwd / "lib"
 include_path = cwd / "include"
 unicornafl_path = cwd / "unicornafl"
+cargo_target_dir = Path(os.environ["CARGO_TARGET_DIR"]) if "CARGO_TARGET_DIR" in os.environ else unicornafl_path / "target"
 
 if libs_path.exists():
     print("[!] Cleaning previous artifacts...")
@@ -116,7 +117,9 @@ elif not venv and skip_venv:
 
 print(f"[*] We will install unicornafl to venv at {venv_prefix} using {py3}")
 
-if not shutil.which("setuptools"):
+try:
+  run_cmd(f"{py3} -c 'import setuptools'")
+except subprocess.CalledProcessError:
     print(f"[!] No setuptools, will install setuptools first")
     if skip_venv:
         run_cmd(f"{py3} -m pip install --user setuptools")
@@ -153,14 +156,14 @@ cargo_out = run_cmd(f"cargo build --release --features bindings --message-format
 
 print("[*] Copying unicornafl libraries and headers")
 os.makedirs(libs_path, exist_ok=True)
-shutil.copyfile(unicornafl_path / "target" / "release" / "libunicornafl.a", libs_path / "libunicornafl.a")
+shutil.copyfile(cargo_target_dir / "release" / "libunicornafl.a", libs_path / "libunicornafl.a")
 if sys.platform == "darwin":
     dylib = "libunicornafl.dylib"
     ucdylib = "libunicorn.so"
 else:
     dylib = "libunicornafl.so"
     ucdylib = "libunicorn.so"
-shutil.copyfile(unicornafl_path / "target" / "release" / dylib, libs_path / dylib)
+shutil.copyfile(cargo_target_dir / "release" / dylib, libs_path / dylib)
 shutil.copytree(unicornafl_path / "include", include_path)
 print(f"[*] Now we have to look for unicorn dynamic libraries")
 unicorn_dylib = None
@@ -172,8 +175,12 @@ for ln in lns:
             if "linked_libs" in ln_json and any(["unicorn" in x for x in ln_json['linked_libs']]):
                 if "out_dir" in ln_json:
                     out_dir = Path(ln_json['out_dir'])
-                    shutil.copytree(out_dir / "lib", libs_path, dirs_exist_ok=True)
-                    shutil.copytree(out_dir / "include", include_path, dirs_exist_ok=True)
+                    if (out_dir / "lib").exists():
+                        shutil.copytree(out_dir / "lib", libs_path, dirs_exist_ok=True)
+                    elif (out_dir / "lib64").exists():
+                        shutil.copytree(out_dir / "lib64", libs_path, dirs_exist_ok=True)
+                    if (out_dir / "include").exists():
+                        shutil.copytree(out_dir / "include", include_path, dirs_exist_ok=True)
                     print(f"[*] Copied from {out_dir.absolute()}")
 
 

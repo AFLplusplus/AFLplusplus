@@ -12,13 +12,15 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    A simple test case minimizer that takes an input file and tries to remove
    as much data as possible while keeping the binary in a crashing state
@@ -512,6 +514,7 @@ static void minimize(afl_forkserver_t *fsrv) {
 #endif
 
   // Custom mutator trimming
+  bool custom_trimmed = false;
   if (afl && afl->custom_mutators_count) {
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
@@ -520,26 +523,30 @@ static void minimize(afl_forkserver_t *fsrv) {
           el->afl_custom_post_trim) {
 
         ACTF("Performing custom trim with %s...", el->name);
+        custom_trimmed = true;
 
         // Initialize the trimmer
-        s32 initial_steps = el->afl_custom_init_trim(el->data, in_data, in_len);
+        s32 max_steps = el->afl_custom_init_trim(el->data, in_data, in_len);
 
-        if (initial_steps <= 0) {
+        if (max_steps < 0) {
 
-          WARNF("Custom trimmer %s returned %d, skipping", el->name,
-                initial_steps);
+          WARNF("Custom trimmer %s returned %d, skipping", el->name, max_steps);
           continue;
 
         }
 
-        ACTF("Custom trimmer initialized, %d steps planned", initial_steps);
+        if (afl->debug) {
 
-        u32 trim_rounds = 0;
+          DEBUGF("[Custom Trimming] START: Max %u iterations, %u bytes\n",
+                 max_steps, in_len);
+
+        }
+
         u32 trimmed_successfully = 0;
 
         // Trim loop
         s32 cur_step = 0;
-        while (cur_step < initial_steps) {
+        while (cur_step < max_steps) {
 
           u8    *trimmed_buf = NULL;
           size_t trimmed_size;
@@ -547,14 +554,30 @@ static void minimize(afl_forkserver_t *fsrv) {
           u8 *retbuf = NULL;
           trimmed_size = el->afl_custom_trim(el->data, &retbuf);
 
-          // If trimmed_size equals or exceeds original size, skip
-          if (trimmed_size >= in_len) {
+          /* Do not exit the fuzzer, even if the trimmed data returned by the
+             custom mutator is larger than the original data. For some use
+             cases, like the grammar mutator, the definition of "size" may have
+             different meanings. For example, the trimming function in a grammar
+             mutator aims at reducing the objects in a grammar structure, but
+             does not guarantee to generate a smaller binary buffer.
 
-            SAYF("[Custom trim] Round %u: no improvements over %u bytes.\n",
-                 trim_rounds, in_len);
-            el->afl_custom_post_trim(el->data, 0);
-            cur_step++;
-            trim_rounds++;
+             Thus, we allow the custom mutator to generate the trimmed data that
+             is larger than the original data. */
+          if (trimmed_size >= in_len && afl->debug) {
+
+            WARNF(
+                "Trimmed data returned by custom mutator is larger than "
+                "original data");
+
+          }
+
+          /* Do not run the empty test case on the target. To keep the custom
+             trimming function running, we simply treat the empty test case as
+             an unsuccessful trimming and skip it, instead of aborting the
+             trimming. */
+          if (trimmed_size == 0) {
+
+            cur_step = el->afl_custom_post_trim(el->data, 0);
             continue;
 
           }
@@ -564,39 +587,43 @@ static void minimize(afl_forkserver_t *fsrv) {
           // Test if the trimmed case still works
           if (!tmin_run_target(fsrv, trimmed_buf, trimmed_size, 0)) {
 
-            SAYF(
-                "[Custom trim] But the testcase no longer reproduces - "
-                "skipping this reduction.\n");
-            el->afl_custom_post_trim(el->data, 0);
-            if (trimmed_buf != in_data) { ck_free(trimmed_buf); }
+            cur_step = el->afl_custom_post_trim(el->data, 0);
+
+            if (afl->debug) {
+
+              DEBUGF("[Custom Trimming] FAILURE: %u/%u iterations\n", cur_step,
+                     max_steps);
+
+            }
 
           } else {
 
             // Accept the reduction
             u8 *old_in_data = in_data;
-            in_data = trimmed_buf;
+            u8 *trimmed_copy = ck_alloc_nozero(trimmed_size);
+            memcpy(trimmed_copy, trimmed_buf, trimmed_size);
+            in_data = trimmed_copy;
             in_len = trimmed_size;
 
             trimmed_successfully = 1;
-            el->afl_custom_post_trim(el->data, 1);
+            cur_step = el->afl_custom_post_trim(el->data, 1);
 
-            SAYF("[Custom trim] Successful reduction to %u bytes\n", in_len);
+            if (afl->debug) {
 
-            if (old_in_data != in_data && old_in_data != trimmed_buf) {
-
-              ck_free(old_in_data);
+              DEBUGF(
+                  "[Custom trim] SUCCESS: %u/%u iterations "
+                  "(now at %u bytes)\n",
+                  cur_step, max_steps, in_len);
 
             }
 
-          }
+            if (old_in_data) { ck_free(old_in_data); }
 
-          cur_step++;
-          trim_rounds++;
+          }
 
         }
 
-        ACTF("Custom trimming with %s complete after %u rounds, reduced: %s",
-             el->name, trim_rounds, trimmed_successfully ? "yes" : "no");
+        OKF("[Custom Trimming] DONE: %u bytes -> %u bytes", orig_len, in_len);
 
         if (trimmed_successfully) {
 
@@ -612,7 +639,7 @@ static void minimize(afl_forkserver_t *fsrv) {
   }
 
   // Skip built-in minimization if in_len is too small
-  if (in_len <= 1) {
+  if (in_len <= 1 || custom_trimmed) {
 
     if (tmp_buf) { ck_free(tmp_buf); }
     return;
@@ -906,12 +933,13 @@ static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
   if (!out_file) {
 
-    u8 *use_dir = ".";
+    u8 *use_dir = get_afl_env("TMPDIR");
 
-    if (access(use_dir, R_OK | W_OK | X_OK)) {
+    if (!use_dir) {
 
-      use_dir = get_afl_env("TMPDIR");
-      if (!use_dir) { use_dir = "/tmp"; }
+      use_dir = ".";
+
+      if (access(use_dir, R_OK | W_OK | X_OK)) { use_dir = "/tmp"; }
 
     }
 
@@ -1001,6 +1029,7 @@ static void usage(u8 *argv0) {
       "                  (Not necessary, here for consistency with other afl-* "
       "tools)\n"
       "  -X            - use Nyx mode\n"
+      "  -K dir        - use python script to interact with GUI (GUI mode)\n"
 #endif
       "\n"
 
@@ -1024,6 +1053,7 @@ static void usage(u8 *argv0) {
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_INPUT_PLACEHOLDER: custom placeholder for input file (default: @@)\n"
       "AFL_TMIN_EXACT: require execution paths to match for crashing inputs\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "ASAN_OPTIONS: custom settings for ASAN\n"
@@ -1059,7 +1089,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   SAYF(cCYA "afl-tmin" VERSION cRST " by Michal Zalewski\n");
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:l:B:xeAOQUWXYHhK:")) > 0) {
 
     switch (opt) {
 
@@ -1292,6 +1322,31 @@ int main(int argc, char **argv_orig, char **envp) {
         return -1;
         break;
 
+#ifdef __linux__
+      case 'K':                                                 /* GUI mode */
+        if (afl->fsrv.gui_mode) { FATAL("Multiple -K options not supported"); }
+        if (!optarg || optarg[0] == '-') {
+
+          FATAL(
+              "No directory provided for GUI interaction script. "
+              "Use custom_mutators/guifuzz/guifuzz_clicks.py");
+
+        } else {
+
+          afl->fsrv.gui_python_dir = ck_strdup(optarg);
+          afl->fsrv.gui_mode = 1;
+
+        }
+
+        break;
+
+#else
+      case 'K':
+        FATAL("GUI mode is only available on linux...");
+        break;
+
+#endif
+
       default:
         usage(argv[0]);
 
@@ -1461,6 +1516,8 @@ int main(int argc, char **argv_orig, char **envp) {
     list_init(&afl->custom_mutator_list);
     afl->custom_mutators_count = 0;
 
+    memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
+
     afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
     if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
 
@@ -1470,8 +1527,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     afl->shm = shm;
     afl->out_dir = dirname(in_file);
-
-    memcpy(&afl->fsrv, fsrv, sizeof(afl_forkserver_t));
+    afl->debug = debug;
 
     setup_custom_mutators(afl);
 
@@ -1483,52 +1539,13 @@ int main(int argc, char **argv_orig, char **envp) {
   (void)check_binary_signatures(fsrv->target_path);
 #endif
 
-  if (!fsrv->qemu_mode && !unicorn_mode) {
+  u32 save_be_quiet = be_quiet;
+  be_quiet = !debug;
 
-    fsrv->map_size = 4194304;  // dummy temporary value
-    u32 new_map_size =
-        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
-                             (get_afl_env("AFL_DEBUG_CHILD") ||
-                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                                 ? 1
-                                 : 0);
+  afl_fsrv_resize_mapsize(fsrv, &shm, use_argv, map_size, &stop_soon,
+                          unicorn_mode);
 
-    if (new_map_size) {
-
-      if (map_size < new_map_size ||
-          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
-
-        if (!be_quiet)
-          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
-
-        afl_shm_deinit(&shm);
-        afl_fsrv_kill(fsrv);
-        fsrv->map_size = new_map_size;
-        fsrv->trace_bits =
-            afl_shm_init(&shm, new_map_size, 0, DEFAULT_PERMISSION, -1);
-        afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                       (get_afl_env("AFL_DEBUG_CHILD") ||
-                        get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                           ? 1
-                           : 0);
-
-      }
-
-      map_size = new_map_size;
-
-    }
-
-    fsrv->map_size = map_size;
-
-  } else {
-
-    afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                   (get_afl_env("AFL_DEBUG_CHILD") ||
-                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                       ? 1
-                       : 0);
-
-  }
+  be_quiet = save_be_quiet;
 
   if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
     shm_fuzz = deinit_shmem(fsrv, shm_fuzz);

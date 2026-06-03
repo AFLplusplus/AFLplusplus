@@ -13,6 +13,7 @@
 .test
 .test2
 .vscode
+afl-cmin.awk.8
 afl-addseeds.8
 afl-analyze
 afl-analyze.8
@@ -32,6 +33,7 @@ afl-clang-lto
 afl-clang-lto++
 afl-clang-lto++.8
 afl-clang-lto.8
+afl-cmin
 afl-cmin.8
 afl-cmin.bash.8
 afl-cmin.py.8
@@ -127,3 +129,21 @@ utils/plot_ui/afl-plot-ui
 vuln_prog
 argv_fuzz_demo
 argv_fuzz_persistent_demo
+test/test-nautilus-target
+target
+test/errors
+test/test_input
+test/manual_errors
+test/resume_log.txt
+out-*
+manual_errors
+out-check-crash
+test_input
+test-input
+test.out
+test/test-custom-mutator
+test/test-ijon-legacy
+test/test-ijon-pcguard
+test/test-instr.plain.mycheck
+test/test-multiple-mutators
+

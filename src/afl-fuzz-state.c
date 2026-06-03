@@ -9,13 +9,15 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -132,6 +134,9 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->ijon_input_len = 0;
   afl->is_doing_ijon = 0;
 
+  afl->perm = DEFAULT_PERMISSION;
+  afl->dir_perm = DEFAULT_DIRS_PERMISSION;
+
   afl->fsrv.use_stdin = 1;
   afl->fsrv.map_size = map_size;
   // afl_state_t is not available in forkserver.c
@@ -152,6 +157,9 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->havoc_prof =
       (struct havoc_profile *)ck_alloc(sizeof(struct havoc_profile));
 
+  /* 10% FrameShift overhead default */
+  afl->afl_env.afl_frameshift_max_overhead = 0.10;
+
   init_mopt_globals(afl);
 
   list_append(&afl_states, afl);
@@ -165,6 +173,13 @@ void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
   afl->virgin_crash = ck_realloc(afl->virgin_crash, new_size);
   afl->var_bytes = ck_realloc(afl->var_bytes, new_size);
   afl->top_rated = ck_realloc(afl->top_rated, new_size * sizeof(void *));
+  if (afl->cycle_schedules && afl->top_rated_candidates) {
+
+    afl->top_rated_candidates =
+        ck_realloc(afl->top_rated_candidates, new_size * sizeof(u32 *));
+
+  }
+
   afl->clean_trace = ck_realloc(afl->clean_trace, new_size);
   afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, new_size);
   afl->first_trace = ck_realloc(afl->first_trace, new_size);
@@ -176,6 +191,13 @@ void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
 
     memset(afl->var_bytes + old_size, 0, size_diff);
     memset(afl->top_rated + old_size, 0, size_diff * sizeof(void *));
+    if (afl->cycle_schedules && afl->top_rated_candidates) {
+
+      memset(afl->top_rated_candidates + old_size, 0,
+             size_diff * sizeof(u32 *));
+
+    }
+
     memset(afl->clean_trace + old_size, 0, size_diff);
     memset(afl->clean_trace_custom + old_size, 0, size_diff);
     memset(afl->first_trace + old_size, 0, size_diff);
@@ -326,6 +348,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_no_fastresume =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_FORCE_FASTRESUME",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_force_fastresume =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_ONLY",
@@ -587,15 +616,14 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
                               afl_environment_variable_len)) {
 
-            afl->afl_env.afl_statsd_tags_flavor =
-                (u8 *)get_afl_env(afl_environment_variables[i]);
+            // handled elsewhere
 
           } else if (!strncmp(env, "AFL_NO_COLOUR",
 
                               afl_environment_variable_len)) {
 
-            afl->afl_env.afl_statsd_tags_flavor =
-                (u8 *)get_afl_env(afl_environment_variables[i]);
+            // handled elsewhere
+
 #endif
 
           } else if (!strncmp(env, "AFL_KILL_SIGNAL",
@@ -788,6 +816,41 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             }
 
+          } else if (!strncmp(env, "AFL_FRAMESHIFT_DISABLE",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_frameshift_disabled =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_FRAMESHIFT_MAX_OVERHEAD",
+
+                              afl_environment_variable_len)) {
+
+            char *val = (char *)get_afl_env(afl_environment_variables[i]);
+
+            char  *endptr = NULL;
+            double ov = strtod(val, &endptr);
+            if (endptr == val || *endptr != '\0') {
+
+              WARNF(
+                  "Invalid value given to AFL_FRAMESHIFT_MAX_OVERHEAD "
+                  "'%s' - keeping default %.2f",
+                  val, afl->afl_env.afl_frameshift_max_overhead);
+
+            } else if (ov < 0.0 || ov > 1.0) {
+
+              WARNF(
+                  "AFL_FRAMESHIFT_MAX_OVERHEAD value out of range [0.0,1.0], "
+                  "keeping default %.2f",
+                  afl->afl_env.afl_frameshift_max_overhead);
+
+            } else {
+
+              afl->afl_env.afl_frameshift_max_overhead = ov;
+
+            }
+
           }
 
         } else {
@@ -895,8 +958,13 @@ void afl_state_deinit(afl_state_t *afl) {
   afl_free(afl->in_buf);
   afl_free(afl->in_scratch_buf);
   afl_free(afl->ex_buf);
-  afl_free(afl->alias_table);
-  afl_free(afl->alias_probability);
+  free(afl->alias_table);
+  free(afl->alias_probability);
+  free(afl->splice_buf_ids);
+  if (afl->testcase_buf) { afl_free(afl->testcase_buf); }
+  if (afl->splicecase_buf) { afl_free(afl->splicecase_buf); }
+
+  if (afl->fsrv.use_ijon) { afl_free(afl->ijon_input_data); }
 
   ck_free(afl->virgin_bits);
   ck_free(afl->virgin_tmout);
@@ -914,12 +982,6 @@ void afl_state_deinit(afl_state_t *afl) {
     destroy_ijon_min_state((ijon_min_state *)afl->ijon_state);
     afl->ijon_state = NULL;
     afl->ijon_bits = NULL;
-    if (afl->ijon_input_data) {
-
-      ck_free(afl->ijon_input_data);
-      afl->ijon_input_data = NULL;
-
-    }
 
     if (afl->ijon_shared_access) {
 

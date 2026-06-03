@@ -8,6 +8,8 @@
  * You may obtain a copy of the License at
  *
  *     https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
 #include <list>
 #include <string>
 #include <fstream>
@@ -29,14 +30,16 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include "llvm/Passes/PassPlugin.h"
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/OptimizationLevel.h"
-
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/DebugInfo.h"
@@ -617,7 +620,10 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
   s_op1 = IRB.CreateBinOp(Instruction::LShr, op1,
                           ConstantInt::get(OldIntType, bitw / 2));
   op1_high = IRB.CreateTruncOrBitCast(s_op1, NewIntType);
-  icmp_high = cast<CmpInst>(IRB.CreateICmp(pred, op0_high, op1_high));
+  icmp_high = dyn_cast<CmpInst>(IRB.CreateICmp(pred, op0_high, op1_high));
+  release_assert(icmp_high,
+                 "CreateICmp returned a non-Instruction. "
+                 "Support for this case must be added.");
 
   PHINode *PN = nullptr;
 
@@ -638,7 +644,10 @@ bool SplitComparesTransform::splitCompare(CmpInst *cmp_inst, Module &M,
 
       op0_low = Builder.CreateTrunc(op0, NewIntType);
       op1_low = Builder.CreateTrunc(op1, NewIntType);
-      icmp_low = cast<CmpInst>(Builder.CreateICmp(pred, op0_low, op1_low));
+      icmp_low = dyn_cast<CmpInst>(Builder.CreateICmp(pred, op0_low, op1_low));
+      release_assert(icmp_low,
+                     "CreateICmp returned a non-Instruction. "
+                     "Support for this case must be added.");
 
       BranchInst::Create(end_bb, cmp_low_bb);
 

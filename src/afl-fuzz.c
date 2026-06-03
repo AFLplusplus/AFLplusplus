@@ -10,13 +10,15 @@
                      Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -43,13 +45,27 @@
 #endif
 #ifdef HAVE_ZLIB
 
-  #define ck_gzread(fd, buf, len, fn)                            \
-    do {                                                         \
-                                                                 \
-      s32 _len = (s32)(len);                                     \
-      s32 _res = gzread(fd, buf, _len);                          \
-      if (_res != _len) RPFATAL(_res, "Short read from %s", fn); \
-                                                                 \
+  #define ck_gzread(fd, buf, len, fn)                                       \
+    do {                                                                    \
+                                                                            \
+      s32 _len = (s32)(len);                                                \
+      s32 _res = gzread(fd, buf, _len);                                     \
+      if (_res != _len) {                                                   \
+                                                                            \
+        if (afl->afl_env.afl_force_fastresume) {                            \
+                                                                            \
+          FATAL(                                                            \
+              "cannot force loading fastresume.bin due different coverage " \
+              "map sizes");                                                 \
+                                                                            \
+        } else {                                                            \
+                                                                            \
+          RPFATAL(_res, "Short read from %s", fn);                          \
+                                                                            \
+        }                                                                   \
+                                                                            \
+      }                                                                     \
+                                                                            \
     } while (0)
 
   #define ck_gzwrite(fd, buf, len, fn)                                    \
@@ -121,6 +137,7 @@ static void at_exit() {
   ptr = getenv("__AFL_TARGET_PID2");
   if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) {
 
+    /* cmplog fsrv (pid2) was not deinit'ed, so using getpgid(pid2) is fine. */
     pgrp = getpgid(pid2);
     if (pgrp > 0) { killpg(pgrp, SIGTERM); }
     kill(pid2, SIGTERM);
@@ -130,8 +147,9 @@ static void at_exit() {
   ptr = getenv("__AFL_TARGET_PID1");
   if (ptr && *ptr && (pid1 = atoi(ptr)) > 0) {
 
-    pgrp = getpgid(pid1);
-    if (pgrp > 0) { killpg(pgrp, SIGTERM); }
+    /* forkserver (pid1) was deinit'ed by afl_fsrv_deinit,
+     so getpgid(pid1) would fail; use pid1 directly as pgid. */
+    killpg(pid1, SIGTERM);
     kill(pid1, SIGTERM);
 
   }
@@ -167,8 +185,7 @@ static void at_exit() {
 
   if (pid1 > 0) {
 
-    pgrp = getpgid(pid1);
-    if (pgrp > 0) { killpg(pgrp, kill_signal); }
+    killpg(pid1, kill_signal);
     kill(pid1, kill_signal);
 
   }
@@ -180,6 +197,69 @@ static void at_exit() {
     kill(pid2, kill_signal);
 
   }
+
+}
+
+/* Targets compiled with AFL_LLVM_BUG_* append a 64 KiB bug map at the
+   END of the shared trace_bits region.  Subtract it from map_size so
+   coverage code doesn't treat it as edges.  Call BEFORE
+   configure_ijon_runtime: with the bug map as the trailing tail, the
+   layout when both are active is [cov | IJON_MAP | IJON_BYTES | BUG] —
+   trimming BUG first leaves IJON at the new tail, and IJON's own
+   trim then addresses ijon_bits at the correct offset. */
+static void configure_bug_runtime(afl_state_t *afl) {
+
+  if (afl->fsrv.map_size <= 4 + MAP_SIZE_BUG_BYTES) {
+
+    FATAL("target forkserver reports too small map for bug-pass - BUG!");
+
+  }
+
+  afl->fsrv.map_size -= MAP_SIZE_BUG_BYTES;
+  afl->fsrv.real_map_size -= MAP_SIZE_BUG_BYTES;
+  if (!afl->non_instrumented_mode && afl->debug) {
+
+    ACTF("Bug-pass map detected; subtracted %u bytes from coverage region.",
+         (u32)MAP_SIZE_BUG_BYTES);
+
+  }
+
+}
+
+static void configure_ijon_runtime(afl_state_t *afl) {
+
+#ifdef __linux__
+  if (afl->fsrv.nyx_mode) {
+
+    FATAL(
+        "IJON mode is not compatible with nyx mode (-X/-Y). Nyx uses full "
+        "system emulation with different memory management.");
+
+  }
+
+#endif
+
+  if (afl->fsrv.map_size <= 4 + MAP_SIZE_IJON_BYTES + MAP_SIZE_IJON_MAP) {
+
+    FATAL("target forkserver reports too small map for IJON - BUG!");
+
+  }
+
+  afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
+  afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES;
+
+  afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + afl->fsrv.map_size);
+
+  if (afl->ijon_shared_access) {
+
+    cleanup_dynamic_shared_access(afl->ijon_shared_access);
+
+  }
+
+  afl->ijon_shared_access = setup_dynamic_shared_access(
+      afl->fsrv.trace_bits, afl->fsrv.map_size, afl->fsrv.real_map_size);
+
+  afl_ijon_retire_max = getenv("AFL_IJON_RETIRE_MAX") != NULL;
 
 }
 
@@ -229,6 +309,9 @@ static void usage(u8 *argv0, int more_help) {
       "  -X            - use VM fuzzing (NYX mode - standalone mode)\n"
       "  -Y            - use VM fuzzing (NYX mode - multiple instances mode)\n"
 #endif
+#if defined(__linux__)
+      "  -K dir        - use python script to interact with GUI (GUI mode)\n"
+#endif
       "\n"
 
       "Mutator settings:\n"
@@ -255,7 +338,10 @@ static void usage(u8 *argv0, int more_help) {
       "files,\n"
       "                  A=arithmetic solving, T=transformational solving,\n"
       "                  X=extreme transform solving, R=random colorization "
-      "bytes.\n\n"
+      "bytes,\n"
+      "                  M=tightness scheduling (favour barely-passed cmps),\n"
+      "                  Z=size-derive mining (compile target with "
+      "AFL_LLVM_BUG_ALLOCSIZE_DERIVE).\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z             - sequential queue selection instead of weighted "
       "random\n"
@@ -288,8 +374,9 @@ static void usage(u8 *argv0, int more_help) {
       "  -z            - skip the enhanced deterministic fuzzing\n"
       "                  (note that the old -d and -D flags are ignored.)\n"
       "  -T text       - text banner to show on the screen\n"
-      "  -I command    - execute this command/script when a new crash is "
-      "found\n"
+      "  -I command    - execute this command when a new crash is found, the "
+      "crash\n"
+      "                  file path is passed as argument\n"
       //"  -B bitmap.txt - mutate a specific test case, use the
       // out/default/fuzz_bitmap file\n"
       "  -C            - crash exploration mode (the peruvian rabbit thing)\n"
@@ -325,6 +412,7 @@ static void usage(u8 *argv0, int more_help) {
       "              (must contain abort_on_error=1 and symbolize=0)\n"
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
+      "AFL_ALLOW_CORES: allow creating core files of target crashes\n"
       "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
       "AFL_BENCH_JUST_ONE: run the target just once\n"
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
@@ -346,6 +434,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in ms)\n"
+      "AFL_FRAMESHIFT_DISABLE: disable FRAMESHIFT algorithm\n"
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected\n"
@@ -357,6 +446,8 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
+      "AFL_INPUT_PLACEHOLDER: custom placeholder string for input file arguments (default: @@)\n"
+      "                      use this when @@ conflicts with your target program's arguments\n"
       "AFL_PIZZA_MODE: 1 - enforce pizza mode, -1 - disable for April 1st,\n"
       "                0 (default) - activate on April 1st\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc.\n"
@@ -387,6 +478,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NYX_REUSE_SNAPSHOT: reuse an existing Nyx root snapshot\n"
       DYN_COLOR
 
+      "AFL_OLD_CHILD_SYNC: use file descriptor persistent-mode synchronization\n"
+      "                    instead of the default shared memory + futex path\n"
+      "                    (Linux only)\n"
       "AFL_PATH: path to AFL support binaries\n"
       "AFL_PYTHON_MODULE: mutate and trim inputs with the specified Python module\n"
       "AFL_QUIET: suppress forkserver status messages\n"
@@ -406,6 +500,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_STATSD_PORT: change default statsd port (default: 8125)\n"
       "AFL_STATSD_TAGS_FLAVOR: set statsd tags format (default: disable tags)\n"
       "                        supported formats: dogstatsd, librato, signalfx, influxdb\n"
+      "AFL_FORCE_FASTRESUME: force loading a fast resume file even if the target changed.\n"
       "AFL_NO_FASTRESUME: do not read or write a fast resume file\n"
       "AFL_NO_SYNC: disables all syncing\n"
       "AFL_SYNC_TIME: sync time between fuzzing instances (in minutes)\n"
@@ -546,74 +641,60 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
 }
 
-/* Main entry point */
+/* Throttle syncs by `sync_time` and `sync_interval_cnt`. Pass NULL for
+   sync_interval_cnt to only limit by sync_time. Main node sync time is half of
+   secondary nodes, and a third of SYNC_INTERVAL
+ */
+void maybe_sync_fuzzers(afl_state_t *afl, u64 cur_time,
+                        u32 *sync_interval_cnt) {
 
-int main(int argc, char **argv_orig, char **envp) {
+  u64 sync_time = afl->is_main_node ? afl->sync_time >> 1 : afl->sync_time;
 
-  s32 opt, auto_sync = 0 /*, user_set_cache = 0*/;
-  u64 prev_queued = 0;
-  u32 sync_interval_cnt = 0, seek_to = 0, show_help = 0, default_output = 1,
-      map_size = get_map_size();
-  u8 *extras_dir[4];
-  u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
-     extras_dir_cnt = 0 /*, have_p = 0*/;
-  char  *afl_preload;
-  char  *san_abstraction;
-  char  *frida_afl_preload = NULL;
-  char **use_argv;
+  if (unlikely(cur_time > sync_time + afl->last_sync_time)) {
 
-  struct timeval  tv;
-  struct timezone tz;
+    u32 sync_interval = afl->is_main_node ? SYNC_INTERVAL / 3 : SYNC_INTERVAL;
 
-  doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
+    if (NULL == sync_interval_cnt ||
+        !((*sync_interval_cnt)++ % sync_interval)) {
 
-  if (argc > 1 && strcmp(argv_orig[1], "--version") == 0) {
-
-    printf("afl-fuzz" VERSION "\n");
-    exit(0);
-
-  }
-
-  if (argc > 1 && (strcmp(argv_orig[1], "--help") == 0 ||
-                   strncmp(argv_orig[1], "-h", 2) == 0)) {
-
-    if (argc == 2 && (strcmp(argv_orig[1], "--help") == 0 ||
-                      strcmp(argv_orig[1], "-h") == 0)) {
-
-      usage(argv_orig[0], 1);
-
-    } else {
-
-      usage(argv_orig[0], 2);
+      sync_fuzzers(afl);
 
     }
 
-    exit(0);
-
   }
 
-  #if defined USE_COLOR && defined ALWAYS_COLORED
-  if (getenv("AFL_NO_COLOR") || getenv("AFL_NO_COLOUR")) {
+}
 
-    WARNF(
-        "Setting AFL_NO_COLOR has no effect (colors are configured on at "
-        "compile time)");
+afl_state_t *afl_init(void) {
 
-  }
-
-  #endif
-
-  char **argv = argv_cpy_dup(argc, argv_orig);
+  u8 debug = 0;
 
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   if (!afl) { FATAL("Could not create afl state"); }
 
+  afl->map_size = get_map_size();
+  afl->default_output = 1;
+
   if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
 
-  afl_state_init(afl, map_size);
+  afl_state_init(afl, afl->map_size);
   afl->debug = debug;
   afl_fsrv_init(&afl->fsrv);
   if (debug) { afl->fsrv.debug = true; }
+
+  afl->runs_in_current_cycle = (u32)-1;
+  #ifndef HAVE_ZLIB
+  afl->fr_fd = -1;
+  #endif
+  return afl;
+
+}
+
+void afl_parse_env(afl_state_t *afl, char **envp) {
+
+  struct timeval  tv;
+  struct timezone tz;
+
   read_afl_environment(afl, envp);
   if (afl->shm.map_size) { afl->fsrv.map_size = afl->shm.map_size; }
 
@@ -659,21 +740,84 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  exit_1 = !!afl->afl_env.afl_bench_just_one;
+  afl->exit_1 = !!afl->afl_env.afl_bench_just_one;
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a large online community\n");
+  SAYF(cGRN
+       "Licensed under AGPL-3.0-or-later. A (good cause donation) commercial "
+       "license is\n"
+       "available to companies that do not want to use the AGPL, see "
+       "LICENSE.COMMERCIAL.\n" cRST);
 
   gettimeofday(&tv, &tz);
   rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
-  // still available: HjJkKqrv
-  while (
-      (opt = getopt(argc, argv,
-                    "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
-                    "uUV:w:WXx:YzZ")) > 0) {
+}
+
+/* Main entry point */
+
+// handle --version / -h / --help before any setup, so they print cleanly
+void afl_handle_version_help(int argc, char **argv) {
+
+  doc_path = access(DOC_PATH, F_OK) != 0 ? (u8 *)"docs" : (u8 *)DOC_PATH;
+
+  if (argc > 1 && strcmp(argv[1], "--version") == 0) {
+
+    printf("afl-fuzz" VERSION "\n");
+    exit(0);
+
+  }
+
+  if (argc > 1 &&
+      (strcmp(argv[1], "--help") == 0 || strncmp(argv[1], "-h", 2) == 0)) {
+
+    if (argc == 2 &&
+        (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+
+      usage(argv[0], 1);
+
+    } else {
+
+      usage(argv[0], 2);
+
+    }
+
+    exit(0);
+
+  }
+
+}
+
+void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
+
+  s32 opt /*, user_set_cache = 0*/;
+  u32 show_help = 0;
+  u8  mem_limit_given = 0;
+
+  #if defined USE_COLOR && defined ALWAYS_COLORED
+  if (getenv("AFL_NO_COLOR") || getenv("AFL_NO_COLOUR")) {
+
+    WARNF(
+        "Setting AFL_NO_COLOR has no effect (colors are configured on at "
+        "compile time)");
+
+  }
+
+  #endif
+
+  char **argv_dup = argv_cpy_dup(argc, argv);
+  argv = argv_dup;
+  afl->argv_cpy = argv_dup;
+  afl->argc_cpy = argc;
+
+  // still available: HjJkqrv
+  while ((opt = getopt(
+              argc, argv,
+              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
+              "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
 
@@ -773,7 +917,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (afl->cpu_to_bind != -1) FATAL("Multiple -b options not supported");
 
-        if (sscanf(optarg, "%d", &afl->cpu_to_bind) < 0) {
+        if (sscanf(optarg, "%d", &afl->cpu_to_bind) != 1) {
 
           FATAL("Bad syntax used for -b");
 
@@ -934,6 +1078,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        if (strlen(optarg) > SYNC_ID_MAX_LEN) {
+
+          FATAL("maximum -S/-M name length exceeded");
+
+        }
+
         afl->sync_id = ck_strdup(optarg);
         afl->old_seed_selection = 1;  // force old queue walking seed selection
         afl->disable_trim = 1;        // disable trimming
@@ -986,6 +1136,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        if (strlen(optarg) > SYNC_ID_MAX_LEN) {
+
+          FATAL("maximal -S/-M name is %u characters",
+                (unsigned)SYNC_ID_MAX_LEN);
+
+        }
+
         afl->sync_id = ck_strdup(optarg);
         afl->is_secondary_node = 1;
         break;
@@ -1028,18 +1185,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
         afl->fsrv.out_file = ck_strdup(optarg);
         afl->fsrv.use_stdin = 0;
-        default_output = 0;
+        afl->default_output = 0;
         break;
 
       case 'x':                                               /* dictionary */
 
-        if (extras_dir_cnt >= 4) {
+        if (afl->extras_dir_cnt >= 4) {
 
           FATAL("More than four -x options are not supported");
 
         }
 
-        extras_dir[extras_dir_cnt++] = optarg;
+        afl->extras_dir[afl->extras_dir_cnt++] = optarg;
         break;
 
       case 't': {                                                /* timeout */
@@ -1368,6 +1525,14 @@ int main(int argc, char **argv_orig, char **envp) {
             case 'R':
               afl->cmplog_random_colorization = 1;
               break;
+            case 'm':
+            case 'M':
+              afl->cmplog_tightness = 1;
+              break;
+            case 'z':
+            case 'Z':
+              afl->cmplog_size_derive = 1;
+              break;
             default:
               FATAL("Unknown option value '%c' in -l %s", *c, optarg);
 
@@ -1544,6 +1709,31 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
+  #ifdef __linux__
+      case 'K':                                                 /* GUI mode */
+        if (afl->fsrv.gui_mode) { FATAL("Multiple -K options not supported"); }
+        if (!optarg || optarg[0] == '-') {
+
+          FATAL(
+              "No directory provided for GUI interaction script. "
+              "Use custom_mutators/guifuzz/guifuzz_clicks.py");
+
+        } else {
+
+          afl->fsrv.gui_python_dir = ck_strdup(optarg);
+          afl->fsrv.gui_mode = 1;
+
+        }
+
+        break;
+
+  #else
+      case 'K':
+        FATAL("GUI mode is only available on linux...");
+        break;
+
+  #endif
+
       default:
         if (!show_help) { show_help = 1; }
 
@@ -1642,14 +1832,19 @@ int main(int argc, char **argv_orig, char **envp) {
           ? SIGKILL
           : SIGTERM);
 
-  setup_signal_handlers();
+}
+
+void afl_check_environment(afl_state_t *afl) {
+
+  char *afl_preload;
+
   check_asan_opts(afl);
 
   afl->power_name = power_names[afl->schedule];
 
   if (!afl->non_instrumented_mode && !afl->sync_id) {
 
-    auto_sync = 1;
+    afl->auto_sync = 1;
     afl->sync_id = ck_strdup("default");
     afl->is_secondary_node = 1;
     OKF("No -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
@@ -1740,20 +1935,39 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (unlikely(afl->afl_env.afl_statsd)) { statsd_setup_format(afl); }
 
-  if (!afl->use_banner) { afl->use_banner = argv[optind]; }
+  if (!afl->use_banner) { afl->use_banner = afl->argv_cpy[optind]; }
 
   if (afl->shm.cmplog_mode && strcmp("0", afl->cmplog_binary) == 0) {
 
-    afl->cmplog_binary = strdup(argv[optind]);
+    ck_free(afl->cmplog_binary);
+    afl->cmplog_binary = ck_strdup(afl->argv_cpy[optind]);
 
   }
 
-  if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
+  /* -l -M / -l -Z are CmpLog-only features; without a CmpLog binary they
+     would silently no-op.  Mirror the existing -l Z FATAL check. */
+  if (afl->cmplog_tightness && !afl->shm.cmplog_mode) {
+
+    FATAL(
+        "-l with 'm' selector (predicate-tightness scheduling) requires "
+        "CmpLog enabled. Pass -c <cmplog-target> as well.");
+
+  }
+
+  if (afl->cmplog_size_derive && !afl->shm.cmplog_mode) {
+
+    FATAL(
+        "-l with 'z' selector (size-derive logging) requires CmpLog enabled. "
+        "Pass -c <cmplog-target> as well.");
+
+  }
+
+  if (strchr(afl->argv_cpy[optind], '/') == NULL && !afl->unicorn_mode) {
 
     WARNF(cLRD
           "Target binary called without a prefixed path, make sure you are "
           "fuzzing the right binary: " cRST "%s",
-          argv[optind]);
+          afl->argv_cpy[optind]);
 
   }
 
@@ -1805,23 +2019,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->cycle_schedules) {
 
-    afl->top_rated_candidates = ck_alloc(map_size * sizeof(u32 *));
-
-  }
-
-  if (afl->san_binary_length) {
-
-    if (afl->san_abstraction == UNIQUE_TRACE) {
-
-      afl->n_fuzz_dup = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
-
-    }
-
-    if (afl->san_abstraction == SIMPLIFY_TRACE) {
-
-      afl->simplified_n_fuzz = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
-
-    }
+    afl->top_rated_candidates = ck_alloc(afl->map_size * sizeof(u32 *));
 
   }
 
@@ -1970,6 +2168,24 @@ int main(int argc, char **argv_orig, char **envp) {
 
   OKF("Generating fuzz data with a length of min=%u max=%u", afl->min_length,
       afl->max_length);
+
+  if (afl->afl_env.afl_custom_mutator_only) {
+
+    afl->afl_env.afl_frameshift_disabled = 1;
+
+  }
+
+  if (afl->afl_env.afl_frameshift_disabled) {
+
+    OKF("FrameShift status: disabled");
+
+  } else {
+
+    OKF("FrameShift status: enabled (%.0f%% overhead configured)",
+        afl->afl_env.afl_frameshift_max_overhead * 100);
+
+  }
+
   u32 min_alloc = MAX(64U, afl->min_length);
   afl_realloc(AFL_BUF_PARAM(in_scratch), min_alloc);
   afl_realloc(AFL_BUF_PARAM(in), min_alloc);
@@ -1977,6 +2193,11 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_realloc(AFL_BUF_PARAM(out), min_alloc);
   afl_realloc(AFL_BUF_PARAM(eff), min_alloc);
   afl_realloc(AFL_BUF_PARAM(ex), min_alloc);
+  if (afl->fsrv.use_ijon) {
+
+    afl_realloc((void **)&afl->ijon_input_data, min_alloc);
+
+  }
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
   afl->fsrv.max_length = afl->max_length;
@@ -1989,7 +2210,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
-    u8 *libnyx_binary = find_afl_binary(argv[0], "libnyx.so");
+    u8 *libnyx_binary = find_afl_binary(afl->argv_cpy[0], "libnyx.so");
     afl->fsrv.nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
     if (afl->fsrv.nyx_handlers == NULL) {
 
@@ -2025,7 +2246,8 @@ int main(int argc, char **argv_orig, char **envp) {
     } else if (afl->fsrv.frida_mode) {
 
       afl_preload = getenv("AFL_PRELOAD");
-      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      u8 *frida_binary =
+          find_afl_binary(afl->argv_cpy[0], "afl-frida-trace.so");
       OKF("Injecting %s ...", frida_binary);
       if (afl_preload) {
 
@@ -2048,15 +2270,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+        u8 *frida_binary =
+            find_afl_binary(afl->argv_cpy[0], "afl-frida-trace.so");
         OKF("Injecting %s ...", frida_binary);
-        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
+        afl->frida_afl_preload =
+            alloc_printf("%s:%s", afl_preload, frida_binary);
 
         ck_free(frida_binary);
 
-        setenv("LD_PRELOAD", frida_afl_preload, 1);
+        setenv("LD_PRELOAD", afl->frida_afl_preload, 1);
   #ifdef __APPLE__
-        setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
+        setenv("DYLD_INSERT_LIBRARIES", afl->frida_afl_preload, 1);
   #endif
 
       }
@@ -2083,7 +2307,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     } else {
 
-      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
+      u8 *frida_binary =
+          find_afl_binary(afl->argv_cpy[0], "afl-frida-trace.so");
       OKF("Injecting %s ...", frida_binary);
       setenv("LD_PRELOAD", frida_binary, 1);
   #ifdef __APPLE__
@@ -2108,13 +2333,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  save_cmdline(afl, argc, argv);
+  save_cmdline(afl, afl->argc_cpy, afl->argv_cpy);
   check_if_tty(afl);
   if (afl->afl_env.afl_force_ui) { afl->not_on_tty = 0; }
 
   get_core_count(afl);
 
   atexit(at_exit);
+
+}
+
+void afl_setup_environment(afl_state_t *afl) {
 
   setup_dirs_fds(afl);
 
@@ -2152,7 +2381,7 @@ int main(int argc, char **argv_orig, char **envp) {
     WARNF("it is wasteful to run more than one main node!");
     sleep(1);
 
-  } else if (!auto_sync && afl->is_secondary_node &&
+  } else if (!afl->auto_sync && afl->is_secondary_node &&
 
              check_main_node_exists(afl) == 0) {
 
@@ -2171,7 +2400,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!getenv("AFL_CUSTOM_INFO_PROGRAM")) {
 
-    setenv("AFL_CUSTOM_INFO_PROGRAM", argv[optind], 1);
+    setenv("AFL_CUSTOM_INFO_PROGRAM", afl->argv_cpy[optind], 1);
 
   }
 
@@ -2184,25 +2413,26 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!getenv("AFL_CUSTOM_INFO_PROGRAM_ARGV")) {
 
     u8 envbuf[8096] = "", tmpbuf[8096] = "";
-    for (s32 i = optind + 1; i < argc; ++i) {
+    for (s32 i = optind + 1; i < afl->argc_cpy; ++i) {
 
       strcpy(tmpbuf, envbuf);
-      if (strchr(argv[i], ' ') && !strchr(argv[i], '"') &&
-          !strchr(argv[i], '\'')) {
+      if (strchr(afl->argv_cpy[i], ' ') && !strchr(afl->argv_cpy[i], '"') &&
+          !strchr(afl->argv_cpy[i], '\'')) {
 
-        if (!strchr(argv[i], '\'')) {
+        if (!strchr(afl->argv_cpy[i], '\'')) {
 
-          snprintf(envbuf, sizeof(tmpbuf), "%s '%s'", tmpbuf, argv[i]);
+          snprintf(envbuf, sizeof(tmpbuf), "%s '%s'", tmpbuf, afl->argv_cpy[i]);
 
         } else {
 
-          snprintf(envbuf, sizeof(tmpbuf), "%s \"%s\"", tmpbuf, argv[i]);
+          snprintf(envbuf, sizeof(tmpbuf), "%s \"%s\"", tmpbuf,
+                   afl->argv_cpy[i]);
 
         }
 
       } else {
 
-        snprintf(envbuf, sizeof(tmpbuf), "%s %s", tmpbuf, argv[i]);
+        snprintf(envbuf, sizeof(tmpbuf), "%s %s", tmpbuf, afl->argv_cpy[i]);
 
       }
 
@@ -2306,7 +2536,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  setup_cmdline_file(afl, argv + optind);
+  setup_cmdline_file(afl, afl->argv_cpy + optind);
 
   // Let's check SAND sanitizers binaries a bit earlier
   // so that we won't overwrite target_path.
@@ -2317,18 +2547,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  check_binary(afl, argv[optind]);
+  check_binary(afl, afl->argv_cpy[optind]);
 
   u64 prev_target_hash = 0;
-  s32 fast_resume = 0;
-  u8  is_ijon_fastresume = 0;
-  #ifdef HAVE_ZLIB
-  gzFile fr_fd = NULL;
-  #else
-  s32 fr_fd = -1;
-  #endif
 
-  if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
+  if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume &&
+      !afl->afl_env.afl_force_fastresume) {
 
     u8 fn[PATH_MAX], buf[32];
     snprintf(fn, PATH_MAX, "%s/target_hash", afl->out_dir);
@@ -2347,40 +2571,48 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  write_setup_file(afl, argc, argv);
+  write_setup_file(afl, afl->argc_cpy, afl->argv_cpy);
 
   if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
 
-  #ifdef __linux__
     u64 target_hash = 0;
-    if (afl->fsrv.nyx_mode) {
 
-      nyx_load_target_hash(&afl->fsrv);
-      target_hash = afl->fsrv.nyx_target_hash64;
+    if (!afl->afl_env.afl_force_fastresume) {
 
-    } else {
+  #ifdef __linux__
+      if (afl->fsrv.nyx_mode) {
 
+        nyx_load_target_hash(&afl->fsrv);
+        target_hash = afl->fsrv.nyx_target_hash64;
+
+      } else {
+
+        target_hash = get_binary_hash(afl->fsrv.target_path);
+
+      }
+
+  #else
       target_hash = get_binary_hash(afl->fsrv.target_path);
+  #endif
 
     }
 
-  #else
-    u64 target_hash = get_binary_hash(afl->fsrv.target_path);
-  #endif
+    if ((!target_hash || prev_target_hash != target_hash) &&
+        !afl->afl_env.afl_force_fastresume) {
 
-    if (!target_hash || prev_target_hash != target_hash) {
-
-      ACTF("Target binary is different, cannot perform FAST RESUME!");
+      ACTF(
+          "Target binary is different, cannot perform FAST RESUME! You can set "
+          "'AFL_FORCE_FASTRESUME=1' to override this next time.");
 
     } else {
 
       u8 fn[PATH_MAX];
       snprintf(fn, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
   #ifdef HAVE_ZLIB
-      if ((fr_fd = ZLIBOPEN(fn, "rb")) != NULL) {
+      if ((afl->fr_fd = ZLIBOPEN(fn, "rb")) != NULL) {
 
   #else
-      if (likely((fr_fd = open(fn, O_RDONLY)) >= 0)) {
+      if (likely((afl->fr_fd = open(fn, O_RDONLY)) >= 0)) {
 
   #endif
 
@@ -2393,7 +2625,7 @@ int main(int argc, char **argv_orig, char **envp) {
         u64 expect_ver_with_ijon =
             expect_ver_no_ijon + sizeof(u32) + sizeof(ijon_fastresume_state_t);
 
-        if (NZLIBREAD(fr_fd, ver_string, sizeof(ver_string)) !=
+        if (NZLIBREAD(afl->fr_fd, ver_string, sizeof(ver_string)) !=
             sizeof(ver_string)) {
 
           WARNF("Empty fastresume.bin, ignoring, cannot perform FAST RESUME");
@@ -2409,10 +2641,10 @@ int main(int argc, char **argv_orig, char **envp) {
           } else {
 
             OKF("Will perform FAST RESUME");
-            fast_resume = 1;
+            afl->fast_resume = 1;
 
             /* Detect if this is an IJON fastresume file */
-            is_ijon_fastresume = (*ver == expect_ver_with_ijon);
+            afl->is_ijon_fastresume = (*ver == expect_ver_with_ijon);
 
           }
 
@@ -2474,15 +2706,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!afl->fsrv.out_file) {
 
-    u32 j = optind + 1;
-    while (argv[j]) {
+    char *placeholder = (char *)get_afl_env("AFL_INPUT_PLACEHOLDER");
+    if (!placeholder || !*placeholder) placeholder = (char *)"@@";
 
-      u8 *aa_loc = strstr(argv[j], "@@");
+    u32 j = optind + 1;
+    while (afl->argv_cpy[j]) {
+
+      char *aa_loc = strstr(afl->argv_cpy[j], placeholder);
 
       if (aa_loc && !afl->fsrv.out_file) {
 
         afl->fsrv.use_stdin = 0;
-        default_output = 0;
+        afl->default_output = 0;
 
         if (afl->file_extension) {
 
@@ -2495,7 +2730,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
-        detect_file_args(argv + optind + 1, afl->fsrv.out_file,
+        detect_file_args(afl->argv_cpy + optind + 1, afl->fsrv.out_file,
                          &afl->fsrv.use_stdin);
         break;
 
@@ -2542,36 +2777,45 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->start_time = get_cur_time();
 
+}
+
+/* Main entry point */
+
+void afl_alloc_shared_memory(afl_state_t *afl) {
+
+  char  *san_abstraction;
+  char **use_argv;
+
   if (afl->fsrv.qemu_mode) {
 
     if (afl->use_wine) {
 
-      use_argv = get_wine_argv(argv[0], &afl->fsrv.target_path, argc - optind,
-                               argv + optind);
+      use_argv = get_wine_argv(afl->argv_cpy[0], &afl->fsrv.target_path,
+                               afl->argc_cpy - optind, afl->argv_cpy + optind);
 
     } else {
 
-      use_argv = get_qemu_argv(argv[0], &afl->fsrv.target_path, argc - optind,
-                               argv + optind);
+      use_argv = get_qemu_argv(afl->argv_cpy[0], &afl->fsrv.target_path,
+                               afl->argc_cpy - optind, afl->argv_cpy + optind);
 
     }
 
   } else if (afl->fsrv.cs_mode) {
 
-    use_argv = get_cs_argv(argv[0], &afl->fsrv.target_path, argc - optind,
-                           argv + optind);
+    use_argv = get_cs_argv(afl->argv_cpy[0], &afl->fsrv.target_path,
+                           afl->argc_cpy - optind, afl->argv_cpy + optind);
 
   } else {
 
-    use_argv = argv + optind;
+    use_argv = afl->argv_cpy + optind;
 
   }
 
-  if (afl->non_instrumented_mode || afl->fsrv.qemu_mode ||
-      afl->fsrv.frida_mode || afl->fsrv.cs_mode || afl->unicorn_mode) {
+  if (afl->non_instrumented_mode || afl->fsrv.frida_mode || afl->fsrv.cs_mode ||
+      afl->unicorn_mode) {
 
-    map_size = afl->fsrv.real_map_size = afl->fsrv.map_size = MAP_SIZE;
-    afl_resize_map_buffers(afl, map_size, MAP_SIZE);
+    afl->map_size = afl->fsrv.real_map_size = afl->fsrv.map_size = MAP_SIZE;
+    afl_resize_map_buffers(afl, afl->map_size, MAP_SIZE);
 
   }
 
@@ -2581,11 +2825,22 @@ int main(int argc, char **argv_orig, char **envp) {
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
                    afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
 
-  if (!afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
-      !afl->unicorn_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
+  #ifdef __AFL_CODE_COVERAGE
+  // Initialize pcmap and modmap before any forkserver starts
+  if (getenv("AFL_DUMP_PC_MAP")) {
+
+    afl_pcmap_init(afl, afl->fsrv.map_size);
+    afl_modmap_init(afl);
+
+  }
+
+  #endif
+
+  if (!afl->non_instrumented_mode && !afl->unicorn_mode &&
+      !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
       !afl->afl_env.afl_skip_bin_check) {
 
-    if (map_size <= DEFAULT_SHMEM_SIZE) {
+    if (afl->map_size <= DEFAULT_SHMEM_SIZE) {
 
       afl->fsrv.map_size = DEFAULT_SHMEM_SIZE;  // dummy temporary value
       char vbuf[16];
@@ -2598,10 +2853,10 @@ int main(int argc, char **argv_orig, char **envp) {
         &afl->fsrv, afl->argv, &afl->stop_soon, afl->afl_env.afl_debug_child);
 
     // only reinitialize if the map needs to be larger than what we have.
-    if (map_size < new_map_size) {
+    if (afl->map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes", new_map_size);
-      afl_resize_map_buffers(afl, map_size, new_map_size);
+      afl_resize_map_buffers(afl, afl->map_size, new_map_size);
 
       afl_fsrv_kill(&afl->fsrv);
       afl_shm_deinit(&afl->shm);
@@ -2611,52 +2866,35 @@ int main(int argc, char **argv_orig, char **envp) {
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
+
+  #ifdef __AFL_CODE_COVERAGE
+      if (getenv("AFL_DUMP_PC_MAP")) { afl_pcmap_resize(afl, new_map_size); }
+  #endif
+
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
 
-      map_size = new_map_size;
+      afl->map_size = new_map_size;
 
     }
 
   }
 
+  /* Subtract bug-pass map (if any) BEFORE IJON.  Layout when both are
+     active is [cov | IJON_MAP | IJON_BYTES | BUG] — trim the trailing
+     BUG tail first, then IJON's own trim addresses ijon_bits at the
+     right offset.  See __afl_bug_append_map in afl-compiler-rt.o.c. */
+  if (unlikely(afl->fsrv.use_bug_map)) { configure_bug_runtime(afl); }
+
   /* Set up IJON state if enabled - MOVED here to use correct map size from
    * forkserver handshake */
   if (unlikely(afl->fsrv.use_ijon)) {
 
-  #ifdef __linux__
-    if (afl->fsrv.nyx_mode) {
-
-      FATAL(
-          "IJON mode is not compatible with nyx mode (-X/-Y). Nyx uses full "
-          "system emulation with different memory management.");
-
-    }
-
-  #endif
-
-    if (afl->fsrv.map_size <= 4 + MAP_SIZE_IJON_BYTES + MAP_SIZE_IJON_MAP) {
-
-      FATAL("target forkserver reports too small map for IJON - BUG!");
-
-    }
-
-    // For fastresume: target already has full map allocated, use it as-is
-    // For fresh sessions: subtract IJON bytes from total map to get coverage
-    // map size
-    if (!fast_resume) {
-
-      afl->fsrv.map_size -= MAP_SIZE_IJON_BYTES;
-      afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES;
-
-    }
+    configure_ijon_runtime(afl);
 
     OKF("IJON map: coverage bytes %u, ijon map bytes %u, ijon max size %u",
         (u32)(afl->fsrv.map_size - MAP_SIZE_IJON_MAP), (u32)MAP_SIZE_IJON_MAP,
         (u32)MAP_SIZE_IJON_BYTES);
-
-    /* Calculate IJON offset based on mode */
-    afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + afl->fsrv.map_size);
 
     char *max_dir = alloc_printf("%s/ijon_max", afl->out_dir);
     afl->ijon_state = new_ijon_min_state(max_dir);
@@ -2664,16 +2902,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
     setenv("AFL_NO_IJON", "1", 1);
 
-    // Initialize IJON shared access for dynamic offset calculation
-    afl->ijon_shared_access = setup_dynamic_shared_access(
-        afl->fsrv.trace_bits, afl->fsrv.map_size, afl->fsrv.real_map_size);
-
   }
 
   san_abstraction = getenv("AFL_SAN_ABSTRACTION");
   if (!san_abstraction || !strcmp(san_abstraction, "simplify_trace")) {
 
     afl->san_abstraction = SIMPLIFY_TRACE;
+    afl->simplified_n_fuzz = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
 
   } else if (!strcmp(san_abstraction, "coverage_increase")) {
 
@@ -2682,6 +2917,7 @@ int main(int argc, char **argv_orig, char **envp) {
   } else if (!strcmp(san_abstraction, "unique_trace")) {
 
     afl->san_abstraction = UNIQUE_TRACE;
+    afl->n_fuzz_dup = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
 
   } else {
 
@@ -2722,13 +2958,14 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->san_fsrvs[i].target_path = afl->san_binary[i];
       afl->san_fsrvs[i].init_child_func = sanfuzz_exec_child;
 
-      if ((map_size <= DEFAULT_SHMEM_SIZE ||
-           afl->san_fsrvs[i].map_size < map_size) &&
+      if ((afl->map_size <= DEFAULT_SHMEM_SIZE ||
+           afl->san_fsrvs[i].map_size < afl->map_size) &&
           !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
           !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
           !afl->afl_env.afl_skip_bin_check) {
 
-        afl->san_fsrvs[i].map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
+        afl->san_fsrvs[i].map_size =
+            MAX(afl->map_size, (u32)DEFAULT_SHMEM_SIZE);
         char vbuf[16];
         snprintf(vbuf, sizeof(vbuf), "%u", afl->san_fsrvs[i].map_size);
         setenv("AFL_MAP_SIZE", vbuf, 1);
@@ -2740,18 +2977,18 @@ int main(int argc, char **argv_orig, char **envp) {
                                afl->afl_env.afl_debug_child);
 
       // only reinitialize when it needs to be larger
-      if (map_size < new_map_size) {
+      if (afl->map_size < new_map_size) {
 
         OKF("Re-initializing maps to %u bytes due to SAN instrumented binary",
             new_map_size);
-        afl_resize_map_buffers(afl, map_size, new_map_size);
+        afl_resize_map_buffers(afl, afl->map_size, new_map_size);
 
         afl_fsrv_kill(&afl->fsrv);
         afl_fsrv_kill(&afl->san_fsrvs[i]);
         afl_shm_deinit(&afl->shm);
 
         afl->san_fsrvs[i].map_size = new_map_size;  // non-cmplog stays the same
-        map_size = new_map_size;
+        afl->map_size = new_map_size;
 
         setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
         afl->fsrv.trace_bits =
@@ -2788,16 +3025,17 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
+    afl->cmplog_fsrv.cmplog_size_derive_requested = afl->cmplog_size_derive;
     afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
-    if ((map_size <= DEFAULT_SHMEM_SIZE ||
-         afl->cmplog_fsrv.map_size < map_size) &&
+    if ((afl->map_size <= DEFAULT_SHMEM_SIZE ||
+         afl->cmplog_fsrv.map_size < afl->map_size) &&
         !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
         !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
         !afl->afl_env.afl_skip_bin_check) {
 
-      afl->cmplog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
+      afl->cmplog_fsrv.map_size = MAX(afl->map_size, (u32)DEFAULT_SHMEM_SIZE);
       char vbuf[16];
       snprintf(vbuf, sizeof(vbuf), "%u", afl->cmplog_fsrv.map_size);
       setenv("AFL_MAP_SIZE", vbuf, 1);
@@ -2809,23 +3047,28 @@ int main(int argc, char **argv_orig, char **envp) {
                              afl->afl_env.afl_debug_child);
 
     // only reinitialize when it needs to be larger
-    if (map_size < new_map_size) {
+    if (afl->map_size < new_map_size) {
 
       OKF("Re-initializing maps to %u bytes due cmplog", new_map_size);
-      afl_resize_map_buffers(afl, map_size, new_map_size);
+      afl_resize_map_buffers(afl, afl->map_size, new_map_size);
 
       afl_fsrv_kill(&afl->fsrv);
       afl_fsrv_kill(&afl->cmplog_fsrv);
       afl_shm_deinit(&afl->shm);
 
       afl->cmplog_fsrv.map_size = new_map_size;  // non-cmplog stays the same
-      map_size = new_map_size;
+      afl->map_size = new_map_size;
 
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
       afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+
+  #ifdef __AFL_CODE_COVERAGE
+      if (getenv("AFL_DUMP_PC_MAP")) { afl_pcmap_resize(afl, new_map_size); }
+  #endif
+
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
       afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
@@ -2839,11 +3082,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   load_auto(afl);
 
-  if (extras_dir_cnt) {
+  if (afl->extras_dir_cnt) {
 
-    for (u8 i = 0; i < extras_dir_cnt; i++) {
+    for (u8 i = 0; i < afl->extras_dir_cnt; i++) {
 
-      load_extras(afl, extras_dir[i]);
+      load_extras(afl, afl->extras_dir[i]);
 
     }
 
@@ -2852,12 +3095,13 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->fsrv.out_file && afl->fsrv.use_shmem_fuzz) {
 
     unlink(afl->fsrv.out_file);
+    if (afl->fsrv.out_file) { ck_free(afl->fsrv.out_file); }
     afl->fsrv.out_file = NULL;
     afl->fsrv.use_stdin = 0;
     close(afl->fsrv.out_fd);
     afl->fsrv.out_fd = -1;
 
-    if (!afl->unicorn_mode && !afl->fsrv.use_stdin && !default_output) {
+    if (!afl->unicorn_mode && !afl->fsrv.use_stdin && !afl->default_output) {
 
       WARNF(
           "You specified -f or @@ on the command line but the target harness "
@@ -2871,22 +3115,26 @@ int main(int argc, char **argv_orig, char **envp) {
   dedup_extras(afl);
   if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
 
-  if (unlikely(fast_resume)) {
+}
+
+void afl_load_seeds(afl_state_t *afl) {
+
+  if (unlikely(afl->fast_resume)) {
 
     u64 resume_start = get_cur_time_us();
     // if we get here then we should abort on errors
 
     u32 stored_map_size;
 
-    if (unlikely(is_ijon_fastresume)) {
+    if (unlikely(afl->is_ijon_fastresume)) {
 
       // IJON fastresume: Read the stored map size from the fastresume file
-      ZLIBREAD(fr_fd, &stored_map_size, sizeof(stored_map_size),
+      ZLIBREAD(afl->fr_fd, &stored_map_size, sizeof(stored_map_size),
                "stored_map_size");
-      ZLIBREAD(fr_fd, afl->virgin_bits, stored_map_size, "virgin_bits");
-      ZLIBREAD(fr_fd, afl->virgin_tmout, stored_map_size, "virgin_tmout");
-      ZLIBREAD(fr_fd, afl->virgin_crash, stored_map_size, "virgin_crash");
-      ZLIBREAD(fr_fd, afl->var_bytes, stored_map_size, "var_bytes");
+      ZLIBREAD(afl->fr_fd, afl->virgin_bits, stored_map_size, "virgin_bits");
+      ZLIBREAD(afl->fr_fd, afl->virgin_tmout, stored_map_size, "virgin_tmout");
+      ZLIBREAD(afl->fr_fd, afl->virgin_crash, stored_map_size, "virgin_crash");
+      ZLIBREAD(afl->fr_fd, afl->var_bytes, stored_map_size, "var_bytes");
 
       // Load IJON state from fastresume file
       ijon_fastresume_state_t saved_ijon_state;
@@ -2894,7 +3142,7 @@ int main(int argc, char **argv_orig, char **envp) {
       // Initialize with clean state
       memset(&saved_ijon_state, 0, sizeof(saved_ijon_state));
 
-      ZLIBREAD(fr_fd, &saved_ijon_state, sizeof(ijon_fastresume_state_t),
+      ZLIBREAD(afl->fr_fd, &saved_ijon_state, sizeof(ijon_fastresume_state_t),
                "ijon_state");
 
       if (saved_ijon_state.is_initialized) {
@@ -2906,9 +3154,18 @@ int main(int argc, char **argv_orig, char **envp) {
             saved_ijon_state.ijon_offset, saved_ijon_state.map_size,
             saved_ijon_state.real_map_size, saved_ijon_state.target_map_size);
 
-        // Update afl->ijon_bits to use the saved offset
-        afl->ijon_bits =
-            (u64 *)(afl->fsrv.trace_bits + saved_ijon_state.ijon_offset);
+        afl->fsrv.use_ijon = 1;
+        afl->fsrv.map_size = saved_ijon_state.map_size;
+        afl->fsrv.real_map_size = saved_ijon_state.real_map_size;
+        afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + afl->fsrv.map_size);
+
+        if (afl->ijon_shared_access) {
+
+          afl->ijon_shared_access->ijon_offset = afl->fsrv.map_size;
+          afl->ijon_shared_access->ijon_max_area =
+              (u64 *)(afl->fsrv.trace_bits + afl->fsrv.map_size);
+
+        }
 
       }
 
@@ -2916,12 +3173,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
       /* Normal fuzzing: use current map_size directly */
       stored_map_size = afl->fsrv.map_size;
-      ZLIBREAD(fr_fd, afl->virgin_bits, stored_map_size, "virgin_bits");
-      ZLIBREAD(fr_fd, afl->virgin_tmout, stored_map_size, "virgin_tmout");
-      ZLIBREAD(fr_fd, afl->virgin_crash, stored_map_size, "virgin_crash");
-      ZLIBREAD(fr_fd, afl->var_bytes, stored_map_size, "var_bytes");
+      ZLIBREAD(afl->fr_fd, afl->virgin_bits, stored_map_size, "virgin_bits");
+      ZLIBREAD(afl->fr_fd, afl->virgin_tmout, stored_map_size, "virgin_tmout");
+      ZLIBREAD(afl->fr_fd, afl->virgin_crash, stored_map_size, "virgin_crash");
+      ZLIBREAD(afl->fr_fd, afl->var_bytes, stored_map_size, "var_bytes");
 
     }
+
+    // recalculate var_bytes
+    afl->var_byte_count = count_bytes(afl, afl->var_bytes);
 
     u8  res[1] = {0};
     u8 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
@@ -2944,12 +3204,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       q = afl->queue_buf[i];
       // this is very dirty and assumes nice memory :-)
-      ZLIBREAD(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
-      ZLIBREAD(fr_fd, res, 1, "check map");
+      ZLIBREAD(afl->fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
+      ZLIBREAD(afl->fr_fd, res, 1, "check map");
       if (res[0]) {
 
         q->trace_mini = ck_alloc(m_len);
-        ZLIBREAD(fr_fd, q->trace_mini, m_len, "trace_mini");
+        ZLIBREAD(afl->fr_fd, q->trace_mini, m_len, "trace_mini");
         r += q_len + m_len + 1;
 
       } else {
@@ -2982,12 +3242,12 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     u8  buf[4];
-    int trailing_bytes = NZLIBREAD(fr_fd, buf, 3);
+    int trailing_bytes = NZLIBREAD(afl->fr_fd, buf, 3);
     if (trailing_bytes > 0) {
 
       // Check if trailing bytes are just ZLIB padding (all zeros) - only for
       // IJON mode
-      if (is_ijon_fastresume) {
+      if (afl->is_ijon_fastresume) {
 
         u8 all_zeros = 1;
         for (int i = 0; i < trailing_bytes; i++) {
@@ -3003,21 +3263,41 @@ int main(int argc, char **argv_orig, char **envp) {
 
         if (!all_zeros || trailing_bytes > 4) {
 
-          FATAL("invalid trailing data in fastresume.bin");
+          if (afl->afl_env.afl_force_fastresume) {
+
+            FATAL(
+                "cannot force loading fastresume.bin due different coverage "
+                "map sizes");
+
+          } else {
+
+            FATAL("invalid trailing data in fastresume.bin");
+
+          }
 
         }
 
       } else {
 
-        // Non-IJON mode - strict check, no tolerance for trailing data
-        FATAL("invalid trailing data in fastresume.bin");
+        if (afl->afl_env.afl_force_fastresume) {
+
+          FATAL(
+              "cannot force loading fastresume.bin due different coverage map "
+              "sizes");
+
+        } else {
+
+          // Non-IJON mode - strict check, no tolerance for trailing data
+          FATAL("invalid trailing data in fastresume.bin");
+
+        }
 
       }
 
     }
 
     OKF("Successfully loaded fastresume.bin (%u bytes)!", r);
-    ZLIBCLOSE(fr_fd);
+    ZLIBCLOSE(afl->fr_fd);
     afl->reinit_table = 1;
     update_calibration_time(afl, &resume_start);
 
@@ -3042,11 +3322,29 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
+    // Kill the forkserver that might have been started by
+    // afl_fsrv_get_mapsize() earlier, so we don't leak an orphaned forkserver
+    // process and its pipe fds.
+    afl_fsrv_kill(&afl->fsrv);
+
     afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                    afl->afl_env.afl_debug_child);
 
     // Restore AFL_NO_IJON for subsequent processes (cmplog/asan)
     if (need_restore_no_ijon) { setenv("AFL_NO_IJON", "1", 1); }
+
+    // Bug-map tail-trim must run on ANY fastresume of a bug-pass target,
+    // not just the IJON-restore case.  The main start path calls
+    // configure_bug_runtime before configure_ijon_runtime; the fastresume
+    // path must do the same.  A static guard prevents a double-trim when
+    // the IJON branch below also runs in the same restore.
+    static u8 bug_runtime_configured = 0;
+    if (afl->fsrv.use_bug_map && !bug_runtime_configured) {
+
+      configure_bug_runtime(afl);
+      bug_runtime_configured = 1;
+
+    }
 
     // Enable IJON after forkserver handshake (for IJON fastresume)
     if (has_saved_ijon_state()) {
@@ -3056,18 +3354,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         // Enable IJON now that forkserver handshake is complete
         afl->fsrv.use_ijon = 1;
-
-        // Don't override the new forkserver map_size, just update ijon_bits
-        // pointer Use the saved offset to maintain consistency
-        afl->ijon_bits =
-            (u64 *)(afl->fsrv.trace_bits + restored_state->ijon_offset);
-
-        // Initialize IJON shared access with saved offset for fastresume
-        afl->ijon_shared_access = (dynamic_shared_access_t *)ck_alloc(
-            sizeof(dynamic_shared_access_t));
-        afl->ijon_shared_access->ijon_offset = restored_state->ijon_offset;
-        afl->ijon_shared_access->ijon_max_area =
-            (u64 *)(afl->fsrv.trace_bits + restored_state->ijon_offset);
+        configure_ijon_runtime(afl);
 
       }
 
@@ -3093,12 +3380,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
     } else {
 
-      memset(afl->virgin_bits, 255, map_size);
+      memset(afl->virgin_bits, 255, afl->map_size);
 
     }
 
-    memset(afl->virgin_tmout, 255, map_size);
-    memset(afl->virgin_crash, 255, map_size);
+    memset(afl->virgin_tmout, 255, afl->map_size);
+    memset(afl->virgin_crash, 255, afl->map_size);
 
     if (likely(!afl->afl_env.afl_no_startup_calibration)) {
 
@@ -3118,6 +3405,14 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->q_testcase_cache =
         ck_alloc(afl->q_testcase_max_cache_entries * sizeof(size_t));
     if (!afl->q_testcase_cache) { PFATAL("malloc failed for cache entries"); }
+
+  }
+
+  if (afl->afl_env.afl_sha1_filenames) {
+
+    WARNF(
+        "Using AFL_SHA1_FILENAMES disables any syncing to other AFL "
+        "instances!");
 
   }
 
@@ -3170,7 +3465,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (!getenv("AFL_NO_UI") && !afl->not_on_tty) { make_space_for_stats(); }
 
-  if (unlikely(afl->old_seed_selection)) seek_to = find_start_position(afl);
+  if (unlikely(afl->old_seed_selection))
+    afl->seek_to = find_start_position(afl);
 
   afl->start_time = get_cur_time();
   if (afl->in_place_resume || afl->afl_env.afl_autoresume) {
@@ -3183,7 +3479,7 @@ int main(int argc, char **argv_orig, char **envp) {
   maybe_update_plot_file(afl, 0, 0, 0);
   save_auto(afl);
 
-  if (afl->stop_soon) { goto stop_fuzzing; }
+  if (afl->stop_soon) { return; }
 
   if (!afl->in_place_resume && afl->sync_dir) { check_sync_fuzzers(afl); }
 
@@ -3192,17 +3488,11 @@ int main(int argc, char **argv_orig, char **envp) {
   if (!afl->not_on_tty) {
 
     sleep(1);
-    if (afl->stop_soon) { goto stop_fuzzing; }
+    if (afl->stop_soon) { return; }
 
   }
 
   // (void)nice(-20);  // does not improve the speed
-
-  #ifdef INTROSPECTION
-  u32 prev_saved_crashes = 0, prev_saved_tmouts = 0, stat_prev_queued_items = 0;
-  #endif
-  u32 prev_queued_items = 0, runs_in_current_cycle = (u32)-1;
-  u8  skipped_fuzz;
 
   #ifdef INTROSPECTION
   char ifn[4096];
@@ -3219,385 +3509,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // real start time, we reset, so this works correctly with -V
   afl->start_time = get_cur_time();
-  u8 very_first_run = 1;
 
-  while (likely(!afl->stop_soon)) {
+}
 
-    cull_queue(afl);
-
-    if (unlikely((!afl->old_seed_selection &&
-                  runs_in_current_cycle > afl->queued_items) ||
-                 (afl->old_seed_selection && !afl->queue_cur))) {
-
-      if (unlikely((afl->last_sync_cycle < afl->queue_cycle ||
-                    (!afl->queue_cycle && afl->afl_env.afl_import_first)) &&
-                   afl->sync_id)) {
-
-        if (unlikely(very_first_run && afl->afl_env.afl_import_first)) {
-
-          OKF("Syncing queues from other fuzzer instances first ...");
-          very_first_run = 0;
-
-        }
-
-        sync_fuzzers(afl);
-
-      }
-
-      ++afl->queue_cycle;
-      if (afl->afl_env.afl_no_ui) {
-
-        ACTF("Entering queue cycle %llu\n", afl->queue_cycle);
-
-      }
-
-      runs_in_current_cycle = (u32)-1;
-      afl->cur_skipped_items = 0;
-
-      // 1st april fool joke - enable pizza mode
-      // to not waste time on checking the date we only do this when the
-      // queue is fully cycled.
-      time_t     cursec = time(NULL);
-      struct tm *curdate = localtime(&cursec);
-      if (unlikely(!afl->afl_env.afl_pizza_mode)) {
-
-        if (unlikely(curdate->tm_mon == 3 && curdate->tm_mday == 1)) {
-
-          afl->pizza_is_served = 1;
-
-        } else {
-
-          afl->pizza_is_served = 0;
-
-        }
-
-      }
-
-      if (unlikely(afl->old_seed_selection)) {
-
-        afl->current_entry = 0;
-        while (unlikely(afl->current_entry < afl->queued_items &&
-                        afl->queue_buf[afl->current_entry]->disabled)) {
-
-          ++afl->current_entry;
-
-        }
-
-        if (afl->current_entry >= afl->queued_items) { afl->current_entry = 0; }
-
-        afl->queue_cur = afl->queue_buf[afl->current_entry];
-
-        if (unlikely(seek_to)) {
-
-          if (unlikely(seek_to >= afl->queued_items)) {
-
-            // This should never happen.
-            FATAL("BUG: seek_to location out of bounds!\n");
-
-          }
-
-          afl->current_entry = seek_to;
-          afl->queue_cur = afl->queue_buf[seek_to];
-          seek_to = 0;
-
-        }
-
-      }
-
-      /* If we had a full queue cycle with no new finds, try
-         recombination strategies next. */
-
-      if (unlikely(afl->queued_items == prev_queued
-                   /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
-                      3600 */
-                   )) {
-
-        ++afl->cycles_wo_finds;
-
-        if (unlikely(afl->shm.cmplog_mode &&
-                     afl->cmplog_max_filesize < MAX_FILE)) {
-
-          afl->cmplog_max_filesize <<= 4;
-
-        }
-
-        switch (afl->expand_havoc) {
-
-          case 0:
-            // do nothing the first time
-            afl->expand_havoc = 1;
-            break;
-          case 1:
-            // add MOpt mutator
-            /*
-            if (afl->limit_time_sig == 0 && !afl->custom_only &&
-                !afl->python_only) {
-
-              afl->limit_time_sig = -1;
-              afl->limit_time_puppet = 0;
-
-            }
-
-            */
-            /* increase cmplog level to 2 if we run with level 1 */
-            if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
-            afl->expand_havoc = 2;
-            break;
-          case 2:
-            // increase havoc mutations per fuzz attempt
-            afl->havoc_stack_pow2++;
-            afl->expand_havoc = 3;
-            break;
-          case 3:
-            // further increase havoc mutations per fuzz attempt
-            afl->havoc_stack_pow2++;
-            afl->expand_havoc = 4;
-            break;
-          case 4:
-            // if (afl->cmplog_lvl && afl->cmplog_lvl < 3) afl->cmplog_lvl =
-            // 3;
-            afl->expand_havoc = 5;
-            break;
-          case 5:
-            // nothing else currently
-            break;
-
-        }
-
-      } else {
-
-        afl->cycles_wo_finds = 0;
-
-      }
-
-  #ifdef INTROSPECTION
-      {
-
-        u64 cur_time = get_cur_time();
-        fprintf(afl->introspection_file,
-                "CYCLE cycle=%llu cycle_wo_finds=%llu time_wo_finds=%llu "
-                "expand_havoc=%u queue=%u\n",
-                afl->queue_cycle, afl->cycles_wo_finds,
-                afl->longest_find_time > cur_time - afl->last_find_time
-                    ? afl->longest_find_time / 1000
-                    : ((afl->start_time == 0 || afl->last_find_time == 0)
-                           ? 0
-                           : (cur_time - afl->last_find_time) / 1000),
-                afl->expand_havoc, afl->queued_items);
-
-      }
-
-  #endif
-
-      if (afl->cycle_schedules) {
-
-        /* we cannot mix non-AFLfast schedules with others */
-
-        switch (afl->schedule) {
-
-          case EXPLORE:
-            afl->schedule = EXPLOIT;
-            break;
-          case EXPLOIT:
-            afl->schedule = MMOPT;
-            break;
-          case MMOPT:
-            afl->schedule = SEEK;
-            break;
-          case SEEK:
-            afl->schedule = EXPLORE;
-            break;
-          case FAST:
-            afl->schedule = COE;
-            break;
-          case COE:
-            afl->schedule = LIN;
-            break;
-          case LIN:
-            afl->schedule = QUAD;
-            break;
-          case QUAD:
-            afl->schedule = RARE;
-            break;
-          case RARE:
-            afl->schedule = FAST;
-            break;
-
-        }
-
-        // we must recalculate the scores of all queue entries
-        recalculate_all_scores(afl);
-
-      }
-
-      prev_queued = afl->queued_items;
-
-    }
-
-    ++runs_in_current_cycle;
-
-    do {
-
-      if (likely(!afl->old_seed_selection)) {
-
-        if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
-
-          afl->current_entry = afl->smallest_favored;
-
-          /*
-
-                    } else {
-
-                      for (s32 iter = afl->queued_items - 1; iter >= 0; --iter)
-             {
-
-                        if (unlikely(afl->queue_buf[iter]->favored &&
-                                     !afl->queue_buf[iter]->was_fuzzed)) {
-
-                          afl->current_entry = iter;
-                          break;
-
-                        }
-
-                      }
-
-          */
-
-          afl->queue_cur = afl->queue_buf[afl->current_entry];
-
-        } else {
-
-          if (unlikely(prev_queued_items < afl->queued_items ||
-                       afl->reinit_table)) {
-
-            // we have new queue entries since the last run, recreate alias
-            // table
-            prev_queued_items = afl->queued_items;
-            create_alias_table(afl);
-
-          }
-
-          do {
-
-            afl->current_entry = select_next_queue_entry(afl);
-
-          } while (unlikely(afl->current_entry >= afl->queued_items));
-
-          afl->queue_cur = afl->queue_buf[afl->current_entry];
-
-        }
-
-      }
-
-      skipped_fuzz = fuzz_one(afl);
-  #ifdef INTROSPECTION
-      ++afl->queue_cur->stats_selected;
-
-      if (unlikely(skipped_fuzz)) {
-
-        ++afl->queue_cur->stats_skipped;
-
-      } else {
-
-        if (unlikely(afl->queued_items > stat_prev_queued_items)) {
-
-          afl->queue_cur->stats_finds +=
-              afl->queued_items - stat_prev_queued_items;
-          stat_prev_queued_items = afl->queued_items;
-
-        }
-
-        if (unlikely(afl->saved_crashes > prev_saved_crashes)) {
-
-          afl->queue_cur->stats_crashes +=
-              afl->saved_crashes - prev_saved_crashes;
-          prev_saved_crashes = afl->saved_crashes;
-
-        }
-
-        if (unlikely(afl->saved_tmouts > prev_saved_tmouts)) {
-
-          afl->queue_cur->stats_tmouts += afl->saved_tmouts - prev_saved_tmouts;
-          prev_saved_tmouts = afl->saved_tmouts;
-
-        }
-
-      }
-
-  #endif
-
-      if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }
-
-      if (unlikely(afl->old_seed_selection)) {
-
-        while (++afl->current_entry < afl->queued_items &&
-               afl->queue_buf[afl->current_entry]->disabled) {};
-        if (unlikely(afl->current_entry >= afl->queued_items ||
-                     afl->queue_buf[afl->current_entry] == NULL ||
-                     afl->queue_buf[afl->current_entry]->disabled)) {
-
-          afl->queue_cur = NULL;
-
-        } else {
-
-          afl->queue_cur = afl->queue_buf[afl->current_entry];
-
-        }
-
-      }
-
-    } while (skipped_fuzz && afl->queue_cur && !afl->stop_soon);
-
-    u64 cur_time = get_cur_time();
-
-    if (likely(afl->switch_fuzz_mode && afl->fuzz_mode == 0 &&
-               !afl->non_instrumented_mode) &&
-        unlikely(cur_time > (likely(afl->last_find_time) ? afl->last_find_time
-                                                         : afl->start_time) +
-                                afl->switch_fuzz_mode)) {
-
-      if (afl->afl_env.afl_no_ui) {
-
-        ACTF(
-            "No new coverage found for %llu seconds, switching to exploitation "
-            "strategy.",
-            afl->switch_fuzz_mode / 1000);
-
-      }
-
-      afl->fuzz_mode = 1;
-
-    }
-
-    if (likely(!afl->stop_soon && afl->sync_id)) {
-
-      if (unlikely(afl->is_main_node)) {
-
-        if (unlikely(cur_time > (afl->sync_time >> 1) + afl->last_sync_time)) {
-
-          if (!(sync_interval_cnt++ % (SYNC_INTERVAL / 3))) {
-
-            sync_fuzzers(afl);
-
-          }
-
-        }
-
-      } else {
-
-        if (unlikely(cur_time > afl->sync_time + afl->last_sync_time)) {
-
-          if (!(sync_interval_cnt++ % SYNC_INTERVAL)) { sync_fuzzers(afl); }
-
-        }
-
-      }
-
-    }
-
-  }
-
-stop_fuzzing:
+void stop_fuzzing(afl_state_t *afl) {
 
   afl->force_ui_update = 1;  // ensure the screen is reprinted
   afl->stop_soon = 1;        // ensure everything is written
@@ -3622,6 +3537,13 @@ stop_fuzzing:
     // map in length.
     fwrite(afl->fsrv.persistent_trace_bits, 1, afl->fsrv.real_map_size, cov_fd);
     fclose(cov_fd);
+
+  }
+
+  if (getenv("AFL_DUMP_PC_MAP")) {
+
+    afl_dump_pc_map(afl);
+    afl_dump_module_map(afl);
 
   }
 
@@ -3702,7 +3624,7 @@ stop_fuzzing:
 
   }
 
-  if (frida_afl_preload) { ck_free(frida_afl_preload); }
+  if (afl->frida_afl_preload) { ck_free(afl->frida_afl_preload); }
 
   fclose(afl->fsrv.plot_file);
 
@@ -3717,14 +3639,14 @@ stop_fuzzing:
     snprintf(fr, PATH_MAX, "%s/fastresume.bin", afl->out_dir);
     ACTF("Writing %s ...", fr);
   #ifdef HAVE_ZLIB
-    if ((fr_fd = ZLIBOPEN(fr, "wb9")) != NULL) {
+    if ((afl->fr_fd = ZLIBOPEN(fr, "wb9")) != NULL) {
 
   #else
-    if ((fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, afl->perm)) >= 0) {
+    if ((afl->fr_fd = open(fr, O_WRONLY | O_TRUNC | O_CREAT, afl->perm)) >= 0) {
 
       if (afl->chown_needed) {
 
-        if (fchown(fr_fd, -1, afl->fsrv.gid) == -1) {
+        if (fchown(afl->fr_fd, -1, afl->fsrv.gid) == -1) {
 
           PFATAL("fchown() failed");
 
@@ -3743,20 +3665,23 @@ stop_fuzzing:
              (afl->fsrv.use_ijon ? sizeof(u32) + sizeof(ijon_fastresume_state_t)
                                  : 0);
 
-      ZLIBWRITE(fr_fd, ver_string, sizeof(ver_string), "ver_string");
+      ZLIBWRITE(afl->fr_fd, ver_string, sizeof(ver_string), "ver_string");
 
       /* Write the map size first so it can be read during load (IJON only) */
       if (unlikely(afl->fsrv.use_ijon)) {
 
-        ZLIBWRITE(fr_fd, &afl->fsrv.map_size, sizeof(afl->fsrv.map_size),
+        ZLIBWRITE(afl->fr_fd, &afl->fsrv.map_size, sizeof(afl->fsrv.map_size),
                   "map_size");
 
       }
 
-      ZLIBWRITE(fr_fd, afl->virgin_bits, afl->fsrv.map_size, "virgin_bits");
-      ZLIBWRITE(fr_fd, afl->virgin_tmout, afl->fsrv.map_size, "virgin_tmout");
-      ZLIBWRITE(fr_fd, afl->virgin_crash, afl->fsrv.map_size, "virgin_crash");
-      ZLIBWRITE(fr_fd, afl->var_bytes, afl->fsrv.map_size, "var_bytes");
+      ZLIBWRITE(afl->fr_fd, afl->virgin_bits, afl->fsrv.map_size,
+                "virgin_bits");
+      ZLIBWRITE(afl->fr_fd, afl->virgin_tmout, afl->fsrv.map_size,
+                "virgin_tmout");
+      ZLIBWRITE(afl->fr_fd, afl->virgin_crash, afl->fsrv.map_size,
+                "virgin_crash");
+      ZLIBWRITE(afl->fr_fd, afl->var_bytes, afl->fsrv.map_size, "var_bytes");
 
       /* Save IJON state only when IJON is enabled */
       if (unlikely(afl->fsrv.use_ijon)) {
@@ -3781,7 +3706,7 @@ stop_fuzzing:
           ijon_state->real_map_size = afl->fsrv.real_map_size;
           ijon_state->target_map_size = afl->fsrv.real_map_size;
 
-          ZLIBWRITE(fr_fd, ijon_state, sizeof(ijon_fastresume_state_t),
+          ZLIBWRITE(afl->fr_fd, ijon_state, sizeof(ijon_fastresume_state_t),
                     "ijon_state");
           w += sizeof(ijon_fastresume_state_t);
 
@@ -3805,24 +3730,23 @@ stop_fuzzing:
       for (u32 i = 0; i < afl->queued_items; i++) {
 
         q = afl->queue_buf[i];
-        ZLIBWRITE(fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
+        ZLIBWRITE(afl->fr_fd, (u8 *)&(q->colorized), q_len, "queue data");
         if (!q->trace_mini) {
 
-          ZLIBWRITE(fr_fd, off, 1, "no_mini");
+          ZLIBWRITE(afl->fr_fd, off, 1, "no_mini");
           w += q_len + 1;
 
         } else {
 
-          ZLIBWRITE(fr_fd, on, 1, "yes_mini");
-          ZLIBWRITE(fr_fd, q->trace_mini, m_len, "trace_mini");
+          ZLIBWRITE(afl->fr_fd, on, 1, "yes_mini");
+          ZLIBWRITE(afl->fr_fd, q->trace_mini, m_len, "trace_mini");
           w += q_len + m_len + 1;
 
         }
 
       }
 
-      ZLIBCLOSE(fr_fd);
-      afl->var_byte_count = count_bytes(afl, afl->var_bytes);
+      ZLIBCLOSE(afl->fr_fd);
       OKF("fastresume.bin successfully written with %u bytes.", w);
 
     } else {
@@ -3866,16 +3790,27 @@ stop_fuzzing:
   ck_free(afl->n_fuzz);
   ck_free(afl->n_fuzz_dup);
   ck_free(afl->simplified_n_fuzz);
+  ck_free(afl->min_slack);
+  if (afl->frameshift_index_buffer) { free(afl->frameshift_index_buffer); }
+  if (afl->fs_curr_meta) {
+
+    if (afl->fs_curr_meta->relations) { free(afl->fs_curr_meta->relations); }
+    free(afl->fs_curr_meta);
+
+  }
 
   if (afl->orig_cmdline) { ck_free(afl->orig_cmdline); }
   ck_free(afl->fsrv.target_path);
-  ck_free(afl->fsrv.out_file);
+  if (afl->fsrv.out_file) { ck_free(afl->fsrv.out_file); }
   ck_free(afl->sync_id);
   if (afl->q_testcase_cache) { ck_free(afl->q_testcase_cache); }
+
+  char **argv_cpy = afl->argv_cpy;
+
   afl_state_deinit(afl);
   free(afl);                                                 /* not tracked */
 
-  argv_cpy_free(argv);
+  argv_cpy_free(argv_cpy);
 
   alloc_report();
 

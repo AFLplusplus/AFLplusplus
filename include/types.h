@@ -10,13 +10,15 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
  */
 
@@ -53,9 +55,31 @@ typedef uint128_t         u128;
 #define FS_NEW_VERSION_MIN 1
 #define FS_NEW_VERSION_MAX 1
 #define FS_NEW_ERROR 0xeffe0000
-#define FS_NEW_OPT_MAPSIZE 0x00000001      // parameter: 32 bit value
-#define FS_NEW_OPT_SHDMEM_FUZZ 0x00000002  // parameter: none
-#define FS_NEW_OPT_AUTODICT 0x00000800     // autodictionary data
+#define FS_NEW_OPT_MAPSIZE 0x00000001           // parameter: 32 bit value
+#define FS_NEW_OPT_SHDMEM_FUZZ 0x00000002       // parameter: none
+#define FS_NEW_OPT_FUTEX 0x00000004             // parameter: none
+#define FS_NEW_OPT_ALLOCSIZE_DERIVE 0x00000008  // parameter: none
+/* Target appended a bug-pass map tail (MAP_SIZE_BUG_BYTES) to
+ * __afl_set_map_size; the fuzzer subtracts it before treating the
+ * region as coverage. parameter: none */
+#define FS_NEW_OPT_BUG_MAP 0x00000010
+#define FS_NEW_OPT_AUTODICT 0x00000800  // autodictionary data
+
+#ifdef __linux__
+/* Protocol phases for the futex-based forkserver handshake.
+   A single 32-bit shared-memory word (child_sync) carries these values so
+   that afl-fuzz and the persistent target child can coordinate each execution
+   cycle without going through the normal pipe path. */
+typedef enum {
+
+  AFL_CHILD_IDLE = 0,  /* child not started, or dead                        */
+  AFL_CHILD_RUN = 1,   /* fuzzer → child: execute the next test case        */
+  AFL_CHILD_DONE = 2,  /* child → fuzzer: this iteration is complete        */
+  AFL_CHILD_EXITED = 3, /* child → fuzzer: child is exiting (crash/end)      */
+
+} afl_child_state_t;
+
+#endif                                                         /* __linux__ */
 
 /* Reporting options */
 #define FS_OPT_ENABLED 0x80000001
@@ -248,6 +272,21 @@ typedef int128_t s128;
     #define unlikely(_x) __builtin_expect(!!(_x), 0)
   #endif
 #endif
+
+/* Module map entry for tracking loaded modules and their edge ranges */
+#ifdef __AFL_CODE_COVERAGE
+  #define MAX_AFL_MODULES 256
+
+typedef struct module_entry {
+
+  char name[4096];                                    /* Module name (path) */
+  u32  start_id;                                           /* First edge ID */
+  u32  stop_id;                                             /* Last edge ID */
+  u8   loaded;                                          /* Module is loaded */
+
+} module_entry_t;
+
+#endif                                               /* __AFL_CODE_COVERAGE */
 
 #endif                                                   /* ! _HAVE_TYPES_H */
 

@@ -9,13 +9,15 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    Gather some functions common to multiple executables
 
@@ -229,17 +231,24 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
   u32 i = 0;
   u8  cwd[PATH_MAX];
   if (getcwd(cwd, (size_t)sizeof(cwd)) == NULL) { PFATAL("getcwd() failed"); }
+  char *placeholder = (char *)get_afl_env("AFL_INPUT_PLACEHOLDER");
+  if (!placeholder || !*placeholder) { placeholder = (char *)"@@"; }
+  size_t placeholder_len = strlen(placeholder);
 
   /* we are working with libc-heap-allocated argvs. So do not mix them with
    * other allocation APIs like ck_alloc. That would disturb the free() calls.
    */
   while (argv[i]) {
 
-    u8 *aa_loc = strstr(argv[i], "@@");
+    char *aa_loc = strstr(argv[i], placeholder);
 
     if (aa_loc) {
 
-      if (!prog_in) { FATAL("@@ syntax is not supported by this tool."); }
+      if (!prog_in) {
+
+        FATAL("%s syntax is not supported by this tool.", placeholder);
+
+      }
 
       *use_stdin = false;
 
@@ -252,11 +261,13 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
       if (prog_in[0] == '/') {
 
-        n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
+        n_arg =
+            alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + placeholder_len);
 
       } else {
 
-        n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
+        n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in,
+                             aa_loc + placeholder_len);
 
       }
 
@@ -1367,6 +1378,20 @@ u8 *u_simplestring_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
 }
 
+/* Validate map size, returns validated size or FATALs if invalid */
+u32 validate_map_size(u32 map_size) {
+
+  if (!map_size || map_size >= (1U << 29)) {
+
+    FATAL("illegal AFL_MAP_SIZE %u, must be between 64 <= %u < %u", map_size,
+          64U, 1U << 29);
+
+  }
+
+  return map_size;
+
+}
+
 /* Reads the map size from ENV */
 u32 get_map_size(void) {
 
@@ -1376,12 +1401,7 @@ u32 get_map_size(void) {
   if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
 
     map_size = atoi(ptr);
-    if (!map_size || map_size > (1 << 29)) {
-
-      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 64U,
-            1U << 29);
-
-    }
+    validate_map_size(map_size);
 
     if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
 

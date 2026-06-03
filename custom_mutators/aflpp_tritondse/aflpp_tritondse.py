@@ -139,9 +139,10 @@ def init(seed):
         argv_tmp = [ os.environ['AFL_CUSTOM_INFO_PROGRAM'] ]
         argv_tmp += argv_list.split()
         argv = []
-        # now check for @@
+        placeholder = os.environ.get("AFL_INPUT_PLACEHOLDER", "@@")
+        # now check for placeholder
         for item in argv_tmp:
-            if "@@" in item:
+            if placeholder in item:
                 input_file = out_path + '/../.input'
                 argv.append(input_file)
             else:

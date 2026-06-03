@@ -15,6 +15,30 @@ This is a complete implementation of all IJON features for source code instrumen
 Based on the research paper: [IJON: Exploring Deep State Spaces via Fuzzing](https://nyx-fuzz.com/papers/ijon.pdf)
 Test data and benchmarks available at: [IJON Data Repository](https://github.com/RUB-SysSec/ijon-data/tree/master/ijon-data)
 
+**NOTE** There is also an IJON implemenation for qemu_mode, see [qemu_mode/README.md](../qemu_mode/README.md)
+
+## IMPORTANT: Linker parameters
+
+If your compiler does not use ld.bfd or lld or the linker is called directly by your build environment then linking the target binary will fail:
+
+```
+/usr/bin/ld: b.o:(.data+0x0): multiple definition of `__afl_ijon_enabled'; a.o:(.data+0x0): first defined here
+```
+
+For lld and ld.bfd this can be usually solved with defining the necessary linking parameter:
+```
+export LD_FLAGS=--allow-multiple-definition
+```
+
+If you use a different linker than find out what the necessary linker flag is to allow multiple strong definitions, e.g.
+`-z muldefs` for gold, and then set the build environment up accordingly, e.g.:
+```
+export C_FLAGS="-Wl,-z,muldefs"
+export CXX_FLAGS="-Wl,-z,muldefs"
+export CPP_FLAGS="-Wl,-z,muldefs"
+export LD_FLAGS="-z muldefs"
+```
+
 ## IJON API Reference
 
 ### Core Value Tracking Macros
@@ -59,8 +83,10 @@ Reward inputs that increase the **common prefix length** of two strings.
 Example: `IJON_STRDIST(input, "bootloader")` helps AFL solve string comparisons inside hash maps.
 
 #### `IJON_DIST(x, y)`
-Reward fuzzing inputs that minimize the **absolute distance** between `x` and `y`.  
-Example: `IJON_DIST(checksum, expected)` guides the fuzzer toward valid checksums.
+Reward fuzzing inputs that share the most beginning bytes.
+(note that this changed to original IJON behaviour, it is not the absolute distance anymore.)
+Max length is defined in instrumentation/afl-compiler-rt.o.c and is set to 1024.
+Example: `IJON_DIST(buf, expected)` guides the fuzzer toward the expected byte values.
 
 #### `IJON_CMP(x, y)`
 Reward closeness of two integers by counting differing bits.  
@@ -111,6 +137,20 @@ state_log = (state_log << 8) + msg.type;
 IJON_STATE(state_log); // reward new message sequences
 ```
 
+### Retiring completed max targets
+
+Use `IJON_MAX_UNTIL(x, limit)` when an IJON max objective has a known upper
+bound and continuing to schedule its seed after that point is no longer useful:
+
+```c
+IJON_MAX_UNTIL(depth, 100);
+IJON_MAX_UNTIL_AT(0x1234, score, target_score);
+```
+
+The fuzzer keeps guiding `x` upward while `x < limit`. When `x >= limit`, the
+slot writes the terminal value `UINT64_MAX`. If `AFL_IJON_RETIRE_MAX` is set
+during fuzzing, AFL++ removes that IJON max input from the IJON scheduling pool.
+
 ## Usage Instructions
 
 ### Building AFL++ with IJON
@@ -119,6 +159,21 @@ IJON_STATE(state_log); // reward new message sequences
 make clean
 make LLVM_CONFIG=llvm-config-18 source-only
 ```
+
+### IJON mode debug build for afl-fuzz
+
+Note that this does not affect any ijon functionality, it just creates an extra file.
+
+```bash
+make clean
+CFLAGS="-DDUMP_IJON_STATE" make afl-fuzz
+```
+
+This will output non-zero values to the default/ijon_max/cur_state file whenever 
+the ijon max bitmap is updated. By looking at this file, you can see the maximum values
+of your max/min annotations so far, which can help you understand the current fuzzing progress. 
+
+For example, you can check Mario's current maximum y-axis position.
 
 ### Compiling Target Programs
 
@@ -157,6 +212,7 @@ AFL_IJON_HISTORY_LIMIT=1000 afl-fuzz -S worker -i input_dir -o output_dir -- ./t
 
 - **`AFL_LLVM_IJON=1`**: Enables IJON instrumentation during compilation
 - **`AFL_IJON_HISTORY_LIMIT=N`**: Sets the maximum number of IJON max-value inputs stored on the host (default: 20)
+- **`AFL_IJON_RETIRE_MAX=1`**: Treats `UINT64_MAX` IJON max values as completed targets and stops scheduling their stored IJON input
 
 ## Performance (Super Mario Bros. Level 1.1, ijon_max(pos_y/16, world_pos))
 
@@ -245,5 +301,4 @@ Base Address    ┌────────────────────�
 - **Dynamic Offsets**: IJON offset calculated at runtime based on actual coverage size
 - **Consistent Layout**: Same memory organization regardless of target size
 - **Fastresume Support**: IJON offsets preserved across fuzzing sessions
-
 

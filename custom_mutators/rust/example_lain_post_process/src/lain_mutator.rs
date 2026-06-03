@@ -1,10 +1,10 @@
 #![cfg(unix)]
 
-use custom_mutator::{export_mutator, CustomMutator};
+use custom_mutator::{CustomMutator, export_mutator};
 use lain::{
     mutator::Mutator,
     prelude::*,
-    rand::{rngs::StdRng, SeedableRng},
+    rand::{SeedableRng, rngs::StdRng},
 };
 use serde::{Deserialize, Serialize};
 

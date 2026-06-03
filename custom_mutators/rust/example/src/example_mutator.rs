@@ -1,7 +1,7 @@
 #![cfg(unix)]
 #![allow(unused_variables)]
 
-use custom_mutator::{export_mutator, CustomMutator};
+use custom_mutator::{CustomMutator, export_mutator};
 
 struct ExampleMutator;
 

@@ -265,4 +265,12 @@ Array *read_input(state *pda, u8 *fn) {
   return res;
 
 }
+afl_state_t *global_afl = NULL;
 
+int init_state  = 0;
+int curr_state  = 0;
+int final_state = 0;
+int numstates   = 0;
+state *pda = NULL;
+
+SpliceCand potential[SPLICE_CORPUS] = {0};

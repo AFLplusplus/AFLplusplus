@@ -1,3 +1,16 @@
+/*
+   american fuzzy lop++ - part of the AFL++ project
+   ------------------------------------------------
+
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may obtain a copy at https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
+
+ */
+
 /* Implementation of afl havoc mutation to be used in AFL++ custom mutators and
    partially in afl-fuzz itself.
 
@@ -2512,7 +2525,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         }
 
         char numbuf[32];
-        snprintf(numbuf, sizeof(buf), "%" PRId64, val);
+        snprintf(numbuf, sizeof(numbuf), "%" PRId64, val);
         u32 old_len = off2 - off;
         u32 new_len = strlen(numbuf);
 

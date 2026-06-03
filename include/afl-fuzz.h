@@ -10,13 +10,15 @@
                      Heiko Eissfeldt <heiko.eissfeldt@hexco.de>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -38,6 +40,9 @@
 #endif
 
 #include "config.h"
+#ifdef HAVE_ZLIB
+  #include <zlib.h>
+#endif
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
@@ -182,6 +187,58 @@ struct havoc_profile {
 
 };
 
+/* Frameshift */
+
+// A single frameshift relation field.
+typedef struct fs_relation {
+
+  // Dynamic values:
+  u64 pos;
+  u64 val;
+  u64 anchor;
+  u64 insert;
+
+  // Backup to perform revert.
+  u64 _old_pos;
+  u64 _old_val;
+  u64 _old_anchor;
+  u64 _old_insert;
+
+  // Fixed values:
+  u8 size;
+  u8 le;
+  u8 enabled;
+
+} fs_relation_t;
+
+typedef struct fs_idx_vec {
+
+  u32 *idx;
+  u32  count;
+  u32  capacity;
+
+} fs_idx_vec_t;
+
+// Per-input metadata.
+typedef struct fs_meta {
+
+  fs_relation_t *relations;
+  u32            rel_count;
+  u32            rel_capacity;
+
+  u8 *blocked_points_map;               /* bitmap of blocked points         */
+
+} fs_meta_t;
+
+struct frameshift_stats {
+
+  u32 searched;
+  u32 found;
+  u64 search_tests;
+  u64 total_time_ms;
+
+};
+
 struct skipdet_entry {
 
   u8  continue_inf, done_eff;
@@ -223,7 +280,9 @@ struct queue_entry {
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
       is_ascii,                         /* Is the input just ascii text?    */
-      disabled;                         /* Is disabled from fuzz selection  */
+      disabled,                         /* Is disabled from fuzz selection  */
+      tightness_novel; /* New per-site min-slack on any
+                          inequality cmp; keep favoured.   */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
 #ifdef INTROSPECTION
@@ -258,6 +317,15 @@ struct queue_entry {
   u8                 *cmplog_colorinput; /* the result buf of colorization   */
   struct tainted     *taint;             /* Taint information from CmpLog    */
   struct skipdet_entry *skipdet_e;
+
+  u8 fs_status;                         /* Frameshift status                */
+                      /*   0: unexplored                  */
+                      /*   1: explored                    */
+  fs_meta_t *fs_meta;                   /* Frameshift metadata              */
+
+  /* Cycle at which tightness_novel was set, so cull_queue can decay the
+     flag instead of letting the favoured set grow monotonically. */
+  u32 tightness_novel_cycle;            /* cycle when tightness_novel set   */
 
 };
 
@@ -428,6 +496,9 @@ typedef struct py_mutator {
   u8    *havoc_buf;
   size_t havoc_size;
 
+  u8 *describe_buf;
+  u8 *introspection_buf;
+
 } py_mutator_t;
 
 #endif
@@ -464,8 +535,8 @@ typedef struct afl_env_vars {
       afl_no_startup_calibration, afl_no_warn_instability,
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
-      afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_forksrv_uid_set,
-      afl_forksrv_gid_set;
+      afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
+      afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled;
 
   u16 afl_forksrv_nb_supl_gids;
 
@@ -483,6 +554,8 @@ typedef struct afl_env_vars {
   gid_t afl_forksrv_gid;
 
   gid_t *afl_forksrv_supl_gids;
+
+  double afl_frameshift_max_overhead;           /* 0.0 to 1.0, default 0.10 */
 
 } afl_env_vars_t;
 
@@ -509,6 +582,10 @@ typedef struct afl_state {
   sharedmem_t      shm;
   sharedmem_t     *shm_fuzz;
   afl_env_vars_t   afl_env;
+#ifdef __AFL_CODE_COVERAGE
+  sharedmem_t shm_pcmap;                         /* Shared memory for pcmap */
+  sharedmem_t shm_modmap;                       /* Shared memory for modmap */
+#endif
 
   char **argv;                                            /* argv if needed */
 
@@ -623,6 +700,10 @@ typedef struct afl_state {
 
   double *alias_probability;            /* alias weighted probabilities     */
   u32    *alias_table;                /* alias weighted random lookup table */
+  u32     alias_map_size;             /* allocated capacity of alias arrays */
+  u32    *splice_buf_ids;             /* pre-filtered splice candidate IDs  */
+  u32     splice_buf_count;           /* number of splice candidates        */
+  u32     splice_buf_alloc;           /* allocated capacity of splice_buf   */
   u32     active_items;                 /* enabled entries in the queue     */
 
   u8 *var_bytes;                        /* Bytes that appear to be variable */
@@ -771,6 +852,11 @@ typedef struct afl_state {
   u32 colorize_success;
   u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
       cmplog_enable_xtreme_transform, cmplog_random_colorization;
+  u8 cmplog_tightness, cmplog_size_derive;
+  /* Per-cmp-site minimum slack ever seen; UINT64_MAX = unseen. Indexed by
+     cmp_map header key. Lazily allocated on first slack scan. */
+  u64 *min_slack;
+  u64  cmplog_tightness_new;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;
@@ -879,6 +965,10 @@ typedef struct afl_state {
   /* Global Profile Data for deterministic/havoc-splice stage */
   struct havoc_profile *havoc_prof;
 
+  struct frameshift_stats fs_stats;
+  u32       *frameshift_index_buffer;        /* Buffer for frameshift index */
+  fs_meta_t *fs_curr_meta;    /* Metadata for the current input (full copy) */
+
   struct skipdet_global *skipdet_g;
 
   s64 last_scored_idx;           /* Index of the last queue entry re-scored */
@@ -888,6 +978,9 @@ typedef struct afl_state {
   char  m_tmp[4096];
   FILE *introspection_file;
   u32   bitsmap_size;
+  u64   prev_saved_crashes;     /* delta tracker for per-entry crash stats  */
+  u64   prev_saved_tmouts;      /* delta tracker for per-entry tmout stats  */
+  u32   stat_prev_queued_items; /* delta tracker for per-entry find stats   */
 #endif
   /* IJON max tracking state */
   ijon_min_state *ijon_state;                /* IJON input management state */
@@ -895,9 +988,35 @@ typedef struct afl_state {
   time_t          last_ijon_log_time;   /* Rate limiting for IJON UI output */
   u8             *ijon_input_data;    /* Currently executed IJON input data */
   u32             ijon_input_len; /* Length of currently executed IJON input */
+  u8             *ijon_cur_input; /* current input buf passed to IJON check */
+  u32             ijon_cur_input_len; /* length of ijon_cur_input            */
   u8              is_doing_ijon;      /* Flag to track IJON execution state */
   dynamic_shared_access_t
       *ijon_shared_access;         /* IJON shared access for dynamic offset */
+
+  /* --- moved out of the original main() during the afl-main.c refactor --- */
+  u32    runs_in_current_cycle;
+  u32    prev_queued_items;
+  u32    seek_to;
+  u32    sync_interval_cnt;
+  u64    prev_queued;
+  u8     skipped_fuzz;
+  u8     exit_1;
+  u8    *extras_dir[4];
+  u8     extras_dir_cnt;
+  char **argv_cpy;
+  s32    argc_cpy;
+  u32    map_size;             /* own field — NOT an alias of fsrv.map_size */
+  s32    auto_sync;
+  char  *frida_afl_preload;
+  u32    default_output;          /* init to 1 in afl_init (not calloc's 0) */
+  s32    fast_resume;
+  u8     is_ijon_fastresume;
+#ifdef HAVE_ZLIB
+  gzFile fr_fd;          /* fast-resume file handle; type mirrors the local */
+#else
+  s32 fr_fd;
+#endif
 
 } afl_state_t;
 
@@ -1193,7 +1312,6 @@ void run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
 #ifdef USE_PYTHON
 
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
-void                   finalize_py_module(void *);
 
 u32         fuzz_count_py(void *, const u8 *, size_t);
 void        fuzz_send_py(void *, const u8 *, size_t);
@@ -1215,6 +1333,7 @@ void        deinit_py(void *);
 /* Queue */
 
 void mark_as_det_done(afl_state_t *, struct queue_entry *);
+void mark_as_variable(afl_state_t *, struct queue_entry *);
 void add_to_queue(afl_state_t *, u8 *, u32, u8);
 void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *, bool);
@@ -1244,6 +1363,14 @@ u8 save_if_interesting(afl_state_t *, void *, u32, u8);
 u8 has_new_bits(afl_state_t *, u8 *);
 #ifndef AFL_SHOWMAP
 void classify_counts(afl_forkserver_t *);
+#endif
+
+#ifdef __AFL_CODE_COVERAGE
+void afl_pcmap_init(afl_state_t *, u32);
+void afl_pcmap_resize(afl_state_t *, u32);
+void afl_modmap_init(afl_state_t *);
+void afl_dump_pc_map(afl_state_t *);
+void afl_dump_module_map(afl_state_t *);
 #endif
 
 /* Extras */
@@ -1330,11 +1457,22 @@ void   check_if_tty(afl_state_t *);
 void   save_cmdline(afl_state_t *, u32, char **);
 void   read_foreign_testcases(afl_state_t *, int);
 void   write_crash_readme(afl_state_t *afl);
-u8     check_if_text_buf(u8 *buf, u32 len);
+u32    check_if_text_buf(u8 *buf, u32 len);
 #ifndef AFL_SHOWMAP
 void setup_signal_handlers(void);
 #endif
 char *get_fuzzing_state(afl_state_t *afl);
+
+afl_state_t *afl_init(void);
+void         afl_handle_version_help(int argc, char **argv);
+void         afl_parse_env(afl_state_t *afl, char **envp);
+void         afl_parse_commandline(afl_state_t *afl, int argc, char **argv);
+void         afl_check_environment(afl_state_t *afl);
+void         afl_setup_environment(afl_state_t *afl);
+void         afl_alloc_shared_memory(afl_state_t *afl);
+void         afl_load_seeds(afl_state_t *afl);
+void         stop_fuzzing(afl_state_t *afl);
+void maybe_sync_fuzzers(afl_state_t *afl, u64 cur_time, u32 *sync_interval_cnt);
 
 /* CmpLog */
 
@@ -1355,6 +1493,15 @@ u8 skip_deterministic_stage(afl_state_t *, u8 *, u8 *, u32, u64);
 u8 is_det_timeout(u64, u8);
 
 void plot_profile_data(afl_state_t *, struct queue_entry *);
+
+/* Frameshift functions */
+void frameshift_stage(afl_state_t *);
+void fs_sanitize(fs_meta_t *, u8 *buf);
+void fs_save(fs_meta_t *meta);
+void fs_restore(fs_meta_t *meta);
+int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size, u8 ignore_invalid);
+void fs_track_delete(fs_meta_t *meta, u64 idx, u64 data_size);
+void fs_clone_meta(afl_state_t *afl);
 
 /**** Inline routines ****/
 

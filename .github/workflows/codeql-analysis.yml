@@ -3,11 +3,13 @@ name: "CodeQL"
 on:
   push:
     branches:
-      - stable
-      - dev
+#      - stable
+#      - dev
+      - currentlydisabled
   pull_request:
     branches:
-      - dev # No need for stable-pull-request, as that equals dev-push
+      - currentlydisabled
+#      - dev # No need for stable-pull-request, as that equals dev-push
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

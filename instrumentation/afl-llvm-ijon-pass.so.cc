@@ -1,4 +1,17 @@
 /*
+   american fuzzy lop++ - part of the AFL++ project
+   ------------------------------------------------
+
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may obtain a copy at https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
+
+ */
+
+/*
    american fuzzy lop++ - LLVM IJON instrumentation pass
    -----------------------------------------------------
 
@@ -15,7 +28,11 @@
 
 // Include LLVM headers first to avoid macro conflicts
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/OptimizationLevel.h"
 #include "llvm/Support/raw_ostream.h"
@@ -75,7 +92,7 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
 
   if ((isatty(2) && !getenv("AFL_QUIET")) || getenv("AFL_DEBUG") != NULL) {
 
-    printf("afl-llvm-ijon-pass" VERSION "1\n");
+    printf("afl-llvm-ijon-pass" VERSION "\n");
 
   } else if (getenv("AFL_QUIET"))
 
@@ -181,12 +198,16 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
       if (ijon_state_calls > 0) printf(" (IJON_STATE: %d)", ijon_state_calls);
       printf(".\n");
 
-      // Always create __afl_ijon_enabled for IJON memory allocation
-      IRBuilder<> IRB(M.getContext());
-      Constant   *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
-      new GlobalVariable(M, IRB.getInt32Ty(), false,
-                         GlobalValue::ExternalLinkage, One32,
-                         "__afl_ijon_enabled");
+      if (M.getGlobalVariable("__afl_ijon_enabled", true) == nullptr) {
+
+        // Always create __afl_ijon_enabled for IJON memory allocation
+        IRBuilder<> IRB(M.getContext());
+        Constant   *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
+        new GlobalVariable(M, IRB.getInt32Ty(), false,
+                           GlobalValue::ExternalLinkage, One32,
+                           "__afl_ijon_enabled");
+
+      }
 
     } else {
 
@@ -252,6 +273,7 @@ int IJONInstrumentation::instrumentFunction(Function &F) {
 
           if (calledFunc->getName() == "ijon_max" ||
               calledFunc->getName() == "ijon_max_variadic" ||
+              calledFunc->getName() == "ijon_max_until" ||
               calledFunc->getName() == "ijon_set" ||
               calledFunc->getName() == "ijon_inc" ||
               calledFunc->getName() == "ijon_xor_state") {
@@ -328,6 +350,11 @@ int IJONInstrumentation::instrumentFunction(Function &F) {
 
         // For ijon_xor_state, we don't transform - just count and pass through
         ijon_state_calls++;
+
+      } else if (calledFunc->getName() == "ijon_max_until") {
+
+        // Preserve ijon_max_until's encoded max value semantics.
+        ijon_max_calls++;
 
       } else {
 

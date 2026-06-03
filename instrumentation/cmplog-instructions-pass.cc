@@ -5,13 +5,15 @@
    Written by Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
 */
 
@@ -31,26 +33,36 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Passes/PassPlugin.h"
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Passes/OptimizationLevel.h"
+#include "llvm/Analysis/LoopInfo.h"
 
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/raw_ostream.h"
+#if LLVM_MAJOR <= 15
+  #include "llvm/ADT/Triple.h"
+#endif
 
 #include <set>
 #include "afl-llvm-common.h"
+
+static bool is_64_arch = false;
 
 using namespace llvm;
 
 namespace {
 
-using DomTreeCallback = function_ref<const DominatorTree *(Function &F)>;
+using LoopInfoCallback = function_ref<LoopInfo *(Function &F)>;
 
 class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
 
@@ -64,7 +76,7 @@ class CmpLogInstructions : public PassInfoMixin<CmpLogInstructions> {
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
  private:
-  bool hookInstrs(Module &M, DomTreeCallback DTCallback);
+  bool hookInstrs(Module &M, LoopInfoCallback LICallback);
 
 };
 
@@ -111,16 +123,27 @@ Iterator Unique(Iterator first, Iterator last) {
 
 }
 
-bool IsBackEdge(BasicBlock *From, BasicBlock *To, const DominatorTree *DT) {
+// Check if a compare instruction is a loop condition that should be skipped.
+// Returns true if the branch is part of loop control flow (latch, header, or
+// exiting block) for any containing loop.
+static bool IsLoopCondition(BranchInst *BR, LoopInfo *LI) {
 
-  if (DT->dominates(To, From)) return true;
-  if (auto Next = To->getUniqueSuccessor())
-    if (DT->dominates(Next, From)) return true;
+  BasicBlock *BranchBB = BR->getParent();
+
+  // Check all loops containing this block (innermost to outermost)
+  for (Loop *L = LI->getLoopFor(BranchBB); L; L = L->getParentLoop()) {
+
+    if (L->isLoopLatch(BranchBB)) return true;    // Back-edge source
+    if (L->getHeader() == BranchBB) return true;  // Loop header condition
+    if (L->isLoopExiting(BranchBB)) return true;  // Loop exit condition
+
+  }
+
   return false;
 
 }
 
-bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
+bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
   std::vector<Instruction *> icomps;
   LLVMContext               &C = M.getContext();
@@ -169,14 +192,17 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
   FunctionCallee c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy,
                                             Int64Ty, Int64Ty, Int8Ty);
   FunctionCallee cmplogHookIns8 = c8;
+  [[maybe_unused]] FunctionCallee cmplogHookIns16;
+  [[maybe_unused]] FunctionCallee cmplogHookInsN;
 
-  FunctionCallee c16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy,
-                                             Int128Ty, Int128Ty, Int8Ty);
-  FunctionCallee cmplogHookIns16 = c16;
+  if (is_64_arch) {
 
-  FunctionCallee cN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy,
-                                            Int128Ty, Int128Ty, Int8Ty, Int8Ty);
-  FunctionCallee cmplogHookInsN = cN;
+    cmplogHookIns16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy,
+                                            Int128Ty, Int128Ty, Int8Ty);
+    cmplogHookInsN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy,
+                                           Int128Ty, Int128Ty, Int8Ty, Int8Ty);
+
+  }
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
 
@@ -193,7 +219,6 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
   for (auto &F : M) {
 
     if (!isInInstrumentList(&F, MNAME)) continue;
-    const DominatorTree *DT = DTCallback(F);
 
     for (auto &BB : F) {
 
@@ -202,11 +227,10 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
         CmpInst *selectcmpInst = nullptr;
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
 
-          // skip loop comparisons
+          // skip loop comparisons using LoopInfo for robust detection
           if (selectcmpInst->hasOneUse())
             if (auto BR = dyn_cast<BranchInst>(selectcmpInst->user_back()))
-              for (BasicBlock *B : BR->successors())
-                if (IsBackEdge(BR->getParent(), B, DT)) continue;
+              if (IsLoopCondition(BR, LICallback(F))) continue;
 
           icomps.push_back(selectcmpInst);
 
@@ -392,13 +416,9 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
       }
 
       // do we need to cast?
-#if INTPTR_MAX == INT32_MAX
-      /* 32-bit code */
       switch (max_size) {
 
-        case 8:
-          break;
-        case 9 ... 16:
+        case 16:
           cast_size = 16;
           break;
         case 17 ... 32:
@@ -406,42 +426,14 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
           break;
         case 33 ... 64:
           cast_size = 64;
-          break;
-        case 80:
-          break;
-        case 128:
-          cast_size = max_size;
           break;
         default:
+          // 65-128 bit values are handled via 128-bit hooks.
           cast_size = 128;
-          break;
 
       }
 
-#else
-      /* original code */
-      switch (max_size) {
-
-        case 8:
-          break;
-        case 9 ... 16:
-          cast_size = 16;
-          break;
-        case 17 ... 32:
-          cast_size = 32;
-          break;
-        case 33 ... 64:
-          cast_size = 64;
-          break;
-        case 80:
-          break;
-        case 128:
-          cast_size = max_size;
-          break;
-
-      }
-
-#endif
+      bool use_hookN = cast_size == 128 && cast_size != max_size;
 
       // XXX FIXME BUG TODO
       if (is_fp && vector_cnt) { continue; }
@@ -542,7 +534,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
           ConstantInt *attribute = ConstantInt::get(Int8Ty, attr);
           args.push_back(attribute);
 
-          if (cast_size != max_size) {
+          if (use_hookN) {
 
             ConstantInt *bitsize = ConstantInt::get(Int8Ty, (max_size / 8) - 1);
             args.push_back(bitsize);
@@ -567,17 +559,21 @@ bool CmpLogInstructions::hookInstrs(Module &M, DomTreeCallback DTCallback) {
               IRB.CreateCall(cmplogHookIns8, args);
               break;
             case 128:
-              if (max_size == 128) {
+              if (is_64_arch) {
 
-                IRB.CreateCall(cmplogHookIns16, args);
+                if (use_hookN) {
 
-              } else {
+                  IRB.CreateCall(cmplogHookInsN, args);
 
-                IRB.CreateCall(cmplogHookInsN, args);
+                } else {
+
+                  IRB.CreateCall(cmplogHookIns16, args);
+
+                }
+
+                break;
 
               }
-
-              break;
 
           }
 
@@ -605,18 +601,25 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
                                           ModuleAnalysisManager &MAM) {
 
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto  DTCallback = [&FAM](Function &F) -> const DominatorTree  *{
+  auto  LICallback = [&FAM](Function &F) -> LoopInfo  *{
 
-    return &FAM.getResult<DominatorTreeAnalysis>(F);
+    return &FAM.getResult<LoopAnalysis>(F);
 
   };
+
+#if LLVM_MAJOR <= 20
+  auto triple = Triple(M.getTargetTriple());
+#else
+  auto triple = M.getTargetTriple();
+#endif
+  if (triple.isArch64Bit()) { is_64_arch = true; }
 
   if (getenv("AFL_QUIET") == NULL)
     printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
   else
     be_quiet = 1;
 
-  bool ret = hookInstrs(M, DTCallback);
+  bool ret = hookInstrs(M, LICallback);
   verifyModule(M);
 
   if (ret == false)

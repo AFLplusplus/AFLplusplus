@@ -173,7 +173,7 @@ already there, then it may not be overwritten.
 
 ## Reach out
 
-Get in touch on discord and ask for help. The groups are pretty active so
+Get in touch on Zulip and ask for help. The groups are pretty active so
 someone may well be able to offer some advice. Better still, if you are able to
 create a minimal reproducer for your problem, it will make it easier to diagnose
 the issue.

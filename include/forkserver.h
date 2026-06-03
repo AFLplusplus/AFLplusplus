@@ -12,13 +12,15 @@
                      Dominik Maier <mail@dmnk.co>>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    Shared code that implements a forkserver. This is used by the fuzzer
    as well the other components like afl-tmin.
@@ -28,8 +30,9 @@
 #ifndef __AFL_FORKSERVER_H
 #define __AFL_FORKSERVER_H
 
-#include <stdio.h>
+#include <fcntl.h>                                      /*< provides mode_t */
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -141,9 +144,18 @@ typedef struct afl_forkserver {
 
   u8 last_exit_code;               /* Child exit code if counted as a crash */
 
+  bool allow_cores;                   /* allow core files on target crashes */
+
   bool use_shmem_fuzz;                  /* use shared mem for test cases    */
 
   bool support_shmem_fuzz;              /* set by afl-fuzz                  */
+
+  bool use_futex;                       /* usage of futex implementation    */
+  u32 *child_sync;                      /* shared word: fuzzer↔child sync   */
+  int  child_sync_shm_id;               /* SysV SHM ID / FD for child_sync  */
+#ifdef USEMMAP
+  char child_sync_shm_file_path[32];    /* Path for shm_open child_sync     */
+#endif
 
   bool use_ijon;                        /* use IJON tracking feature        */
 
@@ -232,6 +244,11 @@ typedef struct afl_forkserver {
   char                 *nyx_tmp_workdir_path;
   s32                   nyx_log_fd;
   u64                   nyx_target_hash64;
+
+  bool gui_mode;                        /* if running in GUI mode or not    */
+  s32  gui_python_pid;                  /* PID of python interactor         */
+  u8  *gui_python_dir;                  /* location of python interactor    */
+
 #endif
 
 #ifdef __AFL_CODE_COVERAGE
@@ -242,6 +259,12 @@ typedef struct afl_forkserver {
   u8   *custom_input;
   u32   custom_input_len;
   void (*late_send)(void *, const u8 *, size_t);
+
+  /* Appended at end-of-struct to avoid shifting offsets for downstream
+     consumers linking against an older layout. */
+  bool cmplog_size_derive_requested;    /* -l Z requires target support     */
+  bool supports_allocsize_derive;       /* target reports derive support    */
+  bool use_bug_map;                     /* target reports bug-pass map      */
 
 } afl_forkserver_t;
 
@@ -269,6 +292,9 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 void              afl_fsrv_killall(void);
 void              afl_fsrv_deinit(afl_forkserver_t *fsrv);
 void              afl_fsrv_kill(afl_forkserver_t *fsrv);
+void              afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
+                                          char **use_argv, u32 map_size,
+                                          volatile u8 *stop_soon, bool unicorn_mode);
 
 #ifdef __linux__
 void nyx_load_target_hash(afl_forkserver_t *fsrv);

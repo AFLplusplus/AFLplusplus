@@ -19,6 +19,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    Shared code to handle the shared memory. This is used by the fuzzer
    as well the other components like afl-tmin, afl-showmap, etc...
 
@@ -741,23 +743,22 @@ static u32 from_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 }
 
-static u32 to_base64(u8 *src, u8 *dst, u32 dst_len) {
+static u32 to_base64(u8 *src, u8 *dst, u32 src_len) {
 
   u32 i, j, v;
-  //  u32 len = (dst_len >> 2) * 3;
-  u32 len = (dst_len / 3) * 4;
-  if (dst_len % 3) len += 4;
+  u32 len = (src_len / 3) * 4;
+  if (src_len % 3) len += 4;
 
   for (i = 0, j = 0; j < len; i += 3, j += 4) {
 
     v = src[i];
-    v = i + 1 < len ? v << 8 | src[i + 1] : v << 8;
-    v = i + 2 < len ? v << 8 | src[i + 2] : v << 8;
+    v = i + 1 < src_len ? v << 8 | src[i + 1] : v << 8;
+    v = i + 2 < src_len ? v << 8 | src[i + 2] : v << 8;
 
     dst[j] = base64_encode_table[(v >> 18) & 0x3F];
     dst[j + 1] = base64_encode_table[(v >> 12) & 0x3F];
 
-    if (i + 1 < dst_len) {
+    if (i + 1 < src_len) {
 
       dst[j + 2] = base64_encode_table[(v >> 6) & 0x3F];
 
@@ -767,7 +768,7 @@ static u32 to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
     }
 
-    if (i + 2 < dst_len) {
+    if (i + 2 < src_len) {
 
       dst[j + 3] = base64_encode_table[v & 0x3F];
 
@@ -2136,11 +2137,11 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
           if (!found_one ||
               check_if_text_buf((u8 *)&s128_v0, SHAPE_BYTES(h->shape)) ==
-                  SHAPE_BYTES(h->shape))
+                  (u32)SHAPE_BYTES(h->shape))
             try_to_add_to_dictN(afl, s128_v0, SHAPE_BYTES(h->shape));
           if (!found_one ||
               check_if_text_buf((u8 *)&s128_v1, SHAPE_BYTES(h->shape)) ==
-                  SHAPE_BYTES(h->shape))
+                  (u32)SHAPE_BYTES(h->shape))
             try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
 
         } else
@@ -2151,12 +2152,12 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
           if (!memcmp((u8 *)&o->v0, (u8 *)&orig_o->v0, SHAPE_BYTES(h->shape)) &&
               (!found_one ||
                check_if_text_buf((u8 *)&o->v0, SHAPE_BYTES(h->shape)) ==
-                   SHAPE_BYTES(h->shape)))
+                   (u32)SHAPE_BYTES(h->shape)))
             try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
           if (!memcmp((u8 *)&o->v1, (u8 *)&orig_o->v1, SHAPE_BYTES(h->shape)) &&
               (!found_one ||
                check_if_text_buf((u8 *)&o->v1, SHAPE_BYTES(h->shape)) ==
-                   SHAPE_BYTES(h->shape)))
+                   (u32)SHAPE_BYTES(h->shape)))
             try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
 
         }
@@ -2952,6 +2953,67 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 }
 
+/* If -l -M is active, scan cmp_map for inequality cmps, derive slack from
+   v0/v1, and track per-site global minima in afl->min_slack. Marks the
+   current queue entry as tightness_novel (and favoured) iff a new
+   per-site min was achieved. Allocates afl->min_slack lazily on first
+   call. */
+static void collect_tightness_minima(afl_state_t *afl) {
+
+  if (likely(!afl->cmplog_tightness)) return;
+
+  if (unlikely(!afl->min_slack)) {
+
+    afl->min_slack = ck_alloc(sizeof(u64) * CMP_MAP_W);
+    for (u32 i = 0; i < CMP_MAP_W; ++i)
+      afl->min_slack[i] = (u64)-1;
+
+  }
+
+  u8 found_new_min = 0;
+  for (u32 k = 0; k < CMP_MAP_W; ++k) {
+
+    struct cmp_header *h = &afl->shm.cmp_map->headers[k];
+    if (!h->hits || h->type != CMP_TYPE_INS) continue;
+    /* attribute encoding (cmplog-instructions-pass.cc): NE=0, EQ=1,
+       GT=2, GE=3, LT=4, LE=5, plus +8 for floating-point. We want
+       inequality (>= 2) and we ignore floats (skip if attribute & 8). */
+    u8 attr = h->attribute;
+    if (attr < 2 || (attr & 8)) continue;
+
+    /* Walk the per-cmp record array; pick the smallest |v0 - v1|. */
+    u64 hits = h->hits > CMP_MAP_H ? CMP_MAP_H : h->hits;
+    u64 best = (u64)-1;
+    for (u64 i = 0; i < hits; ++i) {
+
+      struct cmp_operands *o = &afl->shm.cmp_map->log[k][i];
+      u64                  a = o->v0, b = o->v1;
+      u64                  slack = (a >= b) ? (a - b) : (b - a);
+      if (slack < best) best = slack;
+
+    }
+
+    if (best < afl->min_slack[k]) {
+
+      afl->min_slack[k] = best;
+      found_new_min = 1;
+
+    }
+
+  }
+
+  if (found_new_min && afl->queue_cur) {
+
+    afl->cmplog_tightness_new++;
+    afl->queue_cur->tightness_novel = 1;
+    /* Stamp the cycle so cull_queue can decay this flag later. */
+    afl->queue_cur->tightness_novel_cycle = afl->queue_cycle;
+    afl->queue_cur->favored = 1;
+
+  }
+
+}
+
 ///// Input to State stage
 
 // afl->queue_cur->exec_cksum
@@ -3088,6 +3150,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   dump("ORIG", orig_buf, len);
   dump("NEW ", buf, len);
 #endif
+
+  collect_tightness_minima(afl);
 
   // Start insertion loop
 

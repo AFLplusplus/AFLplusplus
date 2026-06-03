@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 #
 # american fuzzy lop++ - gramatron build script
 # ------------------------------------------------
@@ -19,19 +20,10 @@
 #
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
-# This script downloads, patches, and builds a version of Unicorn with
-# minor tweaks to allow Unicorn-emulated binaries to be run under
-# afl-fuzz.
-#
-# The modifications reside in patches/*. The standalone Unicorn library
-# will be written to /usr/lib/libunicornafl.so, and the Python bindings
-# will be installed system-wide.
-#
-# You must make sure that Unicorn Engine is not already installed before
-# running this script. If it is, please uninstall it first.
+# This script downloads cJSON and compiles gramatron for Linux systems.
 
-JSONC_VERSION="$(cat ./JSONC_VERSION)"
-JSONC_REPO="https://github.com/json-c/json-c"
+CJSON_VERSION="1.7.18"
+CJSON_URL="https://raw.githubusercontent.com/DaveGamble/cJSON/v${CJSON_VERSION}"
 
 echo "================================================="
 echo "Gramatron Mutator build script"
@@ -40,110 +32,91 @@ echo
 
 echo "[*] Performing basic sanity checks..."
 
-PLT=`uname -s`
-
 if [ ! -f "../../config.h" ]; then
-
   echo "[-] Error: key files not found - wrong working directory?"
   exit 1
-
 fi
 
 if [ ! -f "../../src/afl-performance.o" ]; then
-
   echo "[-] Error: you must build afl-fuzz first and not do a \"make clean\""
   exit 1
-
 fi
 
-PYTHONBIN=`command -v python3 || command -v python || echo python3`
-MAKECMD=make
-TARCMD=tar
-
-if [ "$PLT" = "Darwin" ]; then
-  CORES=`sysctl -n hw.ncpu`
-  TARCMD=tar
-fi
-
-if [ "$PLT" = "FreeBSD" ]; then
-  MAKECMD=gmake
-  CORES=`sysctl -n hw.ncpu`
-  TARCMD=gtar
-fi
-
-if [ "$PLT" = "NetBSD" ] || [ "$PLT" = "OpenBSD" ]; then
-  MAKECMD=gmake
-  CORES=`sysctl -n hw.ncpu`
-  TARCMD=gtar
-fi
-
+# Check for required tools
 PREREQ_NOTFOUND=
-for i in git $MAKECMD $TARCMD; do
-
+for i in curl; do
   T=`command -v "$i" 2>/dev/null`
-
   if [ "$T" = "" ]; then
-
     echo "[-] Error: '$i' not found. Run 'sudo apt-get install $i' or similar."
     PREREQ_NOTFOUND=1
-
   fi
-
 done
 
-test -z "$CC" && export CC=cc
+# Set compiler - try to match what built AFL++
+if [ -z "$CC" ]; then
+  # Try gcc-14 first (commonly used), then fall back
+  if command -v gcc-14 >/dev/null 2>&1; then
+    export CC=gcc-14
+  elif command -v clang >/dev/null 2>&1; then
+    export CC=clang
+  else
+    export CC=cc
+  fi
+fi
 
 if echo "$CC" | grep -qF /afl-; then
-
   echo "[-] Error: do not use afl-gcc or afl-clang to compile this tool."
   PREREQ_NOTFOUND=1
-
 fi
 
 if [ "$PREREQ_NOTFOUND" = "1" ]; then
   exit 1
 fi
 
+echo "[*] Compiler: $CC"
 echo "[+] All checks passed!"
 
-echo "[*] Making sure json-c is checked out"
+# Download cJSON if needed
+mkdir -p cJSON
+if [ ! -f "cJSON/cJSON.c" ] || [ ! -f "cJSON/cJSON.h" ]; then
+  echo "[*] Downloading cJSON v${CJSON_VERSION}..."
 
-git status 1>/dev/null 2>/dev/null
-if [ $? -eq 0 ]; then
-  echo "[*] initializing json-c submodule"
-  git submodule init || exit 1
-  git submodule update ./json-c 2>/dev/null # ignore errors
-else
-  echo "[*] cloning json-c"
-  test -d json-c/.git || {
-    CNT=1
-    while [ '!' -d json-c/.git -a "$CNT" -lt 4 ]; do
-      echo "Trying to clone json-c (attempt $CNT/3)"
-      git clone "$JSONC_REPO" 
-      CNT=`expr "$CNT" + 1`
-    done
+  curl -s -o cJSON/cJSON.c "${CJSON_URL}/cJSON.c" || {
+    echo "[-] Error: Failed to download cJSON.c"
+    exit 1
   }
+
+  curl -s -o cJSON/cJSON.h "${CJSON_URL}/cJSON.h" || {
+    echo "[-] Error: Failed to download cJSON.h"
+    exit 1
+  }
+
+  echo "[+] cJSON downloaded successfully"
+else
+  echo "[*] cJSON already present"
 fi
 
-test -e json-c/.git || { echo "[-] not checked out, please install git or check your internet connection." ; exit 1 ; }
-echo "[+] Got json-c."
-
-test -e json-c/.libs/libjson-c.a || {
-  cd "json-c" || exit 1
-  echo "[*] Checking out $JSONC_VERSION"
-  sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
-  git checkout "$JSONC_VERSION" || exit 1
-  sh autogen.sh || exit 1
-  export CFLAGS=-fPIC
-  ./configure --disable-shared || exit 1
-  make || exit 1
-  cd ..
-}
-
 echo
-echo
-echo "[+] Json-c successfully prepared!"
-echo "[+] Building gramatron now."
-$CC -O3 -g -fPIC -Wno-unused-result -Wl,--allow-multiple-definition -I../../include -o gramatron.so -shared -I. -I/prg/dev/include gramfuzz.c gramfuzz-helpers.c gramfuzz-mutators.c gramfuzz-util.c hashmap.c ../../src/afl-performance.o json-c/.libs/libjson-c.a || exit 1
+echo "[+] Building gramatron now..."
+
+# Compile afl-performance.c directly to avoid LTO issues
+$CC -O3 -g -fPIC -c -Wno-unused-result \
+    -I../../include \
+    ../../src/afl-performance.c -o afl-performance-custom.o || exit 1
+
+# Build the shared library
+$CC -O3 -g -fPIC -Wno-unused-result -Wno-pointer-sign \
+    -Wl,--allow-multiple-definition \
+    -I../../include \
+    -I. \
+    -IcJSON \
+    -o gramatron.so -shared \
+    gramfuzz.c gramfuzz-helpers.c gramfuzz-mutators.c gramfuzz-util.c hashmap.c json-parser.c cJSON/cJSON.c \
+    afl-performance-custom.o || exit 1
+
+# Clean up
+rm -f afl-performance-custom.o
+
 echo
 echo "[+] gramatron successfully built!"
+echo "[*] Output: gramatron.so"

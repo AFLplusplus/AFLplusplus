@@ -48,6 +48,8 @@ For a comprehensive guide, see
 
 ### Fuzzing a GUI program
 
+For fuzzing the *GUI itself*, see [custom_mutators/guifuzz/README.md](../custom_mutators/guifuzz/README.md).
+
 If the GUI program can read the fuzz data from a file (via the command line, a
 fixed location or via an environment variable) without needing any user
 interaction, then it would be suitable for fuzzing.

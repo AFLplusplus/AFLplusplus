@@ -9,13 +9,15 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -47,15 +49,28 @@ static const u8 simplify_lookup[256] = {
 
 static const u8 count_class_lookup8[256] = {
 
+    // NEW
     [0] = 0,
     [1] = 1,
-    [2] = 2,
-    [3] = 4,
-    [4 ... 7] = 8,
-    [8 ... 15] = 16,
-    [16 ... 31] = 32,
-    [32 ... 127] = 64,
+    [2 ... 3] = 2,
+    [4 ... 7] = 4,
+    [8 ... 15] = 8,
+    [16 ... 31] = 16,
+    [32 ... 63] = 32,
+    [64 ... 127] = 64,
     [128 ... 255] = 128
+
+    /* OLD
+        [0] = 0,
+        [1] = 1,
+        [2] = 2,
+        [3] = 4,
+        [4 ... 7] = 8,
+        [8 ... 15] = 16,
+        [16 ... 31] = 32,
+        [32 ... 127] = 64,
+        [128 ... 255] = 128
+    */
 
 };
 
@@ -620,7 +635,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       cksum_unique =
           hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      if (unlikely(!bitmap_read(afl->n_fuzz_dup, cksum) &&
+      if (unlikely(!bitmap_read(afl->n_fuzz_dup, cksum_unique) &&
                    fault == afl->crash_mode)) {
 
         feed_san = 1;
@@ -1043,20 +1058,6 @@ may_save_fault:
       }
 
 #endif
-      if (unlikely(afl->infoexec)) {
-
-        // if the user wants to be informed on new crashes - do that
-#if !TARGET_OS_IPHONE
-        // we dont care if system errors, but we dont want a
-        // compiler warning either
-        // See
-        // https://stackoverflow.com/questions/11888594/ignoring-return-values-in-c
-        (void)(system(afl->infoexec) + 1);
-#else
-        WARNF("command execution unsupported");
-#endif
-
-      }
 
       afl->last_crash_time = get_cur_time();
       afl->last_crash_execs = afl->fsrv.total_execs;
@@ -1079,6 +1080,30 @@ may_save_fault:
 
     ck_write(fd, mem, len, fn);
     close(fd);
+
+  }
+
+  if (unlikely(afl->infoexec) && fault == FSRV_RUN_CRASH) {
+
+    if (fd < 0) {
+
+      WARNF("Crash detected, but could not write testcase to '%s'", fn);
+
+    }
+
+    // if the user wants to be informed on new crashes - do that
+#if !TARGET_OS_IPHONE
+    // we dont care if system errors, but we dont want a
+    // compiler warning either
+    // See
+    // https://stackoverflow.com/questions/11888594/ignoring-return-values-in-c
+    char infoexec_cmd[PATH_MAX * 2];
+    snprintf(infoexec_cmd, sizeof(infoexec_cmd), "%s \"%s\"", afl->infoexec,
+             fn);
+    (void)(system(infoexec_cmd) + 1);
+#else
+    WARNF("command execution unsupported");
+#endif
 
   }
 

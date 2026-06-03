@@ -3,7 +3,7 @@
 // gcc -shared -o libdemo.so demo-so.c -w
 int target_func(char *buf, int size) {
 
-  printf("buffer:%p, size:%p\n", buf, size);
+  printf("buffer:%p, size:%d\n", buf, size);
   switch (buf[0]) {
 
     case 1:

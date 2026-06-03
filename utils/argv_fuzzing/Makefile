@@ -27,6 +27,12 @@ _LDFLAGS_ADD=$(UNAME_SAYS_LINUX:1=)
 LDFLAGS_ADD=$(_LDFLAGS_ADD:0=-ldl)
 LDFLAGS  += $(LDFLAGS_ADD)
 
+# Needed for backtrace under FreeBSD
+ifeq "$(SYS)" "FreeBSD"
+    LDFLAGS += -lexecinfo
+	COMPILER_RT_LDFLAGS += -lexecinfo
+endif
+
 # on gcc for arm there is no -m32, but -mbe32
 M32FLAG = -m32
 M64FLAG = -m64

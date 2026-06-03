@@ -5,7 +5,7 @@
 #
 # Originally written by Michal Zalewski
 # Based on a design & prototype by Michael Rash.
-#
+# Support extended to multiple input directories by Jay 'jay-1409' Shah
 # Copyright 2014, 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,23 +29,25 @@ GRAPHICAL="1"
 shift
 fi
 
-if [ "$#" != "2" ]; then
+if [ "$#" -lt "2" ]; then
 
   cat 1>&2 <<_EOF_
-$0 [ -g | --graphical ] afl_state_dir graph_output_dir
+$0 [ -g | --graphical ] afl_state_dir [afl_state_dir2 ...] graph_output_dir
 
 This program generates gnuplot images from afl-fuzz output data.
 
 Usage:
 
     afl_state_dir       should point to an existing state directory for any
-                        active or stopped instance of afl-fuzz
+                        active or stopped instance of afl-fuzz; multiple
+                        directories can be specified to overlay their data
+                        on the same plots (e.g. comparing parallel fuzzers)
     graph_output_dir    should point to an empty directory where this
                         tool can write the resulting plots to
     -g, --graphical     (optional) display the plots in a graphical window
                         (you should have built afl-plot-ui to use this option)
 
-The program will put index.html and three PNG images in the output directory;
+The program will put index.html and four PNG images in the output directory;
 you should be able to view it with any web browser of your choice.
 _EOF_
 
@@ -53,50 +55,75 @@ _EOF_
 
 fi
 
-inputdir=`get_abs_path "$1"`
-outputdir=`get_abs_path "$2"`
-
-#if [ "$AFL_ALLOW_TMP" = "" ]; then
-#
-#  echo "$inputdir" | grep -qE '^(/var)?/tmp/'
-#  T1="$?"
-#
-#  echo "$outputdir" | grep -qE '^(/var)?/tmp/'
-#  T2="$?"
-#
-#  if [ "$T1" = "0" -o "$T2" = "0" ]; then
-#
-#    echo "[-] Error: this script shouldn't be used with shared /tmp directories." 1>&2
-#    exit 1
-#
-#  fi
-#
-#fi
-
-if [ ! -f "$inputdir/plot_data" ]; then
-
-  if [ -f "$inputdir/default/plot_data" ]; then
-
-    echo "[-] Error: input directory is not valid (missing 'plot_data'), likely you mean $inputdir/default?" 1>&2
-    exit 1
-
+# Collect all arguments; the last one is outputdir, the rest are input dirs.
+# When multiple input dirs are given (e.g. afl-plot out/* graph_dir), we skip
+# dirs with missing or insufficient plot_data with a warning instead of a fatal
+# error, so that glob patterns work even if some dirs belong to other fuzzers.
+# With a single input dir, we preserve the original hard-error behavior.
+NARGS=$#
+IDX=1
+INPUTDIRS=""
+INPUTCOUNT=0
+for arg in "$@"; do
+  if [ "$IDX" -eq "$NARGS" ]; then
+    outputdir=`get_abs_path "$arg"`
   else
+    absdir=`get_abs_path "$arg"`
 
-    echo "[-] Error: input directory is not valid (missing 'plot_data')." 1>&2
-    exit 1
+    if [ ! -f "$absdir/plot_data" ]; then
 
+      if [ "$NARGS" -gt 2 ]; then
+
+        if [ -f "$absdir/default/plot_data" ]; then
+          echo "[!] Warning: skipping '$absdir' (missing 'plot_data'), did you mean $absdir/default?" 1>&2
+        else
+          echo "[!] Warning: skipping '$absdir' (missing 'plot_data')." 1>&2
+        fi
+
+      else
+
+        if [ -f "$absdir/default/plot_data" ]; then
+          echo "[-] Error: input directory '$absdir' is not valid (missing 'plot_data'), likely you mean $absdir/default?" 1>&2
+        else
+          echo "[-] Error: input directory '$absdir' is not valid (missing 'plot_data')." 1>&2
+        fi
+        exit 1
+
+      fi
+
+    # assuming that the plot_data needs at least 3 lines (1 header + 2 data points) for
+    # gnuplot to draw meaningful trend lines between points.
+    elif [ "`wc -l < "$absdir/plot_data"`" -lt 3 ]; then
+
+      if [ "$NARGS" -gt 2 ]; then
+
+        echo "[!] Warning: skipping '$absdir/plot_data' (too little data, let it run longer)." 1>&2
+
+      else
+
+        echo "[-] Error: '$absdir/plot_data' carries too little data, let it run longer." 1>&2
+        exit 1
+
+      fi
+
+    else
+
+      INPUTDIRS="$INPUTDIRS $absdir"
+      INPUTCOUNT=$((INPUTCOUNT + 1))
+
+    fi
   fi
+  IDX=$((IDX + 1))
+done
 
-fi
-
-LINES=`cat "$inputdir/plot_data" | wc -l`
-
-if [ "$LINES" -lt 3 ]; then
-
-  echo "[-] Error: plot_data carries too little data, let it run longer." 1>&2
+# After skipping invalid dirs, make sure we still have something to plot.
+if [ "$INPUTCOUNT" -eq 0 ]; then
+  echo "[-] Error: none of the specified input directories contain valid plot data." 1>&2
   exit 1
-
 fi
+
+# The primary inputdir (for backwards compatibility/single-dir mode)
+inputdir=$(echo "$INPUTDIRS" | awk '{print $1}')
 
 BANNER="`cat "$inputdir/fuzzer_stats" 2> /dev/null | grep '^afl_banner ' | cut -d: -f2- | cut -b2-`"
 
@@ -143,7 +170,37 @@ set autoscale xfixmax
 set xlabel \"relative time in seconds\" font \"small\"
 "
 
-PLOT_HF="
+
+# Overlay mode helpers:
+MULTI_COLORS="#0090ff #c00080 #c000f0 #00c020 #f07000 #e0c000 #8000ff #ff0040 #00bfbf #808000"
+
+get_color() {
+  _idx=$1
+  _i=1
+  for _c in $MULTI_COLORS; do
+    if [ "$_i" -eq "$_idx" ]; then
+      echo "$_c"
+      return
+    fi
+    _i=$((_i + 1))
+  done
+  echo "#000000"
+}
+
+get_banner() {
+  _dir=$1
+  _b="`cat "$_dir/fuzzer_stats" 2> /dev/null | grep '^afl_banner ' | cut -d: -f2- | cut -b2-`"
+  if [ -z "$_b" ]; then
+    _b="`basename "$_dir"`"
+  fi
+  # Strip trailing whitespace cleanly for gnuplot titles
+  echo "$_b" | sed 's/[[:space:]]*$//'
+}
+
+
+if [ "$INPUTCOUNT" -eq 1 ]; then
+
+  PLOT_HF="
 set terminal png truecolor enhanced size 1000,300 butt
 set output '$outputdir/high_freq.png'
 
@@ -156,7 +213,7 @@ plot '$inputdir/plot_data' using 1:4 with filledcurve x1 title 'corpus count' li
      '' using 1:2 with lines title 'cycles done' linecolor rgb '#c000f0' linewidth 3
 "
 
-PLOT_LF="
+  PLOT_LF="
 set terminal png truecolor enhanced size 1000,200 butt
 set output '$outputdir/low_freq.png'
 
@@ -168,7 +225,7 @@ plot '$inputdir/plot_data' using 1:8 with filledcurve x1 title '' linecolor rgb 
      '' using 1:10 with lines title 'levels' linecolor rgb '#0090ff' linewidth 3
 "
 
-PLOT_ES="
+  PLOT_ES="
 set terminal png truecolor enhanced size 1000,200 butt
 set output '$outputdir/exec_speed.png'
 
@@ -178,7 +235,7 @@ plot '$inputdir/plot_data' using 1:11 with filledcurve x1 title '' linecolor rgb
      '$inputdir/plot_data' using 1:11 with lines title '    execs/sec' linecolor rgb '#0090ff' linewidth 3 smooth bezier;
 "
 
-PLOT_EG="
+  PLOT_EG="
 set terminal png truecolor enhanced size 1000,300 butt
 set output '$outputdir/edges.png'
 
@@ -187,11 +244,83 @@ $GNUPLOT_SETUP
 plot '$inputdir/plot_data' using 1:13 with lines title '        edges' linecolor rgb '#0090ff' linewidth 3
 "
 
-if [ "$#" = "2" ] && [ "$GRAPHICAL" = "1" ]; then
+else
 
-afl-plot-ui -h > /dev/null 2>&1
+  # Multiple input directories overlay mode
+  PLOT_HF_HEIGHT=$((300 + (INPUTCOUNT - 1) * 20))
+  PLOT_LF_HEIGHT=$((200 + (INPUTCOUNT - 1) * 20))
+  PLOT_ES_HEIGHT=$((200 + (INPUTCOUNT - 1) * 20))
+  PLOT_EG_HEIGHT=$((300 + (INPUTCOUNT - 1) * 20))
 
-if [ "$?" != "0" ]; then
+  PLOT_HF="
+set terminal png truecolor enhanced size 1000,$PLOT_HF_HEIGHT butt
+set output '$outputdir/high_freq.png'
+
+$GNUPLOT_SETUP
+
+plot "
+
+  PLOT_LF="
+set terminal png truecolor enhanced size 1000,$PLOT_LF_HEIGHT butt
+set output '$outputdir/low_freq.png'
+
+$GNUPLOT_SETUP
+
+plot "
+
+  PLOT_ES="
+set terminal png truecolor enhanced size 1000,$PLOT_ES_HEIGHT butt
+set output '$outputdir/exec_speed.png'
+
+$GNUPLOT_SETUP
+
+plot "
+
+  PLOT_EG="
+set terminal png truecolor enhanced size 1000,$PLOT_EG_HEIGHT butt
+set output '$outputdir/edges.png'
+
+$GNUPLOT_SETUP
+
+plot "
+
+  _cidx=1
+  for _dir in $INPUTDIRS; do
+    _color=$(get_color $_cidx)
+    _label=$(get_banner "$_dir")
+
+    # Don't add comma on first entry
+    if [ "$_cidx" -ne 1 ]; then
+      _sep=", "
+    else
+      _sep=""
+    fi
+
+    # Append to plot string without backslashes (gnuplot handles long strings just fine)
+    PLOT_HF="${PLOT_HF}${_sep}'${_dir}/plot_data' using 1:4 with lines title '${_label} corpus' linecolor rgb '${_color}' linewidth 2, '${_dir}/plot_data' using 1:5 with lines title '${_label} pending' linecolor rgb '${_color}' linewidth 1 dashtype 2"
+    PLOT_LF="${PLOT_LF}${_sep}'${_dir}/plot_data' using 1:8 with lines title '${_label} crashes' linecolor rgb '${_color}' linewidth 2, '${_dir}/plot_data' using 1:9 with lines title '${_label} hangs' linecolor rgb '${_color}' linewidth 1 dashtype 2"
+    PLOT_ES="${PLOT_ES}${_sep}'${_dir}/plot_data' using 1:11 with lines title '${_label} execs/s' linecolor rgb '${_color}' linewidth 2"
+    PLOT_EG="${PLOT_EG}${_sep}'${_dir}/plot_data' using 1:13 with lines title '${_label} edges' linecolor rgb '${_color}' linewidth 2"
+
+    _cidx=$((_cidx + 1))
+  done
+
+  PLOT_HF="${PLOT_HF}
+"
+  PLOT_LF="${PLOT_LF}
+"
+  PLOT_ES="${PLOT_ES}
+"
+  PLOT_EG="${PLOT_EG}
+"
+
+fi
+
+if [ "$GRAPHICAL" = "1" ]; then
+
+  afl-plot-ui -h > /dev/null 2>&1
+
+  if [ "$?" != "0" ]; then
 
 cat 1>&2 <<_EOF_
 You do not seem to have the afl-plot-ui utility installed. If you have installed afl-plot-ui, make sure the afl-plot-ui executable is in your PATH.
@@ -200,28 +329,27 @@ If you are still facing any problems, please open an issue at https://github.com
 No plots have been generated. Please rerun without the "-g" or "--graphical" flag to generate the plots.
 _EOF_
 
-exit 1
+    exit 1
 
-fi
+  fi
 
-rm -rf "$outputdir/.tmp"
-mkdir -p "$outputdir/.tmp"
-mkfifo "$outputdir/.tmp/win_ids" || exit 1
+  rm -rf "$outputdir/.tmp"
+  mkdir -p "$outputdir/.tmp"
+  mkfifo "$outputdir/.tmp/win_ids" || exit 1
 
-afl-plot-ui > "$outputdir/.tmp/win_ids" &
-W_IDS=$(cat "$outputdir/.tmp/win_ids")
+  afl-plot-ui > "$outputdir/.tmp/win_ids" &
+  W_IDS=$(cat "$outputdir/.tmp/win_ids")
 
-rm -rf "$outputdir/.tmp"
+  rm -rf "$outputdir/.tmp"
 
-W_ID1=$(echo "$W_IDS" | head -n 1)
-W_ID2=$(echo "$W_IDS" | head -n 2 | tail -n 1)
-W_ID3=$(echo "$W_IDS" | head -n 3 | tail -n 1)
-W_ID4=$(echo "$W_IDS" | tail -n 1)
+  W_ID1=$(echo "$W_IDS" | head -n 1)
+  W_ID2=$(echo "$W_IDS" | head -n 2 | tail -n 1)
+  W_ID3=$(echo "$W_IDS" | head -n 3 | tail -n 1)
+  W_ID4=$(echo "$W_IDS" | tail -n 1)
 
-echo "[*] Generating plots..."
+  echo "[*] Generating plots..."
 
 (
-
 cat << _EOF_
 
 $PLOT_HF
@@ -231,11 +359,9 @@ replot
 pause mouse close
 
 _EOF_
-
 ) | gnuplot 2> /dev/null &
 
 (
-
 cat << _EOF_
 
 $PLOT_LF
@@ -245,11 +371,9 @@ replot
 pause mouse close
 
 _EOF_
-
 ) | gnuplot 2> /dev/null &
 
 (
-
 cat << _EOF_
 
 $PLOT_ES
@@ -259,11 +383,9 @@ replot
 pause mouse close
 
 _EOF_
-
 ) | gnuplot 2> /dev/null &
 
 (
-
 cat << _EOF_
 
 $PLOT_EG
@@ -273,32 +395,25 @@ replot
 pause mouse close
 
 _EOF_
-
 ) | gnuplot 2> /dev/null &
 
-sleep 1
+  sleep 1
 
 else
 
-echo "[*] Generating plots..."
+  echo "[*] Generating plots..."
 
+# Run gnuplot directly on the variables to avoid escaping issues
 (
-
 cat << _EOF_
-
 $PLOT_HF
-
 $PLOT_LF
-
 $PLOT_ES
-
 $PLOT_EG
-
 _EOF_
-
 ) | gnuplot || echo "Note: if you see errors concerning 'unknown or ambiguous terminal type' then you need to use a gnuplot that has png support compiled in."
 
-echo "[?] You can also use -g flag to view the plots in an GUI window, and interact with the plots (if you have built afl-plot-ui). Run \"afl-plot -h\" to know more."
+  echo "[?] You can also use -g flag to view the plots in a GUI window, and interact with the plots (if you have built afl-plot-ui). Run \"afl-plot -h\" to know more."
 
 fi
 
@@ -309,7 +424,9 @@ if [ ! -s "$outputdir/exec_speed.png" ]; then
 
 fi
 
-echo "[*] Generating index.html..."
+echo "[*] Generating $outputdir/index.html ..."
+
+if [ "$INPUTCOUNT" -eq 1 ]; then
 
 cat >"$outputdir/index.html" <<_EOF_
 <table style="font-family: 'Trebuchet MS', 'Tahoma', 'Arial', 'Helvetica'">
@@ -324,6 +441,39 @@ cat >"$outputdir/index.html" <<_EOF_
 <img src="exec_speed.png" width=1000 height=200>
 
 _EOF_
+
+else
+
+cat >"$outputdir/index.html" <<_EOF_
+<table style="font-family: 'Trebuchet MS', 'Tahoma', 'Arial', 'Helvetica'">
+<tr><td style="width: 18ex"><b>Instances:</b></td><td>$INPUTCOUNT fuzzer directories</td></tr>
+<tr><td><b>Generated on:</b></td><td>`date`</td></tr>
+</table>
+<p>
+<table style="font-family: 'Trebuchet MS', 'Tahoma', 'Arial', 'Helvetica'">
+_EOF_
+
+  _cidx=1
+  for _dir in $INPUTDIRS; do
+    _color=$(get_color $_cidx)
+    _label=$(get_banner "$_dir")
+    cat >>"$outputdir/index.html" <<_EOF_
+<tr><td style="width: 18ex; color: $_color"><b>&#x25CF; $_label</b></td><td>$_dir</td></tr>
+_EOF_
+    _cidx=$((_cidx + 1))
+  done
+
+  cat >>"$outputdir/index.html" <<_EOF_
+</table>
+<p>
+<img src="edges.png" width=1000 height=300>
+<img src="high_freq.png" width=1000 height=300><p>
+<img src="low_freq.png" width=1000 height=200><p>
+<img src="exec_speed.png" width=1000 height=200>
+
+_EOF_
+
+fi
 
 # Make it easy to remotely view results when outputting directly to a directory
 # served by Apache or other HTTP daemon. Since the plots aren't horribly

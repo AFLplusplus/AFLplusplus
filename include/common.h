@@ -10,13 +10,15 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    Gather some functions common to multiple executables
 
@@ -139,6 +141,9 @@ u8 *u_stringify_mem_size(u8 *buf, u64 val);
    Returns a pointer to buf for convenience. */
 
 u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms);
+
+/* Validate map size, returns validated size or FATALs if invalid */
+u32 validate_map_size(u32 map_size);
 
 /* Reads the map size from ENV */
 u32 get_map_size(void);
