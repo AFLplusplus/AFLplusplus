@@ -156,9 +156,9 @@ The following branches exist:
 
 * [release](https://github.com/AFLplusplus/AFLplusplus/tree/release): the latest
   release
-* [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/): stable state of
+* [stable](https://github.com/AFLplusplus/AFLplusplus/): stable state of
   AFL++ - it is synced from dev from time to time when we are satisfied with its
-  stability
+  stability. This is the default branch.
 * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state
   of AFL++ - bleeding edge and you might catch a checkout which does not compile
   or has a bug. **We only accept PRs (pull requests) for the 'dev' branch!**
@@ -167,7 +167,7 @@ The following branches exist:
 
 ## Help wanted
 
-Check out our [issues list with the "help wanted" tag](https://github.com/AFLplusplus/AFLplusplus/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)].
+Check out our [issues list with the "help wanted" tag](https://github.com/AFLplusplus/AFLplusplus/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22).
 This can be your way to support and contribute to AFL++ - extend it to do
 something cool. If you have other ideas - just create an issue and propose it!
 
