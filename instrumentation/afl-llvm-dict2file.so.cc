@@ -12,6 +12,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    This library is plugged into LLVM when invoking clang through afl-clang-lto.
 
  */

@@ -93,6 +93,13 @@ ifeq "$(SYS)" "OpenBSD"
     PLUGIN_FLAGS += -I/usr/local/include
 endif
 
+# Needed for backtrace under FreeBSD
+ifeq "$(SYS)" "FreeBSD"
+    LDFLAGS += -lexecinfo
+	# special flag variable for afl-compiler-rt library
+	COMPILER_RT_LDFLAGS := -lexecinfo
+endif
+
 ifeq "$(SYS)" "DragonFly"
   	PLUGIN_FLAGS += -I/usr/local/include
 endif
@@ -135,15 +142,15 @@ afl-common.o: ./src/afl-common.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ $(LDFLAGS)
 
 ./afl-compiler-rt.o: instrumentation/afl-compiler-rt.o.c
-	$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -fPIC -c $< -o $@
+	$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) $(COMPILER_RT_LDFLAGS) -O3 -Wno-unused-result -fPIC -c $< -o $@
 
 ./afl-compiler-rt-32.o: instrumentation/afl-compiler-rt.o.c
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
-	@$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) $(COMPILER_RT_LDFLAGS) -O3 -Wno-unused-result -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 ./afl-compiler-rt-64.o: instrumentation/afl-compiler-rt.o.c
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
-	@$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@$(CC) $(CFLAGS_SAFE) $(CPPFLAGS) $(COMPILER_RT_LDFLAGS) -O3 -Wno-unused-result -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 $(PASSES): instrumentation/afl-gcc-common.h
 
@@ -196,6 +203,8 @@ all_done: test_build
 	@echo Apache License Version 2.0, January 2004 >> ./$@
 	ln -sf afl-cc.8 ./afl-g++-fast.8
 
+OS := $(shell uname -s)
+
 .PHONY: install
 install: all
 	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc-fast
@@ -204,7 +213,12 @@ install: all
 	install -m 755 ./afl-gcc-pass.so $${DESTDIR}$(HELPER_PATH)
 	install -m 755 ./afl-gcc-cmplog-pass.so $${DESTDIR}$(HELPER_PATH)
 	install -m 755 ./afl-gcc-cmptrs-pass.so $${DESTDIR}$(HELPER_PATH)
-	install -m 644 -T instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
+ifneq "$(SYS)" "FreeBSD"
+		install -m 644 -T instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
+else
+		# no -T on FreeBSD/CheriBSD
+		install -m 644 instrumentation/README.gcc_plugin.md $${DESTDIR}$(DOC_PATH)/README.gcc_plugin.md
+endif
 
 .PHONY: clean
 clean:

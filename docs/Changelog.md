@@ -8,6 +8,7 @@
   - Switched https://github.com/AFLplusplus/cov-analysis for outdated afl-cov
   - MacOS most current version support for afl-fuzz, afl-cc (incl. LTO) and
     frida mode
+  - Refreshed FreeBSD support by jsaunders-rr, thanks!
   - Linux persistent mode uses futex now which increases speed and reduces
     system call overhead (opt out with AFL_FAST_CHILD_SYNC), thanks to
     @martinus for most of the implementation!
@@ -15,6 +16,7 @@
     - `-I tool` call now receives the new crash as a command line parameter
     - changed to a better map classifier
     - frameshift is disabled now if AFL_CUSTOM_MUTATOR_ONLY is set
+    - python module fixes
     - minor speed, leak and zombie enhancements
     - somewhere we removed .state/variable/... now it is back :-)
   - afl-cc:

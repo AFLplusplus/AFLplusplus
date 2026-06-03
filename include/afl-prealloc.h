@@ -18,6 +18,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
  */
 
 /* If we know we'll reuse small elements often, we'll just preallocate a buffer,

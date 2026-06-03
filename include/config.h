@@ -18,6 +18,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
  */
 
 #ifndef _HAVE_CONFIG_H
@@ -26,7 +28,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.41a"
+#define VERSION "++5.00a"
 
 /******************************************************
  *                                                    *

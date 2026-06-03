@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Zlib */
 /*
  *  Copyright (c) 2016-2020 Positive Technologies, https://www.ptsecurity.com,
  *  Fast Positive Hash.

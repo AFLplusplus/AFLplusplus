@@ -18,6 +18,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
    how they affect the execution path.
@@ -157,6 +159,7 @@ void destroy_custom_mutators(afl_state_t *afl) {
 
       if (!el->data) { FATAL("Deinitializing NULL mutator"); }
       if (el->afl_custom_deinit) el->afl_custom_deinit(el->data);
+      if (el->name_short) free(el->name_short);
       if (el->dh) dlclose(el->dh);
 
       if (el->post_process_buf) {

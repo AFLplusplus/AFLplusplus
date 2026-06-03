@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /* GCC plugin common infrastructure for AFL++ instrumentation passes.
 
    Copyright 2014-2019 Free Software Foundation, Inc

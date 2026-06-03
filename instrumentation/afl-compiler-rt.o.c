@@ -11,6 +11,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
 */
 
 #ifdef __linux__
@@ -1661,6 +1663,27 @@ static void __afl_start_forkserver(void) {
     }
 
     if (unlikely(!child_stopped)) {
+
+#ifdef __linux__
+      /* Clear any stale AFL_CHILD_EXITED in the futex before forking the
+         new child.  Our previous-iteration EXITED write (above) and the
+         fuzzer's IDLE write (at end of run_target) are unordered, so the
+         futex could hold either.  We do this AFTER reading ctl (which
+         sequences us past the previous EXITED write -- ctl read happens
+         after that write in this loop body) and BEFORE fork(), so the
+         new child sees AFL_CHILD_IDLE on its first __afl_persistent_loop
+         CAS.  Otherwise the fuzzer would see stale EXITED on entry to
+         afl_futex_wait, return immediately without setting
+         last_run_timed_out, and the SIGKILL escalation in the fuzzer
+         would kill the innocent new child and misclassify the timeout
+         as a crash. */
+      if (likely(__afl_child_sync)) {
+
+        __atomic_store_n(__afl_child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+
+      }
+
+#endif
 
       /* Once woken up, create a clone of our process. */
 
