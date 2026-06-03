@@ -4,6 +4,12 @@
   release of the tool. See README.md for the general instruction manual.
 
 
+### Version ++5.00a (dev)
+  - afl-fuzz
+    - enforce halt on UBSAN errors
+  - afl-cc:
+    - enforce halt on UBSAN errors (AFL_USE_USBAN=1)
+
 ### Version ++5.00c (release)
   ! AFL++ is now an AGPL 3.0 project !
   ! Files where the license could be switched were moved to AGPL 3.0+, files

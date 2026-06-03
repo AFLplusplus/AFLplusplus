@@ -2062,15 +2062,11 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
     if (!aflcc->have_ubsan) { insert_param(aflcc, "-fsanitize=undefined"); }
 
-    if (getenv("AFL_UBSAN_VERBOSE")) {
-
-      insert_param(aflcc, "-fno-sanitize-recover=undefined");
-
-    } else {
-
-      insert_param(aflcc, "-fsanitize-trap=undefined");
-
-    }
+    //if (getenv("AFL_UBSAN_VERBOSE")) {
+    insert_param(aflcc, "-fno-sanitize-recover=undefined");
+    //} else {
+    //  insert_param(aflcc, "-fsanitize-trap=undefined");
+    //}
 
     if (!aflcc->have_fp) {
 
