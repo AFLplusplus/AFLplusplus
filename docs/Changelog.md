@@ -4,9 +4,10 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++5.00a (dev)
-  !!! Files where the license could be switched were moved to AGPL 3.0+ !!!
+### Version ++5.00c (release)
   ! AFL++ is now an AGPL 3.0 project !
+  ! Files where the license could be switched were moved to AGPL 3.0+, files
+    that were under Apache 2.0 with contributations stay on that license.
   ! Commercial license (donate to a good cause - no money for AFL++) is available
   - Switched https://github.com/AFLplusplus/cov-analysis for outdated afl-cov
   - MacOS most current version support for afl-fuzz, afl-cc (incl. LTO) and
