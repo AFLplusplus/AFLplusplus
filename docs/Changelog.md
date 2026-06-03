@@ -9,6 +9,8 @@
     - enforce halt on UBSAN errors
   - afl-cc:
     - enforce halt on UBSAN errors (AFL_USE_USBAN=1)
+    - better cmplog on MacOS
+
 
 ### Version ++5.00c (release)
   ! AFL++ is now an AGPL 3.0 project !
