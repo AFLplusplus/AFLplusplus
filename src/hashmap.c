@@ -1,3 +1,21 @@
+/*
+   american fuzzy lop++ - hashmap (part of AFL++)
+   ----------------------------------------------
+
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
+
+   This file is part of AFL++ and, unlike the original Apache-2.0 source files,
+   is licensed under the GNU Affero General Public License as published by the
+   Free Software Foundation, either version 3 of the License, or (at your
+   option) any later version. See https://www.gnu.org/licenses/agpl-3.0.html
+
+   A commercial license is available for organizations that cannot use the
+   AGPL; see LICENSE.COMMERCIAL.
+
+   SPDX-License-Identifier: AGPL-3.0-or-later
+
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

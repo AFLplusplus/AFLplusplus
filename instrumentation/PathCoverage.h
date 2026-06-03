@@ -1,4 +1,17 @@
 /*
+   american fuzzy lop++ - part of the AFL++ project
+   ------------------------------------------------
+
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may obtain a copy at https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
+
+ */
+
+/*
    AFL++ Ball-Larus path coverage — shared analysis.
 
    Used by both SanitizerCoverageLTO.so.cc and SanitizerCoveragePCGUARD.so.cc.

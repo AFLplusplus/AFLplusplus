@@ -1,3 +1,5 @@
+// SanitizerCoverage.cpp ported to AFL++ LTO; derived from the LLVM Project.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 /* SanitizeCoverage.cpp ported to AFL++ LTO :-) */
 
 #define AFL_LLVM_PASS

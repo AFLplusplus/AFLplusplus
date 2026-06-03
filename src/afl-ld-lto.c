@@ -17,6 +17,8 @@
 
     https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
   The sole purpose of this wrapper is to preprocess clang LTO files when
   linking with lld and performing the instrumentation on the whole program.
 
