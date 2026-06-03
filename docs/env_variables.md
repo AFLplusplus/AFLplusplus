@@ -106,7 +106,6 @@ fairly broad use of environment variables instead:
       detection)
     - `AFL_USE_CFISAN=1` - activates the Control Flow Integrity sanitizer (e.g.
       type confusion vulnerabilities)
-    - `AFL_CFISAN_VERBOSE=1` - outputs detailed information when control flow integrity violations occur, instead of simply terminating with "Illegal Instruction"
     - `AFL_USE_LSAN` - activates the leak sanitizer. To perform a leak check
       within your program at a certain point (such as at the end of an
       `__AFL_LOOP()`), you can run the macro  `__AFL_LEAK_CHECK();` which will
@@ -117,10 +116,7 @@ fairly broad use of environment variables instead:
     - `AFL_USE_TSAN=1` - activates the thread sanitizer to find thread race
       conditions
     - `AFL_USE_UBSAN=1` - activates the undefined behavior sanitizer
-    - `AFL_UBSAN_VERBOSE=1` - outputs detailed diagnostic information when undefined behavior is detected, instead of simply terminating with "Illegal Instruction"
     . `AFL_USE_RTSAN` . activates the realtime sanitizer (realtime violations in deterministic run time constraints). (clang 20 minimum)
-
-    - Note: both `AFL_CFISAN_VERBOSE=1` and `AFL_UBSAN_VERBOSE=1` are disabled by default as verbose output can significantly slow down fuzzing performance. Use these options only during debugging or when additional crash diagnostics are required
 
   - `AFL_LLVM_ONLY_FSRV`/`AFL_GCC_ONLY_FSRV` will inject forkserver but not pc instrumentation. Please note this is different compared to `AFL_LLVM_DISABLE_INSTRUMENTATION`, which will totally disable forkserver implementation. This env is pretty useful in two cases:
     - [SAND](./SAND.md). In this case, the binaries built in this way will serve as extra oracles. Check the corresponding documents for details.
