@@ -156,7 +156,11 @@ inline llvm::Value *hoistMapPointerLoad(llvm::Function       &F,
 
   /* Move static allocas into the preamble so ASan keeps them function-wide. */
   for (auto *AI : StaticAllocas)
+#if LLVM_MAJOR >= 20
+    AI->moveBefore(Load->getIterator());
+#else
     AI->moveBefore(Load);
+#endif
 
   return Load;
 

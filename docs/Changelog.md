@@ -4,13 +4,14 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++5.00a (dev)
-  !!! Files where the license could be switched were moved to AGPL 3.0+ !!!
+### Version ++5.00c (release)
   ! AFL++ is now an AGPL 3.0 project !
-  ! Commercial license (donating to a good cause - no money for AFL++) is available
+  ! Files where the license could be switched were moved to AGPL 3.0+, files
+    that were under Apache 2.0 with contributations stay on that license.
+  ! Commercial license (donate to a good cause - no money for AFL++) is available
   - Switched https://github.com/AFLplusplus/cov-analysis for outdated afl-cov
   - MacOS most current version support for afl-fuzz, afl-cc (incl. LTO) and
-    frida mode
+    frida mode!
   - Refreshed FreeBSD support by jsaunders-rr, thanks!
   - Linux persistent mode uses futex now which increases speed and reduces
     system call overhead (opt out with AFL_FAST_CHILD_SYNC), thanks to
@@ -21,6 +22,7 @@
     - frameshift is disabled now if AFL_CUSTOM_MUTATOR_ONLY is set
     - python module fixes
     - minor speed, leak and zombie enhancements
+    - stability info was lost on fast resume - fixed
     - somewhere we removed .state/variable/... now it is back :-)
   - afl-cc:
     - Add LLVM 23 support

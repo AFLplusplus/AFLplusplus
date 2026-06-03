@@ -3180,6 +3180,9 @@ void afl_load_seeds(afl_state_t *afl) {
 
     }
 
+    // recalculate var_bytes
+    afl->var_byte_count = count_bytes(afl, afl->var_bytes);
+
     u8  res[1] = {0};
     u8 *o_start = (u8 *)&(afl->queue_buf[0]->colorized);
     u8 *o_end = (u8 *)&(afl->queue_buf[0]->mother);
@@ -3744,7 +3747,6 @@ void stop_fuzzing(afl_state_t *afl) {
       }
 
       ZLIBCLOSE(afl->fr_fd);
-      afl->var_byte_count = count_bytes(afl, afl->var_bytes);
       OKF("fastresume.bin successfully written with %u bytes.", w);
 
     } else {

@@ -75,6 +75,8 @@ By submitting a contribution (for example a pull request) you agree that:
   plugin under `GPL-3.0-or-later`; always match the file's existing identifier.)
   Match the existing `SPDX-License-Identifier` of the file you edit; do not
   change a file's license without explicit agreement from the maintainers.
+  New files must be licensed under AGPL-3.0-or-later, unless a maintainer of
+  AFL++ grants an exception (e.g. code that is linked in fuzzing targets).
 * You have the right to submit the contribution under those terms.
 * You grant the AFL++ maintainers a perpetual, worldwide, non-exclusive,
   royalty-free, irrevocable right to use, distribute, and **re-license** your
