@@ -17,6 +17,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
    how they affect the execution path.
@@ -34,27 +36,29 @@ static inline bool py_bytes(PyObject *py_value, /* out */ char **bytes,
 
   if (!py_value) { return false; }
 
-  *bytes = PyByteArray_AsString(py_value);
-  if (*bytes) {
+  // PyByteArray_AsString/PyBytes_AsString do not validate the object type at
+  // runtime in release Python builds (the type check is an assert that is
+  // compiled out), so probe with the *_Check predicates first — otherwise a
+  // bytes object handed to PyByteArray_AsString silently returns a junk
+  // pointer derived from internal struct fields.
+  if (PyByteArray_Check(py_value)) {
 
-    // we got a bytearray
+    *bytes = PyByteArray_AsString(py_value);
     *size = PyByteArray_Size(py_value);
-
-  } else {
-
-    *bytes = PyBytes_AsString(py_value);
-    if (!*bytes) {
-
-      // No valid type returned.
-      return false;
-
-    }
-
-    *size = PyBytes_Size(py_value);
+    return *bytes != NULL;
 
   }
 
-  return true;
+  if (PyBytes_Check(py_value)) {
+
+    *bytes = PyBytes_AsString(py_value);
+    if (!*bytes) { return false; }
+    *size = PyBytes_Size(py_value);
+    return true;
+
+  }
+
+  return false;
 
 }
 
@@ -154,13 +158,11 @@ static size_t fuzz_py(void *py_mutator, u8 *buf, size_t buf_size, u8 **out_buf,
 static const char *custom_describe_py(void  *py_mutator,
                                       size_t max_description_len) {
 
-  PyObject *py_args, *py_value;
+  PyObject     *py_args, *py_value;
+  py_mutator_t *py = (py_mutator_t *)py_mutator;
 
   py_args = PyTuple_New(1);
 
-  PyLong_FromSize_t(max_description_len);
-
-  /* add_buf */
   py_value = PyLong_FromSize_t(max_description_len);
   if (!py_value) {
 
@@ -171,14 +173,43 @@ static const char *custom_describe_py(void  *py_mutator,
 
   PyTuple_SetItem(py_args, 0, py_value);
 
-  py_value = PyObject_CallObject(
-      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_DESCRIBE], py_args);
+  py_value = PyObject_CallObject(py->py_functions[PY_FUNC_DESCRIBE], py_args);
 
   Py_DECREF(py_args);
 
-  if (py_value != NULL) { return PyBytes_AsString(py_value); }
+  if (py_value == NULL) {
 
-  return NULL;
+    PyErr_Print();
+    return NULL;
+
+  }
+
+  char  *bytes;
+  size_t len;
+  if (!py_bytes(py_value, &bytes, &len)) {
+
+    Py_DECREF(py_value);
+    WARNF("describe() should return bytes or bytearray");
+    return NULL;
+
+  }
+
+  /* Copy into an owned buffer so the result survives Py_DECREF(py_value).
+     PyBytes_AsString returns a pointer to the bytes object's internal
+     ob_sval — once py_value is GC'd, the pointer dangles. */
+  u8 *buf = afl_realloc(BUF_PARAMS(describe), len + 1);
+  if (unlikely(!buf)) {
+
+    Py_DECREF(py_value);
+    PFATAL("alloc");
+
+  }
+
+  if (len) { memcpy(buf, bytes, len); }
+  buf[len] = '\0';
+
+  Py_DECREF(py_value);
+  return (const char *)buf;
 
 }
 
@@ -305,6 +336,27 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
         PyObject_GetAttrString(py_module, "introspection");
     py_functions[PY_FUNC_DEINIT] = PyObject_GetAttrString(py_module, "deinit");
   #endif
+    /* Both branches above may leave the error indicator set: the <3.13 branch
+       raises AttributeError for every missing optional attribute, and the
+       3.13+ branch can still return -1 with an exception set if a descriptor
+       errors during lookup. Downstream PyErr_Occurred() checks (init_trim,
+       fuzz_count, post_trim, havoc_mutation_probability) would otherwise trip
+       on this stale state. Clear AttributeError silently; surface anything
+       else so real bugs in user modules aren't masked. */
+    if (PyErr_Occurred()) {
+
+      if (PyErr_ExceptionMatches(PyExc_AttributeError)) {
+
+        PyErr_Clear();
+
+      } else {
+
+        PyErr_Print();
+
+      }
+
+    }
+
     if (py_functions[PY_FUNC_SPLICE_OPTOUT]) { afl->custom_splice_optout = 1; }
     if (!py_functions[PY_FUNC_DEINIT])
       WARNF("deinit function not found in python module");
@@ -330,29 +382,6 @@ static py_mutator_t *init_py_module(afl_state_t *afl, u8 *module_name) {
   }
 
   return py;
-
-}
-
-void finalize_py_module(void *py_mutator) {
-
-  py_mutator_t *py = (py_mutator_t *)py_mutator;
-
-  if (py->py_module != NULL) {
-
-    deinit_py(py_mutator);
-
-    u32 i;
-    for (i = 0; i < PY_FUNC_COUNT; ++i) {
-
-      Py_XDECREF(py->py_functions[i]);
-
-    }
-
-    Py_DECREF(py->py_module);
-
-  }
-
-  Py_Finalize();
 
 }
 
@@ -399,23 +428,57 @@ static void init_py(afl_state_t *afl, py_mutator_t *py_mutator,
 
 void deinit_py(void *py_mutator) {
 
-  PyObject *py_args, *py_value;
+  py_mutator_t *py = (py_mutator_t *)py_mutator;
 
-  py_args = PyTuple_New(0);
-  py_value = PyObject_CallObject(
-      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_DEINIT], py_args);
-  Py_DECREF(py_args);
+  if (!py) { return; }
 
-  if (py_value != NULL) {
+  if (py->py_module != NULL) {
 
-    Py_DECREF(py_value);
+    /* Call the user's Python deinit() if it exists. */
+    if (py->py_functions[PY_FUNC_DEINIT]) {
 
-  } else {
+      PyObject *py_args = PyTuple_New(0);
+      PyObject *py_value =
+          PyObject_CallObject(py->py_functions[PY_FUNC_DEINIT], py_args);
+      Py_DECREF(py_args);
 
-    PyErr_Print();
-    FATAL("Call failed");
+      if (py_value != NULL) {
+
+        Py_DECREF(py_value);
+
+      } else {
+
+        PyErr_Print();
+        WARNF("python deinit() raised");
+
+      }
+
+    }
+
+    /* Release the buffer view held over the last post_process_py result
+       (initialized at module load, refreshed on every post_process call). */
+    PyBuffer_Release(&py->post_process_buf);
+
+    for (u32 i = 0; i < PY_FUNC_COUNT; ++i) {
+
+      Py_XDECREF(py->py_functions[i]);
+
+    }
+
+    Py_DECREF(py->py_module);
 
   }
+
+  Py_Finalize();
+
+  afl_free(py->fuzz_buf);
+  afl_free(py->trim_buf);
+  afl_free(py->havoc_buf);
+  afl_free(py->describe_buf);
+  afl_free(py->introspection_buf);
+
+  /* py was allocated with calloc() in init_py_module. */
+  free(py);
 
 }
 
@@ -456,7 +519,10 @@ struct custom_mutator *load_custom_mutator_py(afl_state_t *afl,
 
   if (py_functions[PY_FUNC_INIT]) { mutator->afl_custom_init = unsupported; }
 
-  if (py_functions[PY_FUNC_DEINIT]) { mutator->afl_custom_deinit = deinit_py; }
+  /* deinit_py also tears down all py_mutator_t state (buffers, Python refs,
+     Py_Finalize, free of py itself), so register it unconditionally — without
+     it, destroy_custom_mutators leaves the entire py_mutator_t leaked. */
+  mutator->afl_custom_deinit = deinit_py;
 
   if (py_functions[PY_FUNC_FUZZ]) { mutator->afl_custom_fuzz = fuzz_py; }
 
@@ -646,6 +712,14 @@ s32 init_trim_py(void *py_mutator, u8 *buf, size_t buf_size) {
   #else
     u32 retcnt = PyInt_AsLong(py_value);
   #endif
+    if (PyErr_Occurred()) {
+
+      PyErr_Print();
+      Py_DECREF(py_value);
+      FATAL("Python mutator returned non-integer where int expected");
+
+    }
+
     Py_DECREF(py_value);
     return retcnt;
 
@@ -684,6 +758,14 @@ u32 fuzz_count_py(void *py_mutator, const u8 *buf, size_t buf_size) {
   #else
     u32 retcnt = PyInt_AsLong(py_value);
   #endif
+    if (PyErr_Occurred()) {
+
+      PyErr_Print();
+      Py_DECREF(py_value);
+      FATAL("Python mutator returned non-integer where int expected");
+
+    }
+
     Py_DECREF(py_value);
     return retcnt;
 
@@ -723,6 +805,14 @@ s32 post_trim_py(void *py_mutator, u8 success) {
   #else
     u32 retcnt = PyInt_AsLong(py_value);
   #endif
+    if (PyErr_Occurred()) {
+
+      PyErr_Print();
+      Py_DECREF(py_value);
+      FATAL("Python mutator returned non-integer where int expected");
+
+    }
+
     Py_DECREF(py_value);
     return retcnt;
 
@@ -864,6 +954,14 @@ u8 havoc_mutation_probability_py(void *py_mutator) {
   if (py_value != NULL) {
 
     long prob = PyLong_AsLong(py_value);
+    if (PyErr_Occurred()) {
+
+      PyErr_Print();
+      Py_DECREF(py_value);
+      FATAL("havoc_mutation_probability returned non-integer");
+
+    }
+
     Py_DECREF(py_value);
     return (u8)prob;
 
@@ -878,33 +976,46 @@ u8 havoc_mutation_probability_py(void *py_mutator) {
 
 const char *introspection_py(void *py_mutator) {
 
-  PyObject *py_args, *py_value;
+  PyObject     *py_args, *py_value;
+  py_mutator_t *py = (py_mutator_t *)py_mutator;
 
   py_args = PyTuple_New(0);
-  py_value = PyObject_CallObject(
-      ((py_mutator_t *)py_mutator)->py_functions[PY_FUNC_INTROSPECTION],
-      py_args);
+  py_value =
+      PyObject_CallObject(py->py_functions[PY_FUNC_INTROSPECTION], py_args);
   Py_DECREF(py_args);
 
   if (py_value == NULL) {
 
+    PyErr_Print();
     return NULL;
 
-  } else {
+  }
 
-    char  *ret;
-    size_t len;
-    if (!py_bytes(py_value, &ret, &len)) {
+  char  *bytes;
+  size_t len;
+  if (!py_bytes(py_value, &bytes, &len)) {
 
-      FATAL(
-          "Python mutator introspection call returned illegal type (expected "
-          "bytes or bytearray)");
-
-    }
-
-    return ret;
+    Py_DECREF(py_value);
+    FATAL(
+        "Python mutator introspection call returned illegal type (expected "
+        "bytes or bytearray)");
 
   }
+
+  /* Owned-copy pattern: the returned pointer must outlive py_value. */
+  u8 *buf = afl_realloc(BUF_PARAMS(introspection), len + 1);
+  if (unlikely(!buf)) {
+
+    Py_DECREF(py_value);
+    PFATAL("alloc");
+
+  }
+
+  if (len) { memcpy(buf, bytes, len); }
+  buf[len] = '\0';
+
+  Py_DECREF(py_value);
+  return (const char *)buf;
 
 }
 

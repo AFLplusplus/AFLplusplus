@@ -36,7 +36,7 @@ __attribute__((noinline)) int if_chain(unsigned char x) {
   if (x & 1) { s += 1; }
   if (x & 2) { s += 2; }
   if (x & 4) { s += 4; }
-  return s;  /* 2*2*2 = 8 paths */
+  return s;                                              /* 2*2*2 = 8 paths */
 
 }
 
@@ -45,11 +45,19 @@ __attribute__((noinline)) int loop_path(unsigned char x) {
   int s = 0;
   for (int i = 0; i < (x & 7); i++) {
 
-    if (i & 1) { s += 1; }
-    else { s += 2; }
+    if (i & 1) {
+
+      s += 1;
+
+    } else {
+
+      s += 2;
+
+    }
 
   }
-  return s;  /* loop back-edge stripped → 2 paths through one iteration */
+
+  return s;      /* loop back-edge stripped → 2 paths through one iteration */
 
 }
 
@@ -65,13 +73,19 @@ __attribute__((noinline)) int switch_func(unsigned char x) {
 
   switch (x & 7) {
 
-    case 0: return 10;
-    case 1: return 11;
-    case 2: return 12;
-    case 3: return 13;
-    default: return 14;
+    case 0:
+      return 10;
+    case 1:
+      return 11;
+    case 2:
+      return 12;
+    case 3:
+      return 13;
+    default:
+      return 14;
 
   }
+
   /* 5 distinct exit BBs from a switch → 5 paths */
 
 }
@@ -82,11 +96,28 @@ __attribute__((noinline)) int switch_func(unsigned char x) {
 __attribute__((noinline)) int bigly_paths(unsigned char *buf) {
 
   int s = 0;
-#define BIT(N) if (buf[0] & (1u << ((N) & 7))) { s += (N); }
-  BIT(0); BIT(1); BIT(2); BIT(3); BIT(4);
-  BIT(5); BIT(6); BIT(7); BIT(8); BIT(9);
-  BIT(10); BIT(11); BIT(12); BIT(13); BIT(14);
-  BIT(15); BIT(16); BIT(17); BIT(18); BIT(19);
+#define BIT(N) \
+  if (buf[0] & (1u << ((N) & 7))) { s += (N); }
+  BIT(0);
+  BIT(1);
+  BIT(2);
+  BIT(3);
+  BIT(4);
+  BIT(5);
+  BIT(6);
+  BIT(7);
+  BIT(8);
+  BIT(9);
+  BIT(10);
+  BIT(11);
+  BIT(12);
+  BIT(13);
+  BIT(14);
+  BIT(15);
+  BIT(16);
+  BIT(17);
+  BIT(18);
+  BIT(19);
 #undef BIT
   return s;
 
@@ -120,6 +151,7 @@ __attribute__((noinline)) int multi_path_sideeffect(unsigned char x) {
     s += 2;
 
   }
+
   return s;
 
 }
@@ -130,27 +162,35 @@ __attribute__((noinline)) int multi_path_sideeffect(unsigned char x) {
    but the analysis pass still has to walk every BB. If the back-edge DFS
    or NumPaths walk is recursive, this triggers stack overflow on a default
    8 MB stack. With the iterative implementation it must compile cleanly. */
-#define CHAIN1(n) case n: s += n; /* fallthrough */
-#define CHAIN10(n) CHAIN1(n+0) CHAIN1(n+1) CHAIN1(n+2) CHAIN1(n+3) \
-                   CHAIN1(n+4) CHAIN1(n+5) CHAIN1(n+6) CHAIN1(n+7) \
-                   CHAIN1(n+8) CHAIN1(n+9)
-#define CHAIN100(n) CHAIN10(n+0) CHAIN10(n+10) CHAIN10(n+20) CHAIN10(n+30) \
-                    CHAIN10(n+40) CHAIN10(n+50) CHAIN10(n+60) CHAIN10(n+70) \
-                    CHAIN10(n+80) CHAIN10(n+90)
+#define CHAIN1(n) \
+  case n:         \
+    s += n;                                                  /* fallthrough */
+#define CHAIN10(n)                                                      \
+  CHAIN1(n + 0)                                                         \
+  CHAIN1(n + 1) CHAIN1(n + 2) CHAIN1(n + 3) CHAIN1(n + 4) CHAIN1(n + 5) \
+      CHAIN1(n + 6) CHAIN1(n + 7) CHAIN1(n + 8) CHAIN1(n + 9)
+#define CHAIN100(n)                                                   \
+  CHAIN10(n + 0)                                                      \
+  CHAIN10(n + 10) CHAIN10(n + 20) CHAIN10(n + 30) CHAIN10(n + 40)     \
+      CHAIN10(n + 50) CHAIN10(n + 60) CHAIN10(n + 70) CHAIN10(n + 80) \
+          CHAIN10(n + 90)
 __attribute__((noinline)) int deep_chain(unsigned int x) {
 
   int s = 0;
   switch (x % 1500) {
 
-    CHAIN100(0)    CHAIN100(100)  CHAIN100(200)  CHAIN100(300)  CHAIN100(400)
-    CHAIN100(500)  CHAIN100(600)  CHAIN100(700)  CHAIN100(800)  CHAIN100(900)
-    CHAIN100(1000) CHAIN100(1100) CHAIN100(1200) CHAIN100(1300) CHAIN100(1400)
-    default: s += 9999;
+    CHAIN100(0)
+    CHAIN100(100) CHAIN100(200) CHAIN100(300) CHAIN100(400) CHAIN100(500)
+        CHAIN100(600) CHAIN100(700) CHAIN100(800) CHAIN100(900) CHAIN100(1000)
+            CHAIN100(1100) CHAIN100(1200) CHAIN100(1300) CHAIN100(1400) default
+        : s += 9999;
 
   }
+
   return s;
 
 }
+
 #undef CHAIN1
 #undef CHAIN10
 #undef CHAIN100
@@ -175,3 +215,4 @@ int main(int argc, char **argv) {
   return sum & 0xff;
 
 }
+

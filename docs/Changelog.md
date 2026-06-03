@@ -4,10 +4,14 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++4.41a (dev)
+### Version ++5.00a (dev)
+  !!! Files where the license could be switched were moved to AGPL 3.0+ !!!
+  ! AFL++ is now an AGPL 3.0 project !
+  ! Commercial license (donating to a good cause - no money for AFL++) is available
   - Switched https://github.com/AFLplusplus/cov-analysis for outdated afl-cov
   - MacOS most current version support for afl-fuzz, afl-cc (incl. LTO) and
     frida mode
+  - Refreshed FreeBSD support by jsaunders-rr, thanks!
   - Linux persistent mode uses futex now which increases speed and reduces
     system call overhead (opt out with AFL_FAST_CHILD_SYNC), thanks to
     @martinus for most of the implementation!
@@ -15,6 +19,7 @@
     - `-I tool` call now receives the new crash as a command line parameter
     - changed to a better map classifier
     - frameshift is disabled now if AFL_CUSTOM_MUTATOR_ONLY is set
+    - python module fixes
     - minor speed, leak and zombie enhancements
     - somewhere we removed .state/variable/... now it is back :-)
   - afl-cc:
@@ -28,7 +33,52 @@
       instrumentation/README.llvm.md and instrumentation/README.lto.md.
     - Fixes in the PCGUARD and LTO instrumentation that could lead to sanitizer
       triggers in target binaries
-  - afl-cmin:
+    - new instrumentation: `afl-llvm-bug-pass.so` provides five runtime
+      oracles (SCALAR, BUDGET, SIZEFILL, ALLOCSIZE, SLACK) plus a slice-
+      filter sub-mode for SCALAR, covering arithmetic-bound and logical-
+      OOB bugs that ASan misses (CVE-2023-4863 / libwebp-Huffman class).
+      Note: ALLOCSIZE/DERIVE are disabled automatically under
+      AFL_USE_ASAN to avoid double-instrumentation; see
+      docs/env_variables.md.
+        * `AFL_LLVM_BUG_SCALAR=1`   - max-value-per-arithmetic-site coverage,
+                                      plus per-loop iteration count
+        * `AFL_LLVM_BUG_SCALAR_SLICE=1` - restrict SCALAR instrumentation to
+                                      arithmetic that flows into a memory-
+                                      size sink (allocator size, GEP index,
+                                      memcpy/memset length). Implies SCALAR.
+        * `AFL_LLVM_BUG_BUDGET=1`   - check `ptr += func()` write-extent
+                                      contract
+        * `AFL_LLVM_BUG_SIZEFILL=1`  - check NULL-means-size-only idioms
+        * `AFL_LLVM_BUG_ALLOCSIZE=1` - track every malloc/calloc/realloc and
+                                       feed three signals (headroom IJON-min,
+                                       proximity-bucket coverage edge, soft-OOB
+                                       tripwire) per in-loop store
+        * `AFL_LLVM_BUG_SLACK=1`    - per-icmp |op0-op1| feedback, mapped
+                                      MIN-style onto the bug map (inverse-
+                                      bucket) for tight-comparison signal
+        * `AFL_LLVM_BUG_ALLOCSIZE_FUNCS=Name1,Name2,...` - extend tracking
+                                       to user-listed custom allocators
+        * `AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS=Name1,Name2,...` - matching
+                                       custom-free functions for the above
+        * `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` - log tracked allocation sizes
+                                       into CmpLog RTN slots for `-l Z`
+        * `AFL_LLVM_BUG=1`           - enable all bug-pass modes
+      Per-site bug-map slots are kept in a private MAP_SIZE_BUG region and
+      tracked max-rule (compatible with the IJON model)
+    - cmplog scheduling extensions (companion to bug-pass):
+        * `-l M` (afl-fuzz) - predicate-tightness scheduling. Treat any
+          new per-site minimum slack on an inequality CmpLog cmp as a
+          coverage event and mark the queue entry favoured. Catches the
+          libwebp-1.3.1 / CVE-2023-4863 input pattern (validation
+          predicates simultaneously at their tight edges).
+        * `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` or `AFL_LLVM_BUG=1`
+          (compile-time) and
+          `-l Z` (afl-fuzz) - size-derive logging. On every freed tracked
+          allocation, write `(computed_size, max_observed_offset)` into a
+          CmpLog RTN slot keyed by alloc-site. The existing CmpLog
+          dictionary mining harvests `computed_size` as a magic constant
+          and feeds the producing input bytes back into havoc.
+  - afl-cmin*:
     - nyx_mode is now working for all minimizer variants
   - afl-showmap:
     - no more .afl-showmap-temp-* files lying around

@@ -18,6 +18,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    This allocator is not designed to resist malicious attackers (the canaries
    are small and predictable), but provides a robust and portable way to detect
    use-after-free, off-by-one writes, stale pointers, and so on.

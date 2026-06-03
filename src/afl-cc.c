@@ -13,6 +13,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
  */
 
 #define AFL_MAIN
@@ -3752,6 +3754,52 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     }
 
+    /* ASAN already provides byte-granular OOB checks and reserves the
+       low address space for its shadow.  The bug-pass runtime detects
+       ASAN at startup and disables ALLOCSIZE/DERIVE to avoid
+       double-instrumentation, so this combination is a silent no-op
+       at runtime — warn at compile time. */
+    if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") &&
+        (getenv("AFL_USE_ASAN") || aflcc->have_asan)) {
+
+      WARNF("AFL_LLVM_BUG_ALLOCSIZE_DERIVE is incompatible with ASAN, ignored");
+
+    }
+
+    /* DERIVE writes size-derive entries into the CmpLog map.  That map is
+       supplied at run time by a CmpLog build, by afl-fuzz's cmplog mode, or by
+       AFL_CMPLOG_DEBUG; if none is present the feature is a harmless no-op.
+       Warn when DERIVE is requested without compile-time CmpLog so a plain
+       AFL_LLVM_BUG_ALLOCSIZE_DERIVE on a non-cmplog binary isn't silently
+       useless, but do NOT disable it: unsetting DERIVE here was inconsistent
+       with the AFL_LLVM_BUG=1 path (which keeps DERIVE) and broke setups that
+       provide the cmp_map themselves.  DERIVE implies ALLOCSIZE, so ensure the
+       OOB oracle is enabled too. */
+    if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") && !aflcc->cmplog_mode) {
+
+      WARNF(
+          "AFL_LLVM_BUG_ALLOCSIZE_DERIVE needs a CmpLog map at run time (a "
+          "CMPLOG build, afl-fuzz cmplog mode, or AFL_CMPLOG_DEBUG); without "
+          "one it is a no-op. Keeping DERIVE enabled.");
+      setenv("AFL_LLVM_BUG_ALLOCSIZE", "1", 1);
+
+    }
+
+    /* Bug-finding pass: enabled by any AFL_LLVM_BUG* var. Single .so handles
+       all five sub-modes internally (SCALAR/BUDGET/SIZEFILL/ALLOCSIZE/SLACK).
+     */
+    if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_SCALAR") ||
+        getenv("AFL_LLVM_BUG_SCALAR_SLICE") || getenv("AFL_LLVM_BUG_BUDGET") ||
+        getenv("AFL_LLVM_BUG_SIZEFILL") || getenv("AFL_LLVM_BUG_ALLOCSIZE") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_FUNCS") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") ||
+        getenv("AFL_LLVM_BUG_SLACK")) {
+
+      load_llvm_pass(aflcc, "afl-llvm-bug-pass.so");
+
+    }
+
     if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
         getenv("AFL_LLVM_INJECTIONS_SQL") ||
         getenv("AFL_LLVM_INJECTIONS_LDAP") ||
@@ -3811,6 +3859,12 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
       }
 
     }
+
+// link in execinfo on FreeBSD to include backtrace library used by
+// instrumentation.
+#ifdef __FreeBSD__
+    insert_param(aflcc, "-lexecinfo");
+#endif
 
   }
 

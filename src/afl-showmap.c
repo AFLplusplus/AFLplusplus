@@ -20,6 +20,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    A very simple tool that runs the targeted binary and displays
    the contents of the trace bitmap in a human-readable form. Useful in
    scripts to eliminate redundant inputs and perform other checks.
@@ -290,7 +292,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
   }
 
-  if (cmin_mode && (run_timed_out() || (!caa && child_crashed != cco))) {
+  if (cmin_mode && !caa && (run_timed_out() || child_crashed != cco)) {
 
     if (strcmp(outfile, "-")) {
 
@@ -1225,7 +1227,8 @@ static void usage(u8 *argv0) {
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
       "inputs\n"
-      "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
+      "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing and timeout "
+      "inputs also\n"
       "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as "
       "crash\n"
       "AFL_DEBUG: enable extra developer output\n"

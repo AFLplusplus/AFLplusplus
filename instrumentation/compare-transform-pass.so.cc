@@ -6,6 +6,8 @@
  * You may obtain a copy of the License at
  *
  *     https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,7 +29,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
 #if LLVM_MAJOR >= 11                                /* use new pass manager */
-  #if LLVM_MAJOR >= 22
+  #if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
     #include "llvm/Plugins/PassPlugin.h"
   #else
     #include "llvm/Passes/PassPlugin.h"

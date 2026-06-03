@@ -11,6 +11,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
 */
 
 #ifdef __linux__
@@ -193,13 +195,13 @@ int        __afl_sharedmem_fuzzing __attribute__((weak));
 // LTO-bitcode constructor that previously stored __afl_final_loc runs
 // after afl-compiler-rt.o's constructors on Mach-O.
 __attribute__((weak)) u32 __afl_final_loc;
-u32 __afl_map_size = MAP_SIZE;
-u32 __afl_cov_map_size = MAP_SIZE;
-u32 __afl_set_map_size = MAP_SIZE;
-u32 __afl_dictionary_len;
-u64 __afl_map_addr;
-u32 __afl_first_final_loc;
-u32 __afl_old_forkserver;
+u32                       __afl_map_size = MAP_SIZE;
+u32                       __afl_cov_map_size = MAP_SIZE;
+u32                       __afl_set_map_size = MAP_SIZE;
+u32                       __afl_dictionary_len;
+u64                       __afl_map_addr;
+u32                       __afl_first_final_loc;
+u32                       __afl_old_forkserver;
 
 u8 __afl_forkserver_setenv = 0;
 
@@ -210,6 +212,175 @@ u64 *__afl_ijon_bits = __afl_ijon_initial;  // Initial buffer, will point to
 u32 __afl_ijon_map_size = MAP_SIZE_IJON_ENTRIES;
 u32 __afl_ijon_map_increased = 0;
 u32 __afl_ijon_enabled __attribute__((weak)) = 0;
+
+/* Bug-pass runtime globals (afl-llvm-bug-pass.so support) */
+#include "../include/bug-pass.h"
+u8         __afl_bug_active = 0;
+u32       *__afl_bug_map = NULL;
+static u32 __afl_bug_map_local[MAP_SIZE_BUG_ENTRIES];
+u32        __afl_bug_mode __attribute__((weak)) = 0;
+static u8  __afl_bug_runtime_configured = 0;
+static u32 __afl_bug_configured_mode = 0;
+static u8  __afl_bug_map_active = 0;
+static u8  __afl_bug_map_increased = 0;
+/* Per-thread stack of nested BUDGET / SIZEFILL frames.
+   Previously begin/check used a single global (base, max_off), so an
+   inner instrumented call's wsBegin overwrote the outer frame and the
+   outer wsCheck became a silent no-op — losing real budget violations
+   in nested call patterns. With a stack, every store updates EVERY
+   active frame (so an outer call's contract correctly includes writes
+   done by its callees) and each call's check inspects its own frame.
+
+   `cap` is the upper bound for stores under this frame: writes at or
+   past `base + cap` are not the buffer's writes and must be ignored so
+   their max_off doesn't pollute the frame's contract check. BUDGET
+   doesn't know the buffer cap (it's the function's contract that
+   determines it), so BUDGET frames set cap=UINT64_MAX. SIZEFILL knows
+   the caller buffer size and uses it. */
+#define __AFL_BUG_FRAME_STACK_DEPTH 16
+typedef struct __afl_bug_frame {
+
+  const void *base;
+  u64         max_off;
+  u64         total;
+  u64         cap;
+
+} __afl_bug_frame;
+
+#if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
+static __afl_bug_frame __afl_bug_ws_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static int             __afl_bug_ws_top = -1;
+static __afl_bug_frame __afl_bug_sf_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static int             __afl_bug_sf_top = -1;
+#else
+static __thread __afl_bug_frame __afl_bug_ws_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static __thread int             __afl_bug_ws_top = -1;
+static __thread __afl_bug_frame __afl_bug_sf_stack[__AFL_BUG_FRAME_STACK_DEPTH];
+static __thread int             __afl_bug_sf_top = -1;
+#endif
+
+/* Signal-safe violation reporting.  Instrumented stores can be reached
+   from inside signal handlers; fprintf(stderr,…) takes the stdio lock
+   (deadlock if the signal interrupted another fprintf) and abort()
+   re-enters libc abort logic.  write(2) + _exit(134) avoids both.
+   Numeric fields are printed via the small in-place formatters below
+   since snprintf is also not async-signal-safe. */
+static void __afl_bug_writes(const char *s) {
+
+  size_t n = 0;
+  while (s[n])
+    ++n;
+  (void)!write(2, s, n);
+
+}
+
+static void __afl_bug_writeu(unsigned long long v) {
+
+  char buf[24];
+  int  n = 0;
+  if (!v) {
+
+    buf[n++] = '0';
+
+  } else {
+
+    while (v) {
+
+      buf[n++] = (char)('0' + (v % 10));
+      v /= 10;
+
+    }
+
+  }
+
+  for (int i = 0, j = n - 1; i < j; ++i, --j) {
+
+    char t = buf[i];
+    buf[i] = buf[j];
+    buf[j] = t;
+
+  }
+
+  (void)!write(2, buf, (size_t)n);
+
+}
+
+static void __afl_bug_writep(const void *p) {
+
+  char      buf[20];
+  int       n = 0;
+  uintptr_t v = (uintptr_t)p;
+  __afl_bug_writes("0x");
+  if (!v) {
+
+    (void)!write(2, "0", 1);
+    return;
+
+  }
+
+  while (v) {
+
+    unsigned d = (unsigned)(v & 0xf);
+    buf[n++] = (char)(d < 10 ? '0' + d : 'a' + d - 10);
+    v >>= 4;
+
+  }
+
+  for (int i = 0, j = n - 1; i < j; ++i, --j) {
+
+    char t = buf[i];
+    buf[i] = buf[j];
+    buf[j] = t;
+
+  }
+
+  (void)!write(2, buf, (size_t)n);
+
+}
+
+/* AllocSizeOracle (AFL_LLVM_BUG_ALLOCSIZE) runtime globals.
+   Exposed (non-static) on purpose so tests and inspection tools can read
+   the live record table — same convention as __afl_bug_map / __afl_area_ptr.
+   AllocSizeRecord layout lives in include/bug-pass.h so consumers see
+   the canonical fields without copy-pasting. */
+
+u8 __afl_allocsize_active = 0;
+u8 __afl_size_derive_active = 0;
+/* Shadow byte is u16 so it can index up to MAP_SIZE_ALLOCRECORDS - 1.
+   `__afl_alloc_shadow` is the primary 16 GiB window pinned at the first
+   registered allocation's base.  Up to __AFL_ALLOC_SHADOW_EXTRAS additional
+   windows (total = 1 + EXTRAS) cover allocations whose address is more
+   than 16 GiB from the primary origin — common under ASLR with mmap heaps
+   and shared libraries.  Lookup is a linear scan over up to 4 origins
+   (branch-predictor-friendly); register lazily mmaps a new window on miss
+   until the cap is reached. */
+u16 *__afl_alloc_shadow = NULL;
+_Static_assert(MAP_SIZE_ALLOCRECORDS <= (1U << 16) - 1,
+               "u16 shadow byte cannot index more than 65535 records");
+uintptr_t __afl_alloc_shadow_origin = 0;
+
+#define __AFL_ALLOC_SHADOW_EXTRAS 3
+typedef struct {
+
+  uintptr_t origin;
+  u16      *table;
+
+} AflAllocShadowExtra;
+
+static AflAllocShadowExtra __afl_alloc_shadow_extra[__AFL_ALLOC_SHADOW_EXTRAS];
+static u32                 __afl_alloc_shadow_extra_count = 0;
+static u8                  __afl_alloc_shadow_oom_warned = 0;
+
+AllocSizeRecord    __afl_alloc_records[MAP_SIZE_ALLOCRECORDS];
+static u32         __afl_alloc_next_idx = 1;                  /* 0 reserved */
+static void        __afl_alloc_persistent_reset(u8 flush_derive);
+static inline u16 *__afl_alloc_shadow_find(uintptr_t a, uintptr_t *off_out);
+static u16 *__afl_alloc_shadow_get_or_init(uintptr_t a, uintptr_t *off_out);
+
+/* AllocSizeRecord.in_use state. AFL++ fuzzing targets are single-
+   threaded by design, so no atomic synchronisation is required. */
+#define __AFL_ALLOC_INUSE_FREE ((u8)0)
+#define __AFL_ALLOC_INUSE_LIVE ((u8)1)
 
 /* IJON state tracking globals */
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
@@ -476,6 +647,116 @@ static void __afl_map_shm_fuzz() {
 
 }
 
+/* ASAN coexistence probe.  If ASAN is loaded, ALLOCSIZE conflicts with
+   its allocator/shadow (ASAN-malloc'd pointers registered in our own
+   64-byte-granule shadow, two oracles disagreeing on what's OOB).
+   dlsym lookup is portable across linkers; weak undef references behave
+   differently across macOS/ELF and interact badly with the AFL++
+   self-test link step. */
+#include <dlfcn.h>
+
+static int __afl_bug_asan_present(void) {
+
+  return dlsym(RTLD_DEFAULT, "__asan_address_is_poisoned") != NULL;
+
+}
+
+static void __afl_bug_configure_runtime(void) {
+
+  u32 mode = __afl_bug_mode;
+  if (likely(__afl_bug_runtime_configured &&
+             mode == __afl_bug_configured_mode &&
+             (!__afl_bug_map_active || __afl_bug_map)))
+    return;
+  __afl_bug_runtime_configured = 1;
+  __afl_bug_configured_mode = mode;
+
+  /* Disable ALLOCSIZE/DERIVE under ASAN: ASAN already enforces byte-
+     granular OOB and reserves the low address space for its shadow.
+     Running both produces conflicting verdicts and may collide on
+     shadow mmap.  One-shot stderr note (signal-safe). */
+  if (__afl_bug_asan_present() &&
+      (mode & (AFL_BUG_MODE_ALLOCSIZE | AFL_BUG_MODE_DERIVE))) {
+
+    static const char msg[] =
+        "[afl-bug] ASAN detected; ALLOCSIZE/DERIVE modes disabled to "
+        "avoid double-instrumentation. Use AFL_USE_ASAN without "
+        "AFL_LLVM_BUG_ALLOCSIZE, or run a non-ASAN binary for ALLOCSIZE.\n";
+    (void)!write(2, msg, sizeof msg - 1);
+    mode &= ~(AFL_BUG_MODE_ALLOCSIZE | AFL_BUG_MODE_DERIVE);
+
+  }
+
+  __afl_bug_mode = mode;
+  __afl_bug_active = !!(mode & (AFL_BUG_MODE_SCALAR | AFL_BUG_MODE_BUDGET |
+                                AFL_BUG_MODE_SIZEFILL | AFL_BUG_MODE_ALLOCSIZE |
+                                AFL_BUG_MODE_SLACK));
+  __afl_bug_map_active =
+      !!(mode &
+         (AFL_BUG_MODE_SCALAR | AFL_BUG_MODE_ALLOCSIZE | AFL_BUG_MODE_SLACK));
+  if (__afl_bug_map_active) {
+
+    if (!__afl_bug_map) {
+
+      __afl_bug_map = __afl_bug_map_local;
+      memset(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
+
+    }
+
+  } else {
+
+    __afl_bug_map = NULL;
+
+  }
+
+  if (mode & AFL_BUG_MODE_ALLOCSIZE) { __afl_allocsize_active = 1; }
+  if (mode & AFL_BUG_MODE_DERIVE) { __afl_size_derive_active = 1; }
+
+}
+
+static inline void __afl_bug_ensure_runtime(void) {
+
+  if (unlikely(!__afl_bug_runtime_configured ||
+               (__afl_bug_map_active && !__afl_bug_map) ||
+               __afl_bug_mode != __afl_bug_configured_mode))
+    __afl_bug_configure_runtime();
+
+}
+
+static void __afl_bug_append_map(void) {
+
+  if (likely(!__afl_bug_map_active || __afl_bug_map_increased)) return;
+  /* Bug map sits at the very end of trace_bits, AFTER any IJON region.
+     Only __afl_map_size grows; __afl_set_map_size (the persistent-reset
+     memset boundary and the IJON-tail offset) stays unchanged so IJON
+     addressing isn't shifted by the bug-map insertion. */
+  __afl_map_size += MAP_SIZE_BUG_BYTES;
+  __afl_bug_map_increased = 1;
+
+}
+
+static void __afl_bug_bind_map(void) {
+
+  /* Only bind once a real append has grown __afl_map_size by the bug tail
+     (__afl_bug_map_increased).  Without this, the PCGUARD-deferred path (where
+     __afl_map_size is still the MAP_SIZE placeholder) would memset the bug map
+     past the end of the actual shared region.  The bind happens for real after
+     __afl_bug_append_map() in the resize / forkserver-start paths. */
+  if (likely(!__afl_bug_map_active || !__afl_bug_map_increased ||
+             !__afl_area_ptr || !__afl_map_size ||
+             __afl_map_size < MAP_SIZE_BUG_BYTES)) {
+
+    return;
+
+  }
+
+  /* Bug map is the trailing region of trace_bits. */
+  __afl_bug_map =
+      (u32 *)(void *)(__afl_area_ptr + __afl_map_size - MAP_SIZE_BUG_BYTES);
+  memset(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
+
+}
+
 /* SHM setup. */
 
 static void __afl_map_shm(void) {
@@ -514,6 +795,7 @@ static void __afl_map_shm(void) {
 
   // if we are not running in afl ensure the map exists
   if (!__afl_area_ptr) { __afl_area_ptr = __afl_area_ptr_dummy; }
+  __afl_bug_configure_runtime();
 
   if (getenv("AFL_NO_IJON")) {
 
@@ -535,10 +817,12 @@ static void __afl_map_shm(void) {
       __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
       __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
       __afl_ijon_map_increased = 1;
+      __afl_bug_append_map();
 
     } else {
 
       __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
+      __afl_bug_append_map();
 
     }
 
@@ -583,7 +867,17 @@ static void __afl_map_shm(void) {
 
     // IJON SUPPORT: Defer expansion until __afl_final_loc is set by
     // __sanitizer_cov_pcs_init This will be handled in __afl_map_shm_resize()
-    // when the actual coverage size is known
+    // when the actual coverage size is known.
+    //
+    // Bug-pass map: ALSO defer. __afl_final_loc is 0 here (PCGUARD before
+    // pcs_init), so __afl_map_size is only the MAP_SIZE placeholder.  If we
+    // appended the bug map now, __afl_bug_bind_map() below would place it at
+    // (MAP_SIZE_placeholder) and memset MAP_SIZE_BUG_BYTES there — but the
+    // shared map afl-fuzz allocates is sized to (real_coverage + bug) which is
+    // smaller than (placeholder + bug) whenever real_coverage < MAP_SIZE.  That
+    // memset then runs off the end of the shared region and SIGSEGVs the
+    // forkserver child on the post-handshake re-init.  The append+bind happens
+    // for real in __afl_map_shm_resize() once __afl_final_loc is known.
 
   }
 
@@ -845,6 +1139,7 @@ static void __afl_map_shm(void) {
   }  // else: nothing to be done
 
   __afl_area_ptr_backup = __afl_area_ptr;
+  __afl_bug_bind_map();
 
   if (__afl_debug) {
 
@@ -1003,6 +1298,8 @@ static void __afl_map_shm(void) {
 
   }
 
+  __afl_bug_configure_runtime();
+
 }
 
 /* unmap SHM. */
@@ -1053,6 +1350,8 @@ static void __afl_unmap_shm(void) {
   }
 
   __afl_area_ptr = __afl_area_ptr_dummy;
+  __afl_bug_map = __afl_bug_map_active ? __afl_bug_map_local : NULL;
+  __afl_bug_map_increased = 0;
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
@@ -1137,11 +1436,30 @@ static void __afl_start_forkserver(void) {
 
   if (__afl_ijon_enabled && !__afl_ijon_map_increased) {
 
+    /* Reachable in PCGUARD mode when __afl_final_loc was 0 at
+       __afl_map_shm time: that call's else branch ran __afl_bug_append_map
+       but skipped the IJON expansion, leaving __afl_bug_map pointing at
+       what is about to become the IJON_MAP region.  Detach and re-bind
+       the bug map AFTER the IJON expansion so the layout ends up as
+       [cov | IJON_MAP | IJON_BYTES | BUG] — matching the fuzzer's
+       trim-BUG-then-trim-IJON_BYTES sequence. */
     __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
+    if (__afl_bug_map_increased) {
+
+      /* Strip the trailing BUG region we already appended; we'll
+         re-append after the IJON bump. */
+      __afl_map_size -= MAP_SIZE_BUG_BYTES;
+      __afl_bug_map_increased = 0;
+      __afl_bug_map = NULL;
+
+    }
+
     __afl_cov_map_size = __afl_map_size;
     __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
     __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
     __afl_ijon_map_increased = 1;
+    __afl_bug_append_map();
+    __afl_bug_bind_map();
 
   } else if (!__afl_cov_map_size) {
 
@@ -1207,6 +1525,12 @@ static void __afl_start_forkserver(void) {
     status = FS_NEW_OPT_MAPSIZE;  // we always send the map size
     if (__afl_sharedmem_fuzzing) { status |= FS_NEW_OPT_SHDMEM_FUZZ; }
     if (__afl_child_sync) { status |= FS_NEW_OPT_FUTEX; }
+    if (__afl_bug_mode & AFL_BUG_MODE_DERIVE) {
+
+      status |= FS_NEW_OPT_ALLOCSIZE_DERIVE;
+
+    }
+
     if (__afl_dictionary_len && __afl_dictionary) {
 
       status |= FS_NEW_OPT_AUTODICT;
@@ -1215,6 +1539,16 @@ static void __afl_start_forkserver(void) {
 
     /* Add IJON capability flag if IJON is enabled */
     if (__afl_ijon_enabled) { status |= FS_OPT_IJON; }
+
+    /* Signal that the last MAP_SIZE_BUG_BYTES of trace_bits are the bug
+       map, not coverage.  The fuzzer subtracts this in
+       configure_bug_runtime(); without the flag it would treat the bug
+       map as coverage edges and report bogus new-edges every run. */
+    if (__afl_bug_map_active && __afl_bug_map_increased) {
+
+      status |= FS_NEW_OPT_BUG_MAP;
+
+    }
 
     if (write(FORKSRV_FD + 1, msg, 4) != 4) {
 
@@ -1232,6 +1566,8 @@ static void __afl_start_forkserver(void) {
     // FS_NEW_OPT_SHDMEM_FUZZ - no data
 
     // FS_NEW_OPT_FUTEX - no data
+
+    // FS_NEW_OPT_ALLOCSIZE_DERIVE - no data
 
     // FS_NEW_OPT_AUTODICT - send autodictionary
     if (__afl_dictionary_len && __afl_dictionary) {
@@ -1342,6 +1678,27 @@ static void __afl_start_forkserver(void) {
     }
 
     if (unlikely(!child_stopped)) {
+
+#ifdef __linux__
+      /* Clear any stale AFL_CHILD_EXITED in the futex before forking the
+         new child.  Our previous-iteration EXITED write (above) and the
+         fuzzer's IDLE write (at end of run_target) are unordered, so the
+         futex could hold either.  We do this AFTER reading ctl (which
+         sequences us past the previous EXITED write -- ctl read happens
+         after that write in this loop body) and BEFORE fork(), so the
+         new child sees AFL_CHILD_IDLE on its first __afl_persistent_loop
+         CAS.  Otherwise the fuzzer would see stale EXITED on entry to
+         afl_futex_wait, return immediately without setting
+         last_run_timed_out, and the SIGKILL escalation in the fuzzer
+         would kill the innocent new child and misclassify the timeout
+         as a crash. */
+      if (likely(__afl_child_sync)) {
+
+        __atomic_store_n(__afl_child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+
+      }
+
+#endif
 
       /* Once woken up, create a clone of our process. */
 
@@ -1454,8 +1811,19 @@ int __afl_persistent_loop(unsigned int max_cnt) {
        before the loop. */
 
     memset_noasan(__afl_area_ptr, 0, __afl_set_map_size);
+    /* Bug map lives past __afl_set_map_size (trailing tail of trace_bits);
+       it needs an explicit zero or stale MAX-channel values persist. */
+    if (__afl_bug_map_active && __afl_bug_map &&
+        __afl_bug_map ==
+            (u32 *)(__afl_area_ptr + __afl_map_size - MAP_SIZE_BUG_BYTES)) {
+
+      memset_noasan(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
+
+    }
+
     __afl_area_ptr[0] = 1;
     memset_noasan(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+    __afl_alloc_persistent_reset(0);
 
     first_pass = 0;
     __afl_selective_coverage_temp = 1;
@@ -1481,6 +1849,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
 #ifdef AFL_PERSISTENT_RECORD
     if (unlikely(is_replay_record)) {
+
+      __afl_alloc_persistent_reset(1);
 
     persistent_record:
 
@@ -1509,6 +1879,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     }
 
 #endif
+
+    __afl_alloc_persistent_reset(1);
 
 #ifdef __linux__
     if (likely(__afl_child_sync)) {
@@ -1573,6 +1945,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
         follows the loop is not traced. We do that by pivoting back to the
         dummy output region. */
 
+    __afl_alloc_persistent_reset(1);
     __afl_area_ptr = __afl_area_ptr_dummy;
 
     return 0;
@@ -2436,6 +2809,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     }
 
     __afl_map_size = __afl_final_loc + 1;
+    __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
+    __afl_bug_map_increased = 0;
 
     // IJON SUPPORT: Re-apply IJON expansion after reinit
     if (__afl_ijon_enabled && !__afl_ijon_map_increased) {
@@ -2447,6 +2822,10 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
       __afl_ijon_map_increased = 1;
 
     }
+
+    __afl_bug_configure_runtime();
+    __afl_bug_append_map();
+    __afl_bug_bind_map();
 
   }
 
@@ -3775,6 +4154,1058 @@ uint32_t ijon_strdist(char *a, char *b) {
   uint32_t len = (uint32_t)MIN(MAX(len_a, len_b), IJON_DIST_MAX_LEN);
 
   return IJON_DIST_FUNC(a, b, len);
+
+}
+
+/* ===========================================================
+ * afl-llvm-bug-pass runtime support
+ * Three modes (scalar, budget, sizefill) sharing this section.
+ * Globals are declared up top alongside the IJON globals.
+ * =========================================================== */
+
+void __afl_bug_scalar_max(uint32_t id, uint64_t val) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_bug_active || !__afl_bug_map) return;
+  /* Bucket as ceil(log2(val+1)) so equal-magnitude values collapse to one
+     slot but growth produces new coverage. Cap at 63. */
+  u32 bucket = 0;
+  if (val) { bucket = 64u - (u32)__builtin_clzll(val); }
+  id &= (MAP_SIZE_BUG_ENTRIES - 1);
+  if (__afl_bug_map[id] < bucket) __afl_bug_map[id] = bucket;
+
+}
+
+void __afl_bug_loop_iter_flush(uint32_t id, uint32_t local_count) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_bug_active || !__afl_bug_map) return;
+  u32 bucket = 0;
+  if (local_count) bucket = 32u - (u32)__builtin_clz(local_count);
+  id &= (MAP_SIZE_BUG_ENTRIES - 1);
+  if (__afl_bug_map[id] < bucket) __afl_bug_map[id] = bucket;
+
+}
+
+void __afl_bug_ws_begin(const void *ptr_before) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_bug_active) return;
+  /* Stack overflow: silently drop the frame. The matching check below
+     won't find a matching base and will become a no-op — preferable to
+     stomping the deepest frame and reporting wrong violations. */
+  if (__afl_bug_ws_top + 1 >= __AFL_BUG_FRAME_STACK_DEPTH) return;
+  ++__afl_bug_ws_top;
+  __afl_bug_ws_stack[__afl_bug_ws_top].base = ptr_before;
+  __afl_bug_ws_stack[__afl_bug_ws_top].max_off = 0;
+  __afl_bug_ws_stack[__afl_bug_ws_top].total = 0;
+  __afl_bug_ws_stack[__afl_bug_ws_top].cap = (u64)-1;          /* unbounded */
+
+}
+
+void __afl_bug_ws_store(const void *addr, uint32_t size) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_bug_active || __afl_bug_ws_top < 0) return;
+  uintptr_t a = (uintptr_t)addr;
+  /* Update every active frame whose base is at or before addr AND the
+     write end fits under the frame's cap. The cap test prevents an
+     unrelated higher-address store inside the callee from inflating
+     the tracked max_off — exactly the false-positive class that
+     motivated SIZEFILL's size-bounded sf_begin. BUDGET frames have
+     cap=UINT64_MAX so this is a no-op for them. */
+  for (int i = 0; i <= __afl_bug_ws_top; ++i) {
+
+    uintptr_t base = (uintptr_t)__afl_bug_ws_stack[i].base;
+    if (a < base) continue;
+    uint64_t off = (uint64_t)(a - base);
+    uint64_t end = off + size;
+    if (end > __afl_bug_ws_stack[i].cap) continue;
+    if (end > __afl_bug_ws_stack[i].max_off)
+      __afl_bug_ws_stack[i].max_off = end;
+    __afl_bug_ws_stack[i].total += size;
+
+  }
+
+}
+
+void __afl_bug_ws_check_budget(const void *ptr_before, uint64_t ret_size) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_bug_active || __afl_bug_ws_top < 0) return;
+  /* Match against the nearest frame with this base. Walking from top
+     down handles direct recursion (the closer frame is ours); on
+     unmatched nesting (e.g., an inlined wsBegin without a paired
+     wsCheck, or a wsBegin we silently dropped due to overflow) we
+     return without touching the stack. */
+  int matched = -1;
+  for (int i = __afl_bug_ws_top; i >= 0; --i) {
+
+    if (__afl_bug_ws_stack[i].base == ptr_before) {
+
+      matched = i;
+      break;
+
+    }
+
+  }
+
+  if (matched < 0) return;
+  u64 max_off = __afl_bug_ws_stack[matched].max_off;
+  if (max_off > ret_size) {
+
+    /* Signal-safe report — see __afl_bug_writes/writeu near top of file. */
+    __afl_bug_writes("[afl-bug] BUDGET violation: function wrote ");
+    __afl_bug_writeu((unsigned long long)max_off);
+    __afl_bug_writes(" bytes past ptr_before, returned size ");
+    __afl_bug_writeu((unsigned long long)ret_size);
+    __afl_bug_writes(" (delta=");
+    __afl_bug_writeu((unsigned long long)(max_off - ret_size));
+    __afl_bug_writes(")\n");
+    _exit(134);
+
+  }
+
+  /* Pop the matched frame and any orphans above it (those lost their
+     matching check; discarding keeps the stack consistent for outer
+     frames still pending). */
+  __afl_bug_ws_top = matched - 1;
+
+}
+
+/* Independent SIZEFILL stack so it can coexist with BUDGET under
+   AFL_LLVM_BUG=1 without clobbering each other. Same begin/store/
+   check discipline as ws_*. */
+void __afl_bug_sf_begin(const void *ptr_arg, uint64_t caller_buf_size) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_bug_active) return;
+  if (__afl_bug_sf_top + 1 >= __AFL_BUG_FRAME_STACK_DEPTH) return;
+  ++__afl_bug_sf_top;
+  __afl_bug_sf_stack[__afl_bug_sf_top].base = ptr_arg;
+  __afl_bug_sf_stack[__afl_bug_sf_top].max_off = 0;
+  __afl_bug_sf_stack[__afl_bug_sf_top].total = 0;
+
+  /* Cap derivation, in order of preference:
+       1. If the ALLOCSIZE shadow is initialized AND ptr_arg falls inside
+          a tracked allocation, use that allocation's actual remaining
+          extent (end - ptr_arg). This is the PRINCIPLED filter: writes
+          inside the allocation count, writes outside (different malloc
+          chunks, stack frames, etc.) are dropped. Catches in-allocation
+          OOBs of the SIZEFILL-tracked buffer; ignores unrelated buffers.
+       2. Else fall back to caller_buf_size + UNRELATED_SLACK (64 KiB).
+          Still catches OOBs up to 64 KiB; still false-positives on
+          adjacent allocations within that window. Acceptable when no
+          shadow is available (ALLOCSIZE disabled).
+       3. caller_buf_size == 0 → unbounded (legacy behavior). */
+#define __AFL_BUG_SF_UNRELATED_SLACK ((u64)(64 * 1024))
+  u64 cap = (u64)-1;
+  int resolved = 0;
+
+  if (__afl_allocsize_active) {
+
+    uintptr_t a = (uintptr_t)ptr_arg;
+    uintptr_t off = 0;
+    u16      *tbl = __afl_alloc_shadow_find(a, &off);
+    if (tbl) {
+
+      u16 idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+      if (idx) {
+
+        AllocSizeRecord *r = &__afl_alloc_records[idx];
+        if (r->in_use == __AFL_ALLOC_INUSE_LIVE && a >= r->base &&
+            a < r->base + r->size) {
+
+          cap = (r->base + r->size) - a;
+          resolved = 1;
+
+        }
+
+      }
+
+    }
+
+  }
+
+  if (!resolved) {
+
+    if (caller_buf_size == 0) {
+
+      cap = (u64)-1;
+
+    } else if (caller_buf_size > (u64)-1 - __AFL_BUG_SF_UNRELATED_SLACK) {
+
+      cap = (u64)-1;
+
+    } else {
+
+      cap = caller_buf_size + __AFL_BUG_SF_UNRELATED_SLACK;
+
+    }
+
+  }
+
+  __afl_bug_sf_stack[__afl_bug_sf_top].cap = cap;
+
+}
+
+void __afl_bug_sf_store(const void *addr, uint32_t size) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_bug_active || __afl_bug_sf_top < 0) return;
+  uintptr_t a = (uintptr_t)addr;
+  for (int i = 0; i <= __afl_bug_sf_top; ++i) {
+
+    uintptr_t base = (uintptr_t)__afl_bug_sf_stack[i].base;
+    if (a < base) continue;
+    uint64_t off = (uint64_t)(a - base);
+    uint64_t end = off + size;
+    if (end > __afl_bug_sf_stack[i].cap) continue;
+    if (end > __afl_bug_sf_stack[i].max_off)
+      __afl_bug_sf_stack[i].max_off = end;
+
+  }
+
+}
+
+void __afl_bug_sizefill_check(const void *ptr_arg, uint64_t ret_size,
+                              uint64_t caller_buf_size) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_bug_active) return;
+  if (ret_size > caller_buf_size) {
+
+    __afl_bug_writes("[afl-bug] SIZEFILL violation: function returned size ");
+    __afl_bug_writeu((unsigned long long)ret_size);
+    __afl_bug_writes(" but caller buffer is ");
+    __afl_bug_writeu((unsigned long long)caller_buf_size);
+    __afl_bug_writes(" bytes (ptr=");
+    __afl_bug_writep(ptr_arg);
+    __afl_bug_writes(")\n");
+    _exit(134);
+
+  }
+
+  if (__afl_bug_sf_top < 0) return;
+  int matched = -1;
+  for (int i = __afl_bug_sf_top; i >= 0; --i) {
+
+    if (__afl_bug_sf_stack[i].base == ptr_arg) {
+
+      matched = i;
+      break;
+
+    }
+
+  }
+
+  if (matched < 0) return;
+  u64 max_off = __afl_bug_sf_stack[matched].max_off;
+  if (max_off > caller_buf_size) {
+
+    __afl_bug_writes("[afl-bug] SIZEFILL violation: writes extended to ");
+    __afl_bug_writeu((unsigned long long)max_off);
+    __afl_bug_writes(" bytes past buffer head, caller buffer only ");
+    __afl_bug_writeu((unsigned long long)caller_buf_size);
+    __afl_bug_writes(" (ptr=");
+    __afl_bug_writep(ptr_arg);
+    __afl_bug_writes(")\n");
+    _exit(134);
+
+  }
+
+  __afl_bug_sf_top = matched - 1;
+
+}
+
+/* SLACK: |op0 - op1| per icmp site. Designed to coexist with the MAX-based
+   scalar/loop hooks on the same __afl_bug_map:
+     - We invert the bucket (small slack -> large stored value) so a MAX
+       update preserves the tightest match seen.
+     - The pass already hashes (function-name, site-index, mode salt) to
+       produce `id`, so the SLACK channel does not collide with SCALAR's
+       slot 0 even for the lowest-numbered sites. We simply mask here —
+       the pass owns slot distribution.
+   Net: a smaller-than-ever slack at a given site wins; large slack from
+   other paths can't overwrite it. */
+void __afl_bug_slack_min(uint32_t id, uint64_t slack) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_bug_active || !__afl_bug_map) return;
+  /* ceil(log2(slack+1)), capped at 64. Slack==0 (tight equality) -> 0. */
+  u32 log_slack = slack ? (64u - (u32)__builtin_clzll(slack)) : 0;
+  u32 inv = 64u - log_slack;     /* 64 for slack==0, shrinks as slack grows */
+  u32 slot = id & (MAP_SIZE_BUG_ENTRIES - 1);
+  if (__afl_bug_map[slot] < inv) __afl_bug_map[slot] = inv;
+
+}
+
+/* ----- AllocSizeOracle runtime ----- */
+
+static void __afl_alloc_shadow_init(uintptr_t hint) {
+
+  if (__afl_alloc_shadow) return;
+  /* Anchor the primary shadow at `hint` rounded down to the 16 GB tracked
+     range.  Additional windows are spawned by __afl_alloc_shadow_get_or_init
+     on demand when allocations land outside the primary 16 GiB span. */
+  uintptr_t origin = hint & ~((uintptr_t)MAP_SIZE_ALLOCSHADOW_RANGE - 1);
+  void     *m = mmap(NULL, MAP_SIZE_ALLOCSHADOW_BYTES, PROT_READ | PROT_WRITE,
+                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+  if (m == MAP_FAILED) {
+
+    fprintf(stderr,
+            "[afl-bug] ALLOCSIZE: shadow mmap failed (%zu bytes); disabling\n",
+            (size_t)MAP_SIZE_ALLOCSHADOW_BYTES);
+    __afl_allocsize_active = 0;
+    return;
+
+  }
+
+  __afl_alloc_shadow = (u16 *)m;
+  __afl_alloc_shadow_origin = origin;
+
+}
+
+/* Read-path lookup.  Returns the u16 *table covering `a` and writes
+   `(a - origin)` to `*off_out`, or NULL if `a` is not in any active
+   window.  Primary window is checked first so the common case is a
+   single subtract+compare. */
+static inline u16 *__afl_alloc_shadow_find(uintptr_t a, uintptr_t *off_out) {
+
+  if (__afl_alloc_shadow && a >= __afl_alloc_shadow_origin) {
+
+    uintptr_t off = a - __afl_alloc_shadow_origin;
+    if (off < MAP_SIZE_ALLOCSHADOW_RANGE) {
+
+      *off_out = off;
+      return __afl_alloc_shadow;
+
+    }
+
+  }
+
+  for (u32 i = 0; i < __afl_alloc_shadow_extra_count; ++i) {
+
+    AflAllocShadowExtra *s = &__afl_alloc_shadow_extra[i];
+    if (a < s->origin) continue;
+    uintptr_t off = a - s->origin;
+    if (off < MAP_SIZE_ALLOCSHADOW_RANGE) {
+
+      *off_out = off;
+      return s->table;
+
+    }
+
+  }
+
+  return NULL;
+
+}
+
+/* Write-path: like _find but lazily creates a new window if `a` falls
+   outside every existing one.  Returns NULL if both the primary window
+   cannot be created (initial mmap failure) and the extras table is full. */
+static u16 *__afl_alloc_shadow_get_or_init(uintptr_t a, uintptr_t *off_out) {
+
+  u16 *t = __afl_alloc_shadow_find(a, off_out);
+  if (t) return t;
+
+  /* No window covers `a`. Create the primary first if it isn't up yet, even
+     if `a` would land outside the primary's range: subsequent registers
+     for addresses in this primary's range get the cheaper hot path. */
+  if (!__afl_alloc_shadow) {
+
+    __afl_alloc_shadow_init(a);
+    if (!__afl_alloc_shadow) return NULL;
+    t = __afl_alloc_shadow_find(a, off_out);
+    if (t) return t;
+    /* Primary just landed on a different range than `a` — fall through to
+       spawn an extra window for `a`. */
+
+  }
+
+  if (__afl_alloc_shadow_extra_count >= __AFL_ALLOC_SHADOW_EXTRAS) {
+
+    if (!__afl_alloc_shadow_oom_warned) {
+
+      fprintf(stderr,
+              "[afl-bug] ALLOCSIZE: shadow window cap (%u + 1 primary) "
+              "reached; subsequent allocations outside existing windows "
+              "will not be tracked\n",
+              (unsigned)__AFL_ALLOC_SHADOW_EXTRAS);
+      __afl_alloc_shadow_oom_warned = 1;
+
+    }
+
+    return NULL;
+
+  }
+
+  uintptr_t origin = a & ~((uintptr_t)MAP_SIZE_ALLOCSHADOW_RANGE - 1);
+  void     *m = mmap(NULL, MAP_SIZE_ALLOCSHADOW_BYTES, PROT_READ | PROT_WRITE,
+                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+  if (m == MAP_FAILED) {
+
+    fprintf(stderr,
+            "[afl-bug] ALLOCSIZE: extra-window mmap failed (%zu bytes)\n",
+            (size_t)MAP_SIZE_ALLOCSHADOW_BYTES);
+    return NULL;
+
+  }
+
+  AflAllocShadowExtra *s =
+      &__afl_alloc_shadow_extra[__afl_alloc_shadow_extra_count++];
+  s->origin = origin;
+  s->table = (u16 *)m;
+  *off_out = a - origin;
+  return s->table;
+
+}
+
+static u32 __afl_alloc_pick_idx(void) {
+
+  /* Round-robin claim. AFL++ fuzzing targets are single-threaded; we
+     intentionally do not synchronise here. */
+  for (u32 i = 0; i < MAP_SIZE_ALLOCRECORDS; ++i) {
+
+    u32 idx = __afl_alloc_next_idx % MAP_SIZE_ALLOCRECORDS;
+    __afl_alloc_next_idx++;
+    if (idx == 0) continue;                              /* skip reserved 0 */
+    if (__afl_alloc_records[idx].in_use == __AFL_ALLOC_INUSE_FREE) {
+
+      __afl_alloc_records[idx].in_use = __AFL_ALLOC_INUSE_LIVE;
+      return idx;
+
+    }
+
+  }
+
+  return 0;                                                   /* table full */
+
+}
+
+/* Paint up to `size` bytes starting at `base` with shadow byte `idx`.
+   When `idx == 0` (unregister), look the address up in any existing
+   window; do NOT mmap a new one for unpainting. When `idx != 0`
+   (register), lazily mmap a window covering `base` if none exists. */
+static void __afl_alloc_shadow_paint(uintptr_t base, uint64_t size, u16 idx) {
+
+  if (size > MAP_SIZE_ALLOCSHADOW_RANGE) return;
+  uintptr_t off = 0;
+  u16      *table = idx ? __afl_alloc_shadow_get_or_init(base, &off)
+                        : __afl_alloc_shadow_find(base, &off);
+  if (!table) return;
+  if (off > MAP_SIZE_ALLOCSHADOW_RANGE - size) return;
+  uint64_t g_start = off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  /* Paint exactly the allocation's granules, not one past: a +1
+     sentinel byte would stomp the first granule of any immediately-
+     adjacent allocation, mis-identifying its idx and poisoning the
+     oracle's max_observed_off for that neighbour.  The oracle's
+     `a + sz > end` check on r->size catches OOB at base+size precisely
+     without needing a sentinel granule. */
+  uint64_t g_end =
+      (off + size + ((1ULL << MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2) - 1)) >>
+      MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  if (g_end > MAP_SIZE_ALLOCSHADOW_GRANULES)
+    g_end = MAP_SIZE_ALLOCSHADOW_GRANULES;
+  if (g_end <= g_start) return;
+  /* memset only works for u8; we need a per-granule u16 store loop. The
+     compiler vectorizes this on x86_64 / arm64. */
+  for (uint64_t g = g_start; g < g_end; ++g)
+    table[g] = idx;
+
+}
+
+static inline int __afl_alloc_record_contains(AllocSizeRecord *r, uintptr_t a) {
+
+  return r && r->in_use == __AFL_ALLOC_INUSE_LIVE && a >= r->base &&
+         (uint64_t)(a - r->base) < r->size;
+
+}
+
+static int __afl_alloc_record_granules(AllocSizeRecord *r, u16 **table_out,
+                                       uint64_t *g_start_out,
+                                       uint64_t *g_end_out) {
+
+  if (!r || r->in_use != __AFL_ALLOC_INUSE_LIVE || !r->size) return 0;
+  if (r->size > MAP_SIZE_ALLOCSHADOW_RANGE) return 0;
+  uintptr_t off = 0;
+  u16      *table = __afl_alloc_shadow_find(r->base, &off);
+  if (!table) return 0;
+  if (off > MAP_SIZE_ALLOCSHADOW_RANGE - r->size) return 0;
+
+  uint64_t g_start = off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  uint64_t g_end =
+      (off + r->size + ((1ULL << MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2) - 1)) >>
+      MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  if (g_end > MAP_SIZE_ALLOCSHADOW_GRANULES)
+    g_end = MAP_SIZE_ALLOCSHADOW_GRANULES;
+  if (g_end <= g_start) return 0;
+
+  if (table_out) *table_out = table;
+  if (g_start_out) *g_start_out = g_start;
+  if (g_end_out) *g_end_out = g_end;
+  return 1;
+
+}
+
+static void __afl_alloc_shadow_repaint_overlaps(uintptr_t base, uint64_t size) {
+
+  if (!size || size > MAP_SIZE_ALLOCSHADOW_RANGE) return;
+  uintptr_t off = 0;
+  u16      *table = __afl_alloc_shadow_find(base, &off);
+  if (!table) return;
+  if (off > MAP_SIZE_ALLOCSHADOW_RANGE - size) return;
+
+  uint64_t clear_start = off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  uint64_t clear_end =
+      (off + size + ((1ULL << MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2) - 1)) >>
+      MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  if (clear_end > MAP_SIZE_ALLOCSHADOW_GRANULES)
+    clear_end = MAP_SIZE_ALLOCSHADOW_GRANULES;
+
+  for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
+
+    AllocSizeRecord *cand = &__afl_alloc_records[i];
+    u16             *cand_table = NULL;
+    uint64_t         cand_start = 0, cand_end = 0;
+    if (!__afl_alloc_record_granules(cand, &cand_table, &cand_start, &cand_end))
+      continue;
+    if (cand_table != table) continue;
+    if (cand_end <= clear_start || cand_start >= clear_end) continue;
+    __afl_alloc_shadow_paint(cand->base, cand->size, (u16)i);
+
+  }
+
+}
+
+static inline int __afl_alloc_range_is_whole_granules(uintptr_t base,
+                                                      uint64_t  size) {
+
+  const uintptr_t mask =
+      ((uintptr_t)1 << MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2) - 1;
+  return size && ((base | (uintptr_t)size) & mask) == 0;
+
+}
+
+static AllocSizeRecord *__afl_alloc_find_oracle_record(uintptr_t a, u16 *table,
+                                                       uintptr_t off, u16 idx) {
+
+  if (!table) return NULL;
+  if (idx && idx < MAP_SIZE_ALLOCRECORDS) {
+
+    AllocSizeRecord *fast = &__afl_alloc_records[idx];
+    if (__afl_alloc_record_contains(fast, a)) return fast;
+
+  }
+
+  uint64_t         g = off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2;
+  AllocSizeRecord *best = NULL;
+  for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
+
+    AllocSizeRecord *cand = &__afl_alloc_records[i];
+    u16             *cand_table = NULL;
+    uint64_t         cand_start = 0, cand_end = 0;
+    if (!__afl_alloc_record_granules(cand, &cand_table, &cand_start, &cand_end))
+      continue;
+    if (cand_table != table) continue;
+    if (g < cand_start || g >= cand_end) continue;
+
+    if (__afl_alloc_record_contains(cand, a)) return cand;
+    if (a >= cand->base && (!best || cand->base > best->base)) best = cand;
+
+  }
+
+  return best;
+
+}
+
+void __afl_alloc_register(void *ptr, uint64_t size, uint32_t alloc_site_id) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_allocsize_active || !ptr || !size) return;
+  /* shadow_paint with non-zero idx lazily creates the appropriate window
+     (primary if first call, or an extra if `ptr` is outside the primary
+     16 GiB span). No need for an explicit _init call here. */
+
+  u32 idx = __afl_alloc_pick_idx();
+  if (!idx) return;
+  /* pick_idx already marked the slot LIVE. Fill fields and paint shadow. */
+  AllocSizeRecord *r = &__afl_alloc_records[idx];
+  r->base = (uintptr_t)ptr;
+  r->size = size;
+  r->alloc_site_id = alloc_site_id;
+  r->max_observed_off = 0;
+  r->derive_logged = 0;
+  r->first_elem_size = 0;
+  r->first_elem_align = 0;
+  r->type_warned = 0;
+  __afl_alloc_shadow_paint((uintptr_t)ptr, size, (u16)idx);
+
+}
+
+/* Size-derive: when a tracked allocation is freed (or unregistered), log
+   (computed_size, max_observed_off) into a CmpLog routine slot keyed by
+   alloc_site_id. The fuzzer's existing CMP_TYPE_RTN dictionary mining will
+   pick up `computed_size` as a magic dictionary entry, propagating the
+   input bytes that produced that exact size into havoc. */
+static void __afl_size_derive_log(AllocSizeRecord *r) {
+
+  if (!__afl_size_derive_active) return;
+  if (!__afl_cmp_map) return;
+  if (r->derive_logged) return;
+  if (!r->size) return;
+
+  /* Per-(site, log2(size)) key into cmp_map; Knuth multiplicative hash on
+     site, a second golden-ratio multiplier on log2(size). Without the
+     size bucket the slot saturates fast at hot allocators called from
+     inner loops, dropping every later (size, max_off) pair from that
+     site. With the bucket, a site that mixes 16/64/256 byte allocations
+     spreads across three slots before saturation; a site that always
+     allocates the same size still maps to one slot (the bucket value is
+     constant). */
+  u32 lg = r->size ? (64u - (u32)__builtin_clzll(r->size)) : 0;
+  u32 key =
+      ((r->alloc_site_id * 2654435761u) ^ (lg * 1597334677u)) & (CMP_MAP_W - 1);
+  struct cmp_header *h = &__afl_cmp_map->headers[key];
+  if (h->hits >= CMP_MAP_RTN_H) return;                 /* slot full — skip */
+
+  u32 slot = h->hits;
+  if (slot >= CMP_MAP_RTN_H) return;
+  h->type = CMP_TYPE_RTN;
+  h->shape = 7;                                            /* 8-byte values */
+  h->attribute = 0;
+
+  struct cmpfn_operands *op =
+      (struct cmpfn_operands *)&__afl_cmp_map->log[key][slot];
+  /* Bytewise little-endian copy of the two u64s into v0/v1. */
+  for (u32 i = 0; i < 8; ++i) {
+
+    op->v0[i] = (u8)(r->size >> (i * 8));
+    op->v1[i] = (u8)(r->max_observed_off >> (i * 8));
+
+  }
+
+  op->v0_len = 8;
+  op->v1_len = 8;
+  op->addr_attr = 0;
+  ++h->hits;
+  r->derive_logged = 1;
+
+}
+
+static inline void __afl_alloc_persistent_reset(u8 flush_derive) {
+
+  if (likely(!__afl_bug_active)) return;
+
+  /* Reset per-iteration bug-pass state at the __AFL_LOOP boundary:
+       - BUDGET / SIZEFILL frame stacks: a longjmp out of an
+         instrumented site can leave orphan frames whose ptr_before
+         would match a future call by accident, triggering spurious
+         aborts.
+       - Local bug map when no shared mem is bound: never zeroed
+         between iterations otherwise -> stale MAX-channel coverage.
+       - Per-record counters (max_observed_off etc.): per-input data,
+         not allocation state. */
+
+  /* (1) Per-iteration bug-pass frame stacks. */
+  __afl_bug_ws_top = -1;
+  __afl_bug_sf_top = -1;
+
+  /* (2) Local bug map (when we couldn't bind to shared mem). The shared-mem
+         path lives at the tail of __afl_area_ptr, which afl-fuzz / the
+         forkserver already memsets between runs; that case is a no-op. */
+  if (__afl_bug_map_active && __afl_bug_map == __afl_bug_map_local) {
+
+    memset(__afl_bug_map_local, 0, MAP_SIZE_BUG_BYTES);
+
+  }
+
+  /* (3) ALLOCSIZE per-record reset. Long-lived allocations (those that
+     persist across __AFL_LOOP iterations by design — e.g. a buffer the
+     persistent harness allocates once and reuses) must keep in_use=1 so
+     find_record still resolves to them; we only reset per-iteration
+     counters (max_observed_off, derive_logged, type-confusion state). */
+  if (likely(!__afl_allocsize_active)) return;
+  for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
+
+    AllocSizeRecord *r = &__afl_alloc_records[i];
+    if (r->in_use != __AFL_ALLOC_INUSE_LIVE) continue;
+    if (flush_derive) __afl_size_derive_log(r);
+    r->max_observed_off = 0;
+    r->derive_logged = 0;
+    r->first_elem_size = 0;
+    r->first_elem_align = 0;
+    r->type_warned = 0;
+
+  }
+
+}
+
+void __afl_alloc_unregister(void *ptr) {
+
+  if (!__afl_allocsize_active || !ptr) return;
+
+  uintptr_t a = (uintptr_t)ptr;
+  uintptr_t off = 0;
+  u16      *tbl = __afl_alloc_shadow_find(a, &off);
+
+  /* Fast path: the granule's shadow byte points directly at our record.
+     Granules are 64 bytes; malloc returns 16-byte-aligned chunks, so
+     several small allocations can share one granule and the shadow
+     holds only the most recently registered idx.  If the fast lookup
+     mismatches (different base), fall through to a bounded linear scan
+     to find the record whose base matches.  Without the fallback the
+     older allocation's slot leaks until the table fills.
+     Also fall through if tbl is NULL — ptr might be from a window that
+     was never created or has been exhausted; the records table still
+     has the live entry, find it by linear scan. */
+  AllocSizeRecord *r = NULL;
+  u16 idx = tbl ? tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2] : 0;
+  if (idx && idx < MAP_SIZE_ALLOCRECORDS &&
+      __afl_alloc_records[idx].in_use == __AFL_ALLOC_INUSE_LIVE &&
+      __afl_alloc_records[idx].base == a) {
+
+    r = &__afl_alloc_records[idx];
+
+  } else {
+
+    for (u32 i = 1; i < MAP_SIZE_ALLOCRECORDS; ++i) {
+
+      AllocSizeRecord *cand = &__afl_alloc_records[i];
+      if (cand->in_use == __AFL_ALLOC_INUSE_LIVE && cand->base == a) {
+
+        r = cand;
+        break;
+
+      }
+
+    }
+
+  }
+
+  if (!r) return;                         /* not tracked (or already freed) */
+
+  uintptr_t old_base = r->base;
+  uint64_t  old_size = r->size;
+  __afl_size_derive_log(r);
+  r->in_use = __AFL_ALLOC_INUSE_FREE;
+  __afl_alloc_shadow_paint(old_base, old_size, 0);
+  if (!__afl_alloc_range_is_whole_granules(old_base, old_size))
+    __afl_alloc_shadow_repaint_overlaps(old_base, old_size);
+
+}
+
+void *__afl_track_malloc(uint64_t size, uint32_t alloc_site_id) {
+
+  void *p = malloc((size_t)size);
+  __afl_alloc_register(p, size, alloc_site_id);
+  return p;
+
+}
+
+void *__afl_track_calloc(uint64_t nmemb, uint64_t size,
+                         uint32_t alloc_site_id) {
+
+  /* Check for size_t overflow BEFORE calling calloc.  Checking after
+     the call uses u64 math that no longer reflects what libc actually
+     allocated (size_t truncation on 32-bit; libc-internal NULL on
+     overflow), leaving the runtime free to register a fictitious
+     extent. */
+  size_t n = (size_t)nmemb, s = (size_t)size;
+  if (n && s && n > ((size_t)-1) / s) return NULL;
+  size_t total = n * s;
+  void  *p = calloc(n, s);
+  if (!p) return p;
+  __afl_alloc_register(p, (uint64_t)total, alloc_site_id);
+  return p;
+
+}
+
+void *__afl_track_realloc(void *ptr, uint64_t size, uint32_t alloc_site_id) {
+
+  /* Call realloc first, then act on its outcome.
+       p != NULL              - new buffer (possibly same address):
+                                unregister old, register new.
+       p == NULL              - either realloc failed (ptr still valid
+                                per C11) OR realloc(p, 0) was issued.
+                                On glibc >= 2.32 (and C23) realloc(p, 0)
+                                returns NULL without freeing ptr;
+                                older glibc freed it.  We cannot tell
+                                the two outcomes apart, so we leave the
+                                registration in place — the caller is
+                                expected to free(ptr) itself.  Cost:
+                                under old glibc this leaks one record
+                                slot per realloc(p,0); under new glibc
+                                it's correct. */
+  size_t s = (size_t)size;
+  void  *p = realloc(ptr, s);
+
+  if (p != NULL) {
+
+    if (ptr) __afl_alloc_unregister(ptr);
+    __afl_alloc_register(p, size, alloc_site_id);
+
+  }
+
+  return p;
+
+}
+
+int __afl_track_posix_memalign(void **memptr, uint64_t alignment, uint64_t size,
+                               uint32_t alloc_site_id) {
+
+  int rc = posix_memalign(memptr, (size_t)alignment, (size_t)size);
+  if (rc == 0) __afl_alloc_register(*memptr, size, alloc_site_id);
+  return rc;
+
+}
+
+/* C++17 aligned-new replacement. Unlike __afl_track_malloc (which would
+   discard the alignment requirement and hand out an under-aligned buffer
+   that subsequent SIMD stores can fault on), this goes through
+   posix_memalign and respects the C++ contract. Returns NULL on failure
+   instead of throwing — the same observable difference as the throwing-
+   new -> __afl_track_malloc rewrite documented in the pass. */
+void *__afl_track_aligned_alloc(uint64_t size, uint64_t alignment,
+                                uint32_t alloc_site_id) {
+
+  void *p = NULL;
+  /* posix_memalign requires alignment to be a power of two AND a multiple
+     of sizeof(void*); enforce the floor here so a bogus align_val_t can't
+     wedge the call. C++ aligned new already passes a valid value, so this
+     just hardens against malformed IR. */
+  if (alignment < sizeof(void *)) alignment = sizeof(void *);
+  if (posix_memalign(&p, (size_t)alignment, (size_t)size) != 0) return NULL;
+  __afl_alloc_register(p, size, alloc_site_id);
+  return p;
+
+}
+
+void *__afl_track_reallocarray(void *ptr, uint64_t nmemb, uint64_t size,
+                               uint32_t alloc_site_id) {
+
+  /* Saturating overflow check in size_t to match libc. */
+  size_t n = (size_t)nmemb, sz = (size_t)size;
+  if (n && sz && n > ((size_t)-1) / sz) return NULL;
+  size_t total = n * sz;
+
+  /* Same outcome-driven flow as __afl_track_realloc.  p==NULL leaves the
+     registration in place (libc-dependent semantics for total==0). */
+  void *p = realloc(ptr, total);
+  if (p != NULL) {
+
+    if (ptr) __afl_alloc_unregister(ptr);
+    __afl_alloc_register(p, (uint64_t)total, alloc_site_id);
+
+  }
+
+  return p;
+
+}
+
+char *__afl_track_strdup(const char *s, uint32_t alloc_site_id) {
+
+  if (!s) return NULL;
+  size_t n = strlen(s) + 1;
+  char  *p = (char *)malloc(n);
+  if (!p) return NULL;
+  memcpy(p, s, n);
+  __afl_alloc_register(p, n, alloc_site_id);
+  return p;
+
+}
+
+char *__afl_track_strndup(const char *s, uint64_t n, uint32_t alloc_site_id) {
+
+  if (!s) return NULL;
+  /* strndup copies at most n bytes, stopping at the first NUL, and always
+     appends one. The malloc size is (effective_len + 1). */
+  size_t len = 0;
+  while (len < (size_t)n && s[len])
+    ++len;
+  char *p = (char *)malloc(len + 1);
+  if (!p) return NULL;
+  memcpy(p, s, len);
+  p[len] = '\0';
+  __afl_alloc_register(p, len + 1, alloc_site_id);
+  return p;
+
+}
+
+void __afl_track_free(void *ptr) {
+
+  __afl_alloc_unregister(ptr);
+  free(ptr);
+
+}
+
+/* Shared oracle body. Takes a u64 length so the i32 and i64 callers can
+   funnel into one implementation; lengths beyond the tracked buffer's
+   end still produce a single soft-OOB abort. */
+static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_allocsize_active) return;
+  uintptr_t a = (uintptr_t)ptr;
+  uintptr_t off = 0;
+  u16      *tbl = __afl_alloc_shadow_find(a, &off);
+  if (!tbl) return;
+  u16              idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+  AllocSizeRecord *r = NULL;
+  if (idx) {
+
+    r = __afl_alloc_find_oracle_record(a, tbl, off, idx);
+
+  } else if (a) {
+
+    /* The store-start granule is unpainted.  A 1-byte soft-OOB write that
+       begins exactly at a tracked allocation's end is invisible here when that
+       end is granule-aligned: the end byte falls in the next, unpainted
+       granule (paint stops at the allocation's last granule, deliberately, to
+       avoid stomping a neighbour's idx).  Probe the granule of the byte just
+       before the store; if it belongs to a live allocation whose end is <= a,
+       this store starts at (or past) that end -> soft-OOB. */
+    uintptr_t off_prev = 0;
+    u16      *tbl_prev = __afl_alloc_shadow_find(a - 1, &off_prev);
+    if (tbl_prev) {
+
+      u16 idx_prev = tbl_prev[off_prev >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+      if (idx_prev) {
+
+        AllocSizeRecord *rp =
+            __afl_alloc_find_oracle_record(a - 1, tbl_prev, off_prev, idx_prev);
+        /* rp contains a-1 by construction; require a >= end so we only fire
+           when the store genuinely starts at or past the allocation's end. */
+        if (rp && a >= rp->base + rp->size) r = rp;
+
+      }
+
+    }
+
+  }
+
+  if (!r) return;
+  uintptr_t end = r->base + r->size;
+  /* Treat zero-width (e.g. struct-of-size-0 or unknown) as one byte so the
+     oracle still has a defined tripwire. */
+  uint64_t sz = store_size ? store_size : 1;
+  /* Track the byte just past the store (off + sz). */
+  uint64_t off_now = (uint64_t)(a - r->base) + sz;
+  if (off_now > r->max_observed_off) r->max_observed_off = off_now;
+  /* (3) Soft-OOB tripwire: store extends past end. A 4-byte store one byte
+     before the end of the buffer is OOB; the old `a >= end` check missed
+     it. Use `a + sz > end`, written as `sz > end - a` to avoid wrap when
+     `a` is far past `end`. */
+  if (a >= end || sz > (uint64_t)(end - a)) {
+
+    __afl_bug_writes("[afl-bug] ALLOCSIZE soft-OOB: ");
+    __afl_bug_writeu((unsigned long long)sz);
+    __afl_bug_writes("-byte write at ");
+    __afl_bug_writep(ptr);
+    __afl_bug_writes(", allocation [");
+    __afl_bug_writep((void *)r->base);
+    __afl_bug_writes("..");
+    __afl_bug_writep((void *)end);
+    __afl_bug_writes(") (size=");
+    __afl_bug_writeu((unsigned long long)r->size);
+    __afl_bug_writes(", site=");
+    __afl_bug_writeu((unsigned long long)r->alloc_site_id);
+    __afl_bug_writes(", off=");
+    __afl_bug_writeu((unsigned long long)(a - r->base));
+    __afl_bug_writes(")\n");
+    _exit(134);
+
+  }
+
+  uint64_t headroom = end - a;
+  /* (1) Headroom max-rule: small headroom -> large value, so the max-rule
+     keeps the closest approach to the end. */
+  u32 log_hr = headroom ? (64u - (u32)__builtin_clzll(headroom)) : 0;
+  u32 inv = 64u - log_hr;
+  if (!__afl_bug_map) return;
+  /* The bug map is partitioned: SCALAR/loop occupy [0, half), SLACK
+     occupies [half, MAP_SIZE_BUG_ENTRIES).  Mask ALLOCSIZE writes into
+     the SCALAR half so they don't clobber SLACK's tight-comparison
+     signal.  Collisions with SCALAR are accepted (different channel
+     classes; allocator-bound vs arithmetic-bound sites rarely overlap
+     for the same site_id). */
+  const u32 half = MAP_SIZE_BUG_ENTRIES / 2;
+  u32       slot1 = (r->alloc_site_id * 31u) & (half - 1);
+  if (__afl_bug_map[slot1] < inv) __afl_bug_map[slot1] = inv;
+  /* (2) Proximity bucket as synthetic edge: hash(site, log2(headroom)). */
+  u32 bucket = log_hr > 15 ? 15 : log_hr;
+  u32 slot2 = ((r->alloc_site_id * 1009u) ^ (bucket * 17u)) & (half - 1);
+  if (__afl_bug_map[slot2] < (bucket + 1u)) __afl_bug_map[slot2] = bucket + 1u;
+
+}
+
+void __afl_alloc_oracle(const void *ptr, uint32_t store_size) {
+
+  __afl_alloc_oracle_impl(ptr, (uint64_t)store_size);
+
+}
+
+void __afl_alloc_oracle_n(const void *ptr, uint64_t store_size) {
+
+  __afl_alloc_oracle_impl(ptr, store_size);
+
+}
+
+/* Type-confusion smell. We remember the first observed (elem_size,
+   alignment) pair per allocation; any later store whose elem_size
+   differs triggers a one-shot warning on stderr. This is informational,
+   not fatal — type-punning is legal in C/C++ and we don't want to
+   abort benign programs, only flag the smell so the fuzzer's stderr
+   pickups can correlate with crashes downstream. */
+void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
+                              uint32_t alignment) {
+
+  __afl_bug_ensure_runtime();
+  if (!__afl_allocsize_active) return;
+  if (!elem_size) return;         /* zero-width stores carry no type signal */
+  uintptr_t a = (uintptr_t)ptr;
+  uintptr_t off = 0;
+  u16      *tbl = __afl_alloc_shadow_find(a, &off);
+  if (!tbl) return;
+  u16 idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+  if (!idx || idx >= MAP_SIZE_ALLOCRECORDS) return;
+  AllocSizeRecord *r = __afl_alloc_find_oracle_record(a, tbl, off, idx);
+  if (!r) return;
+
+  /* First-elem-size wins: only the first store at this allocation
+     stamps the (size, align) pair; later stores compare against it. */
+  if (r->first_elem_size == 0) {
+
+    r->first_elem_size = elem_size;
+    r->first_elem_align = alignment;
+    return;
+
+  }
+
+  if (r->first_elem_size == elem_size) return;
+
+  /* Mismatch. One-shot warning gate. */
+  if (r->type_warned) return;
+  r->type_warned = 1;
+
+  /* Signal-safe report (matches the soft-OOB / BUDGET / SIZEFILL sites).
+     Typed-oracle is informational and does NOT _exit; it just emits the
+     diagnostic via write(2) so reentering stdio from a signal-handler-
+     instrumented store can't deadlock. */
+  __afl_bug_writes("[afl-bug] ALLOCSIZE type-confusion: site=");
+  __afl_bug_writeu((unsigned long long)r->alloc_site_id);
+  __afl_bug_writes(" first elem_size=");
+  __afl_bug_writeu((unsigned long long)r->first_elem_size);
+  __afl_bug_writes(" (align=");
+  __afl_bug_writeu((unsigned long long)r->first_elem_align);
+  __afl_bug_writes("), later elem_size=");
+  __afl_bug_writeu((unsigned long long)elem_size);
+  __afl_bug_writes(" (align=");
+  __afl_bug_writeu((unsigned long long)alignment);
+  __afl_bug_writes(") at ");
+  __afl_bug_writep(ptr);
+  __afl_bug_writes("\n");
 
 }
 
