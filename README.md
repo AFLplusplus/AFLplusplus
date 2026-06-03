@@ -27,7 +27,7 @@ under the Apache-2.0 License. Each file states its own license in its
 `SPDX-License-Identifier` header — that is the license you must follow for that
 file. An optional **commercial license** is available for organizations that
 cannot use the AGPL (obtained by donating to a good cause — the project and its
-maintainers receives no money).
+maintainers receive no money).
 See [LICENSING.md](LICENSING.md) for a plain-language overview and the
 [License section](#license) below for details.
 
