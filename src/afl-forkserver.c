@@ -1606,8 +1606,9 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         FATAL(
             "-l z (size-derive) requested but target does not announce "
-            "ALLOCSIZE_DERIVE support. Note that AFL_USE_ASAN disables "
-            "ALLOCSIZE/DERIVE.");
+            "ALLOCSIZE_DERIVE support. Rebuild the target with "
+            "AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1 (note: AFL_USE_ASAN disables "
+            "ALLOCSIZE/DERIVE).");
 
       }
 

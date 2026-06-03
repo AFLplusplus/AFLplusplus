@@ -3766,16 +3766,21 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     }
 
-    /* DERIVE writes size-derive entries into the CmpLog map; without
-       CmpLog instrumentation the cmp_map is never created and the
-       feature is a runtime no-op.  Warn and downgrade to plain
-       ALLOCSIZE so the allocation OOB oracle still runs. */
+    /* DERIVE writes size-derive entries into the CmpLog map.  That map is
+       supplied at run time by a CmpLog build, by afl-fuzz's cmplog mode, or by
+       AFL_CMPLOG_DEBUG; if none is present the feature is a harmless no-op.
+       Warn when DERIVE is requested without compile-time CmpLog so a plain
+       AFL_LLVM_BUG_ALLOCSIZE_DERIVE on a non-cmplog binary isn't silently
+       useless, but do NOT disable it: unsetting DERIVE here was inconsistent
+       with the AFL_LLVM_BUG=1 path (which keeps DERIVE) and broke setups that
+       provide the cmp_map themselves.  DERIVE implies ALLOCSIZE, so ensure the
+       OOB oracle is enabled too. */
     if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") && !aflcc->cmplog_mode) {
 
       WARNF(
-          "AFL_LLVM_BUG_ALLOCSIZE_DERIVE has no effect without CMPLOG, "
-          "downgrading to AFL_LLVM_BUG_ALLOCSIZE");
-      unsetenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE");
+          "AFL_LLVM_BUG_ALLOCSIZE_DERIVE needs a CmpLog map at run time (a "
+          "CMPLOG build, afl-fuzz cmplog mode, or AFL_CMPLOG_DEBUG); without "
+          "one it is a no-op. Keeping DERIVE enabled.");
       setenv("AFL_LLVM_BUG_ALLOCSIZE", "1", 1);
 
     }

@@ -288,8 +288,11 @@ fi
 
 # --- SLACK FP precision (sub-1 |diff| must not collapse to inv=64) ---
 # --- SLACK integer gradient (closer-to-magic should score higher) ---
-printf 'fun: target_cmp\n' > "$TMP/slack.allow"
-AFL_QUIET=1 AFL_LLVM_BUG_SLACK=1 AFL_LLVM_ALLOWLIST="$TMP/slack.allow" \
+# NOTE: the bug pass intentionally ignores AFL_LLVM_ALLOWLIST (it would break
+# cross-function bug tracking), so target_cmp is NOT the only instrumented
+# comparison.  test-bug-slack-int.c isolates target_cmp's slack slot itself by
+# clearing+snapshotting the bug map around the call, so no allowlist is needed.
+AFL_QUIET=1 AFL_LLVM_BUG_SLACK=1 \
   "$CC" "$SCRIPT_DIR/test-bug-slack-int.c" -o "$TMP/slack_int"
 slack_far=$("$TMP/slack_int" 0 2>&1 \
             | sed -n 's/.*maxval=\([0-9]*\).*/\1/p')
@@ -624,8 +627,10 @@ else
 fi
 
 # --- SLACK on SwitchInst (gradient + IR hook count) ---
-printf 'fun: target_switch\n' > "$TMP/slack_sw.allow"
-AFL_QUIET=1 AFL_LLVM_BUG_SLACK=1 AFL_LLVM_ALLOWLIST="$TMP/slack_sw.allow" \
+# As with the integer gradient above, the bug pass ignores AFL_LLVM_ALLOWLIST;
+# test-bug-slack-switch.c isolates target_switch's slack slot by
+# clearing+snapshotting the bug map around the call.
+AFL_QUIET=1 AFL_LLVM_BUG_SLACK=1 \
   "$CC" "$SCRIPT_DIR/test-bug-slack-switch.c" -o "$TMP/slack_sw"
 sw_far=$("$TMP/slack_sw" 0          2>&1 | sed -n 's/.*maxval=\([0-9]*\).*/\1/p')
 sw_near=$("$TMP/slack_sw" 0x1001    2>&1 | sed -n 's/.*maxval=\([0-9]*\).*/\1/p')

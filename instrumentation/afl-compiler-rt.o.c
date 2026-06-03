@@ -737,7 +737,13 @@ static void __afl_bug_append_map(void) {
 
 static void __afl_bug_bind_map(void) {
 
-  if (likely(!__afl_bug_map_active || !__afl_area_ptr || !__afl_map_size ||
+  /* Only bind once a real append has grown __afl_map_size by the bug tail
+     (__afl_bug_map_increased).  Without this, the PCGUARD-deferred path (where
+     __afl_map_size is still the MAP_SIZE placeholder) would memset the bug map
+     past the end of the actual shared region.  The bind happens for real after
+     __afl_bug_append_map() in the resize / forkserver-start paths. */
+  if (likely(!__afl_bug_map_active || !__afl_bug_map_increased ||
+             !__afl_area_ptr || !__afl_map_size ||
              __afl_map_size < MAP_SIZE_BUG_BYTES)) {
 
     return;
@@ -858,11 +864,20 @@ static void __afl_map_shm(void) {
   } else {
 
     __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
-    __afl_bug_append_map();
 
     // IJON SUPPORT: Defer expansion until __afl_final_loc is set by
     // __sanitizer_cov_pcs_init This will be handled in __afl_map_shm_resize()
-    // when the actual coverage size is known
+    // when the actual coverage size is known.
+    //
+    // Bug-pass map: ALSO defer. __afl_final_loc is 0 here (PCGUARD before
+    // pcs_init), so __afl_map_size is only the MAP_SIZE placeholder.  If we
+    // appended the bug map now, __afl_bug_bind_map() below would place it at
+    // (MAP_SIZE_placeholder) and memset MAP_SIZE_BUG_BYTES there — but the
+    // shared map afl-fuzz allocates is sized to (real_coverage + bug) which is
+    // smaller than (placeholder + bug) whenever real_coverage < MAP_SIZE.  That
+    // memset then runs off the end of the shared region and SIGSEGVs the
+    // forkserver child on the post-handshake re-init.  The append+bind happens
+    // for real in __afl_map_shm_resize() once __afl_final_loc is known.
 
   }
 
@@ -5036,9 +5051,39 @@ static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
   uintptr_t off = 0;
   u16      *tbl = __afl_alloc_shadow_find(a, &off);
   if (!tbl) return;
-  u16 idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
-  if (!idx) return;                                            /* untracked */
-  AllocSizeRecord *r = __afl_alloc_find_oracle_record(a, tbl, off, idx);
+  u16              idx = tbl[off >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+  AllocSizeRecord *r = NULL;
+  if (idx) {
+
+    r = __afl_alloc_find_oracle_record(a, tbl, off, idx);
+
+  } else if (a) {
+
+    /* The store-start granule is unpainted.  A 1-byte soft-OOB write that
+       begins exactly at a tracked allocation's end is invisible here when that
+       end is granule-aligned: the end byte falls in the next, unpainted
+       granule (paint stops at the allocation's last granule, deliberately, to
+       avoid stomping a neighbour's idx).  Probe the granule of the byte just
+       before the store; if it belongs to a live allocation whose end is <= a,
+       this store starts at (or past) that end -> soft-OOB. */
+    uintptr_t off_prev = 0;
+    u16      *tbl_prev = __afl_alloc_shadow_find(a - 1, &off_prev);
+    if (tbl_prev) {
+
+      u16 idx_prev = tbl_prev[off_prev >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2];
+      if (idx_prev) {
+
+        AllocSizeRecord *rp =
+            __afl_alloc_find_oracle_record(a - 1, tbl_prev, off_prev, idx_prev);
+        /* rp contains a-1 by construction; require a >= end so we only fire
+           when the store genuinely starts at or past the allocation's end. */
+        if (rp && a >= rp->base + rp->size) r = rp;
+
+      }
+
+    }
+
+  }
   if (!r) return;
   uintptr_t end = r->base + r->size;
   /* Treat zero-width (e.g. struct-of-size-0 or unknown) as one byte so the
