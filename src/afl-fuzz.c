@@ -1962,7 +1962,7 @@ void afl_check_environment(afl_state_t *afl) {
 
   }
 
-  if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
+  if (strchr(afl->argv_cpy[optind], '/') == NULL && !afl->unicorn_mode) {
 
     WARNF(cLRD
           "Target binary called without a prefixed path, make sure you are "
