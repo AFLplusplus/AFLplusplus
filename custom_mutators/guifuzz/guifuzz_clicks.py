@@ -23,19 +23,18 @@ import os
 from multiprocessing import Process
 import math
 import subprocess
+import shlex
 import re
 import argparse
 import gi
 gi.require_version('Atspi', '2.0')
 from gi.repository import Atspi
 
-import subprocess
-
 gdb_proc = None
 
 def start_program(program):
     def task():
-        os.system(program)
+        subprocess.run(shlex.split(program))
 
     process = Process(target=task)
     process.start()
