@@ -715,10 +715,9 @@ void afl_parse_env(afl_state_t *afl, char **envp) {
 
   SAYF(cCYA "afl-fuzz" VERSION cRST
             " based on afl by Michal Zalewski and a large online community\n");
-  SAYF(cGRA
-       "Licensed under AGPL-3.0-or-later. A commercial license is available to\n"
-       "organizations that cannot use the AGPL, in exchange for a 20.000 EUR\n"
-       "donation to the EFF or CCC (a good cause) - see LICENSE.COMMERCIAL.\n" cRST);
+  SAYF(cGRN
+       "Licensed under AGPL-3.0-or-later. A (good cause donation) commercial license is\n"
+       "available to companies that do not want to use the AGPL, see LICENSE.COMMERCIAL.\n" cRST);
 
   gettimeofday(&tv, &tz);
   rand_set_seed(afl, tv.tv_sec ^ tv.tv_usec ^ getpid());
