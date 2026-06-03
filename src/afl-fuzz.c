@@ -200,6 +200,32 @@ static void at_exit() {
 
 }
 
+/* Targets compiled with AFL_LLVM_BUG_* append a 64 KiB bug map at the
+   END of the shared trace_bits region.  Subtract it from map_size so
+   coverage code doesn't treat it as edges.  Call BEFORE
+   configure_ijon_runtime: with the bug map as the trailing tail, the
+   layout when both are active is [cov | IJON_MAP | IJON_BYTES | BUG] —
+   trimming BUG first leaves IJON at the new tail, and IJON's own
+   trim then addresses ijon_bits at the correct offset. */
+static void configure_bug_runtime(afl_state_t *afl) {
+
+  if (afl->fsrv.map_size <= 4 + MAP_SIZE_BUG_BYTES) {
+
+    FATAL("target forkserver reports too small map for bug-pass - BUG!");
+
+  }
+
+  afl->fsrv.map_size -= MAP_SIZE_BUG_BYTES;
+  afl->fsrv.real_map_size -= MAP_SIZE_BUG_BYTES;
+  if (!afl->non_instrumented_mode && afl->debug) {
+
+    ACTF("Bug-pass map detected; subtracted %u bytes from coverage region.",
+         (u32)MAP_SIZE_BUG_BYTES);
+
+  }
+
+}
+
 static void configure_ijon_runtime(afl_state_t *afl) {
 
 #ifdef __linux__
@@ -312,7 +338,10 @@ static void usage(u8 *argv0, int more_help) {
       "files,\n"
       "                  A=arithmetic solving, T=transformational solving,\n"
       "                  X=extreme transform solving, R=random colorization "
-      "bytes.\n\n"
+      "bytes,\n"
+      "                  M=tightness scheduling (favour barely-passed cmps),\n"
+      "                  Z=size-derive mining (compile target with "
+      "AFL_LLVM_BUG_ALLOCSIZE_DERIVE).\n\n"
       "Fuzzing behavior settings:\n"
       "  -Z             - sequential queue selection instead of weighted "
       "random\n"
@@ -1496,6 +1525,14 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
             case 'R':
               afl->cmplog_random_colorization = 1;
               break;
+            case 'm':
+            case 'M':
+              afl->cmplog_tightness = 1;
+              break;
+            case 'z':
+            case 'Z':
+              afl->cmplog_size_derive = 1;
+              break;
             default:
               FATAL("Unknown option value '%c' in -l %s", *c, optarg);
 
@@ -1907,7 +1944,25 @@ void afl_check_environment(afl_state_t *afl) {
 
   }
 
-  if (strchr(afl->argv_cpy[optind], '/') == NULL && !afl->unicorn_mode) {
+  /* -l -M / -l -Z are CmpLog-only features; without a CmpLog binary they
+     would silently no-op.  Mirror the existing -l Z FATAL check. */
+  if (afl->cmplog_tightness && !afl->shm.cmplog_mode) {
+
+    FATAL(
+        "-l with 'm' selector (predicate-tightness scheduling) requires "
+        "CmpLog enabled. Pass -c <cmplog-target> as well.");
+
+  }
+
+  if (afl->cmplog_size_derive && !afl->shm.cmplog_mode) {
+
+    FATAL(
+        "-l with 'z' selector (size-derive logging) requires CmpLog enabled. "
+        "Pass -c <cmplog-target> as well.");
+
+  }
+
+  if (strchr(argv[optind], '/') == NULL && !afl->unicorn_mode) {
 
     WARNF(cLRD
           "Target binary called without a prefixed path, make sure you are "
@@ -2825,6 +2880,12 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
   }
 
+  /* Subtract bug-pass map (if any) BEFORE IJON.  Layout when both are
+     active is [cov | IJON_MAP | IJON_BYTES | BUG] — trim the trailing
+     BUG tail first, then IJON's own trim addresses ijon_bits at the
+     right offset.  See __afl_bug_append_map in afl-compiler-rt.o.c. */
+  if (unlikely(afl->fsrv.use_bug_map)) { configure_bug_runtime(afl); }
+
   /* Set up IJON state if enabled - MOVED here to use correct map size from
    * forkserver handshake */
   if (unlikely(afl->fsrv.use_ijon)) {
@@ -2964,6 +3025,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
     afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
+    afl->cmplog_fsrv.cmplog_size_derive_requested = afl->cmplog_size_derive;
     afl->cmplog_fsrv.target_path = afl->fsrv.target_path;
     afl->cmplog_fsrv.init_child_func = cmplog_exec_child;
 
@@ -3267,6 +3329,19 @@ void afl_load_seeds(afl_state_t *afl) {
 
     // Restore AFL_NO_IJON for subsequent processes (cmplog/asan)
     if (need_restore_no_ijon) { setenv("AFL_NO_IJON", "1", 1); }
+
+    // Bug-map tail-trim must run on ANY fastresume of a bug-pass target,
+    // not just the IJON-restore case.  The main start path calls
+    // configure_bug_runtime before configure_ijon_runtime; the fastresume
+    // path must do the same.  A static guard prevents a double-trim when
+    // the IJON branch below also runs in the same restore.
+    static u8 bug_runtime_configured = 0;
+    if (afl->fsrv.use_bug_map && !bug_runtime_configured) {
+
+      configure_bug_runtime(afl);
+      bug_runtime_configured = 1;
+
+    }
 
     // Enable IJON after forkserver handshake (for IJON fastresume)
     if (has_saved_ijon_state()) {
@@ -3713,6 +3788,7 @@ void stop_fuzzing(afl_state_t *afl) {
   ck_free(afl->n_fuzz);
   ck_free(afl->n_fuzz_dup);
   ck_free(afl->simplified_n_fuzz);
+  ck_free(afl->min_slack);
   if (afl->frameshift_index_buffer) { free(afl->frameshift_index_buffer); }
   if (afl->fs_curr_meta) {
 

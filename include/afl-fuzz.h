@@ -280,7 +280,9 @@ struct queue_entry {
       favored,                          /* Currently favored?               */
       fs_redundant,                     /* Marked as redundant in the fs?   */
       is_ascii,                         /* Is the input just ascii text?    */
-      disabled;                         /* Is disabled from fuzz selection  */
+      disabled,                         /* Is disabled from fuzz selection  */
+      tightness_novel; /* New per-site min-slack on any
+                          inequality cmp; keep favoured.   */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
 #ifdef INTROSPECTION
@@ -320,6 +322,10 @@ struct queue_entry {
                       /*   0: unexplored                  */
                       /*   1: explored                    */
   fs_meta_t *fs_meta;                   /* Frameshift metadata              */
+
+  /* Cycle at which tightness_novel was set, so cull_queue can decay the
+     flag instead of letting the favoured set grow monotonically. */
+  u32 tightness_novel_cycle;            /* cycle when tightness_novel set   */
 
 };
 
@@ -846,6 +852,11 @@ typedef struct afl_state {
   u32 colorize_success;
   u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
       cmplog_enable_xtreme_transform, cmplog_random_colorization;
+  u8 cmplog_tightness, cmplog_size_derive;
+  /* Per-cmp-site minimum slack ever seen; UINT64_MAX = unseen. Indexed by
+     cmp_map header key. Lazily allocated on first slack scan. */
+  u64 *min_slack;
+  u64  cmplog_tightness_new;
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map       *orig_cmp_map;

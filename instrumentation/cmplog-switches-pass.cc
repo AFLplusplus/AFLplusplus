@@ -31,7 +31,7 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_MAJOR >= 22
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
   #include "llvm/Plugins/PassPlugin.h"
 #else
   #include "llvm/Passes/PassPlugin.h"

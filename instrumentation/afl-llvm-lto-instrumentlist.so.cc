@@ -41,7 +41,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 // #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#if LLVM_MAJOR >= 22
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
   #include "llvm/Plugins/PassPlugin.h"
 #else
   #include "llvm/Passes/PassPlugin.h"

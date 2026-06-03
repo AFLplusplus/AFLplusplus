@@ -3754,6 +3754,47 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     }
 
+    /* ASAN already provides byte-granular OOB checks and reserves the
+       low address space for its shadow.  The bug-pass runtime detects
+       ASAN at startup and disables ALLOCSIZE/DERIVE to avoid
+       double-instrumentation, so this combination is a silent no-op
+       at runtime — warn at compile time. */
+    if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") &&
+        (getenv("AFL_USE_ASAN") || aflcc->have_asan)) {
+
+      WARNF("AFL_LLVM_BUG_ALLOCSIZE_DERIVE is incompatible with ASAN, ignored");
+
+    }
+
+    /* DERIVE writes size-derive entries into the CmpLog map; without
+       CmpLog instrumentation the cmp_map is never created and the
+       feature is a runtime no-op.  Warn and downgrade to plain
+       ALLOCSIZE so the allocation OOB oracle still runs. */
+    if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") && !aflcc->cmplog_mode) {
+
+      WARNF(
+          "AFL_LLVM_BUG_ALLOCSIZE_DERIVE has no effect without CMPLOG, "
+          "downgrading to AFL_LLVM_BUG_ALLOCSIZE");
+      unsetenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE");
+      setenv("AFL_LLVM_BUG_ALLOCSIZE", "1", 1);
+
+    }
+
+    /* Bug-finding pass: enabled by any AFL_LLVM_BUG* var. Single .so handles
+       all five sub-modes internally (SCALAR/BUDGET/SIZEFILL/ALLOCSIZE/SLACK).
+     */
+    if (getenv("AFL_LLVM_BUG") || getenv("AFL_LLVM_BUG_SCALAR") ||
+        getenv("AFL_LLVM_BUG_SCALAR_SLICE") || getenv("AFL_LLVM_BUG_BUDGET") ||
+        getenv("AFL_LLVM_BUG_SIZEFILL") || getenv("AFL_LLVM_BUG_ALLOCSIZE") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_FUNCS") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS") ||
+        getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") ||
+        getenv("AFL_LLVM_BUG_SLACK")) {
+
+      load_llvm_pass(aflcc, "afl-llvm-bug-pass.so");
+
+    }
+
     if (getenv("AFL_LLVM_INJECTIONS_ALL") ||
         getenv("AFL_LLVM_INJECTIONS_SQL") ||
         getenv("AFL_LLVM_INJECTIONS_LDAP") ||

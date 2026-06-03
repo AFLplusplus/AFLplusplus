@@ -178,6 +178,174 @@ Available options:
   - NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
   - PCGUARD - our own pcguard based instrumentation (default)
 
+#### Bug-pass oracles
+
+Setting any `AFL_LLVM_BUG*` variable during compilation enables
+`afl-llvm-bug-pass.so`, which adds runtime oracles for arithmetic-bound and
+logical-OOB bugs that ASan does not catch (the CVE-2023-4863 / libwebp-Huffman
+class).
+
+  - `AFL_LLVM_BUG=1` — enable all bug-pass modes (`SCALAR`, `BUDGET`,
+    `SIZEFILL`, `SLACK`, `ALLOCSIZE`, and `ALLOCSIZE_DERIVE`). The
+    size-derive mode only emits entries when a CmpLog map is available
+    (needs a CmpLog binary for main fuzzing, so `-c 0`, not only
+    `-c target.cmplog`).
+  - `AFL_LLVM_BUG_SCALAR=1` — max-value-per-arithmetic-site coverage and
+    per-loop iteration counts. Treats internal scalar growth as a fitness
+    signal in addition to edge coverage. Useful for finding inputs that
+    drive computed sizes/lengths to corner cases.
+  - `AFL_LLVM_BUG_BUDGET=1` — at every call site of the form `ptr += func()`
+    (or `ptr = gep(ptr, func())`), enforce that during the call all writes
+    via the pointer arg lie in `[ptr, ptr + return_value)`. Catches functions
+    that write beyond what they claim to consume. This mode needs to see the
+    callee body in the same LLVM module to instrument its stores; use LTO for
+    cross-translation-unit APIs or expect those calls to be missed.
+
+    **Interaction with `AFL_LLVM_BUG_SIZEFILL`:** when both are enabled,
+    BUDGET additionally matches the out-param shape `void fill(buf,
+    size_t *out_n); fill(p, &n); p += n;` (iconv-style streaming-parser
+    APIs). The size value used for the budget check is the loaded
+    `*out_n` rather than a return value. The validation hand-off is via
+    the same `findOutSizeParam` precondition machinery SIZEFILL uses on
+    its own call sites — so the FP surface is paired with SIZEFILL's
+    existing one. Enabling BUDGET alone leaves the original
+    `ptr = gep(ptr, return_value)` shape as the only matched pattern.
+  - `AFL_LLVM_BUG_SIZEFILL=1` — at every call site to a function that has a
+    "NULL-means-size-only" sentinel parameter, verify the returned size and
+    actual writes both fit the caller's known buffer. Like `BUDGET`, the
+    store-tracking part is intra-module unless the target is built with LTO.
+
+    **Interaction with `AFL_LLVM_BUG_ALLOCSIZE`:** SIZEFILL alone derives
+    the per-call write-cap from the caller-buffer signature size plus a
+    64 KiB unrelated-store slack window (so an adjacent unrelated store
+    inside the callee won't trip a spurious abort). When ALLOCSIZE is
+    *also* enabled at compile time AND the buffer was registered by the
+    ALLOCSIZE runtime (heap/calloc/realloc/posix_memalign/mmap/custom-
+    allocator), the cap is tightened to the buffer's exact remaining
+    extent. Users hitting an FP from SIZEFILL alone — typically a
+    parser writing to an adjacent allocation within the 64 KiB slack —
+    can usually silence it by also building with
+    `AFL_LLVM_BUG_ALLOCSIZE=1`. Recommended canonical combination for
+    SIZEFILL precision:
+    `AFL_LLVM_BUG_SIZEFILL=1 AFL_LLVM_BUG_ALLOCSIZE=1`.
+  - `AFL_LLVM_BUG_ALLOCSIZE` — enable the AllocSizeOracle pass: every call to
+    `malloc`, `calloc`, `realloc`, `posix_memalign`, and `free` is rewritten
+    to a tracked variant that records `(base, size, alloc_site_id)` in a
+    runtime shadow table. Every store whose pointer base traces back to a
+    tracked allocation emits one runtime hook with three feedback channels:
+      1. **Headroom** (max-rule) — `__afl_bug_map[hash(site)]` holds the
+         highest "closeness to end" seen across the run, so the fuzzer
+         rewards inputs that approach but don't yet exceed the buffer.
+      2. **Proximity bucket** — a synthetic edge `hash(site, log2(remaining))`
+         joining the bug-map; turns "wrote into the last 8/16/32/… bytes
+         of buffer X" into a discoverable coverage event.
+      3. **Soft-OOB tripwire** — `abort()`s with a diagnostic when a store
+         hits or exceeds the recorded end, before ASan's
+         shadow check would (useful for custom allocators ASan doesn't
+         poison).
+    Cost is one shadow lookup + one subtract + 2–3 max-rule writes per
+    qualifying store. Combine with `AFL_LLVM_BUG_BUDGET=1` and
+    `AFL_LLVM_BUG_SIZEFILL=1` to layer the aborting oracles.
+
+    **Interaction with `AFL_LLVM_BUG_SIZEFILL`:** when both modes are
+    enabled, SIZEFILL uses the ALLOCSIZE shadow to derive an exact
+    per-call write-cap (the buffer's remaining extent), eliminating
+    SIZEFILL's 64 KiB unrelated-store slack window. This both tightens
+    SIZEFILL's tripwire (catches OOB at the buffer end precisely) and
+    suppresses FPs from unrelated nearby allocations. See the
+    `AFL_LLVM_BUG_SIZEFILL` entry above for details. The shadow itself
+    spans up to 4 × 16 GiB windows pinned to live allocation bases —
+    under glibc ASLR you typically need 1 (heap-only) or 2 (heap +
+    mmap arena). When the cap is reached the runtime prints a one-shot
+    `[afl-bug] ALLOCSIZE: shadow window cap reached` warning and
+    subsequent allocations outside existing windows are silently
+    untracked; pin the target's allocator with `MALLOC_ARENA_MAX=1`
+    (glibc) to mitigate.
+
+    Coexistence with ASAN: when the target also links the AddressSanitizer
+    runtime, `ALLOCSIZE` and `ALLOCSIZE_DERIVE` are disabled at startup by
+    the bug-pass runtime — ASAN already enforces byte-granular OOB and
+    reserves part of the address space for its shadow, so running both at
+    once produces conflicting verdicts. The runtime emits a one-shot
+    stderr note `[afl-bug] ASAN detected; ALLOCSIZE/DERIVE modes disabled
+    to avoid double-instrumentation` and continues with the remaining
+    modes (SCALAR/BUDGET/SIZEFILL/SLACK) enabled. For ALLOCSIZE runs,
+    build the target without `AFL_USE_ASAN`.
+  - `AFL_LLVM_BUG_ALLOCSIZE_STACK` — controls stack-alloca tracking.
+    Default on when `AFL_LLVM_BUG_ALLOCSIZE=1` is set; opt out with
+    `AFL_LLVM_BUG_ALLOCSIZE_STACK=0` for targets where the overhead is
+    problematic (deep recursion, hot helpers with many large stack
+    locals). When enabled, the pass walks each instrumented function's
+    entry-block allocas; allocas whose static size is a multiple of
+    the 64-byte shadow granule AND ≥ 64 bytes are registered via
+    `__afl_alloc_register` after the alloca (or after `llvm.lifetime.start`
+    when present) and unregistered before every `ReturnInst`/`ResumeInst`
+    (or before `llvm.lifetime.end`). The pass forces alignment 64 on
+    registered allocas so the painted shadow granules cover exactly the
+    alloca — adjacent stack slots cannot trigger granule-aliasing FPs.
+    Per-function cap: 16 instrumented allocas (more emit a one-shot
+    `[afl-bug] ALLOCSIZE: stack cap reached` note and are skipped). Stack
+    buffers < 64 bytes are not covered — pair with `-fsanitize=address`
+    when fine-grained stack-OOB matters.
+  - `AFL_LLVM_BUG_ALLOCSIZE_FUNCS` — comma-separated list of custom
+    allocator function names that the pass should treat as additional
+    allocator entry points (e.g., `WebPSafeMalloc,WebPSafeCalloc`). The
+    pass inserts a post-call `__afl_alloc_register` and uses the widest
+    integer argument of the callee as the size. Pair with
+    `AFL_LLVM_BUG_ALLOCSIZE=1`. Note: targets must export the named
+    function (non-static / extern linkage) so LLVM's IPO does not strip
+    the size argument; static helpers can be specialized away by `-O3`.
+  - `AFL_LLVM_BUG_ALLOCSIZE_FREE_FUNCS` — comma-separated list of the
+    matching custom-free function names for the allocators listed in
+    `AFL_LLVM_BUG_ALLOCSIZE_FUNCS`. Each free is rewritten to
+    `__afl_track_free` so the runtime can drop the registration. Use a
+    parallel ordering (same index = matching pair) when both are sets.
+  - `AFL_LLVM_BUG_SLACK=1` — per-icmp instrumentation: at every signed/
+    unsigned integer comparison the pass records `|op0 - op1|` mapped MIN-
+    style (inverse-bucket) onto the shared bug map. Smaller slack = tighter
+    match = more interesting. Helps the fuzzer drive multiple validation
+    predicates toward their tight edges simultaneously (the libwebp
+    CVE-2023-4863 pattern). Cheap; can be combined with any other mode.
+  - `AFL_LLVM_BUG_SCALAR_SLICE=1` — restrict SCALAR's arithmetic-site
+    instrumentation to BinaryOperators that flow into a memory-size sink
+    (allocator size args, GEP indices, memcpy/memset lengths). Implies
+    `AFL_LLVM_BUG_SCALAR=1`. Off by default; turning it on silences pure-
+    compute accumulators (hash builders, non-memory counters) but cuts
+    SCALAR map pollution on very large targets at the cost of pure-
+    compute coverage signal.
+  - `AFL_LLVM_BUG_ALLOCSIZE_DERIVE` — enables `ALLOCSIZE` and, at every
+    `__afl_alloc_unregister` (free of a tracked allocation), logs
+    `(record.size, record.max_observed_off)` into a CmpLog routine slot
+    keyed by `(alloc-site ID, log2(record.size))`. It needs a CmpLog
+    binary (or `AFL_CMPLOG_DEBUG=1`) for the cmp_map to be allocated.
+    Pair with `afl-fuzz -l 2z` to confirm the feature is in use; the
+    fuzzer's existing CmpLog RTN dictionary mining harvests the entries
+    automatically. This mode is also included by `AFL_LLVM_BUG=1`.
+
+    The log-size component of the slot key spreads entries from a hot
+    allocator (called from inner loops with varied sizes) across
+    multiple CmpLog slots — without it, the slot's `CMP_MAP_RTN_H` hit
+    cap saturates fast and every later size from that site is dropped.
+    A site that allocates one fixed size still maps to one slot.
+
+The runtime keeps its own private max-value bug-map (`MAP_SIZE_BUG`,
+16384 u32 slots), separate from the IJON map, and reports oracle violations
+to stderr followed by `abort()`.
+
+Recommended usage:
+
+  - Use normal coverage binaries as the main campaign baseline.
+  - Add `SCALAR` and/or `SLACK` when you want extra guidance toward arithmetic
+    bounds, tight comparisons, and computed-size corner cases.
+  - Use `BUDGET`, `SIZEFILL`, and `ALLOCSIZE` as oracle builds for bug-finding
+    or confirmation runs; they intentionally abort on detected contract
+    violations.
+  - Use `AFL_LLVM_BUG_ALLOCSIZE_DERIVE=1` (or `AFL_LLVM_BUG=1` when you want
+    every bug-pass mode) with `afl-fuzz -l 2Z` as a CmpLog assistant build for
+    mining allocation-size values.
+  - Prefer LTO for `BUDGET` and `SIZEFILL` campaigns when the checked APIs are
+    split across translation units.
+
 #### CMPLOG
 
 Setting `AFL_LLVM_CMPLOG=1` during compilation will tell afl-clang-fast to

@@ -516,6 +516,27 @@ We add 4 byte for one u32 length field. */
 /* IJON map footprint in bytes (64-bit values for legacy compatibility) */
 #define MAP_SIZE_IJON_BYTES (MAP_SIZE_IJON_ENTRIES * sizeof(u64))  // = 4096
 
+/* Bug-pass map. Holds u32 slots; runtime keeps the max value seen per slot
+   (like IJON). Layout: appended after the IJON region in __afl_area_ptr. */
+#define MAP_SIZE_BUG_ENTRIES (1U << 14)
+#define MAP_SIZE_BUG_BYTES (MAP_SIZE_BUG_ENTRIES * sizeof(u32))
+
+/* AllocSizeOracle (AFL_LLVM_BUG_ALLOCSIZE) shadow.
+   1 u16 per 64-byte granule covering 16 GB of tracked address space.
+   The u16 width caps MAP_SIZE_ALLOCRECORDS at 65535.  mmap'd
+   MAP_NORESERVE so physical pages are lazy. */
+#define MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2 6                     /* 64 bytes */
+#define MAP_SIZE_ALLOCSHADOW_RANGE (1ULL << 34)                    /* 16 GB */
+#define MAP_SIZE_ALLOCSHADOW_GRANULES \
+  (MAP_SIZE_ALLOCSHADOW_RANGE >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2)
+#define MAP_SIZE_ALLOCSHADOW_BYTES \
+  (MAP_SIZE_ALLOCSHADOW_GRANULES * sizeof(u16))                   /* 512 MB */
+
+/* Live allocation records. Index 0 is reserved for "untracked"; 1..N-1
+   correspond to active allocations. Coupled to the u16 shadow byte
+   (see MAP_SIZE_ALLOCSHADOW_BYTES). */
+#define MAP_SIZE_ALLOCRECORDS 4096
+
 /* Maximum allocator request size (keep well under INT_MAX): */
 
 #define MAX_ALLOC 0x40000000

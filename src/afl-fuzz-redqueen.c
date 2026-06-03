@@ -2953,6 +2953,67 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 }
 
+/* If -l -M is active, scan cmp_map for inequality cmps, derive slack from
+   v0/v1, and track per-site global minima in afl->min_slack. Marks the
+   current queue entry as tightness_novel (and favoured) iff a new
+   per-site min was achieved. Allocates afl->min_slack lazily on first
+   call. */
+static void collect_tightness_minima(afl_state_t *afl) {
+
+  if (likely(!afl->cmplog_tightness)) return;
+
+  if (unlikely(!afl->min_slack)) {
+
+    afl->min_slack = ck_alloc(sizeof(u64) * CMP_MAP_W);
+    for (u32 i = 0; i < CMP_MAP_W; ++i)
+      afl->min_slack[i] = (u64)-1;
+
+  }
+
+  u8 found_new_min = 0;
+  for (u32 k = 0; k < CMP_MAP_W; ++k) {
+
+    struct cmp_header *h = &afl->shm.cmp_map->headers[k];
+    if (!h->hits || h->type != CMP_TYPE_INS) continue;
+    /* attribute encoding (cmplog-instructions-pass.cc): NE=0, EQ=1,
+       GT=2, GE=3, LT=4, LE=5, plus +8 for floating-point. We want
+       inequality (>= 2) and we ignore floats (skip if attribute & 8). */
+    u8 attr = h->attribute;
+    if (attr < 2 || (attr & 8)) continue;
+
+    /* Walk the per-cmp record array; pick the smallest |v0 - v1|. */
+    u64 hits = h->hits > CMP_MAP_H ? CMP_MAP_H : h->hits;
+    u64 best = (u64)-1;
+    for (u64 i = 0; i < hits; ++i) {
+
+      struct cmp_operands *o = &afl->shm.cmp_map->log[k][i];
+      u64                  a = o->v0, b = o->v1;
+      u64                  slack = (a >= b) ? (a - b) : (b - a);
+      if (slack < best) best = slack;
+
+    }
+
+    if (best < afl->min_slack[k]) {
+
+      afl->min_slack[k] = best;
+      found_new_min = 1;
+
+    }
+
+  }
+
+  if (found_new_min && afl->queue_cur) {
+
+    afl->cmplog_tightness_new++;
+    afl->queue_cur->tightness_novel = 1;
+    /* Stamp the cycle so cull_queue can decay this flag later. */
+    afl->queue_cur->tightness_novel_cycle = afl->queue_cycle;
+    afl->queue_cur->favored = 1;
+
+  }
+
+}
+
 ///// Input to State stage
 
 // afl->queue_cur->exec_cksum
@@ -3089,6 +3150,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   dump("ORIG", orig_buf, len);
   dump("NEW ", buf, len);
 #endif
+
+  collect_tightness_minima(afl);
 
   // Start insertion loop
 

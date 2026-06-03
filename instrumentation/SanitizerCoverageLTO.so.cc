@@ -63,7 +63,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#if LLVM_MAJOR >= 22
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
   #include "llvm/Plugins/PassPlugin.h"
 #else
   #include "llvm/Passes/PassPlugin.h"
