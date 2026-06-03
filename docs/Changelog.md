@@ -4,7 +4,10 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++4.41a (dev)
+### Version ++5.00a (dev)
+  !!! Files where the license could be switched were moved to AGPL 3.0+ !!!
+  ! AFL++ is now an AGPL 3.0 project !
+  ! Commercial license (donating to a good cause - no money for AFL++) is available
   - Switched https://github.com/AFLplusplus/cov-analysis for outdated afl-cov
   - MacOS most current version support for afl-fuzz, afl-cc (incl. LTO) and
     frida mode
@@ -75,7 +78,7 @@
           CmpLog RTN slot keyed by alloc-site. The existing CmpLog
           dictionary mining harvests `computed_size` as a magic constant
           and feeds the producing input bytes back into havoc.
-  - afl-cmin:
+  - afl-cmin*:
     - nyx_mode is now working for all minimizer variants
   - afl-showmap:
     - no more .afl-showmap-temp-* files lying around
