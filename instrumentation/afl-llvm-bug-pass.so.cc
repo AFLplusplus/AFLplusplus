@@ -1201,8 +1201,10 @@ static std::vector<BudgetMatch> findBudgetCalls(Function &F,
         // would have folded earlier).
 #if LLVM_VERSION_MAJOR >= 21
         if (!Call && !isa<Constant>(idx) && idx->hasUseList()) {
+
 #else
         if (!Call && !isa<Constant>(idx)) {
+
 #endif
 
           unsigned probes = 0;
@@ -1543,7 +1545,7 @@ bool runBudgetMode(Module &M, ModuleAnalysisManager &, bool out_param_enabled) {
   IntegerType *I32_for_store = IntegerType::getInt32Ty(C);
   for (auto &kv : callee_arg_indices) {
 
-    Function *F = kv.first;
+    Function                 *F = kv.first;
     const std::set<unsigned> &arg_indices = kv.second;
     // BUDGET aborts when `max_off > ret_size` — over-reporting writes
     // via bounded-libc functions (snprintf, read, ...) would FP.
@@ -4060,8 +4062,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
     for (Function &F : M) {
 
       if (F.isDeclaration()) continue;
-      // Defensive: avoid recursing into our own runtime hooks if any
-      // got linked into this module by accident.
+        // Defensive: avoid recursing into our own runtime hooks if any
+        // got linked into this module by accident.
 #if LLVM_VERSION_MAJOR >= 18
       if (F.getName().starts_with("__afl_")) continue;
 #else
@@ -4076,7 +4078,7 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 
         auto *AI = dyn_cast<AllocaInst>(&I);
         if (!AI) continue;
-        // Reject dynamic-size (VLA) — no compile-time bound to register.
+          // Reject dynamic-size (VLA) — no compile-time bound to register.
 #if LLVM_VERSION_MAJOR >= 16
         auto opt_size = AI->getAllocationSize(DL);
         if (!opt_size) continue;
@@ -4133,8 +4135,8 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
 #else
         uint64_t bytes = AI->getAllocationSizeInBits(DL)->getFixedValue() / 8;
 #endif
-        Value   *sizeV = ConstantInt::get(I64, bytes);
-        Value   *idV = ConstantInt::get(I32, id);
+        Value *sizeV = ConstantInt::get(I64, bytes);
+        Value *idV = ConstantInt::get(I32, id);
 
         // Look for paired llvm.lifetime.start/end intrinsics on AI.
         // When present (typical for -O2 clang), they bound the alloca's

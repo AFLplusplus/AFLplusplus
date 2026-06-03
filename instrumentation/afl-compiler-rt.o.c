@@ -5084,6 +5084,7 @@ static void __afl_alloc_oracle_impl(const void *ptr, uint64_t store_size) {
     }
 
   }
+
   if (!r) return;
   uintptr_t end = r->base + r->size;
   /* Treat zero-width (e.g. struct-of-size-0 or unknown) as one byte so the

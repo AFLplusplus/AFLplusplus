@@ -752,6 +752,7 @@ static inline u8 read_status_or_escalate(afl_forkserver_t *fsrv,
   RPFATAL(res, "Unable to communicate with fork server");
 
 }
+
 #endif
 
 /* Internal forkserver for non_instrumented_mode=1 and non-forkserver mode runs.
