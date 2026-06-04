@@ -215,7 +215,8 @@ u32 __afl_ijon_enabled __attribute__((weak)) = 0;
 
 /* Defined (=1, weak) by the C11 instrumentation pass in instrumented modules,
    absent otherwise. Declared as a weak reference so non-C11 targets still link;
-   reads must be guarded with &__afl_c11_enabled as it may be undefined (NULL). */
+   reads must be guarded with &__afl_c11_enabled as it may be undefined (NULL).
+ */
 extern u32 __afl_c11_enabled __attribute__((weak));
 
 /* Bug-pass runtime globals (afl-llvm-bug-pass.so support) */
