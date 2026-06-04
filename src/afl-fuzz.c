@@ -232,7 +232,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
-      "  -L value      - deprecated, no-op; adaptive mutation is always on\n"
+      "  -L value      - enable MOpt adaptive mutation scheduling; the value\n"
+      "                  is optional and ignored (default: standard havoc)\n"
       "  -u            - enable testcase splicing\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
@@ -589,7 +590,6 @@ int main(int argc, char **argv_orig, char **envp) {
   afl_fsrv_init(&afl->fsrv);
   if (debug) { afl->fsrv.debug = true; }
   read_afl_environment(afl, envp);
-  if (afl->afl_env.afl_no_adaptive_mutation) { afl->mopt_adaptive.enabled = 0; }
   if (afl->shm.map_size) { afl->fsrv.map_size = afl->shm.map_size; }
   exit_1 = !!afl->afl_env.afl_bench_just_one;
 
@@ -602,9 +602,10 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
   // still available: HjJkKqruvwz
-  while ((opt = getopt(argc, argv,
-                       "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
-                       "T:uUV:WXx:YzZ")) > 0) {
+  while (
+      (opt = getopt(argc, argv,
+                    "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L::m:M:nNo:Op:P:QRs:S:t:"
+                    "T:uUV:WXx:YzZ")) > 0) {
 
     switch (opt) {
 
@@ -1300,12 +1301,27 @@ int main(int argc, char **argv_orig, char **envp) {
 
       } break;
 
-      case 'L': {                                      /* deprecated, no-op */
+      case 'L': {                                           /* MOpt mutator */
 
-        (void)optarg;
-        WARNF(
-            "-L/MOpt is deprecated and now a no-op; adaptive mutation is "
-            "always on.");
+        afl->mopt_adaptive.enabled = 1;
+
+        /* Accept the legacy "-L <n>" form: an attached value is ignored, and a
+           following all-numeric token (the old, now-meaningless parameter) is
+           consumed so it is not mistaken for the target. */
+        if (!optarg && optind < argc && argv[optind][0]) {
+
+          u8 numeric = 1;
+          for (u8 *p = (u8 *)argv[optind]; *p; ++p)
+            if (*p < '0' || *p > '9') {
+
+              numeric = 0;
+              break;
+
+            }
+
+          if (numeric) { ++optind; }
+
+        }
 
       } break;
 

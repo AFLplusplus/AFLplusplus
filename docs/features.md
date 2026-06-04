@@ -106,9 +106,9 @@ Among others, the following features and patches have been integrated:
 * Win32 PE binary-only fuzzing with QEMU and Wine
 * AFLfast's power schedules by Marcel Böhme:
   [https://github.com/mboehme/aflfast](https://github.com/mboehme/aflfast)
-* An always-on adaptive mutation scheduler inspired by the MOpt mutator
-  ([https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL));
-  no flag needed, the legacy `-L` option is deprecated and a no-op
+* An adaptive mutation scheduler inspired by the MOpt mutator
+  ([https://github.com/puppet-meteor/MOpt-AFL](https://github.com/puppet-meteor/MOpt-AFL)),
+  enabled with the `-L` switch (default: standard havoc)
 * LLVM mode Ngram coverage by Adrian Herrera
   [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
 * LAF-Intel/CompCov support for instrumentation, QEMU mode and unicorn_mode

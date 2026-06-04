@@ -11,8 +11,8 @@ u32 mopt_ctx_index(u8 input_mode, u8 fuzz_mode) {
 
 void mopt_adaptive_init(afl_state_t *afl) {
 
+  /* default: off (standard havoc); the -L switch turns it on */
   memset(&afl->mopt_adaptive, 0, sizeof(afl->mopt_adaptive));
-  afl->mopt_adaptive.enabled = 1;
 
 }
 
