@@ -213,7 +213,10 @@ u32 __afl_ijon_map_size = MAP_SIZE_IJON_ENTRIES;
 u32 __afl_ijon_map_increased = 0;
 u32 __afl_ijon_enabled __attribute__((weak)) = 0;
 
-u32 __afl_c11_enabled __attribute__((weak)) = 0;
+/* Defined (=1, weak) by the C11 instrumentation pass in instrumented modules,
+   absent otherwise. Declared as a weak reference so non-C11 targets still link;
+   reads must be guarded with &__afl_c11_enabled as it may be undefined (NULL). */
+extern u32 __afl_c11_enabled __attribute__((weak));
 
 /* Bug-pass runtime globals (afl-llvm-bug-pass.so support) */
 #include "../include/bug-pass.h"
@@ -805,8 +808,6 @@ static void __afl_map_shm(void) {
     __afl_ijon_map_increased = 1;
 
   }
-
-  if (getenv("AFL_NO_C11")) { __afl_c11_enabled = 0; }
 
   char *id_str = getenv(SHM_ENV_VAR);
 
@@ -1431,8 +1432,6 @@ static void __afl_start_forkserver(void) {
 
   void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
-  if (getenv("AFL_NO_C11")) { __afl_c11_enabled = 0; }
-
   if (getenv("AFL_NO_IJON")) {
 
     __afl_ijon_enabled = 0;
@@ -1546,8 +1545,14 @@ static void __afl_start_forkserver(void) {
     /* Add IJON capability flag if IJON is enabled */
     if (__afl_ijon_enabled) { status |= FS_OPT_IJON; }
 
-    /* Add C11 capability flag if C11 is enabled */
-    if (__afl_c11_enabled) { status |= FS_OPT_C11; }
+    /* Add C11 capability flag if C11 is enabled. __afl_c11_enabled is a weak
+       reference (undefined unless a C11-instrumented module is linked), so the
+       address is checked before the value is read. */
+    if (&__afl_c11_enabled && __afl_c11_enabled && !getenv("AFL_NO_C11")) {
+
+      status |= FS_OPT_C11;
+
+    }
 
     /* Signal that the last MAP_SIZE_BUG_BYTES of trace_bits are the bug
        map, not coverage.  The fuzzer subtracts this in

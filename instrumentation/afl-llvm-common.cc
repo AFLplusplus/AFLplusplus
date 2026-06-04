@@ -889,7 +889,9 @@ void createC11EnabledGlobal(Module &M, Type *Int32Ty) {
 
   if (M.getNamedGlobal("__afl_c11_enabled")) return;
   Constant *One32 = ConstantInt::get(Int32Ty, 1);
-  new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, One32,
+  // weak: every C11-instrumented TU defines this, so it must merge across TUs
+  // instead of causing a multiple-definition link error
+  new GlobalVariable(M, Int32Ty, false, GlobalValue::WeakAnyLinkage, One32,
                      "__afl_c11_enabled");
 
 }

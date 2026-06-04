@@ -716,8 +716,11 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   if (!map_addr) {
 
-    AFLMapPtr = new GlobalVariable(
-        M, PtrTy, false, GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+    // may already exist: the C11 pass creates it earlier at PipelineStartEP
+    AFLMapPtr = M.getGlobalVariable("__afl_area_ptr");
+    if (!AFLMapPtr)
+      AFLMapPtr = new GlobalVariable(
+          M, PtrTy, false, GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
   } else {
 
