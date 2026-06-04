@@ -88,7 +88,7 @@ static char *afl_environment_variables[] = {
 #if defined USE_COLOR && !defined ALWAYS_COLORED
     "AFL_NO_COLOR", "AFL_NO_COLOUR",
 #endif
-    "AFL_NO_CPU_RED", "AFL_NO_SYNC",
+    "AFL_NO_ADAPTIVE_MUTATION", "AFL_NO_CPU_RED", "AFL_NO_SYNC",
     "AFL_NO_CFG_FUZZING",  // afl.rs rust crate option
     "AFL_NO_CRASH_README", "AFL_NO_FORKSRV", "AFL_NO_UI", "AFL_NO_PYTHON",
     "AFL_NO_STARTUP_CALIBRATION", "AFL_NO_WARN_INSTABILITY",

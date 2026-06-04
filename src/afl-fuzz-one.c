@@ -29,6 +29,10 @@
 #include "cmplog.h"
 #include "afl-mutations.h"
 
+_Static_assert(MOPT_OP_MAX == MUT_MAX, "MOPT_OP_MAX must equal MUT_MAX");
+_Static_assert(MOPT_LUT_SIZE == MUT_STRATEGY_ARRAY_SIZE,
+               "MOPT_LUT_SIZE must equal MUT_STRATEGY_ARRAY_SIZE");
+
 /* MOpt */
 
 static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
@@ -2138,6 +2142,37 @@ havoc_stage:
 
   // + (afl->extras_cnt ? 2 : 0) + (afl->a_extras_cnt ? 2 : 0);
 
+  const u32 *mopt_static_arr = mutation_array;
+  u32        mopt_static_len = rand_max;
+  u32        mopt_ctx_idx = mopt_ctx_index(afl->input_mode, afl->fuzz_mode);
+  afl->mopt_adaptive.cur_ctx = (u8)mopt_ctx_idx;
+
+  if (afl->mopt_adaptive.enabled) {
+
+    struct mopt_ctx *mc = &afl->mopt_adaptive.ctx[mopt_ctx_idx];
+    if (afl->fsrv.total_execs - mc->last_rebuild_execs >= MOPT_REBUILD_EXECS) {
+
+      mc->last_rebuild_execs = afl->fsrv.total_execs;
+      mopt_rebuild_ctx(mc, mopt_static_arr, mopt_static_len);
+      mopt_policy_update(mc);
+#ifdef INTROSPECTION
+      mopt_introspect_log(afl, mopt_ctx_idx);
+#endif
+
+    }
+
+    u32        chosen_len;
+    const u32 *chosen = mopt_choose_array(afl, mopt_ctx_idx, mopt_static_arr,
+                                          mopt_static_len, &chosen_len);
+    mutation_array = (u32 *)chosen;
+    rand_max = chosen_len;
+
+  }
+
+  u64 mopt_stage_start_us = get_cur_time_us();
+  u64 mopt_stage_start_finds = afl->queued_items + afl->saved_crashes;
+  u64 mopt_stage_start_execs = afl->fsrv.total_execs;
+
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
     u32 use_stacking = 1 + rand_below(afl, stack_max);
@@ -2189,8 +2224,11 @@ havoc_stage:
     retry_havoc_step: {
 
       u32 r = rand_below(afl, rand_max), item;
+      u32 mopt_op = mutation_array[r];
 
-      switch (mutation_array[r]) {
+      mopt_record_use(afl, mopt_op);
+
+      switch (mopt_op) {
 
         case MUT_FLIPBIT: {
 
@@ -3273,6 +3311,8 @@ havoc_stage:
 
     if (common_fuzz_stuff(afl, out_buf, temp_len)) { goto abandon_entry; }
 
+    mopt_commit_round(afl, (u8)(afl->queued_items != havoc_queued));
+
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */
 
@@ -3298,6 +3338,12 @@ havoc_stage:
     }
 
   }
+
+  mopt_stage_account(
+      afl, mopt_ctx_idx,
+      (afl->queued_items + afl->saved_crashes) - mopt_stage_start_finds,
+      get_cur_time_us() - mopt_stage_start_us,
+      afl->fsrv.total_execs - mopt_stage_start_execs);
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
@@ -3419,6 +3465,8 @@ retry_splicing:
 
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
+
+  mopt_round_reset(afl);
 
   afl->splicing_with = -1;
 

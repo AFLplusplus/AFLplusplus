@@ -346,6 +346,52 @@ enum {
 
 #define OPERATOR_NUM STAGE_HAVOC_MAX
 #define SWARM_NUM 5
+
+/* ---- Adaptive mutation arrays (next-gen MOpt) ----
+   MOPT_OP_MAX / MOPT_LUT_SIZE are pinned to MUT_MAX / MUT_STRATEGY_ARRAY_SIZE
+   (afl-mutations.h) by a _Static_assert in afl-fuzz-one.c. They are duplicated
+   here as plain integer literals because afl-mutations.h cannot be included
+   from afl-fuzz.h (it defines non-static globals -> multiple-definition). */
+#define MOPT_OP_MAX 37            /* == MUT_MAX                             */
+#define MOPT_LUT_SIZE 256         /* == MUT_STRATEGY_ARRAY_SIZE             */
+#define MOPT_CTX_NUM 6            /* input_mode(3) x fuzz_mode(2)           */
+#define MOPT_DECAY_NUM 90         /* tally decay numerator (0.90)           */
+#define MOPT_DECAY_DEN 100
+#define MOPT_PRIOR_NUM 25         /* epsilon weight to static prior (0.25)  */
+#define MOPT_PRIOR_DEN 100
+#define MOPT_REBUILD_EXECS 4096   /* min execs between LUT rebuilds per ctx */
+#define MOPT_ARM_MIN_SAMPLES 64   /* min execs before an arm can lose       */
+#define MOPT_ARM_DECAY_NUM 50     /* policy window decay (0.50)             */
+#define MOPT_ARM_DECAY_DEN 100
+
+struct mopt_ctx {
+
+  u64 op_finds[MOPT_OP_MAX];    /* decayed find credit per operator         */
+  u64 op_uses[MOPT_OP_MAX];     /* decayed use count per operator           */
+  u32 learned_array[MOPT_LUT_SIZE]; /* rebuilt weighted LUT                 */
+  u64 arm_finds[2];            /* [0]=STATIC [1]=LEARNED window finds       */
+  u64 arm_time_us[2];          /* per-arm window wall-clock cost (us)       */
+  u64 arm_execs[2];            /* per-arm window exec count                 */
+  u64 last_rebuild_execs;      /* total_execs at this ctx's last rebuild    */
+  u8  active_arm;              /* arm chosen for the current havoc stage    */
+
+};
+
+struct mopt_adaptive {
+
+  struct mopt_ctx ctx[MOPT_CTX_NUM];
+  u8              enabled;      /* master switch (default on)               */
+  u8              cur_ctx;     /* ctx captured at current havoc-stage entry */
+
+  /* per-stacked-round attribution scratch (hot path, tiny).
+     use_stacking <= 16 with default HAVOC_STACK_POW2=4; round_list is
+     oversized and guarded so a user raising the pow via '+' is still safe. */
+  u8  round_seen[MOPT_OP_MAX];  /* dedup find credit within one round       */
+  u8  round_list[64];          /* op ids touched this round                 */
+  u32 round_cnt;
+
+};
+
 #define PERIOD_CORE 500000
 #define PERIOD_PILOT 50000
 #define V_MAX 1
@@ -476,7 +522,8 @@ typedef struct afl_env_vars {
       afl_no_startup_calibration, afl_no_warn_instability,
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
-      afl_sha1_filenames, afl_no_sync, afl_no_fastresume;
+      afl_sha1_filenames, afl_no_sync, afl_no_fastresume,
+      afl_no_adaptive_mutation;
 
   u8 *afl_tmpdir, *afl_custom_mutator_library, *afl_python_module, *afl_path,
       *afl_hang_tmout, *afl_forksrv_init_tmout, *afl_preload,
@@ -555,6 +602,8 @@ typedef struct afl_state {
 
   double period_pilot_tmp;
   s32    key_lv;
+
+  struct mopt_adaptive mopt_adaptive;
 
   u8 *in_dir,                           /* Input directory with test cases  */
       *out_dir,                         /* Working & output directory       */
@@ -1324,6 +1373,22 @@ double rand_next_percent(afl_state_t *afl);
 
 u8 skip_deterministic_stage(afl_state_t *, u8 *, u8 *, u32, u64);
 u8 is_det_timeout(u64, u8);
+
+/* afl-fuzz-mopt-adaptive.c */
+void       mopt_adaptive_init(afl_state_t *);
+void       mopt_record_use(afl_state_t *, u32 op);
+void       mopt_round_reset(afl_state_t *);
+void       mopt_commit_round(afl_state_t *, u8 found);
+u32        mopt_ctx_index(u8 input_mode, u8 fuzz_mode);
+void       mopt_rebuild_ctx(struct mopt_ctx *, const u32 *prior, u32 prior_len);
+void       mopt_policy_update(struct mopt_ctx *);
+const u32 *mopt_choose_array(afl_state_t *, u32 ctx_idx, const u32 *static_arr,
+                             u32 static_len, u32 *out_len);
+void mopt_stage_account(afl_state_t *, u32 ctx_idx, u64 finds, u64 time_us,
+                        u64 execs);
+#ifdef INTROSPECTION
+void mopt_introspect_log(afl_state_t *, u32 ctx_idx);
+#endif
 
 void plot_profile_data(afl_state_t *, struct queue_entry *);
 
