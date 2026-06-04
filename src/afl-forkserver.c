@@ -1812,10 +1812,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         }
 
-        if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
+        if ((status & FS_OPT_C11) == FS_OPT_C11) {
 
-          fsrv->snapshot = 1;
-          if (!be_quiet) { ACTF("Using SNAPSHOT feature."); }
+          fsrv->c11 = 1;
+          if (!be_quiet) { ACTF("Using C11 feature."); }
 
         }
 

@@ -88,9 +88,11 @@ struct C11Instr : PassInfoMixin<C11Instr> {
     LoadInst *Base = IRB.CreateLoad(PtrTy, Map, "c11_base");
     setNoInstrumentMetadata(Base);
     Value *P = IRB.CreateGEP(I8Ty, Base, IRB.getInt64(1), "c11_slot");
+    setNoInstrumentMetadata(P);
     // View the byte slot as a 32-bit slot: a no-op under opaque pointers, an
     // i8* -> i32* cast under typed pointers (LLVM 14/15).
     Value *P32 = IRB.CreateBitCast(P, I32PtrTy);
+    setNoInstrumentMetadata(P32);
 
     // cur = *(unsigned int *)&base[1]
     LoadInst *Cur = IRB.CreateAlignedLoad(I32Ty, P32, Align(1), "c11_cur");

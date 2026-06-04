@@ -182,6 +182,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       SwitchInst *switchInst = nullptr;
       if ((switchInst = dyn_cast<SwitchInst>(BB.getTerminator()))) {
 
+        if (switchInst->getMetadata("afl.skip")) continue;
         if (switchInst->getNumCases() > 1) { switches.push_back(switchInst); }
 
       }

@@ -1477,8 +1477,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   if (afl->cpu_core_count) {
 
-    char *spacing = SP10, snap[24] = " " cLGN "snapshot" cRST " ";
-
+    char *spacing = SP10;
     double cur_runnable = get_runnable_processes();
     u32    cur_utilization = cur_runnable * 100 / afl->cpu_core_count;
 
@@ -1495,8 +1494,6 @@ void show_stats_normal(afl_state_t *afl) {
     /* If we're clearly oversubscribed, use red. */
 
     if (!afl->no_cpu_meter_red && cur_utilization >= 150) { cpu_color = cLRD; }
-
-    if (afl->fsrv.snapshot) { spacing = snap; }
 
 #ifdef HAVE_AFFINITY
 
@@ -2319,8 +2316,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   if (afl->cpu_core_count) {
 
-    char *spacing = SP10, snap[80] = " " cLGN "Pizzaioli's busyness " cRST " ";
-
+    char *spacing = SP10;
     double cur_runnable = get_runnable_processes();
     u32    cur_utilization = cur_runnable * 100 / afl->cpu_core_count;
 
@@ -2337,8 +2333,6 @@ void show_stats_pizza(afl_state_t *afl) {
     /* If we're clearly oversubscribed, use red. */
 
     if (!afl->no_cpu_meter_red && cur_utilization >= 150) { cpu_color = cLRD; }
-
-    if (afl->fsrv.snapshot) { spacing = snap; }
 
 #ifdef HAVE_AFFINITY
 

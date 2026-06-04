@@ -1562,6 +1562,8 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
   // (catchswitch blocks).
   if (BB->getFirstInsertionPt() == BB->end()) return false;
 
+  if (&F.getEntryBlock() != BB && isFullyArtificialBlock(BB)) return false;
+
   // AFL++ START
   if (!Options.NoPrune && &F.getEntryBlock() == BB && F.size() > 1)
     return false;

@@ -122,6 +122,25 @@ inline void setNoSanitizeMetadata(llvm::Instruction *I) {
 
 }
 
+/* True when BB has at least one non-terminator instruction and every
+   non-terminator, non-debug instruction carries afl.skip, i.e. the block holds
+   only synthetic AFL code. The ">=1 instruction" guard keeps branch-only blocks
+   instrumented. */
+inline bool isFullyArtificialBlock(const llvm::BasicBlock *BB) {
+
+  bool seen = false;
+  for (const llvm::Instruction &I : *BB) {
+
+    if (I.isTerminator() || I.isDebugOrPseudoInst()) continue;
+    if (!I.getMetadata("afl.skip")) return false;
+    seen = true;
+
+  }
+
+  return seen;
+
+}
+
 /* Load __afl_area_ptr once at function entry and return the loaded value.
    Creates a preamble basic block so later per-block instrumentation never
    sees or displaces this load.  The load is marked invariant because
