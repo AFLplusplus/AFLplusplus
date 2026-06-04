@@ -146,7 +146,13 @@ void create_alias_table(afl_state_t *afl) {
     avg_exec_us /= active;
     avg_bitmap_size /= active;
     avg_len /= active;
-    if (unlikely(c11_max)) { inv_range = 1.0f / (c11_max - c11_min); }
+
+    if (unlikely(c11_max)) {
+
+      if (unlikely(c11_min == c11_max)) { --c11_min; }
+      inv_range = 1.0f / (c11_max - c11_min);
+
+    }
 
     for (i = 0; i < n; i++) {
 
