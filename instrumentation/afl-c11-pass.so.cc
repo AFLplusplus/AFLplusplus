@@ -13,15 +13,18 @@
 
 #include "afl-llvm-common.h"
 
+#ifndef LLVM_MAJOR
+  #define LLVM_MAJOR LLVM_VERSION_MAJOR
+#endif
+
 using namespace llvm;
 
 static void setNoInstrumentMetadata(Value *V) {
 
   if (auto *I = dyn_cast<Instruction>(V)) {
 
-    MDNode *Empty = MDNode::get(I->getContext(), {});
-    I->setMetadata("afl.skip", Empty);
-    I->setMetadata(LLVMContext::MD_nosanitize, Empty);
+    I->setMetadata("afl.skip", MDNode::get(I->getContext(), {}));
+    setNoSanitizeMetadata(I);
 
   }
 
@@ -51,8 +54,6 @@ struct C11Instr : PassInfoMixin<C11Instr> {
 
     if (F.isDeclaration()) return PreservedAnalyses::all();
 
-    // Honor AFL_LLVM_ALLOWLIST / AFL_LLVM_DENYLIST: skip functions that are
-    // not on the allow list or that are on the deny list.
     if (!isInInstrumentList(&F, FMNAME)) return PreservedAnalyses::all();
 
     unsigned int locals = computeC11(F);
@@ -63,7 +64,14 @@ struct C11Instr : PassInfoMixin<C11Instr> {
     LLVMContext &Ctx = M.getContext();
     Type        *I8Ty = Type::getInt8Ty(Ctx);
     Type        *I32Ty = Type::getInt32Ty(Ctx);
-    Type        *PtrTy = PointerType::getUnqual(Ctx);
+
+#if LLVM_MAJOR >= 20
+    Type *PtrTy = PointerType::getUnqual(Ctx);
+    Type *I32PtrTy = PtrTy;
+#else
+    Type *PtrTy = PointerType::get(I8Ty, 0);
+    Type *I32PtrTy = PointerType::get(I32Ty, 0);
+#endif
 
     GlobalVariable *Map = M.getGlobalVariable("__afl_area_ptr");
     if (!Map)
@@ -76,13 +84,16 @@ struct C11Instr : PassInfoMixin<C11Instr> {
 
     ConstantInt *C11 = IRB.getInt32(locals);
 
-    // base = __afl_area_ptr;  P = (unsigned int *)&base[1]  -- byte offset 1
+    // base = __afl_area_ptr;  P = &base[1]  -- byte offset 1 into the map.
     LoadInst *Base = IRB.CreateLoad(PtrTy, Map, "c11_base");
     setNoInstrumentMetadata(Base);
     Value *P = IRB.CreateGEP(I8Ty, Base, IRB.getInt64(1), "c11_slot");
+    // View the byte slot as a 32-bit slot: a no-op under opaque pointers, an
+    // i8* -> i32* cast under typed pointers (LLVM 14/15).
+    Value *P32 = IRB.CreateBitCast(P, I32PtrTy);
 
     // cur = *(unsigned int *)&base[1]
-    LoadInst *Cur = IRB.CreateAlignedLoad(I32Ty, P, Align(1), "c11_cur");
+    LoadInst *Cur = IRB.CreateAlignedLoad(I32Ty, P32, Align(1), "c11_cur");
     setNoInstrumentMetadata(Cur);
 
     // if (unlikely(c11 > cur)) *(unsigned int *)&base[1] = c11;
@@ -90,11 +101,11 @@ struct C11Instr : PassInfoMixin<C11Instr> {
     setNoInstrumentMetadata(Cond);
     MDNode      *Unlikely = MDBuilder(Ctx).createBranchWeights(1, 1u << 20);
     Instruction *Then =
-        SplitBlockAndInsertIfThen(Cond, InsertPt->getIterator(),
+        SplitBlockAndInsertIfThen(Cond, InsertPt,
                                   /*Unreachable=*/false, Unlikely);
 
     IRB.SetInsertPoint(Then);
-    StoreInst *St = IRB.CreateAlignedStore(C11, P, Align(1));
+    StoreInst *St = IRB.CreateAlignedStore(C11, P32, Align(1));
     setNoInstrumentMetadata(St);
 
     return PreservedAnalyses::none();  // CFG changed
