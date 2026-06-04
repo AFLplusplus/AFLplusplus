@@ -1444,6 +1444,7 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
                        getenv("AFL_GCC_CMPLOG");
 
   aflcc->c11_mode = getenv("AFL_LLVM_C11") != NULL;
+
 }
 
 /*
@@ -2063,9 +2064,11 @@ void add_sanitizers(aflcc_state_t *aflcc, char **envp) {
 
     if (!aflcc->have_ubsan) { insert_param(aflcc, "-fsanitize=undefined"); }
 
-    //if (getenv("AFL_UBSAN_VERBOSE")) {
+    // if (getenv("AFL_UBSAN_VERBOSE")) {
+
     insert_param(aflcc, "-fno-sanitize-recover=undefined");
     //} else {
+
     //  insert_param(aflcc, "-fsanitize-trap=undefined");
     //}
 
@@ -3679,11 +3682,7 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     // C11
 
-    if (aflcc->c11_mode) {
-
-      load_llvm_pass(aflcc, "afl-c11-pass.so");
-
-    }
+    if (aflcc->c11_mode) { load_llvm_pass(aflcc, "afl-c11-pass.so"); }
 
     // laf
     if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {

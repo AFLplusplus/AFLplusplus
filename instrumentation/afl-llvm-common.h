@@ -68,6 +68,7 @@ bool                   isDecisionUse(const llvm::Value *Cond);
 bool                   isExecCall(llvm::Instruction *IN);
 std::pair<bool, bool>  detectIJONUsage(llvm::Module &M);
 void createIJONEnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
+void createC11EnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
 llvm::GlobalVariable *createIJONStateGlobal(llvm::Module &M,
                                             llvm::Type   *Int32Ty,
                                             bool          uses_ijon_state);

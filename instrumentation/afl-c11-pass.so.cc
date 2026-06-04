@@ -110,6 +110,8 @@ struct C11Instr : PassInfoMixin<C11Instr> {
     StoreInst *St = IRB.CreateAlignedStore(C11, P32, Align(1));
     setNoInstrumentMetadata(St);
 
+    createC11EnabledGlobal(M, I32Ty);
+
     return PreservedAnalyses::none();  // CFG changed
 
   }

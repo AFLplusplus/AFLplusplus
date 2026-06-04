@@ -580,7 +580,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   if (unlikely(afl->fsrv.c11)) {
 
-    unsigned int *val = (unsigned int*)(&afl->fsrv.trace_bits[1]);
+    unsigned int *val = (unsigned int *)(&afl->fsrv.trace_bits[1]);
     if (unlikely(*val)) {
 
       afl->c11 = *val;

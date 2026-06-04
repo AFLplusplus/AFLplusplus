@@ -885,6 +885,15 @@ void createIJONEnabledGlobal(Module &M, Type *Int32Ty) {
 
 }
 
+void createC11EnabledGlobal(Module &M, Type *Int32Ty) {
+
+  if (M.getNamedGlobal("__afl_c11_enabled")) return;
+  Constant *One32 = ConstantInt::get(Int32Ty, 1);
+  new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, One32,
+                     "__afl_c11_enabled");
+
+}
+
 GlobalVariable *createIJONStateGlobal(Module &M, Type *Int32Ty,
                                       bool uses_ijon_state) {
 

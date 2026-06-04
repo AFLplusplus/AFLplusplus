@@ -55,15 +55,15 @@ typedef uint128_t         u128;
 #define FS_NEW_VERSION_MIN 1
 #define FS_NEW_VERSION_MAX 1
 #define FS_NEW_ERROR 0xeffe0000
-#define FS_NEW_OPT_MAPSIZE          0x00000001  // parameter: 32 bit value
-#define FS_NEW_OPT_SHDMEM_FUZZ      0x00000002  // parameter: none
-#define FS_NEW_OPT_FUTEX            0x00000004  // parameter: none
+#define FS_NEW_OPT_MAPSIZE 0x00000001           // parameter: 32 bit value
+#define FS_NEW_OPT_SHDMEM_FUZZ 0x00000002       // parameter: none
+#define FS_NEW_OPT_FUTEX 0x00000004             // parameter: none
 #define FS_NEW_OPT_ALLOCSIZE_DERIVE 0x00000008  // parameter: none
 /* Target appended a bug-pass map tail (MAP_SIZE_BUG_BYTES) to
  * __afl_set_map_size; the fuzzer subtracts it before treating the
  * region as coverage. parameter: none */
-#define FS_NEW_OPT_BUG_MAP          0x00000010
-#define FS_NEW_OPT_AUTODICT         0x00000800  // autodictionary data
+#define FS_NEW_OPT_BUG_MAP 0x00000010
+#define FS_NEW_OPT_AUTODICT 0x00000800  // autodictionary data
 
 #ifdef __linux__
 /* Protocol phases for the futex-based forkserver handshake.
@@ -82,13 +82,13 @@ typedef enum {
 #endif                                                         /* __linux__ */
 
 /* Reporting options */
-#define FS_OPT_ENABLED     0x80000001
-#define FS_OPT_MAPSIZE     0x40000000
-#define FS_OPT_C11         0x20000000
-#define FS_OPT_AUTODICT    0x10000000
+#define FS_OPT_ENABLED 0x80000001
+#define FS_OPT_MAPSIZE 0x40000000
+#define FS_OPT_C11 0x20000000
+#define FS_OPT_AUTODICT 0x10000000
 #define FS_OPT_SHDMEM_FUZZ 0x01000000
-#define FS_OPT_NEWCMPLOG   0x02000000
-#define FS_OPT_IJON        0x04000000
+#define FS_OPT_NEWCMPLOG 0x02000000
+#define FS_OPT_IJON 0x04000000
 #define FS_OPT_OLD_AFLPP_WORKAROUND 0x0f000000
 // FS_OPT_MAX_MAPSIZE is 8388608 = 0x800000 = 2^23 = 1 << 23
 #define FS_OPT_MAX_MAPSIZE ((0x00fffffeU >> 1) + 1)

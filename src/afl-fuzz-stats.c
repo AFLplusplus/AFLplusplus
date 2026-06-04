@@ -1477,7 +1477,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   if (afl->cpu_core_count) {
 
-    char *spacing = SP10;
+    char  *spacing = SP10;
     double cur_runnable = get_runnable_processes();
     u32    cur_utilization = cur_runnable * 100 / afl->cpu_core_count;
 
@@ -2316,7 +2316,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   if (afl->cpu_core_count) {
 
-    char *spacing = SP10;
+    char  *spacing = SP10;
     double cur_runnable = get_runnable_processes();
     u32    cur_utilization = cur_runnable * 100 / afl->cpu_core_count;
 
