@@ -232,8 +232,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
-      "  -L value      - use MOpt(imize) mode (the value is for backwards\n"
-      "                  compatability and ignored)\n"
+      "  -L value      - deprecated, no-op; adaptive mutation is always on\n"
       "  -u            - enable testcase splicing\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
@@ -1301,114 +1300,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
       } break;
 
-      case 'L': {                                              /* MOpt mode */
+      case 'L': {                                      /* deprecated, no-op */
 
-        afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
-        afl->limit_time_sig = 1;
-        afl->swarm_now = 0;
-        afl->pacemaker_mode = 1;
-
-        int j;
-        int tmp_swarm = 0;
-
-        if (afl->g_now > afl->g_max) { afl->g_now = 0; }
-        afl->w_now = (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) /
-                         (afl->g_max) +
-                     afl->w_end;
-
-        for (tmp_swarm = 0; tmp_swarm < SWARM_NUM; ++tmp_swarm) {
-
-          double total_puppet_temp = 0.0;
-          afl->swarm_fitness[tmp_swarm] = 0.0;
-
-          for (j = 0; j < OPERATOR_NUM; ++j) {
-
-            afl->stage_finds_puppet[tmp_swarm][j] = 0;
-            afl->probability_now[tmp_swarm][j] = 0.0;
-            afl->x_now[tmp_swarm][j] =
-                ((double)(random() % 7000) * 0.0001 + 0.1);
-            total_puppet_temp += afl->x_now[tmp_swarm][j];
-            afl->v_now[tmp_swarm][j] = 0.1;
-            afl->L_best[tmp_swarm][j] = 0.5;
-            afl->G_best[j] = 0.5;
-            afl->eff_best[tmp_swarm][j] = 0.0;
-
-          }
-
-          for (j = 0; j < OPERATOR_NUM; ++j) {
-
-            afl->stage_cycles_puppet_v2[tmp_swarm][j] =
-                afl->stage_cycles_puppet[tmp_swarm][j];
-            afl->stage_finds_puppet_v2[tmp_swarm][j] =
-                afl->stage_finds_puppet[tmp_swarm][j];
-            afl->x_now[tmp_swarm][j] =
-                afl->x_now[tmp_swarm][j] / total_puppet_temp;
-
-          }
-
-          double x_temp = 0.0;
-
-          for (j = 0; j < OPERATOR_NUM; ++j) {
-
-            afl->probability_now[tmp_swarm][j] = 0.0;
-            afl->v_now[tmp_swarm][j] =
-                afl->w_now * afl->v_now[tmp_swarm][j] +
-                rand_next_percent(afl) *
-                    (afl->L_best[tmp_swarm][j] - afl->x_now[tmp_swarm][j]) +
-                rand_next_percent(afl) *
-                    (afl->G_best[j] - afl->x_now[tmp_swarm][j]);
-
-            afl->x_now[tmp_swarm][j] += afl->v_now[tmp_swarm][j];
-
-            if (afl->x_now[tmp_swarm][j] > V_MAX) {
-
-              afl->x_now[tmp_swarm][j] = V_MAX;
-
-            } else if (afl->x_now[tmp_swarm][j] < V_MIN) {
-
-              afl->x_now[tmp_swarm][j] = V_MIN;
-
-            }
-
-            x_temp += afl->x_now[tmp_swarm][j];
-
-          }
-
-          for (j = 0; j < OPERATOR_NUM; ++j) {
-
-            afl->x_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j] / x_temp;
-            if (likely(j != 0)) {
-
-              afl->probability_now[tmp_swarm][j] =
-                  afl->probability_now[tmp_swarm][j - 1] +
-                  afl->x_now[tmp_swarm][j];
-
-            } else {
-
-              afl->probability_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j];
-
-            }
-
-          }
-
-          if (afl->probability_now[tmp_swarm][OPERATOR_NUM - 1] < 0.99 ||
-              afl->probability_now[tmp_swarm][OPERATOR_NUM - 1] > 1.01) {
-
-            FATAL("ERROR probability");
-
-          }
-
-        }
-
-        for (j = 0; j < OPERATOR_NUM; ++j) {
-
-          afl->core_operator_finds_puppet[j] = 0;
-          afl->core_operator_finds_puppet_v2[j] = 0;
-          afl->core_operator_cycles_puppet[j] = 0;
-          afl->core_operator_cycles_puppet_v2[j] = 0;
-          afl->core_operator_cycles_puppet_v3[j] = 0;
-
-        }
+        (void)optarg;
+        WARNF(
+            "-L/MOpt is deprecated and now a no-op; adaptive mutation is "
+            "always on.");
 
       } break;
 
@@ -2141,29 +2038,6 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
     });
-
-  }
-
-  if (afl->limit_time_sig > 0 && afl->custom_mutators_count) {
-
-    if (afl->custom_only) {
-
-      FATAL("Custom mutators are incompatible with MOpt (-L)");
-
-    }
-
-    u32 custom_fuzz = 0;
-    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-
-      if (el->afl_custom_fuzz) { custom_fuzz = 1; }
-
-    });
-
-    if (custom_fuzz) {
-
-      WARNF("afl_custom_fuzz is incompatible with MOpt (-L)");
-
-    }
 
   }
 
@@ -2942,21 +2816,6 @@ int main(int argc, char **argv_orig, char **envp) {
             // if we did not use splicing (default) then activate it
             afl->use_splicing = 1;
 
-            // switch MOpt mutator
-            if (!afl->custom_only) {
-
-              if (afl->pacemaker_mode) {
-
-                afl->pacemaker_mode = 0;
-
-              } else {
-
-                afl->pacemaker_mode = 1;
-
-              }
-
-            }
-
             afl->expand_havoc = 2;
             if (afl->cmplog_lvl && afl->cmplog_lvl < 2) afl->cmplog_lvl = 2;
             break;
@@ -2976,21 +2835,6 @@ int main(int argc, char **argv_orig, char **envp) {
             // 3;
             break;
           case 5:
-            // switch MOpt mutator back
-            if (!afl->custom_only) {
-
-              if (afl->pacemaker_mode) {
-
-                afl->pacemaker_mode = 0;
-
-              } else {
-
-                afl->pacemaker_mode = 1;
-
-              }
-
-            }
-
             break;
 
         }

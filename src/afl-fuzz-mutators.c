@@ -79,12 +79,6 @@ void setup_custom_mutators(afl_state_t *afl) {
 
   if (fn) {
 
-    if (afl->limit_time_sig && afl->limit_time_sig != -1)
-      FATAL(
-          "MOpt and custom mutator are mutually exclusive. We accept pull "
-          "requests that integrates MOpt with the optional mutators "
-          "(custom/redqueen/...).");
-
     u8 *fn_token = (u8 *)strsep((char **)&fn, ";:,");
 
     if (likely(!fn_token)) {
@@ -122,15 +116,6 @@ void setup_custom_mutators(afl_state_t *afl) {
   u8 *module_name = afl->afl_env.afl_python_module;
 
   if (module_name) {
-
-    if (afl->limit_time_sig) {
-
-      FATAL(
-          "MOpt and Python mutator are mutually exclusive. We accept pull "
-          "requests that integrates MOpt with the optional mutators "
-          "(custom/redqueen/...).");
-
-    }
 
     struct custom_mutator *m = load_custom_mutator_py(afl, module_name);
     afl->custom_mutators_count++;

@@ -32,40 +32,6 @@ char *power_names[POWER_SCHEDULES_NUM] = {"explore", "mmopt", "exploit",
                                           "fast",    "coe",   "lin",
                                           "quad",    "rare",  "seek"};
 
-/* Initialize MOpt "globals" for this afl state */
-
-static void init_mopt_globals(afl_state_t *afl) {
-
-  MOpt_globals_t *core = &afl->mopt_globals_core;
-  core->finds = afl->core_operator_finds_puppet;
-  core->finds_v2 = afl->core_operator_finds_puppet_v2;
-  core->cycles = afl->core_operator_cycles_puppet;
-  core->cycles_v2 = afl->core_operator_cycles_puppet_v2;
-  core->cycles_v3 = afl->core_operator_cycles_puppet_v3;
-  core->is_pilot_mode = 0;
-  core->pTime = &afl->tmp_core_time;
-  core->period = PERIOD_CORE;
-  core->havoc_stagename = "MOpt-core-havoc";
-  core->splice_stageformat = "MOpt-core-splice %u";
-  core->havoc_stagenameshort = "MOpt_core_havoc";
-  core->splice_stagenameshort = "MOpt_core_splice";
-
-  MOpt_globals_t *pilot = &afl->mopt_globals_pilot;
-  pilot->finds = afl->stage_finds_puppet[0];
-  pilot->finds_v2 = afl->stage_finds_puppet_v2[0];
-  pilot->cycles = afl->stage_cycles_puppet[0];
-  pilot->cycles_v2 = afl->stage_cycles_puppet_v2[0];
-  pilot->cycles_v3 = afl->stage_cycles_puppet_v3[0];
-  pilot->is_pilot_mode = 1;
-  pilot->pTime = &afl->tmp_pilot_time;
-  pilot->period = PERIOD_PILOT;
-  pilot->havoc_stagename = "MOpt-havoc";
-  pilot->splice_stageformat = "MOpt-splice %u";
-  pilot->havoc_stagenameshort = "MOpt_havoc";
-  pilot->splice_stagenameshort = "MOpt_splice";
-
-}
-
 /* A global pointer to all instances is needed (for now) for signals to arrive
  */
 
@@ -81,10 +47,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   afl->shm.map_size = map_size ? map_size : MAP_SIZE;
 
-  afl->w_init = 0.9;
-  afl->w_end = 0.3;
-  afl->g_max = 5000;
-  afl->period_pilot_tmp = 5000.0;
   mopt_adaptive_init(afl);
   afl->schedule = EXPLORE;              /* Power schedule (default: EXPLORE)*/
   afl->havoc_max_mult = HAVOC_MAX_MULT;
@@ -141,8 +103,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
       (struct inf_profile *)ck_alloc(sizeof(struct inf_profile));
   afl->havoc_prof =
       (struct havoc_profile *)ck_alloc(sizeof(struct havoc_profile));
-
-  init_mopt_globals(afl);
 
   list_append(&afl_states, afl);
 

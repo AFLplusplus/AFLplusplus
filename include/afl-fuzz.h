@@ -344,9 +344,6 @@ enum {
 
 };
 
-#define OPERATOR_NUM STAGE_HAVOC_MAX
-#define SWARM_NUM 5
-
 /* ---- Adaptive mutation arrays (next-gen MOpt) ----
    MOPT_OP_MAX / MOPT_LUT_SIZE are pinned to MUT_MAX / MUT_STRATEGY_ARRAY_SIZE
    (afl-mutations.h) by a _Static_assert in afl-fuzz-one.c. They are duplicated
@@ -391,13 +388,6 @@ struct mopt_adaptive {
   u32 round_cnt;
 
 };
-
-#define PERIOD_CORE 500000
-#define PERIOD_PILOT 50000
-#define V_MAX 1
-#define V_MIN 0.05
-#define SPLICE_CYCLES_puppet_up 25
-#define SPLICE_CYCLES_puppet_low 5
 
 enum {
 
@@ -490,23 +480,6 @@ typedef struct py_mutator {
 
 #endif
 
-typedef struct MOpt_globals {
-
-  u64  *finds;
-  u64  *finds_v2;
-  u64  *cycles;
-  u64  *cycles_v2;
-  u64  *cycles_v3;
-  u32   is_pilot_mode;
-  u64  *pTime;
-  u64   period;
-  char *havoc_stagename;
-  char *splice_stageformat;
-  char *havoc_stagenameshort;
-  char *splice_stagenameshort;
-
-} MOpt_globals_t;
-
 extern char *power_names[POWER_SCHEDULES_NUM];
 
 typedef struct afl_env_vars {
@@ -562,46 +535,10 @@ typedef struct afl_state {
 
   char **argv;                                            /* argv if needed */
 
-  /* MOpt:
-    Lots of globals, but mostly for the status UI and other things where it
-    really makes no sense to haul them around as function parameters. */
-  u64 orig_hit_cnt_puppet, last_limit_time_start, tmp_pilot_time,
-      total_pacemaker_time, total_puppet_find, temp_puppet_find, most_time_key,
-      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update,
+  /* Status UI and timing globals where it really makes no sense to haul them
+     around as function parameters. */
+  u64 most_time_key, most_time, most_execs_key, most_execs, force_ui_update,
       prev_run_time;
-
-  MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
-
-  s32 SPLICE_CYCLES_puppet, limit_time_sig, pacemaker_mode, key_module;
-
-  double w_init, w_end, w_now;
-
-  s32 g_now;
-  s32 g_max;
-
-  u64 tmp_core_time;
-  s32 swarm_now;
-
-  double x_now[SWARM_NUM][OPERATOR_NUM], L_best[SWARM_NUM][OPERATOR_NUM],
-      eff_best[SWARM_NUM][OPERATOR_NUM], G_best[OPERATOR_NUM],
-      v_now[SWARM_NUM][OPERATOR_NUM], probability_now[SWARM_NUM][OPERATOR_NUM],
-      swarm_fitness[SWARM_NUM];
-
-  u64 stage_finds_puppet[SWARM_NUM][OPERATOR_NUM], /* Patterns found per
-                                                            fuzz stage    */
-      stage_finds_puppet_v2[SWARM_NUM][OPERATOR_NUM],
-      stage_cycles_puppet_v2[SWARM_NUM][OPERATOR_NUM],
-      stage_cycles_puppet_v3[SWARM_NUM][OPERATOR_NUM],
-      stage_cycles_puppet[SWARM_NUM][OPERATOR_NUM],
-      operator_finds_puppet[OPERATOR_NUM],
-      core_operator_finds_puppet[OPERATOR_NUM],
-      core_operator_finds_puppet_v2[OPERATOR_NUM],
-      core_operator_cycles_puppet[OPERATOR_NUM],
-      core_operator_cycles_puppet_v2[OPERATOR_NUM],
-      core_operator_cycles_puppet_v3[OPERATOR_NUM]; /* Execs per fuzz stage */
-
-  double period_pilot_tmp;
-  s32    key_lv;
 
   struct mopt_adaptive mopt_adaptive;
 
@@ -1314,11 +1251,7 @@ fsrv_run_result_t fuzz_run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
 
 /* Fuzz one */
 
-u8   fuzz_one_original(afl_state_t *);
-u8   pilot_fuzzing(afl_state_t *);
-u8   core_fuzzing(afl_state_t *);
-void pso_updating(afl_state_t *);
-u8   fuzz_one(afl_state_t *);
+u8 fuzz_one(afl_state_t *);
 
 /* Init */
 
