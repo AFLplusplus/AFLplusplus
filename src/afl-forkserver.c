@@ -399,7 +399,7 @@ static void afl_child_sync_init(afl_forkserver_t *fsrv) {
 static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
                                  volatile u8 *stop_soon_p) {
 
-#ifdef __linux__
+  #ifdef __linux__
   /* Absolute deadline on CLOCK_MONOTONIC. Not affected by NTP changes. */
   struct timespec deadline;
   clock_gettime(CLOCK_MONOTONIC, &deadline);
@@ -413,14 +413,14 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
 
   }
 
-#else
+  #else
   /* Absolute deadline in mach-absolute-time units. */
   static mach_timebase_info_data_t tb = {0, 0};
   if (tb.denom == 0) { mach_timebase_info(&tb); }
   uint64_t deadline =
       mach_absolute_time() +
       (((uint64_t)timeout_ms * 1000000ULL) * tb.denom) / tb.numer;
-#endif
+  #endif
 
   for (;;) {
 
@@ -447,14 +447,14 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
     }
 
     /* Wait until the absolute deadline. */
-#ifdef __linux__
+  #ifdef __linux__
     int r = sys_futex(fsrv->child_sync, FUTEX_WAIT_BITSET, fval, &deadline,
                       NULL, FUTEX_BITSET_MATCH_ANY);
-#else
+  #else
     int r = os_sync_wait_on_address_with_deadline(
         fsrv->child_sync, (uint64_t)fval, sizeof(u32),
         OS_SYNC_WAIT_ON_ADDRESS_SHARED, OS_CLOCK_MACH_ABSOLUTE_TIME, deadline);
-#endif
+  #endif
 
     /* If we timed out, mark it and loop once to take the kill/return path. */
     if (r == -1 && errno == ETIMEDOUT) { fsrv->last_run_timed_out = 1; }
@@ -470,7 +470,7 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
 
 }
 
-#endif                                         /* ^__linux__ || __APPLE__ */
+#endif                                           /* ^__linux__ || __APPLE__ */
 
 static inline void afl_fsrv_report_persistent_sync_mode(
     afl_forkserver_t *fsrv) {

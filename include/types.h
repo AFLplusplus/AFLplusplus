@@ -79,7 +79,7 @@ typedef enum {
 
 } afl_child_state_t;
 
-#endif                                          /* __linux__ || __APPLE__ */
+#endif                                            /* __linux__ || __APPLE__ */
 
 /* Reporting options */
 #define FS_OPT_ENABLED 0x80000001

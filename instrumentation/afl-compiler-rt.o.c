@@ -1950,6 +1950,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
           _exit(0);
 
         }
+
   #endif
 
       }
