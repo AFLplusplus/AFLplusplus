@@ -80,6 +80,24 @@ static inline long sys_futex(void *uaddr, int op, int val,
 
 }
 
+static inline void afl_sync_wake(void *uaddr) {
+
+  sys_futex(uaddr, FUTEX_WAKE, 1, NULL, NULL, 0);
+
+}
+
+#elif defined(__APPLE__)
+  #include <os/os_sync_wait_on_address.h>
+  #include <mach/mach_time.h>
+  #include <sys/syscall.h>
+
+static inline void afl_sync_wake(void *uaddr) {
+
+  os_sync_wake_by_address_any(uaddr, sizeof(u32),
+                              OS_SYNC_WAKE_BY_ADDRESS_SHARED);
+
+}
+
 #elif !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
 #endif
@@ -764,7 +782,7 @@ static void __afl_map_shm(void) {
   if (__afl_already_initialized_shm) return;
   __afl_already_initialized_shm = 1;
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
   {
 
     char *child_sync_shm = getenv("AFL_CHILD_SYNC_SHM");
@@ -1679,7 +1697,7 @@ static void __afl_start_forkserver(void) {
 
     if (unlikely(!child_stopped)) {
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
       /* Clear any stale AFL_CHILD_EXITED in the futex before forking the
          new child.  Our previous-iteration EXITED write (above) and the
          fuzzer's IDLE write (at end of run_target) are unordered, so the
@@ -1775,13 +1793,13 @@ static void __afl_start_forkserver(void) {
 
     }
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     if (!child_stopped && likely(__afl_child_sync)) {
 
       /* Child exited (crash or normal cycle end). Signal the fuzzer
          via futex; pipe data is already written above. */
       __atomic_store_n(__afl_child_sync, AFL_CHILD_EXITED, __ATOMIC_RELEASE);
-      sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+      afl_sync_wake(__afl_child_sync);
 
     }
 
@@ -1798,6 +1816,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
   static u8  first_pass = 1;
   static u32 cycle_cnt;
+#ifdef __APPLE__
+  static pid_t afl_orig_ppid = 0;
+#endif
 
 #ifdef AFL_PERSISTENT_RECORD
   char tcase[PATH_MAX];
@@ -1826,6 +1847,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     __afl_alloc_persistent_reset(0);
 
     first_pass = 0;
+#ifdef __APPLE__
+    afl_orig_ppid = getppid();
+#endif
     __afl_selective_coverage_temp = 1;
 
 #ifdef AFL_PERSISTENT_RECORD
@@ -1882,7 +1906,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     __afl_alloc_persistent_reset(1);
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     if (likely(__afl_child_sync)) {
 
       /* Signal the fuzzer that this iteration is complete.
@@ -1905,16 +1929,28 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
       }
 
-      sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+      afl_sync_wake(__afl_child_sync);
 
       /* Wait until the fuzzer signals us to run the next test case.
-         No timeout needed: PR_SET_PDEATHSIG ensures the kernel delivers
-         SIGKILL if the forkserver (our parent) dies. */
+         On Linux no timeout is needed: PR_SET_PDEATHSIG ensures the kernel
+         delivers SIGKILL if the forkserver (our parent) dies. */
       u32 sync_val;
       while ((sync_val = __atomic_load_n(__afl_child_sync, __ATOMIC_ACQUIRE)) ==
              AFL_CHILD_DONE) {
 
+  #ifdef __linux__
         sys_futex(__afl_child_sync, FUTEX_WAIT, AFL_CHILD_DONE, NULL, NULL, 0);
+  #else
+        int r = os_sync_wait_on_address_with_timeout(
+            __afl_child_sync, (uint64_t)AFL_CHILD_DONE, sizeof(u32),
+            OS_SYNC_WAIT_ON_ADDRESS_SHARED, OS_CLOCK_MACH_ABSOLUTE_TIME,
+            250ULL * 1000ULL * 1000ULL);
+        if (r == -1 && errno == ETIMEDOUT && getppid() != afl_orig_ppid) {
+
+          _exit(0);
+
+        }
+  #endif
 
       }
 

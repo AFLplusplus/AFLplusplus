@@ -5,6 +5,9 @@
 
 
 ### Version ++5.00a (dev)
+  - MacOS persistent mode now uses futex mode now too which increases speed
+    and reduces system call overhead (opt out with AFL_FAST_CHILD_SYNC) - this
+    required a MacOS from 2024 onwards.
   - afl-fuzz
     - enforce halt on UBSAN errors
   - afl-cc:

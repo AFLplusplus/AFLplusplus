@@ -65,7 +65,7 @@ typedef uint128_t         u128;
 #define FS_NEW_OPT_BUG_MAP 0x00000010
 #define FS_NEW_OPT_AUTODICT 0x00000800  // autodictionary data
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 /* Protocol phases for the futex-based forkserver handshake.
    A single 32-bit shared-memory word (child_sync) carries these values so
    that afl-fuzz and the persistent target child can coordinate each execution
@@ -79,7 +79,7 @@ typedef enum {
 
 } afl_child_state_t;
 
-#endif                                                         /* __linux__ */
+#endif                                          /* __linux__ || __APPLE__ */
 
 /* Reporting options */
 #define FS_OPT_ENABLED 0x80000001
