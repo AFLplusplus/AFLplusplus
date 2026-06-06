@@ -5317,6 +5317,7 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
   if (!idx || idx >= MAP_SIZE_ALLOCRECORDS) return;
   AllocSizeRecord *r = __afl_alloc_find_oracle_record(a, tbl, off, idx);
   if (!r) return;
+  if (a != r->base) return;
 
   /* First-elem-size wins: only the first store at this allocation
      stamps the (size, align) pair; later stores compare against it. */
