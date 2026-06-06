@@ -673,12 +673,14 @@ afl_state_t *afl_init(void) {
   if (!afl) { FATAL("Could not create afl state"); }
 
   afl->map_size = get_map_size();
-  afl->default_output = 1;
 
   if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
 
   afl_state_init(afl, afl->map_size);
+
   afl->debug = debug;
+  afl->default_output = 1;
+
   afl_fsrv_init(&afl->fsrv);
   if (debug) { afl->fsrv.debug = true; }
 
