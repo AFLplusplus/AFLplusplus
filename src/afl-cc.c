@@ -3760,7 +3760,12 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") &&
         (getenv("AFL_USE_ASAN") || aflcc->have_asan)) {
 
-      WARNF("AFL_LLVM_BUG_ALLOCSIZE_DERIVE is incompatible with ASAN, ignored");
+      if (!be_quiet) {
+
+        WARNF(
+            "AFL_LLVM_BUG_ALLOCSIZE_DERIVE is incompatible with ASAN, ignored");
+
+      }
 
     }
 
@@ -3775,10 +3780,15 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
        OOB oracle is enabled too. */
     if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") && !aflcc->cmplog_mode) {
 
-      WARNF(
-          "AFL_LLVM_BUG_ALLOCSIZE_DERIVE needs a CmpLog map at run time (a "
-          "CMPLOG build, afl-fuzz cmplog mode, or AFL_CMPLOG_DEBUG); without "
-          "one it is a no-op. Keeping DERIVE enabled.");
+      if (!be_quiet) {
+
+        WARNF(
+            "AFL_LLVM_BUG_ALLOCSIZE_DERIVE needs a CmpLog map at run time (a "
+            "CMPLOG build, afl-fuzz cmplog mode, or AFL_CMPLOG_DEBUG); without "
+            "one it is a no-op. Keeping DERIVE enabled.");
+
+      }
+
       setenv("AFL_LLVM_BUG_ALLOCSIZE", "1", 1);
 
     }
