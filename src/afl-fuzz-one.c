@@ -32,6 +32,7 @@
 #include "cmplog.h"
 #include "afl-mutations.h"
 
+// Ensure the new mopt will not be left behind if we change havoc
 _Static_assert(MOPT_OP_MAX == MUT_MAX, "MOPT_OP_MAX must equal MUT_MAX");
 _Static_assert(MOPT_LUT_SIZE == MUT_STRATEGY_ARRAY_SIZE,
                "MOPT_LUT_SIZE must equal MUT_STRATEGY_ARRAY_SIZE");
@@ -3794,3 +3795,4 @@ abandon_entry:
 #undef FLIP_BIT
 
 }
+
