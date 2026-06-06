@@ -118,6 +118,28 @@ static void quantize_into(const double *weight, u32 n, u32 *out, u32 out_len) {
 
   }
 
+  /* Exploration floor: keep every operator at >= 1 slot so none is ever
+     permanently starved (e.g. one absent from the prior with no learned
+     credit). Revive a starved operator by stealing one slot from the current
+     richest, but only when that richest has more than one to give. */
+  for (u32 i = 0; i < n; ++i) {
+
+    if (counts[i] == 0) {
+
+      u32 rich = 0;
+      for (u32 j = 1; j < n; ++j)
+        if (counts[j] > counts[rich]) rich = j;
+      if (counts[rich] > 1) {
+
+        counts[rich]--;
+        counts[i] = 1;
+
+      }
+
+    }
+
+  }
+
   u32 pos = 0;
   for (u32 i = 0; i < n && pos < out_len; ++i)
     for (u32 k = 0; k < counts[i] && pos < out_len; ++k)
@@ -160,7 +182,16 @@ void mopt_rebuild_ctx(struct mopt_ctx *c, const u32 *prior, u32 prior_len) {
 
   }
 
-  double eps = (double)MOPT_PRIOR_NUM / (double)MOPT_PRIOR_DEN;
+  /* Anneal prior trust from MOPT_PRIOR_NUM down to a MOPT_PRIOR_MIN_NUM floor
+     over MOPT_PRIOR_ANNEAL rebuilds: trust the static prior at cold-start,
+     then let learned efficiency dominate. The exploration floor in
+     quantize_into keeps every operator alive as epsilon shrinks. */
+  double eps_max = (double)MOPT_PRIOR_NUM / (double)MOPT_PRIOR_DEN;
+  double eps_min = (double)MOPT_PRIOR_MIN_NUM / (double)MOPT_PRIOR_DEN;
+  double t = (double)c->rebuild_count / (double)MOPT_PRIOR_ANNEAL;
+  if (t > 1.0) t = 1.0;
+  double eps = eps_max - (eps_max - eps_min) * t;
+
   double blended[MOPT_OP_MAX];
   for (u32 i = 0; i < MOPT_OP_MAX; ++i) {
 
@@ -171,6 +202,8 @@ void mopt_rebuild_ctx(struct mopt_ctx *c, const u32 *prior, u32 prior_len) {
   }
 
   quantize_into(blended, MOPT_OP_MAX, c->learned_array, MOPT_LUT_SIZE);
+
+  ++c->rebuild_count;
 
 }
 

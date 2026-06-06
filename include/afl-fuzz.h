@@ -425,8 +425,10 @@ enum {
 #define MOPT_CTX_NUM 6            /* input_mode(3) x fuzz_mode(2)           */
 #define MOPT_DECAY_NUM 90         /* tally decay numerator (0.90)           */
 #define MOPT_DECAY_DEN 100
-#define MOPT_PRIOR_NUM 25         /* epsilon weight to static prior (0.25)  */
+#define MOPT_PRIOR_NUM 25        /* initial epsilon to static prior (0.25)  */
 #define MOPT_PRIOR_DEN 100
+#define MOPT_PRIOR_MIN_NUM 5     /* annealed floor of prior epsilon (0.05)  */
+#define MOPT_PRIOR_ANNEAL 32     /* rebuilds to anneal prior to its floor   */
 #define MOPT_REBUILD_EXECS 4096   /* min execs between LUT rebuilds per ctx */
 #define MOPT_ARM_MIN_SAMPLES 64   /* min execs before an arm can lose       */
 #define MOPT_ARM_DECAY_NUM 50     /* policy window decay (0.50)             */
@@ -441,6 +443,7 @@ struct mopt_ctx {
   u64 arm_time_us[2];          /* per-arm window wall-clock cost (us)       */
   u64 arm_execs[2];            /* per-arm window exec count                 */
   u64 last_rebuild_execs;      /* total_execs at this ctx's last rebuild    */
+  u32 rebuild_count;           /* rebuilds so far (prior anneal clock)      */
   u8  active_arm;              /* arm chosen for the current havoc stage    */
 
 };
