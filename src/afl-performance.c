@@ -75,7 +75,8 @@ inline AFL_RAND_RETURN rand_next(afl_state_t *afl) {
 
 inline double rand_next_percent(afl_state_t *afl) {
 
-  return (double)(((double)rand_next(afl)) / (double)0xffffffffffffffff);
+  u64 u = rand_next(afl) & ((u64)((u64)1 << 53) - (u64)1);
+  return (double)u * (((double)1.0 / (u64)((u64)1 << 53)));
 
 }
 
