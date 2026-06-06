@@ -74,7 +74,7 @@ inline AFL_RAND_RETURN rand_next(afl_state_t *afl) {
 /* returns a double between 0.000000000 and 1.000000000 */
 
 inline double rand_next_percent(afl_state_t *afl) {
-
+  
   return (double)(((double)rand_next(afl)) / (double)0xffffffffffffffff);
 
 }
