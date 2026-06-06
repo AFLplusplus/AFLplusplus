@@ -6,9 +6,11 @@ OS=$(uname -s)
 
 $ECHO "$BLUE[*] Testing: llvm_mode, afl-showmap, afl-fuzz, afl-cmin and afl-tmin"
 test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
+  rm -f test-instr.plain
   ../afl-clang-fast -o test-instr.plain ../test-instr.c > /dev/null 2>&1
   AFL_HARDEN=1 ../afl-clang-fast -o test-compcov.harden test-compcov.c > /dev/null 2>&1
   test -e test-instr.plain && {
+    chmod +x test-instr.plain
     $ECHO "$GREEN[+] llvm_mode compilation succeeded"
     echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
@@ -162,7 +164,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
               CODE=1
               ;;
         esac
-        rm -f in2/in*
+        rm -rf in2
       }
       export AFL_QUIET=1
       if type bash >/dev/null ; then {
@@ -218,7 +220,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
 
   AFL_LLVM_INSTRUMENT=AFL AFL_DEBUG=1 AFL_LLVM_LAF_SPLIT_SWITCHES=1 AFL_LLVM_LAF_TRANSFORM_COMPARES=1 AFL_LLVM_LAF_SPLIT_COMPARES=1 ../afl-clang-fast -o test-compcov.compcov test-compcov.c > test.out 2>&1
   test -e test-compcov.compcov && test_compcov_binary_functionality ./test-compcov.compcov && {
-    grep --binary-files=text -Eq " [ 123][0-9][0-9] location| [3-9][0-9] location" test.out && {
+    grep $GREPAOPTION -Eq " [ 123][0-9][0-9] location| [3-9][0-9] location" test.out && {
       $ECHO "$GREEN[+] llvm_mode laf-intel/compcov feature works correctly"
     } || {
       $ECHO "$RED[!] llvm_mode laf-intel/compcov feature failed"
@@ -263,6 +265,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov test.out instrumentlist.txt
+ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
   AFL_LLVM_CMPLOG=1 ../afl-clang-fast -o test-cmplog test-cmplog.c > /dev/null 2>&1
   test -e test-cmplog && {
     $ECHO "$GREY[*] running afl-fuzz for llvm_mode cmplog, this will take approx 10 seconds"
@@ -288,7 +291,47 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$YELLOW[-] we cannot test llvm_mode cmplog because it is not present"
     INCOMPLETE=1
   }
+ } || {
+  $ECHO "$YELLOW[-] CMPLOG too slow to test in ARM CI, cannot test"
+  INCOMPLETE=1
+ }
   rm -rf errors test-cmplog in core.*
+  # Test cmplog back-edge/loop detection
+  test -e test-cmplog-loops.sh && {
+    ./test-cmplog-loops.sh > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] cmplog loop back-edge detection test passed"
+    } || {
+      $ECHO "$RED[!] cmplog loop back-edge detection test failed"
+      CODE=1
+    }
+  }
+  # Test cmplog routines pass instrumentation
+  test -e test-cmplog-routines-pass.sh && {
+    ./test-cmplog-routines-pass.sh > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] cmplog routines pass instrumentation test passed"
+    } || {
+      $ECHO "$RED[!] cmplog routines pass instrumentation test failed"
+      CODE=1
+    }
+  }
+  # Test cmplog routine hooks on page-boundary strings
+  test -e test-cmplog-routines-bounds.sh && {
+    ./test-cmplog-routines-bounds.sh > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] cmplog routines bounds test passed"
+    } || {
+      $ECHO "$RED[!] cmplog routines bounds test failed"
+      CODE=1
+    }
+  }
+  # Test cmplog instructions pass with non-standard integer sizes (issue #2704)
+  test -e test-cmplog-bitint.sh && {
+    ./test-cmplog-bitint.sh > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] cmplog non-standard integer size test passed (issue #2704)"
+    } || {
+      $ECHO "$RED[!] cmplog non-standard integer size test failed (issue #2704)"
+      CODE=1
+    }
+  }
   ../afl-clang-fast -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
   test -e test-persistent && {
     echo foo | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o /dev/null -q -r ./test-persistent && {
@@ -302,6 +345,33 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-persistent
+ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
+  AFL_LLVM_IJON=1 ../afl-clang-fast -o ijon-maze -fsanitize=fuzzer ijon-maze.c > /dev/null 2>&1
+  test -e ijon-maze && {
+    $ECHO "$GREY[*] running afl-fuzz with IJON maze, this will take approx 10 seconds"
+    {
+      mkdir -p in
+      echo 00000000000000000000000000000000 > in/in
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 ../afl-fuzz -Z -m none -V64 -i in -o out -- ./ijon-maze >>errors 2>&1
+    } >>errors 2>&1
+    test -n "$( ls out/default/crashes/* 2>/dev/null )" && {
+      $ECHO "$GREEN[+] afl-fuzz is working correctly with IJON"
+    } || {
+      echo CUT------------------------------------------------------------------CUT
+      cat errors
+      echo CUT------------------------------------------------------------------CUT
+      $ECHO "$RED[!] afl-fuzz is not working correctly with IJON"
+      CODE=1
+    }
+  } || {
+    $ECHO "$RED[!] IJON maze compilation failed"
+    CODE=1
+  }
+  rm -rf ijon-maze in out errors
+ } || {
+  $ECHO "$YELLOW[-] IJON too slow to test in ARM CI, cannot test"
+  INCOMPLETE=1
+ }
 } || {
   $ECHO "$YELLOW[-] llvm_mode not compiled, cannot test"
   INCOMPLETE=1

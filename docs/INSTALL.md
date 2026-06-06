@@ -20,21 +20,22 @@ development state of AFL++.
 If you want to build AFL++ yourself, you have many options. The easiest choice
 is to build and install everything:
 
-NOTE: depending on your Debian/Ubuntu/Kali/... release, replace `-14` with
-whatever llvm version is available. We recommend llvm 13 or newer.
+NOTE: depending on your Debian/Ubuntu/Kali/... release, replace `-18` with
+whatever llvm version is available. We recommend llvm 18 or newer, minimum is 14.
 
 ```shell
 sudo apt-get update
 sudo apt-get install -y build-essential python3-dev automake cmake git flex bison libglib2.0-dev libpixman-1-dev python3-setuptools cargo libgtk-3-dev
-# try to install llvm 14 and install the distro default if that fails
-sudo apt-get install -y lld-14 llvm-14 llvm-14-dev clang-14 || sudo apt-get install -y lld llvm llvm-dev clang
+# try to install llvm-18 and install the distro default if that fails
+sudo apt-get install -y lld-18 llvm-18 llvm-18-dev clang-18 || sudo apt-get install -y lld llvm llvm-dev clang
 sudo apt-get install -y gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-plugin-dev libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
-sudo apt-get install -y ninja-build # for QEMU mode
+sudo apt-get install -y meson ninja-build # for QEMU mode
 sudo apt-get install -y cpio libcapstone-dev # for Nyx mode
 sudo apt-get install -y wget curl # for Frida mode
 sudo apt-get install -y python3-pip # for Unicorn mode
 git clone https://github.com/AFLplusplus/AFLplusplus
 cd AFLplusplus
+git submodule update --init
 make distrib
 sudo make install
 ```
@@ -93,11 +94,14 @@ These build options exist:
 * NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)
 * NO_NYX - disable building nyx mode dependencies
 * NO_CORESIGHT - disable building coresight (arm64 only)
+* NO_QEMU - disable building QEMU support
+* NO_FRIDA - disable building FRIDA support
+* NO_UNICORN - disable building unicorn
 * NO_UNICORN_ARM64 - disable building unicorn on arm64
 * AFL_NO_X86 - if compiling on non-Intel/AMD platforms
 * LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g., Debian)
 
-e.g.: `make LLVM_CONFIG=llvm-config-14`
+e.g.: `make LLVM_CONFIG=llvm-config-18`
 
 ## macOS on x86_64 and arm64
 
@@ -115,10 +119,11 @@ See
 [https://www.spy-hill.com/help/apple/SharedMemory.html](https://www.spy-hill.com/help/apple/SharedMemory.html)
 for documentation for the shared memory settings and how to make them permanent.
 
-Next, to build AFL++, install the following packages from brew:
+Next, to build AFL++, install the following packages from brew (use `@version`
+install a specific version):
 
 ```shell
-brew install wget git make cmake llvm gdb coreutils
+brew install wget git make cmake llvm lld gdb coreutils
 ```
 
 Depending on your macOS system + brew version, brew may be installed in different places.
@@ -169,3 +174,47 @@ and definitely don't look POSIX-compliant. This means two things:
 User emulation mode of QEMU does not appear to be supported on macOS, so
 black-box instrumentation mode (`-Q`) will not work. However, FRIDA mode (`-O`)
 works on both x86 and arm64 macOS boxes.
+
+## iOS on arm64 and arm64e
+
+**Option 1: Compilation on jailbroken iOS (recommended)**
+
+To compile directly on a jailbroken iOS device, it is recommended to use a jailbreak that supports Procursus,
+as Procursus provides up-to-date pre-built packages for the required tools.
+
+Ensure `openssh` is installed on your iOS device, then SSH into it.
+Install the following packages:
+
+```shell
+sudo apt install wget git make cmake clang gawk llvm ldid coreutils build-essential xz-utils
+```
+
+Configure the environment for compilation:
+
+```shell
+export IOS_SDK_PATH="/usr/share/SDKs/iPhoneOS.sdk"
+export CC=clang
+export CXX=clang++
+```
+
+Then build following the general Linux instructions.
+
+**Option 2: Cross-Compilation on macOS for Jailbroken iOS**
+
+In addition to the packages required for a macOS build, install `ldid` for signing binaries:
+
+```shell
+brew install ldid-procursus
+```
+
+Configure the environment for compilation:
+
+```shell
+export IOS_SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path)"
+export CC="$(xcrun --sdk iphoneos -f clang) -target arm64-apple-ios14.0"
+export CXX="$(xcrun --sdk iphoneos -f clang++) -target arm64-apple-ios14.0"
+export HOST_CC=cc
+```
+
+Then build following the general Linux instructions.
+Finally, transfer the binaries to your iOS device.

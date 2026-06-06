@@ -1,0 +1,9 @@
+# https://en.wikipedia.org/wiki/STL_(file_format)
+
+keyword_solid="solid"
+keyword_facet_normal="facet normal"
+keyword_outer_loop="outer loop"
+keyword_vertex="vertex"
+keyword_endloop="endloop"
+keyword_endfacet="endfacet"
+keyword_endsolid="endsolid"

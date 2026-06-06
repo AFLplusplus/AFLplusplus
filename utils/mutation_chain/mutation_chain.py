@@ -26,7 +26,7 @@ def fillDictWithFilenameKeys(dir):
             dict[filename] = None
     return dict
 
-# recusively compute the chain of queue items that led to the AFL crash file
+# recursively compute the chain of queue items that led to the AFL crash file
 def compute_mutation_chain(filename, current_fuzzer, n):
 
     if re.match(".*src:(\\d+),", filename):
@@ -104,7 +104,7 @@ def main():
     parser.add_argument(
         "-n", "--node",
         action = 'store',
-        help = '[Only used in single mode; optinal] name of the fuzzer node that contains the crash file supplied in the --file argument (e.g. \'fuzzer03\'). Defaults to \'fuzzer01\' if not supplied',
+        help = '[Only used in single mode; optional] name of the fuzzer node that contains the crash file supplied in the --file argument (e.g. \'fuzzer03\'). Defaults to \'fuzzer01\' if not supplied',
         required = False
     )
 
@@ -130,7 +130,7 @@ def main():
             print("Error: \'" + crash_file_path + "\' does not exist.\nPlease verify whether the node and filename are correct.")
             return
 
-    # Create the interal representation of the various queues of parallel fuzzing nodes
+    # Create the internal representation of the various queues of parallel fuzzing nodes
     for dir in os.listdir(args.input):
         if re.match("^fuzzer\\d+", dir):
             queues[dir] = fillDictWithFilenameKeys(args.input + '/' + dir + '/queue')

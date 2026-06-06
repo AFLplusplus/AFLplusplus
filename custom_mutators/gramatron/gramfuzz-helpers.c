@@ -4,14 +4,14 @@
 #include <assert.h>
 #include "afl-fuzz.h"
 #include "gramfuzz.h"
-
+#include "gramfuzz-rng.h"
 /*Slices from beginning till idx*/
 Array *slice(Array *input, int idx) {
 
   // printf("\nSlice idx:%d", idx);
   terminal *origptr;
   terminal *term_ptr;
-  Array *   sliced = (Array *)malloc(sizeof(Array));
+  Array    *sliced = (Array *)malloc(sizeof(Array));
   initArray(sliced, input->size);
   // Populate dynamic array members
   if (idx == 0) { return sliced; }
@@ -33,7 +33,7 @@ Array *slice_inverse(Array *input, int idx) {
   // printf("\nSlice idx:%d", idx);
   terminal *origptr;
   terminal *term_ptr;
-  Array *   sliced = (Array *)malloc(sizeof(Array));
+  Array    *sliced = (Array *)malloc(sizeof(Array));
   initArray(sliced, input->size);
   for (int x = idx; x < input->used; x++) {
 
@@ -52,7 +52,7 @@ Array *carve(Array *input, int start, int end) {
 
   terminal *origptr;
   terminal *term_ptr;
-  Array *   sliced = (Array *)malloc(sizeof(Array));
+  Array    *sliced = (Array *)malloc(sizeof(Array));
   initArray(sliced, input->size);
   for (int x = start; x < end; x++) {
 
@@ -73,7 +73,7 @@ void concatPrefixFeature(Array *prefix, Array *feature) {
   // the recursive feature. Might want to fix it to choose a random number upper
   // bounded by a static value instead.
   terminal *featureptr;
-  int       len = rand_below(global_afl, RECUR_THRESHOLD);
+  int       len = gf_rand_below(global_afl, RECUR_THRESHOLD);
   for (int x = 0; x < len; x++) {
 
     for (int y = 0; y < feature->used; y++) {
@@ -129,8 +129,8 @@ Array *spliceGF(Array *orig, Array *toSplice, int idx) {
 
 Array *gen_input(state *pda, Array *input) {
 
-  state *   state_ptr;
-  trigger * trigger_ptr;
+  state    *state_ptr;
+  trigger  *trigger_ptr;
   terminal *term_ptr;
   int       offset = 0;
   int       randval, error;
@@ -149,7 +149,7 @@ Array *gen_input(state *pda, Array *input) {
     state_ptr = pda + curr_state;
 
     // Get a random trigger
-    randval = rand_below(global_afl, state_ptr->trigger_len);
+    randval = gf_rand_below(global_afl, state_ptr->trigger_len);
     trigger_ptr = (state_ptr->ptr) + randval;
 
     // Insert into the dynamic array
@@ -166,8 +166,8 @@ Array *gen_input(state *pda, Array *input) {
 
 Array *gen_input_count(state *pda, Array *input, int *mut_count) {
 
-  state *   state_ptr;
-  trigger * trigger_ptr;
+  state    *state_ptr;
+  trigger  *trigger_ptr;
   terminal *term_ptr;
   int       offset = 0;
   int       randval, error;
@@ -187,7 +187,7 @@ Array *gen_input_count(state *pda, Array *input, int *mut_count) {
     state_ptr = pda + curr_state;
 
     // Get a random trigger
-    randval = rand_below(global_afl, state_ptr->trigger_len);
+    randval = gf_rand_below(global_afl, state_ptr->trigger_len);
     trigger_ptr = (state_ptr->ptr) + randval;
 
     // Insert into the dynamic array
@@ -208,7 +208,7 @@ Array *gen_input_count(state *pda, Array *input, int *mut_count) {
 
 Candidate *gen_candidate(Array *input) {
 
-  terminal *  term_ptr;
+  terminal   *term_ptr;
   IdxMap_new *idxmapPtr;
   // Declare the State Hash Table
   IdxMap_new *idxmapStart =
@@ -220,9 +220,9 @@ Candidate *gen_candidate(Array *input) {
 
   }
 
-  char *     trigger;
+  char      *trigger;
   int        state;
-  char *     key;
+  char      *key;
   Candidate *candidate = (Candidate *)malloc(sizeof(Candidate));
   candidate->walk = input;
   int offset = 0, error;

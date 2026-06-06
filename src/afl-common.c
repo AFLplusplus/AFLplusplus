@@ -9,13 +9,15 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    Gather some functions common to multiple executables
 
@@ -126,6 +128,14 @@ void set_sanitizer_defaults() {
 
   }
 
+  /* Enforce halt_on_error=1 for all sanitizers except LSAN. This is set after
+     the LSAN_OPTIONS buffer is built (LSAN does not want it) but before ASAN,
+     UBSAN and MSAN consume default_options below. It is required for UBSAN,
+     which otherwise just logs and continues instead of aborting on a finding.
+   */
+
+  strcat(default_options, "halt_on_error=1:");
+
   /* for everything not LSAN we disable detect_leaks */
 
   if (!have_lsan_options) {
@@ -179,7 +189,7 @@ u32 check_binary_signatures(u8 *fn) {
   if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
   close(fd);
 
-  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG))) {
 
     if (!be_quiet) { OKF(cPIN "Persistent mode binary detected."); }
     setenv(PERSIST_ENV_VAR, "1", 1);
@@ -204,7 +214,7 @@ u32 check_binary_signatures(u8 *fn) {
 
   }
 
-  if (afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+  if (afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG))) {
 
     if (!be_quiet) { OKF(cPIN "Deferred forkserver binary detected."); }
     setenv(DEFER_ENV_VAR, "1", 1);
@@ -229,17 +239,24 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
   u32 i = 0;
   u8  cwd[PATH_MAX];
   if (getcwd(cwd, (size_t)sizeof(cwd)) == NULL) { PFATAL("getcwd() failed"); }
+  char *placeholder = (char *)get_afl_env("AFL_INPUT_PLACEHOLDER");
+  if (!placeholder || !*placeholder) { placeholder = (char *)"@@"; }
+  size_t placeholder_len = strlen(placeholder);
 
   /* we are working with libc-heap-allocated argvs. So do not mix them with
    * other allocation APIs like ck_alloc. That would disturb the free() calls.
    */
   while (argv[i]) {
 
-    u8 *aa_loc = strstr(argv[i], "@@");
+    char *aa_loc = strstr(argv[i], placeholder);
 
     if (aa_loc) {
 
-      if (!prog_in) { FATAL("@@ syntax is not supported by this tool."); }
+      if (!prog_in) {
+
+        FATAL("%s syntax is not supported by this tool.", placeholder);
+
+      }
 
       *use_stdin = false;
 
@@ -252,11 +269,13 @@ void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
       if (prog_in[0] == '/') {
 
-        n_arg = alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + 2);
+        n_arg =
+            alloc_printf("%s%s%s", argv[i], prog_in, aa_loc + placeholder_len);
 
       } else {
 
-        n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in, aa_loc + 2);
+        n_arg = alloc_printf("%s%s/%s%s", argv[i], cwd, prog_in,
+                             aa_loc + placeholder_len);
 
       }
 
@@ -819,7 +838,21 @@ void check_environment_vars(char **envp) {
 
           WARNF("AFL environment variable %s is deprecated!",
                 afl_environment_deprecated[i]);
-          issue_detected = 1;
+
+          if (strncmp(afl_environment_deprecated[i], "AFL_SAN_NO_INST",
+                      strlen(afl_environment_deprecated[i])) == 0) {
+
+            WARNF(
+                "AFL_LLVM_ONLY_FSRV/AFL_GCC_ONLY_FSRV is induced and set "
+                "instead.");
+            setenv("AFL_GCC_ONLY_FSRV", "1", 0);
+            setenv("AFL_LLVM_ONLY_FSRV", "1", 0);
+
+          } else {
+
+            issue_detected = 1;
+
+          }
 
         } else {
 
@@ -977,11 +1010,10 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
 inline u64 get_cur_time(void) {
 
-  struct timeval  tv;
-  struct timezone tz;
+  struct timeval tv;
 
   // TO NOT REPLACE WITH clock_gettime!!!
-  gettimeofday(&tv, &tz);
+  gettimeofday(&tv, NULL);
 
   return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
 
@@ -991,11 +1023,10 @@ inline u64 get_cur_time(void) {
 
 inline u64 get_cur_time_us(void) {
 
-  struct timeval  tv;
-  struct timezone tz;
+  struct timeval tv;
 
   // TO NOT REPLACE WITH clock_gettime!!!
-  gettimeofday(&tv, &tz);
+  gettimeofday(&tv, NULL);
 
   return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
 
@@ -1006,7 +1037,7 @@ inline u64 get_cur_time_us(void) {
    Will return buf for convenience. */
 
 u8 *stringify_int(u8 *buf, size_t len, u64 val) {
-\
+
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast)     \
   do {                                                     \
                                                            \
@@ -1170,7 +1201,7 @@ u8 *stringify_time_diff(u8 *buf, size_t len, u64 cur_ms, u64 event_ms) {
    Will return buf for convenience. */
 
 u8 *u_stringify_int(u8 *buf, u64 val) {
-\
+
 #define CHK_FORMAT(_divisor, _limit_mult, _fmt, _cast) \
   do {                                                 \
                                                        \
@@ -1355,6 +1386,20 @@ u8 *u_simplestring_time_diff(u8 *buf, u64 cur_ms, u64 event_ms) {
 
 }
 
+/* Validate map size, returns validated size or FATALs if invalid */
+u32 validate_map_size(u32 map_size) {
+
+  if (!map_size || map_size >= (1U << 29)) {
+
+    FATAL("illegal AFL_MAP_SIZE %u, must be between 64 <= %u < %u", map_size,
+          64U, 1U << 29);
+
+  }
+
+  return map_size;
+
+}
+
 /* Reads the map size from ENV */
 u32 get_map_size(void) {
 
@@ -1364,12 +1409,7 @@ u32 get_map_size(void) {
   if ((ptr = getenv("AFL_MAP_SIZE")) || (ptr = getenv("AFL_MAPSIZE"))) {
 
     map_size = atoi(ptr);
-    if (!map_size || map_size > (1 << 29)) {
-
-      FATAL("illegal AFL_MAP_SIZE %u, must be between %u and %u", map_size, 64U,
-            1U << 29);
-
-    }
+    validate_map_size(map_size);
 
     if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
 
@@ -1385,12 +1425,12 @@ u32 get_map_size(void) {
 
 /* Create a stream file */
 
-FILE *create_ffile(u8 *fn) {
+FILE *create_ffile(u8 *fn, mode_t mode) {
 
   s32   fd;
   FILE *f;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, mode);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 
@@ -1404,11 +1444,11 @@ FILE *create_ffile(u8 *fn) {
 
 /* Create a file */
 
-s32 create_file(u8 *fn) {
+s32 create_file(u8 *fn, mode_t mode) {
 
   s32 fd;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, mode);
 
   if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
 

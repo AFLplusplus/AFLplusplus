@@ -285,7 +285,7 @@ static void instrument_coverage_switch(GumStalkerObserver *self,
 
   /*
    * If the branch is deterministic, then we should start execution at the
-   * begining of the block. From here, we will branch and skip the coverage
+   * beginning of the block. From here, we will branch and skip the coverage
    * code and jump right to the target code of the instrumented block.
    * Otherwise, if the branch is non-deterministic, then we need to branch
    * part way into the block to where the coverage instrumentation starts.
@@ -516,7 +516,7 @@ void instrument_coverage_optimize(const cs_insn    *instr,
    * an instruction to load x16,x17 from beyond the red-zone on the stack. A
    * pair of registers are saved/restored because on AARCH64, the stack pointer
    * must be 16 byte aligned. This instruction is emitted into the block before
-   * the tranformer (from which we are called) is executed. If is is possible
+   * the transformer (from which we are called) is executed. If is is possible
    * for Stalker to make a direct branch (the target block is close enough), it
    * can forego pushing the registers and instead branch at an offset into the
    * block to skip this restoration prolog.

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * xxHash - Extremely Fast Hash algorithm
  * Header File
@@ -3169,7 +3170,7 @@ static xxh_u32 XXH32_avalanche(xxh_u32 hash) {
  */
 static XXH_PUREF xxh_u32 XXH32_finalize(xxh_u32 hash, const xxh_u8 *ptr,
                                         size_t len, XXH_alignment align) {
-\
+
   #define XXH_PROCESS1                             \
     do {                                           \
                                                    \

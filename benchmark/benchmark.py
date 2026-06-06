@@ -71,6 +71,9 @@ parser.add_argument("-c", "--comment", help="add a comment about your setup", ty
 parser.add_argument("--cpu", help="override the detected CPU model name", type=str, default="")
 parser.add_argument("--mhz", help="override the detected CPU MHz", type=str, default="")
 parser.add_argument(
+    "-e", "--env", help="set extra environment variable (KEY=VALUE), can be repeated", action="append", default=[], metavar="KEY=VALUE"
+)
+parser.add_argument(
     "-t", "--target", help="pick targets", action="append", default=["test-instr-persist-shmem"], choices=targets
 )
 args = parser.parse_args()
@@ -80,6 +83,11 @@ if len(args.target) > 1:
     args.target = args.target[1:]
 if len(args.mode) > 2:
     args.mode = args.mode[2:]
+for kv in args.env:
+    if "=" not in kv:
+        sys.exit(red(f" [*] Error: --env value '{kv}' is not in KEY=VALUE format."))
+    k, v = kv.split("=", 1)
+    env_vars[k] = v
 
 chosen_modes = [mode for mode in all_modes if mode.name in args.mode]
 chosen_targets = [target for target in all_targets if str(target.binary) in args.target]
@@ -249,7 +257,12 @@ async def main() -> None:
                     cmds.append(["afl-fuzz", "-i", f"{args.basedir}/in"] + name + ["-s", "123", "-V10", "-D", f"./{binary}"])
                 # Prepare the afl-fuzz tasks, and then block while waiting for them to finish.
                 fuzztasks = [run_command(cmds[cpu]) for cpu in fuzzers]
-                await asyncio.gather(*fuzztasks)
+                fuzz_results = await asyncio.gather(*fuzztasks)
+                for fuzzer_idx, (returncode, stdout, stderr) in enumerate(fuzz_results):
+                    if returncode != 0:
+                        print(red(f" [!] afl-fuzz worker {fuzzer_idx} exited with code {returncode}"))
+                        if stdout: print(red(f"     stdout: {stdout.decode(errors='replace').strip()}"))
+                        if stderr: print(red(f"     stderr: {stderr.decode(errors='replace').strip()}"))
                 afl_versions = await colon_values(f"{outdir}/0/fuzzer_stats", "afl_version")
                 if results.config:
                     results.config.afl_version = afl_versions[0]

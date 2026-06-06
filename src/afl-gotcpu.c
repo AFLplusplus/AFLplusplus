@@ -9,13 +9,15 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    This tool provides a fairly accurate measurement of CPU preemption rate.
    It is meant to complement the quick-and-dirty load average widget shown
@@ -214,7 +216,7 @@ int main(int argc, char **argv) {
   #if defined(__linux__)
       if (sched_setaffinity(0, sizeof(c), &c)) {
 
-        const char *error_code = "Unkown error code";
+        const char *error_code = "Unknown error code";
         if (errno == EFAULT) error_code = "EFAULT";
         if (errno == EINVAL) error_code = "EINVAL";
         if (errno == EPERM) error_code = "EPERM";

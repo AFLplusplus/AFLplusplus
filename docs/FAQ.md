@@ -11,7 +11,7 @@ If you find an interesting or important question missing, submit it via
   AFL++ is a superior fork to Google's AFL - more speed, more and better
   mutations, more and better instrumentation, custom module support, etc.
 
-  American Fuzzy Lop (AFL) was developed by Michał "lcamtuf" Zalewski starting
+  American Fuzzy Lop (AFL) was developed by Michal "lcamtuf" Zalewski starting
   in 2013/2014, and when he left Google end of 2017 he stopped developing it.
 
   At the end of 2019, the Google fuzzing team took over maintenance of AFL,
@@ -106,7 +106,7 @@ If you find an interesting or important question missing, submit it via
 <details>
   <summary id="should-you-ever-stop-afl-fuzz-minimize-the-corpus-and-restart">Should you ever stop afl-fuzz, minimize the corpus and restart?</summary><p>
 
-  To stop afl-fuzz, minimize it's corpus and restart you would usually do:
+  To stop afl-fuzz, minimize its corpus and restart you would usually do:
 
   ```
   Control-C  # to terminate afl-fuzz
@@ -236,7 +236,7 @@ If you find an interesting or important question missing, submit it via
   [AFLFast](https://github.com/mboehme/aflfast), however, modified to be more
   effective and several more modes added.
 
-  The most effective modes are `-p fast` (default) and `-p explore`.
+  The most effective modes are `-p explore` (default) and `-p fast`.
 
   If you fuzz with several parallel afl-fuzz instances, then it is beneficial
   to assign a different schedule to each instance, however the majority should
@@ -274,7 +274,7 @@ If you find an interesting or important question missing, submit it via
   the existing map will be used also for the newly loaded libraries, which
   allows it to work, however, the efficiency of the fuzzing will be partially
   degraded. Note that there is additionally `AFL_IGNORE_PROBLEMS_COVERAGE` to
-  additionally tell AFL++ to ignore any coverage from the late loaded libaries.
+  additionally tell AFL++ to ignore any coverage from the late loaded libraries.
 </p></details>
 
 <details>
@@ -284,14 +284,14 @@ If you find an interesting or important question missing, submit it via
   afl-cc/afl-clang-fast/afl-clang-lto:
 
   ```
-  /prg/tmp/llvm-project/build/bin/clang-13: symbol lookup error: /usr/local/bin/../lib/afl//cmplog-instructions-pass.so: undefined symbol: _ZNK4llvm8TypeSizecvmEv
-  clang-13: error: unable to execute command: No such file or directory
-  clang-13: error: clang frontend command failed due to signal (use -v to see invocation)
-  clang version 13.0.0 (https://github.com/llvm/llvm-project 1d7cf550721c51030144f3cd295c5789d51c4aad)
+  /prg/tmp/llvm-project/build/bin/clang-18: symbol lookup error: /usr/local/bin/../lib/afl//cmplog-instructions-pass.so: undefined symbol: _ZNK4llvm8TypeSizecvmEv
+  clang-18: error: unable to execute command: No such file or directory
+  clang-18: error: clang frontend command failed due to signal (use -v to see invocation)
+  clang version 18.0.0 (https://github.com/llvm/llvm-project 1d7cf550721c51030144f3cd295c5789d51c4aad)
   Target: x86_64-unknown-linux-gnu
   Thread model: posix
   InstalledDir: /prg/tmp/llvm-project/build/bin
-  clang-13: note: diagnostic msg:
+  clang-18: note: diagnostic msg:
   ********************
   ```
 

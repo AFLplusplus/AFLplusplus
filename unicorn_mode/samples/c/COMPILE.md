@@ -9,7 +9,7 @@ Just make sure you have built unicorn support first:
 
 ```bash
 cd /path/to/afl/unicorn_mode
-./build_unicorn_support.sh
+./build_unicorn_support.py
 ```
 
 ## Compiling simple_target.c

@@ -9,13 +9,15 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -354,6 +356,7 @@ void load_extras(afl_state_t *afl, u8 *dir) {
           "Extra '%s' is too big (%s, limit is %s)", fn,
           stringify_mem_size(val_bufs[0], sizeof(val_bufs[0]), st.st_size),
           stringify_mem_size(val_bufs[1], sizeof(val_bufs[1]), MAX_DICT_FILE));
+      ck_free(fn);
       continue;
 
     }
@@ -742,16 +745,20 @@ void save_auto(afl_state_t *afl) {
 
   for (i = 0; i < MIN((u32)USE_AUTO_EXTRAS, afl->a_extras_cnt); ++i) {
 
-    u8 *fn = alloc_printf(
-        "%s/queue/.state/auto_extras/auto_%06u%s%s", afl->out_dir, i,
-        afl->file_extension ? "." : "",
-        afl->file_extension ? (const char *)afl->file_extension : "");
+    u8 *fn =
+        alloc_printf("%s/queue/.state/auto_extras/auto_%06u", afl->out_dir, i);
 
     s32 fd;
 
-    fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+    fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
     if (fd < 0) { PFATAL("Unable to create '%s'", fn); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     ck_write(fd, afl->a_extras[i].data, afl->a_extras[i].len, fn);
 

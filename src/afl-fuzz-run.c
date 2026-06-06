@@ -10,13 +10,15 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    This is the real deal: the program takes an instrumented binary and
    attempts a variety of basic fuzzing tricks, paying close attention to
@@ -25,14 +27,18 @@
  */
 
 #include "afl-fuzz.h"
+#include "afl-ijon-min.h"
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <signal.h>
 #include <limits.h>
+#include <glob.h>
 #if !defined NAME_MAX
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
 
 #include "cmplog.h"
+#include "asanfuzz.h"
 
 #ifdef PROFILING
 u64 time_spent_working = 0;
@@ -96,6 +102,21 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
       }
 
     });
+
+  }
+
+  /* Check for new IJON max values after execution */
+  if (unlikely(fsrv->use_ijon && afl->ijon_state && afl->ijon_bits)) {
+
+    /* UNIFIED SHARED MEMORY ACCESS: Always use dynamic allocation */
+
+    if (likely(afl->ijon_cur_input && afl->ijon_cur_input_len)) {
+
+      /* Use pre-initialized shared_access from afl state */
+      ijon_update_max_dynamic(afl->ijon_state, afl->ijon_shared_access,
+                              afl->ijon_cur_input, afl->ijon_cur_input_len);
+
+    }
 
   }
 
@@ -248,6 +269,13 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
   }
 
+  if (unlikely(afl->ijon_bits)) {
+
+    afl->ijon_cur_input = *mem;
+    afl->ijon_cur_input_len = len;
+
+  }
+
 #ifdef _AFL_DOCUMENT_MUTATIONS
   s32  doc_fd;
   char fn[PATH_MAX];
@@ -255,11 +283,21 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
            afl->document_counter++,
            describe_op(afl, 0, NAME_MAX - strlen("000000000:")));
 
-  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION)) >=
-      0) {
+  if ((doc_fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm)) >= 0) {
 
     if (write(doc_fd, *mem, len) != len)
       PFATAL("write to mutation file failed: %s", fn);
+
+    if (afl->chown_needed) {
+
+      if (fchown(doc_fd, -1, afl->fsrv.gid) == -1) {
+
+        PFATAL("fchown() failed");
+
+      }
+
+    }
+
     close(doc_fd);
 
   }
@@ -350,7 +388,6 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
     } else {
 
       memcpy(afl->fsrv.shmem_fuzz, mem, skip_at);
-
       memcpy(afl->fsrv.shmem_fuzz + skip_at, mem + skip_at + skip_len,
              tail_len);
 
@@ -383,18 +420,22 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
 
     if (unlikely(afl->no_unlink)) {
 
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC,
-                DEFAULT_PERMISSION);
+      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
     } else {
 
       unlink(afl->fsrv.out_file);                         /* Ignore errors. */
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL,
-                DEFAULT_PERMISSION);
+      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
 
     }
 
     if (fd < 0) { PFATAL("Unable to create '%s'", afl->fsrv.out_file); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
   } else {
 
@@ -409,7 +450,6 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
   } else {
 
     ck_write(fd, mem, skip_at, afl->fsrv.out_file);
-
     ck_write(fd, mem + skip_at + skip_len, tail_len, afl->fsrv.out_file);
 
   }
@@ -492,36 +532,41 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   afl->afl_env.afl_post_process_keep_original = 1;
 
   /* we need a dummy run if this is LTO + cmplog */
-  if (unlikely(afl->shm.cmplog_mode)) {
+  /*
+    if (unlikely(afl->shm.cmplog_mode)) {
 
-    (void)write_to_testcase(afl, (void **)&use_mem, q->len, 1);
+      (void)write_to_testcase(afl, (void **)&use_mem, q->len, 1);
 
-    fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
+      fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
 
-    /* afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
-       we want to bail out quickly. */
+      // afl->stop_soon is set by the handler for Ctrl+C. When it's pressed,
+      // we want to bail out quickly.
 
-    if (afl->stop_soon || fault != afl->crash_mode) { goto abort_calibration; }
+      if (afl->stop_soon || fault != afl->crash_mode) { goto abort_calibration;
 
-    if (!afl->non_instrumented_mode && !afl->stage_cur &&
-        !count_bytes(afl, afl->fsrv.trace_bits)) {
+  }
 
-      fault = FSRV_RUN_NOINST;
-      goto abort_calibration;
+      if (!afl->non_instrumented_mode &&
+          !count_bytes(afl, afl->fsrv.trace_bits)) {
+
+        fault = FSRV_RUN_NOINST;
+        goto abort_calibration;
+
+      }
+
+  #ifdef INTROSPECTION
+      if (unlikely(!q->bitsmap_size)) { q->bitsmap_size = afl->bitsmap_size; }
+  #endif
 
     }
 
-#ifdef INTROSPECTION
-    if (unlikely(!q->bitsmap_size)) q->bitsmap_size = afl->bitsmap_size;
-#endif
-
-  }
+  */
 
   if (q->exec_cksum) {
 
     memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
     hnb = has_new_bits(afl, afl->virgin_bits);
-    if (hnb > new_bits) { new_bits = hnb; }
+    if (unlikely(hnb > new_bits)) { new_bits = hnb; }
 
   }
 
@@ -550,7 +595,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     if (afl->stop_soon || fault != afl->crash_mode) { goto abort_calibration; }
 
-    if (!afl->non_instrumented_mode && !afl->stage_cur &&
+    if (!afl->non_instrumented_mode &&
         !count_bytes(afl, afl->fsrv.trace_bits)) {
 
       fault = FSRV_RUN_NOINST;
@@ -559,17 +604,19 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     }
 
 #ifdef INTROSPECTION
-    if (unlikely(!q->bitsmap_size)) q->bitsmap_size = afl->bitsmap_size;
+    if (unlikely(!q->bitsmap_size)) { q->bitsmap_size = afl->bitsmap_size; }
 #endif
 
     classify_counts(&afl->fsrv);
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-    if (q->exec_cksum != cksum) {
+
+    if (unlikely(q->exec_cksum != cksum)) {
 
       hnb = has_new_bits(afl, afl->virgin_bits);
-      if (hnb > new_bits) { new_bits = hnb; }
 
-      if (q->exec_cksum) {
+      if (unlikely(hnb > new_bits)) { new_bits = hnb; }
+
+      if (likely(q->exec_cksum)) {
 
         u32 i;
 
@@ -591,11 +638,11 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
           // note: from_queue seems to only be set during initialization
           if (afl->afl_env.afl_no_ui || from_queue) {
 
-            WARNF("instability detected during calibration");
+            WARNF("instability detected during calibration: %s", q->fname);
 
           } else if (afl->debug) {
 
-            DEBUGF("instability detected during calibration\n");
+            DEBUGF("instability detected during calibration: %s\n", q->fname);
 
           }
 
@@ -651,7 +698,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   afl->total_bitmap_size += q->bitmap_size;
   ++afl->total_bitmap_entries;
 
-  update_bitmap_score(afl, q);
+  update_bitmap_score(afl, q, true);
 
   /* If this case didn't result in new output from the instrumentation, tell
      parent. This is a non-critical problem, but something to warn the user
@@ -681,12 +728,9 @@ abort_calibration:
 
     afl->var_byte_count = count_bytes(afl, afl->var_bytes);
 
-    if (!q->var_behavior) {
+    if (!q->var_behavior) { ++afl->queued_variable; }
 
-      mark_as_variable(afl, q);
-      ++afl->queued_variable;
-
-    }
+    mark_as_variable(afl, q);
 
   }
 
@@ -698,6 +742,134 @@ abort_calibration:
 
   update_calibration_time(afl, &calibration_start_us);
   return fault;
+
+}
+
+/* Do not sync items that were synced from us */
+
+static bool is_known_case(afl_state_t *afl, u8 *name) {
+
+  static char coming_from_me_str[SYNC_ID_MAX_LEN + 2];
+  static u32  coming_from_me_len = 0;
+  static u32  min_len = 15 + 4 + 6;
+
+  if (!coming_from_me_len) {
+
+    snprintf(coming_from_me_str, sizeof(coming_from_me_str), "%s,",
+             afl->sync_id);
+    min_len += coming_from_me_len = strlen(coming_from_me_str);
+
+  }
+
+  // file name length long enough so it can be ours
+  if (unlikely(strlen(name) < min_len)) { return false; }
+  // is it based on a sync? allow optimizer to make an integer comparison
+  if (likely(memcmp(name + 10, "sync", 4) != 0)) { return false; }
+  // we jump over the ':' after 'sync' and compare to our sync name
+  if (unlikely(memcmp(name + 15, coming_from_me_str, coming_from_me_len) !=
+               0)) {
+
+    return false;
+
+  }
+
+  /* We do not need this as we now look on startup how many files are in sync
+     targets.
+  int src_id = atoi(name + 15 + coming_from_me_len + 4);
+  if (unlikely(src_id >= afl->queued_items)) return false;
+  */
+
+  // yes it is highly likely a current testcase we already know
+  return true;
+
+}
+
+/* Write into .sync/INSTANCE.max how many queue files were there on startup */
+
+void check_sync_fuzzers(afl_state_t *afl) {
+
+  if (unlikely(afl->afl_env.afl_no_sync)) { return; }
+
+  DIR           *sd, *dir;
+  struct dirent *sd_ent, *entry;
+  u8  qd_path[PATH_MAX], qd_synced_maxid[PATH_MAX], qd_main_path[PATH_MAX];
+  int have_main = afl->is_main_node;
+
+  sd = opendir(afl->sync_dir);
+  if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
+
+  u64 sync_start_us = get_cur_time_us();
+  // Look at the entries created for every other fuzzer in the sync directory.
+
+  while ((sd_ent = readdir(sd))) {
+
+    if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) {
+
+      continue;
+
+    }
+
+    sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
+
+    dir = opendir(qd_path);
+    if (dir) {
+
+      u32 max_start_id = 0;
+      while ((entry = readdir(dir)) != NULL) {
+
+        if (likely(entry->d_name[0] != '.')) { max_start_id++; }
+
+      }
+
+      if (max_start_id) {
+
+        sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir,
+                sd_ent->d_name);
+        s32 max_fd = open(qd_synced_maxid, O_WRONLY | O_CREAT | O_TRUNC,
+                          DEFAULT_PERMISSION);
+
+        if (max_fd >= 0) {
+
+          --max_start_id;  // counting from 0
+          if (unlikely(write(max_fd, &max_start_id, sizeof(u32)) !=
+                       sizeof(u32))) {
+
+            /* Ignore write failure - sync will continue */
+
+          }
+
+          close(max_fd);
+
+        }
+
+      }
+
+      closedir(dir);
+
+    }
+
+    if (!have_main) {
+
+      sprintf(qd_main_path, "%s/%s/is_main_node", afl->sync_dir,
+              sd_ent->d_name);
+      if (access(qd_main_path, F_OK) == 0) { have_main = 1; }
+
+    }
+
+  }
+
+  closedir(sd);
+
+  if (!have_main) {
+
+    afl->is_main_node = 1;
+    sprintf(qd_path, "%s/is_main_node", afl->out_dir);
+    int id_fd = open(qd_path, O_RDWR | O_CREAT, afl->perm);
+    if (id_fd >= 0) { close(id_fd); }
+
+  }
+
+  update_sync_time(afl, &sync_start_us);
 
 }
 
@@ -719,8 +891,7 @@ void sync_fuzzers(afl_state_t *afl) {
   afl->cur_depth = 0;
 
   u64 sync_start_us = get_cur_time_us();
-  /* Look at the entries created for every other fuzzer in the sync directory.
-   */
+  // Look at the entries created for every other fuzzer in the sync directory.
 
   while ((sd_ent = readdir(sd))) {
 
@@ -728,14 +899,14 @@ void sync_fuzzers(afl_state_t *afl) {
     // iteration
     update_sync_time(afl, &sync_start_us);
 
-    u8  qd_synced_path[PATH_MAX], qd_path[PATH_MAX];
-    u32 min_accept = 0, next_min_accept = 0;
-
+    u8  qd_synced_path[PATH_MAX], qd_path[PATH_MAX], qd_synced_maxid[PATH_MAX];
+    u32 min_accept = 0, next_min_accept = 0, max_start_id = 0;
     s32 id_fd;
 
-    /* Skip dot files and our own output directory. */
+    // Skip dot files and our own output directory.
 
-    if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) {
+    if (unlikely(sd_ent->d_name[0] == '.' ||
+                 !strcmp(afl->sync_id, sd_ent->d_name))) {
 
       continue;
 
@@ -768,14 +939,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
     synced++;
 
-    /* document the attempt to sync to this instance */
-
-    sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
-    id_fd =
-        open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
-    if (id_fd >= 0) close(id_fd);
-
-    /* Skip anything that doesn't have a queue/ subdirectory. */
+    // Skip anything that doesn't have a queue/ subdirectory.
 
     sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
 
@@ -791,18 +955,73 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
-    /* Retrieve the ID of the last seen test case. */
+    // Retrieve the ID of the last seen test case.
 
     sprintf(qd_synced_path, "%s/.synced/%s", afl->out_dir, sd_ent->d_name);
 
-    id_fd = open(qd_synced_path, O_RDWR | O_CREAT, DEFAULT_PERMISSION);
+    id_fd = open(qd_synced_path, O_RDWR | O_CREAT, afl->perm);
 
     if (id_fd < 0) { PFATAL("Unable to create '%s'", qd_synced_path); }
+
+    if (afl->chown_needed) {
+
+      if (fchown(id_fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
+
+    }
 
     if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
 
       next_min_accept = min_accept;
       lseek(id_fd, 0, SEEK_SET);
+
+    }
+
+    // now document the attempt to sync to this instance
+    sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
+    int id_fd2 =
+        open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+    if (id_fd2 >= 0) close(id_fd2);
+
+    // It could be that the target syncing instance was restarted, check!
+    time_t      last_mtime = 0;
+    char        id0[PATH_MAX];
+    struct stat st;
+
+    if (stat(qd_synced_path, &st) == 0) { last_mtime = st.st_mtime; }
+
+    snprintf(id0, sizeof(id0), "%s/%s/cmdline", afl->sync_dir, sd_ent->d_name);
+
+    if (likely(stat(id0, &st) == 0)) {
+
+      if (unlikely(last_mtime && last_mtime <= st.st_mtime)) {
+
+        // the first entry is newer than when we synced last - instance was
+        // restarted - we have to reset our counter and will skip this instance
+        // this time. It could also be this was trimmed later, or restated with
+        // resume-in-place though but better be safe.
+        min_accept = 0;
+        ck_write(id_fd, &min_accept, sizeof(u32), qd_synced_path);
+        goto close_sync;
+
+      }
+
+    }  // else { This is likely a non-AFL++ but compliant instance, e.g. SymCC }
+
+    // check if there is a file documented the maximum id seen on startup
+    sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir, sd_ent->d_name);
+    s32 max_fd = open(qd_synced_maxid, O_RDONLY, DEFAULT_PERMISSION);
+
+    if (likely(max_fd >= 0)) {
+
+      if (unlikely(read(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32))) {
+
+        /* Use default value on read failure */
+        max_start_id = 0;
+
+      }
+
+      close(max_fd);
+      if (max_start_id < next_min_accept) { unlink(qd_synced_maxid); }
 
     }
 
@@ -859,26 +1078,36 @@ void sync_fuzzers(afl_state_t *afl) {
 
       if (st.st_size && st.st_size <= MAX_FILE) {
 
-        u8  fault;
-        u8 *mem = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (likely(next_min_accept < max_start_id ||
+                   !is_known_case(afl, namelist[o]->d_name))) {
 
-        if (mem == MAP_FAILED) { PFATAL("Unable to mmap '%s'", path); }
+          /* See what happens. We rely on save_if_interesting() to catch major
+             errors and save the test case. */
 
-        /* See what happens. We rely on save_if_interesting() to catch major
-           errors and save the test case. */
+          u8 *mem = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 
-        u32 new_len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
+          if (mem == MAP_FAILED) { PFATAL("Unable to mmap '%s'", path); }
 
-        fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+          u32 new_len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
 
-        if (afl->stop_soon) { goto close_sync; }
+          u8 fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
-        afl->syncing_party = sd_ent->d_name;
-        afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
-        show_stats(afl);
-        afl->syncing_party = 0;
+          if (afl->stop_soon) {
 
-        munmap(mem, st.st_size);
+            munmap(mem, st.st_size);
+            close(fd);
+
+            goto close_sync;
+
+          }
+
+          afl->syncing_party = sd_ent->d_name;
+          afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
+          show_stats(afl);
+          afl->syncing_party = 0;
+          munmap(mem, st.st_size);
+
+        }
 
       }
 
@@ -934,6 +1163,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   u8  needs_write = 0, fault = 0;
   u32 orig_len = q->len;
   u64 trim_start_us = get_cur_time_us();
+  afl->bytes_trim_in += orig_len;
+
   /* Custom mutator trimmer */
   if (afl->custom_mutators_count) {
 
@@ -984,7 +1215,6 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   }
 
   afl->stage_name = afl->stage_name_buf;
-  afl->bytes_trim_in += q->len;
 
   /* Select initial chunk len, starting with large steps. */
 
@@ -1137,26 +1367,43 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     if (unlikely(afl->no_unlink)) {
 
-      fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+      fd = open(q->fname, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
 
       if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
 
       u32 written = 0;
       while (written < q->len) {
 
-        ssize_t result = write(fd, in_buf, q->len - written);
-        if (result > 0) written += result;
+        ssize_t result = write(fd, in_buf + written, q->len - written);
+        if (likely(result > 0)) {
+
+          written += result;
+          continue;
+
+        }
+
+        if (!result) { FATAL("Short write to '%s'", q->fname); }
+
+        if (errno == EINTR) { continue; }
+
+        PFATAL("Unable to write '%s'", q->fname);
 
       }
 
     } else {
 
       unlink(q->fname);                                    /* ignore errors */
-      fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+      fd = open(q->fname, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
 
       if (fd < 0) { PFATAL("Unable to create '%s'", q->fname); }
 
       ck_write(fd, in_buf, q->len, q->fname);
+
+    }
+
+    if (afl->chown_needed) {
+
+      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
 
     }
 
@@ -1165,7 +1412,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     queue_testcase_retake_mem(afl, q, in_buf, q->len, orig_len);
 
     memcpy(afl->fsrv.trace_bits, afl->clean_trace, afl->fsrv.map_size);
-    update_bitmap_score(afl, q);
+    update_bitmap_score(afl, q, true);
 
   }
 
@@ -1185,6 +1432,14 @@ u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
                                           u32 len) {
 
   u8 fault;
+
+  if (likely(!afl->afl_env.afl_frameshift_disabled && afl->fs_curr_meta &&
+             afl->queue_cur->fs_status != 0)) {
+
+    // Apply relation updates before running.
+    fs_sanitize(afl->fs_curr_meta, out_buf);
+
+  }
 
   if (unlikely(len = write_to_testcase(afl, (void **)&out_buf, len, 0)) == 0) {
 

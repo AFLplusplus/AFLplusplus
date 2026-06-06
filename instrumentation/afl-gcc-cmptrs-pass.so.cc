@@ -1,9 +1,10 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /* GCC plugin for cmplog routines instrumentation of code for AFL++.
 
    Copyright 2014-2019 Free Software Foundation, Inc
    Copyright 2015, 2016 Google Inc. All rights reserved.
    Copyright 2019-2020 AFLplusplus Project. All rights reserved.
-   Copyright 2019-2024 AdaCore
+   Copyright 2019-2026 AdaCore
 
    Written by Alexandre Oliva <oliva@adacore.com>, based on the AFL++
    LLVM CmpLog Routines pass by Andrea Fioraldi
@@ -44,8 +45,8 @@ static const struct pass_data afl_cmptrs_pass_data = {
     .properties_provided = 0,
     .properties_destroyed = 0,
     .todo_flags_start = 0,
-    .todo_flags_finish = (TODO_update_ssa | TODO_cleanup_cfg | TODO_verify_il |
-                          TODO_rebuild_cgraph_edges),
+    .todo_flags_finish =
+        (TODO_update_ssa | TODO_cleanup_cfg | TODO_rebuild_cgraph_edges),
 
 };
 
@@ -247,7 +248,7 @@ struct afl_cmptrs_pass : afl_base_pass {
       for (gimple_stmt_iterator gsi = gsi_after_labels(bb); !gsi_end_p(gsi);
            gsi_next(&gsi)) {
 
-        gimple stmt = gsi_stmt(gsi);
+        auto stmt = gsi_stmt(gsi);
 
         /* We're only interested in GIMPLE_CALLs.  */
         if (gimple_code(stmt) != GIMPLE_CALL) continue;
@@ -297,8 +298,8 @@ struct afl_cmptrs_pass : afl_base_pass {
           tree c = fold_convert_loc(UNKNOWN_LOCATION, tp8u, arg[i]);
           if (!is_gimple_val(c)) {
 
-            tree   s = make_ssa_name(tp8u);
-            gimple g = gimple_build_assign(s, c);
+            tree s = make_ssa_name(tp8u);
+            auto g = gimple_build_assign(s, c);
             c = s;
             gsi_insert_before(&gsi, g, GSI_SAME_STMT);
 
@@ -308,7 +309,7 @@ struct afl_cmptrs_pass : afl_base_pass {
 
         }
 
-        gimple call = gimple_build_call(fn, 2, arg[0], arg[1]);
+        auto call = gimple_build_call(fn, 2, arg[0], arg[1]);
         gsi_insert_before(&gsi, call, GSI_SAME_STMT);
 
       }

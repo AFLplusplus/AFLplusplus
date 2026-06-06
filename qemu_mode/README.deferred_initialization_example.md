@@ -40,7 +40,7 @@ ALPINE_ROOT=<your-alpine-sysroot-directory>
 FUZZ=<your-path-to-the-code>
 sudo systemd-nspawn -D $ALPINE_ROOT --bind=$FUZZ:/fuzz
 CC=$(which clang) CFLAGS="-g" LDSHARED="clang -shared" python3 -m pip install /fuzz
-clang $(python3-config --embed --cflags) $(python3-config --embed --ldflags) -o /fuzz/fuzz_harness /fuzz/fuzz_harness.c
+clang $(python3-config --embed --cflags) -o /fuzz/fuzz_harness /fuzz/fuzz_harness.c $(python3-config --embed --ldflags)
 exit
 ```
 

@@ -11,7 +11,7 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    Shared code to handle the shared memory. This is used by the fuzzer
    as well the other components like afl-tmin, afl-showmap, etc...
 
  */
-
-#include <sys/select.h>
 
 #include "afl-fuzz.h"
 #include "cmplog.h"
@@ -39,7 +39,8 @@ void cmplog_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
-  if (!fsrv->qemu_mode && !fsrv->frida_mode && argv[0] != fsrv->cmplog_binary) {
+  if (!fsrv->unicorn_mode && !fsrv->qemu_mode && !fsrv->frida_mode &&
+      argv[0] != fsrv->cmplog_binary) {
 
     fsrv->target_path = argv[0] = fsrv->cmplog_binary;
 

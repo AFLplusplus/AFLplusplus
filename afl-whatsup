@@ -115,7 +115,7 @@ PLATFORM=`uname -s`
 #if [ "$PLATFORM" = "Linux" ] ; then
 #  CUR_TIME=`cat /proc/uptime | awk '{printf "%.0f\n", $1}'`
 #else
-  # This will lead to inacurate results but will prevent the script from breaking on platforms other than Linux
+  # This will lead to inaccurate results but will prevent the script from breaking on platforms other than Linux
   CUR_TIME=`date +%s`
 #fi
 
@@ -135,6 +135,7 @@ TOTAL_HANGS=0
 TOTAL_PFAV=0
 TOTAL_PENDING=0
 TOTAL_COVERAGE=
+LOWEST_STABILITY=
 
 # Time since last find / crash / hang, formatted as string
 FMT_TIME="0 days 0 hours"
@@ -199,13 +200,14 @@ for j in `find . -maxdepth 2 -iname fuzzer_setup | sort`; do
     RUN_DAYS=$((RUN_UNIX / 60 / 60 / 24))
     RUN_HRS=$(((RUN_UNIX / 60 / 60) % 24))
     COVERAGE=$(echo $bitmap_cvg|tr -d %)
+    STABILITY=$(echo $stability|tr -d %)
     if [ -n "$TOTAL_COVERAGE" -a -n "$COVERAGE" -a -n "$BC" ]; then
       if [ "$(echo "$TOTAL_COVERAGE < $COVERAGE" | bc)" -eq 1 ]; then
         TOTAL_COVERAGE=$COVERAGE
       fi
     fi
     if [ -z "$TOTAL_COVERAGE" ]; then TOTAL_COVERAGE=$COVERAGE ; fi
-    
+
     test -n "$cycles_wo_finds" && {
       test -z "$FIRST" && TOTAL_WCOP="${TOTAL_WCOP}/"
       TOTAL_WCOP="${TOTAL_WCOP}${cycles_wo_finds}"
@@ -293,6 +295,13 @@ for j in `find . -maxdepth 2 -iname fuzzer_setup | sort`; do
     TOTAL_HANGS=$((TOTAL_HANGS + saved_hangs))
     TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
     TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
+    if [ -n "$STABILITY" -a -n "$BC" ]; then
+      if [ -z "$LOWEST_STABILITY" ]; then
+        LOWEST_STABILITY=$STABILITY
+        elif [ "$(echo "$STABILITY < $LOWEST_STABILITY" | bc)" -eq 1 ]; then
+        LOWEST_STABILITY=$STABILITY
+      fi
+    fi
     
     if [ "$last_find" -gt "$TOTAL_LAST_FIND" ]; then
       TOTAL_LAST_FIND=$last_find
@@ -329,6 +338,7 @@ for j in `find . -maxdepth 2 -iname fuzzer_setup | sort`; do
         echo "  cycles_wo_finds : $FMT_CWOP"
       fi
       echo "  coverage        : $COVERAGE%"
+      echo "  stability       : $STABILITY%"
       
       if [ -z "$MINIMAL_ONLY" ]; then
         
@@ -441,6 +451,9 @@ if [ "$ALIVE_CNT" -gt "1" -o -n "$MINIMAL_ONLY" ]; then
 fi
 
 echo "     Coverage reached : ${TOTAL_COVERAGE}%"
+if [ -n "$LOWEST_STABILITY" ]; then
+  echo "     Lowest stability : ${LOWEST_STABILITY}%"
+fi
 echo "        Crashes saved : $TOTAL_CRASHES"
 if [ -z "$MINIMAL_ONLY" ]; then
   echo "          Hangs saved : $TOTAL_HANGS"

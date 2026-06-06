@@ -5,7 +5,7 @@
    Written by Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -13,11 +13,14 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include <iostream>
 #include <list>
@@ -28,14 +31,13 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-  #include "llvm/Passes/PassPlugin.h"
-  #include "llvm/Passes/PassBuilder.h"
-  #include "llvm/IR/PassManager.h"
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
+  #include "llvm/Plugins/PassPlugin.h"
 #else
-  #include "llvm/IR/LegacyPassManager.h"
-  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+  #include "llvm/Passes/PassPlugin.h"
 #endif
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -47,15 +49,8 @@
 #include "llvm/Analysis/ValueTracking.h"
 
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-  #include "llvm/IR/Verifier.h"
-  #include "llvm/IR/DebugInfo.h"
-#else
-  #include "llvm/Analysis/Verifier.h"
-  #include "llvm/DebugInfo.h"
-  #define nullptr 0
-#endif
+#include "llvm/IR/Verifier.h"
+#include "llvm/IR/DebugInfo.h"
 
 #include <set>
 #include "afl-llvm-common.h"
@@ -64,41 +59,16 @@ using namespace llvm;
 
 namespace {
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 class CmplogSwitches : public PassInfoMixin<CmplogSwitches> {
 
  public:
   CmplogSwitches() {
 
-#else
-class CmplogSwitches : public ModulePass {
-
- public:
-  static char ID;
-  CmplogSwitches() : ModulePass(ID) {
-
-#endif
     initInstrumentList();
 
   }
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-#else
-  bool runOnModule(Module &M) override;
-
-  #if LLVM_VERSION_MAJOR < 4
-  const char *getPassName() const override {
-
-  #else
-  StringRef getPassName() const override {
-
-  #endif
-    return "cmplog switch split";
-
-  }
-
-#endif
 
  private:
   bool hookInstrs(Module &M);
@@ -107,7 +77,6 @@ class CmplogSwitches : public ModulePass {
 
 }  // namespace
 
-#if LLVM_MAJOR >= 11
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
 
@@ -115,23 +84,24 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-  #if LLVM_VERSION_MAJOR <= 13
+#if LLVM_VERSION_MAJOR <= 13
             using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-  #endif
-            PB.registerOptimizerLastEPCallback(
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
+#endif
+            PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
+                                                  OptimizationLevel  OL
+#if LLVM_VERSION_MAJOR >= 20
+                                                  ,
+                                                  ThinOrFullLTOPhase Phase
+#endif
+                                               ) {
 
-                  MPM.addPass(CmplogSwitches());
+              MPM.addPass(CmplogSwitches());
 
-                });
+            });
 
           }};
 
 }
-
-#else
-char CmplogSwitches::ID = 0;
-#endif
 
 template <class Iterator>
 Iterator Unique(Iterator first, Iterator last) {
@@ -159,89 +129,48 @@ bool CmplogSwitches::hookInstrs(Module &M) {
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
+#if LLVM_MAJOR >= 20
+  Type *PtrTy = PointerType::getUnqual(C);
 #else
-  Constant *
+  Type *PtrTy = PointerType::get(Int8Ty, 0);
 #endif
-      c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty,
-                                 Int8Ty
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+
+  FunctionCallee c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy,
+                                            Int8Ty, Int8Ty, Int8Ty);
   FunctionCallee cmplogHookIns1 = c1;
-#else
-  Function *cmplogHookIns1 = cast<Function>(c1);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy, Int16Ty, Int16Ty,
-                                 Int8Ty
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy,
+                                            Int16Ty, Int16Ty, Int8Ty);
   FunctionCallee cmplogHookIns2 = c2;
-#else
-  Function *cmplogHookIns2 = cast<Function>(c2);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy, Int32Ty, Int32Ty,
-                                 Int8Ty
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy,
+                                            Int32Ty, Int32Ty, Int8Ty);
   FunctionCallee cmplogHookIns4 = c4;
-#else
-  Function *cmplogHookIns4 = cast<Function>(c4);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy, Int64Ty, Int64Ty,
-                                 Int8Ty
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy,
+                                            Int64Ty, Int64Ty, Int8Ty);
   FunctionCallee cmplogHookIns8 = c8;
-#else
-  Function *cmplogHookIns8 = cast<Function>(c8);
+
+#if INTPTR_MAX != INT32_MAX
+  IntegerType   *Int128Ty = IntegerType::getInt128Ty(C);
+  FunctionCallee c16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy,
+                                             Int128Ty, Int128Ty, Int8Ty);
+  FunctionCallee cmplogHookIns16 = c16;
+  FunctionCallee cN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy,
+                                            Int128Ty, Int128Ty, Int8Ty, Int8Ty);
+  FunctionCallee cmplogHookInsN = cN;
 #endif
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
 
   if (!AFLCmplogPtr) {
 
-    AFLCmplogPtr = new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                                      GlobalValue::ExternalWeakLinkage, 0,
-                                      "__afl_cmp_map");
+    AFLCmplogPtr = new GlobalVariable(
+        M, PtrTy, false, GlobalValue::ExternalWeakLinkage, 0, "__afl_cmp_map");
 
   }
 
-  Constant *Null = Constant::getNullValue(PointerType::get(Int8Ty, 0));
+  Constant *Null = Constant::getNullValue(PtrTy);
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
@@ -293,12 +222,13 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       IRBuilder<> IRB2(SI->getParent());
       IRB2.SetInsertPoint(SI);
 
-      LoadInst *CmpPtr = IRB2.CreateLoad(
-#if LLVM_VERSION_MAJOR >= 14
-          PointerType::get(Int8Ty, 0),
+      LoadInst *CmpPtr = IRB2.CreateLoad(PtrTy, AFLCmplogPtr);
+      CmpPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_MAJOR >= 20
+                          MDNode::get(C, {}));
+#else
+                          MDNode::get(C, None));
 #endif
-          AFLCmplogPtr);
-      CmpPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
       auto is_not_null = IRB2.CreateICmpNE(CmpPtr, Null);
       auto ThenTerm = SplitBlockAndInsertIfThen(is_not_null, SI, false);
 
@@ -347,11 +277,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e;
            ++i) {
 
-#if LLVM_VERSION_MAJOR < 5
-        ConstantInt *cint = i.getCaseValue();
-#else
         ConstantInt *cint = i->getCaseValue();
-#endif
 
         if (cint) {
 
@@ -395,7 +321,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
                 IRB.CreateCall(cmplogHookIns8, args);
                 break;
               case 128:
-#ifdef WORD_SIZE_64
+#if INTPTR_MAX != INT32_MAX
                 if (max_size == 128) {
 
                   IRB.CreateCall(cmplogHookIns16, args);
@@ -430,13 +356,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
 
 }
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 PreservedAnalyses CmplogSwitches::run(Module &M, ModuleAnalysisManager &MAM) {
-
-#else
-bool CmplogSwitches::runOnModule(Module &M) {
-
-#endif
 
   if (getenv("AFL_QUIET") == NULL)
     printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");
@@ -445,36 +365,10 @@ bool CmplogSwitches::runOnModule(Module &M) {
   bool ret = hookInstrs(M);
   verifyModule(M);
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   if (ret == false)
     return PreservedAnalyses::all();
   else
     return PreservedAnalyses();
-#else
-  return ret;
-#endif
 
 }
-
-#if LLVM_VERSION_MAJOR < 11                         /* use old pass manager */
-static void registerCmplogSwitchesPass(const PassManagerBuilder &,
-                                       legacy::PassManagerBase &PM) {
-
-  auto p = new CmplogSwitches();
-  PM.add(p);
-
-}
-
-static RegisterStandardPasses RegisterCmplogSwitchesPass(
-    PassManagerBuilder::EP_OptimizerLast, registerCmplogSwitchesPass);
-
-static RegisterStandardPasses RegisterCmplogSwitchesPass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0, registerCmplogSwitchesPass);
-
-  #if LLVM_VERSION_MAJOR >= 11
-static RegisterStandardPasses RegisterCmplogSwitchesPassLTO(
-    PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
-    registerCmplogSwitchesPass);
-  #endif
-#endif
 

@@ -37,7 +37,7 @@ static void convert_address_token(gchar *token, GumMemoryRange *range) {
 
   if (token_count != 2) {
 
-    FFATAL("Invalid range (should have two addresses seperated by a '-'): %s\n",
+    FFATAL("Invalid range (should have two addresses separated by a '-'): %s\n",
            token);
 
   }
@@ -116,20 +116,22 @@ static void convert_address_token(gchar *token, GumMemoryRange *range) {
 
 }
 
-static gboolean convert_name_token_for_module(const GumModuleDetails *details,
-                                              gpointer user_data) {
+static gboolean convert_name_token_for_module(GumModule *module,
+                                              gpointer   user_data) {
 
-  convert_name_ctx_t *ctx = (convert_name_ctx_t *)user_data;
-  if (details->path == NULL) { return true; };
+  convert_name_ctx_t   *ctx = (convert_name_ctx_t *)user_data;
+  const GumMemoryRange *range = gum_module_get_range(module);
+  const gchar          *path = gum_module_get_path(module);
+  if (path == NULL) { return true; };
 
-  if (!g_str_has_suffix(details->path, ctx->suffix)) { return true; };
+  if (!g_str_has_suffix(path, ctx->suffix)) { return true; };
 
   FVERBOSE("Found module - prefix: %s, 0x%016" G_GINT64_MODIFIER
            "x-0x%016" G_GINT64_MODIFIER "x %s",
-           ctx->suffix, details->range->base_address,
-           details->range->base_address + details->range->size, details->path);
+           ctx->suffix, range->base_address, range->base_address + range->size,
+           path);
 
-  *ctx->range = *details->range;
+  *ctx->range = *range;
   ctx->done = true;
   return false;
 

@@ -8,7 +8,7 @@ most effective way to fuzz, as the speed can easily be x10 or x20 times faster
 without any disadvantages. *All professional fuzzing uses this mode.*
 
 Persistent mode requires that the target can be called in one or more functions,
-and that it's state can be completely reset so that multiple calls can be
+and that its state can be completely reset so that multiple calls can be
 performed without resource leaks, and that earlier runs will have no impact on
 future runs. An indicator for this is the `stability` value in the `afl-fuzz`
 UI. If this decreases to lower values in persistent mode compared to

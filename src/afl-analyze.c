@@ -9,13 +9,15 @@
                         Andrea Fioraldi <andreafioraldi@gmail.com>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    A nifty utility that grabs an input file and takes a stab at explaining
    its structure by observing how changes to it affect the execution path.
@@ -75,7 +77,6 @@ static bool edges_only,                  /* Ignore hit counts?              */
 static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
 static u8 *target_path;
-static u8  frida_mode;
 static u8  qemu_mode;
 static u8  cs_mode;
 static u32 map_size = MAP_SIZE;
@@ -110,8 +111,9 @@ static u8 count_class_lookup[256] = {
 
 };
 
-static void kill_child() {
+static void kill_child(int signal) {
 
+  (void)signal;
   if (fsrv.child_pid > 0) {
 
     kill(fsrv.child_pid, fsrv.child_kill_signal);
@@ -627,9 +629,7 @@ static void handle_stop_sig(int sig) {
 
 static void set_up_environment(char **argv) {
 
-  u8   *x;
-  char *afl_preload;
-  char *frida_afl_preload = NULL;
+  u8 *x;
 
   fsrv.dev_null_fd = open("/dev/null", O_RDWR);
   if (fsrv.dev_null_fd < 0) { PFATAL("Unable to open /dev/null"); }
@@ -671,57 +671,7 @@ static void set_up_environment(char **argv) {
   }
 
   set_sanitizer_defaults();
-
-  if (get_afl_env("AFL_PRELOAD")) {
-
-    if (qemu_mode) {
-
-      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
-
-    } else if (frida_mode) {
-
-      afl_preload = getenv("AFL_PRELOAD");
-      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-      if (afl_preload) {
-
-        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
-
-      } else {
-
-        frida_afl_preload = alloc_printf("%s", frida_binary);
-
-      }
-
-      ck_free(frida_binary);
-
-      setenv("LD_PRELOAD", frida_afl_preload, 1);
-#ifdef __APPLE__
-      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
-#endif
-
-    } else {
-
-      /* CoreSight mode uses the default behavior. */
-
-      setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
-#ifdef __APPLE__
-      setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
-#endif
-
-    }
-
-  } else if (frida_mode) {
-
-    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-    setenv("LD_PRELOAD", frida_binary, 1);
-#ifdef __APPLE__
-    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
-#endif
-    ck_free(frida_binary);
-
-  }
-
-  if (frida_afl_preload) { ck_free(frida_afl_preload); }
+  afl_fsrv_setup_preload(&fsrv, argv[0]);
 
 }
 
@@ -800,6 +750,7 @@ static void usage(u8 *argv0) {
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_INPUT_PLACEHOLDER: custom placeholder for input file (default: @@)\n"
       "AFL_SKIP_BIN_CHECK: skip checking the location of and the target\n"
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
@@ -935,10 +886,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
       case 'O':                                               /* FRIDA mode */
 
-        if (frida_mode) { FATAL("Multiple -O options not supported"); }
+        if (fsrv.frida_mode) { FATAL("Multiple -O options not supported"); }
 
-        frida_mode = 1;
-        fsrv.frida_mode = frida_mode;
+        fsrv.frida_mode = true;
         setenv("AFL_FRIDA_INST_SEED", "1", 1);
 
         break;
@@ -959,6 +909,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (!mem_limit_given) { mem_limit = MEM_LIMIT_UNICORN; }
 
         unicorn_mode = 1;
+        fsrv.unicorn_mode = 1;
         fsrv.mem_limit = mem_limit;
         break;
 
@@ -974,7 +925,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
-      case 'Y':  // fallthough
+      case 'Y':  // fallthrough
 #ifdef __linux__
       case 'X':                                                 /* NYX mode */
 
@@ -987,7 +938,7 @@ int main(int argc, char **argv_orig, char **envp) {
         break;
 #else
       case 'X':
-        FATAL("Nyx mode is only availabe on linux...");
+        FATAL("Nyx mode is only available on linux...");
         break;
 #endif
 
@@ -1037,7 +988,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv.target_path = find_binary(argv[optind]);
 #endif
 
-  fsrv.trace_bits = afl_shm_init(&shm, map_size, 0);
+  fsrv.trace_bits = afl_shm_init(&shm, map_size, 0, DEFAULT_PERMISSION, -1);
   detect_file_args(argv + optind, fsrv.out_file, &use_stdin);
   signal(SIGALRM, kill_child);
 

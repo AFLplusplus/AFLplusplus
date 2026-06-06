@@ -191,14 +191,15 @@ if [ "$AFL_ALLOW_TMP" = "" ]; then
 
 fi
 
-# If @@ is specified, but there's no -f, let's come up with a temporary input
+# If placeholder is specified, but there's no -f, let's come up with a temporary input
 # file name.
+PLACEHOLDER="${AFL_INPUT_PLACEHOLDER:-@@}"
 
 TRACE_DIR="$OUT_DIR/.traces"
 
 if [ "$STDIN_FILE" = "" ]; then
 
-  if echo "$*" | grep -qF '@@'; then
+  if echo "$*" | grep -qF "$PLACEHOLDER"; then
     STDIN_FILE="$TRACE_DIR/.cur_input"
   fi
 

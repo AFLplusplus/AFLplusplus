@@ -2,7 +2,7 @@ CUR_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 all: radamsa-mutator.so
 
-# These can be overriden:
+# These can be overridden:
 CFLAGS	?= $(CFLAGS_FLTO)
 
 # These are required: (otherwise radamsa gets very very slooooow)

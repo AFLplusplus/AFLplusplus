@@ -1,0 +1,16 @@
+FROM alpine:latest AS base
+
+RUN apk add --no-cache \
+    build-base clang clang-dev lld llvm-dev llvm-static \
+    python3 bash coreutils linux-headers
+
+ENV NO_NYX=1 AFL_NO_X86=1 LLVM_LTO=1 \
+    AFL_SKIP_CPUFREQ=1 AFL_TRY_AFFINITY=1 \
+    AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+
+FROM base
+WORKDIR /AFLplusplus
+COPY . .
+
+RUN make -j$(nproc) source-only
+RUN cd test && ./test-all.sh

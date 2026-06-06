@@ -6,13 +6,15 @@
               Michal Zalewski
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
  */
 
@@ -39,13 +41,15 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 // #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
+  #include "llvm/Plugins/PassPlugin.h"
+#else
+  #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/CFG.h"
-#if LLVM_VERSION_MAJOR >= 14                /* how about stable interfaces? */
-  #include "llvm/Passes/OptimizationLevel.h"
-#endif
+#include "llvm/Passes/OptimizationLevel.h"
 
 #include "afl-llvm-common.h"
 
@@ -80,15 +84,17 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR <= 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
+            PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
+                                                  OptimizationLevel  OL
+#if LLVM_VERSION_MAJOR >= 20
+                                                  ,
+                                                  ThinOrFullLTOPhase Phase
 #endif
-            PB.registerOptimizerLastEPCallback(
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
+                                               ) {
 
-                  MPM.addPass(AFLcheckIfInstrument());
+              MPM.addPass(AFLcheckIfInstrument());
 
-                });
+            });
 
           }};
 
@@ -130,15 +136,8 @@ PreservedAnalyses AFLcheckIfInstrument::run(Module                &M,
 
       auto         &Ctx = F.getContext();
       AttributeList Attrs = F.getAttributes();
-#if LLVM_VERSION_MAJOR >= 14
       AttributeList NewAttrs = Attrs.addFnAttribute(Ctx, "skipinstrument");
       F.setAttributes(NewAttrs);
-#else
-      AttrBuilder NewAttrs;
-      NewAttrs.addAttribute("skipinstrument");
-      F.setAttributes(
-          Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
-#endif
 
     }
 
@@ -148,21 +147,4 @@ PreservedAnalyses AFLcheckIfInstrument::run(Module                &M,
   return PA;
 
 }
-
-#if 0
-static void registerAFLcheckIfInstrumentpass(const PassManagerBuilder &,
-                                             legacy::PassManagerBase &PM) {
-
-  PM.add(new AFLcheckIfInstrument());
-
-}
-
-static RegisterStandardPasses RegisterAFLcheckIfInstrumentpass(
-    PassManagerBuilder::EP_ModuleOptimizerEarly,
-    registerAFLcheckIfInstrumentpass);
-
-static RegisterStandardPasses RegisterAFLcheckIfInstrumentpass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0,
-    registerAFLcheckIfInstrumentpass);
-#endif
 

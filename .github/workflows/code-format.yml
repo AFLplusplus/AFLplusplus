@@ -9,6 +9,10 @@ on:
     branches:
       - dev # No need for stable-pull-request, as that equals dev-push
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   code-format-check:
     name: Check code format

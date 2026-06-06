@@ -5,13 +5,15 @@
    Written by Marc Heuse <mh@mh-sec.de>
 
    Copyright 2015, 2016 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
 */
 
@@ -27,14 +29,13 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
-  #include "llvm/Passes/PassPlugin.h"
-  #include "llvm/Passes/PassBuilder.h"
-  #include "llvm/IR/PassManager.h"
+#if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")
+  #include "llvm/Plugins/PassPlugin.h"
 #else
-  #include "llvm/IR/LegacyPassManager.h"
-  #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+  #include "llvm/Passes/PassPlugin.h"
 #endif
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -46,15 +47,8 @@
 #include "llvm/Analysis/ValueTracking.h"
 
 #include "llvm/IR/IRBuilder.h"
-#if LLVM_VERSION_MAJOR >= 4 || \
-    (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR > 4)
-  #include "llvm/IR/Verifier.h"
-  #include "llvm/IR/DebugInfo.h"
-#else
-  #include "llvm/Analysis/Verifier.h"
-  #include "llvm/DebugInfo.h"
-  #define nullptr 0
-#endif
+#include "llvm/IR/Verifier.h"
+#include "llvm/IR/DebugInfo.h"
 
 #include <set>
 #include "afl-llvm-common.h"
@@ -63,42 +57,16 @@ using namespace llvm;
 
 namespace {
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 class InjectionRoutines : public PassInfoMixin<InjectionRoutines> {
 
  public:
   InjectionRoutines() {
 
-#else
-class InjectionRoutines : public ModulePass {
-
- public:
-  static char ID;
-  InjectionRoutines() : ModulePass(ID) {
-
-#endif
-
     initInstrumentList();
 
   }
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-#else
-  bool runOnModule(Module &M) override;
-
-  #if LLVM_VERSION_MAJOR >= 4
-  StringRef getPassName() const override {
-
-  #else
-  const char *getPassName() const override {
-
-  #endif
-    return "Injection routines";
-
-  }
-
-#endif
 
  private:
   bool hookRtns(Module &M);
@@ -111,7 +79,6 @@ class InjectionRoutines : public ModulePass {
 
 }  // namespace
 
-#if LLVM_MAJOR >= 11
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
 
@@ -119,23 +86,21 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-  #if LLVM_VERSION_MAJOR <= 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-  #endif
-            PB.registerOptimizerLastEPCallback(
-                [](ModulePassManager &MPM, OptimizationLevel OL) {
+            PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
+                                                  OptimizationLevel  OL
+#if LLVM_VERSION_MAJOR >= 20
+                                                  ,
+                                                  ThinOrFullLTOPhase Phase
+#endif
+                                               ) {
 
-                  MPM.addPass(InjectionRoutines());
+              MPM.addPass(InjectionRoutines());
 
-                });
+            });
 
           }};
 
 }
-
-#else
-char InjectionRoutines::ID = 0;
-#endif
 
 bool InjectionRoutines::hookRtns(Module &M) {
 
@@ -143,66 +108,27 @@ bool InjectionRoutines::hookRtns(Module &M) {
       Memcmp, Strcmp, Strncmp;
   LLVMContext &C = M.getContext();
 
-  Type        *VoidTy = Type::getVoidTy(C);
+  Type *VoidTy = Type::getVoidTy(C);
+#if LLVM_MAJOR >= 20
+  PointerType *i8PtrTy = PointerType::getUnqual(C);
+#else
   IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
   PointerType *i8PtrTy = PointerType::get(Int8Ty, 0);
+#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c1 = M.getOrInsertFunction("__afl_injection_sql", VoidTy, i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c1 =
+      M.getOrInsertFunction("__afl_injection_sql", VoidTy, i8PtrTy);
   FunctionCallee sqlfunc = c1;
-#else
-  Function *sqlfunc = cast<Function>(c1);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c2 = M.getOrInsertFunction("__afl_injection_ldap", VoidTy, i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c2 =
+      M.getOrInsertFunction("__afl_injection_ldap", VoidTy, i8PtrTy);
   FunctionCallee ldapfunc = c2;
-#else
-  Function *ldapfunc = cast<Function>(c2);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c3 = M.getOrInsertFunction("__afl_injection_xss", VoidTy, i8PtrTy
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
+  FunctionCallee c3 =
+      M.getOrInsertFunction("__afl_injection_xss", VoidTy, i8PtrTy);
   FunctionCallee xssfunc = c3;
-#else
-  Function *xssfunc = cast<Function>(c3);
-#endif
 
-#if LLVM_VERSION_MAJOR >= 9
   FunctionCallee FuncPtr;
-#else
-  Function *FuncPtr;
-#endif
 
   bool ret = false;
 
@@ -221,6 +147,7 @@ bool InjectionRoutines::hookRtns(Module &M) {
 
           Function *Callee = callInst->getCalledFunction();
           if (!Callee) continue;
+          if (Callee->isIntrinsic()) continue;
           if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
 
           std::string FuncName = Callee->getName().str();
@@ -306,14 +233,8 @@ bool InjectionRoutines::hookRtns(Module &M) {
 
 }
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
 PreservedAnalyses InjectionRoutines::run(Module                &M,
                                          ModuleAnalysisManager &MAM) {
-
-#else
-bool InjectionRoutines::runOnModule(Module &M) {
-
-#endif
 
   if (getenv("AFL_QUIET") == NULL)
     printf("Running injection-pass by Marc Heuse (mh@mh-sec.de)\n");
@@ -334,36 +255,10 @@ bool InjectionRoutines::runOnModule(Module &M) {
   bool ret = hookRtns(M);
   verifyModule(M);
 
-#if LLVM_VERSION_MAJOR >= 11                        /* use new pass manager */
   if (ret == false)
     return PreservedAnalyses::all();
   else
     return PreservedAnalyses();
-#else
-  return ret;
-#endif
 
 }
-
-#if LLVM_VERSION_MAJOR < 11                         /* use old pass manager */
-static void registerInjectionRoutinesPass(const PassManagerBuilder &,
-                                          legacy::PassManagerBase &PM) {
-
-  auto p = new InjectionRoutines();
-  PM.add(p);
-
-}
-
-static RegisterStandardPasses RegisterInjectionRoutinesPass(
-    PassManagerBuilder::EP_OptimizerLast, registerInjectionRoutinesPass);
-
-static RegisterStandardPasses RegisterInjectionRoutinesPass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0, registerInjectionRoutinesPass);
-
-  #if LLVM_VERSION_MAJOR >= 11
-static RegisterStandardPasses RegisterInjectionRoutinesPassLTO(
-    PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
-    registerInjectionRoutinesPass);
-  #endif
-#endif
 

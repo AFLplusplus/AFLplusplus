@@ -19,6 +19,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    Shared code to handle the shared memory. This is used by the fuzzer
    as well the other components like afl-tmin, afl-showmap, etc...
 
@@ -35,12 +37,12 @@
 // CMP attribute enum
 enum {
 
-  IS_EQUAL = 1,    // arithemtic equal comparison
+  IS_EQUAL = 1,    // arithmetic equal comparison
   IS_GREATER = 2,  // arithmetic greater comparison
   IS_LESSER = 4,   // arithmetic lesser comparison
   IS_FP = 8,       // is a floating point, not an integer
   /* --- below are internal settings, not from target cmplog */
-  IS_FP_MOD = 16,    // arithemtic changed floating point
+  IS_FP_MOD = 16,    // arithmetic changed floating point
   IS_INT_MOD = 32,   // arithmetic changed integer
   IS_TRANSFORM = 64  // transformed integer
 
@@ -68,7 +70,7 @@ enum {
 
   LVL1 = 1,  // Integer solving
   LVL2 = 2,  // unused except for setting the queue entry
-  LVL3 = 4   // expensive tranformations
+  LVL3 = 4   // expensive transformations
 
 };
 
@@ -203,7 +205,7 @@ static void type_replace(afl_state_t *afl, u8 *buf, u32 len) {
   u8  c;
   for (i = 0; i < len; ++i) {
 
-    // wont help for UTF or non-latin charsets
+    // won't help for UTF or non-latin charsets
     do {
 
       switch (buf[i]) {
@@ -741,23 +743,22 @@ static u32 from_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 }
 
-static u32 to_base64(u8 *src, u8 *dst, u32 dst_len) {
+static u32 to_base64(u8 *src, u8 *dst, u32 src_len) {
 
   u32 i, j, v;
-  //  u32 len = (dst_len >> 2) * 3;
-  u32 len = (dst_len / 3) * 4;
-  if (dst_len % 3) len += 4;
+  u32 len = (src_len / 3) * 4;
+  if (src_len % 3) len += 4;
 
   for (i = 0, j = 0; j < len; i += 3, j += 4) {
 
     v = src[i];
-    v = i + 1 < len ? v << 8 | src[i + 1] : v << 8;
-    v = i + 2 < len ? v << 8 | src[i + 2] : v << 8;
+    v = i + 1 < src_len ? v << 8 | src[i + 1] : v << 8;
+    v = i + 2 < src_len ? v << 8 | src[i + 2] : v << 8;
 
     dst[j] = base64_encode_table[(v >> 18) & 0x3F];
     dst[j + 1] = base64_encode_table[(v >> 12) & 0x3F];
 
-    if (i + 1 < dst_len) {
+    if (i + 1 < src_len) {
 
       dst[j + 2] = base64_encode_table[(v >> 6) & 0x3F];
 
@@ -767,7 +768,7 @@ static u32 to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
     }
 
-    if (i + 2 < dst_len) {
+    if (i + 2 < src_len) {
 
       dst[j + 3] = base64_encode_table[v & 0x3F];
 
@@ -1437,7 +1438,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
   // here we add and subtract 1 from the value, but only if it is not an
   // == or != comparison
   // Bits: 1 = Equal, 2 = Greater, 4 = Lesser, 8 = Float
-  //       16 = modified float, 32 = modified integer (modified = wont match
+  //       16 = modified float, 32 = modified integer (modified = won't match
   //                                                   in original buffer)
 
   if (!afl->cmplog_enable_arith || lvl < LVL3 || attr == IS_TRANSFORM) {
@@ -2136,11 +2137,11 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
           if (!found_one ||
               check_if_text_buf((u8 *)&s128_v0, SHAPE_BYTES(h->shape)) ==
-                  SHAPE_BYTES(h->shape))
+                  (u32)SHAPE_BYTES(h->shape))
             try_to_add_to_dictN(afl, s128_v0, SHAPE_BYTES(h->shape));
           if (!found_one ||
               check_if_text_buf((u8 *)&s128_v1, SHAPE_BYTES(h->shape)) ==
-                  SHAPE_BYTES(h->shape))
+                  (u32)SHAPE_BYTES(h->shape))
             try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
 
         } else
@@ -2151,12 +2152,12 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
           if (!memcmp((u8 *)&o->v0, (u8 *)&orig_o->v0, SHAPE_BYTES(h->shape)) &&
               (!found_one ||
                check_if_text_buf((u8 *)&o->v0, SHAPE_BYTES(h->shape)) ==
-                   SHAPE_BYTES(h->shape)))
+                   (u32)SHAPE_BYTES(h->shape)))
             try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
           if (!memcmp((u8 *)&o->v1, (u8 *)&orig_o->v1, SHAPE_BYTES(h->shape)) &&
               (!found_one ||
                check_if_text_buf((u8 *)&o->v1, SHAPE_BYTES(h->shape)) ==
-                   SHAPE_BYTES(h->shape)))
+                   (u32)SHAPE_BYTES(h->shape)))
             try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
 
         }
@@ -2903,14 +2904,33 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
       // shape_len), check_if_text_buf((u8 *)&o->v1, shape_len), v0_len,
       // o->v0, v1_len, o->v1);
 
-      // Note that this check differs from the line 1901, for RTN we are more
-      // opportunistic for adding to the dictionary than cmps
-      if (!memcmp(o->v0, orig_o->v0, v0_len) ||
-          (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len))
+      if (!memcmp(o->v0, orig_o->v0, v0_len) &&
+          ADDR_ATTR_V0(o->addr_attr) != ADDR_ATTR_NOTFOUND &&
+          ADDR_ATTR_V0(orig_o->addr_attr) != ADDR_ATTR_NOTFOUND) {
+
         maybe_add_auto(afl, o->v0, v0_len);
-      if (!memcmp(o->v1, orig_o->v1, v1_len) ||
-          (!found_one || check_if_text_buf((u8 *)&o->v1, v1_len) == v1_len))
+
+      } else if (!memcmp(o->v1, orig_o->v1, v1_len) &&
+
+                 ADDR_ATTR_V1(o->addr_attr) != ADDR_ATTR_NOTFOUND &&
+                 ADDR_ATTR_V1(orig_o->addr_attr) != ADDR_ATTR_NOTFOUND) {
+
         maybe_add_auto(afl, o->v1, v1_len);
+
+      } else {
+
+        // Note that this check differs from the line 1901, for RTN we are more
+        // opportunistic for adding to the dictionary than cmps
+        if (!memcmp(o->v0, orig_o->v0, v0_len) &&
+            (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len) &&
+            v0_len != 32)
+          maybe_add_auto(afl, o->v0, v0_len);
+        if (!memcmp(o->v1, orig_o->v1, v1_len) &&
+            (!found_one || check_if_text_buf((u8 *)&o->v1, v1_len) == v1_len) &&
+            v1_len != 32)
+          maybe_add_auto(afl, o->v1, v1_len);
+
+      }
 
       //}
 
@@ -2930,6 +2950,67 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
 
   return 0;
+
+}
+
+/* If -l -M is active, scan cmp_map for inequality cmps, derive slack from
+   v0/v1, and track per-site global minima in afl->min_slack. Marks the
+   current queue entry as tightness_novel (and favoured) iff a new
+   per-site min was achieved. Allocates afl->min_slack lazily on first
+   call. */
+static void collect_tightness_minima(afl_state_t *afl) {
+
+  if (likely(!afl->cmplog_tightness)) return;
+
+  if (unlikely(!afl->min_slack)) {
+
+    afl->min_slack = ck_alloc(sizeof(u64) * CMP_MAP_W);
+    for (u32 i = 0; i < CMP_MAP_W; ++i)
+      afl->min_slack[i] = (u64)-1;
+
+  }
+
+  u8 found_new_min = 0;
+  for (u32 k = 0; k < CMP_MAP_W; ++k) {
+
+    struct cmp_header *h = &afl->shm.cmp_map->headers[k];
+    if (!h->hits || h->type != CMP_TYPE_INS) continue;
+    /* attribute encoding (cmplog-instructions-pass.cc): NE=0, EQ=1,
+       GT=2, GE=3, LT=4, LE=5, plus +8 for floating-point. We want
+       inequality (>= 2) and we ignore floats (skip if attribute & 8). */
+    u8 attr = h->attribute;
+    if (attr < 2 || (attr & 8)) continue;
+
+    /* Walk the per-cmp record array; pick the smallest |v0 - v1|. */
+    u64 hits = h->hits > CMP_MAP_H ? CMP_MAP_H : h->hits;
+    u64 best = (u64)-1;
+    for (u64 i = 0; i < hits; ++i) {
+
+      struct cmp_operands *o = &afl->shm.cmp_map->log[k][i];
+      u64                  a = o->v0, b = o->v1;
+      u64                  slack = (a >= b) ? (a - b) : (b - a);
+      if (slack < best) best = slack;
+
+    }
+
+    if (best < afl->min_slack[k]) {
+
+      afl->min_slack[k] = best;
+      found_new_min = 1;
+
+    }
+
+  }
+
+  if (found_new_min && afl->queue_cur) {
+
+    afl->cmplog_tightness_new++;
+    afl->queue_cur->tightness_novel = 1;
+    /* Stamp the cycle so cull_queue can decay this flag later. */
+    afl->queue_cur->tightness_novel_cycle = afl->queue_cycle;
+    afl->queue_cur->favored = 1;
+
+  }
 
 }
 
@@ -3069,6 +3150,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   dump("ORIG", orig_buf, len);
   dump("NEW ", buf, len);
 #endif
+
+  collect_tightness_minima(afl);
 
   // Start insertion loop
 

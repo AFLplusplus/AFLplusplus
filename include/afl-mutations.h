@@ -1,3 +1,16 @@
+/*
+   american fuzzy lop++ - part of the AFL++ project
+   ------------------------------------------------
+
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may obtain a copy at https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
+
+ */
+
 /* Implementation of afl havoc mutation to be used in AFL++ custom mutators and
    partially in afl-fuzz itself.
 
@@ -1896,7 +1909,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         item = rand_below(afl, sizeof(interesting_16) >> 1);
-        *(u16 *)(buf + rand_below(afl, len - 1)) = interesting_16[item];
+        INSERT16(buf, rand_below(afl, len - 1), interesting_16[item]);
 
         break;
 
@@ -1909,7 +1922,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         item = rand_below(afl, sizeof(interesting_16) >> 1);
-        *(u16 *)(buf + rand_below(afl, len - 1)) = SWAP16(interesting_16[item]);
+        INSERT16(buf, rand_below(afl, len - 1), SWAP16(interesting_16[item]));
 
         break;
 
@@ -1922,7 +1935,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 4)) { break; }  // no retry
 
         item = rand_below(afl, sizeof(interesting_32) >> 2);
-        *(u32 *)(buf + rand_below(afl, len - 3)) = interesting_32[item];
+        INSERT32(buf, rand_below(afl, len - 3), interesting_32[item]);
 
         break;
 
@@ -1935,7 +1948,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 4)) { break; }  // no retry
 
         item = rand_below(afl, sizeof(interesting_32) >> 2);
-        *(u32 *)(buf + rand_below(afl, len - 3)) = SWAP32(interesting_32[item]);
+        INSERT32(buf, rand_below(afl, len - 3), SWAP32(interesting_32[item]));
 
         break;
 
@@ -1969,7 +1982,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 pos = rand_below(afl, len - 1);
         item = 1 + rand_below(afl, ARITH_MAX);
-        *(u16 *)(buf + pos) -= item;
+        INSERT16(buf, pos, EXTRACT16(buf, pos) - item);
 
         break;
 
@@ -1982,8 +1995,8 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         u32 pos = rand_below(afl, len - 1);
-        u16 num = 1 + rand_below(afl, ARITH_MAX);
-        *(u16 *)(buf + pos) = SWAP16(SWAP16(*(u16 *)(buf + pos)) - num);
+        item = 1 + rand_below(afl, ARITH_MAX);
+        INSERT16(buf, pos, SWAP16(SWAP16(EXTRACT16(buf, pos)) - item));
 
         break;
 
@@ -1997,7 +2010,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 pos = rand_below(afl, len - 1);
         item = 1 + rand_below(afl, ARITH_MAX);
-        *(u16 *)(buf + pos) += item;
+        INSERT16(buf, pos, EXTRACT16(buf, pos) + item);
 
         break;
 
@@ -2010,8 +2023,8 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         u32 pos = rand_below(afl, len - 1);
-        u16 num = 1 + rand_below(afl, ARITH_MAX);
-        *(u16 *)(buf + pos) = SWAP16(SWAP16(*(u16 *)(buf + pos)) + num);
+        item = 1 + rand_below(afl, ARITH_MAX);
+        INSERT16(buf, pos, SWAP16(SWAP16(EXTRACT16(buf, pos)) + item));
 
         break;
 
@@ -2025,7 +2038,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 pos = rand_below(afl, len - 3);
         item = 1 + rand_below(afl, ARITH_MAX);
-        *(u32 *)(buf + pos) -= item;
+        INSERT32(buf, pos, EXTRACT32(buf, pos) - item);
 
         break;
 
@@ -2038,8 +2051,8 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 4)) { break; }  // no retry
 
         u32 pos = rand_below(afl, len - 3);
-        u32 num = 1 + rand_below(afl, ARITH_MAX);
-        *(u32 *)(buf + pos) = SWAP32(SWAP32(*(u32 *)(buf + pos)) - num);
+        item = 1 + rand_below(afl, ARITH_MAX);
+        INSERT32(buf, pos, SWAP32(SWAP32(EXTRACT32(buf, pos)) - item));
 
         break;
 
@@ -2053,7 +2066,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 pos = rand_below(afl, len - 3);
         item = 1 + rand_below(afl, ARITH_MAX);
-        *(u32 *)(buf + pos) += item;
+        INSERT32(buf, pos, EXTRACT32(buf, pos) + item);
 
         break;
 
@@ -2066,8 +2079,8 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 4)) { break; }  // no retry
 
         u32 pos = rand_below(afl, len - 3);
-        u32 num = 1 + rand_below(afl, ARITH_MAX);
-        *(u32 *)(buf + pos) = SWAP32(SWAP32(*(u32 *)(buf + pos)) + num);
+        item = 1 + rand_below(afl, ARITH_MAX);
+        INSERT32(buf, pos, SWAP32(SWAP32(EXTRACT32(buf, pos) + item)));
 
         break;
 
@@ -2344,6 +2357,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         if (unlikely(len < 2)) { break; }  // no retry
 
         u32 clone_len = 1;
+        if (unlikely(len + clone_len > max_len)) { goto retry_havoc_step; }
         u32 clone_to = rand_below(afl, len);
         u32 strat = rand_below(afl, 2);
         u32 clone_from = clone_to ? clone_to - 1 : 0;
@@ -2419,7 +2433,18 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         s64 val = buf[off] - '0';
         for (u32 i = off + 1; i < off2; ++i) {
 
-          val = (val * 10) + buf[i] - '0';
+          u8  digit = buf[i] - '0';
+          s64 valx10;
+
+          if (val > INT64_MAX / 10 ||
+              (valx10 = (val * 10)) > INT64_MAX - digit) {
+
+            off2 = i;
+            break;
+
+          }
+
+          val = valx10 + digit;
 
         }
 
@@ -2429,12 +2454,33 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         switch (strat) {
 
           case 0:
+            if (val == INT64_MAX) {
+
+              val /= 10;
+              --off2;
+
+            }
+
             val++;
             break;
           case 1:
+            if (val == INT64_MIN) {
+
+              val /= 10;
+              --off2;
+
+            }
+
             val--;
             break;
           case 2:
+            if (val > INT64_MAX / 2 || val < INT64_MIN / 2) {
+
+              val /= 10;
+              --off2;
+
+            }
+
             val *= 2;
             break;
           case 3:
@@ -2453,9 +2499,23 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
             break;
           case 5:
+            if (val > INT64_MAX - 256) {
+
+              val /= 10;
+              --off2;
+
+            }
+
             val += rand_below(afl, 256);
             break;
           case 6:
+            if (val < INT64_MIN + 256) {
+
+              val /= 10;
+              --off2;
+
+            }
+
             val -= rand_below(afl, 256);
             break;
           case 7:
@@ -2465,7 +2525,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
         }
 
         char numbuf[32];
-        snprintf(numbuf, sizeof(buf), "%" PRId64, val);
+        snprintf(numbuf, sizeof(numbuf), "%" PRId64, val);
         u32 old_len = off2 - off;
         u32 new_len = strlen(numbuf);
 
@@ -2474,6 +2534,12 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
           memcpy(buf + off, numbuf, new_len);
 
         } else {
+
+          if (unlikely(off + new_len + len - off2 > max_len)) {
+
+            goto retry_havoc_step;
+
+          }
 
           /* Head */
 
@@ -2563,7 +2629,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 use_extra = rand_below(afl, afl->extras_cnt);
         u32 extra_len = afl->extras[use_extra].len;
-        if (unlikely(len + extra_len >= max_len)) { goto retry_havoc_step; }
+        if (unlikely(len + extra_len > max_len)) { goto retry_havoc_step; }
 
         u8 *ptr = afl->extras[use_extra].data;
         u32 insert_at = rand_below(afl, len + 1);
@@ -2603,7 +2669,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         u32 use_extra = rand_below(afl, afl->a_extras_cnt);
         u32 extra_len = afl->a_extras[use_extra].len;
-        if (unlikely(len + extra_len >= max_len)) { goto retry_havoc_step; }
+        if (unlikely(len + extra_len > max_len)) { goto retry_havoc_step; }
 
         u8 *ptr = afl->a_extras[use_extra].data;
         u32 insert_at = rand_below(afl, len + 1);
@@ -2643,7 +2709,7 @@ inline u32 afl_mutate(afl_state_t *afl, u8 *buf, u32 len, u32 steps,
 
         if (unlikely(!splice_buf || !splice_len)) { goto retry_havoc_step; }
 
-        if (unlikely(len + HAVOC_BLK_XL >= max_len)) { goto retry_havoc_step; }
+        if (unlikely(len + HAVOC_BLK_XL > max_len)) { goto retry_havoc_step; }
 
         /* insert mode */
 

@@ -10,12 +10,9 @@
 [submodule "custom_mutators/gramatron/json-c"]
 	path = custom_mutators/gramatron/json-c
 	url = https://github.com/json-c/json-c
-[submodule "coresight_mode/patchelf"]
-	path = coresight_mode/patchelf
-	url = https://github.com/NixOS/patchelf.git
 [submodule "coresight_mode/coresight-trace"]
 	path = coresight_mode/coresight-trace
-	url = https://github.com/RICSecLab/coresight-trace.git
+	url = https://github.com/AFLplusplus/coresight-trace.git
 [submodule "nyx_mode/libnyx"]
 	path = nyx_mode/libnyx
 	url = https://github.com/nyx-fuzz/libnyx.git

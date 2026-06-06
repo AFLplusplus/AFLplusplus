@@ -10,13 +10,15 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    Gather some functions common to multiple executables
 
@@ -76,8 +78,9 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname);
 int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal);
 
 /* Configure the signals that are used to kill the forkserver
-   and the forked childs. If `afl_kill_signal_env` or `afl_fsrv_kill_signal_env`
-   is NULL, the appropiate values are read from the environment. */
+   and the forked children. If `afl_kill_signal_env` or
+   `afl_fsrv_kill_signal_env` is NULL, the appropriate values are read from the
+   environment. */
 void configure_afl_kill_signals(afl_forkserver_t *fsrv,
                                 char             *afl_kill_signal_env,
                                 char             *afl_fsrv_kill_signal_env,
@@ -139,14 +142,17 @@ u8 *u_stringify_mem_size(u8 *buf, u64 val);
 
 u8 *u_stringify_time_diff(u8 *buf, u64 cur_ms, u64 event_ms);
 
+/* Validate map size, returns validated size or FATALs if invalid */
+u32 validate_map_size(u32 map_size);
+
 /* Reads the map size from ENV */
 u32 get_map_size(void);
 
 /* create a stream file */
-FILE *create_ffile(u8 *fn);
+FILE *create_ffile(u8 *fn, mode_t perm);
 
 /* create a file */
-s32 create_file(u8 *fn);
+s32 create_file(u8 *fn, mode_t perm);
 
 /* memmem implementation as not all platforms support this */
 void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,

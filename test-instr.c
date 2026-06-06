@@ -3,7 +3,7 @@
    --------------------------------------------------------
    Originally written by Michal Zalewski
    Copyright 2014 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
@@ -49,7 +49,11 @@ int main(int argc, char **argv) {
     if ((cnt = read(fd, buf, sizeof(buf) - 1)) < 1) {
 
       printf("Hum?\n");
+#ifdef EXIT_AT_END
+      exit(1);
+#else
       return 1;
+#endif
 
     }
 
@@ -76,6 +80,10 @@ int main(int argc, char **argv) {
       break;
 
   }
+
+#ifdef EXIT_AT_END
+  exit(0);
+#endif
 
   return 0;
 

@@ -39,7 +39,7 @@ is *VERY* important to carry out these basic steps first before taking on the
 additional complexity of debugging with FRIDA mode or `afl-fuzz`.
 
 - Run your harness outside of the fuzzer, passing it a representative seed as
-  it's input `./harness <input>`.
+  its input `./harness <input>`.
 - Pass your harness multiple seeds to check that it is stable when running
   multiple tests as it will when running in fork server mode `./harness <input1>
   <intput2>`.
@@ -173,7 +173,7 @@ already there, then it may not be overwritten.
 
 ## Reach out
 
-Get in touch on discord and ask for help. The groups are pretty active so
+Get in touch on Zulip and ask for help. The groups are pretty active so
 someone may well be able to offer some advice. Better still, if you are able to
 create a minimal reproducer for your problem, it will make it easier to diagnose
 the issue.

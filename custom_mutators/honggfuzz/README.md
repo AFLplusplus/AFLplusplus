@@ -1,4 +1,4 @@
-# custum mutator: honggfuzz mangle
+# custom mutator: honggfuzz mangle
 
 this is the honggfuzz mutator in mangle.c as a custom mutator
 module for AFL++. It is the original mangle.c, mangle.h and honggfuzz.h

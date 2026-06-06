@@ -186,7 +186,7 @@ static void instrument_basic_block(GumStalkerIterator *iterator,
      * execution), we instead ensure that we honour the additional
      * instrumentation requested (e.g. coverage, asan and complog) when a block
      * is compiled no matter where we are during initialization. We will end up
-     * re-using these blocks if the code under test calls a block which is also
+     * reusing these blocks if the code under test calls a block which is also
      * used during initialization.
      *
      * Coverage data generated during initialization isn't a problem since the
@@ -446,12 +446,6 @@ void instrument_regs_format(int fd, char *format, ...) {
   len = strnlen(buffer, sizeof(buffer));
 
   IGNORED_RETURN(write(fd, buffer, len));
-
-}
-
-void ijon_set(uint32_t edge) {
-
-  __afl_coverage_interesting(1, edge);
 
 }
 

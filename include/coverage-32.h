@@ -1,5 +1,24 @@
+/*
+   american fuzzy lop++ - part of the AFL++ project
+   ------------------------------------------------
+
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may obtain a copy at https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
+
+ */
+
+#ifndef _COVERAGE_H
+
+#define _COVERAGE_H
+
 #include "config.h"
 #include "types.h"
+
+#define _AFL_INTSIZEVAR u32
 
 u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end);
 u32 classify_word(u32 word);
@@ -109,4 +128,6 @@ inline u32 skim(const u32 *virgin, const u32 *current, const u32 *current_end) {
   return 0;
 
 }
+
+#endif
 

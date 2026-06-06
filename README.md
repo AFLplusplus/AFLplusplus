@@ -2,9 +2,9 @@
 
 <img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/main/static/aflpp_bg.svg" alt="AFL++ logo" width="250" height="250">
 
-Release version: [4.30c](https://github.com/AFLplusplus/AFLplusplus/releases)
+Release version: [5.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 4.31a
+GitHub version: 5.01a
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -16,15 +16,20 @@ AFL++ is maintained by:
 * Andrea Fioraldi <andreafioraldi@gmail.com>
 * Heiko "hexcoder-" Eissfeldt <heiko.eissfeldt@hexco.de>
 * frida_mode is maintained by @Worksbutnottested
-* Documentation: Jana Aydinbas <jana.aydinbas@gmail.com>
 
 Originally developed by Michal "lcamtuf" Zalewski.
 
 AFL++ is a superior fork to Google's AFL - more speed, more and better
 mutations, more and better instrumentation, custom module support, etc.
 
-You are free to copy, modify, and distribute AFL++ with attribution under the
-terms of the Apache-2.0 License. See the [LICENSE](LICENSE) for details.
+AFL++ is licensed under the **AGPL-3.0-or-later**, and it also contains files
+under the Apache-2.0 License. Each file states its own license in its
+`SPDX-License-Identifier` header — that is the license you must follow for that
+file. An optional **commercial license** is available for organizations that
+cannot use the AGPL (obtained by donating to a good cause — the project and its
+maintainers receive no money).
+See [LICENSING.md](LICENSING.md) for a plain-language overview and the
+[License section](#license) below for details.
 
 ## Getting started
 
@@ -124,7 +129,9 @@ Step-by-step quick start:
 
    You can generate cores or use gdb directly to follow up the crashes.
 
-6. We cannot stress this enough - if you want to fuzz effectively, read the
+6. For coverage analysis of your fuzzing we recommend our partner tools [cov-analysis](https://github.com/AFLplusplus/cov-analysis)
+
+7. We cannot stress this enough - if you want to fuzz effectively, read the
    [docs/fuzzing_in_depth.md](docs/fuzzing_in_depth.md) document!
 
 ## Contact
@@ -136,7 +143,7 @@ Questions? Concerns? Bug reports?
 * Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important
   question missing, submit it via
   [https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
-* Best: join the [Awesome Fuzzing](https://discord.gg/gCraWct) Discord server.
+* Best: join the [Fuzzing Zulip server](https://fuzz.zulipchat.com/).
 * There is a (not really used) mailing list for the AFL/AFL++ project
   ([browse archive](https://groups.google.com/group/afl-users)). To compare
   notes with other users or to get notified about major new features, send an
@@ -149,9 +156,9 @@ The following branches exist:
 
 * [release](https://github.com/AFLplusplus/AFLplusplus/tree/release): the latest
   release
-* [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/): stable state of
+* [stable](https://github.com/AFLplusplus/AFLplusplus/): stable state of
   AFL++ - it is synced from dev from time to time when we are satisfied with its
-  stability
+  stability. This is the default branch.
 * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state
   of AFL++ - bleeding edge and you might catch a checkout which does not compile
   or has a bug. **We only accept PRs (pull requests) for the 'dev' branch!**
@@ -160,12 +167,9 @@ The following branches exist:
 
 ## Help wanted
 
-We have several [ideas](docs/ideas.md) we would like to see in AFL++ to make it
-even better. However, we already work on so many things that we do not have the
-time for all the big ideas.
-
+Check out our [issues list with the "help wanted" tag](https://github.com/AFLplusplus/AFLplusplus/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22).
 This can be your way to support and contribute to AFL++ - extend it to do
-something cool.
+something cool. If you have other ideas - just create an issue and propose it!
 
 For everyone who wants to contribute (and send pull requests), please read our
 [contributing guidelines](CONTRIBUTING.md) before you submit.
@@ -230,6 +234,9 @@ Thank you! (For people sending pull requests - please add yourself to this list
     Ruben ten Hove                        Joey Jiao
     fuzzah                                @intrigus-lgtm
     Yaakov Saxon                          Sergej Schumilo
+    Ziqiao Kong                           Ryan Berger
+    Sangjun Park                          Scott Guest
+    Fabian Keil
   ```
 
 </details>
@@ -258,3 +265,38 @@ presented at WOOT'20:
   ```
 
 </details>
+
+[![zread](https://img.shields.io/badge/Ask_Zread-_.svg?style=flat&color=00b0aa&labelColor=000000&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQuOTYxNTYgMS42MDAxSDIuMjQxNTZDMS44ODgxIDEuNjAwMSAxLjYwMTU2IDEuODg2NjQgMS42MDE1NiAyLjI0MDFWNC45NjAxQzEuNjAxNTYgNS4zMTM1NiAxLjg4ODEgNS42MDAxIDIuMjQxNTYgNS42MDAxSDQuOTYxNTZDNS4zMTUwMiA1LjYwMDEgNS42MDE1NiA1LjMxMzU2IDUuNjAxNTYgNC45NjAxVjIuMjQwMUM1LjYwMTU2IDEuODg2NjQgNS4zMTUwMiAxLjYwMDEgNC45NjE1NiAxLjYwMDFaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00Ljk2MTU2IDEwLjM5OTlIMi4yNDE1NkMxLjg4ODEgMTAuMzk5OSAxLjYwMTU2IDEwLjY4NjQgMS42MDE1NiAxMS4wMzk5VjEzLjc1OTlDMS42MDE1NiAxNC4xMTM0IDEuODg4MSAxNC4zOTk5IDIuMjQxNTYgMTQuMzk5OUg0Ljk2MTU2QzUuMzE1MDIgMTQuMzk5OSA1LjYwMTU2IDE0LjExMzQgNS42MDE1NiAxMy43NTk5VjExLjAzOTlDNS42MDE1NiAxMC42ODY0IDUuMzE1MDIgMTAuMzk5OSA0Ljk2MTU2IDEwLjM5OTlaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik0xMy43NTg0IDEuNjAwMUgxMS4wMzg0QzEwLjY4NSAxLjYwMDEgMTAuMzk4NCAxLjg4NjY0IDEwLjM5ODQgMi4yNDAxVjQuOTYwMUMxMC4zOTg0IDUuMzEzNTYgMTAuNjg1IDUuNjAwMSAxMS4wMzg0IDUuNjAwMUgxMy43NTg0QzE0LjExMTkgNS42MDAxIDE0LjM5ODQgNS4zMTM1NiAxNC4zOTg0IDQuOTYwMVYyLjI0MDFDMTQuMzk4NCAxLjg4NjY0IDE0LjExMTkgMS42MDAxIDEzLjc1ODQgMS42MDAxWiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNNCAxMkwxMiA0TDQgMTJaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00IDEyTDEyIDQiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K&logoColor=ffffff)](https://zread.ai/AFLplusplus/AFLplusplus)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/AFLplusplus/AFLplusplus)
+
+## License
+
+AFL++ is licensed under the **GNU AGPL-3.0-or-later**. In short, you can use
+AFL++ three ways:
+
+1. **Free, under the AGPL-3.0-or-later** — the default. Use, modify, and share
+   AFL++; if you run a modified version as a network service, the AGPL requires
+   you to offer your users the corresponding source. Full text: [LICENSE](LICENSE).
+
+2. **Per file, under the license in its header** — the project contains files
+   under both `SPDX-License-Identifier: AGPL-3.0-or-later` and
+   `SPDX-License-Identifier: Apache-2.0`. Always check the header of the file you
+   use and adhere to the license stated there; files marked Apache-2.0 may be
+   reused individually under the [Apache-2.0 License](LICENSE.Apache-2.0). (A few
+   bundled third-party files carry other licenses, e.g. the GCC plugin under
+   GPL-3.0-or-later and the LLVM SanitizerCoverage passes under
+   Apache-2.0-WITH-LLVM-exception — each marked by its own SPDX identifier.) Note
+   that the combined `afl-fuzz` binary includes AGPL files, so the program as a
+   whole is AGPL.
+
+3. **Commercial license** — optional, for organizations that cannot or do not
+   want to comply with the AGPL. **The project receives no money.** Instead you
+   donate **EUR 20,000** (€20,000) to **either the
+   [EFF](https://www.eff.org/) or the [CCC](https://www.ccc.de/)** and email
+   proof to **afl@aflplus.plus**; your license is then effective from the
+   donation date for **one year** (renewable by donating again). Full terms:
+   [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
+
+Bundled third-party components (e.g. xxHash, t1ha, libFuzzer, submodules) keep
+their own licenses. For the complete plain-language overview, see
+[LICENSING.md](LICENSING.md).

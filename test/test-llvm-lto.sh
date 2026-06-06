@@ -13,8 +13,10 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
     fi
   }
 
-  ../afl-clang-lto -o test-instr.plain ../test-instr.c > /dev/null 2>&1
+  rm -f test-instr.plain
+  AFL_DEBUG=1 ../afl-clang-lto -o test-instr.plain ../test-instr.c > test-lto.out 2>&1
   test -e test-instr.plain && {
+    chmod +x test-instr.plain
     $ECHO "$GREEN[+] llvm_mode LTO compilation succeeded"
     echo 0 | AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.0 -r -- ./test-instr.plain > /dev/null 2>&1
     AFL_QUIET=1 ../afl-showmap -m ${MEM_LIMIT} -o test-instr.plain.1 -r -- ./test-instr.plain < /dev/null > /dev/null 2>&1
@@ -38,10 +40,13 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
     }
     rm -f test-instr.plain.0 test-instr.plain.1
   } || {
+    echo CUT------------------------------------------------------------------CUT
+    cat test-lto.out
+    echo CUT------------------------------------------------------------------CUT
     $ECHO "$RED[!] LTO llvm_mode failed"
     CODE=1
   }
-  rm -f test-instr.plain
+  rm -f test-instr.plain test-lto.out
 
   echo foobar.c > instrumentlist.txt
   AFL_DEBUG=1 AFL_LLVM_INSTRUMENT_FILE=instrumentlist.txt ../afl-clang-lto -o test-compcov test-compcov.c > test.out 2>&1
@@ -56,11 +61,14 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
       CODE=1
     }
   } || {
+    echo CUT------------------------------------------------------------------CUT
+    cat test.out
+    echo CUT------------------------------------------------------------------CUT
     $ECHO "$RED[!] llvm_mode LTO instrumentlist feature compilation failed"
     CODE=1
   }
   rm -f test-compcov test.out instrumentlist.txt
-  ../afl-clang-lto -o test-persistent ../utils/persistent_mode/persistent_demo.c > /dev/null 2>&1
+  AFL_DEBUG=1 ../afl-clang-lto -o test-persistent ../utils/persistent_mode/persistent_demo.c > test-lto.out 2>&1
   test -e test-persistent && {
     echo foo | AFL_QUIET=1 ../afl-showmap -m none -o /dev/null -q -r ./test-persistent && {
       $ECHO "$GREEN[+] llvm_mode LTO persistent mode feature works correctly"
@@ -69,10 +77,13 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
       CODE=1
     }
   } || {
+    echo CUT------------------------------------------------------------------CUT
+    cat test-lto.out
+    echo CUT------------------------------------------------------------------CUT
     $ECHO "$RED[!] llvm_mode LTO persistent mode feature compilation failed"
     CODE=1
   }
-  rm -f test-persistent
+  rm -f test-persistent test-lto.out
 } || {
   $ECHO "$YELLOW[-] LTO llvm_mode not compiled, cannot test"
   INCOMPLETE=1

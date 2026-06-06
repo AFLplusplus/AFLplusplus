@@ -73,7 +73,7 @@ test -e test-custom-mutator.c -a -e ${CUSTOM_MUTATOR_PATH}/example.c -a -e ${CUS
   }
 }
 
-test "1" = "`../afl-fuzz | grep -i 'without python' >/dev/null; echo $?`" && {
+test "1" = "`../afl-fuzz 2>/dev/null | grep -i 'without python' >/dev/null; echo $?`" && {
   test -e test-custom-mutator && {
       # Run afl-fuzz w/ the Python mutator
       $ECHO "$GREY[*] running afl-fuzz for the Python mutator, this will take approx 10 seconds"

@@ -12,13 +12,15 @@
                         Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    A very simple tool that runs the targeted binary and displays
    the contents of the trace bitmap in a human-readable form. Useful in
@@ -63,6 +65,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+#ifdef __linux__
+  #include <poll.h>
+  #include <unistd.h>
+#endif
 
 static afl_state_t *afl;
 
@@ -83,7 +89,12 @@ static u32 tcnt, highest;              /* tuple content information         */
 
 static u32 in_len;                     /* Input data length                 */
 
-static u32 map_size = MAP_SIZE, timed_out = 0;
+static u32 map_size = MAP_SIZE;
+
+/* Timeout flag for non-forkserver mode. In forkserver mode,
+   fsrv->last_run_timed_out is used instead. Use run_timed_out()
+   to check for timeouts in either mode. */
+static u32 no_forkserver_timed_out = 0;
 
 static bool quiet_mode,                /* Hide non-essential messages?      */
     edges_only,                        /* Ignore hit counts?                */
@@ -102,9 +113,20 @@ static bool quiet_mode,                /* Hide non-essential messages?      */
 static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
     child_crashed;                     /* Child crashed?                    */
 
+/* Streaming of inputs and coverage via stdin &stdout  */
+static bool streaming_mode;
+
 static sharedmem_t       shm;
 static afl_forkserver_t *fsrv;
 static sharedmem_t      *shm_fuzz;
+
+/* Check if the last run timed out, considering both forkserver and
+   non-forkserver modes. */
+static inline bool run_timed_out(void) {
+
+  return no_forkserver_timed_out || fsrv->last_run_timed_out;
+
+}
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -131,9 +153,10 @@ static const u8 count_class_binary[256] = {
 
 };
 
-static void kill_child() {
+static void kill_child(int signal) {
 
-  timed_out = 1;
+  (void)signal;
+  no_forkserver_timed_out = 1;
   if (fsrv->child_pid > 0) {
 
     kill(fsrv->child_pid, fsrv->child_kill_signal);
@@ -158,10 +181,11 @@ void show_stats(afl_state_t *afl) {
 
 }
 
-void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
+void update_bitmap_score(afl_state_t *afl, struct queue_entry *q, bool x) {
 
   (void)afl;
   (void)q;
+  (void)x;
 
 }
 
@@ -268,8 +292,7 @@ static u32 write_results_to_file(afl_forkserver_t *fsrv, u8 *outfile) {
 
   }
 
-  if (cmin_mode &&
-      (fsrv->last_run_timed_out || (!caa && child_crashed != cco))) {
+  if (cmin_mode && !caa && (run_timed_out() || child_crashed != cco)) {
 
     if (strcmp(outfile, "-")) {
 
@@ -417,12 +440,10 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   if (!quiet_mode) { SAYF("-- Program output begins --\n" cRST); }
 
-  if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
-      FSRV_RUN_ERROR) {
+  fsrv_run_result_t run_result =
+      afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon);
 
-    FATAL("Error running target");
-
-  }
+  if (run_result == FSRV_RUN_ERROR) { FATAL("Error running target"); }
 
   if (fsrv->trace_bits[0]) {
 
@@ -439,23 +460,14 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
-  if (!fsrv->last_run_timed_out && !stop_soon &&
-      WIFSIGNALED(fsrv->child_status)) {
-
-    child_crashed = true;
-
-  } else {
-
-    child_crashed = false;
-
-  }
+  child_crashed = (run_result == FSRV_RUN_CRASH);
 
   if (!quiet_mode) {
 
-    if (timed_out || fsrv->last_run_timed_out) {
+    if (run_timed_out()) {
 
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
-      timed_out = 0;
+      no_forkserver_timed_out = 0;
 
     } else if (stop_soon) {
 
@@ -474,6 +486,144 @@ static void showmap_run_target_forkserver(afl_forkserver_t *fsrv, u8 *mem,
 
     SAYF(cRST cLRD "\n+++ afl-showmap folder mode aborted by user +++\n" cRST);
     exit(1);
+
+  }
+
+}
+
+/* Helper to read exactly n bytes from fd */
+static ssize_t read_all(int fd, void *buf, size_t n) {
+
+  size_t  done = 0;
+  ssize_t r;
+
+  while (done < n) {
+
+    r = read(fd, (u8 *)buf + done, n - done);
+    if (r <= 0) { return done ? (ssize_t)done : r; }
+    done += r;
+
+  }
+
+  return (ssize_t)done;
+
+}
+
+/* Streaming mode exit status (lower 2 bits of status field) */
+#define STREAMING_STATUS_EXITED 0
+#define STREAMING_STATUS_TIMEOUT 1
+#define STREAMING_STATUS_CRASH 2
+
+/* Input streaming loop - reads test cases from stdin, writes coverage to
+   stdout. Protocol (LV = length-value format):
+   - Input:  [u32 length][u8 data[length]] (length=0 signals EOF)
+   - Output: [u16 status][u32 edge_count][{u32 edge_idx, u8 hit_ctr}*]
+             [u32 stdout_len][u8 stdout_data*][u32 stderr_len][u8 stderr_data*]
+   Status field:
+     bits [0:1]:  exit status (0=exited, 1=timeout, 2=crash)
+     bits [2:7]:  reserved (must be 0)
+     bits [8:15]: WEXITSTATUS when bits [0:1] = 0 (normal exit),
+                  0 when bits [0:1] = 1 (timeout),
+                  WTERMSIG when bits [0:1] = 2 (crash)
+   Note: stdout_len and stderr_len are currently always 0 (not implemented).
+         These fields are reserved for future use to capture target output.
+*/
+static void streaming_loop(void) {
+
+  static u8 tc_buffer[MAX_FILE];
+  u32       tc_length;
+
+  while (read_all(STDIN_FILENO, &tc_length, 4) == 4 && tc_length > 0) {
+
+    if (tc_length > MAX_FILE) {
+
+      FATAL("Test case too large (%u > %lu)", tc_length, MAX_FILE);
+
+    }
+
+    /* Read test case */
+    if (read_all(STDIN_FILENO, tc_buffer, tc_length) != (ssize_t)tc_length) {
+
+      FATAL("Short read on input (expected %u bytes)", tc_length);
+
+    }
+
+    /* Execute via fork server */
+    showmap_run_target_forkserver(fsrv, tc_buffer, tc_length);
+
+    /* Determine exit status (bits 0-1) and signal number (bits 8-15) */
+    u16 status;
+    if (fsrv->last_run_timed_out) {
+
+      status = STREAMING_STATUS_TIMEOUT;
+
+    } else if (child_crashed) {
+
+      /* Encode signal number in bits 8-15 */
+      status = STREAMING_STATUS_CRASH | (WTERMSIG(fsrv->child_status) << 8);
+
+    } else {
+
+      /* Encode exit code in bits 8-15 */
+      status = STREAMING_STATUS_EXITED | (WEXITSTATUS(fsrv->child_status) << 8);
+
+    }
+
+    /* Write status */
+    if (write(STDOUT_FILENO, &status, 2) != 2) {
+
+      FATAL("Failed to write status");
+
+    }
+
+    /* Count hit edges */
+    u32 edge_count = 0;
+    for (u32 i = 0; i < map_size; i++) {
+
+      if (fsrv->trace_bits[i]) { edge_count++; }
+
+    }
+
+    /* Write edge count */
+    if (write(STDOUT_FILENO, &edge_count, 4) != 4) {
+
+      FATAL("Failed to write edge count");
+
+    }
+
+    /* Write edges: (edge_idx:u32, hit_ctr:u8) pairs */
+    for (u32 i = 0; i < map_size; i++) {
+
+      if (fsrv->trace_bits[i]) {
+
+        u32 offset = i;
+        u8  count = fsrv->trace_bits[i];
+        if (write(STDOUT_FILENO, &offset, 4) != 4 ||
+            write(STDOUT_FILENO, &count, 1) != 1) {
+
+          FATAL("Failed to write edge data");
+
+        }
+
+      }
+
+    }
+
+    /* Write stdout LV field (length=0, not implemented) */
+    u32 stdout_len = 0;
+    if (write(STDOUT_FILENO, &stdout_len, 4) != 4) {
+
+      FATAL("Failed to write stdout length");
+
+    }
+
+    /* Write stderr LV field (length=0, not implemented) */
+    u32 stderr_len = 0;
+    if (write(STDOUT_FILENO, &stderr_len, 4) != 4) {
+
+      FATAL("Failed to write stderr length");
+
+    }
 
   }
 
@@ -535,10 +685,74 @@ static u32 read_file(u8 *in_file) {
 }
 
 #ifdef __linux__
-/* Execute the target application with an empty input (in Nyx mode). */
+  #define NYX_STDIN_TMP_BUFFER_SIZE 256
+
+size_t read_stdin_input(u8 **out) {
+
+  size_t len = 0;
+  u8    *input = NULL;
+
+  if (!isatty(STDIN_FILENO)) {   /* only process input when passed via pipe */
+
+    struct pollfd pfd = {.fd = STDIN_FILENO, .events = POLLIN};
+    int           ready = poll(&pfd, 1, 0);
+
+    if (ready == -1) {
+
+      FATAL("%s: poll failed\n", __func__);
+
+    } else if (pfd.revents & POLLIN) {  // check if there is any data on stdin
+
+      u8     tmp[NYX_STDIN_TMP_BUFFER_SIZE];
+      size_t capacity = NYX_STDIN_TMP_BUFFER_SIZE;
+      size_t bytes_read;
+      input = malloc(capacity);
+
+      /* copy input from stdin into a buffer to pass it to Nyx */
+      while ((bytes_read = read(STDIN_FILENO, tmp, NYX_STDIN_TMP_BUFFER_SIZE)) >
+             0) {
+
+        /* resize buffer if needed */
+        if (len + bytes_read > capacity) {
+
+          while (len + bytes_read > capacity)
+            capacity *= 2;
+
+          u8 *new_input = realloc(input, capacity);
+          if (!new_input) {
+
+            free(input);
+            FATAL("%s: realloc failed\n", __func__);
+
+          }
+
+          input = new_input;
+
+        }
+
+        memcpy(input + len, tmp, bytes_read);
+        len += bytes_read;
+
+      }
+
+      *out = input;
+
+    }
+
+  }
+
+  return len;
+
+}
+
+/* Execute the target application in Nyx mode with piped input from stdin
+ * (passed as a buffer). */
 static void showmap_run_target_nyx_mode(afl_forkserver_t *fsrv) {
 
-  afl_fsrv_write_to_testcase(fsrv, NULL, 0);
+  u8    *input = NULL;
+  size_t len = read_stdin_input(&input);
+
+  afl_fsrv_write_to_testcase(fsrv, input, len);
 
   if (afl_fsrv_run_target(fsrv, fsrv->exec_tmout, &stop_soon) ==
       FSRV_RUN_ERROR) {
@@ -546,6 +760,8 @@ static void showmap_run_target_nyx_mode(afl_forkserver_t *fsrv) {
     FATAL("Error running target in Nyx mode");
 
   }
+
+  if (input != NULL) { free(input); }
 
 }
 
@@ -629,6 +845,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
   if (fsrv->exec_tmout) {
 
     fsrv->last_run_timed_out = 0;
+    no_forkserver_timed_out = 0;
     it.it_value.tv_sec = (fsrv->exec_tmout / 1000);
     it.it_value.tv_usec = (fsrv->exec_tmout % 1000) * 1000;
 
@@ -670,7 +887,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   if (!quiet_mode) { SAYF(cRST "-- Program output ends --\n"); }
 
-  if (!fsrv->last_run_timed_out && !stop_soon && WIFSIGNALED(status)) {
+  if (!run_timed_out() && !stop_soon && WIFSIGNALED(status)) {
 
     child_crashed = true;
 
@@ -678,10 +895,10 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
 
   if (!quiet_mode) {
 
-    if (timed_out || fsrv->last_run_timed_out) {
+    if (run_timed_out()) {
 
       SAYF(cLRD "\n+++ Program timed off +++\n" cRST);
-      timed_out = 0;
+      no_forkserver_timed_out = 0;
 
     } else if (stop_soon) {
 
@@ -712,61 +929,8 @@ static void handle_stop_sig(int sig) {
 
 static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
-  char *afl_preload;
-  char *frida_afl_preload = NULL;
-
   set_sanitizer_defaults();
-
-  if (get_afl_env("AFL_PRELOAD")) {
-
-    if (fsrv->qemu_mode) {
-
-      /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
-
-    } else if (fsrv->frida_mode) {
-
-      afl_preload = getenv("AFL_PRELOAD");
-      u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-      if (afl_preload) {
-
-        frida_afl_preload = alloc_printf("%s:%s", afl_preload, frida_binary);
-
-      } else {
-
-        frida_afl_preload = alloc_printf("%s", frida_binary);
-
-      }
-
-      ck_free(frida_binary);
-
-      setenv("LD_PRELOAD", frida_afl_preload, 1);
-#ifdef __APPLE__
-      setenv("DYLD_INSERT_LIBRARIES", frida_afl_preload, 1);
-#endif
-
-    } else {
-
-      /* CoreSight mode uses the default behavior. */
-
-      setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
-#ifdef __APPLE__
-      setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
-#endif
-
-    }
-
-  } else if (fsrv->frida_mode) {
-
-    u8 *frida_binary = find_afl_binary(argv[0], "afl-frida-trace.so");
-    setenv("LD_PRELOAD", frida_binary, 1);
-#ifdef __APPLE__
-    setenv("DYLD_INSERT_LIBRARIES", frida_binary, 1);
-#endif
-    ck_free(frida_binary);
-
-  }
-
-  if (frida_afl_preload) { ck_free(frida_afl_preload); }
+  afl_fsrv_setup_preload(fsrv, argv[0]);
 
 }
 
@@ -1002,7 +1166,8 @@ static void usage(u8 *argv0) {
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
 
       "Required parameters:\n"
-      "  -o file    - file to write the trace data to\n\n"
+      "  -o file    - file to write the trace data to (not required with "
+      "-S)\n\n"
 
       "Execution control settings:\n"
       "  -t msec    - timeout for each run (default: 1000ms)\n"
@@ -1021,6 +1186,21 @@ static void usage(u8 *argv0) {
 #endif
       "\n"
       "Other settings:\n"
+      "  -f file    - input file read by the tested program\n"
+      "  -S         - streaming mode: read test cases from stdin, write "
+      "coverage\n"
+      "               to stdout using a length-value protocol. Allows using\n"
+      "               afl-showmap as a coverage proxy to leverage the AFL++\n"
+      "               forkserver without implementing it.\n"
+      "               Protocol: Input  [u32 len][data]\n"
+      "                         Output [u16 status][u32 edges][(u32,u8)*]\n"
+      "                                [u32 stdout_len][stdout_data*]\n"
+      "                                [u32 stderr_len][stderr_data*]\n"
+      "               Status: bits [0:1] = exit (0=ok, 1=timeout, 2=crash),\n"
+      "                       bits [2:7] = reserved (0),\n"
+      "                       bits [8:15] = exit code (ok) or signal (crash)\n"
+      "               Note: stdout_len/stderr_len are currently always 0\n"
+      "                     (output capture not yet implemented)\n"
       "  -i dir     - process all files below this directory, must be combined "
       "with -o.\n"
       "               With -C, -o is a file, without -C it must be a "
@@ -1047,7 +1227,8 @@ static void usage(u8 *argv0) {
       "LD_BIND_LAZY: do not set LD_BIND_NOW env var for target\n"
       "AFL_CMIN_CRASHES_ONLY: (cmin_mode) only write tuples for crashing "
       "inputs\n"
-      "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing inputs also\n"
+      "AFL_CMIN_ALLOW_ANY: (cmin_mode) write tuples for crashing and timeout "
+      "inputs also\n"
       "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as "
       "crash\n"
       "AFL_DEBUG: enable extra developer output\n"
@@ -1065,6 +1246,7 @@ static void usage(u8 *argv0) {
       "size the\n"
       "              target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
+      "AFL_INPUT_PLACEHOLDER: custom placeholder for input file (default: @@)\n"
       "AFL_PRINT_FILENAMES: Print the queue entry currently processed will to "
       "stdout\n"
       "AFL_QUIET: do not print extra informational output\n"
@@ -1101,7 +1283,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:I:o:f:m:t:AeqCZOH:QUWbcrshXY")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:I:o:f:m:t:AeqCZOH:QUWbcrshSXY")) > 0) {
 
     switch (opt) {
 
@@ -1184,12 +1366,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
       break;
 
-      case 'f':  // only in here to avoid a compiler warning for use_stdin
+      case 'f':
 
-        FATAL("Option -f is not supported in afl-showmap");
-        // currently not reached:
-        fsrv->use_stdin = 0;
-        fsrv->out_file = strdup(optarg);
+        if (at_file) { FATAL("Multiple -f/-H options not supported"); }
+        at_file = ck_strdup(optarg);
 
         break;
 
@@ -1259,8 +1439,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
         break;
 
-      /* FIXME: We want to use -P for consistency, but it is already unsed for
-       * undocumenetd feature "Another afl-cmin specific feature." */
       case 'A':                                           /* CoreSight mode */
 
 #if !defined(__aarch64__) || !defined(__linux__)
@@ -1284,6 +1462,7 @@ int main(int argc, char **argv_orig, char **envp) {
         if (unicorn_mode) { FATAL("Multiple -U options not supported"); }
 
         unicorn_mode = true;
+        fsrv->unicorn_mode = true;
         break;
 
       case 'W':                                           /* Wine+QEMU mode */
@@ -1307,7 +1486,7 @@ int main(int argc, char **argv_orig, char **envp) {
         break;
 #else
       case 'X':
-        FATAL("Nyx mode is only availabe on linux...");
+        FATAL("Nyx mode is only available on linux...");
         break;
 #endif
 
@@ -1332,6 +1511,13 @@ int main(int argc, char **argv_orig, char **envp) {
         raw_instr_output = true;
         break;
 
+      case 'S':
+
+        if (streaming_mode) { FATAL("Multiple -S options not supported"); }
+        streaming_mode = true;
+        quiet_mode = true;
+        break;
+
       case 'h':
         usage(argv[0]);
         return -1;
@@ -1346,14 +1532,32 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (collect_coverage) { binary_mode = false; }  // ensure this
 
-  if (optind == argc || !out_file) { usage(argv[0]); }
+  if (optind == argc || (!out_file && !streaming_mode)) { usage(argv[0]); }
 
   if (in_dir && in_filelist) { FATAL("you can only specify either -i or -I"); }
+
+  if (streaming_mode && (in_dir || in_filelist)) {
+
+    FATAL("-S streaming mode is incompatible with -i/-I input options");
+
+  }
+
+  if (streaming_mode && out_file) {
+
+    FATAL("-S streaming mode is incompatible with -o output option");
+
+  }
 
   if (in_dir || in_filelist) {
 
     if (!out_file && !collect_coverage)
       FATAL("for -i/-I you need to specify either -C and/or -o");
+
+  }
+
+  if (at_file && !in_dir && !in_filelist) {
+
+    WARNF("Using -f without -i or -I has no effect");
 
   }
 
@@ -1401,7 +1605,7 @@ int main(int argc, char **argv_orig, char **envp) {
   fsrv->target_path = find_binary(argv[optind]);
 #endif
 
-  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
+  fsrv->trace_bits = afl_shm_init(&shm, map_size, 0, DEFAULT_PERMISSION, -1);
 
   if (!quiet_mode) {
 
@@ -1410,7 +1614,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (in_dir || in_filelist) {
+  if (in_dir || in_filelist || streaming_mode) {
 
     /* If we don't have a file name chosen yet, use a safe default. */
     u8 *use_dir = ".";
@@ -1437,6 +1641,14 @@ int main(int argc, char **argv_orig, char **envp) {
     fsrv->out_fd =
         open(stdin_file, O_RDWR | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
     if (fsrv->out_fd < 0) { PFATAL("Unable to create '%s'", stdin_file); }
+
+    /* If we created the temp file ourselves and the target reads from stdin
+       (no @@ substitution), unlink the directory entry now. The open fd keeps
+       the file alive for writes, but SIGKILL / SIGSEGV / parent process kill
+       can no longer leave a stray .afl-showmap-temp-<pid> behind. With @@ the
+       path is baked into argv and must stay visible to the child, so we leave
+       it for the atexit / signal handler to clean up. */
+    if (!at_file && fsrv->use_stdin) { unlink(stdin_file); }
 
   } else {
 
@@ -1540,9 +1752,16 @@ int main(int argc, char **argv_orig, char **envp) {
   shm_fuzz->cmplog_mode = 0;
   atexit(at_exit_handler);
 
-  u8 *map = afl_shm_init(shm_fuzz, MAX_FILE + sizeof(u32), 1);
+  size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
+  u8    *map = afl_shm_init(shm_fuzz, SHM_FUZZ_MAP_SIZE_DEFAULT, 1,
+                            DEFAULT_PERMISSION, -1);
   shm_fuzz->shmemfuzz_mode = true;
   if (!map) { FATAL("BUG: Zero return from afl_shm_init."); }
+
+  u8 *shm_fuzz_map_size_str = alloc_printf("%zu", shm_fuzz_map_size);
+  setenv(SHM_FUZZ_MAP_SIZE_ENV_VAR, shm_fuzz_map_size_str, 1);
+  ck_free(shm_fuzz_map_size_str);
+
 #ifdef USEMMAP
   setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
 #else
@@ -1563,57 +1782,20 @@ int main(int argc, char **argv_orig, char **envp) {
                                  ? SIGKILL
                                  : SIGTERM);
 
-  if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
+  u32 save_be_quiet = be_quiet;
+  be_quiet = !debug;
 
-    u32 save_be_quiet = be_quiet;
-    be_quiet = !debug;
-    if (map_size > 4194304) {
+  afl_fsrv_resize_mapsize(fsrv, &shm, use_argv, map_size, &stop_soon,
+                          unicorn_mode);
 
-      fsrv->map_size = map_size;
+  be_quiet = save_be_quiet;
 
-    } else {
+  /* Input streaming mode - read inputs from stdin, write coverage to stdout */
+  if (streaming_mode) {
 
-      fsrv->map_size = 4194304;  // dummy temporary value
-
-    }
-
-    u32 new_map_size =
-        afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
-                             (get_afl_env("AFL_DEBUG_CHILD") ||
-                              get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                                 ? 1
-                                 : 0);
-    be_quiet = save_be_quiet;
-
-    if (new_map_size) {
-
-      // only reinitialize when it makes sense
-      if (map_size < new_map_size ||
-          (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
-
-        if (!be_quiet)
-          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
-
-        afl_shm_deinit(&shm);
-        afl_fsrv_kill(fsrv);
-        fsrv->map_size = new_map_size;
-        fsrv->trace_bits = afl_shm_init(&shm, new_map_size, 0);
-
-      }
-
-      map_size = new_map_size;
-
-    }
-
-    fsrv->map_size = map_size;
-
-  } else {
-
-    afl_fsrv_start(fsrv, use_argv, &stop_soon,
-                   (get_afl_env("AFL_DEBUG_CHILD") ||
-                    get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))
-                       ? 1
-                       : 0);
+    map_size = fsrv->map_size;
+    streaming_loop();
+    goto showmap_done;
 
   }
 
@@ -1684,7 +1866,7 @@ int main(int argc, char **argv_orig, char **envp) {
     } else {
 
       if ((coverage_map = (u8 *)malloc(map_size + 64)) == NULL)
-        FATAL("coult not grab memory");
+        FATAL("could not allocate memory");
       edges_only = false;
 
     }
@@ -1794,19 +1976,25 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+showmap_done:
+
   remove_shm = false;
   afl_shm_deinit(&shm);
   if (fsrv->use_shmem_fuzz) { shm_fuzz = deinit_shmem(fsrv, shm_fuzz); }
 
   u32 ret;
 
-  if (cmin_mode && !!getenv("AFL_CMIN_CRASHES_ONLY")) {
+  if (streaming_mode) {
 
-    ret = fsrv->last_run_timed_out;
+    ret = 0;           /* Streaming mode exits 0 on success, FATAL on error */
+
+  } else if (cmin_mode && !!getenv("AFL_CMIN_CRASHES_ONLY")) {
+
+    ret = run_timed_out();
 
   } else {
 
-    ret = child_crashed * 2 + fsrv->last_run_timed_out;
+    ret = child_crashed * 2 + run_timed_out();
 
   }
 

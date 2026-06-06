@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # All tests should start with sourcing test-pre.sh and finish with sourcing test-post.sh
 # They may set an error code with $CODE=1
@@ -17,9 +17,9 @@ test -z "" 2>/dev/null || { echo Error: test command not found ; exit 1 ; }
 GREP=`type grep > /dev/null 2>&1 && echo OK`
 test "$GREP" = OK || { echo Error: grep command not found ; exit 1 ; }
 echo foobar | grep -qE 'asd|oob' 2>/dev/null || { echo Error: grep command does not support -q and/or -E option ; exit 1 ; }
-test -e ./test-all.sh || cd $(dirname $0) || exit 1
+test -e ./test-all.sh || cd $(dirname "$0") || exit 1
 test -e ./test-all.sh || { echo Error: you must be in the test/ directory ; exit 1 ; }
-export AFL_PATH=`pwd`/..
+export AFL_PATH="$(pwd)/.."
 export AFL_TRY_AFFINITY=1 # workaround for travis that fails for no avail cores
 
 echo 1 > test.1
@@ -59,44 +59,7 @@ $ECHO \\101 2>&1 | grep -qE '^A' || {
     $ECHO "\\101" 2>&1 | grep -qE '^A' || ECHO=
   }
 }
-test -z "$ECHO" && { printf Error: printf command does not support octal character codes ; exit 1 ; }
-
-export AFL_EXIT_WHEN_DONE=1
-export AFL_EXIT_ON_TIME=60
-export AFL_SKIP_CPUFREQ=1
-export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
-unset AFL_NO_X86
-unset AFL_QUIET
-unset AFL_DEBUG
-unset AFL_HARDEN
-unset AFL_USE_ASAN
-unset AFL_USE_MSAN
-unset AFL_USE_UBSAN
-unset AFL_USE_LSAN
-unset AFL_TMPDIR
-unset AFL_CC
-unset AFL_PRELOAD
-unset AFL_GCC_INSTRUMENT_FILE
-unset AFL_LLVM_INSTRUMENT_FILE
-unset AFL_LLVM_INSTRIM
-unset AFL_LLVM_LAF_SPLIT_SWITCHES
-unset AFL_LLVM_LAF_TRANSFORM_COMPARES
-unset AFL_LLVM_LAF_SPLIT_COMPARES
-unset AFL_QEMU_PERSISTENT_ADDR
-unset AFL_QEMU_PERSISTENT_RETADDR_OFFSET
-unset AFL_QEMU_PERSISTENT_GPR
-unset AFL_QEMU_PERSISTENT_RET
-unset AFL_QEMU_PERSISTENT_HOOK
-unset AFL_QEMU_PERSISTENT_CNT
-unset AFL_QEMU_PERSISTENT_MEM
-unset AFL_QEMU_PERSISTENT_EXITS
-unset AFL_CUSTOM_MUTATOR_LIBRARY
-unset AFL_PYTHON_MODULE
-unset AFL_PRELOAD
-unset LD_PRELOAD
-unset SKIP
-
-rm -rf in in2 out
+test -z "$ECHO" && { echo Error: printf command does not support octal character codes ; exit 1 ; }
 
 test -z "$TRAVIS_OS_NAME" && {
   export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=1:symbolize=0
@@ -105,15 +68,44 @@ test -n "$TRAVIS_OS_NAME" && {
   export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=1:symbolize=1
 }
 
+fi # End of AFL_TEST_DEPTH = 1 check (partial, moved logic out)
+
+
+
+# Redefine unset for cleaner logic:
+unset_afl_env() {
+   for afvar in $(env | grep '^AFL_' | cut -d= -f1); do
+    case "$afvar" in
+      AFL_TEST_*|AFL_PATH|AFL_TRY_AFFINITY)
+        ;;
+      *)
+        unset "$afvar"
+        ;;
+    esac
+  done
+  unset LD_PRELOAD
+  unset SKIP
+}
+
+# Clean env always
+unset_afl_env
+
+# Re-export defaults always
+export AFL_EXIT_WHEN_DONE=1
+export AFL_EXIT_ON_TIME=60
+export AFL_SKIP_CPUFREQ=1
+export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+export AFL_PATH="$(pwd)/.."
+# Ensure in/out are clean
+rm -rf in in2 out
+
 #export AFL_LLVM_INSTRUMENT=AFL # AFL mode makes dlopen not link on macos
 
 # on OpenBSD we need to work with llvm from /usr/local/bin
 test -e /usr/local/bin/opt && {
-  test `uname -s` = 'Darwin' || export PATH="/usr/local/bin:${PATH}"
+  test "$(uname -s)" = 'Darwin' || export PATH="/usr/local/bin:${PATH}"
 }
 AFL_COMPILER=afl-clang-fast
-
-SYS=`uname -m`
 
 GREY="\\033[1;90m"
 BLUE="\\033[1;94m"
@@ -122,15 +114,22 @@ RED="\\033[0;31m"
 YELLOW="\\033[1;93m"
 RESET="\\033[0m"
 
+if test -n "$CPU_TARGET"; then
+    $ECHO "${RESET}${GREY}[*] Using environment variable CPU_TARGET=$CPU_TARGET for SYS"
+    SYS="$CPU_TARGET"
+else
+    SYS=$(uname -m)
+fi
+
 MEM_LIMIT=none
 
 export PATH="${PATH}:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 
-$ECHO "${RESET}${GREY}[*] starting AFL++ test framework ..."
+if [ "$AFL_TEST_DEPTH" -eq 1 ]; then
+  $ECHO "${RESET}${GREY}[*] starting AFL++ test framework ..."
+fi
 
 test -z "$SYS" && $ECHO "$YELLOW[-] uname -m did not succeed"
 
 CODE=0
 INCOMPLETE=0
-
-fi

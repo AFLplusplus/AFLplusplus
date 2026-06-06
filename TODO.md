@@ -1,27 +1,27 @@
 # TODO list for AFL++
 
+## Next
+ - analyse regression 87d26ff7de5ba8e762bccdda85e91f5c951f17e9
+   - more?
+ - new classify map VAR=1
+
+
 ## Must
 
- - ijon support?
- - check for null ptr for xml/curl/g_ string transform functions
+ - find a solution that SAYF now prints to stderr (help!)
+ - afl_fsrv_deinit cmplog
  - hardened_usercopy=0 page_alloc.shuffle=0
  - add value_profile but only enable after 15 minutes without finds
  - cmplog max items env?
- - adapt MOpt to new mutation engine
-   - Update afl->pending_not_fuzzed for MOpt
  - cmplog rtn sanity check on fixed length? currently we ignore the length
- - afl-showmap -f support
- - afl-fuzz multicore wrapper script
  - when trimming then perform crash detection
 
 
 ## Should
 
- - afl-crash-analysis
  - cmplog: add loop count resolving (byte -> loop cnt change, calc special values)
  - support persistent and deferred fork server in afl-showmap?
  - better autodetection of shifting runtime timeout values
- - afl-plot to support multiple plot_data
  - parallel builds for source-only targets
  - get rid of check_binary, replace with more forkserver communication
  - first fuzzer should be a main automatically? not sure.

@@ -12,13 +12,15 @@
                      Dominik Maier <mail@dmnk.co>
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
    Shared code to handle the shared memory. This is used by the fuzzer
    as well the other components like afl-tmin, afl-showmap, etc...
@@ -40,6 +42,10 @@
 
 #define CMP_TYPE_INS 0
 #define CMP_TYPE_RTN 1
+
+#define ADDR_ATTR_COMBINE(v0attr, v1attr) ((v0attr & 3) + ((v1attr & 3) << 2))
+#define ADDR_ATTR_V0(x) (x & 3)
+#define ADDR_ATTR_V1(x) ((x >> 2) & 3)
 
 struct cmp_header {  // 16 bit = 2 bytes
 
@@ -70,7 +76,8 @@ struct cmpfn_operands {
   u8 v1[32];
   u8 v0_len;
   u8 v1_len;
-  u8 unused[6];  // 2 bits could be used for "is constant operand"
+  u8 addr_attr;
+  u8 unused[5];  // 2 bits could be used for "is constant operand"
 
 } __attribute__((packed));
 
@@ -87,6 +94,15 @@ struct cmp_map {
 
 struct afl_forkserver;
 void cmplog_exec_child(struct afl_forkserver *fsrv, char **argv);
+
+// Attribute of whether the Buffer points to the memory area mapped by ELF
+enum {
+
+  ADDR_ATTR_NOTFOUND = 0,
+  ADDR_ATTR_RO = 1,
+  ADDR_ATTR_RW = 2,
+
+};
 
 #endif
 

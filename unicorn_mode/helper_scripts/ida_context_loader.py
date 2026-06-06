@@ -63,7 +63,7 @@ def parse_mapping_index(filepath: str):
 def get_input_name():
     """Get the name of the input file
 
-    :retrun: Name of the input file
+    :return: Name of the input file
     """
 
     input_filepath = ida_nalt.get_input_file_path()

@@ -11,8 +11,8 @@ class Afl {
    * it takes as arguments a `NativePointer` and a `number`. It can be
    * called multiple times to exclude several ranges.
    */
-  public static addExcludedRange(addressess: NativePointer, size: number): void {
-    Afl.jsApiAddExcludeRange(addressess, size);
+  public static addExcludedRange(addresses: NativePointer, size: number): void {
+    Afl.jsApiAddExcludeRange(addresses, size);
   }
 
   /**
@@ -20,8 +20,8 @@ class Afl {
    * it takes as arguments a `NativePointer` and a `number`. It can be
    * called multiple times to include several ranges.
    */
-  public static addIncludedRange(addressess: NativePointer, size: number): void {
-    Afl.jsApiAddIncludeRange(addressess, size);
+  public static addIncludedRange(addresses: NativePointer, size: number): void {
+    Afl.jsApiAddIncludeRange(addresses, size);
   }
 
   /**
@@ -66,7 +66,7 @@ class Afl {
 
   /**
    * Print a message to the STDOUT. This should be preferred to
-   * FRIDA's `console.log` since FRIDA will queue it's log messages.
+   * FRIDA's `console.log` since FRIDA will queue its log messages.
    * If `console.log` is used in a callback in particular, then there
    * may no longer be a thread running to service this queue.
    */
@@ -241,7 +241,7 @@ class Afl {
 
   /**
    * This is equivalent to setting `AFL_FRIDA_PERSISTENT_ADDR`, again a
-   * `NativePointer` should be provided as it's argument.
+   * `NativePointer` should be provided as its argument.
    */
   public static setPersistentAddress(address: NativePointer): void {
     Afl.jsApiSetPersistentAddress(address);
@@ -249,7 +249,7 @@ class Afl {
 
   /**
    * This is equivalent to setting `AFL_FRIDA_PERSISTENT_CNT`, a
-   * `number` should be provided as it's argument.
+   * `number` should be provided as its argument.
    */
   public static setPersistentCount(count: number): void {
     Afl.jsApiSetPersistentCount(count);
@@ -272,7 +272,7 @@ class Afl {
 
   /**
    * This is equivalent to setting `AFL_FRIDA_PERSISTENT_RET`, again a
-   * `NativePointer` should be provided as it's argument.
+   * `NativePointer` should be provided as its argument.
    */
   public static setPersistentReturn(address: NativePointer): void {
     Afl.jsApiSetPersistentReturn(address);

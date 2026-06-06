@@ -6,11 +6,7 @@ FILE=$AFL_PERFORMANCE_FILE
 # otherwise we use ~/.afl_performance
 test -z "$FILE" && FILE=.afl_performance
 
-test -e $FILE || {
-  echo Warning: This script measure the performance of AFL++ and saves the result for future comparisons into $FILE
-  echo Press ENTER to continue or CONTROL-C to abort
-  read IN
-}
+test "$1" = "run" || { echo "[*] skipping $0, no value in CI, run with \"run\" to force running"; exit 0; }
 
 test -e ./test-performance.sh || { echo Error: this script must be run from the directory in which it lies. ; exit 1 ; }
 
@@ -59,11 +55,10 @@ MEM_LIMIT=500
 
 touch $FILE || { echo Error: can not write to $FILE ; exit 1 ; }
 
-echo Warning: this script is setting performance parameters with afl-system-config
+echo "[!] Warning: this script is setting performance parameters with afl-system-config"
 sleep 1
 afl-system-config > /dev/null 2>&1
-echo Performance settings applied.
-echo
+#echo Performance settings applied.
 
 $ECHO "${RESET}${GREY}[*] starting AFL++ performance test framework ..."
 
@@ -202,5 +197,4 @@ test -s $FILE && {
   $ECHO "$BLUE[!] llvm_mode=$LLVM  gcc_plugin=$GCCP  qemu_mode=$QEMU"
 }
 echo "$GCC $LLVM $GCCP $QEMU" >> $FILE
-$ECHO "$GREY[*] done."
-$ECHO "$RESET"
+$ECHO "$GREY[*] done.$RESET"

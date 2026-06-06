@@ -16,7 +16,8 @@ FRIDA mode and QEMU mode in persistent mode are the fastest - if persistent mode
 is possible and the stability is high enough.
 
 Otherwise, try Zafl, RetroWrite, Dyninst, and if these fail, too, then try
-standard FRIDA/QEMU mode with `AFL_ENTRYPOINT` to where you need it.
+standard FRIDA/QEMU mode with `AFL_ENTRYPOINT` + `AFL_EXITPOINT` to where you
+need it.
 
 If your target is non-linux, then use unicorn_mode.
 
@@ -146,7 +147,7 @@ To build unicorn_mode:
 
 ```shell
 cd unicorn_mode
-./build_unicorn_support.sh
+./build_unicorn_support.py
 ```
 
 For further information, check out
@@ -172,7 +173,7 @@ tracer implementation available in `coresight_mode/` which is faster than QEMU,
 however, cannot run in parallel. Currently, only one process can be traced, it
 is WIP.
 
-Fore more information, see
+For more information, see
 [coresight_mode/README.md](../coresight_mode/README.md).
 
 ## Binary rewriters
@@ -196,7 +197,7 @@ afl-clang-fast's.
 
 RetroWrite is a static binary rewriter that can be combined with AFL++. If you
 have an x86_64 or arm64 binary that does not contain C++ exceptions and - if
-x86_64 - still has it's symbols and compiled with position independent code
+x86_64 - still has its symbols and compiled with position independent code
 (PIC/PIE), then the RetroWrite solution might be for you.
 It decompiles to ASM files which can then be instrumented with afl-gcc.
 Note that afl-gcc is only present until AFL++ v4.21c and was subsequently removed as it is obsolete.

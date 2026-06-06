@@ -850,7 +850,7 @@ static void mangle_ASCIINumChange(run_t *run, bool printable) {
 
   size_t   len = 0;
   uint64_t val = 0;
-  /* 20 is maximum lenght of a string representing a 64-bit unsigned value */
+  /* 20 is maximum length of a string representing a 64-bit unsigned value */
   for (len = 0; (len < 20) && (len < left); len++) {
 
     char c = run->dynfile->data[off + len];
@@ -980,7 +980,7 @@ static void mangle_Resize(run_t *run, bool printable) {
 
 void mangle_mangleContent(run_t *run, int speed_factor) {
 
-  static void (*const mangleFuncs[])(run_t * run, bool printable) = {
+  static void (*const mangleFuncs[])(run_t *run, bool printable) = {
 
       mangle_Shrink,    mangle_Expand,         mangle_Bit,
       mangle_IncByte,   mangle_DecByte,        mangle_NegByte,

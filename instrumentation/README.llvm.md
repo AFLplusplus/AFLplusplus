@@ -7,7 +7,7 @@ For the GCC-based instrumentation, see
 
 ## 1) Introduction
 
-! llvm_mode works with llvm versions 3.8 up to 17 - but 13+ is recommended !
+! llvm_mode works with llvm versions 14 up to 21 - but 18+ is recommended !
 
 The code in this directory allows you to instrument programs for AFL++ using
 true compiler-level instrumentation, instead of the more crude assembly-level
@@ -32,14 +32,18 @@ properties:
   will *not* work with GCC (see ../gcc_plugin/ for an alternative once it is
   available).
 
+For clarity, note that this approach _replaces_ using the variable
+[`AFL_INST_RATIO`](https://aflplus.plus/docs/env_variables/).
+
 The idea and much of the initial implementation came from Laszlo Szekeres.
 
 ## 2a) How to use this - short
 
-Set the `LLVM_CONFIG` variable to the clang version you want to use, e.g.:
+Rebuild afl++ with the `LLVM_CONFIG` variable set to the clang version
+you want to use, e.g.:
 
 ```
-LLVM_CONFIG=llvm-config-9 make
+LLVM_CONFIG=llvm-config-21 make
 ```
 
 In case you have your own compiled llvm version specify the full path:
@@ -53,13 +57,14 @@ old c++ libraries. In this case usually switching to gcc/g++ to compile
 llvm_mode will work:
 
 ```
-LLVM_CONFIG=llvm-config-7 REAL_CC=gcc REAL_CXX=g++ make
+LLVM_CONFIG=llvm-config-21 REAL_CC=gcc REAL_CXX=g++ make
 ```
 
 It is highly recommended to use the newest clang version you can put your hands
 on :)
 
-Then look at [README.persistent_mode.md](README.persistent_mode.md).
+Then look at [README.persistent_mode.md](README.persistent_mode.md).  It's worth
+checking whether your current build has already been built appropriately.
 
 ## 2b) How to use this - long
 
@@ -235,6 +240,61 @@ are 2-16.
 It is highly recommended to increase the MAP_SIZE_POW2 definition in config.h to
 at least 18 and maybe up to 20 for this as otherwise too many map collisions
 occur.
+
+## 7b) AFL++ Path Coverage (Ball-Larus)
+
+Setting `AFL_LLVM_PATH` (or `AFL_LLVM_LTO_PATH` / `AFL_LLVM_PATH_MODE`)
+adds Ball-Larus per-function path coverage on top of the default edge
+coverage. Each acyclic path through a function (loops are treated as a
+single iteration; back-edges stripped) gets its own bitmap slot. The
+runtime cost per function exit is one map increment. Three levels:
+
+- `=1` (relaxed): collapses every "guard-only" basic block (no calls,
+  stores, or atomics — just pure condition checks) via `max()` instead of
+  `sum()` during path counting, so short-circuit `&&`/`||` chains and
+  switches-on-loaded-value do not multiply path counts. Smallest map.
+- `=2` (restricted): collapses only 2-successor guard-only BBs (preserves
+  switches/indirectbr).
+- `=3` (strict): full Ball-Larus, every IR-level acyclic path is a unique
+  slot.
+
+Functions with more than 100,000 paths that cannot be reduced by
+collapsing multi-way branches are skipped with a warning. Single-path
+(straight-line) functions and functions without any return point are
+also skipped. Functions that call `setjmp` / `sigsetjmp` / a callee
+marked `returns_twice` are skipped because the path-id register lives
+on the stack and `longjmp` would leave it indeterminate. Functions
+that are part of a C++20 coroutine (ramp + post-split `.resume` /
+`.destroy` companions) are skipped because the path-id register would
+be spilled into the coroutine frame and reloaded after the frame is
+freed in the destroy path. The 100,000 cap can be raised or lowered
+with `AFL_LLVM_PATH_MAX_PATHS=N` (`N >= 2`).
+
+An empty value (`AFL_LLVM_PATH=`) is rejected — set the variable
+explicitly to `1`/`2`/`3`/`0`.
+
+**Stability note:** path IDs are deterministic within a single build but
+not stable across LLVM major versions. Both the back-edge DFS order and
+SwitchInst case iteration are LLVM-version-sensitive, so two binaries
+built with different toolchains can assign different bitmap slots to the
+same source path. Do not cross-merge corpora based on PATH coverage.
+
+This works under both `afl-clang-fast` (PCGUARD) and `afl-clang-lto`. The
+LTO build additionally composes with `AFL_LLVM_LTO_CALLER` to track
+`(call_site, path)` tuples — see
+[README.lto.md](README.lto.md).
+
+Some numbers:
+|TARGET|CALLER DEPTH|PATH LEVEL|MAP SIZE||
+|------|------------|----------|--------|-|
+|libjpeg|-|-|22041||
+|libjpeg|-|1|262705|x12|
+|libjpeg|-|2|379697|x18|
+|libjpeg|-|3|1154201|x50|
+|libjpeg|1|-|42161|x2|
+|libjpeg|1|1|477009|x22|
+|libjpeg|1|2|863505|x40|
+|libjpeg|1|3|1977785|hits limits|
 
 ## 8) NeverZero counters
 

@@ -1,28 +1,23 @@
 // This simple example just creates random buffer <= 100 filled with 'A'
 // needs -I /path/to/AFLplusplus/include
-//#include "custom_mutator_helpers.h"
-
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-
+// #include "custom_mutator_helpers.h"
 #include "afl-fuzz.h"
 #include "gramfuzz.h"
 
+#include "gramfuzz-rng.h"
 #define MUTATORS 4  // Specify the total number of mutators
 
 typedef struct my_mutator {
 
   afl_state_t *afl;
 
-  u8 *   mutator_buf;
-  u8 *   unparsed_input;
+  u8    *mutator_buf;
+  u8    *unparsed_input;
   Array *mutated_walk;
   Array *orig_walk;
 
   IdxMap_new *statemap;  // Keeps track of the statemap
-  UT_array ** recurIdx;
+  UT_array  **recurIdx;
   // Get_Dupes_Ret* getdupesret; // Recursive feature map
   int recurlen;
 
@@ -35,77 +30,82 @@ typedef struct my_mutator {
 
 } my_mutator_t;
 
-state *create_pda(u8 *automaton_file) {
 
-  struct json_object *parsed_json;
-  state *             pda;
-  json_object *       source_obj, *attr;
-  int                 arraylen, ii, ii2, trigger_len, error;
+
+state *create_pda(u8 *automaton_file) {
+  // changed from json_object to cJSON
+  cJSON       *parsed_json;
+  state       *pda;
+  cJSON       *source_obj, *attr;
+  int          arraylen, ii, ii2, trigger_len, error;
 
   printf("\n[GF] Automaton file passed:%s", automaton_file);
   // parsed_json =
   // json_object_from_file("./gramfuzz/php_gnf_processed_full.json");
-  parsed_json = json_object_from_file(automaton_file);
+  parsed_json = load_json_file(automaton_file);
+  if (!parsed_json) {
+    PFATAL("Failed to load automaton JSON from '%s'", automaton_file);
+  }
 
   // Getting final state
-  source_obj = json_object_object_get(parsed_json, "final_state");
-  printf("\t\nFinal=%s\n", json_object_get_string(source_obj));
-  final_state = atoi(json_object_get_string(source_obj));
+  source_obj = cJSON_GetObjectItem(parsed_json, "final_state");
+  const char * final_source_obj = source_obj->valuestring;
+  printf("\t\nFinal=%s\n", final_source_obj);
+  final_state = atoi(final_source_obj);
 
   // Getting initial state
-  source_obj = json_object_object_get(parsed_json, "init_state");
-  init_state = atoi(json_object_get_string(source_obj));
-  printf("\tInit=%s\n", json_object_get_string(source_obj));
+  source_obj = cJSON_GetObjectItem(parsed_json, "init_state");
+  const char * init_source_obj = source_obj->valuestring;
+  init_state = atoi(init_source_obj);
+  printf("\tInit=%s\n", init_source_obj);
 
   // Getting number of states
-  source_obj = json_object_object_get(parsed_json, "numstates");
-  numstates = atoi(json_object_get_string(source_obj)) + 1;
+  source_obj = cJSON_GetObjectItem(parsed_json, "numstates");
+  numstates = source_obj->valueint + 1;
   printf("\tNumStates=%d\n", numstates);
 
   // Allocate state space for each pda state
-  pda = (state *)calloc(atoi(json_object_get_string(source_obj)) + 1,
-                        sizeof(state));
-
+  pda = (state *)calloc(numstates,sizeof(state));
   // Getting PDA representation
-  source_obj = json_object_object_get(parsed_json, "pda");
-  enum json_type type;
-  json_object_object_foreach(source_obj, key, val) {
+  source_obj = cJSON_GetObjectItem(parsed_json, "pda");
+  cJSON * state_item;
+  cJSON_ArrayForEach(state_item,source_obj) {
 
-    state *  state_ptr;
+    state   *state_ptr;
     trigger *trigger_ptr;
     int      offset;
 
     // Get the correct offset into the pda to store state information
     state_ptr = pda;
-    offset = atoi(key);
+    offset = atoi(state_item->string);
     state_ptr += offset;
     // Store state string
     state_ptr->state_name = offset;
 
     // Create trigger array of structs
-    trigger_len = json_object_array_length(val);
+    trigger_len = cJSON_GetArraySize(state_item);
     state_ptr->trigger_len = trigger_len;
     trigger_ptr = (trigger *)calloc(trigger_len, sizeof(trigger));
     state_ptr->ptr = trigger_ptr;
 
     for (ii = 0; ii < trigger_len; ii++) {
 
-      json_object *obj = json_object_array_get_idx(val, ii);
-      // Get all the trigger trigger attributes
-      attr = json_object_array_get_idx(obj, 0);
-      (trigger_ptr)->id = strdup(json_object_get_string(attr));
+      cJSON *obj = cJSON_GetArrayItem(state_item, ii);
+      // Get all the trigger attributes
+      attr = cJSON_GetArrayItem(obj, 0);
+      (trigger_ptr)->id = strdup(attr->valuestring);
 
-      attr = json_object_array_get_idx(obj, 1);
-      trigger_ptr->dest = atoi(json_object_get_string(attr));
+      attr = cJSON_GetArrayItem(obj, 1);
+      trigger_ptr->dest = atoi(attr->valuestring);
 
-      attr = json_object_array_get_idx(obj, 2);
-      if (!strcmp("\\n", json_object_get_string(attr))) {
+      attr = cJSON_GetArrayItem(obj, 2);
+      if (!strcmp("\\n", attr->valuestring)) {
 
         trigger_ptr->term = strdup("\n");
 
       } else {
 
-        trigger_ptr->term = strdup(json_object_get_string(attr));
+        trigger_ptr->term = strdup(attr->valuestring);
 
       }
 
@@ -117,7 +117,7 @@ state *create_pda(u8 *automaton_file) {
   }
 
   // Delete the JSON object
-  json_object_put(parsed_json);
+  cJSON_Delete(parsed_json);
 
   return pda;
 
@@ -160,6 +160,12 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   // data->mutator_buf = NULL;
 
   char *automaton_file = getenv("GRAMATRON_AUTOMATION");
+  fprintf(stderr,
+        "[GF] automaton_file ptr=%p, value='%s'\n",
+        (void *)automaton_file,
+        automaton_file ? automaton_file : "(null)");
+  fflush(stderr);
+
   if (automaton_file) {
 
     pda = create_pda(automaton_file);
@@ -211,11 +217,11 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
   } else if (data->mut_idx == 2) {  // Perform splice mutation
 
     // we cannot use the supplied splice data so choose a new random file
-    u32                 tid = rand_below(global_afl, data->afl->queued_items);
+    u32                 tid = gf_rand_below(global_afl, data->afl->queued_items);
     struct queue_entry *q = data->afl->queue_buf[tid];
 
     // Read the input representation for the splice candidate
-    u8 *   automaton_fn = alloc_printf("%s.aut", q->fname);
+    u8    *automaton_fn = alloc_printf("%s.aut", q->fname);
     Array *spliceCandidate = read_input(pda, automaton_fn);
 
     if (spliceCandidate) {
@@ -265,12 +271,12 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
  * @param filename_new_queue File name of the new queue entry
  * @param filename_orig_queue File name of the original queue entry
  */
-u8 afl_custom_queue_new_entry(my_mutator_t * data,
+u8 afl_custom_queue_new_entry(my_mutator_t  *data,
                               const uint8_t *filename_new_queue,
                               const uint8_t *filename_orig_queue) {
 
   // get the filename
-  u8 *   automaton_fn, *unparsed_input;
+  u8    *automaton_fn, *unparsed_input;
   Array *new_input;
   s32    fd;
 
@@ -327,9 +333,9 @@ u8 afl_custom_queue_new_entry(my_mutator_t * data,
 uint8_t afl_custom_queue_get(my_mutator_t *data, const uint8_t *filename) {
 
   // get the filename
-  u8 *        automaton_fn = alloc_printf("%s.aut", filename);
+  u8         *automaton_fn = alloc_printf("%s.aut", filename);
   IdxMap_new *statemap_ptr;
-  terminal *  term_ptr;
+  terminal   *term_ptr;
   int         state;
 
   // TODO: I don't think we need to update pointers when reading back

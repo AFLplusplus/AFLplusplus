@@ -10,13 +10,15 @@
                      Heiko Eissfeldt <heiko.eissfeldt@hexco.de>,
 
    Copyright 2016, 2017 Google Inc. All rights reserved.
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at:
 
      https://www.apache.org/licenses/LICENSE-2.0
+
+   SPDX-License-Identifier: Apache-2.0
 
  */
 
@@ -26,7 +28,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++4.31a"
+#define VERSION "++5.01a"
 
 /******************************************************
  *                                                    *
@@ -39,7 +41,7 @@
    However if a target has problematic constructors and init arrays then
    this can fail. Hence afl-fuzz deploys a larger default map. The largest
    map seen so far is the xlsx fuzzer for libreoffice which is 5MB.
-   At runtime this value can be overriden via AFL_MAP_SIZE.
+   At runtime this value can be overridden via AFL_MAP_SIZE.
    Default: 8MB (defined in bytes) */
 #define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
 
@@ -48,6 +50,9 @@
    coverage is found.
    Default: 300 (seconds) */
 #define STRATEGY_SWITCH_TIME 1000
+
+/* Default file permission umode when creating directories */
+#define DEFAULT_DIRS_PERMISSION 0700
 
 /* Default file permission umode when creating files (default: 0600) */
 #define DEFAULT_PERMISSION 0600
@@ -97,11 +102,17 @@
 /* Maximum allowed fails per CMP value. Default: 96 */
 #define CMPLOG_FAIL_MAX 96
 
+/*
+ * Effective fuzzing with selective feeding inputs
+ */
+
+#define MAX_EXTRA_SAN_BINARY 4
+
 /* -------------------------------------*/
 /* Now non-cmplog configuration options */
 /* -------------------------------------*/
 
-/* If a persistent target keeps state and found crashes are not reproducable
+/* If a persistent target keeps state and found crashes are not reproducible
    then enable this option and set the AFL_PERSISTENT_RECORD env variable
    to a number. These number of testcases prior and including the crash case
    will be kept and written to the crash/ directory as RECORD:... files.
@@ -165,7 +176,9 @@
 #define EXEC_TM_ROUND 20U
 
 /* 64bit arch MACRO */
-#if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__))
+#if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__) ||    \
+     (defined(__riscv) && __riscv_xlen == 64) || defined(__powerpc64le__) || \
+     defined(__s390x__) || defined(__loongarch64))
   #define WORD_SIZE_64 1
 #endif
 
@@ -194,8 +207,8 @@
 
 /* Maximum number of unique hangs or crashes to record: */
 
-#define KEEP_UNIQUE_HANG 500U
-#define KEEP_UNIQUE_CRASH 10000U
+#define KEEP_UNIQUE_HANG 512U
+#define KEEP_UNIQUE_CRASH 25600U
 
 /* Baseline number of random tweaks during a single 'havoc' stage: */
 
@@ -330,6 +343,10 @@
 
 #define AVG_SMOOTHING 16
 
+/* Max length of sync id (the id after -M and -S) */
+
+#define SYNC_ID_MAX_LEN 50
+
 /* Sync interval (every n havoc cycles): */
 
 #define SYNC_INTERVAL 8
@@ -415,9 +432,15 @@
 
 #define SHM_ENV_VAR "__AFL_SHM_ID"
 
-/* Environment variable used to pass SHM FUZZ ID to the called program. */
+/* Environment variable used to pass shared memory fuzz map id
+and the mapping size to the called program. */
 
 #define SHM_FUZZ_ENV_VAR "__AFL_SHM_FUZZ_ID"
+#define SHM_FUZZ_MAP_SIZE_ENV_VAR "__AFL_SHM_FUZZ_MAP_SIZE"
+
+/* Default size of the shared memory fuzz map.
+We add 4 byte for one u32 length field. */
+#define SHM_FUZZ_MAP_SIZE_DEFAULT (MAX_FILE + 4)
 
 /* Other less interesting, internal-only variables. */
 
@@ -481,6 +504,38 @@
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
 
+/* IJON max tracking map configuration */
+
+/* Number of IJON slots (power-of-2 for efficient bitmasking) */
+#define MAP_SIZE_IJON_ENTRIES 512
+
+/* IJON map size for set/inc/xor */
+#define MAP_SIZE_IJON_MAP 65536
+
+/* IJON map footprint in bytes (64-bit values for legacy compatibility) */
+#define MAP_SIZE_IJON_BYTES (MAP_SIZE_IJON_ENTRIES * sizeof(u64))  // = 4096
+
+/* Bug-pass map. Holds u32 slots; runtime keeps the max value seen per slot
+   (like IJON). Layout: appended after the IJON region in __afl_area_ptr. */
+#define MAP_SIZE_BUG_ENTRIES (1U << 14)
+#define MAP_SIZE_BUG_BYTES (MAP_SIZE_BUG_ENTRIES * sizeof(u32))
+
+/* AllocSizeOracle (AFL_LLVM_BUG_ALLOCSIZE) shadow.
+   1 u16 per 64-byte granule covering 16 GB of tracked address space.
+   The u16 width caps MAP_SIZE_ALLOCRECORDS at 65535.  mmap'd
+   MAP_NORESERVE so physical pages are lazy. */
+#define MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2 6                     /* 64 bytes */
+#define MAP_SIZE_ALLOCSHADOW_RANGE (1ULL << 34)                    /* 16 GB */
+#define MAP_SIZE_ALLOCSHADOW_GRANULES \
+  (MAP_SIZE_ALLOCSHADOW_RANGE >> MAP_SIZE_ALLOCSHADOW_GRANULE_LOG2)
+#define MAP_SIZE_ALLOCSHADOW_BYTES \
+  (MAP_SIZE_ALLOCSHADOW_GRANULES * sizeof(u16))                   /* 512 MB */
+
+/* Live allocation records. Index 0 is reserved for "untracked"; 1..N-1
+   correspond to active allocations. Coupled to the u16 shadow byte
+   (see MAP_SIZE_ALLOCSHADOW_BYTES). */
+#define MAP_SIZE_ALLOCRECORDS 4096
+
 /* Maximum allocator request size (keep well under INT_MAX): */
 
 #define MAX_ALLOC 0x40000000
@@ -502,6 +557,9 @@
 /* AFL RedQueen */
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
+
+/* ASAN SHM ID */
+#define AFL_ASAN_FUZZ_SHM_ENV_VAR "__AFL_ASAN_SHM_ID"
 
 /* CPU Affinity lockfile env var */
 
@@ -534,7 +592,7 @@
 
 #define AFL_TXT_MAX_LEN 65535
 
-/* What is the minimum percentage of ascii characters present to be classifed
+/* What is the minimum percentage of ascii characters present to be classified
    as "is_ascii"? */
 
 #define AFL_TXT_MIN_PERCENT 99
