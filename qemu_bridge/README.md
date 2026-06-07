@@ -35,8 +35,10 @@ faster (see §7).
 
 ## 2) Building
 
-The backend builds to the repository-root `afl-qemu-trace`, alongside the
-companion libraries `libqasan.so` and `libcompcov.so`.
+The backend builds to the repository-root `afl-qemu-bridge`, alongside the
+companion libraries `libqasan.so` and `libcompcov.so`. (The legacy qemuafl
+backend in `qemu_mode/` builds a separate `afl-qemu-trace`, so the two no longer
+collide on disk.)
 
 ```sh
 make                              # build the AFL++ core first
@@ -62,7 +64,7 @@ Build-time environment variables for `build_qemu_bridge_support.sh`:
   `CPU_TARGET=aarch64`).
 - `HOST=<prefix>` — cross-compiler prefix when building QEMU itself for another
   host architecture (e.g. `HOST=aarch64-linux-gnu`).
-- `STATIC=1` — build a statically-linked, non-PIE `afl-qemu-trace` (useful with
+- `STATIC=1` — build a statically-linked, non-PIE `afl-qemu-bridge` (useful with
   `HOST` when the build and run machines differ).
 - `DEBUG=1` — build QEMU with debug info / assertions.
 - `NO_CHECKOUT=1` — skip the submodule checkout/pin step and build whatever is
@@ -87,13 +89,32 @@ export QEMU_RESERVED_VA=0x1000000
 
 ## 3) Choosing the backend (bridge vs legacy qemuafl)
 
-Both backends, when built, produce a repository-root `afl-qemu-trace`; whichever
-build ran last wins on disk. At run time the AFL++ tools default to the bridge
-and select it automatically when you pass `-Q`:
+The two backends now build to **distinct binaries** — the bridge to
+`afl-qemu-bridge`, the legacy qemuafl to `afl-qemu-trace` — so they no longer
+overwrite each other on disk.
 
-- `AFL_QEMU_BACKEND=bridge` *(default)* — use the new bridge.
-- `AFL_QEMU_BACKEND=legacy` — use the qemuafl forkserver protocol. Point
-  `AFL_PATH` at a directory that contains a qemuafl `afl-qemu-trace`.
+When you pass `-Q`, afl-fuzz and the related utilities (afl-showmap, afl-tmin,
+afl-analyze, afl-cmin) pick the binary like this:
+
+- If `afl-qemu-trace` is present, it is used.
+- Otherwise `afl-qemu-bridge` is used.
+- `AFL_QEMU_MODE=bridge` forces `afl-qemu-bridge` regardless of what else is
+  present; `AFL_QEMU_MODE=trace` (alias `qemuafl`) forces `afl-qemu-trace`.
+
+The full path of the binary actually used is printed at start-up, e.g.
+`Using QEMU binary: /path/to/afl-qemu-bridge`. So if you have only built the
+bridge, `-Q` selects it automatically; build both and the legacy qemuafl wins by
+default unless you set `AFL_QEMU_MODE=bridge`.
+
+Binaries are searched via `AFL_PATH`, then next to the AFL++ tool, then the
+install dir, then `PATH` — point `AFL_PATH` at a specific directory to override
+which `afl-qemu-bridge`/`afl-qemu-trace` is used.
+
+A separate, lower-level knob selects the forkserver *protocol* rather than the
+binary: `AFL_QEMU_BACKEND=legacy` switches to the old qemuafl forkserver
+handshake (needed only for an old qemuafl `afl-qemu-trace` that predates the
+shared forkserver protocol). The default (`bridge`) is correct for both the
+bridge and a current qemuafl build.
 
 ## 4) Running
 
@@ -192,7 +213,7 @@ amd64 add `0x4000000000` (9 zeroes) to the `nm` address; for 32-bit add
 `0x40000000` (7 zeroes). To discover the actual base on your setup, run
 
 ```sh
-AFL_DEBUG=1 afl-qemu-trace ./target
+AFL_DEBUG=1 afl-qemu-bridge ./target
 ```
 
 and read the printed instrument range / entry point. If the address is invalid,
@@ -313,7 +334,7 @@ AFL_USE_QASAN=1 afl-fuzz -Q -i in -o out -- ./target @@
 ```
 
 `AFL_USE_QASAN=1` automatically loads `libqasan.so` into the guest (discovered
-via `AFL_PATH` or next to `afl-qemu-trace`) and enables the in-QEMU shadow — no
+via `AFL_PATH` or next to `afl-qemu-bridge`) and enables the in-QEMU shadow — no
 manual `AFL_PRELOAD` is needed. Overflow **detection** works on all
 architectures; the report's PC/BP/SP context and backtraces are populated on
 x86/x86_64, arm, and aarch64.
@@ -383,7 +404,7 @@ backends but are not yet validated.
   resolved configuration at startup — use it to find load bases for persistent
   mode and to confirm range filtering.
 - QEMU's own logging is available via the `-d` flag / `QEMU_LOG` (e.g.
-  `QEMU_LOG=out_asm` to dump generated code) when running `afl-qemu-trace`
+  `QEMU_LOG=out_asm` to dump generated code) when running `afl-qemu-bridge`
   directly.
 
 ## 16) Not yet ported from qemuafl

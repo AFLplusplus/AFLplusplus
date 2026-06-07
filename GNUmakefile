@@ -700,7 +700,7 @@ all_done: test_build
 
 .PHONY: clean
 clean:
-	rm -rf $(PROGS) afl-fuzz-document as afl-as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM lib*.a
+	rm -rf $(PROGS) afl-fuzz-document as afl-as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-qemu-bridge afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM lib*.a
 	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	-$(MAKE) -C utils/libdislocator clean
@@ -833,7 +833,7 @@ ifndef NO_NYX
 	@test -e libnyx.so && echo "[+] nyx_mode successfully built" || echo "[-] nyx_mode could not be built, it is optional, see nyx_mode/README.md for what is needed"
 endif
 endif
-	@test -e afl-qemu-trace && echo "[+] qemu_mode/qemu_bridge successfully built (repo-root afl-qemu-trace; whichever of NO_QEMU/NO_QEMU_BRIDGE ran last wins)" || echo "[-] qemu_mode/qemu_bridge could not be built, see docs/INSTALL.md for what is needed"
+	@{ test -e afl-qemu-trace || test -e afl-qemu-bridge; } && echo "[+] qemu_mode/qemu_bridge successfully built (qemuafl -> afl-qemu-trace, bridge -> afl-qemu-bridge)" || echo "[-] qemu_mode/qemu_bridge could not be built, see docs/INSTALL.md for what is needed"
 ifndef NO_UNICORN
 	@test -e unicorn_mode/lib/libunicorn.a && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
 endif
@@ -899,6 +899,7 @@ install: all $(MANPAGES)
 	@for i in afl-llvm-dict2file.so afl-llvm-lto-instrumentlist.so afl-llvm-pass.so cmplog-instructions-pass.so cmplog-routines-pass.so cmplog-switches-pass.so compare-transform-pass.so libcompcov.so libdislocator.so libnyx.so libqasan.so libtokencap.so SanitizerCoverageLTO.so SanitizerCoveragePCGUARD.so split-compares-pass.so split-switches-pass.so injection-pass.so; do echo rm -fv $${DESTDIR}$(HELPER_PATH)/$${i}; done
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
 	@if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
+	@if [ -f afl-qemu-bridge ]; then install -m 755 afl-qemu-bridge $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f utils/plot_ui/afl-plot-ui ]; then install -m 755 utils/plot_ui/afl-plot-ui $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f libdislocator.so ]; then set -e; install -m 755 libdislocator.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
@@ -931,7 +932,7 @@ endif
 
 .PHONY: uninstall
 uninstall:
-	-cd $${DESTDIR}$(BIN_PATH) && rm -f $(PROGS) $(SH_PROGS) afl-cs-proxy afl-qemu-trace afl-plot-ui afl-fuzz-document afl-network-client afl-network-server afl-g* afl-plot.sh afl-ld-lto afl-c* afl-lto*
+	-cd $${DESTDIR}$(BIN_PATH) && rm -f $(PROGS) $(SH_PROGS) afl-cs-proxy afl-qemu-trace afl-qemu-bridge afl-plot-ui afl-fuzz-document afl-network-client afl-network-server afl-g* afl-plot.sh afl-ld-lto afl-c* afl-lto*
 	-cd $${DESTDIR}$(INCLUDE_PATH) && rm -f $(HEADERS:include/%=%)
 	-cd $${DESTDIR}$(HELPER_PATH) && rm -f afl-g*.*o afl-llvm-*.*o afl-compiler-*.*o libdislocator.so libtokencap.so libcompcov.so libqasan.so afl-frida-trace.so libnyx.so socketfuzz*.so argvfuzz*.so libAFLDriver.a libAFLQemuDriver.a as afl-as SanitizerCoverage*.so compare-transform-pass.so cmplog-*-pass.so split-*-pass.so dynamic_list.txt injections.dic
 	-rm -rf $${DESTDIR}$(MISC_PATH)/testcases $${DESTDIR}$(MISC_PATH)/dictionaries

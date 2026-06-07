@@ -41,9 +41,9 @@ test -x /usr/bin/python3 && CONF="$CONF --python=/usr/bin/python3"
 ./configure $CONF || exit 1
 ninja -C build "qemu-${CPU_TARGET}" || exit 1
 cd ..
-cp -f "qemu-libafl-bridge/build/qemu-${CPU_TARGET}" ../afl-qemu-trace || exit 1
+cp -f "qemu-libafl-bridge/build/qemu-${CPU_TARGET}" ../afl-qemu-bridge || exit 1
 
-echo "afl-qemu-trace built: $(file ../afl-qemu-trace | cut -d: -f2-)"
+echo "afl-qemu-bridge built: $(file ../afl-qemu-bridge | cut -d: -f2-)"
 
 make -C libqasan clean >/dev/null 2>&1
 if make -C libqasan; then

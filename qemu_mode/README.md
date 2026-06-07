@@ -21,6 +21,14 @@ while and needs a few dependencies (most notably `libtool` and `glib2-devel`).
 
 Once built, pass `-Q` to afl-fuzz and the related utilities to use it.
 
+This build produces `afl-qemu-trace`. When `-Q` is given, afl-fuzz and the
+related utilities (afl-showmap, afl-tmin, afl-analyze, afl-cmin) launch
+`afl-qemu-trace` if it is present, and otherwise fall back to the newer
+`afl-qemu-bridge` backend (see [qemu_bridge/README.md](../qemu_bridge/README.md)).
+Set `AFL_QEMU_MODE=bridge` to force the bridge, or `AFL_QEMU_MODE=trace` to force
+this qemuafl backend. The full path of the binary actually used is printed at
+start-up.
+
 Build variables:
 
 - `CPU_TARGET` — build for a non-native architecture, e.g. `CPU_TARGET=arm`,
@@ -248,6 +256,12 @@ don't match.
 
 ## 15) Other environment variables
 
+- `AFL_QEMU_MODE` — choose the QEMU backend binary. `AFL_QEMU_MODE=bridge`
+  forces `afl-qemu-bridge`; `AFL_QEMU_MODE=trace` (alias `qemuafl`) forces this
+  `afl-qemu-trace`. When unset, afl-fuzz uses `afl-qemu-trace` if present and
+  falls back to `afl-qemu-bridge`. The full path of the selected binary is
+  printed at start-up. This applies to afl-fuzz, afl-showmap, afl-tmin,
+  afl-analyze, and afl-cmin alike.
 - `AFL_QEMU_FORCE_DFL` — make QEMU ignore the target's registered signal
   handlers.
 - `AFL_QEMU_DEBUG_MAPS` — print the target's memory layout after loading (pair
