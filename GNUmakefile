@@ -432,6 +432,7 @@ help:
 	@echo NO_NYX - disable building nyx mode dependencies
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
 	@echo NO_QEMU - disable building QEMU support
+	@echo "NO_QEMU_BRIDGE - disable building the QEMU libafl bridge backend"
 	@echo NO_FRIDA - disable building FRIDA support
 	@echo NO_UNICORN - disable building unicorn
 	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
@@ -713,6 +714,10 @@ clean:
 	-$(MAKE) -C qemu_mode/fastexit clean
 	-$(MAKE) -C qemu_mode/libcompcov clean
 	-$(MAKE) -C qemu_mode/libqasan clean
+	-$(MAKE) -C qemu_bridge/unsigaction clean
+	-$(MAKE) -C qemu_bridge/fastexit clean
+	-$(MAKE) -C qemu_bridge/libcompcov clean
+	-$(MAKE) -C qemu_bridge/libqasan clean
 	-$(MAKE) -C frida_mode clean
 	rm -rf nyx_mode/packer/linux_initramfs/init.cpio.gz nyx_mode/libnyx/libnyx/target/release/* nyx_mode/QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64
 ifeq "$(IN_REPO)" "1"
@@ -771,6 +776,9 @@ endif
 ifndef NO_QEMU
 	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
 endif
+ifndef NO_QEMU_BRIDGE
+	-cd qemu_bridge && unset CFLAGS && ./build_qemu_bridge_support.sh
+endif
 ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
 endif
@@ -803,6 +811,9 @@ endif
 ifndef NO_QEMU
 	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
 endif
+ifndef NO_QEMU_BRIDGE
+	-cd qemu_bridge && unset CFLAGS && ./build_qemu_bridge_support.sh
+endif
 ifndef NO_UNICORN
 	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
 endif
@@ -822,7 +833,7 @@ ifndef NO_NYX
 	@test -e libnyx.so && echo "[+] nyx_mode successfully built" || echo "[-] nyx_mode could not be built, it is optional, see nyx_mode/README.md for what is needed"
 endif
 endif
-	@test -e afl-qemu-trace && echo "[+] qemu_mode successfully built" || echo "[-] qemu_mode could not be built, see docs/INSTALL.md for what is needed"
+	@test -e afl-qemu-trace && echo "[+] qemu_mode/qemu_bridge successfully built (repo-root afl-qemu-trace; whichever of NO_QEMU/NO_QEMU_BRIDGE ran last wins)" || echo "[-] qemu_mode/qemu_bridge could not be built, see docs/INSTALL.md for what is needed"
 ifndef NO_UNICORN
 	@test -e unicorn_mode/lib/libunicorn.a && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
 endif

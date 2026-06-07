@@ -3361,6 +3361,15 @@ void check_binary(afl_state_t *afl, u8 *fname) {
     afl->fsrv.persistent_mode = 1;
     afl->shmem_testcase_mode = 1;
 
+  } else if (afl->fsrv.qemu_mode &&
+
+             (getenv("AFL_QEMU_PERSISTENT_ADDR") ||
+              getenv("AFL_QEMU_SNAPSHOT"))) {
+
+    OKF(cPIN "QEMU persistent mode configuration options detected.");
+    afl->persistent_mode = 1;
+    afl->fsrv.persistent_mode = 1;
+
   }
 
   if (afl->fsrv.frida_mode ||

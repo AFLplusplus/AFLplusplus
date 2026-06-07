@@ -22,3 +22,6 @@
 [submodule "nyx_mode/QEMU-Nyx"]
 	path = nyx_mode/QEMU-Nyx
 	url = https://github.com/nyx-fuzz/QEMU-Nyx
+[submodule "qemu_bridge/qemu-libafl-bridge"]
+	path = qemu_bridge/qemu-libafl-bridge
+	url = https://github.com/AFLplusplus/qemu-libafl-bridge
