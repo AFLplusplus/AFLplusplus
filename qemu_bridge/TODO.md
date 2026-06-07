@@ -1,8 +1,9 @@
 # qemu_bridge — implementation status & TODO
 
 Status of the AFL++ `-Q` backend built from `qemu-libafl-bridge` (QEMU 10.2).
-See `docs/qemu_bridge_migration.md` for user-facing docs. This file tracks what
-is implemented, what is not, and what is needed to close each gap.
+See `qemu_bridge/README.md` (usage + env vars) and `docs/qemu_bridge_migration.md`
+(migration guide) for user-facing docs. This file tracks what is implemented,
+what is not, and what is needed to close each gap.
 
 Legend: ✅ implemented & runtime-verified · 🟡 implemented, build-verified only (not
 runtime-tested) · ⚠️ partial/degraded · ❌ not implemented.
@@ -45,6 +46,55 @@ Notes:
   arm64 host with a different VA split, or the shadow `mmap` will fail.
 - HOST and TARGET are independent: on any supported host you can fuzz any supported
   target arch with that target's feature set from the matrix above.
+
+---
+
+## Fork-mode performance
+
+Fork mode is the default execution model. Benchmarked on x86_64 against legacy
+qemuafl with an empty target (the worst case — the per-exec `fork()` dominates
+when the guest does almost no work):
+
+- **qemuafl (legacy):** ~4500-4800 exec/s
+- **qemu_bridge (now):**  ~3700 exec/s (~80% of legacy)
+
+Five independent root causes were found and fixed to get from an initial
+~70 exec/s to the current ~3700. They are recorded here so they are not
+re-investigated or silently regressed:
+
+1. **Cold fork point.** `libafl_get_image_info()->entry` is the *interpreter*
+   (`ld.so`) entry for dynamically-linked targets, so the forkserver forked at
+   the very first guest instruction and every child re-ran/re-JITed `ld.so`. The
+   forkserver now forks at the *executable's* own entry (after `ld.so`), captured
+   in `linux-user/elfload.c` (`afl_exec_entry` / `afl_get_exec_entry()`, with
+   PPC64-descriptor/ARM-thumb handling) and armed via the entry-point
+   instruction hook in `libafl/afl/afl_setup.c`.
+2. **RCU abort when forking from inside `cpu_exec`.** The child's `pthread_atfork`
+   handler hit `assert(rcu_reader.ctr==0)`. Fixed with `rcu_disable_atfork()`
+   once before the fork loop in `libafl/afl/afl_forkserver.c` (matches qemuafl).
+3. **No translation-cache sharing (TSL).** Ported qemuafl's mechanism: forked
+   children mirror new translations/chains to the parent over a pipe
+   (`AFL_TSL_FD`), so the parent's TB cache stays warm and later children inherit
+   it via COW and translate ~0. Implemented as `afl_request_tsl`/`afl_wait_tsl`
+   in `accel/tcg/cpu-exec.c` plus the forkserver pipe wiring in
+   `afl_forkserver.c`. Only *plain* chains are mirrored; instrumented-edge chains
+   still re-chain per child (cheap, few — a minor residual, see item I).
+4. **Full TB-cache flush on every child exit.** `preexit_cleanup` (via
+   `qemu_plugin_user_exit` → `tb_flush`) freed the entire COW-inherited TB tree
+   on each child exit. Now skipped for fork children in `linux-user/exit.c`.
+5. **8 MB coverage map scanned every exec.** afl-fuzz injects
+   `AFL_MAP_SIZE=DEFAULT_SHMEM_SIZE` (8 MB) as the shm *allocation ceiling*; the
+   bridge echoed it back as the map size so afl-fuzz `memset`/scanned 8 MB per
+   run. The bridge now sizes its collision-free map from the dedicated
+   `AFL_QEMU_MAP_SIZE` env (default 64 KB) — see `libafl/afl/afl_setup.c` and
+   README §5.
+
+**Remaining gap (~17-20%).** Inherent to QEMU 10.2 having a much larger guest
+address space than 5.2: each `fork()` copies more page tables and the child
+takes more copy-on-write faults. The empty target is the worst case; the gap
+amortizes on compute-heavier targets (and 10.2's better TCG codegen may even win
+there — not yet measured). Persistent mode sidesteps fork entirely and is far
+faster (~30x in the self-test). Closing the fork-mode gap is workstream H below.
 
 ---
 
@@ -155,7 +205,31 @@ persistent-hook ABI + driver; libqasan string.c + dlmalloc + symbolized backtrac
 hooking-bridge; generic `AFL_PRELOAD` passthrough; snapshot-LKM auto-use; dirty-page
 persistent snapshot optimization.
 
-### H. Final cut-over (maintainer step)
+### H. Close / sidestep the residual fork-mode throughput gap (perf; see "Fork-mode performance")
+The remaining ~17-20% vs qemuafl is fork copy-on-write of QEMU 10.2's larger
+address space. Options, roughly in value order: (a) shrink the reserved guest VA
+/ page-table footprint so each fork copies fewer page-table entries (investigate
+the `reserved_va` defaults for the linux-user targets); (b) wire the AFL snapshot
+LKM (`/dev/afl_snapshot`, `imported/snapshot-inl.h`) so snapshot/persistent runs
+avoid `fork()` entirely (also item G); (c) dirty-page-only persistent snapshot
+instead of the full writable-page memcpy (also item G); (d) extend TSL chain
+mirroring to instrumented-edge chains so children never re-chain (currently only
+plain chains are mirrored). Until then, steer throughput-sensitive users to
+persistent mode.
+
+### I. Per-arch fork-mode performance validation (perf)
+The throughput numbers are x86_64 only. Re-run the empty-target benchmark plus a
+compute-heavy target per arch once cross-toolchains are wired (item F), to
+confirm the TSL + exit-flush-skip fixes behave on arm/aarch64/mips/ppc and to
+catch arch-specific fork-cost surprises.
+
+### J. Documentation sync (housekeeping)
+`docs/qemu_bridge_migration.md` still references `AFL_MAP_SIZE` for sizing the
+coverage map; the knob is now `AFL_QEMU_MAP_SIZE` (afl-fuzz reserves
+`AFL_MAP_SIZE` for shm allocation). Reconcile it with `qemu_bridge/README.md`,
+which is the current source of truth for usage and env vars.
+
+### K. Final cut-over (maintainer step)
 Retire qemuafl once CI A/B parity vs a built legacy qemuafl passes: remove the
 `qemu_mode/qemuafl` entry from `.gitmodules`, `qemu_mode/QEMUAFL_VERSION`, the
 `qemu_mode` build/install/clean targets in `GNUmakefile`, and the
