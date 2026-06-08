@@ -1,6 +1,15 @@
-# High-performance binary-only instrumentation for afl-fuzz
+# High-performance binary-only instrumentation for afl-fuzz (Qemu Mode)
 
 For the general instruction manual, see [docs/README.md](../docs/README.md).
+
+## 0) qemu_mode vs qemu_bridge - which one to use?
+
+If qemu_mode works for your target then use qemu_mode. It is quite faster
+for normal targets, and slightly faster for persistent targets.
+
+If you have a target that does not work for whatever reason (eg Risc-V), then
+use qemu_bridge. As this is WIP some features might be implemented yet.
+Plus you have access to the plugin system of a modern Qemu.
 
 ## 1) Introduction
 
