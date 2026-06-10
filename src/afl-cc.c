@@ -2575,9 +2575,13 @@ void add_runtime(aflcc_state_t *aflcc) {
 
     }
 
-  #if __AFL_CODE_COVERAGE
-    // Required for dladdr used in afl-compiler-rt.o
-    insert_param(aflcc, "-ldl");
+  #if !defined(__APPLE__) && !defined(__sun)
+    // afl-compiler-rt.o always calls dlsym() (the __afl_bug ASAN coexistence
+    // probe) and, under code coverage, dladdr(). On glibc < 2.34 these live in
+    // a separate libdl, so we must link -ldl whenever the runtime object is
+    // linked in (on newer glibc/musl this is a harmless empty stub).
+    if (!aflcc->shared_linking && !aflcc->partial_linking)
+      insert_param(aflcc, "-ldl");
   #endif
 
   #if !defined(__APPLE__) && !defined(__sun)
