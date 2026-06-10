@@ -2577,9 +2577,13 @@ void add_runtime(aflcc_state_t *aflcc) {
 
     }
 
-  #if __AFL_CODE_COVERAGE
-    // Required for dladdr used in afl-compiler-rt.o
-    insert_param(aflcc, "-ldl");
+  #if !defined(__APPLE__) && !defined(__sun)
+    // afl-compiler-rt.o always calls dlsym() (the __afl_bug ASAN coexistence
+    // probe) and, under code coverage, dladdr(). On glibc < 2.34 these live in
+    // a separate libdl, so we must link -ldl whenever the runtime object is
+    // linked in (on newer glibc/musl this is a harmless empty stub).
+    if (!aflcc->shared_linking && !aflcc->partial_linking)
+      insert_param(aflcc, "-ldl");
   #endif
 
   #if !defined(__APPLE__) && !defined(__sun)
@@ -3766,7 +3770,12 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
     if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") &&
         (getenv("AFL_USE_ASAN") || aflcc->have_asan)) {
 
-      WARNF("AFL_LLVM_BUG_ALLOCSIZE_DERIVE is incompatible with ASAN, ignored");
+      if (!be_quiet) {
+
+        WARNF(
+            "AFL_LLVM_BUG_ALLOCSIZE_DERIVE is incompatible with ASAN, ignored");
+
+      }
 
     }
 
@@ -3781,10 +3790,15 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
        OOB oracle is enabled too. */
     if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") && !aflcc->cmplog_mode) {
 
-      WARNF(
-          "AFL_LLVM_BUG_ALLOCSIZE_DERIVE needs a CmpLog map at run time (a "
-          "CMPLOG build, afl-fuzz cmplog mode, or AFL_CMPLOG_DEBUG); without "
-          "one it is a no-op. Keeping DERIVE enabled.");
+      if (!be_quiet) {
+
+        WARNF(
+            "AFL_LLVM_BUG_ALLOCSIZE_DERIVE needs a CmpLog map at run time (a "
+            "CMPLOG build, afl-fuzz cmplog mode, or AFL_CMPLOG_DEBUG); without "
+            "one it is a no-op. Keeping DERIVE enabled.");
+
+      }
+
       setenv("AFL_LLVM_BUG_ALLOCSIZE", "1", 1);
 
     }

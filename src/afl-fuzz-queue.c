@@ -1603,12 +1603,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  // MOpt mode
-  if (afl->limit_time_sig != 0 && afl->max_depth - q->depth < 3) {
-
-    perf_score *= 2;
-
-  } else if (afl->schedule != COE && perf_score < 1) {
+  if (afl->schedule != COE && perf_score < 1) {
 
     // Add a lower bound to AFLFast's energy assignment strategies
     perf_score = 1;
