@@ -21,11 +21,17 @@ if [ -z "$NO_CHECKOUT" ]; then
   fi
 fi
 
-mkdir -p qemu-libafl-bridge/libafl/afl/imported || exit 1
-cp -f ../include/config.h qemu-libafl-bridge/libafl/afl/imported/ || exit 1
-cp -f ../include/types.h qemu-libafl-bridge/libafl/afl/imported/ || exit 1
-cp -f ../include/cmplog.h qemu-libafl-bridge/libafl/afl/imported/ || exit 1
-cp -f ../include/snapshot-inl.h qemu-libafl-bridge/libafl/afl/imported/ || exit 1
+AFL_LINK=qemu-libafl-bridge/libafl/afl
+if [ -e "$AFL_LINK" ] && [ ! -L "$AFL_LINK" ]; then
+  rm -rf "$AFL_LINK"
+fi
+ln -sfn ../../libaflqemubridge "$AFL_LINK" || exit 1
+
+mkdir -p libaflqemubridge/imported || exit 1
+cp -f ../include/config.h libaflqemubridge/imported/ || exit 1
+cp -f ../include/types.h libaflqemubridge/imported/ || exit 1
+cp -f ../include/cmplog.h libaflqemubridge/imported/ || exit 1
+cp -f ../include/snapshot-inl.h libaflqemubridge/imported/ || exit 1
 
 test "$CPU_TARGET" = "" && CPU_TARGET="$(uname -m)"
 test "$CPU_TARGET" = "i686" && CPU_TARGET="i386"

@@ -3,13 +3,14 @@
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/.." && pwd)
 BRIDGE_DIR="$ROOT/qemu_bridge"
-TRACE="$ROOT/afl-qemu-trace"
+BRIDGE="$ROOT/afl-qemu-bridge"
 SHOWMAP="$ROOT/afl-showmap"
 FUZZ="$ROOT/afl-fuzz"
 LIBQASAN="$ROOT/libqasan.so"
 LEGACY_TRACE="$ROOT/qemu_mode/afl-qemu-trace"
 
 export AFL_PATH="$ROOT"
+export AFL_QEMU_MODE=bridge
 export AFL_NO_AFFINITY=1
 export AFL_SKIP_CPUFREQ=1
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
@@ -60,8 +61,8 @@ esac
 echo "[*] AFL++ QEMU bridge acceptance harness"
 echo "[*] root=$ROOT arch=$SYS work=$WORK"
 
-if [ ! -x "$TRACE" ]; then
-  echo "[*] $TRACE missing, building backend ..."
+if [ ! -x "$BRIDGE" ]; then
+  echo "[*] $BRIDGE missing, building backend ..."
   if [ ! -x "$BRIDGE_DIR/build_qemu_bridge_support.sh" ]; then
     echo "[-] build script not found at $BRIDGE_DIR/build_qemu_bridge_support.sh"
     exit 1
@@ -69,7 +70,7 @@ if [ ! -x "$TRACE" ]; then
   ( cd "$BRIDGE_DIR" && NO_CHECKOUT=1 ./build_qemu_bridge_support.sh ) || { echo "[-] backend build failed"; exit 1; }
 fi
 
-for b in "$TRACE" "$SHOWMAP" "$FUZZ"; do
+for b in "$BRIDGE" "$SHOWMAP" "$FUZZ"; do
   if [ ! -x "$b" ]; then
     echo "[-] required binary missing: $b (build AFL++ first)"
     exit 1
@@ -299,9 +300,9 @@ elif [ ! -f "$LIBQASAN" ]; then
 else
   printf 'AAAA' > "$WORK/qsmall"
   printf 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' > "$WORK/qbig"
-  AFL_USE_QASAN=1 "$TRACE" "$WORK/oob" < "$WORK/qsmall" > "$WORK/q_clean" 2>&1
+  AFL_USE_QASAN=1 "$BRIDGE" "$WORK/oob" < "$WORK/qsmall" > "$WORK/q_clean" 2>&1
   CLEAN_RC=$?
-  AFL_USE_QASAN=1 "$TRACE" "$WORK/oob" < "$WORK/qbig" > "$WORK/q_oob" 2>&1
+  AFL_USE_QASAN=1 "$BRIDGE" "$WORK/oob" < "$WORK/qbig" > "$WORK/q_oob" 2>&1
   OOB_RC=$?
   if [ "$CLEAN_RC" -lt 128 ] && ! grep -qi "heap-buffer-overflow" "$WORK/q_clean" && [ "$OOB_RC" -ge 128 ] && grep -qi "heap-buffer-overflow" "$WORK/q_oob"; then
     record PASS "qasan" "in-bound clean(rc=$CLEAN_RC), oob detected(rc=$OOB_RC heap-buffer-overflow)"
@@ -316,7 +317,7 @@ if [ ! -x "$LEGACY_TRACE" ]; then
   record SKIP "legacy-ab" "legacy qemuafl not built (qemu_mode/afl-qemu-trace absent)"
 else
   BRIDGE_AB=$(map_lines "$WORK/instr" "$WORK/ab_bridge" "$WORK/in1")
-  AFL_QEMU_BACKEND=legacy AFL_PATH="$ROOT/qemu_mode" "$SHOWMAP" -Q -o "$WORK/ab_legacy" -- "$WORK/instr" < "$WORK/in1" >/dev/null 2>&1
+  AFL_QEMU_MODE=trace AFL_QEMU_BACKEND=legacy AFL_PATH="$ROOT/qemu_mode" "$SHOWMAP" -Q -o "$WORK/ab_legacy" -- "$WORK/instr" < "$WORK/in1" >/dev/null 2>&1
   LEG_AB=$( [ -f "$WORK/ab_legacy" ] && wc -l < "$WORK/ab_legacy" | tr -d ' ' || echo 0)
   if [ "$BRIDGE_AB" -gt 0 ] && [ "$LEG_AB" -gt 0 ] && [ "$BRIDGE_AB" -ge "$LEG_AB" ]; then
     record PASS "legacy-ab" "bridge=$BRIDGE_AB legacy=$LEG_AB (bridge >= legacy)"
