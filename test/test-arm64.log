@@ -1,0 +1,53 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.qemu
+#1 transferring dockerfile: 427B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/alpine:latest
+#2 ...
+
+#3 [auth] library/alpine:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/alpine:latest
+#2 DONE 2.7s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 1.21kB done
+#4 DONE 0.0s
+
+#5 [base 1/2] FROM docker.io/library/alpine:latest@sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4
+#5 resolve docker.io/library/alpine:latest@sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4 0.0s done
+#5 sha256:c05efffaed614b5ff4e3b9a80136e7c0eed0b47f434802c81baf254c0defca91 0B / 4.20MB 0.2s
+#5 ...
+
+#6 [internal] load build context
+#6 transferring context: 14.23MB 0.3s done
+#6 DONE 0.3s
+
+#5 [base 1/2] FROM docker.io/library/alpine:latest@sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4
+#5 sha256:c05efffaed614b5ff4e3b9a80136e7c0eed0b47f434802c81baf254c0defca91 1.05MB / 4.20MB 0.6s
+#5 sha256:c05efffaed614b5ff4e3b9a80136e7c0eed0b47f434802c81baf254c0defca91 4.20MB / 4.20MB 0.7s done
+#5 DONE 0.8s
+
+#5 [base 1/2] FROM docker.io/library/alpine:latest@sha256:a2d49ea686c2adfe3c992e47dc3b5e7fa6e6b5055609400dc2acaeb241c829f4
+#5 extracting sha256:c05efffaed614b5ff4e3b9a80136e7c0eed0b47f434802c81baf254c0defca91 done
+#5 DONE 0.8s
+
+#7 [base 2/2] RUN apk add --no-cache     build-base clang clang-dev lld llvm-dev llvm-static     python3 bash coreutils linux-headers
+#7 ERROR: failed to get stream processor for application/vnd.oci.image.layer.v1.tar+gzip: fork/exec /usr/bin/unpigz: exec format error
+------
+ > [base 2/2] RUN apk add --no-cache     build-base clang clang-dev lld llvm-dev llvm-static     python3 bash coreutils linux-headers:
+------
+Dockerfile.qemu:3
+--------------------
+   2 |     
+   3 | >>> RUN apk add --no-cache \
+   4 | >>>     build-base clang clang-dev lld llvm-dev llvm-static \
+   5 | >>>     python3 bash coreutils linux-headers
+   6 |     
+--------------------
+ERROR: failed to build: failed to solve: failed to compute cache key: failed to get stream processor for application/vnd.oci.image.layer.v1.tar+gzip: fork/exec /usr/bin/unpigz: exec format error
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/cl0xqlywkgh45ense1x7z0jjt
