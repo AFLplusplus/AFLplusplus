@@ -131,7 +131,8 @@ void set_sanitizer_defaults() {
   /* Enforce halt_on_error=1 for all sanitizers except LSAN. This is set after
      the LSAN_OPTIONS buffer is built (LSAN does not want it) but before ASAN,
      UBSAN and MSAN consume default_options below. It is required for UBSAN,
-     which otherwise just logs and continues instead of aborting on a finding. */
+     which otherwise just logs and continues instead of aborting on a finding.
+   */
 
   strcat(default_options, "halt_on_error=1:");
 

@@ -597,13 +597,23 @@ ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
+src/afl-fuzz-mopt-adaptive.o : $(COMM_HDR) include/afl-fuzz.h src/afl-fuzz-mopt-adaptive.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c src/afl-fuzz-mopt-adaptive.c -o src/afl-fuzz-mopt-adaptive.o
+
+test/unittests/unit_mopt.o : $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_mopt.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -c test/unittests/unit_mopt.c -o test/unittests/unit_mopt.o
+
+unit_mopt: test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_mopt $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	./test/unittests/unit_mopt
+
 .PHONY: unit_clean
 unit_clean:
-	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
+	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_mopt test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o test/unittests/*.o
 
 .PHONY: unit
 ifneq "$(SYS)" "Darwin"
-unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
+unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_mopt
 else
 unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
