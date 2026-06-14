@@ -2181,11 +2181,13 @@ havoc_stage:
       if (likely(afl->fuzz_mode == 0)) {  // is exploration?
         mutation_array = (unsigned int *)&binary_array;
         rand_max = MUT_BIN_ARRAY_SIZE;
+        // TODO: versus mutation_strategy_exploration_text?
 
       } else {  // exploitation mode
 
         mutation_array = (unsigned int *)&text_array;
         rand_max = MUT_TXT_ARRAY_SIZE;
+        // TODO: maybe this should be mutation_strategy_exploitation_text?
 
       }
 
