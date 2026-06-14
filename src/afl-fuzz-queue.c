@@ -241,7 +241,7 @@ void create_alias_table(afl_state_t *afl) {
 
           }
 
-          double bms = q->bitmap_size / avg_bitmap_size;
+          double bms = log(q->bitmap_size) / avg_bitmap_size;
           if (likely(bms < 0.1)) {
 
             weight *= 0.01;
