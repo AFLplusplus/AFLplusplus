@@ -500,6 +500,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   afl->stage_name = "calibration";
   afl->stage_max = afl->afl_env.afl_cal_fast ? CAL_CYCLES_FAST : CAL_CYCLES;
 
+  u32 early_skip = afl->stage_max > 3 ? 3 : 2;
+
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
@@ -661,11 +663,21 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     }
 
+    // if no variability was detected then let's quit early
+    if (likely(!var_detected && afl->stage_cur >= early_skip)) {
+
+      if (unlikely(afl->debug)) { DEBUGF("calibration stage early skip\n"); }
+
+      ++afl->stage_cur;
+      break;
+
+    }
+
   }
 
   if (unlikely(afl->fixed_seed)) {
 
-    diff_us = (u64)(afl->fsrv.exec_tmout - 1) * (u64)afl->stage_max;
+    diff_us = (u64)(afl->fsrv.exec_tmout - 1) * (u64)afl->stage_cur;
 
   } else {
 
@@ -676,7 +688,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   }
 
   afl->total_cal_us += diff_us;
-  afl->total_cal_cycles += afl->stage_max;
+  afl->total_cal_cycles += afl->stage_cur;
 
   /* OK, let's collect some stats about the performance of this test case.
      This is used for fuzzing air time calculations in calculate_score(). */
@@ -688,7 +700,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
-  q->exec_us = diff_us / afl->stage_max;
+  q->exec_us = diff_us / afl->stage_cur;
   if (unlikely(!q->exec_us)) { q->exec_us = 1; }
 
   q->bitmap_size = count_bytes(afl, afl->fsrv.trace_bits);

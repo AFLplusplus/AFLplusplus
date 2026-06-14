@@ -181,7 +181,7 @@ void create_alias_table(afl_state_t *afl) {
 
             } else if (likely(t < 1.25)) {
 
-              weight *= 0.2;  // WTF ??? makes no sense
+              weight *= 0.2;  // No clue why, but the stats say this is OK
 
             } else if (likely(t <= 1.5)) {
 
@@ -1016,7 +1016,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
    until the next run. The favored entries are given more air time during
    all fuzzing steps. */
 
-void cull_queue(afl_state_t *afl) {
+inline void cull_queue(afl_state_t *afl) {
 
   if (likely(!afl->score_changed || afl->non_instrumented_mode)) { return; }
 
