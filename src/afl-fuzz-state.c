@@ -49,7 +49,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   mopt_adaptive_init(afl);
 
-  afl->shm.map_size = map_size ? map_size : MAP_SIZE;
+  map_size = map_size ? map_size : MAP_SIZE;
+  afl->shm.map_size = map_size;
   afl->map_size = map_size;
 
   afl->smallest_favored = -1;
