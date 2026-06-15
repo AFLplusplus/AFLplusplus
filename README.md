@@ -237,7 +237,7 @@ Thank you! (For people sending pull requests - please add yourself to this list
     Yaakov Saxon                          Sergej Schumilo
     Ziqiao Kong                           Ryan Berger
     Sangjun Park                          Scott Guest
-    Fabian Keil
+    Fabian Keil                           @Jay-1409
   ```
 
 </details>

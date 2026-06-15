@@ -2282,6 +2282,28 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
   fsrv->fsrv_pid = -1;
   fsrv->child_pid = -1;
+#ifdef AFL_PERSISTENT_RECORD
+  if (fsrv->persistent_record_data) {
+
+    for (u32 i = 0; i < fsrv->persistent_record; ++i) {
+
+      afl_free(fsrv->persistent_record_data[i]);
+
+    }
+
+    ck_free(fsrv->persistent_record_data);
+    fsrv->persistent_record_data = NULL;
+
+  }
+
+  if (fsrv->persistent_record_len) {
+
+    ck_free(fsrv->persistent_record_len);
+    fsrv->persistent_record_len = NULL;
+
+  }
+
+#endif
 
 #ifdef __linux__
   afl_child_sync_deinit(fsrv);
@@ -2640,8 +2662,8 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
      must prevent any earlier operations from venturing into that
      territory. */
 
-  /* If the binary is not instrumented, we don't care about the coverage. Make
-   * it a bit faster */
+  /* If the binary is not instrumented, we don't care about the coverage.
+   * Make it a bit faster */
   if (!fsrv->san_but_not_instrumented) {
 
 #ifdef __linux__
@@ -2995,11 +3017,7 @@ store_persistent_record: {
 
 void afl_fsrv_killall() {
 
-  LIST_FOREACH(&fsrv_list, afl_forkserver_t, {
-
-    afl_fsrv_kill(el);
-
-  });
+  LIST_FOREACH(&fsrv_list, afl_forkserver_t, { afl_fsrv_kill(el); });
 
 }
 
@@ -3007,6 +3025,16 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
 
   afl_fsrv_kill(fsrv);
   list_remove(&fsrv_list, fsrv);
+
+#ifdef AFL_PERSISTENT_RECORD
+  if (fsrv->persistent_record_dir) {
+
+    ck_free(fsrv->persistent_record_dir);
+    fsrv->persistent_record_dir = NULL;
+
+  }
+
+#endif
 
 }
 
