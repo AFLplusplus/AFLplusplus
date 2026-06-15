@@ -1,20 +1,15 @@
 # TODO list for AFL++
 
-## Next
- - analyse regression 87d26ff7de5ba8e762bccdda85e91f5c951f17e9
-   - more?
- - new classify map VAR=1
-
-
 ## Must
 
+ - Review `mutation_array = ` in src/afl-fuzz-one.c
  - find a solution that SAYF now prints to stderr (help!)
  - afl_fsrv_deinit cmplog
  - hardened_usercopy=0 page_alloc.shuffle=0
  - add value_profile but only enable after 15 minutes without finds
  - cmplog max items env?
  - cmplog rtn sanity check on fixed length? currently we ignore the length
- - when trimming then perform crash detection
+ - when trimming perform crash detection, new cov?
 
 
 ## Should
@@ -36,10 +31,10 @@
 ## Further down the road
 
 QEMU mode/FRIDA mode:
- - non colliding instrumentation
+ - non colliding instrumentation (done for qemu! frida todo)
  - rename qemu specific envs to AFL_QEMU (AFL_ENTRYPOINT, AFL_CODE_START/END,
    AFL_COMPCOV_LEVEL?)
- - add AFL_QEMU_EXITPOINT (maybe multiple?)
+ - support multiple AFL_QEMU_EXITPOINT
 
 ## Ideas
 

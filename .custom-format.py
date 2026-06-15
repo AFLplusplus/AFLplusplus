@@ -22,6 +22,11 @@ import os
 import shutil
 import importlib.metadata
 import hashlib
+import platform
+
+if platform.system() != "Linux":
+    print("This script should only be run on Linux due to different formatting.")
+    exit(0)
 
 # string_re = re.compile('(\\"(\\\\.|[^"\\\\])*\\")') # TODO: for future use
 
