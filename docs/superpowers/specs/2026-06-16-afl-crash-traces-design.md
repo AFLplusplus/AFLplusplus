@@ -65,16 +65,23 @@ if (unlikely(afl->afl_env.afl_crash_traces) && fault == FSRV_RUN_CRASH) {
 ```
 
 is placed alongside the existing `infoexec` and Nyx `.log` blocks, which already
-do per-crash work in this branch. This branch only executes for crashes that
-pass the `has_new_bits()` uniqueness check, so the re-run happens at most once
-per unique crash.
+do per-crash work in this branch. The insertion point at `afl-fuzz-bitmap.c:1078`
+is the **shared crash-or-hang save path** (see the comment at lines 1075-1076);
+the `fault == FSRV_RUN_CRASH` guard is therefore load-bearing — it is what
+restricts traces to crashes and excludes hangs, exactly as the neighboring
+`infoexec` block does. This branch only executes for crashes that pass the
+`has_new_bits()` uniqueness check, so the re-run happens at most once per unique
+crash.
 
 ### `write_crash_trace(afl, fn, mem, len)` — new function in `afl-fuzz-bitmap.c`
 
 1. Build the output path `<fn>.txt` (`PATH_MAX` buffer, `snprintf`).
-2. Open it `O_WRONLY | O_CREAT | O_TRUNC` with `afl->fsrv.dev_null_fd`-style
-   permissions (`afl->perm`); `chown` to the forkserver uid/gid if
-   `afl->chown_needed`, matching the Nyx `.log` block.
+2. Open it `O_WRONLY | O_CREAT | O_TRUNC` with `afl->perm` permissions. On
+   failure, `WARNF` and return (non-fatal — see Error handling). Note this
+   intentionally diverges from the Nyx `.log` block and `permissive_create`,
+   which use `O_EXCL` + `PFATAL`: a trace file must never abort fuzzing. If
+   `afl->chown_needed`, `fchown` to the forkserver gid (mirroring the Nyx
+   block's chown only).
 3. Write a header (plain `write()`, unbuffered):
    - source crash filename,
    - signal number (`afl->fsrv.last_kill_signal`),
@@ -104,32 +111,62 @@ writes.
   file (or a pipe) and `dup2` it onto fd 0 in the child. Reusing the live
   `out_fd` is avoided so we never disturb fuzzing state.
 - **file targets**: AFL has already substituted the input path into `afl->argv`
-  (`@@` → `out_file`). Write `mem`/`len` to `afl->fsrv.out_file` before
-  `fork()` (via the existing `write_to_testcase` mechanics, or a direct write),
-  then `execv`. This is safe because crash saving is synchronous and the next
+  (`@@` → `out_file`). Write `mem`/`len` to `afl->fsrv.out_file` with a **direct
+  `open`/`write`/`close`** before `fork()`, then `execv`. `write_to_testcase()`
+  must **not** be reused here: it has side effects that would disturb fuzzing
+  state — it re-runs custom-mutator `afl_custom_post_process`/`afl_custom_fuzz_send`
+  hooks and swaps the `out`/`out_scratch` buffers (`src/afl-fuzz-run.c:136`).
+  A direct write is safe because crash saving is synchronous and the next
   fuzzing iteration overwrites `out_file` anyway.
 
 ### Symbolization
 
-During fuzzing AFL forces `symbolize=0` for speed (`afl-fuzz-init.c:2987`). For
-the re-run child only, override the sanitizer option variables with `setenv`
-(child process, so the parent and live forkserver are unaffected):
+The re-run child is forked from the afl-fuzz **main process**, so it inherits
+that process's sanitizer `*_OPTIONS` environment. There are two cases:
 
-- `ASAN_OPTIONS`: ensure `abort_on_error=1`, `symbolize=1`.
-- `UBSAN_OPTIONS`: ensure `symbolize=1` (and `abort_on_error=1`).
-- `MSAN_OPTIONS`: ensure `exit_code=<MSAN_ERROR>`, `symbolize=1`.
-- `LSAN_OPTIONS`: ensure `symbolize=1`.
+- **User exported `*_OPTIONS`**: `check_asan_opts()` (`src/afl-fuzz-init.c:2972`,
+  called from `src/afl-fuzz.c`) requires them to contain `symbolize=0` (and
+  `abort_on_error=1`). The re-run child would then inherit `symbolize=0` and
+  print unsymbolized addresses.
+- **User did not export `*_OPTIONS`**: the main process leaves them unset. Note
+  the speed-tuned defaults built in `set_sanitizer_defaults()`
+  (`src/afl-common.c:83-177`, the `symbolize=0:handle_segv=0:...` string) are
+  applied only in the **forkserver/target child** (`src/afl-forkserver.c:1452`,
+  inside the post-`fork()` child branch), **not** in the main process — so the
+  re-run child inherits an *empty* sanitizer env and falls back to the
+  sanitizer's own permissive defaults (symbolize and signal handlers on).
 
+Either way, we must not depend on the inherited state. For the re-run child only
+(so the parent and live forkserver are unaffected), override the sanitizer
+option variables to *force* good trace output. Use **append-and-overwrite**
+semantics:
+read the existing value with `getenv`, append our overrides after it, and
+`setenv(..., 1)`. Sanitizer flag parsers are last-wins, so appending guarantees
+our values take precedence while preserving any user-provided flags:
+
+- `ASAN_OPTIONS`: append `:symbolize=1:handle_segv=1:handle_sigbus=1:
+  handle_sigfpe=1:handle_sigill=1:abort_on_error=1`. Enabling the signal
+  handlers is what makes a plain segv/bus/fpe produce a symbolized backtrace
+  rather than a bare signal; `symbolize=1` makes ASAN-detected errors readable.
+- `UBSAN_OPTIONS`: append `:symbolize=1`.
+- `MSAN_OPTIONS`: append `:symbolize=1` (keeps the inherited
+  `exit_code=<MSAN_ERROR>`).
+- `LSAN_OPTIONS`: append `:symbolize=1`.
+
+If the relevant `*_OPTIONS` var is unset, set it to the override string alone.
 If `llvm-symbolizer`/`addr2line` is not on `PATH`, sanitizers fall back to raw
-addresses — acceptable and unchanged behavior, just less readable.
+addresses — acceptable, just less readable. Targets built without a sanitizer
+ignore these variables entirely (a plain `SIGSEGV` then yields just the signal,
+recorded in the header/footer).
 
 ### Re-run timeout
 
-`max(afl->fsrv.exec_tmout * 5, 1000)` ms, with a SIGKILL on overrun. The
-multiplier and floor allow slow symbolization to finish while preventing a
-wedged target from stalling the fuzzer. Implemented with a bounded `waitpid`
-loop (e.g. `WNOHANG` poll with short sleeps, or `alarm`-free timed wait) so it
-never blocks indefinitely.
+`min(max(afl->fsrv.exec_tmout * 5, 1000), 60000)` ms, with a SIGKILL on overrun.
+The floor (1000 ms) lets slow symbolization finish; the absolute ceiling
+(60000 ms) bounds the worst case when `exec_tmout` is very large (e.g. a high
+`-t` or an inflated calibration timeout) so a wedged target cannot produce a
+multi-minute stall. Implemented with a bounded `waitpid` loop (`WNOHANG` poll
+with short sleeps) so it never blocks indefinitely.
 
 ### Unsupported modes
 
@@ -157,7 +194,7 @@ save_if_interesting()  [FSRV_RUN_CRASH, unique]
          ├─ fork
          │    child: redirect 1&2 -> <fn>.txt
          │           deliver input (stdin/file)
-         │           setenv symbolize=1 sanitizer opts
+         │           setenv symbolize=1 + handle_* sanitizer opts
          │           execv(target)
          │    parent: waitpid (bounded), SIGKILL on overrun
          ├─ write footer (reproduced?, status)
@@ -184,8 +221,11 @@ Add coverage in the test suite (`test/`):
 2. Run `afl-fuzz` with `AFL_CRASH_TRACES=1` and `AFL_BENCH_UNTIL_CRASH`
    (or a seeded crash) until a crash is saved.
 3. Assert a `<crashfile>.txt` exists beside the crash and contains the expected
-   markers (e.g. `ERROR: AddressSanitizer` or the signal in the header).
+   markers (e.g. `ERROR: AddressSanitizer` or the signal in the header) and the
+   footer's "reproduced" line.
 4. Negative check: without `AFL_CRASH_TRACES`, no `.txt` is written.
+5. Exercise both delivery paths — a stdin target and a file (`@@`) target — since
+   they are distinct code paths in the design.
 
 ## Documentation
 
