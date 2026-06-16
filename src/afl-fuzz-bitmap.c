@@ -543,6 +543,95 @@ static inline void calculate_new_bits_if_necessary(afl_state_t *afl,
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
 
+/* AFL_CRASH_TRACES: copy the crashing run's captured stdout/stderr (collected
+   live into fsrv->crash_trace_fd) into "<crash_fn>.txt". The capture buffer is
+   cleared before every run in afl_fsrv_run_target(), so it holds exactly the
+   crashing execution's output (the ACTUAL crash, so non-reproducing crashes are
+   captured correctly) and is copied in full. Off the hot path (saved crashes
+   only). Every failure here is non-fatal. */
+
+static void save_crash_trace(afl_state_t *afl, u8 *crash_fn) {
+
+  s32         cfd = afl->fsrv.crash_trace_fd;
+  struct stat st;
+  off_t       size = 0;
+  u8          trace_fn[PATH_MAX];
+  u8          hdr[PATH_MAX + 160];
+  s32         ofd;
+
+  if (cfd < 0) { return; }
+
+  if (fstat(cfd, &st) == 0 && st.st_size > 0) { size = st.st_size; }
+
+  (void)snprintf((char *)trace_fn, sizeof(trace_fn), "%s.txt",
+                 (char *)crash_fn);
+
+  ofd = open((char *)trace_fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
+  if (unlikely(ofd < 0)) {
+
+    WARNF("AFL_CRASH_TRACES: unable to create '%s'", trace_fn);
+    return;
+
+  }
+
+  if (afl->chown_needed) {
+
+    if (fchown(ofd, -1, afl->fsrv.gid) == -1) {
+
+      WARNF("AFL_CRASH_TRACES: fchown('%s') failed", trace_fn);
+
+    }
+
+  }
+
+  (void)snprintf((char *)hdr, sizeof(hdr),
+                 "=== AFL++ crash trace ===\n"
+                 "crash file : %s\n"
+                 "signal     : %u\n"
+                 "total execs: %llu\n"
+                 "captured   : %lld bytes\n"
+                 "=========================\n\n",
+                 (char *)crash_fn, afl->fsrv.last_kill_signal,
+                 afl->fsrv.total_execs, (long long)size);
+  {
+
+    ssize_t w = write(ofd, hdr, strlen((char *)hdr));
+    (void)w;
+
+  }
+
+  if (size <= 0) {
+
+    const char *none =
+        "[no target output was captured for this crash]\n"
+        "(e.g. a bare SIGSEGV without a sanitizer report; sanitizer signal\n"
+        " handling is left at its fuzzing default)\n";
+    ssize_t w = write(ofd, none, strlen(none));
+    (void)w;
+
+  } else {
+
+    off_t off = 0;
+    u8    buf[16384];
+
+    while (off < size) {
+
+      off_t   left = size - off;
+      size_t  want = left < (off_t)sizeof(buf) ? (size_t)left : sizeof(buf);
+      ssize_t r = pread(cfd, buf, want, off);
+      if (r <= 0) { break; }
+      ssize_t w = write(ofd, buf, r);
+      (void)w;
+      off += r;
+
+    }
+
+  }
+
+  close(ofd);
+
+}
+
 u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
                                             u32 len, u8 fault) {
 
@@ -568,6 +657,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
   u8  keeping = 0, res, is_timeout = 0;
+  u8  is_crash_save = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
   s32 fd;
   u32 cksum_simplified = 0, cksum_unique = 0;
@@ -982,6 +1072,8 @@ may_save_fault:
          except for slightly different limits and no need to re-run test
          cases. */
 
+      is_crash_save = 1;
+
       ++afl->total_crashes;
 
       if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
@@ -1080,6 +1172,12 @@ may_save_fault:
 
     ck_write(fd, mem, len, fn);
     close(fd);
+
+  }
+
+  if (unlikely(afl->afl_env.afl_crash_traces) && is_crash_save) {
+
+    save_crash_trace(afl, fn);
 
   }
 

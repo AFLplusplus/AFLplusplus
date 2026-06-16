@@ -2462,6 +2462,31 @@ void setup_dirs_fds(afl_state_t *afl) {
   afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
   if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
 
+  /* AFL_CRASH_TRACES: anonymous capture file for the crashing run's
+     stdout/stderr. Opened before the forkserver starts so it (and its target
+     children) inherit it; O_APPEND so writes land at EOF after each reset.
+     Excluded for Nyx (its output is not a normal child stderr; it writes its
+     own .log). */
+
+  if (afl->afl_env.afl_crash_traces && !afl->fsrv.nyx_mode) {
+
+    u8 *ctf = alloc_printf("%s/.crash_trace_output", afl->out_dir);
+    afl->fsrv.crash_trace_fd =
+        open((char *)ctf, O_RDWR | O_CREAT | O_TRUNC | O_APPEND, 0600);
+    if (afl->fsrv.crash_trace_fd < 0) {
+
+      WARNF("AFL_CRASH_TRACES: unable to create '%s'; feature disabled", ctf);
+
+    } else {
+
+      unlink((char *)ctf); /* anonymous: auto-removed when all holders close */
+
+    }
+
+    ck_free(ctf);
+
+  }
+
   /* Gnuplot output file. */
 
   tmp = alloc_printf("%s/plot_data", afl->out_dir);

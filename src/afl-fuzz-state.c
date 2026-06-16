@@ -643,6 +643,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_pizza_mode =
                 atoi((u8 *)get_afl_env(afl_environment_variables[i]));
 
+          } else if (!strncmp(env, "AFL_CRASH_TRACES",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_crash_traces =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
           } else if (!strncmp(env, "AFL_NO_CRASH_README",
 
                               afl_environment_variable_len)) {

@@ -152,6 +152,19 @@ void set_sanitizer_defaults() {
 
   }
 
+  /* AFL_CRASH_TRACES: symbolize sanitizer reports so captured crash traces are
+     readable. Last-wins parsing makes this override the default symbolize=0.
+     Symbolization only runs when a report is printed (on a crash), so this adds
+     nothing to the fuzzing hot path. Only affects the built-in defaults (the
+     setenv calls below are guarded by !have_san_options). */
+
+  {
+
+    u8 *ct = (u8 *)getenv("AFL_CRASH_TRACES");
+    if (ct && atoi((char *)ct)) { strcat(default_options, "symbolize=1:"); }
+
+  }
+
   /* Set sane defaults for ASAN if nothing else is specified. */
 
   if (!have_san_options) { setenv("ASAN_OPTIONS", default_options, 1); }
