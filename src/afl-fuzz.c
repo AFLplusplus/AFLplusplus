@@ -2048,6 +2048,15 @@ void afl_check_environment(afl_state_t *afl) {
 
   }
 
+  if (afl->min_length > afl->max_length) {
+
+    FATAL(
+        "Minimum length (-g / AFL_INPUT_LEN_MIN = %u) may not exceed maximum "
+        "length (-G / AFL_INPUT_LEN_MAX = %u)",
+        afl->min_length, afl->max_length);
+
+  }
+
   OKF("Generating fuzz data with a length of min=%u max=%u", afl->min_length,
       afl->max_length);
 

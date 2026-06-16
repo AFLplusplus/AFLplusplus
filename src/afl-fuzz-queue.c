@@ -1817,8 +1817,8 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
   // we need this while loop in case there were ever previous evictions but
   // not in this call.
-  while (unlikely(afl->q_testcase_cache[tid] != NULL &&
-                  tid < afl->q_testcase_max_cache_entries)) {
+  while (unlikely(tid < afl->q_testcase_max_cache_entries &&
+                  afl->q_testcase_cache[tid] != NULL)) {
 
     ++tid;
 
@@ -1921,12 +1921,14 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
 
   }
 
-  while (unlikely(afl->q_testcase_cache[tid] != NULL)) {
+  while (unlikely(tid < afl->q_testcase_max_cache_entries &&
+                  afl->q_testcase_cache[tid] != NULL)) {
 
     ++tid;
-    if (unlikely(tid >= afl->q_testcase_max_cache_entries)) { return; }
 
   }
+
+  if (unlikely(tid >= afl->q_testcase_max_cache_entries)) { return; }
 
   /* Map the test case into memory. */
 

@@ -652,7 +652,18 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       for (san_idx = 0; san_idx < afl->san_binary_length; san_idx++) {
 
-        len = write_to_testcase(afl, &mem, len, 0);
+        u32 san_len = write_to_testcase(afl, &mem, len, 0);
+
+        if (likely(san_len)) {
+
+          len = san_len;
+
+        } else {
+
+          len = write_to_testcase(afl, &mem, len, 1);
+
+        }
+
         san_fault = fuzz_run_target(afl, &afl->san_fsrvs[san_idx],
                                     afl->san_fsrvs[san_idx].exec_tmout);
 

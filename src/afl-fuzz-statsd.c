@@ -216,11 +216,12 @@ int statsd_send_metric(afl_state_t *afl) {
   }
 
   statsd_format_metric(afl, buff, MAX_STATSD_PACKET_SIZE);
+
   if (sendto(afl->statsd_sock, buff, strlen(buff), 0,
              (struct sockaddr *)&afl->statsd_server,
              sizeof(afl->statsd_server)) == -1) {
 
-    if (!close(afl->statsd_sock)) { PFATAL("Cannot close socket"); }
+    if (close(afl->statsd_sock) != 0) { WARNF("Cannot close statsd socket"); }
     afl->statsd_sock = 0;
     WARNF("Cannot sendto");
     return -1;
