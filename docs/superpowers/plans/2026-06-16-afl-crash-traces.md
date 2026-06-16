@@ -121,7 +121,9 @@ run_fuzz() {  # $1=outdir  $2=traces(0/1)  $3=use_file(0/1)
     timeout 120 "$FUZZ" $args > "$out.log" 2>&1 || true
 }
 
-find_trace() { find "$1" -path '*crashes*' -name '*.txt' 2>/dev/null | head -1; }
+# trace files are named like the crash input + ".txt" (id:*.txt); this must
+# exclude the always-present crashes/README.txt.
+find_trace() { find "$1" -path '*crashes*' -name 'id:*.txt' 2>/dev/null | head -1; }
 find_crash() { find "$1" -path '*crashes*' -name 'id:*' ! -name '*.txt' 2>/dev/null | head -1; }
 
 CODE=0
