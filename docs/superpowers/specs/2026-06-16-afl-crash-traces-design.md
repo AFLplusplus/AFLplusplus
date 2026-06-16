@@ -17,7 +17,8 @@ bugs), so a re-run would record "did not reproduce" and lose exactly the
 information the user needs.
 
 The mode is enabled by setting the environment variable `AFL_CRASH_TRACES`. It
-has no impact on the fuzzing hot path.
+is disabled by default (no effect when unset); when enabled it adds only one
+inexpensive `ftruncate` per execution.
 
 ## Motivation
 
@@ -36,8 +37,10 @@ manual step and works even when the crash is not reproducible.
   report, stack trace, terminating signal), so non-reproducing crashes are
   captured correctly.
 - Produce readable, symbolized traces when a symbolizer is available.
-- Zero hot-path cost: when disabled, nothing changes; when enabled, no per-
-  execution work is added on the common (non-crash) path.
+- Each trace holds only the crashing run's own output (the capture is cleared
+  before every execution), written in full with no size limit.
+- No cost when disabled (nothing changes); when enabled, only one inexpensive
+  truncate per execution is added.
 
 ## Non-goals
 
@@ -84,7 +87,8 @@ truncation is needed, and the hot path is untouched.
 - **Secondary forkservers** (cmplog/sanitizer): `afl_fsrv_init_dup()`
   (`afl-forkserver.c:594`) sets `fsrv_to->crash_trace_fd = -1` so only the main
   forkserver's children capture. The default in `afl_fsrv_init()` is also `-1`.
-- **Read + reset on crash** (see below).
+- **Reset before every run** (see "Per-execution reset" below).
+- **Read on crash** (see below).
 
 ### Reading the trace on a saved crash
 
@@ -94,37 +98,38 @@ written to `fn` (`afl-fuzz-bitmap.c:1078-1084`), a new helper
 
 1. `fstat(crash_trace_fd)` → size of the captured output.
 2. Open `<fn>.txt` (`O_WRONLY|O_CREAT|O_TRUNC`, `afl->perm`; `fchown` if
-   `afl->chown_needed`); on failure `WARNF` and reset (below).
+   `afl->chown_needed`); on failure `WARNF` and return.
 3. Write a header: crash filename, signal (`afl->fsrv.last_kill_signal`), total
    execs, captured byte count.
-4. Copy the captured bytes via `pread`, capped at `CRASH_TRACE_MAX` (1 MB) with a
-   truncation note. If size is 0, write a note that no output was captured.
-5. `ftruncate(crash_trace_fd, 0)` to reset the buffer for the next crash.
+4. Copy the captured bytes via `pread` **in full** (no size limit). If size is
+   0, write a note that no output was captured.
 
-A second tiny helper `reset_crash_trace(afl)` (just `ftruncate(...,0)`, no-op if
-fd < 0) is called at the duplicate-crash early returns in the crash branch
-(`KEEP_UNIQUE_CRASH` reached, and `!has_new_bits`) so that a saved crash's `.txt`
-contains only that crash's output rather than accumulating duplicate-crash
-output. Both helpers are no-ops when the fd is < 0 (feature disabled).
+No reset is needed here: the capture is cleared before the next run anyway (see
+below). The capture already holds exactly this crash's output because the run
+that just crashed started from an empty buffer.
 
 The crash-save guard uses a local `u8 is_crash_save` flag set at the
 `keep_as_crash:` label, so both the normal `case FSRV_RUN_CRASH:` path and the
 "timeout that turned into a crash" `goto keep_as_crash` path (line 922) are
 covered (the raw `fault` is still `FSRV_RUN_TMOUT` on the latter). Note that the
 timeout→crash path reaches the label via AFL's pre-existing "confirm the hang"
-re-run on the main forkserver (line 911); that re-run is not added by this
-feature, and it correctly leaves the actual crashing run's output in the capture
-file. The feature itself never re-runs a saved input.
+re-run on the main forkserver (line 911); the per-run reset at the start of that
+re-run discards the timed-out run's (possibly truncated) output, so the `.txt`
+holds only the re-run's complete crash report. The feature itself never re-runs
+a saved input to produce a trace.
 
-### Why no per-execution cost
+### Per-execution reset
 
-The only place per-execution work could appear is keeping the capture file from
-growing. We avoid it: reset happens only inside the crash branch of
-`save_if_interesting()` (saved crashes and duplicate crashes), which is off the
-hot path. Non-crashing runs append nothing for sanitizer targets, so the file
-does not grow. For a target that prints on every run, output accumulates between
-crashes and a crash's `.txt` may include some preceding output; this is the
-documented trade-off of the zero-hot-path design.
+The capture buffer is cleared (`ftruncate(crash_trace_fd, 0)`) at the top of
+`afl_fsrv_run_target()` (`src/afl-forkserver.c`), guarded by
+`crash_trace_fd >= 0`, so every execution starts with an empty buffer and a
+crash's `.txt` contains only that run's own output — never output accumulated
+from previous runs. `O_APPEND` makes the next child's writes start at offset 0
+after the truncate. This is the single execution chokepoint, so it covers all
+main-forkserver runs (fuzzing, calibration, trim, the hang-confirmation re-run);
+secondary (cmplog/sanitizer) forkservers and Nyx keep `crash_trace_fd == -1` and
+are unaffected. Cost: one `ftruncate` per execution when enabled, a single
+no-op branch when disabled.
 
 ### Symbolization
 
@@ -156,37 +161,38 @@ forkserver child setup (per forkserver start):
   if crash_trace_fd >= 0: dup2 -> child stdout(1) + stderr(2)   [else /dev/null]
   set_sanitizer_defaults: if AFL_CRASH_TRACES -> append symbolize=1 to defaults
 
-per execution (hot path): unchanged; crashing child writes its report into the
-  capture file via inherited fd 2
+per execution (afl_fsrv_run_target):
+  if crash_trace_fd >= 0: ftruncate(crash_trace_fd, 0)   [clear before run]
+  run child; crashing child writes its report into the capture file via fd 1/2
 
-save_if_interesting() [crash branch]:
-  duplicate crash (early return)        -> reset_crash_trace (ftruncate 0)
-  saved unique crash (after fn written) -> save_crash_trace(afl, fn):
-      fstat size; open <fn>.txt; header; pread capture -> .txt (cap 1MB);
-      ftruncate capture to 0
+save_if_interesting() [crash branch, saved unique crash, after fn written]:
+  save_crash_trace(afl, fn):
+    fstat size; open <fn>.txt; header; pread whole capture -> .txt (no limit)
 ```
 
 ## Error handling
 
 - Capture file open failure at startup: `WARNF` and leave `crash_trace_fd = -1`
   (feature silently inert; fuzzing continues with `/dev/null` as before).
-- `<fn>.txt` open failure: `WARNF`, still `ftruncate` the capture, continue.
+- `<fn>.txt` open failure: `WARNF` and continue (the next run truncates the
+  capture anyway).
 - All reads/writes are best-effort; short writes to the `.txt` are ignored
   (never `ck_write`/`PFATAL` here). A trace is a convenience, never a reason to
   stop fuzzing.
-- Capture larger than `CRASH_TRACE_MAX`: copy the first 1 MB and append a
-  truncation note.
 
 ## Testing
 
 Add `test/test-crash-traces.sh` (standalone, auto-discovered by
 `test/test-all.sh`; skips if binaries are not built) plus
-`test/test-crash-trace-target.c` (ASAN heap-buffer-overflow on magic byte `'A'`):
+`test/test-crash-trace-target.c` (ASAN heap-buffer-overflow when the first byte
+differs from the seed byte `'B'`; built with `-O0` so the overflow is not
+optimized away, and prints a per-run marker to stderr on every run):
 
-1. Build the target with `AFL_USE_ASAN=1 afl-clang-fast`.
+1. Build the target with `AFL_USE_ASAN=1 afl-clang-fast -O0`.
 2. Run `afl-fuzz` with `AFL_CRASH_TRACES=1` + `AFL_BENCH_UNTIL_CRASH=1` until a
    crash is saved; assert `<crashfile>.txt` exists and contains
-   `AddressSanitizer`.
+   `AddressSanitizer`, and that the per-run marker appears exactly once (proving
+   the trace holds only the crashing run's output, not accumulated prior runs).
 3. Repeat with a file (`@@`) target (delivery is irrelevant to capture, but
    guards against regressions).
 4. Negative: without `AFL_CRASH_TRACES`, a crash gets no `.txt`.
@@ -194,18 +200,19 @@ Add `test/test-crash-traces.sh` (standalone, auto-discovered by
 ## Documentation
 
 - `docs/env_variables.md`: `AFL_CRASH_TRACES` entry (live capture, `.txt`
-  naming, symbolization, the silent-vs-chatty-target note, the
-  `handle_segv`/bare-SIGSEGV limitation, Nyx exclusion).
+  naming, per-run reset / full output, symbolization, the
+  `handle_segv`/bare-SIGSEGV limitation, Nyx and SAND notes).
 - `include/envs.h`: add `"AFL_CRASH_TRACES"` to `afl_environment_variables[]`.
 - `docs/Changelog.md`: note the new feature.
 
 ## Compatibility and risk
 
-- Disabled by default; existing behavior is unchanged.
-- Hot path unchanged (capture fd inherited once; reset only on crashes).
-- When enabled: target stdout/stderr go to the capture file instead of
-  `/dev/null` (no effect on AFL, which never reads them); sanitizer reports are
-  symbolized (default-options case only); one small `.txt` per unique crash.
+- Disabled by default; existing behavior is unchanged (`crash_trace_fd == -1`,
+  one no-op branch per run).
+- When enabled: one `ftruncate` per execution to clear the capture; target
+  stdout/stderr go to the capture file instead of `/dev/null` (no effect on AFL,
+  which never reads them); sanitizer reports are symbolized (default-options
+  case only); one `.txt` per unique crash holding that crash's full output.
 - Nyx mode is excluded (its output is not a normal child stderr; it already
   writes a `<crashfile>.log`). QEMU/Frida/Unicorn and persistent/shmem targets
   are supported — their children write to stderr normally.
