@@ -2,6 +2,13 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Amendment (post-implementation):** the reset strategy below was changed from
+> "reset only on crash" to "truncate the capture before every run" (in
+> `afl_fsrv_run_target()`), and the 1 MB cap was removed so the trace is written
+> in full. This drops the `reset_crash_trace` helper and the `CRASH_TRACE_MAX`
+> cap shown in Task 5. See the updated spec for the current design; the steps
+> below reflect the original plan.
+
 **Goal:** When `AFL_CRASH_TRACES` is set, `afl-fuzz` captures the crashing execution's stdout/stderr live and writes it to `<crashfile>.txt` beside each saved unique crash — capturing the trace even for crashes that do not reproduce.
 
 **Architecture:** afl-fuzz opens a capture file (`<out_dir>/.crash_trace_output`, then `unlink`s it) before the forkserver starts. The forkserver child `dup2`s that fd onto the target children's stdout/stderr (instead of `/dev/null`) when enabled, so every crashing run writes its sanitizer report straight into the file. On a saved crash, `save_if_interesting()` copies the file into `<crashfile>.txt` and resets it. Sanitizer reports are symbolized via `set_sanitizer_defaults()`. No re-run; zero hot-path cost (reset happens only in the crash branch).
