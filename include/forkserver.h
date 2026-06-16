@@ -119,6 +119,7 @@ typedef struct afl_forkserver {
       dev_urandom_fd,                   /* Persistent fd for /dev/urandom   */
 
       dev_null_fd,                      /* Persistent fd for /dev/null      */
+      crash_trace_fd,                   /* AFL_CRASH_TRACES capture fd (-1) */
       fsrv_ctl_fd,                      /* Fork server control pipe (write) */
       fsrv_st_fd;                       /* Fork server status pipe (read)   */
 
