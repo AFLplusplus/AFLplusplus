@@ -25,7 +25,7 @@ if ! AFL_QUIET=1 AFL_USE_ASAN=1 "$CC" -O0 -o "$TMP/target" \
 fi
 
 mkdir -p "$TMP/in"
-printf 'B' > "$TMP/in/seed"          # non-crashing seed; AFL finds 'A' itself
+printf 'B' > "$TMP/in/seed"          # non-crashing seed; any other byte crashes
 
 COMMON_ENV="AFL_BENCH_UNTIL_CRASH=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
 AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 AFL_NO_UI=1"
@@ -35,7 +35,7 @@ run_fuzz() {  # $1=outdir  $2=traces(0/1)  $3=use_file(0/1)
   local args="-i $TMP/in -o $out -m none"
   if [ "$usefile" = "1" ]; then args="$args -- $tgt @@"; else args="$args -- $tgt"; fi
   env $COMMON_ENV AFL_CRASH_TRACES=$traces \
-    timeout 120 "$FUZZ" $args > "$out.log" 2>&1 || true
+    timeout 60 "$FUZZ" $args > "$out.log" 2>&1 || true
 }
 
 # trace files are named like the crash input + ".txt" (id:*.txt); this must
@@ -53,6 +53,15 @@ if [ -z "$CRASH" ]; then
   echo "[*] stdin run produced no crash in time; skipping positive assertion"
 elif [ -n "$TXT" ] && grep -q "AddressSanitizer" "$TXT"; then
   echo "[+] AFL_CRASH_TRACES (stdin): trace file written with ASAN report"
+  # The target prints a marker on every run; the trace must hold only the
+  # crashing run's output (exactly one marker), not accumulated prior runs.
+  MARKERS=$(grep -c "run-marker:" "$TXT")
+  if [ "$MARKERS" = "1" ]; then
+    echo "[+] AFL_CRASH_TRACES: trace holds only the crashing run's output"
+  else
+    echo "[!] AFL_CRASH_TRACES: trace has $MARKERS run-markers (expected 1) - prior-run output leaked in"
+    CODE=1
+  fi
 else
   echo "[!] AFL_CRASH_TRACES (stdin): crash found but trace/ASAN report missing"
   echo "    crash=$CRASH txt=$TXT"
@@ -68,6 +77,13 @@ if [ -z "$CRASH" ]; then
   echo "[*] @@ run produced no crash in time; skipping positive assertion"
 elif [ -n "$TXT" ]; then
   echo "[+] AFL_CRASH_TRACES (@@): trace file written"
+  MARKERS=$(grep -c "run-marker:" "$TXT")
+  if [ "$MARKERS" = "1" ]; then
+    echo "[+] AFL_CRASH_TRACES (@@): trace holds only the crashing run's output"
+  else
+    echo "[!] AFL_CRASH_TRACES (@@): trace has $MARKERS run-markers (expected 1) - prior-run output leaked in"
+    CODE=1
+  fi
 else
   echo "[!] AFL_CRASH_TRACES (@@): crash found but no trace file beside it"
   CODE=1

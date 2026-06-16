@@ -1,6 +1,8 @@
 /* Tiny target for test-crash-traces.sh: triggers a heap-buffer-overflow under
-   ASAN when the first input byte is 'A'. Reads from argv[1] if given, otherwise
-   from stdin.
+   ASAN when the first input byte differs from the seed byte 'B'. Reads from
+   argv[1] if given, otherwise from stdin. Crashing on "any byte != 'B'" makes
+   the crash trivial for AFL to discover from a 'B' seed (one byte-0 mutation),
+   keeping the test fast and reliable.
 
    The out-of-bounds index is derived from the runtime input length and the
    result escapes through a volatile sink, so the access survives -O3 (which
@@ -31,7 +33,12 @@ int main(int argc, char **argv) {
 
   if (n <= 0) return 0;
 
-  if (buf[0] == 'A') {
+  /* Print to stderr on EVERY run so the test can verify the captured trace
+     holds only the crashing run's output, not output accumulated from previous
+     runs. */
+  fprintf(stderr, "run-marker: processing %d bytes\n", n);
+
+  if (buf[0] != 'B') {
 
     unsigned char *p = (unsigned char *)malloc(8);
     if (!p) return 0;
