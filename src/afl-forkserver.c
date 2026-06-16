@@ -2609,6 +2609,20 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   u32 exec_ms;
   u32 write_value = fsrv->last_run_timed_out;
 
+  /* AFL_CRASH_TRACES: clear the capture buffer before each run so a crash's
+     trace file holds only the crashing run's own stdout/stderr, not output
+     accumulated from previous runs. Only the main forkserver sets
+     crash_trace_fd (>= 0), and only when the feature is enabled, so this is a
+     single no-op branch otherwise. */
+
+  if (unlikely(fsrv->crash_trace_fd >= 0)) {
+
+    if (ftruncate(fsrv->crash_trace_fd, 0) != 0) {             /* non-fatal */
+
+    }
+
+  }
+
 #ifdef AFL_PERSISTENT_RECORD
   fsrv_run_result_t retval = FSRV_RUN_OK;
   char             *persistent_out_fmt;
