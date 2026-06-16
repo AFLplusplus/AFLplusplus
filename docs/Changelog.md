@@ -12,6 +12,9 @@
     - new adaptive MOpt! Much better than the outdated one we still had.
       How good it is still needs to be seen but initially it seems to be
       better than standard havoc
+    - added AFL_CRASH_TRACES: capture the crashing run's output (sanitizer
+      report / stack trace / signal) into a <crashfile>.txt beside each saved
+      crash
     - enforce halt on UBSAN errors
   - afl-cc:
     - enforce halt on UBSAN errors (AFL_USE_USBAN=1)

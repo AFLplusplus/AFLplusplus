@@ -608,6 +608,22 @@ checks or alter some of the more exotic semantics of the tool:
     occurred. This may be beneficial if you look for higher-level faulty
     conditions in which your target still exits gracefully.
 
+  - Setting `AFL_CRASH_TRACES` makes afl-fuzz capture the crashing execution's
+    stdout/stderr (e.g. the AddressSanitizer report and stack trace) live and,
+    for each *saved unique* crash, write it to a text file named like the crash
+    input with `.txt` appended (e.g. `crashes/id:000000,sig:06,....txt`).
+    Because the trace comes from the run that actually crashed (not a re-run),
+    it is captured even for crashes that do not reproduce. Sanitizer reports are
+    symbolized (`symbolize=1`) when you have not exported your own `*_OPTIONS`
+    and a symbolizer (e.g. `llvm-symbolizer`) is on `PATH`. The feature is
+    disabled by default and adds no work to the fuzzing hot path. Notes: a bare
+    `SIGSEGV` with the sanitizer's default `handle_segv=0` produces no report,
+    so the `.txt` then just records the signal; a target that prints on every
+    run may have some preceding output included in the trace; Nyx mode is
+    excluded (it writes its own `.log`); and in split-sanitizer (SAND) mode a
+    crash detected only by the separate sanitizer binary may not have a report
+    in the captured output (the report comes from that other binary).
+
   - Setting `AFL_CUSTOM_MUTATOR_LIBRARY` to a shared library with
     afl_custom_fuzz() creates additional mutations through this library. If
     afl-fuzz is compiled with Python (which is autodetected during building
