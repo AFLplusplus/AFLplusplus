@@ -2479,7 +2479,7 @@ void setup_dirs_fds(afl_state_t *afl) {
 
     } else {
 
-      unlink((char *)ctf);  /* anonymous: auto-removed when all holders close */
+      unlink((char *)ctf); /* anonymous: auto-removed when all holders close */
 
     }
 

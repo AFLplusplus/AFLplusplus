@@ -35,9 +35,9 @@ int main(int argc, char **argv) {
 
     unsigned char *p = (unsigned char *)malloc(8);
     if (!p) return 0;
-    size_t idx = 8 + ((size_t)n & 7);                /* 8..15: past the alloc */
-    p[idx] = buf[0];                                 /* OOB write -> ASAN     */
-    g_sink = p[idx];                                 /* escapes; keeps access */
+    size_t idx = 8 + ((size_t)n & 7);              /* 8..15: past the alloc */
+    p[idx] = buf[0];                               /* OOB write -> ASAN     */
+    g_sink = p[idx];                               /* escapes; keeps access */
     free(p);
 
   }
@@ -45,3 +45,4 @@ int main(int argc, char **argv) {
   return 0;
 
 }
+

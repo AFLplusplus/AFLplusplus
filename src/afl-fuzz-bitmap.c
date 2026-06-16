@@ -551,7 +551,9 @@ static void reset_crash_trace(afl_state_t *afl) {
 
   if (afl->fsrv.crash_trace_fd >= 0) {
 
-    if (ftruncate(afl->fsrv.crash_trace_fd, 0) != 0) { /* non-fatal */ }
+    if (ftruncate(afl->fsrv.crash_trace_fd, 0) != 0) {         /* non-fatal */
+
+    }
 
   }
 
@@ -563,7 +565,7 @@ static void reset_crash_trace(afl_state_t *afl) {
    non-reproducing crashes are captured correctly. Off the hot path (saved
    crashes only). Every failure here is non-fatal. */
 
-#define CRASH_TRACE_MAX (1 * 1024 * 1024)            /* cap the .txt at 1 MB */
+#define CRASH_TRACE_MAX (1 * 1024 * 1024)           /* cap the .txt at 1 MB */
 
 static void save_crash_trace(afl_state_t *afl, u8 *crash_fn) {
 
@@ -578,7 +580,8 @@ static void save_crash_trace(afl_state_t *afl, u8 *crash_fn) {
 
   if (fstat(cfd, &st) == 0 && st.st_size > 0) { size = st.st_size; }
 
-  (void)snprintf((char *)trace_fn, sizeof(trace_fn), "%s.txt", (char *)crash_fn);
+  (void)snprintf((char *)trace_fn, sizeof(trace_fn), "%s.txt",
+                 (char *)crash_fn);
 
   ofd = open((char *)trace_fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
   if (unlikely(ofd < 0)) {
@@ -633,7 +636,7 @@ static void save_crash_trace(afl_state_t *afl, u8 *crash_fn) {
 
     while (remaining > 0) {
 
-      size_t  want =
+      size_t want =
           remaining < (off_t)sizeof(buf) ? (size_t)remaining : sizeof(buf);
       ssize_t r = pread(cfd, buf, want, off);
       if (r <= 0) { break; }
@@ -647,7 +650,7 @@ static void save_crash_trace(afl_state_t *afl, u8 *crash_fn) {
     if (truncated) {
 
       const char *t = "\n[... output truncated at 1 MB ...]\n";
-      ssize_t w = write(ofd, t, strlen(t));
+      ssize_t     w = write(ofd, t, strlen(t));
       (void)w;
 
     }

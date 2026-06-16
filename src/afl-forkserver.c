@@ -597,7 +597,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->use_stdin = from->use_stdin;
   fsrv_to->dev_null_fd = from->dev_null_fd;
-  fsrv_to->crash_trace_fd = -1;  /* only the main forkserver captures traces */
+  fsrv_to->crash_trace_fd = -1; /* only the main forkserver captures traces */
   fsrv_to->exec_tmout = from->exec_tmout;
   fsrv_to->init_tmout = from->init_tmout;
   fsrv_to->mem_limit = from->mem_limit;
@@ -1396,7 +1396,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       if (fsrv->crash_trace_fd >= 0) {
 
         /* AFL_CRASH_TRACES: capture the target's stdout/stderr so a crashing
-           run's sanitizer report / stack trace can be saved beside the crash. */
+           run's sanitizer report / stack trace can be saved beside the crash.
+         */
         dup2(fsrv->crash_trace_fd, 1);
         dup2(fsrv->crash_trace_fd, 2);
 
