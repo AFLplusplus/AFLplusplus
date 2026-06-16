@@ -191,6 +191,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
     }
 
     ssize_t valid_size = new_size;
+    u8      did_swap = 0;
 
     if (unlikely(new_size < afl->min_length && !fix)) {
 
@@ -225,6 +226,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
       *mem = new_buf;
       afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+      did_swap = 1;
 
     }
 
@@ -260,7 +262,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
       len = new_size;
 
-    } else {
+    } else if (did_swap) {
 
       /* restore the original memory which was saved in new_mem */
       *mem = new_mem;
