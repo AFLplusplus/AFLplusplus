@@ -191,6 +191,8 @@ void afl_nyx_runner_kill(afl_forkserver_t *fsrv) {
     if (fsrv->nyx_runner) {
 
       fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
+      /* clear the runner so a subsequent afl_fsrv_start() respawns QEMU-Nyx */
+      fsrv->nyx_runner = NULL;
 
     }
 
