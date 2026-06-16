@@ -1,12 +1,12 @@
-# AFL_CRASH_TRACES Implementation Plan
+# AFL_CRASH_TRACES Implementation Plan (live capture)
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** When `AFL_CRASH_TRACES` is set, `afl-fuzz` writes a `<crashfile>.txt` next to each saved unique crash containing the crash's trace (sanitizer report / stack trace / terminating signal).
+**Goal:** When `AFL_CRASH_TRACES` is set, `afl-fuzz` captures the crashing execution's stdout/stderr live and writes it to `<crashfile>.txt` beside each saved unique crash — capturing the trace even for crashes that do not reproduce.
 
-**Architecture:** A new opt-in env flag gates a single new static helper, `write_crash_trace()`, called only inside the `FSRV_RUN_CRASH` branch of `save_if_interesting()` (off the hot path, once per unique crash). The helper re-runs the crashing input in a fresh `fork()`/`execv()` child with stdout+stderr redirected into the `.txt` file and sanitizer options overridden to symbolize. Disabled by default; the only hot-path cost is one already-allocated struct-field read.
+**Architecture:** afl-fuzz opens a capture file (`<out_dir>/.crash_trace_output`, then `unlink`s it) before the forkserver starts. The forkserver child `dup2`s that fd onto the target children's stdout/stderr (instead of `/dev/null`) when enabled, so every crashing run writes its sanitizer report straight into the file. On a saved crash, `save_if_interesting()` copies the file into `<crashfile>.txt` and resets it. Sanitizer reports are symbolized via `set_sanitizer_defaults()`. No re-run; zero hot-path cost (reset happens only in the crash branch).
 
-**Tech Stack:** C (AFL++ core), POSIX `fork`/`execv`/`waitpid`, the existing AFL test harness (`test/test-*.sh`, auto-discovered by `test/test-all.sh`).
+**Tech Stack:** C (AFL++ core), POSIX `dup2`/`pread`/`ftruncate`/`fstat`, the AFL test harness (`test/test-*.sh`).
 
 **Spec:** `docs/superpowers/specs/2026-06-16-afl-crash-traces-design.md`
 
@@ -14,20 +14,20 @@
 
 ## File Structure
 
+- **Modify** `include/forkserver.h` — add `s32 crash_trace_fd;` to `afl_forkserver_t`.
+- **Modify** `src/afl-forkserver.c` — init the fd to `-1`; redirect child stdout/stderr to it; close it in the child; keep it `-1` for secondary forkservers (`afl_fsrv_init_dup`).
+- **Modify** `src/afl-common.c` — append `symbolize=1` to default sanitizer options when `AFL_CRASH_TRACES` is set.
 - **Modify** `include/afl-fuzz.h` — add `afl_crash_traces` to `afl_env_vars_t`.
-- **Modify** `src/afl-fuzz-state.c` — parse `AFL_CRASH_TRACES` into the flag.
-- **Modify** `include/envs.h` — register `"AFL_CRASH_TRACES"` in `afl_environment_variables[]`.
-- **Modify** `src/afl-fuzz-bitmap.c` — add static helpers + the call site in `save_if_interesting()`.
-- **Create** `test/test-crash-trace-target.c` — a tiny ASAN target that crashes on a magic byte.
-- **Create** `test/test-crash-traces.sh` — integration test (auto-discovered by `test-all.sh`).
-- **Modify** `docs/env_variables.md` — document `AFL_CRASH_TRACES`.
-- **Modify** `docs/Changelog.md` — note the feature.
-
-Each unit is self-contained: the env flag (plumbing), the helper (behavior), the test (verification), the docs.
+- **Modify** `src/afl-fuzz-state.c` — parse `AFL_CRASH_TRACES`.
+- **Modify** `include/envs.h` — register `"AFL_CRASH_TRACES"`.
+- **Modify** `src/afl-fuzz-init.c` — open the capture file in `setup_dirs_fds()`.
+- **Modify** `src/afl-fuzz-bitmap.c` — add `save_crash_trace()` / `reset_crash_trace()` helpers + crash-branch wiring.
+- **Create** `test/test-crash-trace-target.c`, `test/test-crash-traces.sh`.
+- **Modify** `docs/env_variables.md`, `docs/Changelog.md`.
 
 ---
 
-## Chunk 1: Feature implementation, test, and docs
+## Chunk 1: Capture infrastructure, read-on-crash, symbolization, test, docs
 
 ### Task 1: Integration test target + script (write the failing test first)
 
@@ -35,9 +35,9 @@ Each unit is self-contained: the env flag (plumbing), the helper (behavior), the
 - Create: `test/test-crash-trace-target.c`
 - Create: `test/test-crash-traces.sh`
 
-- [ ] **Step 1: Create the crashing target**
+- [ ] **Step 1: Create the crashing target** (no unused includes — clangd flagged `string.h`)
 
-`test/test-crash-trace-target.c` — reads stdin (or a file argument) and triggers a deterministic ASAN heap-buffer-overflow when the first byte is `'A'`. A magic byte (not the seed) means AFL discovers the crash quickly without flagging a crashing seed.
+`test/test-crash-trace-target.c`:
 
 ```c
 /* Tiny target for test-crash-traces.sh: crashes (heap-buffer-overflow under
@@ -45,7 +45,6 @@ Each unit is self-contained: the env flag (plumbing), the helper (behavior), the
    otherwise from stdin. */
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 int main(int argc, char **argv) {
@@ -71,7 +70,7 @@ int main(int argc, char **argv) {
   if (buf[0] == 'A') {
 
     char *p = (char *)malloc(1);
-    p[8] = 'x';                       /* heap-buffer-overflow */
+    p[8] = 'x';                                       /* heap-buffer-overflow */
     return p[8];
 
   }
@@ -81,9 +80,7 @@ int main(int argc, char **argv) {
 }
 ```
 
-- [ ] **Step 2: Create the integration test script**
-
-`test/test-crash-traces.sh` — standalone (like `test/test-bug-pass.sh`), auto-discovered by `test-all.sh`, skips cleanly if binaries are not built, exits non-zero only on real failure. Covers: stdin delivery (positive, asserts ASAN marker), file/`@@` delivery (positive, asserts `.txt` exists), and a negative run (no env → no `.txt`).
+- [ ] **Step 2: Create the integration test script** `test/test-crash-traces.sh`
 
 ```bash
 #!/bin/bash
@@ -103,7 +100,6 @@ if [ ! -x "$CC" ] || [ ! -x "$FUZZ" ]; then
   exit 0
 fi
 
-# Build the ASAN target.
 if ! AFL_QUIET=1 AFL_USE_ASAN=1 "$CC" -o "$TMP/target" \
      "$SCRIPT_DIR/test-crash-trace-target.c" 2>"$TMP/build.log"; then
   echo "[-] could not build ASAN target; skipping"
@@ -131,9 +127,6 @@ find_crash() { find "$1" -path '*crashes*' -name 'id:*' ! -name '*.txt' 2>/dev/n
 CODE=0
 
 # --- Positive, stdin delivery: .txt exists and holds the ASAN report ---
-# Only assert when a crash was actually discovered in time, so a slow/loaded
-# CI box does not cause a false failure (the single-byte 'B'->'A' flip is found
-# almost immediately in practice).
 run_fuzz "$TMP/out_stdin" 1 0
 CRASH=$(find_crash "$TMP/out_stdin")
 TXT=$(find_trace "$TMP/out_stdin")
@@ -175,13 +168,13 @@ fi
 exit $CODE
 ```
 
-- [ ] **Step 3: Make the script executable and run it to confirm it fails**
+- [ ] **Step 3: Make executable and confirm it fails** (feature not yet implemented)
 
 ```bash
 chmod +x test/test-crash-traces.sh
 cd test && ./test-crash-traces.sh; cd ..
 ```
-Expected (feature not yet implemented): the stdin positive check prints `[!] AFL_CRASH_TRACES (stdin): missing trace file ...` and the script exits non-zero — because no `.txt` is produced yet. (If `afl-clang-fast`/`afl-fuzz` are not built, it prints "skipping" and exits 0 — build first: `make all` at repo root, then re-run.)
+Expected (binaries already built in this repo): `[!] AFL_CRASH_TRACES (stdin): crash found but trace/ASAN report missing` and non-zero exit. If binaries are not built, it prints "skipping" / exits 0 — then run `make all` first.
 
 - [ ] **Step 4: Commit the failing test**
 
@@ -195,27 +188,24 @@ git commit -m "test: add failing integration test for AFL_CRASH_TRACES"
 ### Task 2: Env-var plumbing (flag, parser, registry)
 
 **Files:**
-- Modify: `include/afl-fuzz.h` (the `afl_env_vars_t` struct, ~line 573-578)
-- Modify: `src/afl-fuzz-state.c` (env parsing, near the `AFL_NO_CRASH_README` branch ~line 646)
-- Modify: `include/envs.h` (`afl_environment_variables[]`, near `"AFL_NO_CRASH_README"` ~line 115)
+- Modify: `include/afl-fuzz.h` (`afl_env_vars_t`, ~line 577-578)
+- Modify: `include/envs.h` (`afl_environment_variables[]`, ~line 115)
+- Modify: `src/afl-fuzz-state.c` (~line 646, near `AFL_NO_CRASH_README`)
 
-- [ ] **Step 1: Add the flag to the struct**
+- [ ] **Step 1: Add the flag.** In `include/afl-fuzz.h`, change the end of the `u8` run in `afl_env_vars_t` from:
 
-In `include/afl-fuzz.h`, add `afl_crash_traces` to the `u8` bitflag list in `afl_env_vars_t`. Append it to the existing run (e.g. after `afl_frameshift_disabled`):
-
+```c
+      afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled;
+```
+to:
 ```c
       afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled,
       afl_crash_traces;
 ```
-(Replace the trailing `afl_frameshift_disabled;` with `afl_frameshift_disabled,\n      afl_crash_traces;`.)
 
-- [ ] **Step 2: Register the variable name**
+- [ ] **Step 2: Register the name.** In `include/envs.h`, add `"AFL_CRASH_TRACES",` to `afl_environment_variables[]` near the other `AFL_CRASH*` entries (around lines 40-41: `"AFL_CRASH_EXITCODE"`, `"AFL_CRASHING_SEEDS_AS_NEW_CRASH"`).
 
-In `include/envs.h`, add `"AFL_CRASH_TRACES",` to `afl_environment_variables[]` (alphabetical-ish, near the other `AFL_CRASH*`/`AFL_NO_CRASH_README` entries). This prevents the "Unknown AFL environment variable" warning.
-
-- [ ] **Step 3: Parse the variable**
-
-In `src/afl-fuzz-state.c`, add a branch mirroring `AFL_NO_CRASH_README` (the `else if` chain around line 646):
+- [ ] **Step 3: Parse it.** In `src/afl-fuzz-state.c`, add a branch in the `else if` chain (mirroring `AFL_NO_CRASH_README`):
 
 ```c
           } else if (!strncmp(env, "AFL_CRASH_TRACES",
@@ -227,14 +217,9 @@ In `src/afl-fuzz-state.c`, add a branch mirroring `AFL_NO_CRASH_README` (the `el
 
 ```
 
-- [ ] **Step 4: Build to verify it compiles**
+- [ ] **Step 4: Build.** `make all` — clean build; flag unused so far.
 
-```bash
-make all
-```
-Expected: clean build (warnings-as-errors off unless `DEBUG=1`). The flag exists but is unused so far — that's fine.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit.**
 
 ```bash
 git add include/afl-fuzz.h include/envs.h src/afl-fuzz-state.c
@@ -243,88 +228,202 @@ git commit -m "feat: add AFL_CRASH_TRACES env flag plumbing"
 
 ---
 
-### Task 3: Implement `write_crash_trace()` and the call site
+### Task 3: Forkserver capture fd (struct, init, redirect, dup-init)
 
 **Files:**
-- Modify: `src/afl-fuzz-bitmap.c` (add static helpers before `save_if_interesting()` at line 546; add call site in the `FSRV_RUN_CRASH` branch after the crash testcase is written, ~line 1084)
+- Modify: `include/forkserver.h` (struct, near `dev_null_fd` ~line 121)
+- Modify: `src/afl-forkserver.c` (init ~523; redirect ~1392-1397; child close ~1421; `afl_fsrv_init_dup` ~594)
 
-- [ ] **Step 1: Add the static helpers before `save_if_interesting()`**
-
-Insert immediately before `u8 __attribute__((hot)) save_if_interesting(...)` (line 546). Three small units: a non-fatal writer, the sanitizer-option override, and the re-run itself.
+- [ ] **Step 1: Add the struct field.** In `include/forkserver.h`, near `dev_null_fd`:
 
 ```c
-/* Best-effort line writer for crash-trace files: a missing or short write to a
-   trace file must never be fatal (unlike ck_write). */
+      dev_null_fd,                      /* Persistent fd for /dev/null      */
+```
+add after it (same declaration group, so it is an `s32`):
+```c
+      crash_trace_fd,                   /* AFL_CRASH_TRACES capture fd, -1   */
+```
+(If adding to an existing comma list, ensure the type is `s32` like `dev_null_fd`/`out_fd`.)
 
-static void crash_trace_puts(s32 fd, const char *s) {
+- [ ] **Step 2: Initialize to -1.** In `src/afl-forkserver.c`, in `afl_fsrv_init()` near `fsrv->dev_null_fd = -1;` (line 523), add:
 
-  size_t  n = strlen(s);
-  ssize_t w = write(fd, s, n);
-  (void)w;
+```c
+  fsrv->crash_trace_fd = -1;
+```
 
-}
+- [ ] **Step 3: Keep it -1 for secondary forkservers.** In `afl_fsrv_init_dup()` (~line 595), after `fsrv_to->dev_null_fd = from->dev_null_fd;`, add:
 
-/* In the re-run child only: force readable, symbolized sanitizer output and
-   ensure signal-based crashes also produce a backtrace. Sanitizer flag parsing
-   is last-wins, so appending our overrides to any inherited *_OPTIONS is
-   sufficient; if a var is unset we set it to the override alone. */
+```c
+  fsrv_to->crash_trace_fd = -1;  /* only the main forkserver captures traces */
+```
 
-static void crash_trace_set_san_opts(void) {
+- [ ] **Step 4: Redirect child stdout/stderr to the capture fd.** In `src/afl-forkserver.c`, replace the existing block at lines 1392-1397:
 
-  static const char *vars[] = {"ASAN_OPTIONS", "UBSAN_OPTIONS", "MSAN_OPTIONS",
-                               "LSAN_OPTIONS"};
-  /* Leading ':' lets us append; skipped (extra+1) when the var was unset. */
-  static const char *extra[] = {
-      ":symbolize=1:handle_segv=1:handle_sigbus=1:handle_sigfpe=1:"
-      "handle_sigill=1:abort_on_error=1",
-      ":symbolize=1", ":symbolize=1", ":symbolize=1"};
+```c
+    if (!(debug_child_output)) {
 
-  for (u32 i = 0; i < 4; ++i) {
+      dup2(fsrv->dev_null_fd, 1);
+      dup2(fsrv->dev_null_fd, 2);
 
-    char        buf[4096];
-    const char *cur = getenv(vars[i]);
-    if (cur && *cur) {
+    }
+```
+with:
+```c
+    if (!(debug_child_output)) {
 
-      snprintf(buf, sizeof(buf), "%s%s", cur, extra[i]);
+      if (fsrv->crash_trace_fd >= 0) {
+
+        /* AFL_CRASH_TRACES: capture the target's stdout/stderr so a crashing
+           run's sanitizer report / stack trace can be saved beside the crash. */
+        dup2(fsrv->crash_trace_fd, 1);
+        dup2(fsrv->crash_trace_fd, 2);
+
+      } else {
+
+        dup2(fsrv->dev_null_fd, 1);
+        dup2(fsrv->dev_null_fd, 2);
+
+      }
+
+    }
+```
+
+- [ ] **Step 5: Close the original fd in the forkserver child.** Near line 1421, beside `if (fsrv->dev_null_fd >= 0) close(fsrv->dev_null_fd);`, add:
+
+```c
+    if (fsrv->crash_trace_fd >= 0) close(fsrv->crash_trace_fd);
+```
+
+- [ ] **Step 6: Build.** `make all` — clean build. No behavior change yet (no one sets `crash_trace_fd` > -1).
+
+- [ ] **Step 7: Commit.**
+
+```bash
+git add include/forkserver.h src/afl-forkserver.c
+git commit -m "feat: forkserver support for AFL_CRASH_TRACES capture fd"
+```
+
+---
+
+### Task 4: Open the capture file in afl-fuzz
+
+**Files:**
+- Modify: `src/afl-fuzz-init.c` (`setup_dirs_fds()`, right after `dev_null_fd`/`dev_urandom_fd` open, ~line 2461)
+
+- [ ] **Step 1: Open + unlink the capture file.** In `setup_dirs_fds()`, after:
+
+```c
+  afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
+  if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
+```
+add:
+
+```c
+  /* AFL_CRASH_TRACES: anonymous capture file for the crashing run's
+     stdout/stderr. Opened before the forkserver starts so it (and its target
+     children) inherit it; O_APPEND so writes land at EOF after each reset.
+     Excluded for Nyx (its output is not a normal child stderr; it writes its
+     own .log). */
+
+  if (afl->afl_env.afl_crash_traces && !afl->fsrv.nyx_mode) {
+
+    u8 *ctf = alloc_printf("%s/.crash_trace_output", afl->out_dir);
+    afl->fsrv.crash_trace_fd =
+        open((char *)ctf, O_RDWR | O_CREAT | O_TRUNC | O_APPEND, 0600);
+    if (afl->fsrv.crash_trace_fd < 0) {
+
+      WARNF("AFL_CRASH_TRACES: unable to create '%s'; feature disabled", ctf);
 
     } else {
 
-      snprintf(buf, sizeof(buf), "%s", extra[i] + 1);
+      unlink((char *)ctf);  /* anonymous: auto-removed when all holders close */
 
     }
+    ck_free(ctf);
 
-    setenv(vars[i], buf, 1);
+  }
+```
+
+- [ ] **Step 2: Build.** `make all` — clean build. Now `crash_trace_fd` is set when enabled, so children write stderr to it, but nothing reads it yet (Task 5).
+
+- [ ] **Step 3: Quick manual confirmation that capture happens.** Build the test target and confirm the capture file receives ASAN output (sanity before Task 5):
+
+```bash
+AFL_USE_ASAN=1 ./afl-clang-fast -o /tmp/ctt test/test-crash-trace-target.c
+mkdir -p /tmp/ctin && printf 'B' > /tmp/ctin/s
+AFL_CRASH_TRACES=1 AFL_BENCH_UNTIL_CRASH=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
+  AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 timeout 120 \
+  ./afl-fuzz -i /tmp/ctin -o /tmp/ctout -m none -- /tmp/ctt >/tmp/ctout.log 2>&1 || true
+ls /tmp/ctout/*/crashes/ 2>/dev/null | head
+```
+Expected: a crash `id:*` appears (no `.txt` yet). (Cleanup: `rm -rf /tmp/ctt /tmp/ctin /tmp/ctout*`.)
+
+- [ ] **Step 4: Commit.**
+
+```bash
+git add src/afl-fuzz-init.c
+git commit -m "feat: open AFL_CRASH_TRACES capture file before forkserver start"
+```
+
+---
+
+### Task 5: Read the capture on a saved crash (the helpers + wiring)
+
+**Files:**
+- Modify: `src/afl-fuzz-bitmap.c` (helpers before `save_if_interesting()` ~line 546; crash-branch edits ~979-1084)
+
+- [ ] **Step 1: Add the helpers before `save_if_interesting()`** (line 546):
+
+```c
+/* AFL_CRASH_TRACES: discard any captured output (used at duplicate-crash early
+   returns so a saved crash's trace holds only its own output). No-op when the
+   feature is off. */
+
+static void reset_crash_trace(afl_state_t *afl) {
+
+  if (afl->fsrv.crash_trace_fd >= 0) {
+
+    if (ftruncate(afl->fsrv.crash_trace_fd, 0) != 0) { /* non-fatal */ }
 
   }
 
 }
 
-/* AFL_CRASH_TRACES: re-run a just-saved crashing input once with stdout/stderr
-   captured into "<crash_fn>.txt", placing the sanitizer report / stack trace /
-   terminating signal next to the crash input. Runs only for saved unique
-   crashes (off the hot path). Every failure here is non-fatal. */
+/* AFL_CRASH_TRACES: copy the crashing run's captured stdout/stderr (collected
+   live into fsrv->crash_trace_fd) into "<crash_fn>.txt", then reset the capture
+   buffer for the next crash. This is the ACTUAL crashing execution's output, so
+   non-reproducing crashes are captured correctly. Off the hot path (saved
+   crashes only). Every failure here is non-fatal. */
 
-static void write_crash_trace(afl_state_t *afl, u8 *crash_fn, void *mem,
-                              u32 len) {
+#define CRASH_TRACE_MAX (1 * 1024 * 1024)            /* cap the .txt at 1 MB */
 
-  u8    trace_fn[PATH_MAX];
-  u8    line[PATH_MAX + 128];
-  s32   trace_fd, input_fd;
-  pid_t child;
+static void save_crash_trace(afl_state_t *afl, u8 *crash_fn) {
+
+  s32         cfd = afl->fsrv.crash_trace_fd;
+  struct stat st;
+  off_t       size = 0;
+  u8          trace_fn[PATH_MAX];
+  u8          hdr[PATH_MAX + 160];
+  s32         ofd;
+
+  if (cfd < 0) { return; }
+
+  if (fstat(cfd, &st) == 0 && st.st_size > 0) { size = st.st_size; }
 
   (void)snprintf((char *)trace_fn, sizeof(trace_fn), "%s.txt", (char *)crash_fn);
 
-  trace_fd = open((char *)trace_fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
-  if (unlikely(trace_fd < 0)) {
+  ofd = open((char *)trace_fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
+  if (unlikely(ofd < 0)) {
 
     WARNF("AFL_CRASH_TRACES: unable to create '%s'", trace_fn);
+    reset_crash_trace(afl);
     return;
 
   }
 
   if (afl->chown_needed) {
 
-    if (fchown(trace_fd, -1, afl->fsrv.gid) == -1) {
+    if (fchown(ofd, -1, afl->fsrv.gid) == -1) {
 
       WARNF("AFL_CRASH_TRACES: fchown('%s') failed", trace_fn);
 
@@ -332,168 +431,135 @@ static void write_crash_trace(afl_state_t *afl, u8 *crash_fn, void *mem,
 
   }
 
-  /* Header (raw write so it interleaves with the child's raw stderr; both
-     share this open file description across fork()). */
+  (void)snprintf((char *)hdr, sizeof(hdr),
+                 "=== AFL++ crash trace ===\n"
+                 "crash file : %s\n"
+                 "signal     : %u\n"
+                 "total execs: %llu\n"
+                 "captured   : %lld bytes\n"
+                 "=========================\n\n",
+                 (char *)crash_fn, afl->fsrv.last_kill_signal,
+                 afl->fsrv.total_execs, (long long)size);
+  { ssize_t w = write(ofd, hdr, strlen((char *)hdr)); (void)w; }
 
-  snprintf((char *)line, sizeof(line),
-           "=== AFL++ crash trace ===\n"
-           "crash file : %s\n"
-           "signal     : %u\n"
-           "total execs: %llu\n"
-           "=========================\n\n",
-           (char *)crash_fn, afl->fsrv.last_kill_signal, afl->fsrv.total_execs);
-  crash_trace_puts(trace_fd, (char *)line);
+  if (size <= 0) {
 
-  /* Modes whose input a plain execv() cannot deliver: say so rather than
-     write a misleading empty trace. */
-
-  if (afl->fsrv.use_shmem_fuzz || afl->fsrv.nyx_mode) {
-
-    crash_trace_puts(trace_fd,
-                     "[AFL_CRASH_TRACES] standalone trace capture is not "
-                     "supported for this mode (shared-memory input or Nyx).\n");
-    close(trace_fd);
-    return;
-
-  }
-
-  /* Deliver the input the way the forkserver does. out_file is set in both
-     file (@@) and stdin modes (setup_stdio_file), so a direct write covers
-     both. write_to_testcase() is intentionally NOT used: it runs custom-mutator
-     send/post-process hooks and swaps the out buffers. */
-
-  input_fd = open((char *)afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC,
-                  afl->perm);
-  if (unlikely(input_fd < 0)) {
-
-    WARNF("AFL_CRASH_TRACES: unable to write input '%s'", afl->fsrv.out_file);
-    close(trace_fd);
-    return;
-
-  }
-  ck_write(input_fd, mem, len, afl->fsrv.out_file);
-  close(input_fd);
-
-  child = fork();
-  if (unlikely(child < 0)) {
-
-    WARNF("AFL_CRASH_TRACES: fork() failed");
-    close(trace_fd);
-    return;
-
-  }
-
-  if (!child) {
-
-    /* CHILD: redirect stdout+stderr into the trace file, wire up input,
-       force symbolized sanitizer output, exec the target. */
-
-    s32 in;
-
-    setsid();
-    dup2(trace_fd, 1);
-    dup2(trace_fd, 2);
-
-    if (afl->fsrv.use_stdin) {
-
-      in = open((char *)afl->fsrv.out_file, O_RDONLY);
-
-    } else {
-
-      in = open("/dev/null", O_RDONLY);
-
-    }
-    if (in >= 0) { dup2(in, 0); }
-
-    crash_trace_set_san_opts();
-
-    execv((char *)afl->argv[0], afl->argv);
-    _exit(EXIT_FAILURE);
-
-  }
-
-  /* PARENT: bounded wait so a wedged target can't stall the fuzzer. */
-
-  u64 tmout = (u64)afl->fsrv.exec_tmout * 5;
-  if (tmout < 1000) { tmout = 1000; }
-  if (tmout > 60000) { tmout = 60000; }
-
-  u64 waited = 0;
-  int status = 0;
-  u8  timed_out = 0;
-
-  while (1) {
-
-    pid_t r = waitpid(child, &status, WNOHANG);
-    if (r == child) { break; }
-    if (r < 0) { break; }
-    if (waited >= tmout) {
-
-      kill(child, SIGKILL);
-      waitpid(child, &status, 0);
-      timed_out = 1;
-      break;
-
-    }
-    usleep(1000);
-    ++waited;
-
-  }
-
-  /* Footer. */
-
-  if (timed_out) {
-
-    snprintf((char *)line, sizeof(line),
-             "\n=== re-run timed out after %llu ms (killed) ===\n", tmout);
-
-  } else if (WIFSIGNALED(status)) {
-
-    snprintf((char *)line, sizeof(line),
-             "\n=== re-run terminated by signal %d (crash reproduced) ===\n",
-             WTERMSIG(status));
-
-  } else if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-
-    snprintf((char *)line, sizeof(line),
-             "\n=== re-run exited with code %d (crash reproduced) ===\n",
-             WEXITSTATUS(status));
+    const char *none =
+        "[no target output was captured for this crash]\n"
+        "(e.g. a bare SIGSEGV without a sanitizer report; sanitizer signal\n"
+        " handling is left at its fuzzing default)\n";
+    ssize_t w = write(ofd, none, strlen(none));
+    (void)w;
 
   } else {
 
-    snprintf((char *)line, sizeof(line),
-             "\n=== re-run exited cleanly; crash did NOT reproduce ===\n");
+    off_t remaining = size > CRASH_TRACE_MAX ? CRASH_TRACE_MAX : size;
+    off_t off = 0;
+    u8    truncated = size > CRASH_TRACE_MAX;
+    u8    buf[16384];
+
+    while (remaining > 0) {
+
+      size_t  want = remaining < (off_t)sizeof(buf) ? (size_t)remaining
+                                                    : sizeof(buf);
+      ssize_t r = pread(cfd, buf, want, off);
+      if (r <= 0) { break; }
+      ssize_t w = write(ofd, buf, r);
+      (void)w;
+      off += r;
+      remaining -= r;
+
+    }
+
+    if (truncated) {
+
+      const char *t = "\n[... output truncated at 1 MB ...]\n";
+      ssize_t w = write(ofd, t, strlen(t));
+      (void)w;
+
+    }
 
   }
-  crash_trace_puts(trace_fd, (char *)line);
 
-  close(trace_fd);
+  close(ofd);
+  reset_crash_trace(afl);
 
 }
 ```
 
-- [ ] **Step 2: Add the call site in `save_if_interesting()`**
-
-In `src/afl-fuzz-bitmap.c`, immediately after the crash/hang testcase is written (the `fd = permissive_create(afl, fn); ... close(fd);` block ending at line 1084), add:
+- [ ] **Step 2: Declare the crash-save flag.** Near the top of `save_if_interesting()` (with its other locals, e.g. beside `u8 *queue_fn = ...` / the `keeping`/`res` declarations), add:
 
 ```c
-  if (unlikely(afl->afl_env.afl_crash_traces) && fault == FSRV_RUN_CRASH) {
+  u8 is_crash_save = 0;
+```
 
-    write_crash_trace(afl, fn, mem, len);
+- [ ] **Step 3: Set the flag + reset on duplicates.** In the crash branch (lines 979-995), change:
+
+```c
+    keep_as_crash:
+
+      /* This is handled in a manner roughly similar to timeouts,
+         except for slightly different limits and no need to re-run test
+         cases. */
+
+      ++afl->total_crashes;
+
+      if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
+
+      if (likely(!afl->non_instrumented_mode)) {
+
+        simplify_trace(afl, afl->fsrv.trace_bits);
+
+        if (!has_new_bits(afl, afl->virgin_crash)) { return keeping; }
+
+      }
+```
+to:
+```c
+    keep_as_crash:
+
+      /* This is handled in a manner roughly similar to timeouts,
+         except for slightly different limits and no need to re-run test
+         cases. */
+
+      is_crash_save = 1;
+
+      ++afl->total_crashes;
+
+      if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) {
+
+        reset_crash_trace(afl);
+        return keeping;
+
+      }
+
+      if (likely(!afl->non_instrumented_mode)) {
+
+        simplify_trace(afl, afl->fsrv.trace_bits);
+
+        if (!has_new_bits(afl, afl->virgin_crash)) {
+
+          reset_crash_trace(afl);
+          return keeping;
+
+        }
+
+      }
+```
+
+- [ ] **Step 4: Call the save after the crash testcase is written.** After the `fd = permissive_create(afl, fn); ... close(fd);` block (ends line 1084) and the existing `infoexec` block, add (placement is fine anywhere after the file write and before `return keeping;`; put it right after the file-write block):
+
+```c
+  if (unlikely(afl->afl_env.afl_crash_traces) && is_crash_save) {
+
+    save_crash_trace(afl, fn);
 
   }
 ```
 
-The `fault == FSRV_RUN_CRASH` guard is load-bearing — this code path is shared with hangs (see the comment at lines 1075-1076), and the guard restricts traces to crashes, matching the neighboring `infoexec` block.
+- [ ] **Step 5: Build.** `make all` — clean build. (Optionally `make DEBUG=1 all` to catch `-Werror`; the helpers use only declared types/macros and `sys/stat.h` is already included via `afl-fuzz.h`.)
 
-- [ ] **Step 3: Build**
-
-```bash
-make all
-```
-Expected: clean build. (Optionally `make DEBUG=1 all` once to catch `-Werror` issues — the new code uses only declared types/macros.)
-
-- [ ] **Step 4: Run the integration test to verify it now passes**
+- [ ] **Step 6: Run the integration test — it should now pass.**
 
 ```bash
 cd test && ./test-crash-traces.sh; cd ..
@@ -504,61 +570,114 @@ Expected:
 [+] AFL_CRASH_TRACES (@@): trace file written
 [+] without AFL_CRASH_TRACES: no trace file written (correct)
 ```
-and exit code 0. If the negative run finds no crash in time it prints the "skipping negative assertion" line — still a pass.
+exit 0.
 
-- [ ] **Step 5: Manual smoke check (optional but recommended)**
+- [ ] **Step 7: Manual smoke check of a produced trace.**
 
-Inspect a produced trace to confirm it is readable:
 ```bash
-T=$(find /tmp -path '*crashes*' -name '*.txt' 2>/dev/null | head -1)   # or from your own run
-sed -n '1,40p' "$T"
+AFL_USE_ASAN=1 ./afl-clang-fast -o /tmp/ctt test/test-crash-trace-target.c
+mkdir -p /tmp/ctin && printf 'B' > /tmp/ctin/s
+AFL_CRASH_TRACES=1 AFL_BENCH_UNTIL_CRASH=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
+  AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 timeout 120 \
+  ./afl-fuzz -i /tmp/ctin -o /tmp/ctout -m none -- /tmp/ctt >/tmp/ctout.log 2>&1 || true
+T=$(find /tmp/ctout -path '*crashes*' -name '*.txt' | head -1); echo "trace: $T"; sed -n '1,30p' "$T"
+rm -rf /tmp/ctt /tmp/ctin /tmp/ctout*
 ```
-Expected: the header (crash file, signal, execs), then an `ERROR: AddressSanitizer: heap-buffer-overflow` report with symbolized frames, then the footer.
+Expected: header (crash file, signal, execs, captured bytes) then an
+`ERROR: AddressSanitizer: heap-buffer-overflow ...` report.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit.**
 
 ```bash
 git add src/afl-fuzz-bitmap.c
-git commit -m "feat: write crash traces beside crashes when AFL_CRASH_TRACES set"
+git commit -m "feat: write captured crash trace to <crashfile>.txt for AFL_CRASH_TRACES"
 ```
 
 ---
 
-### Task 4: Documentation
+### Task 6: Symbolize sanitizer reports when enabled
+
+**Files:**
+- Modify: `src/afl-common.c` (`set_sanitizer_defaults()`, after the `detect_leaks` block ~line 153, before the ASAN `setenv` ~line 157)
+
+- [ ] **Step 1: Append `symbolize=1` to the defaults when enabled.** After the leak-detection `strcat`s into `default_options` and before `if (!have_san_options) { setenv("ASAN_OPTIONS", default_options, 1); }`, add:
+
+```c
+  /* AFL_CRASH_TRACES: symbolize sanitizer reports so captured crash traces are
+     readable. Last-wins parsing makes this override the default symbolize=0.
+     Symbolization only runs when a report is printed (on a crash), so this adds
+     nothing to the fuzzing hot path. Only affects the built-in defaults (the
+     setenv calls below are guarded by !have_san_options). */
+
+  {
+
+    u8 *ct = getenv("AFL_CRASH_TRACES");
+    if (ct && atoi((char *)ct)) { strcat((char *)default_options, "symbolize=1:"); }
+
+  }
+```
+(`default_options` is `u8[1024]`; the appended text fits well within it.)
+
+- [ ] **Step 2: Build.** `make all` — clean build.
+
+- [ ] **Step 3: Verify symbolized output (best-effort — depends on a symbolizer on PATH).**
+
+```bash
+AFL_USE_ASAN=1 ./afl-clang-fast -g -o /tmp/ctt test/test-crash-trace-target.c
+mkdir -p /tmp/ctin && printf 'B' > /tmp/ctin/s
+AFL_CRASH_TRACES=1 AFL_BENCH_UNTIL_CRASH=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
+  AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 timeout 120 \
+  ./afl-fuzz -i /tmp/ctin -o /tmp/ctout -m none -- /tmp/ctt >/tmp/ctout.log 2>&1 || true
+T=$(find /tmp/ctout -path '*crashes*' -name '*.txt' | head -1); grep -E "main|test-crash-trace-target" "$T" || echo "(no symbolized frames — symbolizer may be absent)"
+rm -rf /tmp/ctt /tmp/ctin /tmp/ctout*
+```
+Expected: with `llvm-symbolizer` on PATH, frames show `main` / the source file. Without it, raw addresses (still contains `AddressSanitizer`). Either way the integration test passes.
+
+- [ ] **Step 4: Re-run the integration test.** `cd test && ./test-crash-traces.sh; cd ..` → all `[+]`, exit 0.
+
+- [ ] **Step 5: Commit.**
+
+```bash
+git add src/afl-common.c
+git commit -m "feat: symbolize sanitizer reports when AFL_CRASH_TRACES is set"
+```
+
+---
+
+### Task 7: Documentation
 
 **Files:**
 - Modify: `docs/env_variables.md`
 - Modify: `docs/Changelog.md`
 
-- [ ] **Step 1: Document the env var**
-
-In `docs/env_variables.md`, add an `AFL_CRASH_TRACES` entry in the `afl-fuzz` environment-variable section (near other crash-related vars). Suggested text:
+- [ ] **Step 1: Document the env var.** In `docs/env_variables.md`, in the `afl-fuzz` section (near other crash-related vars), add:
 
 ```
-  - Setting `AFL_CRASH_TRACES` makes afl-fuzz, for each *saved unique* crash,
-    re-run the crashing input once and write the captured stdout/stderr (e.g.
-    the AddressSanitizer report, stack trace, or terminating signal) to a text
-    file named like the crash input with `.txt` appended (e.g.
-    `crashes/id:000000,sig:06,....txt`). The re-run forces symbolized sanitizer
-    output (`symbolize=1`) and enables the sanitizer signal handlers, so traces
-    are readable when a symbolizer (e.g. `llvm-symbolizer`) is on `PATH`. This
-    work happens only on saved crashes (not on the fuzzing hot path) and is
-    disabled by default. Shared-memory-input (persistent + `AFL_SHMEM_FUZZ`) and
-    Nyx targets cannot be reproduced by a standalone re-run; for them the file
-    records a short note instead of a trace (Nyx additionally writes its own
-    `.log`).
+  - Setting `AFL_CRASH_TRACES` makes afl-fuzz capture the crashing execution's
+    stdout/stderr (e.g. the AddressSanitizer report and stack trace) live and,
+    for each *saved unique* crash, write it to a text file named like the crash
+    input with `.txt` appended (e.g. `crashes/id:000000,sig:06,....txt`).
+    Because the trace comes from the run that actually crashed (not a re-run),
+    it is captured even for crashes that do not reproduce. Sanitizer reports are
+    symbolized (`symbolize=1`) when you have not exported your own `*_OPTIONS`
+    and a symbolizer (e.g. `llvm-symbolizer`) is on `PATH`. The feature is
+    disabled by default and adds no work to the fuzzing hot path. Notes: a bare
+    `SIGSEGV` with the sanitizer's default `handle_segv=0` produces no report,
+    so the `.txt` then just records the signal; a target that prints on every
+    run may have some preceding output included in the trace; Nyx mode is
+    excluded (it writes its own `.log`); and in split-sanitizer (SAND) mode a
+    crash detected only by the separate sanitizer binary may not have a report
+    in the captured output (the report comes from that other binary).
 ```
 
-- [ ] **Step 2: Add a Changelog entry**
-
-In `docs/Changelog.md`, under the current/unreleased section, add a bullet:
+- [ ] **Step 2: Changelog.** In `docs/Changelog.md`, under the current/unreleased section:
 
 ```
-  - added AFL_CRASH_TRACES to write a <crashfile>.txt with the crash trace
-    (sanitizer report / stack trace / signal) beside each saved crash
+  - added AFL_CRASH_TRACES: capture the crashing run's output (sanitizer report
+    / stack trace / signal) into a <crashfile>.txt beside each saved crash
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Commit.**
 
 ```bash
 git add docs/env_variables.md docs/Changelog.md
@@ -567,51 +686,33 @@ git commit -m "docs: document AFL_CRASH_TRACES"
 
 ---
 
-### Task 5: Format, full verification, and final commit
+### Task 8: Format, full verification, final commit
 
-- [ ] **Step 1: Run code formatting (required before PR)**
+- [ ] **Step 1: Format.** `make code-format`. If `test-crash-trace-target.c` is still untracked, also `./.custom-format.py -i test/test-crash-trace-target.c`.
 
-```bash
-make code-format
-```
-If `test-crash-trace-target.c` was untracked when formatting ran, also: `./.custom-format.py -i test/test-crash-trace-target.c`.
+- [ ] **Step 2: Review diff + rebuild.** `git diff` (expect only style changes), then `make all` (clean).
 
-- [ ] **Step 2: Review the formatting diff and rebuild**
+- [ ] **Step 3: Re-run the test after formatting.** `cd test && ./test-crash-traces.sh; cd ..` → all `[+]`, exit 0.
 
-```bash
-git diff
-make all
-```
-Expected: only style-level changes from formatting; clean build.
-
-- [ ] **Step 3: Re-run the integration test after formatting**
+- [ ] **Step 4: Commit any formatting.**
 
 ```bash
-cd test && ./test-crash-traces.sh; cd ..
-```
-Expected: all `[+]` lines, exit 0.
-
-- [ ] **Step 4: Commit any formatting changes**
-
-```bash
-git add -A
-git commit -m "style: code-format AFL_CRASH_TRACES changes" || echo "nothing to format"
+git add -A && git commit -m "style: code-format AFL_CRASH_TRACES changes" || echo "nothing to format"
 ```
 
-- [ ] **Step 5: Final verification summary**
-
-Confirm, with evidence, before declaring done:
-- `git log --oneline` shows the feature, test, docs, and format commits.
+- [ ] **Step 5: Final verification summary (evidence required).**
+- `git log --oneline` shows the env-flag, forkserver, capture-file, read-on-crash, symbolize, test, docs, and format commits.
 - `cd test && ./test-crash-traces.sh` exits 0 with the three `[+]` lines.
 - `make all` builds clean.
-- Disabled-by-default: the negative test path confirms no `.txt` without the env.
+- Disabled-by-default confirmed by the negative test path.
 
 ---
 
 ## Notes for the implementer
 
-- **No header declaration needed** for the helpers — they are `static` to `afl-fuzz-bitmap.c` (only the call site uses them). This keeps `afl-fuzz.h` unchanged for this behavior.
-- **Required system calls** (`fork`, `execv`, `waitpid`, `setsid`, `dup2`, `setenv`, `kill`, `usleep`) and headers (`sys/wait.h`, `unistd.h`, `fcntl.h`, `signal.h`) are already pulled in via `afl-fuzz.h`.
-- **`setenv` between fork and exec** is safe here: afl-fuzz is single-threaded and the forkserver already does exactly this in `set_sanitizer_defaults()`.
-- **`ck_write` is fatal on short write** (`include/debug.h:383`); use it only for the input file (matching the existing crash-file write), and use `crash_trace_puts()` for the best-effort header/footer.
-- **Style:** no camelCase; AFL macros (`WARNF`, `unlikely`, `u8`/`s32`/`u64`); run `make code-format` before committing.
+- **Helpers are `static`** in `afl-fuzz-bitmap.c`; no header declaration needed.
+- **Includes**: `sys/stat.h` (fstat/struct stat), `unistd.h` (pread/ftruncate), `fcntl.h`, `limits.h` (PATH_MAX), `stdlib.h` (EXIT/atoi) are all pulled in via `afl-fuzz.h`; `string.h`/`strcat` is available in `afl-common.c`.
+- **Only the main forkserver captures.** `afl_fsrv_init_dup` must set `crash_trace_fd = -1` (Task 3 Step 3), or cmplog/sanitizer forkserver children would also write into the capture and pollute it.
+- **Zero hot-path cost**: the capture fd is set up once; the only resets happen inside the crash branch of `save_if_interesting()`. Do not add any per-execution truncation.
+- **No re-run.** The trace is whatever the crashing child wrote. Do not add a re-run path.
+- **Style:** no camelCase; AFL macros (`WARNF`, `unlikely`, `u8`/`s32`/`u64`); `make code-format` before committing.
