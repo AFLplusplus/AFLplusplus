@@ -987,9 +987,10 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     const unsigned int precision = sizeInBits == 32    ? 24
                                    : sizeInBits == 64  ? 53
                                    : sizeInBits == 128 ? 113
-                                   : sizeInBits == 16  ? 11
-                                   : sizeInBits == 80  ? 65
-                                                       : sizeInBits - 8;
+                                   : sizeInBits == 16
+                                       ? (op0->getType()->isBFloatTy() ? 8 : 11)
+                                   : sizeInBits == 80 ? 65
+                                                      : sizeInBits - 8;
 
     const unsigned           shiftR_exponent = precision - 1;
     const unsigned long long mask_fraction =
