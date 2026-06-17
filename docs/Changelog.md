@@ -7,7 +7,7 @@
 ### Version ++5.00a (dev)
   - MacOS persistent mode now uses futex mode now too which increases speed
     and reduces system call overhead (opt out with AFL_FAST_CHILD_SYNC) - this
-    required a MacOS from 2024 onwards.
+    requires a MacOS from 2024 onwards.
   - afl-fuzz
     - new adaptive MOpt! Much better than the outdated one we still had.
       How good it is still needs to be seen but initially it seems to be
@@ -16,6 +16,10 @@
   - afl-cc:
     - enforce halt on UBSAN errors (AFL_USE_USBAN=1)
     - better cmplog on MacOS
+    - removed unsupported LLVM version code paths from afl-cc and llvm passes
+    - compcov: fixes for float splittings (thanks to @ngg)
+  - nyx_mode:
+    - fix nyx_mode issues (thanks to @morehouse)
 
 
 ### Version ++5.00c (release)

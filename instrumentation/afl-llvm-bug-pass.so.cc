@@ -4250,9 +4250,6 @@ llvmGetPassPluginInfo() {
 
   return {LLVM_PLUGIN_API_VERSION, "afl-bug-pass", "v0.1", [](PassBuilder &PB) {
 
-#if LLVM_MAJOR <= 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-#endif
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel
 #if LLVM_MAJOR >= 20
