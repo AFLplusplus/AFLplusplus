@@ -60,8 +60,8 @@ jobs:
         run: |
           cd qemu_bridge
           NO_CHECKOUT=1 ./build_qemu_bridge_support.sh
-          test -x ../afl-qemu-trace
-          file ../afl-qemu-trace
+          test -x ../afl-qemu-bridge
+          file ../afl-qemu-bridge
       - name: acceptance suite
         run: |
           sudo -E ./afl-system-config || true
@@ -121,8 +121,8 @@ jobs:
         run: |
           cd qemu_bridge
           CPU_TARGET=${{ matrix.cpu }} NO_CHECKOUT=1 ./build_qemu_bridge_support.sh
-          test -x ../afl-qemu-trace
-          file ../afl-qemu-trace
+          test -x ../afl-qemu-bridge
+          file ../afl-qemu-bridge
       - name: cross instrumentation self-test (${{ matrix.cpu }})
         run: |
           set -e
