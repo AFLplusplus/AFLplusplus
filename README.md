@@ -238,6 +238,7 @@ Thank you! (For people sending pull requests - please add yourself to this list
     Ziqiao Kong                           Ryan Berger
     Sangjun Park                          Scott Guest
     Fabian Keil                           @Jay-1409
+    Gergely Nagy
   ```
 
 </details>

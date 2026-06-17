@@ -1089,10 +1089,10 @@ size_t SplitComparesTransform::splitFPCompares(Module &M) {
     bb->getInstList().insert(BasicBlock::iterator(bb->getTerminator()), is_nan);
 #endif
 
-    /* the result of the comparison, when at least one op is NaN
-       is true only for the "NOT EQUAL" predicates. */
-    bool NaNcmp_result = FcmpInst->getPredicate() == CmpInst::FCMP_ONE ||
-                         FcmpInst->getPredicate() == CmpInst::FCMP_UNE;
+    /* the result of the comparison, when at least one op is NaN,
+       is defined by ordered vs. unordered: ordered (FCMP_O*) predicates yield
+       false, unordered (FCMP_U*) predicates yield true. */
+    bool NaNcmp_result = CmpInst::isUnordered(FcmpInst->getPredicate());
 
     BasicBlock *nonan_bb =
         BasicBlock::Create(C, "noNaN", end_bb->getParent(), end_bb);
