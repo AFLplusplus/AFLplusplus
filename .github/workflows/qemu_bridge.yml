@@ -5,20 +5,13 @@ on:
     branches:
       - stable
       - dev
-      - lqemu
     paths:
       - 'qemu_bridge/**'
-      - 'src/**'
-      - 'include/**'
-      - 'instrumentation/**'
       - 'test/test-qemu-bridge.sh'
       - '.github/workflows/qemu_bridge.yml'
   pull_request:
     paths:
       - 'qemu_bridge/**'
-      - 'src/**'
-      - 'include/**'
-      - 'instrumentation/**'
       - 'test/test-qemu-bridge.sh'
       - '.github/workflows/qemu_bridge.yml'
 
