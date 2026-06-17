@@ -13,8 +13,6 @@
 
 #include <string.h>
 
-IntervalTreeRoot *pageflags_get_root(void);
-
 struct vmrange {
     uint64_t start;
     uint64_t end;

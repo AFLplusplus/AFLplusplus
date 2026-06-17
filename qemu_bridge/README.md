@@ -75,7 +75,7 @@ Build-time environment variables for `build_qemu_bridge_support.sh`:
 
 The bridge QEMU source is the `qemu_bridge/qemu-libafl-bridge` submodule, pinned
 by `qemu_bridge/QEMU_BRIDGE_VERSION`. To exclude the bridge from the top-level
-build, pass `NO_QEMU_BRIDGE=1` to `make`.
+build, pass `NO_QEMU=1` to `make`.
 
 If you want the helper installed system-wide, build it before running
 `make install` in the parent directory.

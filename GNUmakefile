@@ -431,8 +431,7 @@ help:
 	@echo "NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)"
 	@echo NO_NYX - disable building nyx mode dependencies
 	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
-	@echo NO_QEMU - disable building QEMU support
-	@echo "NO_QEMU_BRIDGE - disable building the QEMU libafl bridge backend"
+	@echo "NO_QEMU - disable building QEMU support (qemu_mode and qemu_bridge)"
 	@echo NO_FRIDA - disable building FRIDA support
 	@echo NO_UNICORN - disable building unicorn
 	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
@@ -775,8 +774,6 @@ endif
 endif
 ifndef NO_QEMU
 	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
-endif
-ifndef NO_QEMU_BRIDGE
 	-cd qemu_bridge && unset CFLAGS && ./build_qemu_bridge_support.sh
 endif
 ifndef NO_UNICORN
@@ -810,8 +807,6 @@ endif
 endif
 ifndef NO_QEMU
 	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
-endif
-ifndef NO_QEMU_BRIDGE
 	-cd qemu_bridge && unset CFLAGS && ./build_qemu_bridge_support.sh
 endif
 ifndef NO_UNICORN
