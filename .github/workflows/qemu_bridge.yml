@@ -87,7 +87,7 @@ jobs:
             cross: aarch64-linux-gnu
             apt: gcc-aarch64-linux-gnu
             cflags: ''
-          - cpu: mips
+          - cpu: mipsel
             cross: mipsel-linux-gnu
             apt: gcc-mipsel-linux-gnu
             cflags: ''
@@ -135,7 +135,7 @@ jobs:
             echo "[*] cross compiler ${{ matrix.cross }}-gcc unavailable, skipping self-test"
             exit 0
           fi
-          printf 'int main(void){char b[8];int n=read(0,b,7);if(n<1)return 1;if(b[0]=='"'"'A'"'"')return 0;return 2;}' > t.c
+          printf '#include <unistd.h>\nint main(void){unsigned char b[8];int n=read(0,b,7);if(n<1)return 1;int x=0;if(b[0]==65)for(int i=0;i<7;i++){if((b[0]+i)&1)x++;}return x;}\n' > t.c
           $CC -O0 -static -o t-${{ matrix.cpu }} t.c
           printf 'A' > a
           printf 'B' > b
