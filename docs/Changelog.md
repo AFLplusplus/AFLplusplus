@@ -20,6 +20,14 @@
     - compcov: fixes for float splittings (thanks to @ngg)
   - nyx_mode:
     - fix nyx_mode issues (thanks to @morehouse)
+  - qemu_mode:
+    - non-colliding coverage!
+    - faster persistent fuzzing
+    - minor bug fixes
+  - qemu_bridge:
+    - new mode with current QEMU version, so plugins possible, new processors
+    - sightly slower than qemu_mode
+    - WIP!
 
 
 ### Version ++5.00c (release)

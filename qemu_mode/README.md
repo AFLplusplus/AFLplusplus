@@ -10,6 +10,8 @@ for normal targets, and slightly faster for persistent targets.
 If you have a target that does not work for whatever reason (eg Risc-V), then
 use qemu_bridge. As this is WIP some features might be implemented yet.
 Plus you have access to the plugin system of a modern Qemu.
+Note that this mode is work in progress!
+
 
 ## 1) Introduction
 
