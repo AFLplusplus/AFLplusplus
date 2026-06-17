@@ -342,7 +342,7 @@ int asan_giovese_report_and_crash(int access_type, target_ulong addr, size_t n,
     target_ulong pc = QASAN_PC_GET(env);
     target_ulong bp = QASAN_BP_GET(env);
     target_ulong sp = QASAN_SP_GET(env);
-    struct call_context ctx;
+    struct call_context ctx = {0};
     asan_giovese_populate_context(&ctx, pc);
     target_ulong fault_addr = 0;
     const char* error_type;
