@@ -34,14 +34,27 @@ run_fuzz() {  # $1=outdir  $2=traces(0/1)  $3=use_file(0/1)
   local out="$1" traces="$2" usefile="$3" tgt="$TMP/target"
   local args="-i $TMP/in -o $out -m none"
   if [ "$usefile" = "1" ]; then args="$args -- $tgt @@"; else args="$args -- $tgt"; fi
-  env $COMMON_ENV AFL_CRASH_TRACES=$traces \
-    timeout 60 "$FUZZ" $args > "$out.log" 2>&1 || true
+  ( cd "$TMP" && env $COMMON_ENV AFL_CRASH_TRACES=$traces \
+    timeout 60 "$FUZZ" $args > "$out.log" 2>&1 ) || true
 }
 
 # trace files are named like the crash input + ".txt" (id:*.txt); this must
 # exclude the always-present crashes/README.txt.
 find_trace() { find "$1" -path '*crashes*' -name 'id:*.txt' 2>/dev/null | head -1; }
-find_crash() { find "$1" -path '*crashes*' -name 'id:*' ! -name '*.txt' 2>/dev/null | head -1; }
+find_core() { find "$1" -path '*crashes*' -name 'id:*.core' 2>/dev/null | head -1; }
+find_crash() {
+  find "$1" -path '*crashes*' -name 'id:*' ! -name '*.txt' ! -name '*.core' \
+    2>/dev/null | head -1
+}
+
+CORE_PATTERN=$(cat /proc/sys/kernel/core_pattern 2>/dev/null || echo "")
+core_capture_possible() {
+  if [ "$(id -u)" = "0" ]; then return 0; fi
+  case "$CORE_PATTERN" in
+    "|"* | /* | "") return 1 ;;
+    *) return 0 ;;
+  esac
+}
 
 CODE=0
 
@@ -69,6 +82,19 @@ else
   CODE=1
 fi
 
+# --- Positive, stdin: a "<crash>.core" is written when cores are capturable ---
+if [ -n "$CRASH" ] && core_capture_possible; then
+  CORE=$(find_core "$TMP/out_stdin")
+  if [ -n "$CORE" ] && [ -s "$CORE" ] && head -c4 "$CORE" | grep -q ELF; then
+    echo "[+] AFL_CRASH_TRACES (stdin): core file written beside the crash"
+  else
+    echo "[!] AFL_CRASH_TRACES (stdin): crash found but no valid .core (core_pattern='$CORE_PATTERN')"
+    CODE=1
+  fi
+elif [ -n "$CRASH" ]; then
+  echo "[*] core capture not possible (core_pattern='$CORE_PATTERN', not root); skipping .core assertion"
+fi
+
 # --- Positive, file (@@) delivery: .txt exists beside the crash ---
 run_fuzz "$TMP/out_file" 1 1
 CRASH=$(find_crash "$TMP/out_file")
@@ -89,6 +115,19 @@ else
   CODE=1
 fi
 
+# --- Positive, @@: a "<crash>.core" is written when cores are capturable ---
+if [ -n "$CRASH" ] && core_capture_possible; then
+  CORE=$(find_core "$TMP/out_file")
+  if [ -n "$CORE" ] && [ -s "$CORE" ] && head -c4 "$CORE" | grep -q ELF; then
+    echo "[+] AFL_CRASH_TRACES (@@): core file written beside the crash"
+  else
+    echo "[!] AFL_CRASH_TRACES (@@): crash found but no valid .core (core_pattern='$CORE_PATTERN')"
+    CODE=1
+  fi
+elif [ -n "$CRASH" ]; then
+  echo "[*] core capture not possible (core_pattern='$CORE_PATTERN', not root); skipping .core assertion"
+fi
+
 # --- Negative: without the env, a crash must NOT get a .txt ---
 run_fuzz "$TMP/out_off" 0 0
 if [ -n "$(find_crash "$TMP/out_off")" ] && [ -z "$(find_trace "$TMP/out_off")" ]; then
@@ -98,6 +137,16 @@ elif [ -z "$(find_crash "$TMP/out_off")" ]; then
 else
   echo "[!] trace file written even though AFL_CRASH_TRACES was unset"
   CODE=1
+fi
+
+# --- Negative: without the env, no "<crash>.core" must be written ---
+if [ -n "$(find_crash "$TMP/out_off")" ]; then
+  if [ -z "$(find_core "$TMP/out_off")" ]; then
+    echo "[+] without AFL_CRASH_TRACES: no core file written (correct)"
+  else
+    echo "[!] core file written even though AFL_CRASH_TRACES was unset"
+    CODE=1
+  fi
 fi
 
 exit $CODE

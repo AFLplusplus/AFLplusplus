@@ -2646,6 +2646,73 @@ void setup_stdio_file(afl_state_t *afl) {
 
 void check_crash_handling(void) {
 
+#ifdef __linux__
+  {
+
+    u8 *ct = (u8 *)getenv("AFL_CRASH_TRACES");
+    if (ct && atoi((char *)ct) > 0) {
+
+      s32 rfd = open("/proc/sys/kernel/core_pattern", O_RDONLY);
+      if (rfd >= 0) {
+
+        u8      pat[256];
+        ssize_t rl = read(rfd, pat, sizeof(pat) - 1);
+        close(rfd);
+        if (rl < 0) { rl = 0; }
+        pat[rl] = 0;
+
+        if (pat[0] == '|' || pat[0] == '/' || pat[0] == 0 || pat[0] == '\n') {
+
+          u8  done = 0;
+          s32 wfd = open("/proc/sys/kernel/core_pattern", O_WRONLY | O_TRUNC);
+          if (wfd >= 0) {
+
+            char want[] = "core\n";
+            if (write(wfd, want, strlen(want)) == (ssize_t)strlen(want)) {
+
+              done = 1;
+
+            }
+
+            close(wfd);
+
+          }
+
+          if (done) {
+
+            WARNF(
+                "AFL_CRASH_TRACES: changed global core_pattern to 'core' to "
+                "capture core files (not restored on exit)");
+
+          } else if (getenv("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES")) {
+
+            WARNF(
+                "AFL_CRASH_TRACES: core_pattern cannot produce core files and "
+                "could not be changed (not root?); '.core' files will not be "
+                "written. Fix: echo core | sudo tee "
+                "/proc/sys/kernel/core_pattern");
+
+          } else {
+
+            FATAL(
+                "AFL_CRASH_TRACES: core_pattern cannot produce core files and "
+                "could not be changed. Run as root or set it manually: echo "
+                "core | sudo tee /proc/sys/kernel/core_pattern");
+
+          }
+
+        }
+
+      }
+
+      return;
+
+    }
+
+  }
+
+#endif
+
   if (getenv("AFL_ALLOW_CORES")) { return; }
 
 #ifdef __APPLE__

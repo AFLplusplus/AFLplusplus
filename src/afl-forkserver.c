@@ -534,7 +534,12 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->child_kill_signal = SIGKILL;
   fsrv->max_length = MAX_FILE;
 
-  fsrv->allow_cores = getenv("AFL_ALLOW_CORES") != NULL ? true : false;
+  u8 *crash_traces_env = (u8 *)getenv("AFL_CRASH_TRACES");
+  fsrv->allow_cores =
+      (getenv("AFL_ALLOW_CORES") != NULL ||
+       (crash_traces_env != NULL && atoi((char *)crash_traces_env) > 0))
+          ? true
+          : false;
 
   if (getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL) {
 
@@ -548,6 +553,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   // exec related stuff
   fsrv->child_pid = -1;
+  fsrv->last_child_pid = -1;
   fsrv->map_size = get_map_size();
 
   /* IJON space allocation is handled by normal resize logic based on target's
@@ -2777,6 +2783,8 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
+
+  if (likely(fsrv->child_pid > 0)) { fsrv->last_child_pid = fsrv->child_pid; }
 
   // GUI Mode
 #ifdef __linux__

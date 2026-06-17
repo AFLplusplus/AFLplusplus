@@ -632,6 +632,90 @@ static void save_crash_trace(afl_state_t *afl, u8 *crash_fn) {
 
 }
 
+#ifdef __linux__
+
+static void save_crash_core(afl_state_t *afl, u8 *crash_fn) {
+
+  s32 pid = afl->fsrv.last_child_pid;
+
+  if (pid <= 0) { return; }
+
+  u8 src[PATH_MAX];
+  u8 dst[PATH_MAX];
+
+  (void)snprintf((char *)dst, sizeof(dst), "%s.core", (char *)crash_fn);
+
+  (void)snprintf((char *)src, sizeof(src), "core.%d", pid);
+  if (access((char *)src, F_OK) != 0) {
+
+    (void)snprintf((char *)src, sizeof(src), "core");
+    if (access((char *)src, F_OK) != 0) {
+
+      static u8 warned = 0;
+      if (!warned) {
+
+        warned = 1;
+        WARNF(
+            "AFL_CRASH_TRACES: no core file found for a crash (RLIMIT_CORE, "
+            "core_pattern, or a sanitizer exiting without dumping?)");
+
+      }
+
+      return;
+
+    }
+
+  }
+
+  if (rename((char *)src, (char *)dst) != 0) {
+
+    s32 ifd = open((char *)src, O_RDONLY);
+    if (ifd < 0) { return; }
+    s32 ofd = open((char *)dst, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
+    if (ofd < 0) {
+
+      close(ifd);
+      return;
+
+    }
+
+    u8      buf[65536];
+    ssize_t r;
+    while ((r = read(ifd, buf, sizeof(buf))) > 0) {
+
+      ssize_t off = 0;
+      while (off < r) {
+
+        ssize_t w = write(ofd, buf + off, r - off);
+        if (w <= 0) { break; }
+        off += w;
+
+      }
+
+    }
+
+    close(ifd);
+    close(ofd);
+    unlink((char *)src);
+
+  }
+
+  (void)chmod((char *)dst, afl->perm);
+
+  if (afl->chown_needed) {
+
+    if (chown((char *)dst, -1, afl->fsrv.gid) == -1) {
+
+      WARNF("AFL_CRASH_TRACES: chown('%s') failed", dst);
+
+    }
+
+  }
+
+}
+
+#endif
+
 u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
                                             u32 len, u8 fault) {
 
@@ -1178,6 +1262,10 @@ may_save_fault:
   if (unlikely(afl->afl_env.afl_crash_traces) && is_crash_save) {
 
     save_crash_trace(afl, fn);
+
+#ifdef __linux__
+    if (afl->fsrv.last_kill_signal) { save_crash_core(afl, fn); }
+#endif
 
   }
 

@@ -147,6 +147,8 @@ typedef struct afl_forkserver {
 
   bool allow_cores;                   /* allow core files on target crashes */
 
+  s32 last_child_pid;
+
   bool use_shmem_fuzz;                  /* use shared mem for test cases    */
 
   bool support_shmem_fuzz;              /* set by afl-fuzz                  */
