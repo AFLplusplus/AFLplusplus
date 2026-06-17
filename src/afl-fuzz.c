@@ -2821,6 +2821,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       afl->san_fsrvs[i].san_but_not_instrumented = 1;
       afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
       afl->san_fsrvs[i].qemu_mode = afl->fsrv.qemu_mode;
+      afl->san_fsrvs[i].qemu_bridge = afl->fsrv.qemu_bridge;
       afl->san_fsrvs[i].frida_mode = afl->fsrv.frida_mode;
       afl->san_fsrvs[i].asanfuzz_binary = afl->san_binary[i];
       afl->san_fsrvs[i].target_path = afl->san_binary[i];
@@ -2828,7 +2829,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
       if ((afl->map_size <= DEFAULT_SHMEM_SIZE ||
            afl->san_fsrvs[i].map_size < afl->map_size) &&
-          !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+          !afl->non_instrumented_mode &&
+          (!afl->fsrv.qemu_mode || afl->fsrv.qemu_bridge) &&
           !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
           !afl->afl_env.afl_skip_bin_check) {
 
@@ -2890,6 +2892,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
     afl->cmplog_fsrv.cs_mode = afl->fsrv.cs_mode;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
+    afl->cmplog_fsrv.qemu_bridge = afl->fsrv.qemu_bridge;
     afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
@@ -2899,7 +2902,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
     if ((afl->map_size <= DEFAULT_SHMEM_SIZE ||
          afl->cmplog_fsrv.map_size < afl->map_size) &&
-        !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+        !afl->non_instrumented_mode &&
+        (!afl->fsrv.qemu_mode || afl->fsrv.qemu_bridge) &&
         !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
         !afl->afl_env.afl_skip_bin_check) {
 
