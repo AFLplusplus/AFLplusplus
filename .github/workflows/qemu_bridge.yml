@@ -135,8 +135,8 @@ jobs:
             echo "[*] cross compiler ${{ matrix.cross }}-gcc unavailable, skipping self-test"
             exit 0
           fi
-          printf 'int main(void){char b[8];int n=read(0,b,7);if(n<1)return 1;return b[0]=='"'"'A'"'"';}' > t.c
-          $CC -static -o t-${{ matrix.cpu }} t.c
+          printf 'int main(void){char b[8];int n=read(0,b,7);if(n<1)return 1;if(b[0]=='"'"'A'"'"')return 0;return 2;}' > t.c
+          $CC -O0 -static -o t-${{ matrix.cpu }} t.c
           printf 'A' > a
           printf 'B' > b
           AFL_PATH="$PWD" ./afl-showmap -Q -o m_a -- ./t-${{ matrix.cpu }} < a
