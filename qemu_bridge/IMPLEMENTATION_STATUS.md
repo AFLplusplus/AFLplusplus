@@ -38,10 +38,14 @@ Useful environment variables for the build script:
 - `NO_CHECKOUT=1` skips the submodule checkout/pin step (build whatever is
   checked out).
 - `STATIC=1`, `DEBUG=1`, `HOST=<prefix>` for static, debug, and cross builds.
-- `NO_QEMU_BRIDGE=1` (passed to `make`) disables building the bridge.
+- `NO_QEMU=1` (passed to `make`) disables building QEMU support, both
+  `qemu_mode` and the bridge.
 
 The bridge QEMU source is the `qemu_bridge/qemu-libafl-bridge` submodule, pinned
-by `qemu_bridge/QEMU_BRIDGE_VERSION`.
+by `qemu_bridge/QEMU_BRIDGE_VERSION`. When the script runs outside of a git
+checkout (for example inside the Docker build, where `.git` is excluded), it
+falls back to cloning `qemu-libafl-bridge` directly before checking out the
+pinned commit.
 
 ## Choosing the backend
 

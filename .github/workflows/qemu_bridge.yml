@@ -44,8 +44,7 @@ jobs:
             libc6-dev-i386
       - name: build afl++ core
         run: |
-          make NO_NYX=1 NO_FRIDA=1 NO_QEMU=1 NO_UNICORN=1 NO_CORESIGHT=1 \
-            NO_QEMU_BRIDGE=1 all
+          make NO_NYX=1 NO_FRIDA=1 NO_QEMU=1 NO_UNICORN=1 NO_CORESIGHT=1 all
       - name: init bridge submodule
         run: |
           git submodule update --init --recursive qemu_bridge/qemu-libafl-bridge
@@ -105,8 +104,7 @@ jobs:
             python3 python3-pip ${{ matrix.apt }}
       - name: build afl++ core
         run: |
-          make NO_NYX=1 NO_FRIDA=1 NO_QEMU=1 NO_UNICORN=1 NO_CORESIGHT=1 \
-            NO_QEMU_BRIDGE=1 all
+          make NO_NYX=1 NO_FRIDA=1 NO_QEMU=1 NO_UNICORN=1 NO_CORESIGHT=1 all
       - name: init bridge submodule
         run: |
           git submodule update --init --recursive qemu_bridge/qemu-libafl-bridge
