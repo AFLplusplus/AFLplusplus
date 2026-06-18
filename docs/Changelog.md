@@ -4,7 +4,7 @@
   release of the tool. See README.md for the general instruction manual.
 
 
-### Version ++5.00a (dev)
+### Version ++5.01c (release)
   - MacOS persistent mode now uses futex mode now too which increases speed
     and reduces system call overhead (opt out with AFL_FAST_CHILD_SYNC) - this
     requires a MacOS from 2024 onwards.
