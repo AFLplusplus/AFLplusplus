@@ -346,35 +346,62 @@ struct auto_extra_data {
 };
 
 /* Fuzzing stages */
-
 enum {
 
-  /* 00 */ STAGE_FLIP1,
-  /* 01 */ STAGE_FLIP2,
-  /* 02 */ STAGE_FLIP4,
-  /* 03 */ STAGE_FLIP8,
-  /* 04 */ STAGE_FLIP16,
-  /* 05 */ STAGE_FLIP32,
-  /* 06 */ STAGE_ARITH8,
-  /* 07 */ STAGE_ARITH16,
-  /* 08 */ STAGE_ARITH32,
-  /* 09 */ STAGE_INTEREST8,
-  /* 10 */ STAGE_INTEREST16,
-  /* 11 */ STAGE_INTEREST32,
-  /* 12 */ STAGE_EXTRAS_UO,
-  /* 13 */ STAGE_EXTRAS_UI,
-  /* 14 */ STAGE_EXTRAS_AO,
-  /* 15 */ STAGE_EXTRAS_AI,
-  /* 16 */ STAGE_HAVOC,
-  /* 17 */ STAGE_SPLICE,
-  /* 18 */ STAGE_PYTHON,
-  /* 19 */ STAGE_CUSTOM_MUTATOR,
-  /* 20 */ STAGE_COLORIZATION,
-  /* 21 */ STAGE_ITS,
-  /* 22 */ STAGE_INF,
-  /* 23 */ STAGE_QUICK,
-
-  STAGE_NUM_MAX
+  /* 00 */ STAGE_FLIPBIT,
+  /* 01 */ STAGE_INTEREST8,
+  /* 02 */ STAGE_INTEREST16,
+  /* 03 */ STAGE_INTEREST16BE,
+  /* 04 */ STAGE_INTEREST32,
+  /* 05 */ STAGE_INTEREST32BE,
+  /* 06 */ STAGE_ARITH8_,
+  /* 07 */ STAGE_ARITH8,
+  /* 08 */ STAGE_ARITH16_,
+  /* 09 */ STAGE_ARITH16BE_,
+  /* 10 */ STAGE_ARITH16,
+  /* 11 */ STAGE_ARITH16BE,
+  /* 12 */ STAGE_ARITH32_,
+  /* 13 */ STAGE_ARITH32BE_,
+  /* 14 */ STAGE_ARITH32,
+  /* 15 */ STAGE_ARITH32BE,
+  /* 16 */ STAGE_RAND8,
+  /* 17 */ STAGE_CLONE_COPY,
+  /* 18 */ STAGE_CLONE_FIXED,
+  /* 19 */ STAGE_OVERWRITE_COPY,
+  /* 20 */ STAGE_OVERWRITE_FIXED,
+  /* 21 */ STAGE_BYTEADD,
+  /* 22 */ STAGE_BYTESUB,
+  /* 23 */ STAGE_FLIP8,
+  /* 24 */ STAGE_SWITCH,
+  /* 25 */ STAGE_DEL,
+  /* 26 */ STAGE_SHUFFLE,
+  /* 27 */ STAGE_DELONE,
+  /* 28 */ STAGE_INSERTONE,
+  /* 29 */ STAGE_ASCIINUM,
+  /* 30 */ STAGE_INSERTASCIINUM,
+  /* 31 */ STAGE_EXTRA_OVERWRITE,
+  /* 32 */ STAGE_EXTRA_INSERT,
+  /* 33 */ STAGE_AUTO_EXTRA_OVERWRITE,
+  /* 34 */ STAGE_AUTO_EXTRA_INSERT,
+  /* 35 */ STAGE_SPLICE_OVERWRITE,
+  /* 36 */ STAGE_SPLICE_INSERT,
+  // max havoc mutation types
+  STAGE_HAVOC_MAX,
+  // other stages
+  STAGE_FLIP1,
+  STAGE_FLIP2,
+  STAGE_FLIP4,
+  STAGE_FLIP16,
+  STAGE_FLIP32,
+  STAGE_HAVOC,
+  STAGE_SPLICE,
+  STAGE_CUSTOM_MUTATOR,
+  STAGE_PYTHON,
+  STAGE_COLORIZATION,
+  STAGE_ITS,
+  STAGE_INF,
+  STAGE_QUICK,
+  STAGE_MAX
 
 };
 
@@ -388,24 +415,53 @@ enum {
 
 };
 
-#define operator_num 19
-#define swarm_num 5
-#define period_core 500000
+/* ---- Adaptive mutation arrays (next-gen MOpt) ----
+   MOPT_OP_MAX / MOPT_LUT_SIZE are pinned to MUT_MAX / MUT_STRATEGY_ARRAY_SIZE
+   (afl-mutations.h) by a _Static_assert in afl-fuzz-one.c. They are duplicated
+   here as plain integer literals because afl-mutations.h cannot be included
+   from afl-fuzz.h (it defines non-static globals -> multiple-definition). */
+#define MOPT_OP_MAX 37            /* == MUT_MAX                             */
+#define MOPT_LUT_SIZE 256         /* == MUT_STRATEGY_ARRAY_SIZE             */
+#define MOPT_CTX_NUM 6            /* input_mode(3) x fuzz_mode(2)           */
+#define MOPT_DECAY_NUM 90         /* tally decay numerator (0.90)           */
+#define MOPT_DECAY_DEN 100
+#define MOPT_PRIOR_NUM 25        /* initial epsilon to static prior (0.25)  */
+#define MOPT_PRIOR_DEN 100
+#define MOPT_PRIOR_MIN_NUM 5     /* annealed floor of prior epsilon (0.05)  */
+#define MOPT_PRIOR_ANNEAL 32     /* rebuilds to anneal prior to its floor   */
+#define MOPT_REBUILD_EXECS 4096   /* min execs between LUT rebuilds per ctx */
+#define MOPT_ARM_MIN_SAMPLES 64   /* min execs before an arm can lose       */
+#define MOPT_ARM_DECAY_NUM 50     /* policy window decay (0.50)             */
+#define MOPT_ARM_DECAY_DEN 100
 
-#define RAND_C (rand() % 1000 * 0.001)
-#define v_max 1
-#define v_min 0.05
-#define limit_time_bound 1.1
-#define SPLICE_CYCLES_puppet_up 25
-#define SPLICE_CYCLES_puppet_low 5
-#define STAGE_RANDOMBYTE 12
-#define STAGE_DELETEBYTE 13
-#define STAGE_Clone75 14
-#define STAGE_OverWrite75 15
-#define STAGE_OverWriteExtra 16
-#define STAGE_InsertExtra 17
-#define STAGE_Splice 18
-#define period_pilot 50000
+struct mopt_ctx {
+
+  u64 op_finds[MOPT_OP_MAX];    /* decayed find credit per operator         */
+  u64 op_uses[MOPT_OP_MAX];     /* decayed use count per operator           */
+  u32 learned_array[MOPT_LUT_SIZE]; /* rebuilt weighted LUT                 */
+  u64 arm_finds[2];            /* [0]=STATIC [1]=LEARNED window finds       */
+  u64 arm_time_us[2];          /* per-arm window wall-clock cost (us)       */
+  u64 arm_execs[2];            /* per-arm window exec count                 */
+  u64 last_rebuild_execs;      /* total_execs at this ctx's last rebuild    */
+  u32 rebuild_count;           /* rebuilds so far (prior anneal clock)      */
+  u8  active_arm;              /* arm chosen for the current havoc stage    */
+
+};
+
+struct mopt_adaptive {
+
+  struct mopt_ctx ctx[MOPT_CTX_NUM];
+  u8              enabled;      /* master switch (default on)               */
+  u8              cur_ctx;     /* ctx captured at current havoc-stage entry */
+
+  /* per-stacked-round attribution scratch (hot path, tiny).
+     use_stacking <= 16 with default HAVOC_STACK_POW2=4; round_list is
+     oversized and guarded so a user raising the pow via '+' is still safe. */
+  u8  round_seen[MOPT_OP_MAX];  /* dedup find credit within one round       */
+  u8  round_list[64];          /* op ids touched this round                 */
+  u32 round_cnt;
+
+};
 
 enum {
 
@@ -503,23 +559,6 @@ typedef struct py_mutator {
 
 #endif
 
-typedef struct MOpt_globals {
-
-  u64  *finds;
-  u64  *finds_v2;
-  u64  *cycles;
-  u64  *cycles_v2;
-  u64  *cycles_v3;
-  u32   is_pilot_mode;
-  u64  *pTime;
-  u64   period;
-  char *havoc_stagename;
-  char *splice_stageformat;
-  char *havoc_stagenameshort;
-  char *splice_stagenameshort;
-
-} MOpt_globals_t;
-
 extern char *power_names[POWER_SCHEDULES_NUM];
 
 typedef struct afl_env_vars {
@@ -589,47 +628,12 @@ typedef struct afl_state {
 
   char **argv;                                            /* argv if needed */
 
-  /* MOpt:
-    Lots of globals, but mostly for the status UI and other things where it
-    really makes no sense to haul them around as function parameters. */
-  u64 orig_hit_cnt_puppet, last_limit_time_start, tmp_pilot_time,
-      total_pacemaker_time, total_puppet_find, temp_puppet_find, most_time_key,
-      most_time, most_execs_key, most_execs, old_hit_count, force_ui_update,
+  /* Status UI and timing globals where it really makes no sense to haul them
+     around as function parameters. */
+  u64 most_time_key, most_time, most_execs_key, most_execs, force_ui_update,
       prev_run_time;
 
-  MOpt_globals_t mopt_globals_core, mopt_globals_pilot;
-
-  s32 limit_time_puppet, SPLICE_CYCLES_puppet, limit_time_sig, key_puppet,
-      key_module;
-
-  double w_init, w_end, w_now;
-
-  s32 g_now;
-  s32 g_max;
-
-  u64 tmp_core_time;
-  s32 swarm_now;
-
-  double x_now[swarm_num][operator_num], L_best[swarm_num][operator_num],
-      eff_best[swarm_num][operator_num], G_best[operator_num],
-      v_now[swarm_num][operator_num], probability_now[swarm_num][operator_num],
-      swarm_fitness[swarm_num];
-
-  u64 stage_finds_puppet[swarm_num][operator_num], /* Patterns found per
-                                                            fuzz stage    */
-      stage_finds_puppet_v2[swarm_num][operator_num],
-      stage_cycles_puppet_v2[swarm_num][operator_num],
-      stage_cycles_puppet_v3[swarm_num][operator_num],
-      stage_cycles_puppet[swarm_num][operator_num],
-      operator_finds_puppet[operator_num],
-      core_operator_finds_puppet[operator_num],
-      core_operator_finds_puppet_v2[operator_num],
-      core_operator_cycles_puppet[operator_num],
-      core_operator_cycles_puppet_v2[operator_num],
-      core_operator_cycles_puppet_v3[operator_num]; /* Execs per fuzz stage */
-
-  double period_pilot_tmp;
-  s32    key_lv;
+  struct mopt_adaptive mopt_adaptive;
 
   u8 *in_dir,                           /* Input directory with test cases  */
       *out_dir,                         /* Working & output directory       */
@@ -787,8 +791,8 @@ typedef struct afl_state {
 
   u8 stage_val_type;                    /* Value type (STAGE_VAL_*)         */
 
-  u64 stage_finds[32],                  /* Patterns found per fuzz stage    */
-      stage_cycles[32];                 /* Execs per fuzz stage             */
+  u64 stage_finds[STAGE_MAX],           /* Patterns found per fuzz stage    */
+      stage_cycles[STAGE_MAX];          /* Execs per fuzz stage             */
 
   u32 rand_cnt;                         /* Random number counter            */
 
@@ -1422,11 +1426,7 @@ fsrv_run_result_t fuzz_run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
 
 /* Fuzz one */
 
-u8   fuzz_one_original(afl_state_t *);
-u8   pilot_fuzzing(afl_state_t *);
-u8   core_fuzzing(afl_state_t *);
-void pso_updating(afl_state_t *);
-u8   fuzz_one(afl_state_t *);
+u8 fuzz_one(afl_state_t *);
 
 /* Init */
 
@@ -1491,6 +1491,22 @@ double rand_next_percent(afl_state_t *afl);
 
 u8 skip_deterministic_stage(afl_state_t *, u8 *, u8 *, u32, u64);
 u8 is_det_timeout(u64, u8);
+
+/* afl-fuzz-mopt-adaptive.c */
+void       mopt_adaptive_init(afl_state_t *);
+void       mopt_record_use(afl_state_t *, u32 op);
+void       mopt_round_reset(afl_state_t *);
+void       mopt_commit_round(afl_state_t *, u8 found);
+u32        mopt_ctx_index(u8 input_mode, u8 fuzz_mode);
+void       mopt_rebuild_ctx(struct mopt_ctx *, const u32 *prior, u32 prior_len);
+void       mopt_policy_update(struct mopt_ctx *);
+const u32 *mopt_choose_array(afl_state_t *, u32 ctx_idx, const u32 *static_arr,
+                             u32 static_len, u32 *out_len);
+void mopt_stage_account(afl_state_t *, u32 ctx_idx, u64 finds, u64 time_us,
+                        u64 execs);
+#ifdef INTROSPECTION
+void mopt_introspect_log(afl_state_t *, u32 ctx_idx);
+#endif
 
 void plot_profile_data(afl_state_t *, struct queue_entry *);
 

@@ -320,12 +320,8 @@ static void usage(u8 *argv0, int more_help) {
       "  -g minlength  - set min length of generated fuzz input (default: 1)\n"
       "  -G maxlength  - set max length of generated fuzz input (default: "
       "%lu)\n"
-      "  -L minutes    - use MOpt(imize) mode and set the time limit for "
-      "entering the\n"
-      "                  pacemaker mode (minutes of no new finds). 0 = "
-      "immediately,\n"
-      "                  -1 = immediately and together with normal mutation.\n"
-      "                  Note: this option is usually not very effective\n"
+      "  -L            - enable MOpt adaptive mutation (default: standard "
+      "havoc)\n"
       "  -u            - enable testcase splicing\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
@@ -673,12 +669,14 @@ afl_state_t *afl_init(void) {
   if (!afl) { FATAL("Could not create afl state"); }
 
   afl->map_size = get_map_size();
-  afl->default_output = 1;
 
   if (get_afl_env("AFL_DEBUG")) { debug = afl->debug = 1; }
 
   afl_state_init(afl, afl->map_size);
+
   afl->debug = debug;
+  afl->default_output = 1;
+
   afl_fsrv_init(&afl->fsrv);
   if (debug) { afl->fsrv.debug = true; }
 
@@ -816,7 +814,7 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
   // still available: HjJkqrv
   while ((opt = getopt(
               argc, argv,
-              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
+              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L::m:M:nNo:Op:P:QRs:S:t:T:"
               "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
@@ -1550,150 +1548,34 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
 
       } break;
 
-      case 'L': {                                              /* MOpt mode */
+      case 'L': {                                           /* MOpt mutator */
 
-        if (afl->limit_time_sig) { FATAL("Multiple -L options not supported"); }
+        afl->mopt_adaptive.enabled = 1;
 
-        afl->havoc_max_mult = HAVOC_MAX_MULT_MOPT;
+        /* Accept the legacy "-L <n>" form: an attached value is ignored, and a
+           following all-numeric token (the old, now-meaningless parameter) is
+           consumed so it is not mistaken for the target. */
+        if (!optarg && optind < argc && argv[optind][0]) {
 
-        if (sscanf(optarg, "%d", &afl->limit_time_puppet) < 1) {
+          u8 numeric = 1;
+          for (u8 *p = (u8 *)argv[optind]; *p; ++p)
+            if (*p < '0' || *p > '9') {
 
-          FATAL("Bad syntax used for -L");
-
-        }
-
-        if (afl->limit_time_puppet == -1) {
-
-          afl->limit_time_sig = -1;
-          afl->limit_time_puppet = 0;
-
-        } else if (afl->limit_time_puppet < 0) {
-
-          FATAL("-L value must be between 0 and 2000000 or -1");
-
-        } else {
-
-          afl->limit_time_sig = 1;
-
-        }
-
-        afl->old_seed_selection = 1;
-        u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
-
-        if ((s32)limit_time_puppet2 < afl->limit_time_puppet) {
-
-          FATAL("limit_time overflow");
-
-        }
-
-        afl->limit_time_puppet = limit_time_puppet2;
-        afl->swarm_now = 0;
-        if (afl->limit_time_puppet == 0) { afl->key_puppet = 1; }
-
-        int j;
-        int tmp_swarm = 0;
-
-        if (afl->g_now > afl->g_max) { afl->g_now = 0; }
-        afl->w_now = (afl->w_init - afl->w_end) * (afl->g_max - afl->g_now) /
-                         (afl->g_max) +
-                     afl->w_end;
-
-        for (tmp_swarm = 0; tmp_swarm < swarm_num; ++tmp_swarm) {
-
-          double total_puppet_temp = 0.0;
-          afl->swarm_fitness[tmp_swarm] = 0.0;
-
-          for (j = 0; j < operator_num; ++j) {
-
-            afl->stage_finds_puppet[tmp_swarm][j] = 0;
-            afl->probability_now[tmp_swarm][j] = 0.0;
-            afl->x_now[tmp_swarm][j] =
-                ((double)(random() % 7000) * 0.0001 + 0.1);
-            total_puppet_temp += afl->x_now[tmp_swarm][j];
-            afl->v_now[tmp_swarm][j] = 0.1;
-            afl->L_best[tmp_swarm][j] = 0.5;
-            afl->G_best[j] = 0.5;
-            afl->eff_best[tmp_swarm][j] = 0.0;
-
-          }
-
-          for (j = 0; j < operator_num; ++j) {
-
-            afl->stage_cycles_puppet_v2[tmp_swarm][j] =
-                afl->stage_cycles_puppet[tmp_swarm][j];
-            afl->stage_finds_puppet_v2[tmp_swarm][j] =
-                afl->stage_finds_puppet[tmp_swarm][j];
-            afl->x_now[tmp_swarm][j] =
-                afl->x_now[tmp_swarm][j] / total_puppet_temp;
-
-          }
-
-          double x_temp = 0.0;
-
-          for (j = 0; j < operator_num; ++j) {
-
-            afl->probability_now[tmp_swarm][j] = 0.0;
-            afl->v_now[tmp_swarm][j] =
-                afl->w_now * afl->v_now[tmp_swarm][j] +
-                RAND_C *
-                    (afl->L_best[tmp_swarm][j] - afl->x_now[tmp_swarm][j]) +
-                RAND_C * (afl->G_best[j] - afl->x_now[tmp_swarm][j]);
-
-            afl->x_now[tmp_swarm][j] += afl->v_now[tmp_swarm][j];
-
-            if (afl->x_now[tmp_swarm][j] > v_max) {
-
-              afl->x_now[tmp_swarm][j] = v_max;
-
-            } else if (afl->x_now[tmp_swarm][j] < v_min) {
-
-              afl->x_now[tmp_swarm][j] = v_min;
+              numeric = 0;
+              break;
 
             }
 
-            x_temp += afl->x_now[tmp_swarm][j];
+          if (numeric) {
 
-          }
-
-          for (j = 0; j < operator_num; ++j) {
-
-            afl->x_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j] / x_temp;
-            if (likely(j != 0)) {
-
-              afl->probability_now[tmp_swarm][j] =
-                  afl->probability_now[tmp_swarm][j - 1] +
-                  afl->x_now[tmp_swarm][j];
-
-            } else {
-
-              afl->probability_now[tmp_swarm][j] = afl->x_now[tmp_swarm][j];
-
-            }
-
-          }
-
-          if (afl->probability_now[tmp_swarm][operator_num - 1] < 0.99 ||
-              afl->probability_now[tmp_swarm][operator_num - 1] > 1.01) {
-
-            FATAL("ERROR probability");
+            ++optind;
+            WARNF(
+                "MOpt parameter does not use an optional parameter anymore. In "
+                "a future this can be a fatal fail.");
 
           }
 
         }
-
-        for (j = 0; j < operator_num; ++j) {
-
-          afl->core_operator_finds_puppet[j] = 0;
-          afl->core_operator_finds_puppet_v2[j] = 0;
-          afl->core_operator_cycles_puppet[j] = 0;
-          afl->core_operator_cycles_puppet_v2[j] = 0;
-          afl->core_operator_cycles_puppet_v3[j] = 0;
-
-        }
-
-        WARNF(
-            "Note that the MOpt mode is not maintained and is not as effective "
-            "as normal havoc mode.");
 
       } break;
 
@@ -2166,6 +2048,15 @@ void afl_check_environment(afl_state_t *afl) {
 
   }
 
+  if (afl->min_length > afl->max_length) {
+
+    FATAL(
+        "Minimum length (-g / AFL_INPUT_LEN_MIN = %u) may not exceed maximum "
+        "length (-G / AFL_INPUT_LEN_MAX = %u)",
+        afl->min_length, afl->max_length);
+
+  }
+
   OKF("Generating fuzz data with a length of min=%u max=%u", afl->min_length,
       afl->max_length);
 
@@ -2499,29 +2390,6 @@ void afl_setup_environment(afl_state_t *afl) {
       }
 
     });
-
-  }
-
-  if (afl->limit_time_sig > 0 && afl->custom_mutators_count) {
-
-    if (afl->custom_only) {
-
-      FATAL("Custom mutators are incompatible with MOpt (-L)");
-
-    }
-
-    u32 custom_fuzz = 0;
-    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-
-      if (el->afl_custom_fuzz) { custom_fuzz = 1; }
-
-    });
-
-    if (custom_fuzz) {
-
-      WARNF("afl_custom_fuzz is incompatible with MOpt (-L)");
-
-    }
 
   }
 
@@ -2953,6 +2821,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       afl->san_fsrvs[i].san_but_not_instrumented = 1;
       afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
       afl->san_fsrvs[i].qemu_mode = afl->fsrv.qemu_mode;
+      afl->san_fsrvs[i].qemu_bridge = afl->fsrv.qemu_bridge;
       afl->san_fsrvs[i].frida_mode = afl->fsrv.frida_mode;
       afl->san_fsrvs[i].asanfuzz_binary = afl->san_binary[i];
       afl->san_fsrvs[i].target_path = afl->san_binary[i];
@@ -2960,7 +2829,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
       if ((afl->map_size <= DEFAULT_SHMEM_SIZE ||
            afl->san_fsrvs[i].map_size < afl->map_size) &&
-          !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+          !afl->non_instrumented_mode &&
+          (!afl->fsrv.qemu_mode || afl->fsrv.qemu_bridge) &&
           !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
           !afl->afl_env.afl_skip_bin_check) {
 
@@ -3022,6 +2892,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
     afl->cmplog_fsrv.cs_mode = afl->fsrv.cs_mode;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
+    afl->cmplog_fsrv.qemu_bridge = afl->fsrv.qemu_bridge;
     afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
@@ -3031,7 +2902,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
     if ((afl->map_size <= DEFAULT_SHMEM_SIZE ||
          afl->cmplog_fsrv.map_size < afl->map_size) &&
-        !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+        !afl->non_instrumented_mode &&
+        (!afl->fsrv.qemu_mode || afl->fsrv.qemu_bridge) &&
         !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
         !afl->afl_env.afl_skip_bin_check) {
 

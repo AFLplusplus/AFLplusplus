@@ -77,6 +77,12 @@ static inline long sys_futex(void *uaddr, int op, int val,
 
 }
 
+static inline void afl_sync_wake(void *uaddr) {
+
+  sys_futex(uaddr, FUTEX_WAKE, 1, NULL, NULL, 0);
+
+}
+
 /* function to load nyx_helper function from libnyx.so */
 
 nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
@@ -185,6 +191,8 @@ void afl_nyx_runner_kill(afl_forkserver_t *fsrv) {
     if (fsrv->nyx_runner) {
 
       fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
+      /* clear the runner so a subsequent afl_fsrv_start() respawns QEMU-Nyx */
+      fsrv->nyx_runner = NULL;
 
     }
 
@@ -211,6 +219,20 @@ void afl_nyx_runner_kill(afl_forkserver_t *fsrv) {
       FATAL(x);                     \
                                     \
     } while (0)
+
+#elif defined(__APPLE__)
+
+  #include <os/os_sync_wait_on_address.h>
+  #include <mach/mach_time.h>
+  #include <sys/shm.h>
+  #include <sys/mman.h>
+
+static inline void afl_sync_wake(void *uaddr) {
+
+  os_sync_wake_by_address_any(uaddr, sizeof(u32),
+                              OS_SYNC_WAKE_BY_ADDRESS_SHARED);
+
+}
 
 #endif
 
@@ -280,7 +302,7 @@ static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
 }
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 
 static void afl_child_sync_deinit(afl_forkserver_t *fsrv) {
 
@@ -379,6 +401,7 @@ static void afl_child_sync_init(afl_forkserver_t *fsrv) {
 static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
                                  volatile u8 *stop_soon_p) {
 
+  #ifdef __linux__
   /* Absolute deadline on CLOCK_MONOTONIC. Not affected by NTP changes. */
   struct timespec deadline;
   clock_gettime(CLOCK_MONOTONIC, &deadline);
@@ -391,6 +414,15 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
     deadline.tv_nsec -= 1000000000L;
 
   }
+
+  #else
+  /* Absolute deadline in mach-absolute-time units. */
+  static mach_timebase_info_data_t tb = {0, 0};
+  if (tb.denom == 0) { mach_timebase_info(&tb); }
+  uint64_t deadline =
+      mach_absolute_time() +
+      (((uint64_t)timeout_ms * 1000000ULL) * tb.denom) / tb.numer;
+  #endif
 
   for (;;) {
 
@@ -407,7 +439,7 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
            in its futex wait loop and call _exit() cleanly instead of starting
            another test case. */
         __atomic_store_n(fsrv->child_sync, AFL_CHILD_EXITED, __ATOMIC_RELEASE);
-        sys_futex(fsrv->child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+        afl_sync_wake(fsrv->child_sync);
         kill(fsrv->child_pid, fsrv->child_kill_signal);
 
       }
@@ -416,10 +448,15 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
 
     }
 
-    /* Wait until the absolute deadline (CLOCK_MONOTONIC; default for
-       FUTEX_WAIT_BITSET). */
+    /* Wait until the absolute deadline. */
+  #ifdef __linux__
     int r = sys_futex(fsrv->child_sync, FUTEX_WAIT_BITSET, fval, &deadline,
                       NULL, FUTEX_BITSET_MATCH_ANY);
+  #else
+    int r = os_sync_wait_on_address_with_deadline(
+        fsrv->child_sync, (uint64_t)fval, sizeof(u32),
+        OS_SYNC_WAIT_ON_ADDRESS_SHARED, OS_CLOCK_MACH_ABSOLUTE_TIME, deadline);
+  #endif
 
     /* If we timed out, mark it and loop once to take the kill/return path. */
     if (r == -1 && errno == ETIMEDOUT) { fsrv->last_run_timed_out = 1; }
@@ -435,14 +472,14 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
 
 }
 
-#endif                                                        /* ^__linux__ */
+#endif                                           /* ^__linux__ || __APPLE__ */
 
 static inline void afl_fsrv_report_persistent_sync_mode(
     afl_forkserver_t *fsrv) {
 
   if (fsrv->persistent_mode && !be_quiet) {
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     if (fsrv->use_futex) {
 
       ACTF("Using futex persistent-mode synchronization.");
@@ -536,7 +573,23 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   fsrv->perm = DEFAULT_PERMISSION;
 
-#ifdef __linux__
+  fsrv->qemu_bridge = 0;
+  {
+
+    char *be = getenv("AFL_QEMU_BACKEND");
+    if (be && !strcmp(be, "legacy")) {
+
+      fsrv->qemu_bridge = 0;
+
+    } else {
+
+      fsrv->qemu_bridge = 1;
+
+    }
+
+  }
+
+#if defined(__linux__) || defined(__APPLE__)
   fsrv->use_futex = false;
   fsrv->child_sync = NULL;
   fsrv->child_sync_shm_id = -1;
@@ -577,6 +630,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_kill_signal = from->child_kill_signal;
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
+  fsrv_to->qemu_bridge = from->qemu_bridge;
   fsrv_to->cmplog_size_derive_requested = from->cmplog_size_derive_requested;
   fsrv_to->supports_allocsize_derive = false;
 
@@ -593,7 +647,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->late_send = from->late_send;
   fsrv_to->custom_data_ptr = from->custom_data_ptr;
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
   fsrv_to->use_futex = false;
   fsrv_to->child_sync = NULL;
   fsrv_to->child_sync_shm_id = -1;
@@ -727,7 +781,7 @@ restart_poll:
    Returns 1 on success, 0 if *stop_soon_p was raised.
    Hard pipe errors abort via RPFATAL. */
 #define FORKSRV_KILL_GRACE_MS 1000U
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 static inline u8 read_status_or_escalate(afl_forkserver_t *fsrv,
                                          volatile u8      *stop_soon_p) {
 
@@ -1398,7 +1452,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 1); }
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     if (fsrv->use_futex && fsrv->persistent_mode) {
 
   #ifdef USEMMAP
@@ -1613,7 +1667,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
       if (fsrv->use_futex && !(status & FS_NEW_OPT_FUTEX)) {
 
         if (fsrv->persistent_mode) {
@@ -1733,7 +1787,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     } else {
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 
       if (fsrv->use_futex) {
 
@@ -2247,6 +2301,28 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 
   fsrv->fsrv_pid = -1;
   fsrv->child_pid = -1;
+#ifdef AFL_PERSISTENT_RECORD
+  if (fsrv->persistent_record_data) {
+
+    for (u32 i = 0; i < fsrv->persistent_record; ++i) {
+
+      afl_free(fsrv->persistent_record_data[i]);
+
+    }
+
+    ck_free(fsrv->persistent_record_data);
+    fsrv->persistent_record_data = NULL;
+
+  }
+
+  if (fsrv->persistent_record_len) {
+
+    ck_free(fsrv->persistent_record_len);
+    fsrv->persistent_record_len = NULL;
+
+  }
+
+#endif
 
 #ifdef __linux__
   afl_child_sync_deinit(fsrv);
@@ -2285,7 +2361,8 @@ void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
                              char **use_argv, u32 map_size,
                              volatile u8 *stop_soon, bool unicorn_mode) {
 
-  if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
+  if (!fsrv->cs_mode && (!fsrv->qemu_mode || fsrv->qemu_bridge) &&
+      !unicorn_mode) {
 
     if (map_size <= DEFAULT_SHMEM_SIZE) {
 
@@ -2605,8 +2682,8 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
      must prevent any earlier operations from venturing into that
      territory. */
 
-  /* If the binary is not instrumented, we don't care about the coverage. Make
-   * it a bit faster */
+  /* If the binary is not instrumented, we don't care about the coverage.
+   * Make it a bit faster */
   if (!fsrv->san_but_not_instrumented) {
 
 #ifdef __linux__
@@ -2628,7 +2705,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   /* we have the fork server (or faux server) up and running
   First, tell it if the previous run timed out. */
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
   if (likely(fsrv->use_futex && fsrv->child_pid > 0)) {
 
     /* Futex protocol: see afl_child_state_t in types.h */
@@ -2643,7 +2720,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
     /* HOT PATH: persistent child is alive, signal it to run. */
     __atomic_store_n(fsrv->child_sync, AFL_CHILD_RUN, __ATOMIC_RELEASE);
-    sys_futex(fsrv->child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+    afl_sync_wake(fsrv->child_sync);
 
     if (unlikely(fsrv->late_send)) {
 
@@ -2742,7 +2819,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   }
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
   if (likely(fsrv->use_futex && fsrv->persistent_mode)) {
 
     u32 fres = afl_futex_wait(fsrv, timeout, stop_soon_p);
@@ -2825,7 +2902,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = -1; }
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 classify_result:
 #endif
   fsrv->total_execs++;
@@ -2960,11 +3037,7 @@ store_persistent_record: {
 
 void afl_fsrv_killall() {
 
-  LIST_FOREACH(&fsrv_list, afl_forkserver_t, {
-
-    afl_fsrv_kill(el);
-
-  });
+  LIST_FOREACH(&fsrv_list, afl_forkserver_t, { afl_fsrv_kill(el); });
 
 }
 
@@ -2972,6 +3045,16 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
 
   afl_fsrv_kill(fsrv);
   list_remove(&fsrv_list, fsrv);
+
+#ifdef AFL_PERSISTENT_RECORD
+  if (fsrv->persistent_record_dir) {
+
+    ck_free(fsrv->persistent_record_dir);
+    fsrv->persistent_record_dir = NULL;
+
+  }
+
+#endif
 
 }
 

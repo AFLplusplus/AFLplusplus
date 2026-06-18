@@ -2,9 +2,9 @@
 
 <img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/main/static/aflpp_bg.svg" alt="AFL++ logo" width="250" height="250">
 
-Release version: [5.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
+Release version: [5.01c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 5.00c
+GitHub version: 5.01c
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -22,10 +22,11 @@ Originally developed by Michal "lcamtuf" Zalewski.
 AFL++ is a superior fork to Google's AFL - more speed, more and better
 mutations, more and better instrumentation, custom module support, etc.
 
-AFL++ is licensed under the **AGPL-3.0-or-later**, and it also contains files
-under the Apache-2.0 License. Each file states its own license in its
-`SPDX-License-Identifier` header — that is the license you must follow for that
-file. An optional **commercial license** is available for organizations that
+AFL++ is licensed under the **AGPL-3.0-or-later**, and it also contains files under the Apache-2.0 License.
+**Everything compiled into a fuzzing harness is and will stay Apache 2.0 licensed.**
+Each file states its own license in its `SPDX-License-Identifier` header — that
+is the license you must follow for that file.
+An optional **commercial license** is available for organizations that
 cannot use the AGPL (obtained by donating to a good cause — the project and its
 maintainers receive no money).
 See [LICENSING.md](LICENSING.md) for a plain-language overview and the
@@ -156,9 +157,9 @@ The following branches exist:
 
 * [release](https://github.com/AFLplusplus/AFLplusplus/tree/release): the latest
   release
-* [stable/trunk](https://github.com/AFLplusplus/AFLplusplus/): stable state of
+* [stable](https://github.com/AFLplusplus/AFLplusplus/): stable state of
   AFL++ - it is synced from dev from time to time when we are satisfied with its
-  stability
+  stability. This is the default branch.
 * [dev](https://github.com/AFLplusplus/AFLplusplus/tree/dev): development state
   of AFL++ - bleeding edge and you might catch a checkout which does not compile
   or has a bug. **We only accept PRs (pull requests) for the 'dev' branch!**
@@ -167,7 +168,7 @@ The following branches exist:
 
 ## Help wanted
 
-Check out our [issues list with the "help wanted" tag](https://github.com/AFLplusplus/AFLplusplus/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)].
+Check out our [issues list with the "help wanted" tag](https://github.com/AFLplusplus/AFLplusplus/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22).
 This can be your way to support and contribute to AFL++ - extend it to do
 something cool. If you have other ideas - just create an issue and propose it!
 
@@ -236,7 +237,8 @@ Thank you! (For people sending pull requests - please add yourself to this list
     Yaakov Saxon                          Sergej Schumilo
     Ziqiao Kong                           Ryan Berger
     Sangjun Park                          Scott Guest
-    Fabian Keil
+    Fabian Keil                           @Jay-1409
+    Gergely Nagy
   ```
 
 </details>

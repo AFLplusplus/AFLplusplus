@@ -80,6 +80,24 @@ static inline long sys_futex(void *uaddr, int op, int val,
 
 }
 
+static inline void afl_sync_wake(void *uaddr) {
+
+  sys_futex(uaddr, FUTEX_WAKE, 1, NULL, NULL, 0);
+
+}
+
+#elif defined(__APPLE__)
+  #include <os/os_sync_wait_on_address.h>
+  #include <mach/mach_time.h>
+  #include <sys/syscall.h>
+
+static inline void afl_sync_wake(void *uaddr) {
+
+  os_sync_wake_by_address_any(uaddr, sizeof(u32),
+                              OS_SYNC_WAKE_BY_ADDRESS_SHARED);
+
+}
+
 #elif !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
 #endif
@@ -764,7 +782,7 @@ static void __afl_map_shm(void) {
   if (__afl_already_initialized_shm) return;
   __afl_already_initialized_shm = 1;
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
   {
 
     char *child_sync_shm = getenv("AFL_CHILD_SYNC_SHM");
@@ -1679,7 +1697,7 @@ static void __afl_start_forkserver(void) {
 
     if (unlikely(!child_stopped)) {
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
       /* Clear any stale AFL_CHILD_EXITED in the futex before forking the
          new child.  Our previous-iteration EXITED write (above) and the
          fuzzer's IDLE write (at end of run_target) are unordered, so the
@@ -1775,13 +1793,13 @@ static void __afl_start_forkserver(void) {
 
     }
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     if (!child_stopped && likely(__afl_child_sync)) {
 
       /* Child exited (crash or normal cycle end). Signal the fuzzer
          via futex; pipe data is already written above. */
       __atomic_store_n(__afl_child_sync, AFL_CHILD_EXITED, __ATOMIC_RELEASE);
-      sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+      afl_sync_wake(__afl_child_sync);
 
     }
 
@@ -1798,6 +1816,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
   static u8  first_pass = 1;
   static u32 cycle_cnt;
+#ifdef __APPLE__
+  static pid_t afl_orig_ppid = 0;
+#endif
 
 #ifdef AFL_PERSISTENT_RECORD
   char tcase[PATH_MAX];
@@ -1826,6 +1847,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     __afl_alloc_persistent_reset(0);
 
     first_pass = 0;
+#ifdef __APPLE__
+    afl_orig_ppid = getppid();
+#endif
     __afl_selective_coverage_temp = 1;
 
 #ifdef AFL_PERSISTENT_RECORD
@@ -1882,7 +1906,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     __afl_alloc_persistent_reset(1);
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     if (likely(__afl_child_sync)) {
 
       /* Signal the fuzzer that this iteration is complete.
@@ -1905,16 +1929,29 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
       }
 
-      sys_futex(__afl_child_sync, FUTEX_WAKE, 1, NULL, NULL, 0);
+      afl_sync_wake(__afl_child_sync);
 
       /* Wait until the fuzzer signals us to run the next test case.
-         No timeout needed: PR_SET_PDEATHSIG ensures the kernel delivers
-         SIGKILL if the forkserver (our parent) dies. */
+         On Linux no timeout is needed: PR_SET_PDEATHSIG ensures the kernel
+         delivers SIGKILL if the forkserver (our parent) dies. */
       u32 sync_val;
       while ((sync_val = __atomic_load_n(__afl_child_sync, __ATOMIC_ACQUIRE)) ==
              AFL_CHILD_DONE) {
 
+  #ifdef __linux__
         sys_futex(__afl_child_sync, FUTEX_WAIT, AFL_CHILD_DONE, NULL, NULL, 0);
+  #else
+        int r = os_sync_wait_on_address_with_timeout(
+            __afl_child_sync, (uint64_t)AFL_CHILD_DONE, sizeof(u32),
+            OS_SYNC_WAIT_ON_ADDRESS_SHARED, OS_CLOCK_MACH_ABSOLUTE_TIME,
+            250ULL * 1000ULL * 1000ULL);
+        if (r == -1 && errno == ETIMEDOUT && getppid() != afl_orig_ppid) {
+
+          _exit(0);
+
+        }
+
+  #endif
 
       }
 
@@ -2148,16 +2185,8 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
 
   */
 
-#if (LLVM_VERSION_MAJOR < 9)
-
-  __afl_area_ptr[*guard]++;
-
-#else
-
   __afl_area_ptr[*guard] =
       __afl_area_ptr[*guard] + 1 + (__afl_area_ptr[*guard] == 255 ? 1 : 0);
-
-#endif
 
 }
 
@@ -3243,7 +3272,11 @@ static int area_is_valid(void *ptr, size_t len) {
 
 }
 
-/* Attribute of whether the Buffer points to the memory area mapped by ELF */
+/* Attribute of whether the Buffer points to the memory area mapped by the
+   program image (ELF on Linux, Mach-O on macOS). This lets cmplog tell a
+   real program constant (e.g. a builtin name compared via strncmp) apart from
+   bytes that merely came from the fuzz input, so the former can be promoted to
+   the auto-dictionary. */
 
 #ifdef __linux__
 
@@ -3283,6 +3316,98 @@ static u8 get_prog_addr_attr(const void *addr) {
 
 }
 
+  #define AFL_HAVE_ADDR_ATTR 1
+
+#elif defined(__APPLE__) && defined(__MACH__)
+
+  #include <dlfcn.h>
+  #include <mach-o/loader.h>
+  #include <mach/vm_prot.h>
+
+// Walk the Mach-O segments of the image that contains `addr` and report
+// whether the address falls in a writable (RW) or read-only (RO) segment.
+// Addresses that are not part of any loaded image (heap/stack input buffers)
+// return ADDR_ATTR_NOTFOUND, exactly like the Linux dl_iterate_phdr path.
+static u8 get_prog_addr_attr(const void *addr) {
+
+  Dl_info info;
+  if (!dladdr(addr, &info) || !info.dli_fbase) { return ADDR_ATTR_NOTFOUND; }
+
+  const struct mach_header_64 *hdr =
+      (const struct mach_header_64 *)info.dli_fbase;
+  if (hdr->magic != MH_MAGIC_64 && hdr->magic != MH_CIGAM_64) {
+
+    return ADDR_ATTR_NOTFOUND;
+
+  }
+
+  uintptr_t target = (uintptr_t)addr;
+  const u8 *p = (const u8 *)(hdr + 1);
+
+  /* The slide is the difference between where the image was actually loaded
+     (dli_fbase, the start of __TEXT) and the __TEXT vmaddr recorded in the
+     file. __TEXT is the first segment with fileoff == 0 and a non-empty file
+     mapping (__PAGEZERO has filesize 0 and is skipped). */
+  uintptr_t text_vmaddr = 0;
+  u8        have_text = 0;
+  const u8 *q = p;
+  for (uint32_t i = 0; i < hdr->ncmds; i++) {
+
+    const struct load_command *c = (const struct load_command *)q;
+    if (c->cmd == LC_SEGMENT_64) {
+
+      const struct segment_command_64 *seg =
+          (const struct segment_command_64 *)c;
+      if (!have_text && seg->fileoff == 0 && seg->filesize != 0) {
+
+        text_vmaddr = (uintptr_t)seg->vmaddr;
+        have_text = 1;
+
+      }
+
+    }
+
+    q += c->cmdsize;
+
+  }
+
+  uintptr_t slide = (uintptr_t)hdr - text_vmaddr;
+
+  for (uint32_t i = 0; i < hdr->ncmds; i++) {
+
+    const struct load_command *c = (const struct load_command *)p;
+    if (c->cmd == LC_SEGMENT_64) {
+
+      const struct segment_command_64 *seg =
+          (const struct segment_command_64 *)c;
+      uintptr_t start = (uintptr_t)seg->vmaddr + slide;
+      uintptr_t end = start + (uintptr_t)seg->vmsize;
+      if (target >= start && target < end) {
+
+        if (seg->initprot & VM_PROT_WRITE) {
+
+          return ADDR_ATTR_RW;
+
+        } else {
+
+          return ADDR_ATTR_RO;
+
+        }
+
+      }
+
+    }
+
+    p += c->cmdsize;
+
+  }
+
+  return ADDR_ATTR_NOTFOUND;
+
+}
+
+  #define AFL_HAVE_ADDR_ATTR 1
+
 #endif
 
 static inline u32 cmplog_string_len_with_nul(u32 len, u32 cap) {
@@ -3297,9 +3422,16 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
   if (likely(!__afl_cmp_map)) return;
   if (unlikely(!ptr1 || !ptr2)) return;
-  if (unlikely(!len || len > __afl_cmplog_max_len)) return;
+  if (unlikely(!len)) return;
 
-  u32 cap = (u32)MIN(len, 32ULL);
+  /* `len` is the strncmp()-type `n`, the maximum length
+     of an input token). Do NOT use it to bound how much of the operands we
+     capture: when the input token is shorter than the constant operand it
+     would truncate the constant (e.g. learn "f" instead of "fac"), and AFL
+     could then never recover the full keyword. The comparison semantics use
+     `n`; for dictionary/redqueen purposes we want each operand up to its own
+     NUL, bounded only by mapping validity and the cmplog buffer size. */
+  u32 cap = (u32)__afl_cmplog_max_len;
   int l1 = area_is_valid(ptr1, cap);
   int l2 = area_is_valid(ptr2, cap);
   if (l1 <= 0 || l2 <= 0) return;
@@ -3309,8 +3441,9 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   u32 len1 = (u32)strnlen((char *)ptr1, cap);
   u32 len2 = (u32)strnlen((char *)ptr2, cap);
 
-  u32 l = MAX(cmplog_string_len_with_nul(len1, cap),
-              cmplog_string_len_with_nul(len2, cap));
+  u32 wn1 = cmplog_string_len_with_nul(len1, cap);
+  u32 wn2 = cmplog_string_len_with_nul(len2, cap);
+  u32 l = MAX(wn1, wn2);
 
   if (l < 2) return;
 
@@ -3341,12 +3474,16 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
   hits &= CMP_MAP_RTN_H - 1;
 
-  cmpfn[hits].v0_len = 0x80 + l;
-  cmpfn[hits].v1_len = 0x80 + l;
+  /* Record each operand's own length (like __cmplog_rtn_hook_str does for
+     strcmp). The previous code stored MAX(len0,len1) for both, which recorded
+     a short constant such as "fac" with the (longer) input token's length and
+     made redqueen copy trailing rodata bytes instead of just the keyword. */
+  cmpfn[hits].v0_len = 0x80 + wn1;
+  cmpfn[hits].v1_len = 0x80 + wn2;
   __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
 // fprintf(stderr, "RTN3\n");
-#ifdef __linux__
+#ifdef AFL_HAVE_ADDR_ATTR
   u8 attr1 = get_prog_addr_attr(ptr1);
   u8 attr2 = get_prog_addr_attr(ptr2);
   cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
@@ -3404,7 +3541,7 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
 // fprintf(stderr, "RTN3\n");
-#ifdef __linux__
+#ifdef AFL_HAVE_ADDR_ATTR
   u8 attr1 = get_prog_addr_attr(ptr1);
   u8 attr2 = get_prog_addr_attr(ptr2);
   cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
@@ -3468,7 +3605,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
 // fprintf(stderr, "RTN3\n");
-#ifdef __linux__
+#ifdef AFL_HAVE_ADDR_ATTR
   u8 attr1 = get_prog_addr_attr(ptr1);
   u8 attr2 = get_prog_addr_attr(ptr2);
   cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
@@ -3540,7 +3677,7 @@ void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
   __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
   // fprintf(stderr, "RTN3\n");
-  #ifdef __linux__
+  #ifdef AFL_HAVE_ADDR_ATTR
   u8 attr1 = get_prog_addr_attr(ptr1);
   u8 attr2 = get_prog_addr_attr(ptr2);
   cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
@@ -5172,6 +5309,7 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
   if (!idx || idx >= MAP_SIZE_ALLOCRECORDS) return;
   AllocSizeRecord *r = __afl_alloc_find_oracle_record(a, tbl, off, idx);
   if (!r) return;
+  if (a != r->base) return;
 
   /* First-elem-size wins: only the first store at this allocation
      stamps the (size, align) pair; later stores compare against it. */

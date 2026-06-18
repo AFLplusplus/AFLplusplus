@@ -34,40 +34,6 @@ char *power_names[POWER_SCHEDULES_NUM] = {"explore", "mmopt", "exploit",
                                           "fast",    "coe",   "lin",
                                           "quad",    "rare",  "seek"};
 
-/* Initialize MOpt "globals" for this afl state */
-
-static void init_mopt_globals(afl_state_t *afl) {
-
-  MOpt_globals_t *core = &afl->mopt_globals_core;
-  core->finds = afl->core_operator_finds_puppet;
-  core->finds_v2 = afl->core_operator_finds_puppet_v2;
-  core->cycles = afl->core_operator_cycles_puppet;
-  core->cycles_v2 = afl->core_operator_cycles_puppet_v2;
-  core->cycles_v3 = afl->core_operator_cycles_puppet_v3;
-  core->is_pilot_mode = 0;
-  core->pTime = &afl->tmp_core_time;
-  core->period = period_core;
-  core->havoc_stagename = "MOpt-core-havoc";
-  core->splice_stageformat = "MOpt-core-splice %u";
-  core->havoc_stagenameshort = "MOpt_core_havoc";
-  core->splice_stagenameshort = "MOpt_core_splice";
-
-  MOpt_globals_t *pilot = &afl->mopt_globals_pilot;
-  pilot->finds = afl->stage_finds_puppet[0];
-  pilot->finds_v2 = afl->stage_finds_puppet_v2[0];
-  pilot->cycles = afl->stage_cycles_puppet[0];
-  pilot->cycles_v2 = afl->stage_cycles_puppet_v2[0];
-  pilot->cycles_v3 = afl->stage_cycles_puppet_v3[0];
-  pilot->is_pilot_mode = 1;
-  pilot->pTime = &afl->tmp_pilot_time;
-  pilot->period = period_pilot;
-  pilot->havoc_stagename = "MOpt-havoc";
-  pilot->splice_stageformat = "MOpt-splice %u";
-  pilot->havoc_stagenameshort = "MOpt_havoc";
-  pilot->splice_stagenameshort = "MOpt_splice";
-
-}
-
 /* A global pointer to all instances is needed (for now) for signals to arrive
  */
 
@@ -81,14 +47,14 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   and out_size are NULL/0 by default. */
   memset(afl, 0, sizeof(afl_state_t));
 
-  afl->shm.map_size = map_size ? map_size : MAP_SIZE;
+  mopt_adaptive_init(afl);
+
+  map_size = map_size ? map_size : MAP_SIZE;
+  afl->shm.map_size = map_size;
+  afl->map_size = map_size;
 
   afl->smallest_favored = -1;
   afl->afl_ijon_history_limit = 20;
-  afl->w_init = 0.9;
-  afl->w_end = 0.3;
-  afl->g_max = 5000;
-  afl->period_pilot_tmp = 5000.0;
   afl->schedule = EXPLORE;              /* Power schedule (default: EXPLORE)*/
   afl->havoc_max_mult = HAVOC_MAX_MULT;
   afl->clear_screen = 1;                /* Window resized?                  */
@@ -159,8 +125,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   /* 10% FrameShift overhead default */
   afl->afl_env.afl_frameshift_max_overhead = 0.10;
-
-  init_mopt_globals(afl);
 
   list_append(&afl_states, afl);
 
