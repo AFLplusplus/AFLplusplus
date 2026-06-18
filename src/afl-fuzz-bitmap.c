@@ -664,7 +664,39 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       for (san_idx = 0; san_idx < afl->san_binary_length; san_idx++) {
 
-        len = write_to_testcase(afl, &mem, len, 0);
+        u8 san_sent = 0;
+
+        if (unlikely(afl->custom_mutators_count)) {
+
+          LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+            if (el->afl_custom_fuzz_send) {
+
+              if (!afl->afl_env.afl_custom_mutator_late_send) {
+
+                el->afl_custom_fuzz_send(el->data, mem, len);
+
+              } else {
+
+                afl->san_fsrvs[san_idx].custom_input = mem;
+                afl->san_fsrvs[san_idx].custom_input_len = len;
+
+              }
+
+              san_sent = 1;
+
+            }
+
+          });
+
+        }
+
+        if (likely(!san_sent)) {
+
+          afl_fsrv_write_to_testcase(&afl->san_fsrvs[san_idx], mem, len);
+
+        }
+
         san_fault = fuzz_run_target(afl, &afl->san_fsrvs[san_idx],
                                     afl->san_fsrvs[san_idx].exec_tmout);
 

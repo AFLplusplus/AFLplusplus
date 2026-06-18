@@ -196,7 +196,7 @@ void create_alias_table(afl_state_t *afl) {
 
             } else if (likely(t < 1.25)) {
 
-              weight *= 0.2;  // WTF ??? makes no sense
+              weight *= 0.2;  // No clue why, but the stats say this is OK
 
             } else if (likely(t <= 1.5)) {
 
@@ -263,7 +263,7 @@ void create_alias_table(afl_state_t *afl) {
 
           }
 
-          double bms = q->bitmap_size / avg_bitmap_size;
+          double bms = log(q->bitmap_size) / avg_bitmap_size;
           if (likely(bms < 0.1)) {
 
             weight *= 0.01;
@@ -1045,7 +1045,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
    until the next run. The favored entries are given more air time during
    all fuzzing steps. */
 
-void cull_queue(afl_state_t *afl) {
+inline void cull_queue(afl_state_t *afl) {
 
   if (likely(!afl->score_changed || afl->non_instrumented_mode)) { return; }
 
@@ -1846,8 +1846,8 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
   // we need this while loop in case there were ever previous evictions but
   // not in this call.
-  while (unlikely(afl->q_testcase_cache[tid] != NULL &&
-                  tid < afl->q_testcase_max_cache_entries)) {
+  while (unlikely(tid < afl->q_testcase_max_cache_entries &&
+                  afl->q_testcase_cache[tid] != NULL)) {
 
     ++tid;
 
@@ -1950,12 +1950,14 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
 
   }
 
-  while (unlikely(afl->q_testcase_cache[tid] != NULL)) {
+  while (unlikely(tid < afl->q_testcase_max_cache_entries &&
+                  afl->q_testcase_cache[tid] != NULL)) {
 
     ++tid;
-    if (unlikely(tid >= afl->q_testcase_max_cache_entries)) { return; }
 
   }
+
+  if (unlikely(tid >= afl->q_testcase_max_cache_entries)) { return; }
 
   /* Map the test case into memory. */
 

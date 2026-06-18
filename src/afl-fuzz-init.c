@@ -651,13 +651,14 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         }
 
+        u8 *orig_mem = mem;
         u32 len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
         afl->syncing_party = foreign_name;
         afl->foreign_file = nl[i]->d_name;
         afl->queued_imported += save_if_interesting(afl, mem, len, fault);
 
-        munmap(mem, st.st_size);
+        munmap(orig_mem, st.st_size);
         close(fd);
 
         if (st.st_mtime > mtime_max) { mtime_max = st.st_mtime; }
@@ -3360,6 +3361,15 @@ void check_binary(afl_state_t *afl, u8 *fname) {
     afl->persistent_mode = 1;
     afl->fsrv.persistent_mode = 1;
     afl->shmem_testcase_mode = 1;
+
+  } else if (afl->fsrv.qemu_mode &&
+
+             (getenv("AFL_QEMU_PERSISTENT_ADDR") ||
+              getenv("AFL_QEMU_SNAPSHOT"))) {
+
+    OKF(cPIN "QEMU persistent mode configuration options detected.");
+    afl->persistent_mode = 1;
+    afl->fsrv.persistent_mode = 1;
 
   }
 
