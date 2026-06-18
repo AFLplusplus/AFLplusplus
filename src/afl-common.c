@@ -431,11 +431,7 @@ static u8 *find_binary_internal(u8 *fname, u8 fatal) {
         !(st.st_mode & 0111) || st.st_size < 4) {
 
       ck_free(target_path);
-      if (fatal) {
-
-        FATAL("Program '%s' not found or not executable", fname);
-
-      }
+      if (fatal) { FATAL("Program '%s' not found or not executable", fname); }
       return NULL;
 
     }
@@ -494,11 +490,7 @@ static u8 *find_binary_internal(u8 *fname, u8 fatal) {
 
     if (!target_path) {
 
-      if (fatal) {
-
-        FATAL("Program '%s' not found or not executable", fname);
-
-      }
+      if (fatal) { FATAL("Program '%s' not found or not executable", fname); }
       return NULL;
 
     }
