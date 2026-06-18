@@ -3,6 +3,9 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++5.02a (dev)
+  - ...
+
 
 ### Version ++5.01c (release)
   - MacOS persistent mode now uses futex mode now too which increases speed
