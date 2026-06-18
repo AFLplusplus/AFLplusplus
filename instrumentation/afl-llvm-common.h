@@ -68,6 +68,7 @@ bool                   isDecisionUse(const llvm::Value *Cond);
 bool                   isExecCall(llvm::Instruction *IN);
 std::pair<bool, bool>  detectIJONUsage(llvm::Module &M);
 void createIJONEnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
+void createC11EnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
 llvm::GlobalVariable *createIJONStateGlobal(llvm::Module &M,
                                             llvm::Type   *Int32Ty,
                                             bool          uses_ijon_state);
@@ -119,6 +120,25 @@ inline void setNoSanitizeMetadata(llvm::Instruction *I) {
   I->setMetadata(I->getModule()->getMDKindID("nosanitize"),
                  llvm::MDNode::get(I->getContext(), llvm::None));
 #endif
+
+}
+
+/* True when BB has at least one non-terminator instruction and every
+   non-terminator, non-debug instruction carries afl.skip, i.e. the block holds
+   only synthetic AFL code. The ">=1 instruction" guard keeps branch-only blocks
+   instrumented. */
+inline bool isFullyArtificialBlock(const llvm::BasicBlock *BB) {
+
+  bool seen = false;
+  for (const llvm::Instruction &I : *BB) {
+
+    if (I.isTerminator() || I.isDebugOrPseudoInst()) continue;
+    if (!I.getMetadata("afl.skip")) return false;
+    seen = true;
+
+  }
+
+  return seen;
 
 }
 

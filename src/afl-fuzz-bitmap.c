@@ -578,6 +578,18 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   afl->san_case_status = 0;
 
+  if (unlikely(afl->fsrv.c11)) {
+
+    unsigned int *val = (unsigned int *)(&afl->fsrv.trace_bits[1]);
+    if (unlikely(*val)) {
+
+      afl->c11 = *val;
+      *val = 0;
+
+    }
+
+  }
+
   /* Update path frequency. */
 
   /* Generating a hash on every input is super expensive. Bad idea and should

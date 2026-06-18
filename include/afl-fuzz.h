@@ -268,6 +268,7 @@ struct queue_entry {
   u8 *fname;                            /* File name for the test case      */
   u32 len;                              /* Input length                     */
   u32 id;                               /* entry number in queue_buf        */
+  u32 c11;                              /* C11 value                        */
 
   u8 colorized,                         /* Do not run redqueen stage again  */
       cal_failed;                       /* Calibration failed?              */
@@ -738,7 +739,8 @@ typedef struct afl_state {
       var_byte_count,                   /* Bitmap bytes with var behavior   */
       current_entry,                    /* Current queue entry ID           */
       havoc_div,                        /* Cycle count divisor for havoc    */
-      max_det_extras;                   /* deterministic extra count (dicts)*/
+      max_det_extras,                   /* deterministic extra count (dicts)*/
+      c11;                              /* C11 value                        */
 
   u64 total_crashes,                    /* Total number of crashes          */
       saved_crashes,                    /* Crashes with unique signatures   */

@@ -1725,6 +1725,7 @@ PreservedAnalyses SplitComparesTransform::run(Module                &M,
 
           if (auto CI = dyn_cast<CmpInst>(&IN)) {
 
+            if (CI->getMetadata("afl.skip")) continue;
             auto op0 = CI->getOperand(0);
             auto op1 = CI->getOperand(1);
             // has to valid operands

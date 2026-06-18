@@ -224,6 +224,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
         CmpInst *selectcmpInst = nullptr;
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
 
+          if (selectcmpInst->getMetadata("afl.skip")) continue;
           // skip loop comparisons using LoopInfo for robust detection
           if (selectcmpInst->hasOneUse())
             if (auto BR = dyn_cast<BranchInst>(selectcmpInst->user_back()))
