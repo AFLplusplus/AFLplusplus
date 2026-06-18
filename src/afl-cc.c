@@ -178,7 +178,7 @@ typedef struct aflcc_state {
 
   u8 instrument_mode, instrument_opt_mode, ngram_size, ctx_k;
 
-  u8 cmplog_mode;
+  u8 cmplog_mode, c11_mode;
 
   u8 have_instr_env, have_gcc, have_clang, have_llvm, have_gcc_plugin, have_lto,
       have_optimized_pcguard, have_instr_list, wnoerror;
@@ -1407,6 +1407,8 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
 
   aflcc->cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
                        getenv("AFL_GCC_CMPLOG");
+
+  aflcc->c11_mode = getenv("AFL_LLVM_C11") != NULL;
 
 }
 
@@ -3627,6 +3629,10 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
       load_llvm_pass(aflcc, "afl-llvm-dict2file.so");
 
     }
+
+    // C11
+
+    if (aflcc->c11_mode) { load_llvm_pass(aflcc, "afl-c11-pass.so"); }
 
     // laf
     if (getenv("LAF_SPLIT_SWITCHES") || getenv("AFL_LLVM_LAF_SPLIT_SWITCHES")) {

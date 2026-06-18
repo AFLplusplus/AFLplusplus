@@ -1,10 +1,10 @@
 #include "qemu/osdep.h"
 #include "qemu.h"
 #include "libafl/cpu.h"
-#include "libafl/afl/afl.h"
-#include "libafl/afl/ijon.h"
-#include "libafl/afl/imported/config.h"
-#include "libafl/afl/imported/types.h"
+#include "libaflqemubridge/afl.h"
+#include "libaflqemubridge/ijon.h"
+#include "libaflqemubridge/imported/config.h"
+#include "libaflqemubridge/imported/types.h"
 #include "libafl/hooks/syscall.h"
 
 #ifdef CONFIG_AFL

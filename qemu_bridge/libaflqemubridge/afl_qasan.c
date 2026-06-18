@@ -7,8 +7,8 @@
 #include "signal-common.h"
 
 #include "libafl/cpu.h"
-#include "libafl/afl/afl.h"
-#include "libafl/afl/asan-giovese.h"
+#include "libaflqemubridge/afl.h"
+#include "libaflqemubridge/asan-giovese.h"
 #include "libafl/hooks/tcg/read_write.h"
 #include "libafl/hooks/syscall.h"
 

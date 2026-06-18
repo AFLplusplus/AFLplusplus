@@ -342,6 +342,7 @@ bool SplitSwitchesTransform::splitSwitches(Module &M) {
 
       if ((switchInst = dyn_cast<SwitchInst>(BB.getTerminator()))) {
 
+        if (switchInst->getMetadata("afl.skip")) continue;
         if (switchInst->getNumCases() < 1) continue;
         switches.push_back(switchInst);
 

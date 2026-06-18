@@ -1,5 +1,5 @@
 #include "qemu/osdep.h"
-#include "libafl/afl/afl.h"
+#include "libaflqemubridge/afl.h"
 #include "libafl/hooks/tcg/cmp.h"
 
 #ifdef CONFIG_AFL

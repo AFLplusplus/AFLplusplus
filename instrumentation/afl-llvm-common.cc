@@ -880,8 +880,25 @@ void createIJONEnabledGlobal(Module &M, Type *Int32Ty) {
 
   if (M.getNamedGlobal("__afl_ijon_enabled")) return;
   Constant *One32 = ConstantInt::get(Int32Ty, 1);
-  new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, One32,
-                     "__afl_ijon_enabled");
+  // comdat so multiple instrumented TUs each defining it merge to one strong
+  // definition instead of a multiple-definition link error, while still
+  // overriding the runtime's weak __afl_ijon_enabled = 0 default
+  auto *GV = new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
+                                One32, "__afl_ijon_enabled");
+  GV->setComdat(M.getOrInsertComdat("__afl_ijon_enabled"));
+
+}
+
+void createC11EnabledGlobal(Module &M, Type *Int32Ty) {
+
+  if (M.getNamedGlobal("__afl_c11_enabled")) return;
+  Constant *One32 = ConstantInt::get(Int32Ty, 1);
+  // comdat so multiple instrumented TUs each defining it merge to one strong
+  // definition instead of a multiple-definition link error, while still
+  // overriding the runtime's weak __afl_c11_enabled = 0 default
+  auto *GV = new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
+                                One32, "__afl_c11_enabled");
+  GV->setComdat(M.getOrInsertComdat("__afl_c11_enabled"));
 
 }
 

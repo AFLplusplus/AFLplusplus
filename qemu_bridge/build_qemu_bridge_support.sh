@@ -2,7 +2,6 @@
 
 export PATH="/usr/bin:$PATH"
 
-test -d ../.git || { echo "[-] must be run from the qemu_bridge dir of the AFL++ checkout"; exit 1; }
 test -f ../config.h || { echo "[-] ../config.h not found, build AFL++ first"; exit 1; }
 test -f ../afl-showmap || { echo "[-] ../afl-showmap not found, build AFL++ first"; exit 1; }
 
@@ -10,8 +9,24 @@ VERSION=$(cat ./QEMU_BRIDGE_VERSION)
 test -n "$VERSION" || { echo "QEMU_BRIDGE_VERSION is empty"; exit 1; }
 
 if [ -z "$NO_CHECKOUT" ]; then
-  git submodule init qemu-libafl-bridge 2>/dev/null
-  git submodule update qemu-libafl-bridge 2>/dev/null
+  echo "[*] Making sure qemu-libafl-bridge is checked out"
+  git status 1>/dev/null 2>/dev/null
+  if [ $? -eq 0 ]; then
+    echo "[*] initializing qemu-libafl-bridge submodule"
+    git submodule init qemu-libafl-bridge 2>/dev/null
+    git submodule update qemu-libafl-bridge 2>/dev/null
+  else
+    echo "[*] cloning qemu-libafl-bridge"
+    test -d qemu-libafl-bridge/.git || {
+      CNT=1
+      while [ '!' -d qemu-libafl-bridge/.git -a "$CNT" -lt 4 ]; do
+        echo "Trying to clone qemu-libafl-bridge (attempt $CNT/3)"
+        git clone https://github.com/AFLplusplus/qemu-libafl-bridge
+        CNT=`expr "$CNT" + 1`
+      done
+    }
+  fi
+  test -e qemu-libafl-bridge/.git || { echo "[-] Not checked out, please install git or check your internet connection."; exit 1; }
   cur=$(cd qemu-libafl-bridge && git rev-parse HEAD 2>/dev/null)
   dirty=$(cd qemu-libafl-bridge && git status --porcelain 2>/dev/null)
   if [ "$cur" != "$VERSION" ] && [ -z "$dirty" ]; then
@@ -22,10 +37,9 @@ if [ -z "$NO_CHECKOUT" ]; then
 fi
 
 AFL_LINK=qemu-libafl-bridge/libafl/afl
-if [ -e "$AFL_LINK" ] && [ ! -L "$AFL_LINK" ]; then
+if [ -L "$AFL_LINK" ] || [ -e "$AFL_LINK" ]; then
   rm -rf "$AFL_LINK"
 fi
-ln -sfn ../../libaflqemubridge "$AFL_LINK" || exit 1
 
 mkdir -p libaflqemubridge/imported || exit 1
 cp -f ../include/config.h libaflqemubridge/imported/ || exit 1

@@ -167,6 +167,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
         if ((callInst = dyn_cast<CallInst>(&IN))) {
 
+          if (callInst->getMetadata("afl.skip")) continue;
           Function *Callee = callInst->getCalledFunction();
           if (!Callee) continue;
           if (Callee->isIntrinsic()) continue;

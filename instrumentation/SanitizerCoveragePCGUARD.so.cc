@@ -934,8 +934,11 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   Int1Ty = IRB.getInt1Ty();
 
   LLVMContext &Ctx = M.getContext();
-  AFLMapPtr = new GlobalVariable(M, PtrTy, false, GlobalValue::ExternalLinkage,
-                                 0, "__afl_area_ptr");
+  // may already exist: the C11 pass creates it earlier at PipelineStartEP
+  AFLMapPtr = M.getGlobalVariable("__afl_area_ptr");
+  if (!AFLMapPtr)
+    AFLMapPtr = new GlobalVariable(
+        M, PtrTy, false, GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   AFLCovMapSize = new GlobalVariable(
       M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_cov_map_size");
 
@@ -1118,6 +1121,8 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
   // Don't insert coverage into blocks without a valid insertion point
   // (catchswitch blocks).
   if (BB->getFirstInsertionPt() == BB->end()) return false;
+
+  if (&F.getEntryBlock() != BB && isFullyArtificialBlock(BB)) return false;
 
   if (Options.NoPrune || &F.getEntryBlock() == BB) return true;
 

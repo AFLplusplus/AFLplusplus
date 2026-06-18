@@ -244,6 +244,7 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
         if ((cmpInst = dyn_cast<CmpInst>(&IN))) {
 
+          if (cmpInst->getMetadata("afl.skip")) continue;
           /* Check both operands for constants since LLVM may place the
              constant in either operand depending on the comparison
              direction and optimization level */
@@ -341,6 +342,7 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
         if ((callInst = dyn_cast<CallInst>(&IN))) {
 
+          if (callInst->getMetadata("afl.skip")) continue;
           bool   isStrcmp = true;
           bool   isMemcmp = true;
           bool   isStrncmp = true;

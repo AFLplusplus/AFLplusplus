@@ -166,6 +166,7 @@ bool CompareTransform::transformCmps(Module &M, const bool processStrcmp,
 
         if ((callInst = dyn_cast<CallInst>(&IN))) {
 
+          if (callInst->getMetadata("afl.skip")) continue;
           bool isStrcmp = processStrcmp;
           bool isMemcmp = processMemcmp;
           bool isStrncmp = processStrncmp;

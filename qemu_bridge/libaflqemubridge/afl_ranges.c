@@ -6,8 +6,8 @@
 #include "loader.h"
 
 #include "libafl/user.h"
-#include "libafl/afl/afl.h"
-#include "libafl/afl/imported/config.h"
+#include "libaflqemubridge/afl.h"
+#include "libaflqemubridge/imported/config.h"
 
 #ifdef CONFIG_AFL
 

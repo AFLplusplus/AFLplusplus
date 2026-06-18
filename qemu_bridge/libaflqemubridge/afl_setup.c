@@ -2,9 +2,9 @@
 #include "qemu.h"
 #include "libafl/user.h"
 #include "libafl/hooks/tcg/instruction.h"
-#include "libafl/afl/afl.h"
-#include "libafl/afl/imported/config.h"
-#include "libafl/afl/imported/types.h"
+#include "libaflqemubridge/afl.h"
+#include "libaflqemubridge/imported/config.h"
+#include "libaflqemubridge/imported/types.h"
 
 #ifdef CONFIG_AFL
 

@@ -42,7 +42,7 @@ Notes:
   `futex`/`shmat`/`mmap`, TCG-based codegen, no x86 host assembly; AFL++ core already
   runs on arm64). One caveat: the QASan giovese shadow constants assume the classic
   x86_64-Linux ~47-bit host virtual-address layout (see `LOW/HIGH_SHADOW_ADDR`,
-  `SHADOW_OFFSET` referenced by `libafl/afl/afl_qasan.c`) and may need retuning on an
+  `SHADOW_OFFSET` referenced by `libaflqemubridge/afl_qasan.c`) and may need retuning on an
   arm64 host with a different VA split, or the shadow `mmap` will fail.
 - HOST and TARGET are independent: on any supported host you can fuzz any supported
   target arch with that target's feature set from the matrix above.
@@ -68,10 +68,10 @@ re-investigated or silently regressed:
    forkserver now forks at the *executable's* own entry (after `ld.so`), captured
    in `linux-user/elfload.c` (`afl_exec_entry` / `afl_get_exec_entry()`, with
    PPC64-descriptor/ARM-thumb handling) and armed via the entry-point
-   instruction hook in `libafl/afl/afl_setup.c`.
+   instruction hook in `libaflqemubridge/afl_setup.c`.
 2. **RCU abort when forking from inside `cpu_exec`.** The child's `pthread_atfork`
    handler hit `assert(rcu_reader.ctr==0)`. Fixed with `rcu_disable_atfork()`
-   once before the fork loop in `libafl/afl/afl_forkserver.c` (matches qemuafl).
+   once before the fork loop in `libaflqemubridge/afl_forkserver.c` (matches qemuafl).
 3. **No translation-cache sharing (TSL).** Ported qemuafl's mechanism: forked
    children mirror new translations/chains to the parent over a pipe
    (`AFL_TSL_FD`), so the parent's TB cache stays warm and later children inherit
@@ -86,7 +86,7 @@ re-investigated or silently regressed:
    `AFL_MAP_SIZE=DEFAULT_SHMEM_SIZE` (8 MB) as the shm *allocation ceiling*; the
    bridge echoed it back as the map size so afl-fuzz `memset`/scanned 8 MB per
    run. The bridge now sizes its collision-free map from the dedicated
-   `AFL_QEMU_MAP_SIZE` env (default 64 KB) — see `libafl/afl/afl_setup.c` and
+   `AFL_QEMU_MAP_SIZE` env (default 64 KB) — see `libaflqemubridge/afl_setup.c` and
    README §5.
 
 **Remaining gap (~17-20%).** Inherent to QEMU 10.2 having a much larger guest
@@ -105,18 +105,18 @@ The bridge only emits its cmp hook (`libafl_gen_cmp`) for x86 / arm / aarch64 / 
 `target/i386/tcg/translate.c`, `target/i386/tcg/emit.c.inc`,
 `target/arm/tcg/translate.c`, `target/arm/tcg/translate-a64.c`,
 `target/riscv/translate.c`. **`target/mips` and `target/ppc` contain no
-`libafl_gen_cmp` calls.** Our compcov/cmplog callbacks (`libafl/afl/afl_compcov.c`,
-`libafl/afl/afl_cmplog.c`) are arch-generic and would work unchanged, but they never
+`libafl_gen_cmp` calls.** Our compcov/cmplog callbacks (`libaflqemubridge/afl_compcov.c`,
+`libaflqemubridge/afl_cmplog.c`) are arch-generic and would work unchanged, but they never
 fire on mips/ppc because the bridge does not instrument their compare instructions.
 
 ### 2. CmpLog-RTN on every arch except x86_64 — AFL-layer gap (by design)
-`AFL_RTN_SUPPORTED` is gated to `TARGET_X86_64` in `libafl/afl/afl_cmplog.c:20-26`
+`AFL_RTN_SUPPORTED` is gated to `TARGET_X86_64` in `libaflqemubridge/afl_cmplog.c:20-26`
 because RTN captures function-call argument registers (rdi/rsi), which is
 calling-convention-specific. (qemuafl is also x86-only for RTN — this is a TODO
 upstream too, so supporting more arches here would exceed qemuafl parity.)
 
 ### 3. Persistent mode + futex on non-x86 — AFL-layer gap (hardest)
-`AFL_PERSISTENT_SUPPORTED` is x86/x86_64 only in `libafl/afl/afl_persistent.c:24-34`.
+`AFL_PERSISTENT_SUPPORTED` is x86/x86_64 only in `libaflqemubridge/afl_persistent.c:24-34`.
 Two reasons: (a) it needs SP/PC GDB register indices per arch; (b) the loop-back
 mechanism patches the **return address on the stack**, but arm/aarch64 return via the
 **link register** (x30 / r14), mips via `$ra` (r31), ppc via the LR SPR — so "loop
@@ -125,7 +125,7 @@ futex child-sync itself is already arch-generic and would come along for free on
 per-arch loop-back exists.
 
 ### 4. QASan report context on mips / ppc — AFL-layer gap (cosmetic)
-`libafl/afl/afl_qasan.c:21-37` defines `QASAN_PC/BP/SP_GET` for x86/i386, aarch64,
+`libaflqemubridge/afl_qasan.c:21-37` defines `QASAN_PC/BP/SP_GET` for x86/i386, aarch64,
 arm; mips/ppc fall to the `0` fallback. Overflow **detection still works** (the shadow
 check rides the arch-generic read/write hooks in `tcg/tcg-op-ldst.c`); only the
 printed pc/bp/sp and the alloc/free backtraces are empty.
@@ -171,14 +171,14 @@ it stays libafl-safe. No AFL-layer changes needed — the existing generic callb
 fire automatically. Verify with a per-arch magic-value target.
 
 ### B. CmpLog-RTN for arm32 / aarch64 / mips / ppc  (AFL layer; small)
-Extend the `AFL_RTN_*` block in `libafl/afl/afl_cmplog.c:20-26` with per-arch
+Extend the `AFL_RTN_*` block in `libaflqemubridge/afl_cmplog.c:20-26` with per-arch
 argument-register GDB indices: aarch64 `x0/x1` (0/1), arm32 `r0/r1` (0/1),
 mips `$a0/$a1` (4/5), ppc `r3/r4` (3/4); set `AFL_RTN_SUPPORTED` for them. The RTN
 body already reads via `libafl_qemu_read_reg` + guest-memory copy, so only the
 register table + per-arch validation are needed.
 
 ### C. Persistent mode + futex for aarch64 → arm32 → mips → ppc  (AFL layer; significant)
-In `libafl/afl/afl_persistent.c`: add SP/PC GDB indices per arch (aarch64/arm reg
+In `libaflqemubridge/afl_persistent.c`: add SP/PC GDB indices per arch (aarch64/arm reg
 numbers are already known from QASan) and implement loop-back via the **link register**
 instead of stack-slot patching — on first hit save LR (x30 / r14 / `$ra` / LR-SPR) +
 GPRs; each iteration restore them and `libafl_qemu_set_pc(persistent_addr)` (the
@@ -187,7 +187,7 @@ arch-generic. Do aarch64 first. Verify with the persistent throughput test per a
 
 ### D. QASan report context for mips / ppc  (AFL layer; trivial)
 Add `QASAN_PC/BP/SP_GET(env)` accessors for `TARGET_MIPS` / `TARGET_PPC` in
-`libafl/afl/afl_qasan.c:21-37` (detection already works; this only restores the
+`libaflqemubridge/afl_qasan.c:21-37` (detection already works; this only restores the
 report's pc/bp/sp + backtraces).
 
 ### E. HOST aarch64 bring-up
