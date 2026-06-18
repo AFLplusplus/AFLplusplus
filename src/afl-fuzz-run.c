@@ -65,6 +65,13 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
 
 #endif
 
+  if (unlikely(fsrv->late_send && fsrv != &afl->fsrv)) {
+
+    fsrv->custom_input = afl->fsrv.custom_input;
+    fsrv->custom_input_len = afl->fsrv.custom_input_len;
+
+  }
+
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
 #ifdef __AFL_CODE_COVERAGE
@@ -183,6 +190,9 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
     }
 
+    ssize_t valid_size = new_size;
+    u8      did_swap = 0;
+
     if (unlikely(new_size < afl->min_length && !fix)) {
 
       new_size = afl->min_length;
@@ -193,11 +203,18 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
     }
 
-    if (new_mem != *mem && new_mem != NULL && new_size > 0) {
+    if ((new_mem != *mem || new_size > valid_size) && new_mem != NULL &&
+        new_size > 0) {
 
       new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), new_size);
       if (unlikely(!new_buf)) { PFATAL("alloc"); }
-      memcpy(new_buf, new_mem, new_size);
+      ssize_t copy_size = new_size < valid_size ? new_size : valid_size;
+      if (copy_size > 0) { memcpy(new_buf, new_mem, copy_size); }
+      if (new_size > copy_size) {
+
+        memset(new_buf + copy_size, 0, new_size - copy_size);
+
+      }
 
       /* if AFL_POST_PROCESS_KEEP_ORIGINAL is set then save the original memory
          prior post-processing in new_mem to restore it later */
@@ -209,6 +226,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
       *mem = new_buf;
       afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+      did_swap = 1;
 
     }
 
@@ -244,7 +262,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
       len = new_size;
 
-    } else {
+    } else if (did_swap) {
 
       /* restore the original memory which was saved in new_mem */
       *mem = new_mem;
@@ -256,6 +274,12 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
     if (unlikely(len < afl->min_length && !fix)) {
 
+      u8 *padded = afl_realloc(AFL_BUF_PARAM(out_scratch), afl->min_length);
+      if (unlikely(!padded)) { PFATAL("alloc"); }
+      if (likely(len)) { memcpy(padded, *mem, len); }
+      memset(padded + len, 0, afl->min_length - len);
+      *mem = padded;
+      afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
       len = afl->min_length;
 
     } else if (unlikely(len > afl->max_length)) {
@@ -358,7 +382,7 @@ static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
         new_size =
             el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
 
-        if (unlikely(!new_buf && new_size <= 0)) {
+        if (unlikely(!new_buf || new_size <= 0)) {
 
           new_size = 0;
           new_buf = new_mem;
@@ -1100,13 +1124,14 @@ void sync_fuzzers(afl_state_t *afl) {
 
           if (mem == MAP_FAILED) { PFATAL("Unable to mmap '%s'", path); }
 
+          u8 *orig_mem = mem;
           u32 new_len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
 
           u8 fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
           if (afl->stop_soon) {
 
-            munmap(mem, st.st_size);
+            munmap(orig_mem, st.st_size);
             close(fd);
 
             goto close_sync;
@@ -1117,7 +1142,7 @@ void sync_fuzzers(afl_state_t *afl) {
           afl->queued_imported += save_if_interesting(afl, mem, new_len, fault);
           show_stats(afl);
           afl->syncing_party = 0;
-          munmap(mem, st.st_size);
+          munmap(orig_mem, st.st_size);
 
         }
 

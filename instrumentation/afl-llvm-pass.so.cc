@@ -35,9 +35,6 @@
 #include <sys/time.h>
 
 #include "llvm/Config/llvm-config.h"
-#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 5
-typedef long double max_align_t;
-#endif
 
 #include "llvm/Pass.h"
 #if defined(__has_include) && __has_include("llvm/Plugins/PassPlugin.h")

@@ -191,6 +191,8 @@ void afl_nyx_runner_kill(afl_forkserver_t *fsrv) {
     if (fsrv->nyx_runner) {
 
       fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
+      /* clear the runner so a subsequent afl_fsrv_start() respawns QEMU-Nyx */
+      fsrv->nyx_runner = NULL;
 
     }
 
@@ -571,6 +573,22 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   fsrv->perm = DEFAULT_PERMISSION;
 
+  fsrv->qemu_bridge = 0;
+  {
+
+    char *be = getenv("AFL_QEMU_BACKEND");
+    if (be && !strcmp(be, "legacy")) {
+
+      fsrv->qemu_bridge = 0;
+
+    } else {
+
+      fsrv->qemu_bridge = 1;
+
+    }
+
+  }
+
 #if defined(__linux__) || defined(__APPLE__)
   fsrv->use_futex = false;
   fsrv->child_sync = NULL;
@@ -612,6 +630,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_kill_signal = from->child_kill_signal;
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
+  fsrv_to->qemu_bridge = from->qemu_bridge;
   fsrv_to->cmplog_size_derive_requested = from->cmplog_size_derive_requested;
   fsrv_to->supports_allocsize_derive = false;
 
@@ -2342,7 +2361,8 @@ void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
                              char **use_argv, u32 map_size,
                              volatile u8 *stop_soon, bool unicorn_mode) {
 
-  if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
+  if (!fsrv->cs_mode && (!fsrv->qemu_mode || fsrv->qemu_bridge) &&
+      !unicorn_mode) {
 
     if (map_size <= DEFAULT_SHMEM_SIZE) {
 

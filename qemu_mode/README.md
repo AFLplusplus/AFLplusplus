@@ -1,169 +1,189 @@
-# High-performance binary-only instrumentation for afl-fuzz
+# High-performance binary-only instrumentation for afl-fuzz (Qemu Mode)
 
 For the general instruction manual, see [docs/README.md](../docs/README.md).
 
+## 0) qemu_mode vs qemu_bridge - which one to use?
+
+If qemu_mode works for your target then use qemu_mode. It is quite faster
+for normal targets, and slightly faster for persistent targets.
+
+If you have a target that does not work for whatever reason (eg Risc-V), then
+use qemu_bridge. As this is WIP some features might be implemented yet.
+Plus you have access to the plugin system of a modern Qemu.
+Note that this mode is work in progress!
+
+
 ## 1) Introduction
 
-The code in this directory allows you to build a standalone feature that
-leverages the QEMU "user emulation" mode and allows callers to obtain
-instrumentation output for black-box, closed-source binaries. This mechanism can
-be then used by afl-fuzz to stress-test targets that couldn't be built with
-afl-cc.
+The code in this directory builds a standalone tool, based on QEMU "user
+emulation" mode, that produces edge-coverage instrumentation for black-box,
+closed-source binaries. afl-fuzz uses it to stress-test targets that cannot be
+rebuilt with afl-cc.
 
-The usual performance cost is 2-5x, which is considerably better than seen so
-far in experiments with tools such as DynamoRIO and PIN.
+The usual performance cost is 2-5x. The idea and initial implementation come
+from Andrew Griffiths; the current QEMU port (shipped as qemuafl) is from Andrea
+Fioraldi, with TCG chaining re-enabled by abiondo.
 
-The idea and much of the initial implementation comes from Andrew Griffiths.
-The actual implementation on current QEMU (shipped as qemuafl) is from Andrea
-Fioraldi. Special thanks to abiondo that re-enabled TCG chaining.
+## 2) Building and using QEMU mode
 
-## 2) How to use QEMU mode
+QEMU mode is a patched QEMU. Build it with `./build_qemu_support.sh`, which
+downloads, configures, and compiles the binary. QEMU is large, so this takes a
+while and needs a few dependencies (most notably `libtool` and `glib2-devel`).
 
-The feature is implemented with a patched QEMU. The simplest way to build it is
-to run ./build_qemu_support.sh. The script will download, configure, and compile
-the QEMU binary for you.
+Once built, pass `-Q` to afl-fuzz and the related utilities to use it.
 
-QEMU is a big project, so this will take a while, and you may have to resolve a
-couple of dependencies (most notably, you will definitely need libtool and
-glib2-devel).
+This build produces `afl-qemu-trace`. When `-Q` is given, afl-fuzz and the
+related utilities (afl-showmap, afl-tmin, afl-analyze, afl-cmin) launch
+`afl-qemu-trace` if it is present, and otherwise fall back to the newer
+`afl-qemu-bridge` backend (see [qemu_bridge/README.md](../qemu_bridge/README.md)).
+Set `AFL_QEMU_MODE=bridge` to force the bridge, or `AFL_QEMU_MODE=trace` to force
+this qemuafl backend. The full path of the binary actually used is printed at
+start-up.
 
-Once the binaries are compiled, you can leverage the QEMU tool by calling
-afl-fuzz and all the related utilities with `-Q` in the command line.
+Build variables:
 
-In principle, if you set `CPU_TARGET` before calling ./build_qemu_support.sh,
-you should get a build capable of running non-native binaries (say, you can try
-`CPU_TARGET=arm`). This is also necessary for running 32-bit binaries on a
-64-bit system (`CPU_TARGET=i386`). If you're trying to run QEMU on a different
-architecture, you can also set `HOST` to the cross-compiler prefix to use (for
-example `HOST=arm-linux-gnueabi` to use arm-linux-gnueabi-gcc).
-Another common target is `CPU_TARGET=aarch64`.
+- `CPU_TARGET` — build for a non-native architecture, e.g. `CPU_TARGET=arm`,
+  `CPU_TARGET=aarch64`, or `CPU_TARGET=i386` (also required to run 32-bit
+  binaries on a 64-bit host).
+- `HOST` — cross-compiler prefix, e.g. `HOST=arm-linux-gnueabi` to use
+  `arm-linux-gnueabi-gcc`.
+- `STATIC=1` — produce statically-linked binaries, useful when building on a
+  different system than the one running the fuzzer (often paired with `HOST`).
+- `QEMU_LD_PREFIX` — library path for foreign-architecture binaries (e.g.
+  running an arm64 binary on x86_64).
 
-You can also compile statically-linked binaries by setting `STATIC=1`. This can
-be useful when compiling QEMU on a different system than the one you're planning
-to run the fuzzer on and is most often used with the `HOST` variable.
+If you want the QEMU helper installed system-wide, build it before running
+`make install` in the parent directory.
 
-Note: when targeting the i386 architecture, on some binaries the forkserver
-handshake may fail due to the lack of reserved memory. Fix it with:
+When targeting i386, the forkserver handshake can fail on some binaries due to a
+lack of reserved memory. Work around it with:
 
 ```
 export QEMU_RESERVED_VA=0x1000000
 ```
 
-Note: if you want the QEMU helper to be installed on your system for all users,
-you need to build it before issuing `make install` in the parent directory.
+## 3) Edge coverage and map size
 
-If you want to specify a different path for libraries (e.g., to run an arm64
-binary on x86_64) use `QEMU_LD_PREFIX`.
+QEMU mode records **edge coverage**: every control-flow edge (source block ->
+destination block) increments a counter in the shared coverage map. Counters
+saturate and never wrap back to zero (NeverZero) on all architectures.
 
-## 3) Deferred initialization
+By default, edges are assigned **collision-free** IDs from a shared table, so
+distinct edges never share a counter. This is more faithful than the classic
+hashed scheme and recovers edges that hashing would have merged.
 
-As for LLVM mode (refer to
-[instrumentation/README.llvm.md](../instrumentation/README.llvm.md) for mode
-details), QEMU mode supports the deferred initialization.
+The map defaults to 65536 bytes (64 KB), which QEMU reports to afl-fuzz during
+the forkserver handshake. A target that exercises more than 65536 distinct edges
+will wrap and start colliding; raise the map to keep coverage collision-free:
 
-This can be enabled by setting the environment variable `AFL_ENTRYPOINT` which
-allows to move the forkserver to a different part, e.g., just before the file is
-opened (e.g., way after command line parsing and config file loading, etc.)
-which can be a huge speed improvement.
+```
+export AFL_QEMU_MAP_SIZE=262144      # bytes; allowed range 8 .. 2^29
+```
 
-For an example, see [README.deferred_initialization_example.md](README.deferred_initialization_example.md).
+`AFL_QEMU_OLD_COVERAGE=1` restores the legacy coverage scheme (`prev_loc XOR
+cur_loc` hashed into a fixed 64 KB map). Use it only to reproduce older results
+or for compatibility; it loses edges to hash collisions.
 
-Note that there is also `AFL_EXITPOINT` which you can set to an address that
-will trigger a termination of the qemu forked instance when the block that
-contains this address is reached. Read again: when the block where the address
-is is reached!
+To instrument only part of the address space, see *Partial instrumentation*
+below.
 
-## 4) Persistent mode
+## 4) Deferred initialization
 
-AFL++'s QEMU mode now supports also persistent mode for x86, x86_64, arm, and
-aarch64 targets. This increases the speed by several factors, however, it is a
-bit of work to set up - but worth the effort.
+Like LLVM mode (see
+[instrumentation/README.llvm.md](../instrumentation/README.llvm.md)), QEMU mode
+supports deferred initialization. Set `AFL_ENTRYPOINT` to move the forkserver to
+a later address — for example just before the input file is opened, after
+command-line parsing and config loading. This can be a large speed improvement.
 
-For more information, see [README.persistent.md](README.persistent.md).
+For an example, see
+[README.deferred_initialization_example.md](README.deferred_initialization_example.md).
 
-## 5) Snapshot mode
+`AFL_EXITPOINT` sets an address that terminates the forked instance once the
+block containing it is reached.
 
-As an extension to persistent mode, qemuafl can snapshot and restore the memory
-state and brk(). For details, see [README.persistent.md](README.persistent.md).
+## 5) Persistent mode
 
-The environment variable that enables the ready to use snapshot mode is
-`AFL_QEMU_SNAPSHOT` and takes a hex address as a value that is the snapshot
-entry point.
+QEMU mode supports persistent mode on x86, x86_64, arm, and aarch64. It speeds
+up fuzzing by several factors and is well worth the setup effort.
 
-Snapshot mode can work restoring all the writeable pages, that is typically
-slower than fork() mode but, on the other hand, it can scale better with
-multicore. If the AFL++ snapshot kernel module is loaded, qemuafl will use it
-and, in this case, the speed is better than fork() and also the scaling
-capabilities.
+afl-fuzz and the persistent child synchronize each iteration over a shared futex
+word rather than `SIGSTOP`/`SIGCONT` signals, which roughly doubles persistent
+throughput. This is automatic when supported; set `AFL_OLD_CHILD_SYNC=1` to
+force the legacy signal-based path.
 
-## 6) Partial instrumentation
+For setup details, see [README.persistent.md](README.persistent.md).
 
-You can tell QEMU to instrument only a part of the address space.
+## 6) Snapshot mode
 
-Just set `AFL_QEMU_INST_RANGES=A,B,C...`.
+As an extension of persistent mode, QEMU mode can snapshot and restore the
+writable memory pages and `brk()`. Enable it with `AFL_QEMU_SNAPSHOT=<hex addr>`,
+where the address is the snapshot entry point.
 
-The format of the items in the list is either a range of addresses like
-0x123-0x321 or a module name like module.so (that is matched in the mapped
-object filename).
+Restoring all writable pages is typically slower than `fork()` but scales better
+across cores. If the AFL++ snapshot kernel module is loaded, QEMU mode uses it,
+which is both faster than `fork()` and better-scaling. See
+[README.persistent.md](README.persistent.md) for details.
 
-Alternatively, you can tell QEMU to ignore part of an address space for
-instrumentation.
+## 7) Partial instrumentation
 
-Just set `AFL_QEMU_EXCLUDE_RANGES=A,B,C...`.
+To instrument only part of the address space, set:
 
-The format of the items on the list is the same as for `AFL_QEMU_INST_RANGES`
-and excluding ranges takes priority over any included ranges or `AFL_INST_LIBS`.
+```
+AFL_QEMU_INST_RANGES=A,B,C...
+```
 
-## 7) CompareCoverage
+Each item is either an address range like `0x123-0x321` or a module name like
+`module.so` (matched against the mapped object's filename).
+
+To exclude part of the address space instead, set `AFL_QEMU_EXCLUDE_RANGES` with
+the same format. Exclusions take priority over any included ranges or
+`AFL_INST_LIBS`.
+
+## 8) CompareCoverage
 
 CompareCoverage is a sub-instrumentation with effects similar to laf-intel.
+Preload `libcompcov.so` and select a level:
 
-You have to set `AFL_PRELOAD=/path/to/libcompcov.so` together with setting the
-`AFL_COMPCOV_LEVEL` you want to enable it.
+```
+AFL_PRELOAD=/path/to/libcompcov.so AFL_COMPCOV_LEVEL=2 ...
+```
 
-`AFL_COMPCOV_LEVEL=1` is to instrument comparisons with only immediate
-values/read-only memory.
+- `AFL_COMPCOV_LEVEL=1` — comparisons with immediate values / read-only memory.
+- `AFL_COMPCOV_LEVEL=2` — all comparison instructions and memory-comparison
+  functions (with libcompcov preloaded).
+- `AFL_COMPCOV_LEVEL=3` — as level 2, plus floating-point comparisons on x86 and
+  x86_64 (experimental).
 
-`AFL_COMPCOV_LEVEL=2` instruments all comparison instructions and memory
-comparison functions when libcompcov is preloaded.
+Integer comparison instrumentation is available on x86, x86_64, arm, and
+aarch64. Recommended, but not as effective as CMPLOG mode.
 
-`AFL_COMPCOV_LEVEL=3` has the same effects of `AFL_COMPCOV_LEVEL=2` but enables
-also the instrumentation of the floating-point comparisons on x86 and x86_64
-(experimental).
+## 9) CMPLOG mode
 
-Integer comparison instructions are currently instrumented only on the x86,
-x86_64, arm, and aarch64 targets.
+CMPLOG, based on the Redqueen project, learns the immediates in CMP instructions
+into a dynamic dictionary and applies them at the input locations that reached
+each CMP, trying to solve and pass it. It is very effective and available on
+x86, x86_64, arm, and aarch64.
 
-Recommended, but not as good as CMPLOG mode (see below).
-
-## 8) CMPLOG mode
-
-Another new feature is CMPLOG, which is based on the Redqueen project. Here all
-immediates in CMP instructions are learned and put into a dynamic dictionary and
-applied to all locations in the input that reached that CMP, trying to solve and
-pass it. This is a very effective feature and it is available for x86, x86_64,
-arm, and aarch64.
-
-To enable it, you must pass on the command line of afl-fuzz:
+Enable it by passing the target to afl-fuzz with `-c`:
 
 ```
 -c /path/to/your/target
 ```
 
-## 9) Ijon mode
+## 10) IJON mode
 
-qemu ijon allows information about variable changes to be transmitted to AFL++.
-Different ijon methods indicate the semantic meaning of the changed value.
-Enable the feature by setting the environment variable:
+IJON lets the target transmit information about variable changes to AFL++.
+Different IJON methods indicate the semantic meaning of the changed value.
+Enable it with:
 
-`AFL_QEMU_IJON=/full/path/to/test.conf`
+```
+AFL_QEMU_IJON=/full/path/to/test.conf
+```
 
-The configuration file tells QEMU: when execution reaches a specified instruction address
-(`code_addr`), read the specified register or memory location and pass the read bytes
-to the chosen IJON method.
-
-One rule per line. Comments (lines starting with `#`) and blank lines are supported.
-Fields are comma-separated (spaces around commas are allowed):
+The config file tells QEMU: when execution reaches an instruction address
+(`code_addr`), read the given register or memory location and pass the bytes to
+the chosen IJON method. One rule per line; comments (`#`) and blank lines are
+allowed; fields are comma-separated (surrounding spaces allowed):
 
 ```
 # code_addr, ijon_method, memory_addr_or_register, data_len
@@ -171,147 +191,111 @@ Fields are comma-separated (spaces around commas are allowed):
 0x40000012c8, ijon_set, r10d, 4
 ```
 
-Field descriptions:
-- `code_addr` — instruction address that triggers capture. Supports hexadecimal (`0x...`) or decimal.
-  Note: the target instruction address, which may be relocated when loaded into
-  QEMU and needs to be determined in advance
-- `ijon_method` — the ijon method/semantic to use (e.g. `ijon_set`, `ijon_inc`, `ijon_min`, `ijon_max`).
-- `memory_addr_or_register` — either a register name (e.g. `rax`, `eax`, `r8d` for x86, `r0` for ARM32,
-  `x0`/`w0` for aarch64; names are case-insensitive) or an absolute virtual memory address (e.g. `0x601050`).
-- `data_len` — number of bytes to read (only in 1 ... 8). 
+- `code_addr` — instruction address that triggers capture, hex (`0x...`) or
+  decimal. The target instruction may be relocated when loaded into QEMU, so the
+  effective address must be determined in advance.
+- `ijon_method` — one of `ijon_set`, `ijon_inc`, `ijon_min`, `ijon_max`.
+- `memory_addr_or_register` — a register name (e.g. `rax`/`eax`/`r8d` on x86,
+  `r0` on ARM32, `x0`/`w0` on aarch64; case-insensitive) or an absolute virtual
+  memory address (e.g. `0x601050`).
+- `data_len` — number of bytes to read, 1 .. 8.
 
-Examples:
+To find effective addresses, set `AFL_QEMU_DEBUG_MAPS=1` (with `AFL_DEBUG=1`) to
+print the memory layout after the target loads, then compute
+`load_base + file_offset`. With `AFL_DEBUG=1`, a triggered rule also logs the
+value read and the method called.
+
+For a description of the methods, see [IJON.md](../docs/IJON.md). For examples,
+see [ijon-maze](../test/ijon-maze.c).
+
+## 11) Wine mode
+
+QEMU mode can use Wine to fuzz Win32 PE binaries via the `-W` flag of afl-fuzz.
+Some binaries require GUI interaction and must be patched. For examples, see
+[WineAFLplusplusDEMO](https://github.com/andreafioraldi/WineAFLplusplusDEMO).
+
+## 12) Notes on linking
+
+QEMU mode is supported only on Linux. Supporting BSD would mean porting the
+changes in `linux-user/elfload.c` to `bsd-user/elfload.c`.
+
+Instrumentation follows only the `.text` section of the first ELF binary in the
+linking process; it does not trace shared libraries. In practice:
+
+- Libraries you want to analyze *must* be linked statically into the executed
+  ELF (usually already the case for closed-source apps).
+- Standard C libraries and other code that is wasteful to instrument should be
+  linked dynamically.
+
+Set `AFL_INST_LIBS=1` to bypass the `.text` detection and instrument every basic
+block encountered.
+
+## 13) Exporting coverage (Drcov)
+
+A run's coverage can be exported with a QEMU user-mode plugin enabled at runtime.
+The `drcov.c` plugin writes coverage in the Drcov format, loadable by tools such
+as [lighthouse](https://github.com/gaasedelen/lighthouse),
+[lightkeeper](https://github.com/WorksButNotTested/lightkeeper), or
+[Cartographer](https://github.com/nccgroup/Cartographer).
+
+Build the plugins from the `qemuafl` directory:
+
 ```
-# Read the lower 2 bytes of EDX when reaching 0x40000012c8
-0x40000012c8, ijon_set, edx, 2
-
-# Read 8 bytes from memory address 0x601050 when reaching 0x4000001300
-0x4000001300, ijon_set, 0x601050, 8
+make plugins
 ```
 
-Debugging
+Load a plugin with the `QEMU_PLUGIN` environment variable or the `-plugin`
+option:
 
-- Use `AFL_QEMU_DEBUG_MAPS=1` to view the memory layout after qemu loads the target program.
-You need to correct the address in the ijon configuration according to the displayed
-target program loading base address. After enabling the above, compute the effective 
-instruction address as: `load_base + file_offset`
+```
+afl-qemu-trace -plugin qemuafl/build/contrib/plugins/libdrcov.so,arg=filename=/tmp/target.drcov.trace <target> <args>
+```
 
-- The printing of the above messages requires setting `AFL_DEBUG=1`
-If your ijon configuration is correct, when the ijon function is triggered, 
-log information will be printed to show the read value and the called ijon method.
+## 14) Benchmarking
 
-Currently, the ijon method in QEMU mode supports the following methods: 
-`ijon_max, ijon_min, ijon_set, ijon_inc`.
-
-For a description of these methods, see [IJON.md](../docs/IJON.md)
-
-If you want to try out some examples, see [ijon-maze](../test/ijon-maze.c)
-
-## 10) Wine mode
-
-AFL++ QEMU can use Wine to fuzz Win32 PE binaries. Use the `-W` flag of
-afl-fuzz.
-
-Note that some binaries require user interaction with the GUI and must be
-patched.
-
-For examples, look
-[here](https://github.com/andreafioraldi/WineAFLplusplusDEMO).
-
-## 11) Notes on linking
-
-The feature is supported only on Linux. Supporting BSD may amount to porting the
-changes made to linux-user/elfload.c and applying them to bsd-user/elfload.c,
-but I have not looked into this yet.
-
-The instrumentation follows only the .text section of the first ELF binary
-encountered in the linking process. It does not trace shared libraries. In
-practice, this means two things:
-
-- Any libraries you want to analyze *must* be linked statically into the
-  executed ELF file (this will usually be the case for closed-source apps).
-
-- Standard C libraries and other stuff that is wasteful to instrument should be
-  linked dynamically - otherwise, AFL++ will have no way to avoid peeking into
-  them.
-
-Setting `AFL_INST_LIBS=1` can be used to circumvent the .text detection logic
-and instrument every basic block encountered.
-
-## 12) Benchmarking
-
-If you want to compare the performance of the QEMU instrumentation with that of
-afl-clang-fast compiled code against the same target, you need to build the
-non-instrumented binary with the same optimization flags that are normally
-injected by afl-clang-fast, and make sure that the bits to be tested are
-statically linked into the binary. A common way to do this would be:
+To compare QEMU instrumentation against afl-clang-fast on the same target, build
+the non-instrumented binary with the optimization flags afl-clang-fast normally
+injects, and statically link the bits under test:
 
 ```
 CFLAGS="-O3 -funroll-loops" ./configure --disable-shared
 make clean all
 ```
 
-Comparative measurements of execution speed or instrumentation coverage will be
-fairly meaningless if the optimization levels or instrumentation scopes don't
-match.
+Comparisons are meaningless if the optimization levels or instrumentation scopes
+don't match.
 
-## 13) Coverage information
+## 15) Other environment variables
 
-Coverage information about a run of a target binary can be obtained using a
-dedicated QEMU user mode plugin enabled at runtime: the `drcov.c` plugin
-collects coverage information from the target binary and writes it in the Drcov
-format. This file can then be loaded using tools such as
-[lighthouse](https://github.com/gaasedelen/lighthouse),
-[lightkeeper](https://github.com/WorksButNotTested/lightkeeper) or
-[Cartographer](https://github.com/nccgroup/Cartographer).
+- `AFL_QEMU_MODE` — choose the QEMU backend binary. `AFL_QEMU_MODE=bridge`
+  forces `afl-qemu-bridge`; `AFL_QEMU_MODE=trace` (alias `qemuafl`) forces this
+  `afl-qemu-trace`. When unset, afl-fuzz uses `afl-qemu-trace` if present and
+  falls back to `afl-qemu-bridge`. The full path of the selected binary is
+  printed at start-up. This applies to afl-fuzz, afl-showmap, afl-tmin,
+  afl-analyze, and afl-cmin alike.
+- `AFL_QEMU_FORCE_DFL` — make QEMU ignore the target's registered signal
+  handlers.
+- `AFL_QEMU_DEBUG_MAPS` — print the target's memory layout after loading (pair
+  with `AFL_DEBUG=1`).
 
-To compile the QEMU TCG plugins, run the following command from the `qemuafl`
-directory:
+## 16) Gotchas, feedback, bugs
 
-```
-make plugins
-```
+If you need to fix up checksums or otherwise clean up mutated test cases, see
+`afl_custom_post_process` in `custom_mutators/examples/example.c`.
 
-Plugins can be loaded using either the `QEMU_PLUGIN` environment variable or
-using the `-plugin` option. For example:
+Do not mix QEMU mode with ASAN, MSAN, or similar; QEMU does not appreciate the
+sanitizers' "shadow VM" trick and will likely run out of memory.
 
-```
-afl-qemu-trace -plugin qemuafl/build/contrib/plugins/libdrcov.so,arg=filename=/tmp/target.drcov.trace <target> <args>
-```
+User emulation is *not* a security boundary — the binary can freely interact
+with the host OS. To fuzz an untrusted binary, sandbox it first.
 
-This would execute the target binary with the provided arguments and, once done,
-would write coverage information at `/tmp/target.drcov.trace`.
-
-## 14) Other features
-
-With `AFL_QEMU_FORCE_DFL`, you force QEMU to ignore the registered signal
-handlers of the target.
-
-## 15) Gotchas, feedback, bugs
-
-If you need to fix up checksums or do other cleanups on mutated test cases, see
-`afl_custom_post_process` in custom_mutators/examples/example.c for a viable
-solution.
-
-Do not mix QEMU mode with ASAN, MSAN, or the likes; QEMU doesn't appreciate the
-"shadow VM" trick employed by the sanitizers and will probably just run out of
-memory.
-
-Compared to fully-fledged virtualization, the user emulation mode is *NOT* a
-security boundary. The binaries can freely interact with the host OS. If you
-somehow need to fuzz an untrusted binary, put everything in a sandbox first.
-
-QEMU does not necessarily support all CPU or hardware features that your target
-program may be utilizing. In particular, it does not appear to have full support
-for AVX2/FMA3. Using binaries for older CPUs or recompiling them with
+QEMU does not support every CPU feature a target may use (notably, AVX2/FMA3
+support is incomplete). Using binaries for older CPUs, or recompiling with
 `-march=core2`, can help.
 
-## 16) Alternatives: static rewriting
+## 17) Alternatives: static rewriting
 
-Statically rewriting binaries just once, instead of attempting to translate them
-at run time, can be a faster alternative. That said, static rewriting is fraught
-with peril, because it depends on being able to properly and fully model program
-control flow without actually executing each and every code path.
-
-For more information and hints, check out
+Rewriting a binary once, instead of translating it at run time, can be faster —
+but static rewriting is fraught with peril, since it depends on fully modeling
+control flow without executing every path. For more, see
 [docs/fuzzing_binary-only_targets.md](../docs/fuzzing_binary-only_targets.md).
