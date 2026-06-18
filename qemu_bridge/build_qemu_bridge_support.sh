@@ -22,10 +22,9 @@ if [ -z "$NO_CHECKOUT" ]; then
 fi
 
 AFL_LINK=qemu-libafl-bridge/libafl/afl
-if [ -e "$AFL_LINK" ] && [ ! -L "$AFL_LINK" ]; then
+if [ -L "$AFL_LINK" ] || [ -e "$AFL_LINK" ]; then
   rm -rf "$AFL_LINK"
 fi
-ln -sfn ../../libaflqemubridge "$AFL_LINK" || exit 1
 
 mkdir -p libaflqemubridge/imported || exit 1
 cp -f ../include/config.h libaflqemubridge/imported/ || exit 1

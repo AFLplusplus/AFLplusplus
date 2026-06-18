@@ -1,8 +1,8 @@
 #include "qemu/osdep.h"
 #include "qemu/rcu.h"
-#include "libafl/afl/afl.h"
-#include "libafl/afl/imported/config.h"
-#include "libafl/afl/imported/types.h"
+#include "libaflqemubridge/afl.h"
+#include "libaflqemubridge/imported/config.h"
+#include "libaflqemubridge/imported/types.h"
 
 #ifndef FS_OPT_IJON
 #define FS_OPT_IJON 0x04000000

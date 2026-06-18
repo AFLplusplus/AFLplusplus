@@ -9,7 +9,7 @@
 #include "exec/target_long.h"
 #include "cpu.h"
 
-#include "libafl/afl/qasan.h"
+#include "libaflqemubridge/qasan.h"
 
 #ifndef ASAN_NAME_STR
 #define ASAN_NAME_STR "QEMU-AddressSanitizer"

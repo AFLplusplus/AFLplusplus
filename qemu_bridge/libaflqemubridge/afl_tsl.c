@@ -3,8 +3,8 @@
 #include "accel/tcg/tb-cpu-state.h"
 #include "exec/translation-block.h"
 
-#include "libafl/afl/afl.h"
-#include "libafl/afl/afl_tsl.h"
+#include "libaflqemubridge/afl.h"
+#include "libaflqemubridge/afl_tsl.h"
 
 #include <unistd.h>
 
