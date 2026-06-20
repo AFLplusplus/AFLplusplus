@@ -9,6 +9,10 @@
       function's local variable count and afl-fuzz uses it as an extra queue
       scheduling signal to favor more complex code paths. Noticably improvement,
       based on the paper https://mlsec.org/docs/2026-icse.pdf
+    - if `-fsanitize-coverage-allowlist=`/`-fsanitize-coverage-ignorelist=` is
+      passed without `AFL_LLVM_ALLOWLIST`/`AFL_LLVM_DENYLIST` being set, the
+      supplied list is reused as `AFL_LLVM_ALLOWLIST`/`AFL_LLVM_DENYLIST` (with
+      a warning) so the optimized PCGUARD honors it
   - 
 
 

@@ -142,6 +142,14 @@ fun:MallocBar
 Note that this only applies to the very first non-comment line; a `src:*` entry
 appearing later, or a more specific `src:` pattern, is honored as usual.
 
+As a further convenience, if you pass clang's `-fsanitize-coverage-allowlist=`
+or `-fsanitize-coverage-ignorelist=` on the command line and do not set
+`AFL_LLVM_ALLOWLIST` resp. `AFL_LLVM_DENYLIST`, afl-cc reuses the supplied list
+file as `AFL_LLVM_ALLOWLIST` resp. `AFL_LLVM_DENYLIST` (printing a warning) so
+that the optimized PCGUARD instrumentation honors it instead of falling back to
+the unoptimized native instrumentation. Set the matching environment variable
+to override this.
+
 ### 3b) UNIX-style pattern matching
 
 You can add UNIX-style pattern matching in the "instrument file list" entries.
