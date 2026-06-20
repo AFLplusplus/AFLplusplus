@@ -125,6 +125,23 @@ fun: MallocFoo
 
 Note that whitespace is ignored and comments (`# foo`) are supported.
 
+For compatibility with clang's `-fsanitize-coverage-allowlist` files, a leading
+`src:*` (or `source:*`) on the first non-comment line of an `AFL_LLVM_ALLOWLIST`
+file is ignored. Such files typically allow all sources with `src:*` and then
+list the reachable functions with `fun:` entries. AFL++ works differently and
+only instruments what the allowlist names, so ignoring the `src:*` line means
+only the listed functions get instrumented. Example:
+
+```
+# reachable functions
+src:*
+fun:MallocFoo
+fun:MallocBar
+```
+
+Note that this only applies to the very first non-comment line; a `src:*` entry
+appearing later, or a more specific `src:` pattern, is honored as usual.
+
 ### 3b) UNIX-style pattern matching
 
 You can add UNIX-style pattern matching in the "instrument file list" entries.

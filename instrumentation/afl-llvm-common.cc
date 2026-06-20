@@ -197,6 +197,7 @@ void initInstrumentList() {
     fileStream.open(allowlist);
     if (!fileStream) report_fatal_error("Unable to open AFL_LLVM_ALLOWLIST");
     getline(fileStream, line);
+    bool first_entry = true;
 
     while (fileStream) {
 
@@ -210,6 +211,18 @@ void initInstrumentList() {
       // remove # and following
       if ((npos = line.find("#")) != std::string::npos)
         line = line.substr(0, npos);
+
+      if (first_entry && line.length() > 0) {
+
+        first_entry = false;
+        if (line == "src:*" || line == "source:*") {
+
+          getline(fileStream, line);
+          continue;
+
+        }
+
+      }
 
       if (line.compare(0, 4, "fun:") == 0) {
 
