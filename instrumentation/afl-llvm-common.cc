@@ -464,6 +464,15 @@ static std::string getSourceName(llvm::Function *F) {
 
 }
 
+/* Returns true if an AFL_LLVM_ALLOWLIST or AFL_LLVM_DENYLIST is in effect,
+   i.e. at least one allow/deny file or function entry was loaded. */
+bool isInstrumentListActive(void) {
+
+  return !allowListFiles.empty() || !allowListFunctions.empty() ||
+         !denyListFiles.empty() || !denyListFunctions.empty();
+
+}
+
 bool isInInstrumentList(llvm::Function *F, std::string Filename) {
 
   bool return_default = true;

@@ -169,3 +169,15 @@ File (`src:`) entries get an implicit leading `*` (suffix match); function
 (`fun:`) entries are matched verbatim, so add a leading `*` yourself for a
 function suffix match. See `man fnmatch` for the syntax. Do not set any of the
 `fnmatch` flags.
+
+### 3c) Aborting on entry of excluded functions
+
+When an allow/deny list is in effect, additionally setting
+`AFL_LLVM_ABORTLIST=1` makes the LLVM PCGUARD instrumentation insert an
+`abort()` call at the entry of every function that the list excluded from
+instrumentation. Reaching such a function then crashes the target, which is
+handy to detect test cases that leave the part of the program you want to
+fuzz. Only functions skipped because of the allow/deny list are affected;
+compiler/sanitizer internal functions and `available_externally` definitions
+are left untouched. The variable has no effect (and prints a warning) if
+neither `AFL_LLVM_ALLOWLIST` nor `AFL_LLVM_DENYLIST` is set.

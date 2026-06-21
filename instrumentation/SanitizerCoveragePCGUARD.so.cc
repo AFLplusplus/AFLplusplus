@@ -172,6 +172,7 @@ class ModuleSanitizerCoverageAFL
   void   updateCoverageForSelect(IRBuilder<> &IRB, Value *result, Value *MapPtr,
                                  uint32_t &vector_cnt);
   void   setNoInstrumentMetadata(Value *V);
+  void   insertAbortAtFunctionEntry(Function &F);
 
   std::string     getSectionName(const std::string &Section) const;
   std::string     getSectionStart(const std::string &Section) const;
@@ -200,6 +201,7 @@ class ModuleSanitizerCoverageAFL
   ConstantInt    *One = NULL;
   ConstantInt    *Zero = NULL;
   bool            deny_exec = false;
+  bool            abort_list = false;
   uint32_t        first = 1;
 
   /* AFL_LLVM_PATH (Ball-Larus per-function path coverage).  Same semantics
@@ -391,6 +393,7 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
   ijon_enabled = getenv("AFL_LLVM_IJON");
   if (getenv("AFL_LLVM_DENY_EXEC")) { deny_exec = true; }
+  if (getenv("AFL_LLVM_ABORTLIST")) { abort_list = true; }
 
   /* AFL_LLVM_PATH (and aliases AFL_LLVM_LTO_PATH / AFL_LLVM_PATH_MODE):
      Ball-Larus per-function path coverage on top of edge coverage.
@@ -514,6 +517,28 @@ void ModuleSanitizerCoverageAFL::setNoInstrumentMetadata(Value *V) {
 
     MDNode *Tag = MDNode::get(I->getContext(), {});
     I->setMetadata("afl.skip", Tag);
+
+  }
+
+}
+
+void ModuleSanitizerCoverageAFL::insertAbortAtFunctionEntry(Function &F) {
+
+  BasicBlock          &BB = F.getEntryBlock();
+  BasicBlock::iterator IP = BB.getFirstInsertionPt();
+  if (IP == BB.end()) return;
+
+  IRBuilder<>    IRB(&*IP);
+  FunctionCallee AbortFn = F.getParent()->getOrInsertFunction(
+      "abort", AttributeList{}, Type::getVoidTy(*C));
+  IRB.CreateCall(AbortFn);
+
+  if (debug) {
+
+    fprintf(stderr,
+            "SanitizerCoveragePCGUARD: inserted abort() at entry of "
+            "non-instrumented function %s\n",
+            F.getName().str().c_str());
 
   }
 
@@ -912,6 +937,15 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   initInstrumentList();
   scanForDangerousFunctions(&M);
 
+  if (abort_list && !isInstrumentListActive()) {
+
+    WARNF(
+        "AFL_LLVM_ABORTLIST is set but neither AFL_LLVM_ALLOWLIST nor "
+        "AFL_LLVM_DENYLIST is in effect - no abort() calls will be inserted.");
+    abort_list = false;
+
+  }
+
   C = &(M.getContext());
   DL = &M.getDataLayout();
   CurModule = &M;
@@ -1137,7 +1171,24 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
     Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
   if (F.empty()) return;
-  if (!isInInstrumentList(&F, FMNAME)) return;
+  if (!isInInstrumentList(&F, FMNAME)) {
+
+    /* AFL_LLVM_ABORTLIST: when an allow/deny list excludes this function from
+       instrumentation, insert an abort() at its entry so reaching it crashes.
+       Skip functions that isInInstrumentList rejects for non-list reasons
+       (compiler/sanitizer internals) and available_externally bodies (their
+       real definition lives elsewhere and may be inlined). */
+    if (abort_list && !isIgnoreFunction(&F) &&
+        F.getLinkage() != GlobalValue::AvailableExternallyLinkage) {
+
+      insertAbortAtFunctionEntry(F);
+
+    }
+
+    return;
+
+  }
+
   if (F.getName().contains(".module_ctor"))
     return;  // Should not instrument sanitizer init functions.
 #if LLVM_MAJOR >= 18

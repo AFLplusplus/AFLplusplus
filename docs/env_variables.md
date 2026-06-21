@@ -519,6 +519,17 @@ functions, as the exec'd process will inherit the instrumentation but may not
 be the intended fuzzing target. Only enable this if your target should never
 call exec functions during normal operation.
 
+#### Abort on entry of non-instrumented functions
+
+When you build with an `AFL_LLVM_ALLOWLIST` or `AFL_LLVM_DENYLIST` (see INSTRUMENT
+LIST above), additionally setting `AFL_LLVM_ABORTLIST=1` inserts an `abort()`
+call at the entry of every function that the allow/deny list excluded from
+instrumentation. Reaching such a function then crashes the target. This is
+useful to catch test cases that escape the intended fuzzing scope. It only
+affects functions skipped because of the allow/deny list; compiler/sanitizer
+internals and `available_externally` definitions are left untouched. It has no
+effect (and warns) if no allow/deny list is in use.
+
 
 ## 3) Settings for GCC / GCC_PLUGIN modes
 
