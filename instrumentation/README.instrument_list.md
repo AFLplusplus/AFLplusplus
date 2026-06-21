@@ -70,9 +70,16 @@ That file should contain the file names or functions that are to be instrumented
 GCC_PLUGIN: you can use either `AFL_LLVM_ALLOWLIST` or `AFL_GCC_ALLOWLIST` (or
 the same for `_DENYLIST`), both work.
 
-For matching to succeed, the function/file name that is being compiled must end
-in the function/file name entry contained in this instrument file list. That is
-to avoid breaking the match when absolute paths are used during compilation.
+For a file (`src:`) entry, matching succeeds when the source file name being
+compiled ends in the entry; an implicit `*` is prepended so the match is not
+broken by the absolute path used during compilation (and you may add further
+UNIX-style wildcards yourself).
+
+For a function (`fun:`) entry, no wildcard is added automatically: the entry
+must match the function name exactly unless you add your own wildcards (e.g. a
+leading `*` for a suffix match). A function entry is matched against both the
+mangled and the demangled function name (for the GCC plugin: against the mangled
+name and the unqualified source name).
 
 **NOTE:** In builds with optimization enabled, functions might be inlined and
 would not match!
@@ -106,8 +113,13 @@ a2.cpp
 But it might lead to files being unwantedly instrumented if the same filename
 exists somewhere else in the project directories.
 
-You can also specify function names. Note that for C++ the function names must
-be mangled to match! `nm` can print these names.
+You can also specify function names. For C++/Rust you can use either the mangled
+symbol name (as printed by `nm`) or the demangled name (as printed by `c++filt`
+/ `rustfilt`, e.g. `fun:ns::foo(int)`); both are matched (the GCC plugin matches
+the mangled name and the unqualified source name). A function name that contains
+a `:` (such as a demangled C++/Rust name) must use an explicit `fun:` prefix.
+Because whitespace in a list entry is removed, demangled names with spaces (e.g.
+several arguments) are best matched with a `*` wildcard, e.g. `fun:ns::foo*`.
 
 AFL++ is able to identify whether an entry is a filename or a function. However,
 if you want to be sure (and compliant to the sancov allow/blocklist format), you
@@ -125,7 +137,35 @@ fun: MallocFoo
 
 Note that whitespace is ignored and comments (`# foo`) are supported.
 
+For compatibility with clang's `-fsanitize-coverage-allowlist` files, a leading
+`src:*` (or `source:*`) on the first non-comment line of an `AFL_LLVM_ALLOWLIST`
+file is ignored. Such files typically allow all sources with `src:*` and then
+list the reachable functions with `fun:` entries. AFL++ works differently and
+only instruments what the allowlist names, so ignoring the `src:*` line means
+only the listed functions get instrumented. Example:
+
+```
+# reachable functions
+src:*
+fun:MallocFoo
+fun:MallocBar
+```
+
+Note that this only applies to the very first non-comment line; a `src:*` entry
+appearing later, or a more specific `src:` pattern, is honored as usual.
+
+As a further convenience, if you pass clang's `-fsanitize-coverage-allowlist=`
+or `-fsanitize-coverage-ignorelist=` on the command line and do not set
+`AFL_LLVM_ALLOWLIST` resp. `AFL_LLVM_DENYLIST`, afl-cc reuses the supplied list
+file as `AFL_LLVM_ALLOWLIST` resp. `AFL_LLVM_DENYLIST` (printing a warning) so
+that the optimized PCGUARD instrumentation honors it instead of falling back to
+the unoptimized native instrumentation. Set the matching environment variable
+to override this.
+
 ### 3b) UNIX-style pattern matching
 
 You can add UNIX-style pattern matching in the "instrument file list" entries.
-See `man fnmatch` for the syntax. Do not set any of the `fnmatch` flags.
+File (`src:`) entries get an implicit leading `*` (suffix match); function
+(`fun:`) entries are matched verbatim, so add a leading `*` yourself for a
+function suffix match. See `man fnmatch` for the syntax. Do not set any of the
+`fnmatch` flags.

@@ -181,7 +181,8 @@ typedef struct aflcc_state {
   u8 cmplog_mode, c11_mode;
 
   u8 have_instr_env, have_gcc, have_clang, have_llvm, have_gcc_plugin, have_lto,
-      have_optimized_pcguard, have_instr_list, wnoerror;
+      have_optimized_pcguard, have_instr_list, wnoerror,
+      mapped_sancov_allowlist, mapped_sancov_denylist;
 
   u8 fortify_set, x_set, bit_mode, preprocessor_only, have_unroll, have_o,
       have_pic, have_c, shared_linking, partial_linking, non_dash, have_fp,
@@ -1952,14 +1953,57 @@ param_st parse_fsanitize(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
              strstr(cur_argv, "list=")) {
 
+    u8 is_allow = !strncmp(cur_argv, "-fsanitize-coverage-allowlist=",
+                           strlen("-fsanitize-coverage-allowlist="));
+    u8 is_deny = !strncmp(cur_argv, "-fsanitize-coverage-ignorelist=",
+                          strlen("-fsanitize-coverage-ignorelist="));
+
     if (scan) {
 
-      aflcc->have_instr_list = 1;
+      /* If a clang sancov allow/ignore list is supplied but the matching
+         AFL_LLVM_ALLOWLIST/AFL_LLVM_DENYLIST is not set, reuse the supplied
+         list so the optimized PCGUARD honors it instead of falling back to
+         the native instrumentation. */
+      if (is_allow && !getenv("AFL_LLVM_ALLOWLIST")) {
+
+        u8 *list_file = (u8 *)strchr((char *)cur_argv, '=') + 1;
+        setenv("AFL_LLVM_ALLOWLIST", (char *)list_file, 1);
+        aflcc->have_instr_env = 1;
+        aflcc->mapped_sancov_allowlist = 1;
+        if (!be_quiet)
+          WARNF(
+              "Found '%s' without AFL_LLVM_ALLOWLIST set - using '%s' as "
+              "AFL_LLVM_ALLOWLIST. Set AFL_LLVM_ALLOWLIST to override.",
+              cur_argv, list_file);
+
+      } else if (is_deny && !getenv("AFL_LLVM_DENYLIST")) {
+
+        u8 *list_file = (u8 *)strchr((char *)cur_argv, '=') + 1;
+        setenv("AFL_LLVM_DENYLIST", (char *)list_file, 1);
+        aflcc->have_instr_env = 1;
+        aflcc->mapped_sancov_denylist = 1;
+        if (!be_quiet)
+          WARNF(
+              "Found '%s' without AFL_LLVM_DENYLIST set - using '%s' as "
+              "AFL_LLVM_DENYLIST. Set AFL_LLVM_DENYLIST to override.",
+              cur_argv, list_file);
+
+      } else {
+
+        aflcc->have_instr_list = 1;
+
+      }
+
       final_ = PARAM_SCAN;
 
     } else {
 
-      if (aflcc->instrument_mode != INSTRUMENT_LLVMNATIVE) {
+      if ((is_allow && aflcc->mapped_sancov_allowlist) ||
+          (is_deny && aflcc->mapped_sancov_denylist)) {
+
+        final_ = PARAM_DROP;
+
+      } else if (aflcc->instrument_mode != INSTRUMENT_LLVMNATIVE) {
 
         if (!be_quiet) { WARNF("Found '%s' - stripping!", cur_argv); }
         final_ = PARAM_DROP;
