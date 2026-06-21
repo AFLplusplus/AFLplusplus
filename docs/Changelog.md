@@ -13,6 +13,14 @@
       passed without `AFL_LLVM_ALLOWLIST`/`AFL_LLVM_DENYLIST` being set, the
       supplied list is reused as `AFL_LLVM_ALLOWLIST`/`AFL_LLVM_DENYLIST` (with
       a warning) so the optimized PCGUARD honors it
+    - instrument allow/deny lists (`AFL_LLVM_ALLOWLIST`/`AFL_LLVM_DENYLIST` and
+      the GCC equivalents): function (`fun:`) entries are now matched verbatim
+      with `fnmatch()` instead of having a `*` prepended automatically - add a
+      leading `*` yourself for a suffix match. Function entries are matched
+      against both the mangled and the demangled (LLVM) / unqualified (GCC)
+      name, and an explicit `fun:` prefix now permits `:` so demangled C++/Rust
+      names can be listed. File (`src:`) entries are unchanged and still match
+      as a suffix (an implicit leading `*`)
   - 
 
 

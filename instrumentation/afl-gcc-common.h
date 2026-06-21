@@ -225,7 +225,7 @@ struct afl_base_pass : gimple_opt_pass {
 
         }
 
-        if (line.find(":") != std::string::npos) {
+        if (is_file != 0 && line.find(":") != std::string::npos) {
 
           FATAL("invalid line in AFL_GCC_ALLOWLIST: %s", original_line.c_str());
 
@@ -300,7 +300,7 @@ struct afl_base_pass : gimple_opt_pass {
 
         }
 
-        if (line.find(":") != std::string::npos) {
+        if (is_file != 0 && line.find(":") != std::string::npos) {
 
           FATAL("invalid line in AFL_GCC_DENYLIST: %s", original_line.c_str());
 
@@ -356,28 +356,26 @@ struct afl_base_pass : gimple_opt_pass {
       if (!denyListFunctions.empty()) {
 
         std::string instFunction = IDENTIFIER_POINTER(DECL_NAME(F->decl));
+        tree        asmName = DECL_ASSEMBLER_NAME(F->decl);
+        std::string mangledFunction =
+            asmName ? IDENTIFIER_POINTER(asmName) : instFunction;
 
         for (std::list<std::string>::iterator it = denyListFunctions.begin();
              it != denyListFunctions.end(); ++it) {
 
-          /* We don't check for filename equality here because
-           * filenames might actually be full paths. Instead we
-           * check that the actual filename ends in the filename
-           * specified in the list. We also allow UNIX-style pattern
-           * matching */
+          /* The entry is used directly as an fnmatch() pattern, no wildcard is
+           * added automatically. Prefix the entry with '*' to match a suffix.
+           * Both the unmangled and the mangled function name are matched. */
 
-          if (instFunction.length() >= it->length()) {
+          if (fnmatch(it->c_str(), instFunction.c_str(), 0) == 0 ||
+              fnmatch(it->c_str(), mangledFunction.c_str(), 0) == 0) {
 
-            if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
-
-              if (debug)
-                DEBUGF(
-                    "Function %s is in the deny function list, not "
-                    "instrumenting ... \n",
-                    instFunction.c_str());
-              return false;
-
-            }
+            if (debug)
+              DEBUGF(
+                  "Function %s is in the deny function list, not "
+                  "instrumenting ... \n",
+                  instFunction.c_str());
+            return false;
 
           }
 
@@ -436,28 +434,26 @@ struct afl_base_pass : gimple_opt_pass {
       if (!allowListFunctions.empty()) {
 
         std::string instFunction = IDENTIFIER_POINTER(DECL_NAME(F->decl));
+        tree        asmName = DECL_ASSEMBLER_NAME(F->decl);
+        std::string mangledFunction =
+            asmName ? IDENTIFIER_POINTER(asmName) : instFunction;
 
         for (std::list<std::string>::iterator it = allowListFunctions.begin();
              it != allowListFunctions.end(); ++it) {
 
-          /* We don't check for filename equality here because
-           * filenames might actually be full paths. Instead we
-           * check that the actual filename ends in the filename
-           * specified in the list. We also allow UNIX-style pattern
-           * matching */
+          /* The entry is used directly as an fnmatch() pattern, no wildcard is
+           * added automatically. Prefix the entry with '*' to match a suffix.
+           * Both the unmangled and the mangled function name are matched. */
 
-          if (instFunction.length() >= it->length()) {
+          if (fnmatch(it->c_str(), instFunction.c_str(), 0) == 0 ||
+              fnmatch(it->c_str(), mangledFunction.c_str(), 0) == 0) {
 
-            if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
-
-              if (debug)
-                DEBUGF(
-                    "Function %s is in the allow function list, instrumenting "
-                    "... \n",
-                    instFunction.c_str());
-              return true;
-
-            }
+            if (debug)
+              DEBUGF(
+                  "Function %s is in the allow function list, instrumenting "
+                  "... \n",
+                  instFunction.c_str());
+            return true;
 
           }
 
