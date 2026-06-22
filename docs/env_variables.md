@@ -527,8 +527,10 @@ call at the entry of every function that the allow/deny list excluded from
 instrumentation. Reaching such a function then crashes the target. This is
 useful to catch test cases that escape the intended fuzzing scope. It only
 affects functions skipped because of the allow/deny list; compiler/sanitizer
-internals and `available_externally` definitions are left untouched. It has no
-effect (and warns) if no allow/deny list is in use.
+internals, `available_externally` definitions, and constructors/destructors
+(both C++ ctors/dtors and `__attribute__((constructor))`/`((destructor))`
+functions, which run automatically) are left untouched. It has no effect (and
+warns) if no allow/deny list is in use.
 
 
 ## 3) Settings for GCC / GCC_PLUGIN modes

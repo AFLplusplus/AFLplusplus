@@ -24,6 +24,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
@@ -173,6 +174,8 @@ class ModuleSanitizerCoverageAFL
                                  uint32_t &vector_cnt);
   void   setNoInstrumentMetadata(Value *V);
   void   insertAbortAtFunctionEntry(Function &F);
+  void   collectGlobalCtorsDtors(Module &M);
+  bool   isConstructorOrDestructor(Function &F);
 
   std::string     getSectionName(const std::string &Section) const;
   std::string     getSectionStart(const std::string &Section) const;
@@ -203,6 +206,11 @@ class ModuleSanitizerCoverageAFL
   bool            deny_exec = false;
   bool            abort_list = false;
   uint32_t        first = 1;
+
+  /* Functions registered to run at startup/teardown (collected from
+     llvm.global_ctors / llvm.global_dtors).  Used by the AFL_LLVM_ABORTLIST
+     feature to never abort in automatically-run constructors/destructors. */
+  SmallPtrSet<Function *, 16> GlobalCtorDtorFuncs;
 
   /* AFL_LLVM_PATH (Ball-Larus per-function path coverage).  Same semantics
      as AFL_LLVM_LTO_PATH in the LTO pass: 0=off, 1=relaxed, 2=restricted,
@@ -541,6 +549,49 @@ void ModuleSanitizerCoverageAFL::insertAbortAtFunctionEntry(Function &F) {
             F.getName().str().c_str());
 
   }
+
+}
+
+void ModuleSanitizerCoverageAFL::collectGlobalCtorsDtors(Module &M) {
+
+  GlobalCtorDtorFuncs.clear();
+
+  for (const char *ListName : {"llvm.global_ctors", "llvm.global_dtors"}) {
+
+    GlobalVariable *GV = M.getNamedGlobal(ListName);
+    if (!GV || !GV->hasInitializer()) continue;
+
+    ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer());
+    if (!CA) continue;
+
+    // Each entry is { i32 priority, ptr func, ptr data }; element 1 is the
+    // constructor/destructor function (possibly behind a pointer cast).
+    for (unsigned i = 0, e = CA->getNumOperands(); i < e; ++i) {
+
+      ConstantStruct *CS = dyn_cast<ConstantStruct>(CA->getOperand(i));
+      if (!CS || CS->getNumOperands() < 2) continue;
+      if (Function *Fn =
+              dyn_cast<Function>(CS->getOperand(1)->stripPointerCasts()))
+        GlobalCtorDtorFuncs.insert(Fn);
+
+    }
+
+  }
+
+}
+
+bool ModuleSanitizerCoverageAFL::isConstructorOrDestructor(Function &F) {
+
+  // Functions registered in llvm.global_ctors / llvm.global_dtors run
+  // automatically (e.g. __attribute__((constructor))/((destructor))).
+  if (GlobalCtorDtorFuncs.count(&F)) return true;
+
+  // C++ constructors and destructors, identified from the mangled name.
+  llvm::ItaniumPartialDemangler IPD;
+  std::string                   Name = F.getName().str();
+  if (!IPD.partialDemangle(Name.c_str()) && IPD.isCtorOrDtor()) return true;
+
+  return false;
 
 }
 
@@ -946,6 +997,8 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
 
   }
 
+  if (abort_list) { collectGlobalCtorsDtors(M); }
+
   C = &(M.getContext());
   DL = &M.getDataLayout();
   CurModule = &M;
@@ -1177,9 +1230,12 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
        instrumentation, insert an abort() at its entry so reaching it crashes.
        Skip functions that isInInstrumentList rejects for non-list reasons
        (compiler/sanitizer internals) and available_externally bodies (their
-       real definition lives elsewhere and may be inlined). */
+       real definition lives elsewhere and may be inlined).  Constructors and
+       destructors are also skipped: they run as part of startup/teardown and
+       object lifecycle, so aborting in them would be spurious. */
     if (abort_list && !isIgnoreFunction(&F) &&
-        F.getLinkage() != GlobalValue::AvailableExternallyLinkage) {
+        F.getLinkage() != GlobalValue::AvailableExternallyLinkage &&
+        !isConstructorOrDestructor(F)) {
 
       insertAbortAtFunctionEntry(F);
 
