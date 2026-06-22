@@ -177,9 +177,14 @@ When an allow/deny list is in effect, additionally setting
 `abort()` call at the entry of every function that the list excluded from
 instrumentation. Reaching such a function then crashes the target, which is
 handy to detect test cases that leave the part of the program you want to
-fuzz. Only functions skipped because of the allow/deny list are affected;
-compiler/sanitizer internal functions, `available_externally` definitions, and
-constructors/destructors (both C++ ctors/dtors and
-`__attribute__((constructor))`/`((destructor))` functions, which run
-automatically) are left untouched. The variable has no effect (and prints a
-warning) if neither `AFL_LLVM_ALLOWLIST` nor `AFL_LLVM_DENYLIST` is set.
+fuzz. Only functions skipped because of the allow/deny list are affected.
+Functions that run automatically rather than through the fuzzing entry point
+are left untouched, so they cannot crash the target before, around or after the
+forkserver: compiler/sanitizer internal functions, `available_externally`
+definitions, constructors and destructors (C++ ctors/dtors and
+`__attribute__((constructor))`/`((destructor))` functions), ifunc resolvers
+(run by the dynamic loader during relocation), exit/teardown callbacks
+registered with `atexit`, `at_quick_exit`, `__cxa_atexit`,
+`__cxa_thread_atexit[_impl]` or `pthread_key_create`, and anything those reach
+through direct calls. The variable has no effect (and prints a warning) if
+neither `AFL_LLVM_ALLOWLIST` nor `AFL_LLVM_DENYLIST` is set.

@@ -29,6 +29,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalIFunc.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
@@ -174,8 +175,8 @@ class ModuleSanitizerCoverageAFL
                                  uint32_t &vector_cnt);
   void   setNoInstrumentMetadata(Value *V);
   void   insertAbortAtFunctionEntry(Function &F);
-  void   collectGlobalCtorsDtors(Module &M);
-  bool   isConstructorOrDestructor(Function &F);
+  void   collectNoAbortFunctions(Module &M);
+  bool   isNoAbortFunction(Function &F);
 
   std::string     getSectionName(const std::string &Section) const;
   std::string     getSectionStart(const std::string &Section) const;
@@ -207,10 +208,12 @@ class ModuleSanitizerCoverageAFL
   bool            abort_list = false;
   uint32_t        first = 1;
 
-  /* Functions registered to run at startup/teardown (collected from
-     llvm.global_ctors / llvm.global_dtors).  Used by the AFL_LLVM_ABORTLIST
-     feature to never abort in automatically-run constructors/destructors. */
-  SmallPtrSet<Function *, 16> GlobalCtorDtorFuncs;
+  /* Functions that run automatically outside the fuzzing entry point and must
+     never receive AFL_LLVM_ABORTLIST instrumentation: global constructors and
+     destructors (llvm.global_ctors / llvm.global_dtors), ifunc resolvers (run
+     by the dynamic loader during relocation), exit/teardown callbacks
+     (atexit and similar), and everything those reach through direct calls. */
+  SmallPtrSet<Function *, 16> NoAbortFuncs;
 
   /* AFL_LLVM_PATH (Ball-Larus per-function path coverage).  Same semantics
      as AFL_LLVM_LTO_PATH in the LTO pass: 0=off, 1=relaxed, 2=restricted,
@@ -552,10 +555,31 @@ void ModuleSanitizerCoverageAFL::insertAbortAtFunctionEntry(Function &F) {
 
 }
 
-void ModuleSanitizerCoverageAFL::collectGlobalCtorsDtors(Module &M) {
+void ModuleSanitizerCoverageAFL::collectNoAbortFunctions(Module &M) {
 
-  GlobalCtorDtorFuncs.clear();
+  NoAbortFuncs.clear();
 
+  SmallVector<Function *, 16> Worklist;
+  auto                        addRoot = [&](Function *Fn) {
+
+    if (Fn && !Fn->isDeclaration() && NoAbortFuncs.insert(Fn).second)
+      Worklist.push_back(Fn);
+
+  };
+
+  auto addRootValue = [&](Value *V) {
+
+    if (V) addRoot(dyn_cast<Function>(V->stripPointerCasts()));
+
+  };
+
+  // Roots that run automatically, outside the LLVMFuzzerTestOneInput entry
+  // point, so an abort() in them never signals out-of-scope fuzzing:
+  //   - global constructors/destructors: __attribute__((constructor))/
+  //     ((destructor)) functions and C++ static initializers, run at
+  //     startup/teardown around the forkserver;
+  //   - ifunc resolvers, run by the dynamic loader while processing
+  //     relocations - before any constructor and long before the forkserver.
   for (const char *ListName : {"llvm.global_ctors", "llvm.global_dtors"}) {
 
     GlobalVariable *GV = M.getNamedGlobal(ListName);
@@ -570,9 +594,83 @@ void ModuleSanitizerCoverageAFL::collectGlobalCtorsDtors(Module &M) {
 
       ConstantStruct *CS = dyn_cast<ConstantStruct>(CA->getOperand(i));
       if (!CS || CS->getNumOperands() < 2) continue;
-      if (Function *Fn =
-              dyn_cast<Function>(CS->getOperand(1)->stripPointerCasts()))
-        GlobalCtorDtorFuncs.insert(Fn);
+      addRootValue(CS->getOperand(1));
+
+    }
+
+  }
+
+  for (GlobalIFunc &GI : M.ifuncs()) {
+
+    addRoot(GI.getResolverFunction());
+
+  }
+
+  // Functions registered to run at process/thread exit also run outside the
+  // fuzzer entry point (at teardown), so an abort() in them is spurious.
+  // Scan the whole module for calls to the registration functions below and
+  // take the registered callback (the argument at the given index).
+  static const struct {
+
+    const char *name;
+    unsigned    arg;
+
+  } ExitRegistrars[] = {
+
+      {"atexit", 0},
+      {"at_quick_exit", 0},
+      {"__cxa_atexit", 0},
+      {"__cxa_thread_atexit", 0},
+      {"__cxa_thread_atexit_impl", 0},
+      {"pthread_key_create", 1},
+
+  };
+
+  for (Function &F : M) {
+
+    for (BasicBlock &BB : F) {
+
+      for (Instruction &I : BB) {
+
+        auto *CB = dyn_cast<CallBase>(&I);
+        if (!CB) continue;
+        Function *Callee = CB->getCalledFunction();
+        if (!Callee) continue;
+        StringRef Name = Callee->getName();
+        for (const auto &R : ExitRegistrars) {
+
+          if (Name == R.name && CB->arg_size() > R.arg) {
+
+            addRootValue(CB->getArgOperand(R.arg));
+            break;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+  // Everything these roots can reach through direct calls also runs before
+  // the forkserver (or at teardown), so it must not abort either.  Indirect
+  // call targets cannot be resolved here and are left as-is.
+  while (!Worklist.empty()) {
+
+    Function *Fn = Worklist.pop_back_val();
+    for (BasicBlock &BB : *Fn) {
+
+      for (Instruction &I : BB) {
+
+        if (auto *CB = dyn_cast<CallBase>(&I)) {
+
+          addRoot(CB->getCalledFunction());
+
+        }
+
+      }
 
     }
 
@@ -580,13 +678,15 @@ void ModuleSanitizerCoverageAFL::collectGlobalCtorsDtors(Module &M) {
 
 }
 
-bool ModuleSanitizerCoverageAFL::isConstructorOrDestructor(Function &F) {
+bool ModuleSanitizerCoverageAFL::isNoAbortFunction(Function &F) {
 
-  // Functions registered in llvm.global_ctors / llvm.global_dtors run
-  // automatically (e.g. __attribute__((constructor))/((destructor))).
-  if (GlobalCtorDtorFuncs.count(&F)) return true;
+  // Global ctors/dtors, ifunc resolvers, exit/teardown callbacks and their
+  // transitive callees collected from the module: these run automatically
+  // outside the fuzzing entry point.
+  if (NoAbortFuncs.count(&F)) return true;
 
-  // C++ constructors and destructors, identified from the mangled name.
+  // C++ constructors and destructors run as part of object lifecycle,
+  // identified here from the mangled name.
   llvm::ItaniumPartialDemangler IPD;
   std::string                   Name = F.getName().str();
   if (!IPD.partialDemangle(Name.c_str()) && IPD.isCtorOrDtor()) return true;
@@ -997,7 +1097,7 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
 
   }
 
-  if (abort_list) { collectGlobalCtorsDtors(M); }
+  if (abort_list) { collectNoAbortFunctions(M); }
 
   C = &(M.getContext());
   DL = &M.getDataLayout();
@@ -1230,12 +1330,15 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
        instrumentation, insert an abort() at its entry so reaching it crashes.
        Skip functions that isInInstrumentList rejects for non-list reasons
        (compiler/sanitizer internals) and available_externally bodies (their
-       real definition lives elsewhere and may be inlined).  Constructors and
-       destructors are also skipped: they run as part of startup/teardown and
-       object lifecycle, so aborting in them would be spurious. */
+       real definition lives elsewhere and may be inlined).  Also skip
+       functions that run automatically outside the fuzzing entry point -
+       constructors, destructors, ifunc resolvers and atexit-style exit
+       callbacks (plus their callees) - where an abort() would fire during
+       load/startup/teardown or object lifecycle instead of signalling that
+       out-of-scope code was reached. */
     if (abort_list && !isIgnoreFunction(&F) &&
         F.getLinkage() != GlobalValue::AvailableExternallyLinkage &&
-        !isConstructorOrDestructor(F)) {
+        !isNoAbortFunction(F)) {
 
       insertAbortAtFunctionEntry(F);
 

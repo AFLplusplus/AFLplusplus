@@ -526,11 +526,16 @@ LIST above), additionally setting `AFL_LLVM_ABORTLIST=1` inserts an `abort()`
 call at the entry of every function that the allow/deny list excluded from
 instrumentation. Reaching such a function then crashes the target. This is
 useful to catch test cases that escape the intended fuzzing scope. It only
-affects functions skipped because of the allow/deny list; compiler/sanitizer
-internals, `available_externally` definitions, and constructors/destructors
-(both C++ ctors/dtors and `__attribute__((constructor))`/`((destructor))`
-functions, which run automatically) are left untouched. It has no effect (and
-warns) if no allow/deny list is in use.
+affects functions skipped because of the allow/deny list. Functions that run
+automatically rather than through the fuzzing entry point are left untouched,
+so they cannot crash the target before, around or after the forkserver:
+compiler/sanitizer internals, `available_externally` definitions, constructors
+and destructors (C++ ctors/dtors and `__attribute__((constructor))`/
+`((destructor))` functions), ifunc resolvers (run by the dynamic loader during
+relocation), exit/teardown callbacks registered with `atexit`, `at_quick_exit`,
+`__cxa_atexit`, `__cxa_thread_atexit[_impl]` or `pthread_key_create`, and
+anything those reach through direct calls. It has no effect (and warns) if no
+allow/deny list is in use.
 
 
 ## 3) Settings for GCC / GCC_PLUGIN modes
