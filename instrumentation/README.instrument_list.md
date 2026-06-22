@@ -185,6 +185,7 @@ definitions, constructors and destructors (C++ ctors/dtors and
 `__attribute__((constructor))`/`((destructor))` functions), ifunc resolvers
 (run by the dynamic loader during relocation), exit/teardown callbacks
 registered with `atexit`, `at_quick_exit`, `__cxa_atexit`,
-`__cxa_thread_atexit[_impl]` or `pthread_key_create`, and anything those reach
-through direct calls. The variable has no effect (and prints a warning) if
-neither `AFL_LLVM_ALLOWLIST` nor `AFL_LLVM_DENYLIST` is set.
+`__cxa_thread_atexit[_impl]` or `pthread_key_create`, the `LLVMFuzzerInitialize`
+one-time harness setup function, and anything those reach through direct calls.
+The variable has no effect (and prints a warning) if neither
+`AFL_LLVM_ALLOWLIST` nor `AFL_LLVM_DENYLIST` is set.

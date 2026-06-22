@@ -212,7 +212,8 @@ class ModuleSanitizerCoverageAFL
      never receive AFL_LLVM_ABORTLIST instrumentation: global constructors and
      destructors (llvm.global_ctors / llvm.global_dtors), ifunc resolvers (run
      by the dynamic loader during relocation), exit/teardown callbacks
-     (atexit and similar), and everything those reach through direct calls. */
+     (atexit and similar), the LLVMFuzzerInitialize harness setup function,
+     and everything those reach through direct calls. */
   SmallPtrSet<Function *, 16> NoAbortFuncs;
 
   /* AFL_LLVM_PATH (Ball-Larus per-function path coverage).  Same semantics
@@ -579,7 +580,9 @@ void ModuleSanitizerCoverageAFL::collectNoAbortFunctions(Module &M) {
   //     ((destructor)) functions and C++ static initializers, run at
   //     startup/teardown around the forkserver;
   //   - ifunc resolvers, run by the dynamic loader while processing
-  //     relocations - before any constructor and long before the forkserver.
+  //     relocations - before any constructor and long before the forkserver;
+  //   - LLVMFuzzerInitialize, the one-time harness setup function run before
+  //     the first test case.
   for (const char *ListName : {"llvm.global_ctors", "llvm.global_dtors"}) {
 
     GlobalVariable *GV = M.getNamedGlobal(ListName);
@@ -605,6 +608,12 @@ void ModuleSanitizerCoverageAFL::collectNoAbortFunctions(Module &M) {
     addRoot(GI.getResolverFunction());
 
   }
+
+  // LLVMFuzzerInitialize runs once at startup (libFuzzer-style harnesses,
+  // also honored by AFL++), before any test case reaches
+  // LLVMFuzzerTestOneInput.  It and everything it calls set up the fuzzing
+  // harness rather than process input, so an abort() there is spurious.
+  addRoot(M.getFunction("LLVMFuzzerInitialize"));
 
   // Functions registered to run at process/thread exit also run outside the
   // fuzzer entry point (at teardown), so an abort() in them is spurious.
@@ -680,9 +689,9 @@ void ModuleSanitizerCoverageAFL::collectNoAbortFunctions(Module &M) {
 
 bool ModuleSanitizerCoverageAFL::isNoAbortFunction(Function &F) {
 
-  // Global ctors/dtors, ifunc resolvers, exit/teardown callbacks and their
-  // transitive callees collected from the module: these run automatically
-  // outside the fuzzing entry point.
+  // Global ctors/dtors, ifunc resolvers, exit/teardown callbacks,
+  // LLVMFuzzerInitialize and their transitive callees collected from the
+  // module: these run automatically outside the fuzzing entry point.
   if (NoAbortFuncs.count(&F)) return true;
 
   // C++ constructors and destructors run as part of object lifecycle,
@@ -1332,10 +1341,11 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
        (compiler/sanitizer internals) and available_externally bodies (their
        real definition lives elsewhere and may be inlined).  Also skip
        functions that run automatically outside the fuzzing entry point -
-       constructors, destructors, ifunc resolvers and atexit-style exit
-       callbacks (plus their callees) - where an abort() would fire during
-       load/startup/teardown or object lifecycle instead of signalling that
-       out-of-scope code was reached. */
+       constructors, destructors, ifunc resolvers, atexit-style exit
+       callbacks and LLVMFuzzerInitialize (plus their callees) - where an
+       abort() would fire during load/startup/teardown, harness setup or
+       object lifecycle instead of signalling that out-of-scope code was
+       reached. */
     if (abort_list && !isIgnoreFunction(&F) &&
         F.getLinkage() != GlobalValue::AvailableExternallyLinkage &&
         !isNoAbortFunction(F)) {

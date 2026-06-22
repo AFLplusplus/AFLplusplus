@@ -533,9 +533,10 @@ compiler/sanitizer internals, `available_externally` definitions, constructors
 and destructors (C++ ctors/dtors and `__attribute__((constructor))`/
 `((destructor))` functions), ifunc resolvers (run by the dynamic loader during
 relocation), exit/teardown callbacks registered with `atexit`, `at_quick_exit`,
-`__cxa_atexit`, `__cxa_thread_atexit[_impl]` or `pthread_key_create`, and
-anything those reach through direct calls. It has no effect (and warns) if no
-allow/deny list is in use.
+`__cxa_atexit`, `__cxa_thread_atexit[_impl]` or `pthread_key_create`, the
+`LLVMFuzzerInitialize` one-time harness setup function, and anything those reach
+through direct calls. It has no effect (and warns) if no allow/deny list is in
+use.
 
 
 ## 3) Settings for GCC / GCC_PLUGIN modes
