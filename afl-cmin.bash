@@ -157,7 +157,7 @@ This script cannot read filenames that end with a space ' '.
 Environment variables used:
 AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
 AFL_NO_FORKSRV: run target via execve instead of using the forkserver
-AFL_PATH: last resort location to find the afl-showmap binary
+AFL_PATH: preferred location to find the afl-showmap binary (checked before PATH)
 AFL_SKIP_BIN_CHECK: skip check for target binary
 AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)
 AFL_PYTHON_MODULE: custom mutator library (post_process and send)
@@ -289,7 +289,11 @@ if [ ! "$STDIN_FILE" = "" ]; then
   touch "$STDIN_FILE" || exit 1
 fi
 
-SHOWMAP=`command -v afl-showmap 2>/dev/null`
+SHOWMAP=
+
+if [ -n "$AFL_PATH" -a -x "$AFL_PATH/afl-showmap" ]; then
+  SHOWMAP="$AFL_PATH/afl-showmap"
+fi
 
 if [ -z "$SHOWMAP" ]; then
   TMP="${0%/afl-cmin.bash}/afl-showmap"
@@ -300,10 +304,10 @@ fi
 
 if [ -z "$SHOWMAP" -a -x "./afl-showmap" ]; then
   SHOWMAP="./afl-showmap"
-else
-  if [ -n "$AFL_PATH" ]; then
-    SHOWMAP="$AFL_PATH/afl-showmap"
-  fi
+fi
+
+if [ -z "$SHOWMAP" ]; then
+  SHOWMAP=`command -v afl-showmap 2>/dev/null`
 fi
 
 if [ ! -x "$SHOWMAP" ]; then
