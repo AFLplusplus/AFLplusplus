@@ -21,6 +21,8 @@
       name, and an explicit `fun:` prefix now permits `:` so demangled C++/Rust
       names can be listed. File (`src:`) entries are unchanged and still match
       as a suffix (an implicit leading `*`)
+    - AFL_LLVM_CRASHLIST - crash on any function that is marked not to be
+      instrumented but is entered by fuzzing input
     - bugfix for __AFL_LOOP() that lingered since vanilla afl, first run
       coverage map would look different to following runs, impacting lots of
       functionality (minimizing, stability, etc.)
