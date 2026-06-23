@@ -169,3 +169,23 @@ File (`src:`) entries get an implicit leading `*` (suffix match); function
 (`fun:`) entries are matched verbatim, so add a leading `*` yourself for a
 function suffix match. See `man fnmatch` for the syntax. Do not set any of the
 `fnmatch` flags.
+
+### 3c) Aborting on entry of excluded functions
+
+When an allow/deny list is in effect, additionally setting
+`AFL_LLVM_ABORTLIST=1` makes the LLVM PCGUARD instrumentation insert an
+`abort()` call at the entry of every function that the list excluded from
+instrumentation. Reaching such a function then crashes the target, which is
+handy to detect test cases that leave the part of the program you want to
+fuzz. Only functions skipped because of the allow/deny list are affected.
+Functions that run automatically rather than through the fuzzing entry point
+are left untouched, so they cannot crash the target before, around or after the
+forkserver: compiler/sanitizer internal functions, `available_externally`
+definitions, constructors and destructors (C++ ctors/dtors and
+`__attribute__((constructor))`/`((destructor))` functions), ifunc resolvers
+(run by the dynamic loader during relocation), exit/teardown callbacks
+registered with `atexit`, `at_quick_exit`, `__cxa_atexit`,
+`__cxa_thread_atexit[_impl]` or `pthread_key_create`, the `LLVMFuzzerInitialize`
+one-time harness setup function, and anything those reach through direct calls.
+The variable has no effect (and prints a warning) if neither
+`AFL_LLVM_ALLOWLIST` nor `AFL_LLVM_DENYLIST` is set.
