@@ -21,7 +21,11 @@
       name, and an explicit `fun:` prefix now permits `:` so demangled C++/Rust
       names can be listed. File (`src:`) entries are unchanged and still match
       as a suffix (an implicit leading `*`)
-  - 
+    - bugfix for __AFL_LOOP() that lingered since vanilla afl, first run
+      coverage map would look different to following runs, impacting lots of
+      functionality (minimizing, stability, etc.)
+  - afl-* script tools:
+    - prefer AFL_PATH to find afl-showmap
 
 
 ### Version ++5.01c (release)
