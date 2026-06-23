@@ -81,6 +81,12 @@ leading `*` for a suffix match). A function entry is matched against both the
 mangled and the demangled function name (for the GCC plugin: against the mangled
 name and the unqualified source name).
 
+A Rust legacy-mangling disambiguator (a trailing `17h<16 hex digits>E`) is
+ignored when matching `fun:` entries: an entry that ends in that suffix also
+matches the same function compiled with a different disambiguator. This lets a
+list generated from one build (e.g. an LLVM bitcode snapshot) match a binary
+built with a different codegen configuration, where the disambiguator differs.
+
 **NOTE:** In builds with optimization enabled, functions might be inlined and
 would not match!
 

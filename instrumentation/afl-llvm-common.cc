@@ -23,6 +23,7 @@
 #include <fnmatch.h>
 
 #include <list>
+#include <set>
 #include <string>
 #include <fstream>
 #include <cmath>
@@ -43,6 +44,35 @@ static std::list<std::string> allowListFiles;
 static std::list<std::string> allowListFunctions;
 static std::list<std::string> denyListFiles;
 static std::list<std::string> denyListFunctions;
+static std::set<std::string>  allowListFunctionsNoHash;
+static std::set<std::string>  denyListFunctionsNoHash;
+
+static std::string stripRustHash(const std::string &name) {
+
+  const size_t tail = 20;
+  if (name.size() > tail && name.back() == 'E' &&
+      name.compare(name.size() - tail, 3, "17h") == 0) {
+
+    bool hex = true;
+    for (size_t i = name.size() - 17; i + 1 < name.size(); ++i) {
+
+      char ch = name[i];
+      if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) {
+
+        hex = false;
+        break;
+
+      }
+
+    }
+
+    if (hex) return name.substr(0, name.size() - tail);
+
+  }
+
+  return name;
+
+}
 
 unsigned int calcCyclomaticComplexity(llvm::Function *F) {
 
@@ -264,8 +294,13 @@ void initInstrumentList() {
 
         if (is_file == 1)
           allowListFiles.push_back(line);
-        else
+        else {
+
           allowListFunctions.push_back(line);
+          std::string nh = stripRustHash(line);
+          if (nh != line) allowListFunctionsNoHash.insert(nh);
+
+        }
 
       }
 
@@ -339,8 +374,13 @@ void initInstrumentList() {
 
         if (is_file == 1)
           denyListFiles.push_back(line);
-        else
+        else {
+
           denyListFunctions.push_back(line);
+          std::string nh = stripRustHash(line);
+          if (nh != line) denyListFunctionsNoHash.insert(nh);
+
+        }
 
       }
 
@@ -488,6 +528,19 @@ bool isInInstrumentList(llvm::Function *F, std::string Filename) {
 
       std::string instFunction = F->getName().str();
       std::string demangledFunction = llvm::demangle(instFunction);
+      std::string noHashFunction = stripRustHash(instFunction);
+
+      if (noHashFunction != instFunction &&
+          denyListFunctionsNoHash.count(noHashFunction)) {
+
+        if (debug)
+          DEBUGF(
+              "Function %s is in the deny function list, not instrumenting "
+              "... \n",
+              instFunction.c_str());
+        return false;
+
+      }
 
       for (std::list<std::string>::iterator it = denyListFunctions.begin();
            it != denyListFunctions.end(); ++it) {
@@ -566,6 +619,19 @@ bool isInInstrumentList(llvm::Function *F, std::string Filename) {
 
       std::string instFunction = F->getName().str();
       std::string demangledFunction = llvm::demangle(instFunction);
+      std::string noHashFunction = stripRustHash(instFunction);
+
+      if (noHashFunction != instFunction &&
+          allowListFunctionsNoHash.count(noHashFunction)) {
+
+        if (debug)
+          DEBUGF(
+              "Function %s is in the allow function list, instrumenting "
+              "... \n",
+              instFunction.c_str());
+        return true;
+
+      }
 
       for (std::list<std::string>::iterator it = allowListFunctions.begin();
            it != allowListFunctions.end(); ++it) {
