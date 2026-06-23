@@ -238,13 +238,14 @@ def get_asan_options():
 
 
 def search_binary(name):
-    searches = [
-        None,
-        os.path.dirname(__file__),
-        os.getcwd(),
-    ]
+    searches = []
     if os.environ.get("AFL_PATH"):
         searches.append(os.environ["AFL_PATH"])
+    searches += [
+        os.path.dirname(__file__),
+        os.getcwd(),
+        None,
+    ]
 
     for search in searches:
         binary = shutil.which(name, path=search)

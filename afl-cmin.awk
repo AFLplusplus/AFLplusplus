@@ -137,7 +137,7 @@ function usage() {
 "   set, this will be set to the same value as AFL_KILL_SIGNAL.\n" \
 "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n" \
 "AFL_CMIN_ALLOW_ANY: write tuples for crashing inputs also\n" \
-"AFL_PATH: path for the afl-showmap binary if not found anywhere in PATH\n" \
+"AFL_PATH: preferred path for the afl-showmap binary (checked before PATH)\n" \
 "AFL_PRINT_FILENAMES: If set, the filename currently processed will be " \
       "printed to stdout\n" \
 "AFL_SKIP_BIN_CHECK: skip afl instrumentation checks for target binary\n"
@@ -409,18 +409,18 @@ BEGIN {
     close(stdin_file)
   }
 
-  # First we look in PATH
-  if (0 == system("command -v afl-showmap >/dev/null 2>&1")) {
-    cmd = "command -v afl-showmap 2>/dev/null"
-    cmd | getline showmap
-    close(cmd)
+  # First we look in AFL_PATH
+  if (ENVIRON["AFL_PATH"] && 0 == system("test -x \""ENVIRON["AFL_PATH"]"/afl-showmap\"")) {
+    showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
   } else {
     # then we look in the current directory
     if (0 == system("test -x ./afl-showmap")) {
       showmap = "./afl-showmap"
     } else {
-      if (ENVIRON["AFL_PATH"]) {
-        showmap = ENVIRON["AFL_PATH"] "/afl-showmap"
+      if (0 == system("command -v afl-showmap >/dev/null 2>&1")) {
+        cmd = "command -v afl-showmap 2>/dev/null"
+        cmd | getline showmap
+        close(cmd)
       }
     }
   }
