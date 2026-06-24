@@ -3576,10 +3576,60 @@ static void process_params(aflcc_state_t *aflcc, u8 scan, u32 argc,
 /* Helper function to extract source filename from compilation arguments */
 static const char *get_source_filename(u32 argc, char **argv) {
 
+  /* Options that consume the following argument as their value; that value
+     must never be mistaken for the source file (e.g. "-include unistd.h"). */
+  static const char *value_opts[] = {
+
+      "-include",
+      "-imacros",
+      "-include-pch",
+      "-o",
+      "-x",
+      "-I",
+      "-isystem",
+      "-iquote",
+      "-idirafter",
+      "-iprefix",
+      "-iwithprefix",
+      "-iwithprefixbefore",
+      "-isysroot",
+      "-imultilib",
+      "-MF",
+      "-MT",
+      "-MQ",
+      "-Xclang",
+      "-Xpreprocessor",
+      "-Xassembler",
+      "-Xlinker",
+      "-aux-info",
+      "-T",
+      NULL};
+
   for (u32 i = 1; i < argc; i++) {
 
     char *arg = argv[i];
-    if (arg && arg[0] != '-') {  // Not a flag
+    if (!arg) continue;
+
+    u8 skip_value = 0;
+    for (u32 j = 0; value_opts[j]; j++) {
+
+      if (strcmp(arg, value_opts[j]) == 0) {
+
+        skip_value = 1;
+        break;
+
+      }
+
+    }
+
+    if (skip_value) {
+
+      i++;
+      continue;
+
+    }
+
+    if (arg[0] != '-') {  // Not a flag
       char *ext = strrchr(arg, '.');
       if (ext && (strcmp(ext, ".c") == 0 || strcmp(ext, ".cpp") == 0 ||
                   strcmp(ext, ".cc") == 0 || strcmp(ext, ".cxx") == 0 ||
