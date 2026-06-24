@@ -56,6 +56,16 @@ as 32 for coverage purposes.
 This feature is equivalent to llvm 12 sancov feature and allows to specify on a
 filename and/or function name level to instrument these or skip them.
 
+You can write these lists by hand, or generate them automatically from a fuzz
+entry point with
+[fuzz-reachability](https://github.com/AFLplusplus/fuzz-reachability): it
+statically computes which functions a harness can reach (C, C++ and Rust) and
+emits a `reached.txt` allowlist (use as `AFL_LLVM_ALLOWLIST`) and a
+`not_reached.txt` ignorelist (use as `AFL_LLVM_DENYLIST`). Both use mangled
+symbol names and the sancov format described below, so AFL++ consumes them
+directly. (This is pointless for LTO targets - `afl-clang-lto` already prunes
+unreachable code at link time.)
+
 ### 3a) How to use the partial instrumentation mode
 
 In order to build with partial instrumentation, you need to build with

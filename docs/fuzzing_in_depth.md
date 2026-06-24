@@ -771,7 +771,17 @@ and which have not been found so far.
 
 An "easy" helper script for this is
 [https://github.com/AFLplusplus/cov-analysis](https://github.com/AFLplusplus/cov-analysis),
-just follow the README.md of our separate project.
+just follow the README.md of our separate project. It replays the corpus through
+an LLVM source-based coverage build and produces annotated HTML/text reports.
+
+A coverage gap is only worth chasing if the harness can actually reach it. Our
+companion tool
+[https://github.com/AFLplusplus/fuzz-reachability](https://github.com/AFLplusplus/fuzz-reachability)
+statically computes the set of functions a fuzz entry point can reach (C, C++
+and Rust). Feed its report to `cov-analysis` with `--reachability` to have the
+coverage report tell apart code that is *reachable but not reached yet* (the
+actionable gap) from code that is *unreachable* by the harness (expected to stay
+uncovered, so safe to ignore).
 
 If you see that an important area or a feature has not been covered so far, then
 try to find an input that is able to reach that and start a new secondary in
