@@ -60,6 +60,7 @@ char *getBBName(const llvm::BasicBlock *BB);
 bool  isIgnoreFunction(const llvm::Function *F);
 void  initInstrumentList();
 bool  isInInstrumentList(llvm::Function *F, std::string Filename);
+bool  isInstrumentListActive(void);
 unsigned long long int calculateCollisions(uint32_t edges);
 void                   scanForDangerousFunctions(llvm::Module *M);
 unsigned int           calcCyclomaticComplexity(llvm::Function *F);

@@ -130,7 +130,12 @@ Step-by-step quick start:
 
    You can generate cores or use gdb directly to follow up the crashes.
 
-6. For coverage analysis of your fuzzing we recommend our partner tools [cov-analysis](https://github.com/AFLplusplus/cov-analysis)
+6. For coverage analysis of your fuzzing we recommend our partner tools
+   [cov-analysis](https://github.com/AFLplusplus/cov-analysis) (source-based
+   coverage reports from a fuzzing corpus) and
+   [fuzz-reachability](https://github.com/AFLplusplus/fuzz-reachability) (static
+   analysis of which functions a harness can reach, to tell actionable coverage
+   gaps apart from dead code and to generate instrumentation allowlists)
 
 7. We cannot stress this enough - if you want to fuzz effectively, read the
    [docs/fuzzing_in_depth.md](docs/fuzzing_in_depth.md) document!

@@ -51,6 +51,11 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
   #include <execinfo.h>
 #endif
 
+/* FreeBSD, as of FreeBSD 15.1, has no support for MAP_NORESERVE for mmap */
+#ifndef MAP_NORESERVE
+  #define MAP_NORESERVE 0
+#endif
+
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 #undef XXH_INLINE_ALL

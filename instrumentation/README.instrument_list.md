@@ -56,6 +56,16 @@ as 32 for coverage purposes.
 This feature is equivalent to llvm 12 sancov feature and allows to specify on a
 filename and/or function name level to instrument these or skip them.
 
+You can write these lists by hand, or generate them automatically from a fuzz
+entry point with
+[fuzz-reachability](https://github.com/AFLplusplus/fuzz-reachability): it
+statically computes which functions a harness can reach (C, C++ and Rust) and
+emits a `reached.txt` allowlist (use as `AFL_LLVM_ALLOWLIST`) and a
+`not_reached.txt` ignorelist (use as `AFL_LLVM_DENYLIST`). Both use mangled
+symbol names and the sancov format described below, so AFL++ consumes them
+directly. (This is pointless for LTO targets - `afl-clang-lto` already prunes
+unreachable code at link time.)
+
 ### 3a) How to use the partial instrumentation mode
 
 In order to build with partial instrumentation, you need to build with
@@ -80,6 +90,12 @@ must match the function name exactly unless you add your own wildcards (e.g. a
 leading `*` for a suffix match). A function entry is matched against both the
 mangled and the demangled function name (for the GCC plugin: against the mangled
 name and the unqualified source name).
+
+A Rust legacy-mangling disambiguator (a trailing `17h<16 hex digits>E`) is
+ignored when matching `fun:` entries: an entry that ends in that suffix also
+matches the same function compiled with a different disambiguator. This lets a
+list generated from one build (e.g. an LLVM bitcode snapshot) match a binary
+built with a different codegen configuration, where the disambiguator differs.
 
 **NOTE:** In builds with optimization enabled, functions might be inlined and
 would not match!
@@ -169,3 +185,23 @@ File (`src:`) entries get an implicit leading `*` (suffix match); function
 (`fun:`) entries are matched verbatim, so add a leading `*` yourself for a
 function suffix match. See `man fnmatch` for the syntax. Do not set any of the
 `fnmatch` flags.
+
+### 3c) Aborting on entry of excluded functions
+
+When an allow/deny list is in effect, additionally setting
+`AFL_LLVM_ABORTLIST=1` makes the LLVM PCGUARD instrumentation insert an
+`abort()` call at the entry of every function that the list excluded from
+instrumentation. Reaching such a function then crashes the target, which is
+handy to detect test cases that leave the part of the program you want to
+fuzz. Only functions skipped because of the allow/deny list are affected.
+Functions that run automatically rather than through the fuzzing entry point
+are left untouched, so they cannot crash the target before, around or after the
+forkserver: compiler/sanitizer internal functions, `available_externally`
+definitions, constructors and destructors (C++ ctors/dtors and
+`__attribute__((constructor))`/`((destructor))` functions), ifunc resolvers
+(run by the dynamic loader during relocation), exit/teardown callbacks
+registered with `atexit`, `at_quick_exit`, `__cxa_atexit`,
+`__cxa_thread_atexit[_impl]` or `pthread_key_create`, the `LLVMFuzzerInitialize`
+one-time harness setup function, and anything those reach through direct calls.
+The variable has no effect (and prints a warning) if neither
+`AFL_LLVM_ALLOWLIST` nor `AFL_LLVM_DENYLIST` is set.

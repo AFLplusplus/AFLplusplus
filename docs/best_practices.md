@@ -101,6 +101,8 @@ allows you to define network state with different type of data packets.
    speed increase).
 3. Instrument just what you are interested in, see
    [instrumentation/README.instrument_list.md](../instrumentation/README.instrument_list.md).
+   You can generate the allowlist of reachable functions automatically with
+   [fuzz-reachability](https://github.com/AFLplusplus/fuzz-reachability).
 4. If you do not use shmem persistent mode, use `AFL_TMPDIR` to put the input
    file directory on a tempfs location, see
    [env_variables.md](env_variables.md).
@@ -131,6 +133,11 @@ jitter, or is a hash map function etc., then it should not be instrumented.
 
 To be able to exclude these functions (based on AFL++'s measured stability), the
 following process will allow to identify functions with variable edges.
+
+To pinpoint the exact source lines that are unstable you can also use the
+`stability` command of
+[cov-analysis](https://github.com/AFLplusplus/cov-analysis), which replays the
+corpus several times and reports the lines whose hit counts vary across runs.
 
 Note that this is only useful for non-persistent targets!
 If a persistent target is unstable whereas when run non-persistent is fine,

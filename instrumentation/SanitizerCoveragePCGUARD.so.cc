@@ -24,10 +24,12 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalIFunc.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
@@ -172,6 +174,9 @@ class ModuleSanitizerCoverageAFL
   void   updateCoverageForSelect(IRBuilder<> &IRB, Value *result, Value *MapPtr,
                                  uint32_t &vector_cnt);
   void   setNoInstrumentMetadata(Value *V);
+  void   insertAbortAtFunctionEntry(Function &F);
+  void   collectNoAbortFunctions(Module &M);
+  bool   isNoAbortFunction(Function &F);
 
   std::string     getSectionName(const std::string &Section) const;
   std::string     getSectionStart(const std::string &Section) const;
@@ -200,7 +205,16 @@ class ModuleSanitizerCoverageAFL
   ConstantInt    *One = NULL;
   ConstantInt    *Zero = NULL;
   bool            deny_exec = false;
+  bool            abort_list = false;
   uint32_t        first = 1;
+
+  /* Functions that run automatically outside the fuzzing entry point and must
+     never receive AFL_LLVM_ABORTLIST instrumentation: global constructors and
+     destructors (llvm.global_ctors / llvm.global_dtors), ifunc resolvers (run
+     by the dynamic loader during relocation), exit/teardown callbacks
+     (atexit and similar), the LLVMFuzzerInitialize harness setup function,
+     and everything those reach through direct calls. */
+  SmallPtrSet<Function *, 16> NoAbortFuncs;
 
   /* AFL_LLVM_PATH (Ball-Larus per-function path coverage).  Same semantics
      as AFL_LLVM_LTO_PATH in the LTO pass: 0=off, 1=relaxed, 2=restricted,
@@ -391,6 +405,7 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
   ijon_enabled = getenv("AFL_LLVM_IJON");
   if (getenv("AFL_LLVM_DENY_EXEC")) { deny_exec = true; }
+  if (getenv("AFL_LLVM_ABORTLIST")) { abort_list = true; }
 
   /* AFL_LLVM_PATH (and aliases AFL_LLVM_LTO_PATH / AFL_LLVM_PATH_MODE):
      Ball-Larus per-function path coverage on top of edge coverage.
@@ -516,6 +531,176 @@ void ModuleSanitizerCoverageAFL::setNoInstrumentMetadata(Value *V) {
     I->setMetadata("afl.skip", Tag);
 
   }
+
+}
+
+void ModuleSanitizerCoverageAFL::insertAbortAtFunctionEntry(Function &F) {
+
+  BasicBlock          &BB = F.getEntryBlock();
+  BasicBlock::iterator IP = BB.getFirstInsertionPt();
+  if (IP == BB.end()) return;
+
+  IRBuilder<>    IRB(&*IP);
+  FunctionCallee AbortFn = F.getParent()->getOrInsertFunction(
+      "abort", AttributeList{}, Type::getVoidTy(*C));
+  IRB.CreateCall(AbortFn);
+
+  if (debug) {
+
+    fprintf(stderr,
+            "SanitizerCoveragePCGUARD: inserted abort() at entry of "
+            "non-instrumented function %s\n",
+            F.getName().str().c_str());
+
+  }
+
+}
+
+void ModuleSanitizerCoverageAFL::collectNoAbortFunctions(Module &M) {
+
+  NoAbortFuncs.clear();
+
+  SmallVector<Function *, 16> Worklist;
+  auto                        addRoot = [&](Function *Fn) {
+
+    if (Fn && !Fn->isDeclaration() && NoAbortFuncs.insert(Fn).second)
+      Worklist.push_back(Fn);
+
+  };
+
+  auto addRootValue = [&](Value *V) {
+
+    if (V) addRoot(dyn_cast<Function>(V->stripPointerCasts()));
+
+  };
+
+  // Roots that run automatically, outside the LLVMFuzzerTestOneInput entry
+  // point, so an abort() in them never signals out-of-scope fuzzing:
+  //   - global constructors/destructors: __attribute__((constructor))/
+  //     ((destructor)) functions and C++ static initializers, run at
+  //     startup/teardown around the forkserver;
+  //   - ifunc resolvers, run by the dynamic loader while processing
+  //     relocations - before any constructor and long before the forkserver;
+  //   - LLVMFuzzerInitialize, the one-time harness setup function run before
+  //     the first test case.
+  for (const char *ListName : {"llvm.global_ctors", "llvm.global_dtors"}) {
+
+    GlobalVariable *GV = M.getNamedGlobal(ListName);
+    if (!GV || !GV->hasInitializer()) continue;
+
+    ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer());
+    if (!CA) continue;
+
+    // Each entry is { i32 priority, ptr func, ptr data }; element 1 is the
+    // constructor/destructor function (possibly behind a pointer cast).
+    for (unsigned i = 0, e = CA->getNumOperands(); i < e; ++i) {
+
+      ConstantStruct *CS = dyn_cast<ConstantStruct>(CA->getOperand(i));
+      if (!CS || CS->getNumOperands() < 2) continue;
+      addRootValue(CS->getOperand(1));
+
+    }
+
+  }
+
+  for (GlobalIFunc &GI : M.ifuncs()) {
+
+    addRoot(GI.getResolverFunction());
+
+  }
+
+  // LLVMFuzzerInitialize runs once at startup (libFuzzer-style harnesses,
+  // also honored by AFL++), before any test case reaches
+  // LLVMFuzzerTestOneInput.  It and everything it calls set up the fuzzing
+  // harness rather than process input, so an abort() there is spurious.
+  addRoot(M.getFunction("LLVMFuzzerInitialize"));
+
+  // Functions registered to run at process/thread exit also run outside the
+  // fuzzer entry point (at teardown), so an abort() in them is spurious.
+  // Scan the whole module for calls to the registration functions below and
+  // take the registered callback (the argument at the given index).
+  static const struct {
+
+    const char *name;
+    unsigned    arg;
+
+  } ExitRegistrars[] = {
+
+      {"atexit", 0},
+      {"at_quick_exit", 0},
+      {"__cxa_atexit", 0},
+      {"__cxa_thread_atexit", 0},
+      {"__cxa_thread_atexit_impl", 0},
+      {"pthread_key_create", 1},
+
+  };
+
+  for (Function &F : M) {
+
+    for (BasicBlock &BB : F) {
+
+      for (Instruction &I : BB) {
+
+        auto *CB = dyn_cast<CallBase>(&I);
+        if (!CB) continue;
+        Function *Callee = CB->getCalledFunction();
+        if (!Callee) continue;
+        StringRef Name = Callee->getName();
+        for (const auto &R : ExitRegistrars) {
+
+          if (Name == R.name && CB->arg_size() > R.arg) {
+
+            addRootValue(CB->getArgOperand(R.arg));
+            break;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+  // Everything these roots can reach through direct calls also runs before
+  // the forkserver (or at teardown), so it must not abort either.  Indirect
+  // call targets cannot be resolved here and are left as-is.
+  while (!Worklist.empty()) {
+
+    Function *Fn = Worklist.pop_back_val();
+    for (BasicBlock &BB : *Fn) {
+
+      for (Instruction &I : BB) {
+
+        if (auto *CB = dyn_cast<CallBase>(&I)) {
+
+          addRoot(CB->getCalledFunction());
+
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
+bool ModuleSanitizerCoverageAFL::isNoAbortFunction(Function &F) {
+
+  // Global ctors/dtors, ifunc resolvers, exit/teardown callbacks,
+  // LLVMFuzzerInitialize and their transitive callees collected from the
+  // module: these run automatically outside the fuzzing entry point.
+  if (NoAbortFuncs.count(&F)) return true;
+
+  // C++ constructors and destructors run as part of object lifecycle,
+  // identified here from the mangled name.
+  llvm::ItaniumPartialDemangler IPD;
+  std::string                   Name = F.getName().str();
+  if (!IPD.partialDemangle(Name.c_str()) && IPD.isCtorOrDtor()) return true;
+
+  return false;
 
 }
 
@@ -912,6 +1097,17 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   initInstrumentList();
   scanForDangerousFunctions(&M);
 
+  if (abort_list && !isInstrumentListActive()) {
+
+    WARNF(
+        "AFL_LLVM_ABORTLIST is set but neither AFL_LLVM_ALLOWLIST nor "
+        "AFL_LLVM_DENYLIST is in effect - no abort() calls will be inserted.");
+    abort_list = false;
+
+  }
+
+  if (abort_list) { collectNoAbortFunctions(M); }
+
   C = &(M.getContext());
   DL = &M.getDataLayout();
   CurModule = &M;
@@ -1182,7 +1378,31 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
     Function &F, DomTreeCallback DTCallback, PostDomTreeCallback PDTCallback) {
 
   if (F.empty()) return;
-  if (!isInInstrumentList(&F, FMNAME)) return;
+  if (!isInInstrumentList(&F, FMNAME)) {
+
+    /* AFL_LLVM_ABORTLIST: when an allow/deny list excludes this function from
+       instrumentation, insert an abort() at its entry so reaching it crashes.
+       Skip functions that isInInstrumentList rejects for non-list reasons
+       (compiler/sanitizer internals) and available_externally bodies (their
+       real definition lives elsewhere and may be inlined).  Also skip
+       functions that run automatically outside the fuzzing entry point -
+       constructors, destructors, ifunc resolvers, atexit-style exit
+       callbacks and LLVMFuzzerInitialize (plus their callees) - where an
+       abort() would fire during load/startup/teardown, harness setup or
+       object lifecycle instead of signalling that out-of-scope code was
+       reached. */
+    if (abort_list && !isIgnoreFunction(&F) &&
+        F.getLinkage() != GlobalValue::AvailableExternallyLinkage &&
+        !isNoAbortFunction(F)) {
+
+      insertAbortAtFunctionEntry(F);
+
+    }
+
+    return;
+
+  }
+
   if (F.getName().contains(".module_ctor"))
     return;  // Should not instrument sanitizer init functions.
 #if LLVM_MAJOR >= 18
