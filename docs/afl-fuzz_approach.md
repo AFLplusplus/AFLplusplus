@@ -504,7 +504,7 @@ directory. This includes:
 - `last_hang`         - seconds since the last hang was found
 - `execs_since_crash` - execs since the last crash was found
 - `exec_timeout`      - the -t command line value
-- `slowest_exec_ms`   - real time of the slowest execution in ms
+- `slowest_exec_ms`   - exec time of the slowest test case, measured during calibration, in ms
 - `peak_rss_mb`       - max rss usage reached during fuzzing in MB
 - `edges_found`       - how many edges have been found
 - `var_byte_count`    - how many edges are non-deterministic
