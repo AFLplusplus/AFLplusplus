@@ -519,6 +519,11 @@ On top of that, you can also find an entry called `plot_data`, containing a
 plottable history for most of these fields. If you have gnuplot installed, you
 can turn this into a nice progress report with the included `afl-plot` tool.
 
+The `afl-health` tool reads these `fuzzer_stats` and `plot_data` files for you
+and turns them into a campaign verdict, a trend, and ranked, actionable advice -
+locally or over ssh. See
+[fuzzing_in_depth.md](fuzzing_in_depth.md#e-the-status-of-the-fuzz-campaign).
+
 ### Addendum: automatically sending metrics with StatsD
 
 In a CI environment or when running multiple fuzzers, it can be tedious to log

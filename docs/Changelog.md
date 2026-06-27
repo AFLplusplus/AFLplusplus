@@ -4,6 +4,9 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.02a (dev)
+  - afl-health:
+    - new tool: AFL++ campaign health tool checker, much more advanced than
+      afl-whatsup, with tips, analysis and ssh support
   - afl-cc:
     - new C11 mode (`AFL_LLVM_C11` at compile time): afl-cc records each
       function's local variable count and afl-fuzz uses it as an extra queue
