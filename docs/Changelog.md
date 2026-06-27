@@ -31,6 +31,7 @@
       functionality (minimizing, stability, etc.)
   - afl-* script tools:
     - prefer AFL_PATH to find afl-showmap
+  - man pages: fixed the SYNOPSIS and OPTIONS sections for several tools
 
 
 ### Version ++5.01c (release)

@@ -2989,8 +2989,8 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
 
   if (argc < 2 || strncmp(argv[1], "-h", 2) == 0) {
 
-    printf("afl-cc" VERSION
-           " by Michal Zalewski, Laszlo Szekeres, Marc Heuse\n");
+    SAYF(cCYA "afl-cc" VERSION cRST
+              " by Michal Zalewski, Laszlo Szekeres, Marc Heuse\n");
 
     SAYF(
         "\n"

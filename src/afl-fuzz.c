@@ -740,8 +740,7 @@ void afl_parse_env(afl_state_t *afl, char **envp) {
 
   afl->exit_1 = !!afl->afl_env.afl_bench_just_one;
 
-  SAYF(cCYA "afl-fuzz" VERSION cRST
-            " based on afl by Michal Zalewski and a large online community\n");
+  SAYF(cCYA "afl-fuzz" VERSION cRST "\n");
   SAYF(cGRN
        "Licensed under AGPL-3.0-or-later. A (good cause donation) commercial "
        "license is\n"
@@ -771,6 +770,8 @@ void afl_handle_version_help(int argc, char **argv) {
 
   if (argc > 1 &&
       (strcmp(argv[1], "--help") == 0 || strncmp(argv[1], "-h", 2) == 0)) {
+
+    SAYF(cCYA "afl-fuzz" VERSION cRST "\n");
 
     if (argc == 2 &&
         (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {

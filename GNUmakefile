@@ -872,7 +872,7 @@ endif
 	@echo .B $* >> $@
 	@echo >> $@
 	@echo .SH SYNOPSIS >> $@
-	@./$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> $@
+	@./$* -h 2>&1 | head -n 3 | tail -n 1 | sed -e 's/^[Uu]sage: *//' -e 's/^[Ss]yntax: *//' -e 's#^\./##' >> $@
 	@echo >> $@
 	@echo .SH OPTIONS >> $@
 	@echo .nf >> $@

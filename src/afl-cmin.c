@@ -2,15 +2,6 @@
    american fuzzy lop++ - corpus minimization tool
    -----------------------------------------------
 
-   Originally written by Michal Zalewski
-
-   Forkserver design by Jann Horn <jannhorn@googlemail.com>
-
-   Now maintained by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eissfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com> and
-                        Dominik Maier <mail@dmnk.co>
-
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
@@ -2236,7 +2227,7 @@ int main(int argc, char **argv) {
                                          {"debug", no_argument, 0, 0},
                                          {0, 0, 0, 0}};
 
-  SAYF(cCYA "afl-cmin" VERSION cRST " by AFL++ team\n");
+  SAYF(cCYA "afl-cmin" VERSION cRST "\n");
 
   cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
 
