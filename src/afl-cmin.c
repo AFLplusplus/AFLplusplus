@@ -901,6 +901,7 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
   shm->map = afl_shm_init(shm, use_map_size, 0, DEFAULT_PERMISSION, 0);
   if (!shm->map) FATAL("Unable to allocate shared memory");
   fsrv->trace_bits = shm->map;
+  fsrv->child_sync_offset = shm->child_sync_offset;
 
   fsrv->map_size = use_map_size;
   fsrv->mem_limit = mem_limit;
@@ -1268,6 +1269,7 @@ static void cmin_detect_map_size(void) {
     shm.map = afl_shm_init(&shm, detection_size, 0, DEFAULT_PERMISSION, 0);
     if (!shm.map) FATAL("Unable to allocate shared memory for detection");
     fsrv.trace_bits = shm.map;
+    fsrv.child_sync_offset = shm.child_sync_offset;
     fsrv.map_size = detection_size;
 
     // We must set AFL_MAP_SIZE to avoid FS_ERROR_MAP_SIZE fatal exit in

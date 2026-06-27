@@ -153,10 +153,7 @@ typedef struct afl_forkserver {
   bool use_futex;                       /* usage of futex implementation    */
   bool qemu_bridge;
   u32 *child_sync;                      /* shared word: fuzzer↔child sync   */
-  int  child_sync_shm_id;               /* SysV SHM ID / FD for child_sync  */
-#ifdef USEMMAP
-  char child_sync_shm_file_path[32];    /* Path for shm_open child_sync     */
-#endif
+  u32  child_sync_offset;        /* byte offset of child_sync in trace_bits */
 
   bool use_ijon;                        /* use IJON tracking feature        */
 
