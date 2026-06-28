@@ -4,6 +4,13 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.02a (dev)
+  - afl-health:
+    - new tool: AFL++ campaign health tool checker, much more advanced than
+      afl-whatsup, with tips, analysis and ssh support
+  - afl-fuzz:
+    - MacOS Futex implementation missed the clean-up of the shmem
+    - Futex shmem now lives in general shared memory map as by default only
+      32 such regions are supported in MacOS
   - afl-cc:
     - new C11 mode (`AFL_LLVM_C11` at compile time): afl-cc records each
       function's local variable count and afl-fuzz uses it as an extra queue
@@ -28,6 +35,7 @@
       functionality (minimizing, stability, etc.)
   - afl-* script tools:
     - prefer AFL_PATH to find afl-showmap
+  - man pages: fixed the SYNOPSIS and OPTIONS sections for several tools
 
 
 ### Version ++5.01c (release)

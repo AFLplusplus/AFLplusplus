@@ -740,8 +740,7 @@ void afl_parse_env(afl_state_t *afl, char **envp) {
 
   afl->exit_1 = !!afl->afl_env.afl_bench_just_one;
 
-  SAYF(cCYA "afl-fuzz" VERSION cRST
-            " based on afl by Michal Zalewski and a large online community\n");
+  SAYF(cCYA "afl-fuzz" VERSION cRST "\n");
   SAYF(cGRN
        "Licensed under AGPL-3.0-or-later. A (good cause donation) commercial "
        "license is\n"
@@ -771,6 +770,8 @@ void afl_handle_version_help(int argc, char **argv) {
 
   if (argc > 1 &&
       (strcmp(argv[1], "--help") == 0 || strncmp(argv[1], "-h", 2) == 0)) {
+
+    SAYF(cCYA "afl-fuzz" VERSION cRST "\n");
 
     if (argc == 2 &&
         (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
@@ -2692,6 +2693,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
                    afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+  afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
 
   #ifdef __AFL_CODE_COVERAGE
   // Initialize pcmap and modmap before any forkserver starts
@@ -2733,6 +2735,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+      afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
 
   #ifdef __AFL_CODE_COVERAGE
@@ -2864,6 +2867,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
         afl->fsrv.trace_bits =
             afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                          afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+        afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
         ck_free(afl->san_fsrvs[i].trace_bits);
         afl->san_fsrvs[i].trace_bits = ck_alloc(afl->fsrv.map_size + 8);
         afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
@@ -2890,6 +2894,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
     afl_fsrv_init_dup(&afl->cmplog_fsrv, &afl->fsrv);
     // TODO: this is semi-nice
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+    afl->cmplog_fsrv.child_sync_offset = afl->fsrv.child_sync_offset;
     afl->cmplog_fsrv.cs_mode = afl->fsrv.cs_mode;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
     afl->cmplog_fsrv.qemu_bridge = afl->fsrv.qemu_bridge;
@@ -2935,7 +2940,9 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+      afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
       afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+      afl->cmplog_fsrv.child_sync_offset = afl->fsrv.child_sync_offset;
 
   #ifdef __AFL_CODE_COVERAGE
       if (getenv("AFL_DUMP_PC_MAP")) { afl_pcmap_resize(afl, new_map_size); }

@@ -104,7 +104,7 @@ class HelpFormatter(argparse.HelpFormatter):
         super().__init__(prog, *args, **kargs)
         self.add_text("corpus minimization tool for AFL++ (python version)")
         self.add_text("")
-        self.add_text("%s" % prog)
+        self.add_text("%s [ options ] -- /path/to/target_app [ ... ]" % prog)
 
 
 def init_args():

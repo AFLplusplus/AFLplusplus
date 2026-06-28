@@ -203,9 +203,17 @@ static u8  __afl_area_initial[MAP_INITIAL_SIZE];
 static u8 *__afl_area_ptr_dummy = __afl_area_initial;
 static u8 *__afl_area_ptr_backup = __afl_area_initial;
 
-u8        *__afl_area_ptr = __afl_area_initial;
-u8        *__afl_dictionary;
-u32       *__afl_child_sync = NULL;
+u8  *__afl_area_ptr = __afl_area_initial;
+u8  *__afl_dictionary;
+u32 *__afl_child_sync = NULL;
+/* Byte offset of the child_sync word inside the trace_bits shared map (0 if
+   none). */
+static u32 __afl_child_sync_off = 0;
+#ifdef USEMMAP
+/* Actual length we mapped for the trace_bits region (so we can munmap the
+   exact region, which may include the trailing sync word). */
+static size_t __afl_shm_map_len = 0;
+#endif
 u8        *__afl_fuzz_ptr;
 static u32 __afl_fuzz_len_dummy;
 u32       *__afl_fuzz_len = &__afl_fuzz_len_dummy;
@@ -790,29 +798,15 @@ static void __afl_map_shm(void) {
   __afl_already_initialized_shm = 1;
 
 #if defined(__linux__) || defined(__APPLE__)
+  /* The child_sync word is embedded in the trace_bits shared map. The fuzzer
+     passes its byte offset via AFL_CHILD_SYNC_SHM; the pointer is set once the
+     map is attached below (see __afl_area_ptr_backup). */
+  __afl_child_sync = NULL;
   {
 
-    char *child_sync_shm = getenv("AFL_CHILD_SYNC_SHM");
-    if (child_sync_shm) {
-
-  #ifdef USEMMAP
-      int shm_fd = shm_open(child_sync_shm, O_RDWR, 0600);
-      if (shm_fd != -1) {
-
-        __afl_child_sync = (u32 *)mmap(0, sizeof(u32), PROT_READ | PROT_WRITE,
-                                       MAP_SHARED, shm_fd, 0);
-        if (__afl_child_sync == MAP_FAILED) __afl_child_sync = NULL;
-        close(shm_fd);
-
-      }
-
-  #else
-      int shm_id = atoi(child_sync_shm);
-      __afl_child_sync = (u32 *)shmat(shm_id, NULL, 0);
-      if (__afl_child_sync == (void *)-1) __afl_child_sync = NULL;
-  #endif
-
-    }
+    char *child_sync_off = getenv("AFL_CHILD_SYNC_SHM");
+    __afl_child_sync_off =
+        child_sync_off ? (u32)strtoul(child_sync_off, NULL, 10) : 0;
 
   }
 
@@ -1023,17 +1017,32 @@ static void __afl_map_shm(void) {
 
     }
 
+    /* The fuzzer reserved the child_sync word past the coverage region, so the
+       segment is larger than __afl_map_size; map enough to reach it. */
+    size_t shm_map_len = __afl_map_size;
+  #if defined(__linux__) || defined(__APPLE__)
+    if (__afl_child_sync_off &&
+        __afl_child_sync_off + sizeof(u32) > shm_map_len) {
+
+      shm_map_len = __afl_child_sync_off + sizeof(u32);
+
+    }
+
+  #endif
+
+    __afl_shm_map_len = shm_map_len;
+
     /* map the shared memory segment to the address space of the process */
     if (__afl_map_addr) {
 
       shm_base =
-          mmap((void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
+          mmap((void *)__afl_map_addr, shm_map_len, PROT_READ | PROT_WRITE,
                MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
 
     } else {
 
-      shm_base = mmap(0, __afl_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
-                      shm_fd, 0);
+      shm_base =
+          mmap(0, shm_map_len, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
     }
 
@@ -1167,6 +1176,19 @@ static void __afl_map_shm(void) {
 
   __afl_area_ptr_backup = __afl_area_ptr;
   __afl_bug_bind_map();
+
+#if defined(__linux__) || defined(__APPLE__)
+  /* The sync word lives in the shared trace_bits map (only valid when we
+     actually attached one, i.e. id_str was present). Derive it from the real
+     map base before any selective-coverage redirection of __afl_area_ptr. */
+  if (__afl_child_sync_off && id_str) {
+
+    __afl_child_sync =
+        (u32 *)(void *)(__afl_area_ptr_backup + __afl_child_sync_off);
+
+  }
+
+#endif
 
   if (__afl_debug) {
 
@@ -1360,13 +1382,19 @@ static void __afl_unmap_shm(void) {
 
 #ifdef USEMMAP
 
-    munmap((void *)__afl_area_ptr, __afl_map_size);
+    /* Unmap exactly what we mapped (may include the trailing child_sync word
+       past __afl_map_size). */
+    munmap((void *)__afl_area_ptr,
+           __afl_shm_map_len ? __afl_shm_map_len : __afl_map_size);
+    __afl_shm_map_len = 0;
 
 #else
 
     shmdt((void *)__afl_area_ptr);
 
 #endif
+
+    __afl_child_sync = NULL;
 
   } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
 
@@ -1553,6 +1581,18 @@ static void __afl_start_forkserver(void) {
     // send the set/requested options to forkserver
     status = FS_NEW_OPT_MAPSIZE;  // we always send the map size
     if (__afl_sharedmem_fuzzing) { status |= FS_NEW_OPT_SHDMEM_FUZZ; }
+#if defined(__linux__) || defined(__APPLE__)
+    /* __afl_map_size is final here (coverage + any IJON + any bug map). The
+       fuzzer places the sync word past the whole map, but guard against ever
+       letting it overlap that region: if it would, drop futex sync (fall back
+       to file descriptors) rather than corrupt IJON/bug data. */
+    if (__afl_child_sync && __afl_child_sync_off < __afl_map_size) {
+
+      __afl_child_sync = NULL;
+
+    }
+
+#endif
     if (__afl_child_sync) { status |= FS_NEW_OPT_FUTEX; }
     if (__afl_bug_mode & AFL_BUG_MODE_DERIVE) {
 

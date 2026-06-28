@@ -504,7 +504,7 @@ directory. This includes:
 - `last_hang`         - seconds since the last hang was found
 - `execs_since_crash` - execs since the last crash was found
 - `exec_timeout`      - the -t command line value
-- `slowest_exec_ms`   - real time of the slowest execution in ms
+- `slowest_exec_ms`   - exec time of the slowest test case, measured during calibration, in ms
 - `peak_rss_mb`       - max rss usage reached during fuzzing in MB
 - `edges_found`       - how many edges have been found
 - `var_byte_count`    - how many edges are non-deterministic
@@ -518,6 +518,11 @@ Most of these map directly to the UI elements discussed earlier on.
 On top of that, you can also find an entry called `plot_data`, containing a
 plottable history for most of these fields. If you have gnuplot installed, you
 can turn this into a nice progress report with the included `afl-plot` tool.
+
+The `afl-health` tool reads these `fuzzer_stats` and `plot_data` files for you
+and turns them into a campaign verdict, a trend, and ranked, actionable advice -
+locally or over ssh. See
+[fuzzing_in_depth.md](fuzzing_in_depth.md#e-the-status-of-the-fuzz-campaign).
 
 ### Addendum: automatically sending metrics with StatsD
 

@@ -78,28 +78,15 @@ static inline void afl_sync_wake(void *uaddr)
 
 static void afl_child_sync_attach(void)
 {
-    char *child_sync_shm = getenv("AFL_CHILD_SYNC_SHM");
-    if (!child_sync_shm) {
+    /* The fuzzer<->child sync word is embedded in the last bytes of the
+       trace_bits shared map; AFL_CHILD_SYNC_SHM carries its byte offset. The
+       coverage map (afl_area_ptr) is already attached at this point. */
+    char *child_sync_off = getenv("AFL_CHILD_SYNC_SHM");
+    if (!child_sync_off || !afl_area_ptr) {
         return;
     }
-#ifdef CONFIG_USEMMAP
-    int shm_fd = shm_open(child_sync_shm, O_RDWR, 0600);
-    if (shm_fd != -1) {
-        afl_child_sync = (uint32_t *)mmap(0, sizeof(uint32_t),
-                                          PROT_READ | PROT_WRITE, MAP_SHARED,
-                                          shm_fd, 0);
-        if (afl_child_sync == MAP_FAILED) {
-            afl_child_sync = NULL;
-        }
-        close(shm_fd);
-    }
-#else
-    int shm_id = atoi(child_sync_shm);
-    afl_child_sync = (uint32_t *)shmat(shm_id, NULL, 0);
-    if (afl_child_sync == (void *)-1) {
-        afl_child_sync = NULL;
-    }
-#endif
+    uint32_t off = (uint32_t)strtoul(child_sync_off, NULL, 10);
+    afl_child_sync = (uint32_t *)(void *)(afl_area_ptr + off);
 }
 
 static int afl_read_sp(CPUState *cpu, uint64_t *out)

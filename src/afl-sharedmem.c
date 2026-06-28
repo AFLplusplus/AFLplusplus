@@ -136,6 +136,8 @@ void afl_shm_deinit(sharedmem_t *shm) {
 #endif
 
   shm->map = NULL;
+  shm->child_sync = NULL;
+  shm->child_sync_offset = 0;
 
 }
 
@@ -151,6 +153,24 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   shm->map = NULL;
   shm->cmp_map = NULL;
+
+  shm->child_sync_offset = 0;
+  shm->child_sync = NULL;
+
+  /* The persistent-mode futex/os_sync word is embedded in the last bytes of
+     the trace_bits map so no separate shared segment is needed. Only reserve
+     it for real coverage maps (not the shmem-fuzz input map, and not in
+     non-instrumented mode where the target receives no forkserver commands).
+     map_size here is the FULL target map the forkserver reported, i.e. it
+     already includes any appended IJON map and bug-pass map tail; placing the
+     4-byte word (4-byte aligned) AFTER map_size and any compcov slack keeps it
+     clear of coverage, IJON, bug-map and compcov writes alike. */
+#if defined(__linux__) || defined(__APPLE__)
+  size_t sync_extra =
+      (!non_instrumented_mode && !shm->shmemfuzz_mode) ? sizeof(u32) : 0;
+#else
+  size_t sync_extra = 0;
+#endif
 
 #ifdef USEMMAP
 
@@ -214,8 +234,12 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   if (shm->g_shm_fd == -1) { PFATAL("shm_open() failed"); }
 
+  /* Reserve the child_sync word right after the (4-byte aligned) map. */
+  size_t sync_off = sync_extra ? ((map_size + 3) & ~(size_t)3) : 0;
+  size_t alloc_size = sync_off ? sync_off + sizeof(u32) : map_size;
+
   /* configure the size of the shared memory segment */
-  if (ftruncate(shm->g_shm_fd, map_size)) {
+  if (ftruncate(shm->g_shm_fd, alloc_size)) {
 
     PFATAL("setup_shm(): ftruncate() failed");
 
@@ -223,7 +247,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   /* map the shared memory segment to the address space of the process */
   shm->map =
-      mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm->g_shm_fd, 0);
+      mmap(0, alloc_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm->g_shm_fd, 0);
   if (shm->map == MAP_FAILED) {
 
     close(shm->g_shm_fd);
@@ -242,6 +266,17 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   if (!non_instrumented_mode) setenv(SHM_ENV_VAR, shm->g_shm_file_path, 1);
 
   if (shm->map == (void *)-1 || !shm->map) PFATAL("mmap() failed");
+
+  #if defined(__linux__) || defined(__APPLE__)
+  if (sync_off) {
+
+    shm->child_sync_offset = (u32)sync_off;
+    shm->child_sync = (u32 *)(shm->map + sync_off);
+    __atomic_store_n(shm->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+
+  }
+
+  #endif
 
   if (shm->cmplog_mode) {
 
@@ -297,9 +332,13 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   // for qemu+unicorn we have to increase by 8 to account for potential
   // compcov map overwrite
+  size_t base_size = map_size == MAP_SIZE ? map_size + 8 : map_size;
+  /* The child_sync word is 4-byte aligned and placed AFTER the compcov slack
+     so neither coverage nor compcov can clobber it. */
+  size_t sync_off = sync_extra ? ((base_size + 3) & ~(size_t)3) : 0;
+  size_t alloc_size = sync_off ? sync_off + sizeof(u32) : base_size;
   shm->shm_id =
-      shmget(IPC_PRIVATE, map_size == MAP_SIZE ? map_size + 8 : map_size,
-             IPC_CREAT | IPC_EXCL | permission);
+      shmget(IPC_PRIVATE, alloc_size, IPC_CREAT | IPC_EXCL | permission);
   if (shm->shm_id < 0) {
 
     PFATAL("shmget() failed, try running afl-system-config");
@@ -410,6 +449,17 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     }
 
   }
+
+  #if defined(__linux__) || defined(__APPLE__)
+  if (sync_off) {
+
+    shm->child_sync_offset = (u32)sync_off;
+    shm->child_sync = (u32 *)(shm->map + sync_off);
+    __atomic_store_n(shm->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+
+  }
+
+  #endif
 
 #endif
 

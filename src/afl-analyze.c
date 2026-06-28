@@ -989,6 +989,7 @@ int main(int argc, char **argv_orig, char **envp) {
 #endif
 
   fsrv.trace_bits = afl_shm_init(&shm, map_size, 0, DEFAULT_PERMISSION, -1);
+  fsrv.child_sync_offset = shm.child_sync_offset;
   detect_file_args(argv + optind, fsrv.out_file, &use_stdin);
   signal(SIGALRM, kill_child);
 

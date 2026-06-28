@@ -102,8 +102,6 @@ function getopt(argc, argv, options,    thisopt, i)
 
 function usage() {
    print \
-"afl-cmin\n" \
-"\n" \
 "afl-cmin [ options ] -- /path/to/target_app [ ... ]\n" \
 "\n" \
 "Required parameters:\n" \
@@ -140,8 +138,8 @@ function usage() {
 "AFL_PATH: preferred path for the afl-showmap binary (checked before PATH)\n" \
 "AFL_PRINT_FILENAMES: If set, the filename currently processed will be " \
       "printed to stdout\n" \
-"AFL_SKIP_BIN_CHECK: skip afl instrumentation checks for target binary\n"
-"AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)\n"
+"AFL_SKIP_BIN_CHECK: skip afl instrumentation checks for target binary\n" \
+"AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)\n" \
 "AFL_PYTHON_MODULE: custom mutator library (post_process and send)\n"
    exit 1
 }

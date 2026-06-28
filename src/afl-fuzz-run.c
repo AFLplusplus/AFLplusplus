@@ -727,6 +727,13 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   q->exec_us = diff_us / afl->stage_cur;
   if (unlikely(!q->exec_us)) { q->exec_us = 1; }
 
+  u32 exec_ms = (u32)((q->exec_us + 500) / 1000);
+  if (unlikely(exec_ms > afl->slowest_exec_ms)) {
+
+    afl->slowest_exec_ms = exec_ms;
+
+  }
+
   q->bitmap_size = count_bytes(afl, afl->fsrv.trace_bits);
   q->handicap = handicap;
   q->cal_failed = 0;
