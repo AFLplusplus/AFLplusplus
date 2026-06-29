@@ -12,6 +12,7 @@ Run it directly (no install needed):
 
     python3 afl-health.py /path/to/out
     ./afl-health.py user@host:/path/to/out --json
+    ./afl-health.py --summary host:/runs/output/*/afl   # glob expands remotely
 
 It needs only Python >= 3.11 locally; the remote side of an ssh run needs nothing
 beyond POSIX sh + coreutils.
@@ -32,8 +33,10 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import glob
 import json
 import os
+import re
 import shlex
 import sqlite3
 import subprocess
@@ -41,7 +44,7 @@ import sys
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -1246,16 +1249,20 @@ def _err(target: Target, msg: str, now: int | None) -> RawCampaign:
     )
 
 
+def _ssh_base_opts(target: Target) -> list[str]:
+    """Common ssh ``-o`` options for both collection and glob expansion."""
+    opts = ["-o", "BatchMode=yes", "-o", f"ConnectTimeout={target.connect_timeout}"]
+    if target.port:
+        opts += ["-p", str(target.port)]
+    return opts + target.ssh_opts
+
+
 def _run(target: Target) -> subprocess.CompletedProcess[bytes]:
     script = COLLECTOR_SH.encode()
     if target.is_local:
         argv = ["sh", "-s", target.output_dir]
     else:
-        opts = ["-o", "BatchMode=yes", "-o", f"ConnectTimeout={target.connect_timeout}"]
-        if target.port:
-            opts += ["-p", str(target.port)]
-        opts += target.ssh_opts
-        argv = [target.ssh_exe, *opts, target.host, f"sh -s {shlex.quote(target.output_dir)}"]
+        argv = [target.ssh_exe, *_ssh_base_opts(target), target.host, f"sh -s {shlex.quote(target.output_dir)}"]
     return subprocess.run(
         argv,
         input=script,
@@ -1367,6 +1374,59 @@ def parse_target(spec: str, *, ssh_opts: list[str], connect_timeout: int) -> Tar
         if head and "/" not in head and head != ".":
             return Target(output_dir=path, host=head, ssh_opts=list(ssh_opts), connect_timeout=connect_timeout)
     return Target(output_dir=spec, ssh_opts=list(ssh_opts), connect_timeout=connect_timeout)
+
+
+_GLOB_META = re.compile(r"[*?\[]")
+
+
+def _has_glob(path: str) -> bool:
+    return bool(_GLOB_META.search(path))
+
+
+def _shell_glob_quote(path: str) -> str:
+    """Quote ``path`` for a remote shell while leaving glob metacharacters bare.
+
+    shlex.quote would single-quote ``*?[]`` and kill globbing; instead we quote
+    only the literal runs so the *remote* shell expands the pattern, yet paths with
+    spaces / shell metacharacters stay injection-safe.
+    """
+    parts = re.split(r"([*?\[\]])", path)
+    return "".join(tok if tok in "*?[]" else shlex.quote(tok) for tok in parts if tok != "")
+
+
+def _expand_remote_glob(target: Target) -> list[str]:
+    """Expand a glob ``output_dir`` on the remote host, returning matched directories."""
+    pattern = _shell_glob_quote(target.output_dir)
+    remote = f'for d in {pattern}; do [ -d "$d" ] && printf "%s\\n" "$d"; done'
+    argv = [target.ssh_exe, *_ssh_base_opts(target), target.host, remote]
+    try:
+        proc = subprocess.run(argv, capture_output=True, timeout=target.connect_timeout + 30, check=False)
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+    return [ln for ln in proc.stdout.decode("utf-8", "replace").splitlines() if ln.strip()]
+
+
+def expand_globs(targets: list[Target]) -> list[Target]:
+    """Expand any glob ``output_dir`` into one Target per matched directory.
+
+    Local globs that the shell left literal (e.g. quoted) are expanded with the
+    ``glob`` module; remote globs are expanded over ssh. A pattern that matches
+    nothing is kept verbatim so it surfaces a clean "no such dir" collection error.
+    """
+    out: list[Target] = []
+    for t in targets:
+        if not _has_glob(t.output_dir):
+            out.append(t)
+            continue
+        if t.is_local:
+            matches = sorted(p for p in glob.glob(t.output_dir) if Path(p).is_dir())
+        else:
+            matches = _expand_remote_glob(t)
+        if matches:
+            out.extend(replace(t, output_dir=m) for m in matches)
+        else:
+            out.append(t)
+    return out
 
 
 def load_config(path: str) -> dict[str, Any]:
@@ -1500,7 +1560,11 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Health, trend, and action analysis for AFL++/cargo-afl/ziggy campaigns (local or over ssh).",
     )
     p.add_argument(
-        "targets", nargs="*", metavar="TARGET", help="local /path/to/out, or [user@]host:/path/to/out for ssh"
+        "targets",
+        nargs="*",
+        metavar="TARGET",
+        help="local /path/to/out, or [user@]host:/path/to/out for ssh; "
+        "glob patterns (e.g. host:/runs/*/afl) expand to one campaign per match (remotely for ssh)",
     )
     p.add_argument("--config", help="JSON config defining targets / ssh opts / state dir")
     p.add_argument("--json", action="store_true", help="machine report (incl. action directives)")
@@ -1579,6 +1643,7 @@ def main(argv: list[str] | None = None) -> int:
     if not targets:
         parser.print_help()  # no target given → behave like -h
         return 0
+    targets = expand_globs(targets)
 
     store = (
         None

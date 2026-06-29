@@ -3,12 +3,13 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++5.02a (dev)
+### Version ++5.02c (release)
+  !!! You need to recompile persistent mode/LLVMFuzzerTestOneInput target !!!
   - afl-health:
     - new tool: AFL++ campaign health tool checker, much more advanced than
       afl-whatsup, with tips, analysis and ssh support
   - afl-fuzz:
-    - MacOS Futex implementation missed the clean-up of the shmem
+    - Futex implementation missed the clean-up of the shmem
     - Futex shmem now lives in general shared memory map as by default only
       32 such regions are supported in MacOS
   - afl-cc:
