@@ -203,6 +203,12 @@ void free(void *ptr) {
 
 }
 
+#ifdef __GLIBC__
+#define QASAN_FILE_CHECK_SIZE sizeof(FILE)
+#else
+#define QASAN_FILE_CHECK_SIZE sizeof(void *)
+#endif
+
 char *fgets(char *s, int size, FILE *stream) {
 
   void *rtv = __builtin_return_address(0);
@@ -210,7 +216,7 @@ char *fgets(char *s, int size, FILE *stream) {
   QASAN_DEBUG("%14p: fgets(%p, %d, %p)\n", rtv, s, size, stream);
   QASAN_STORE(s, size);
 #ifndef __ANDROID__
-  QASAN_LOAD(stream, sizeof(FILE));
+  QASAN_LOAD(stream, QASAN_FILE_CHECK_SIZE);
 #endif
   char *r = __lq_libc_fgets(s, size, stream);
   QASAN_DEBUG("\t\t = %p\n", r);
