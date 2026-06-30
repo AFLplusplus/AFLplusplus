@@ -32,7 +32,6 @@
 #include "types.h"
 #include "debug.h"
 #include "alloc-inl.h"
-#include "llvm-alternative-coverage.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -86,9 +85,7 @@ typedef enum {
   INSTRUMENT_GCC = 6,
   INSTRUMENT_CLANG = 7,
   INSTRUMENT_OPT_CTX = 8,
-  INSTRUMENT_OPT_NGRAM = 16,
   INSTRUMENT_OPT_CALLER = 32,
-  INSTRUMENT_OPT_CTX_K = 64,
   INSTRUMENT_OPT_CODECOV = 128,
 
 } instrument_mode_id;
@@ -125,7 +122,7 @@ char instrument_mode_string[18][18] = {
     "",
     "",
     "",
-    "NGRAM",
+    "",
     ""
 
 };
@@ -176,7 +173,7 @@ typedef struct aflcc_state {
 
   u8 *lto_flag;
 
-  u8 instrument_mode, instrument_opt_mode, ngram_size, ctx_k;
+  u8 instrument_mode, instrument_opt_mode;
 
   u8 cmplog_mode, c11_mode;
 
@@ -293,7 +290,7 @@ void compiler_mode_by_callname(aflcc_state_t *);
 void compiler_mode_by_environ(aflcc_state_t *);
 void compiler_mode_by_cmdline(aflcc_state_t *, int argc, char **argv);
 void instrument_mode_by_environ(aflcc_state_t *);
-void mode_final_checkout(aflcc_state_t *, int argc, char **argv);
+void mode_final_checkout(aflcc_state_t *);
 void mode_notification(aflcc_state_t *);
 
 void add_real_argv0(aflcc_state_t *);
@@ -860,8 +857,7 @@ void compiler_mode_by_cmdline(aflcc_state_t *aflcc, int argc, char **argv) {
 /*
   Select instrument_mode by those envs in old style:
   - USE_TRACE_PC, AFL_USE_TRACE_PC, AFL_LLVM_USE_TRACE_PC, AFL_TRACE_PC
-  - AFL_LLVM_CALLER, AFL_LLVM_CTX, AFL_LLVM_CTX_K
-  - AFL_LLVM_NGRAM_SIZE
+  - AFL_LLVM_CALLER, AFL_LLVM_CTX
 */
 static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
 
@@ -888,38 +884,6 @@ static void instrument_mode_old_environ(aflcc_state_t *aflcc) {
   if (getenv("AFL_LLVM_CALLER") || getenv("AFL_LLVM_LTO_CALLER") ||
       getenv("AFL_LLVM_LTO_CTX"))
     aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
-
-  if (getenv("AFL_LLVM_NGRAM_SIZE")) {
-
-    aflcc->instrument_opt_mode |= INSTRUMENT_OPT_NGRAM;
-    aflcc->ngram_size = atoi(getenv("AFL_LLVM_NGRAM_SIZE"));
-    if (aflcc->ngram_size < 2 || aflcc->ngram_size > NGRAM_SIZE_MAX)
-      FATAL(
-          "NGRAM instrumentation mode must be between 2 and NGRAM_SIZE_MAX "
-          "(%u)",
-          NGRAM_SIZE_MAX);
-
-  }
-
-  if (getenv("AFL_LLVM_CTX_K")) {
-
-    aflcc->ctx_k = atoi(getenv("AFL_LLVM_CTX_K"));
-    if (aflcc->ctx_k < 1 || aflcc->ctx_k > CTX_MAX_K)
-      FATAL("K-CTX instrumentation mode must be between 1 and CTX_MAX_K (%u)",
-            CTX_MAX_K);
-    if (aflcc->ctx_k == 1) {
-
-      setenv("AFL_LLVM_CALLER", "1", 1);
-      unsetenv("AFL_LLVM_CTX_K");
-      aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
-
-    } else {
-
-      aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CTX_K;
-
-    }
-
-  }
 
 }
 
@@ -1068,39 +1032,10 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
         strncasecmp(ptr2, "kctx-", strlen("c-ctx-")) == 0 ||
         strncasecmp(ptr2, "k-ctx-", strlen("k-ctx-")) == 0) {
 
-      u8 *ptr3 = ptr2;
-      while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9'))
-        ptr3++;
-
-      if (!*ptr3) {
-
-        if ((ptr3 = getenv("AFL_LLVM_CTX_K")) == NULL)
-          FATAL(
-              "you must set the K-CTX K with (e.g. for value 2) "
-              "AFL_LLVM_INSTRUMENT=ctx-2");
-
-      }
-
-      aflcc->ctx_k = atoi(ptr3);
-      if (aflcc->ctx_k < 1 || aflcc->ctx_k > CTX_MAX_K)
-        FATAL(
-            "K-CTX instrumentation option must be between 1 and CTX_MAX_K "
-            "(%u)",
-            CTX_MAX_K);
-
-      if (aflcc->ctx_k == 1) {
-
-        aflcc->instrument_opt_mode |= INSTRUMENT_OPT_CALLER;
-        setenv("AFL_LLVM_CALLER", "1", 1);
-        unsetenv("AFL_LLVM_CTX_K");
-
-      } else {
-
-        aflcc->instrument_opt_mode |= (INSTRUMENT_OPT_CTX_K);
-        u8 *ptr4 = alloc_printf("%u", aflcc->ctx_k);
-        setenv("AFL_LLVM_CTX_K", ptr4, 1);
-
-      }
+      if (!be_quiet)
+        WARNF(
+            "K-CTX instrumentation was removed together with the classic LLVM "
+            "pass, ignoring.");
 
     }
 
@@ -1120,36 +1055,10 @@ static void instrument_mode_new_environ(aflcc_state_t *aflcc) {
 
     if (strncasecmp(ptr2, "ngram", strlen("ngram")) == 0) {
 
-      u8 *ptr3 = ptr2 + strlen("ngram");
-      while (*ptr3 && (*ptr3 < '0' || *ptr3 > '9')) {
-
-        ptr3++;
-
-      }
-
-      if (!*ptr3) {
-
-        if ((ptr3 = getenv("AFL_LLVM_NGRAM_SIZE")) == NULL)
-          FATAL(
-              "you must set the NGRAM size with (e.g. for value 2) "
-              "AFL_LLVM_INSTRUMENT=ngram-2");
-
-      }
-
-      aflcc->ngram_size = atoi(ptr3);
-
-      if (aflcc->ngram_size < 2 || aflcc->ngram_size > NGRAM_SIZE_MAX) {
-
-        FATAL(
-            "NGRAM instrumentation option must be between 2 and "
-            "NGRAM_SIZE_MAX (%u)",
-            NGRAM_SIZE_MAX);
-
-      }
-
-      aflcc->instrument_opt_mode |= (INSTRUMENT_OPT_NGRAM);
-      u8 *ptr4 = alloc_printf("%u", aflcc->ngram_size);
-      setenv("AFL_LLVM_NGRAM_SIZE", ptr4, 1);
+      if (!be_quiet)
+        WARNF(
+            "NGRAM instrumentation was removed together with the classic LLVM "
+            "pass, ignoring.");
 
     }
 
@@ -1188,46 +1097,34 @@ void instrument_mode_by_environ(aflcc_state_t *aflcc) {
 }
 
 /*
-  Workaround to ensure CALLER, CTX, K-CTX and NGRAM
-  instrumentation were used correctly.
+  Reconcile the instrumentation options that remain after the classic LLVM
+  pass was removed. CTX and CALLER are only implemented by the LTO pass; the
+  classic non-LTO CLASSIC mode now falls back to PCGUARD.
 */
 static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
 
-  if ((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
-      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
-      aflcc->compiler_mode != LTO) {
+  if (aflcc->lto_mode) { return; }
 
-    FATAL("you cannot set CTX and CALLER together");
+  if (aflcc->instrument_mode == INSTRUMENT_CLASSIC) {
 
-  }
-
-  if ((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX) &&
-      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
-
-    FATAL("you cannot set CTX and K-CTX together");
+    if (!be_quiet)
+      WARNF(
+          "The classic LLVM instrumentation was removed, using PCGUARD "
+          "instead.");
+    aflcc->instrument_mode = INSTRUMENT_PCGUARD;
 
   }
 
-  if ((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
-      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX_K)) {
+  if (aflcc->instrument_opt_mode &
+      (INSTRUMENT_OPT_CTX | INSTRUMENT_OPT_CALLER)) {
 
-    FATAL("you cannot set CALLER and K-CTX together");
+    if (!be_quiet)
+      WARNF(
+          "CTX/CALLER instrumentation requires LTO mode (afl-clang-lto), "
+          "ignoring and using PCGUARD.");
+    aflcc->instrument_opt_mode &= ~(INSTRUMENT_OPT_CTX | INSTRUMENT_OPT_CALLER);
 
   }
-
-  if (aflcc->instrument_opt_mode && aflcc->compiler_mode != LLVM &&
-      !((aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) &&
-        aflcc->compiler_mode == LTO))
-    FATAL("CTX, CALLER and NGRAM can only be used in LLVM mode");
-
-  if (aflcc->instrument_opt_mode &&
-      aflcc->instrument_opt_mode != INSTRUMENT_OPT_CODECOV &&
-      aflcc->instrument_mode != INSTRUMENT_CLASSIC &&
-      !(aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER &&
-        aflcc->compiler_mode == LTO))
-    FATAL(
-        "CALLER, CTX and NGRAM instrumentation options can only be used with "
-        "the LLVM CLASSIC instrumentation mode.");
 
 }
 
@@ -1236,16 +1133,7 @@ static void instrument_opt_mode_exclude(aflcc_state_t *aflcc) {
   We have a few of workarounds here, to check any corner cases,
   prepare for a series of fallbacks, and raise warnings or errors.
 */
-void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
-
-  if (aflcc->instrument_opt_mode &&
-      aflcc->instrument_mode == INSTRUMENT_DEFAULT &&
-      (aflcc->compiler_mode == LLVM || aflcc->compiler_mode == UNSET)) {
-
-    aflcc->instrument_mode = INSTRUMENT_CLASSIC;
-    aflcc->compiler_mode = LLVM;
-
-  }
+void mode_final_checkout(aflcc_state_t *aflcc) {
 
   if (!aflcc->compiler_mode) {
 
@@ -1383,6 +1271,20 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
         "AFL_LLVM_NOT_ZERO and AFL_LLVM_SKIP_NEVERZERO can not be set "
         "together");
 
+  if (getenv("AFL_LLVM_NGRAM_SIZE") || getenv("AFL_NGRAM_SIZE") ||
+      getenv("AFL_LLVM_CTX_K") || getenv("AFL_CTX_K")) {
+
+    if (!be_quiet)
+      WARNF(
+          "NGRAM and K-CTX instrumentation were removed together with the "
+          "classic LLVM pass, ignoring.");
+    unsetenv("AFL_LLVM_NGRAM_SIZE");
+    unsetenv("AFL_NGRAM_SIZE");
+    unsetenv("AFL_LLVM_CTX_K");
+    unsetenv("AFL_CTX_K");
+
+  }
+
   instrument_opt_mode_exclude(aflcc);
 
   u8 *ptr2;
@@ -1419,18 +1321,10 @@ void mode_final_checkout(aflcc_state_t *aflcc, int argc, char **argv) {
 */
 void mode_notification(aflcc_state_t *aflcc) {
 
-  char *ptr2 = alloc_printf(" + NGRAM-%u", aflcc->ngram_size);
-  char *ptr3 = alloc_printf(" + K-CTX-%u", aflcc->ctx_k);
-
   char *ptr1 = alloc_printf(
-      "%s%s%s%s%s", instrument_mode_2str(aflcc->instrument_mode),
+      "%s%s%s", instrument_mode_2str(aflcc->instrument_mode),
       (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX) ? " + CTX" : "",
-      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) ? " + CALLER" : "",
-      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_NGRAM) ? ptr2 : "",
-      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CTX_K) ? ptr3 : "");
-
-  ck_free(ptr2);
-  ck_free(ptr3);
+      (aflcc->instrument_opt_mode & INSTRUMENT_OPT_CALLER) ? " + CALLER" : "");
 
   if ((isatty(2) && !be_quiet) || aflcc->debug) {
 
@@ -3017,12 +2911,6 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         "yes\n"
         "      NATIVE               AVAILABLE    no  yes     no     no  "
         "part.  yes\n"
-        "      CLASSIC              %s no  yes     module yes yes    "
-        "yes\n"
-        "        - NORMAL\n"
-        "        - CALLER\n"
-        "        - CTX\n"
-        "        - NGRAM-{2-16}\n"
         "  [LTO] LLVM LTO:          %s%s\n"
         "      PCGUARD              DEFAULT      yes yes     yes    yes yes "
         "   yes\n"
@@ -3033,7 +2921,6 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
         "yes\n\n",
         aflcc->have_llvm ? "AVAILABLE   " : "unavailable!",
         aflcc->compiler_mode == LLVM ? " [SELECTED]" : "",
-        aflcc->have_llvm ? "AVAILABLE   " : "unavailable!",
         aflcc->have_llvm ? "AVAILABLE   " : "unavailable!",
         aflcc->have_lto ? "AVAILABLE" : "unavailable!",
         aflcc->compiler_mode == LTO ? " [SELECTED]" : "",
@@ -3067,13 +2954,8 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
 
         NATIVE_MSG
 
-        "  CLASSIC: decision target instrumentation (README.llvm.md)\n"
-        "  CALLER:  CLASSIC + single callee context "
-        "(instrumentation/README.ctx.md)\n"
-        "  CTX:     CLASSIC + full callee context "
-        "(instrumentation/README.ctx.md)\n"
-        "  NGRAM-x: CLASSIC + previous path "
-        "((instrumentation/README.ngram.md)\n\n");
+        "  CALLER:  LTO + single callee context (README.lto.md)\n"
+        "  CTX:     LTO + full callee context (README.lto.md)\n\n");
 
 #undef NATIVE_MSG
 
@@ -3185,16 +3067,12 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
             "  AFL_LLVM_CMPLOG: log operands of comparisons (RedQueen "
             "mutator)\n"
             "  AFL_LLVM_INSTRUMENT: set instrumentation mode:\n"
-            "    CLASSIC, PCGUARD, LTO, GCC, CLANG, CALLER, CTX, NGRAM-2 "
-            "..-16\n"
+            "    PCGUARD, LTO, GCC, CLANG, CALLER, CTX\n"
             " You can also use the old environment variables instead:\n"
             "  AFL_LLVM_USE_TRACE_PC: use LLVM trace-pc-guard instrumentation\n"
             "  AFL_LLVM_CALLER: use single context sensitive coverage (for "
-            "CLASSIC)\n"
-            "  AFL_LLVM_CTX: use full context sensitive coverage (for "
-            "CLASSIC)\n"
-            "  AFL_LLVM_NGRAM_SIZE: use ngram prev_loc count coverage (for "
-            "CLASSIC)\n"
+            "LTO)\n"
+            "  AFL_LLVM_CTX: use full context sensitive coverage (for LTO)\n"
             "  AFL_LLVM_NO_RPATH: disable rpath setting for custom LLVM "
             "locations\n");
 
@@ -3774,17 +3652,13 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     } else {
 
-      if (aflcc->instrument_mode == INSTRUMENT_PCGUARD) {
-
-        add_optimized_pcguard(aflcc);
-
-      } else if (aflcc->instrument_mode == INSTRUMENT_LLVMNATIVE) {
+      if (aflcc->instrument_mode == INSTRUMENT_LLVMNATIVE) {
 
         add_native_pcguard(aflcc);
 
       } else {
 
-        load_llvm_pass(aflcc, "afl-llvm-pass.so");
+        add_optimized_pcguard(aflcc);
 
       }
 
@@ -3955,7 +3829,7 @@ int main(int argc, char **argv, char **envp) {
 
   instrument_mode_by_environ(aflcc);
 
-  mode_final_checkout(aflcc, argc, argv);
+  mode_final_checkout(aflcc);
 
   process_params(aflcc, 1, argc, argv);
 

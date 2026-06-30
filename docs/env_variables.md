@@ -83,7 +83,8 @@ fairly broad use of environment variables instead:
     Setting `AFL_INST_RATIO` to 0 is a valid choice. This will instrument only
     the transitions between function entry points, but not individual branches.
 
-    Note that this is an outdated variable. Only LLVM CLASSIC pass can use this.
+    Note that this is an outdated variable. Only the GCC plugin instrumentation
+    honors it.
 
   - Setting `AFL_INPUT_PLACEHOLDER` to a string allows you to use that string 
     as a placeholder instead of "@@" in the target command line arguments.
@@ -161,17 +162,11 @@ instrumentation mode:
 Available options:
 
   - CLANG - outdated clang instrumentation
-  - CLASSIC - classic AFL (map[cur_loc ^ prev_loc >> 1]++) (default)
-
-    You can also specify CTX and/or NGRAM, separate the options with a comma ","
-    then, e.g.: `AFL_LLVM_INSTRUMENT=CLASSIC,CTX,NGRAM-4`
-
-    Note: It is actually not a good idea to use both CTX and NGRAM. :)
-  - CTX - context sensitive instrumentation
+  - CTX - context sensitive instrumentation (LTO mode only, see README.lto.md)
+  - CALLER - single caller context instrumentation (LTO mode only)
   - GCC - outdated gcc instrumentation
   - LTO - LTO instrumentation
   - NATIVE - clang's original pcguard based instrumentation
-  - NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
   - PCGUARD - our own pcguard based instrumentation (default)
 
 #### Bug-pass oracles
@@ -355,13 +350,11 @@ For more information, see
 #### CTX
 
 Setting `AFL_LLVM_CTX` or `AFL_LLVM_INSTRUMENT=CTX` activates context sensitive
-branch coverage - meaning that each edge is additionally combined with its
-caller. It is highly recommended to increase the `MAP_SIZE_POW2` definition in
-config.h to at least 18 and maybe up to 20 for this as otherwise too many map
-collisions occur.
+branch coverage in LTO mode (afl-clang-lto) - meaning that each edge is
+additionally combined with its caller.
 
 For more information, see
-[instrumentation/README.llvm.md#6) AFL++ Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage).
+[instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
 #### INSTRUMENT LIST (selectively instrument files and functions)
 
@@ -448,17 +441,6 @@ combined.
     [WAFL](https://github.com/fgsect/WAFL.git).
   For more information, see
   [instrumentation/README.lto.md](../instrumentation/README.lto.md).
-
-#### NGRAM
-
-Setting `AFL_LLVM_INSTRUMENT=NGRAM-{value}` or `AFL_LLVM_NGRAM_SIZE` activates
-ngram prev_loc coverage. Good values are 2, 4, or 8 (any value between 2 and 16
-is valid). It is highly recommended to increase the `MAP_SIZE_POW2` definition
-in config.h to at least 18 and maybe up to 20 for this as otherwise too many map
-collisions occur.
-
-For more information, see
-[instrumentation/README.llvm.md#7) AFL++ N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage).
 
 #### PATH (LTO and PCGUARD)
 
@@ -587,8 +569,8 @@ The following environment variables are for a compiled AFL++ target.
 
   - Setting `AFL_OLD_FORKSERVER` will use the old AFL vanilla forkserver.
     This makes only sense when you
-      a) compile in a classic colliding coverage mode (e.g.
-         AFL_LLVM_INSTRUMENT=CLASSIC) or if the map size of the target is
+      a) compile in a classic colliding coverage mode (e.g. with the gcc
+         plugin, afl-gcc-fast) or if the map size of the target is
          below MAP_SIZE (65536 by default), AND
       b) you want to use this compiled AFL++ target with a different tool
          that expects vanilla AFL behaviour, e.g. symcc, symqemu, nautilus, etc.
