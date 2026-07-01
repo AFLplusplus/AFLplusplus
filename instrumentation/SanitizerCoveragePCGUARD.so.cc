@@ -574,16 +574,17 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
 
         bool    interesting = Obj->getBoolean("interesting").value_or(false);
         bool    bottleneck = Obj->getBoolean("bottleneck").value_or(false);
+        bool    dead_end = Obj->getBoolean("dead_end").value_or(false);
         int64_t depth = Obj->getInteger("depth").value_or(0);
 
         uint32_t value;
-        if (!interesting) {
+        if (!interesting || dead_end) {
 
           value = 0;
 
         } else if (bottleneck) {
 
-          value = (uint32_t)(depth + 5);
+          value = (uint32_t)(depth + 4);
 
         } else {
 
