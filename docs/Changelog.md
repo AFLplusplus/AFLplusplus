@@ -3,6 +3,10 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++5.03a (dev)
+  - ...
+
+
 ### Version ++5.02c (release)
   !!! You need to recompile persistent mode/LLVMFuzzerTestOneInput target !!!
   - afl-health:
