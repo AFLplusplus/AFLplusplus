@@ -114,7 +114,7 @@ Among others, the following features and patches have been integrated:
   [https://github.com/adrianherrera/afl-ngram-pass](https://github.com/adrianherrera/afl-ngram-pass)
 * LAF-Intel/CompCov support for instrumentation, QEMU mode and unicorn_mode
   (with enhanced capabilities)
-* Radamsa and honggfuzz mutators (as custom mutators).
+* honggfuzz mutator (as a custom mutator).
 * QBDI mode to fuzz android native libraries via Quarkslab's
   [QBDI](https://github.com/QBDI/QBDI) framework
 * Frida and ptrace mode to fuzz binary-only libraries, etc.
