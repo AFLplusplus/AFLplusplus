@@ -2149,10 +2149,23 @@ static void *collect_worker(void *arg) {
 
         if (is_reg) {
 
+          u8         *fn = alloc_printf("%s/%s", dir, entry->d_name);
+          struct stat st;
+          if (stat(fn, &st)) {
+
+            ck_free(fn);
+            continue;
+
+          }
+
+          ck_free(fn);
+
+          if (!st.st_size) continue;
+
           cmin_file_t *f = ck_alloc(sizeof(cmin_file_t));
           f->dir = dir;  // Shared string
           f->name = strdup(entry->d_name);
-          f->size = 0;  // Defer size check
+          f->size = st.st_size;
 
           pthread_mutex_lock(&files_mutex);
 

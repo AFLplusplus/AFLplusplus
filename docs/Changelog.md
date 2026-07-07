@@ -4,7 +4,12 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.03a (dev)
-  - ...
+  - afl-fuzz
+    - fixed SAND and FrameShift issues
+  - afl-cmin (all variants: C, python, bash, awk): empty (0 byte) input files
+    are now skipped
+  - custom_mutators:
+    - removed outdated and pointless radamsa
 
 
 ### Version ++5.02c (release)
@@ -16,7 +21,6 @@
     - Futex implementation missed the clean-up of the shmem
     - Futex shmem now lives in general shared memory map as by default only
       32 such regions are supported in MacOS
-    - fixed SAND and FrameShift issues
   - afl-cc:
     - new C11 mode (`AFL_LLVM_C11` at compile time): afl-cc records each
       function's local variable count and afl-fuzz uses it as an extra queue

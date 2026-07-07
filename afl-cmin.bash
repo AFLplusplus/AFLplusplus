@@ -351,7 +351,13 @@ if [ -n "$THREADS" ]; then
   fi
 fi
 
-FIRST_FILE=`ls "$IN_DIR" | head -1`
+FIRST_FILE=`ls "$IN_DIR" | while read -r fn; do test -s "$IN_DIR/$fn" && { echo "$fn"; break; }; done`
+
+if [ "$FIRST_FILE" = "" ]; then
+  echo "[-] Hmm, no non-empty inputs in the target directory. Nothing to be done."
+  rm -rf "$TRACE_DIR"
+  exit 1
+fi
 
 # Make sure that we're not dealing with a directory.
 
@@ -522,7 +528,7 @@ fi
 
 echo "[*] Sorting trace sets (this may take a while)..."
 
-ls "$IN_DIR" | sed "s#^#$TRACE_DIR/#" | tr '\n' '\0' | xargs -0 -n 1 cat | \
+ls "$IN_DIR" | sed "s#^#$TRACE_DIR/#" | tr '\n' '\0' | xargs -0 -n 1 cat 2>/dev/null | \
   sort | uniq -c | sort -k 1,1 -n >"$TRACE_DIR/.all_uniq"
 
 TUPLE_COUNT=$((`grep -c . "$TRACE_DIR/.all_uniq"`))
@@ -544,6 +550,8 @@ echo "[*] Finding best candidates for each tuple..."
 CUR=0
 
 ls -rS "$IN_DIR" | while read -r fn; do
+
+  test -s "$IN_DIR/$fn" || continue
 
   CUR=$((CUR+1))
   printf "\\r    Processing file $CUR/$IN_COUNT... "
