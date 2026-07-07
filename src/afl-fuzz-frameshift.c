@@ -265,7 +265,11 @@ void fs_sanitize(fs_meta_t *meta, u8 *buf, u32 len) {
 
     if (!meta->relations[i].enabled) { continue; }
 
-    if (unlikely(meta->relations[i].pos + meta->relations[i].size > len)) { continue; }
+    if (unlikely(meta->relations[i].pos + meta->relations[i].size > len)) {
+
+      continue;
+
+    }
 
     rel_apply(buf, &meta->relations[i]);
 
