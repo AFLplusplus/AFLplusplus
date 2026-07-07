@@ -258,12 +258,14 @@ void fs_track_delete(fs_meta_t *meta, u64 idx, u64 data_size) {
 
 }
 
-void fs_sanitize(fs_meta_t *meta, u8 *buf) {
+void fs_sanitize(fs_meta_t *meta, u8 *buf, u32 len) {
 
   // Apply the relations in reverse order.
   for (u32 i = meta->rel_count - 1; i != (u32)-1; i--) {
 
     if (!meta->relations[i].enabled) { continue; }
+
+    if (unlikely(meta->relations[i].pos + meta->relations[i].size > len)) { continue; }
 
     rel_apply(buf, &meta->relations[i]);
 
@@ -449,7 +451,7 @@ void check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size,
 
   fs_save(meta);
   u8 res = fs_track_insert(meta, insertion, shift_amount, 0);
-  fs_sanitize(meta, scratch);
+  fs_sanitize(meta, scratch, len + shift_amount);
   fs_restore(meta);
   if (res) {
 

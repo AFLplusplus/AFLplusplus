@@ -1481,7 +1481,7 @@ u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
              afl->queue_cur->fs_status != 0)) {
 
     // Apply relation updates before running.
-    fs_sanitize(afl->fs_curr_meta, out_buf);
+    fs_sanitize(afl->fs_curr_meta, out_buf, len);
 
   }
 
