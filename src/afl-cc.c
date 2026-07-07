@@ -2840,6 +2840,17 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
     SCAN_KEEP(aflcc->x_set, 1);
 
+  } else if (aflcc->x_set &&
+             (!strcmp(cur_argv, "c++-header") ||
+              !strcmp(cur_argv, "c-header"))) {
+
+    /* Precompiled-header build (-x c++-header / -x c-header): treat as
+     * compile-only so add_runtime skips afl-compiler-rt.o and
+     * afl-llvm-rt-lto.o.  Those are link-time artefacts; appending them
+     * alongside the single PCH output causes clang to error with
+     * "cannot specify -o when generating multiple output files".*/
+    SCAN_KEEP(aflcc->have_c, 1);
+
   } else if (!strcmp(cur_argv, "-E")) {
 
     SCAN_KEEP(aflcc->preprocessor_only, 1);
