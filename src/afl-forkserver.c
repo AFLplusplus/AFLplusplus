@@ -553,6 +553,8 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->map_size = from->map_size;
   fsrv_to->real_map_size = from->real_map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
+  fsrv_to->shmem_fuzz = from->shmem_fuzz;
+  fsrv_to->shmem_fuzz_len = from->shmem_fuzz_len;
   fsrv_to->out_file = from->out_file;
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
   fsrv_to->out_fd = from->out_fd;  // not sure this is a good idea

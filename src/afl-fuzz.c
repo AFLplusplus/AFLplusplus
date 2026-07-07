@@ -2821,9 +2821,6 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       afl->san_fsrvs[i].asanfuzz_binary = afl->san_binary[i];
       afl->san_fsrvs[i].target_path = afl->san_binary[i];
       afl->san_fsrvs[i].init_child_func = sanfuzz_exec_child;
-      afl->san_fsrvs[i].support_shmem_fuzz = afl->fsrv.support_shmem_fuzz;
-      afl->san_fsrvs[i].shmem_fuzz = afl->fsrv.shmem_fuzz;
-      afl->san_fsrvs[i].shmem_fuzz_len = afl->fsrv.shmem_fuzz_len;
 
       if ((afl->map_size <= DEFAULT_SHMEM_SIZE ||
            afl->san_fsrvs[i].map_size < afl->map_size) &&
