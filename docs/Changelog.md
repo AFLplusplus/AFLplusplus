@@ -4,6 +4,9 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.03a (dev)
+  - afl-cc
+    - remove classic AFL instrumentation (colliding coverage), as AFL_LLVM_PATH
+      and AFL_LLVM_CALLER replace these mostly and are overall much better
   - afl-fuzz
     - fixed SAND and FrameShift issues
   - afl-cmin (all variants: C, python, bash, awk): empty (0 byte) input files
