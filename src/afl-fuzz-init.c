@@ -3270,14 +3270,33 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
       !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
 
+    char *which = "fuzzing";
+    if (fname == (u8 *)afl->cmplog_binary) {
+
+      which = "CMPLOG";
+
+    } else {
+
+      for (u8 i = 0; i < afl->san_binary_length; i++) {
+
+        if (fname == (u8 *)afl->san_binary[i]) {
+
+          which = "SAND";
+          break;
+
+        }
+
+      }
+
+    }
+
     SAYF("\n" cLRD "[-] " cRST
-         "Looks like the target binary is not instrumented! The fuzzer depends "
-         "on\n"
-         "    compile-time instrumentation to isolate interesting test cases "
-         "while\n"
-         "    mutating the input data. For more information, and for tips on "
-         "how to\n"
-         "    instrument binaries, please see %s/README.md.\n\n"
+         "Looks like the %s target binary is not instrumented!\n"
+         "    The fuzzer depends on compile-time instrumentation to isolate "
+         "interesting\n"
+         "    test cases while mutating the input data. For more information, "
+         "and for tips\n"
+         "    on how to instrument binaries, please see %s/README.md.\n\n"
 
          "    When source code is not available, you may be able to leverage "
          "QEMU\n"
@@ -3292,7 +3311,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
          "non-instrumented\n"
          "    fuzzer. For that use the -n option - but expect much worse "
          "results.)\n",
-         doc_path);
+         which, doc_path);
 
     FATAL("No instrumentation detected");
 
