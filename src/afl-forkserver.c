@@ -553,6 +553,8 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->map_size = from->map_size;
   fsrv_to->real_map_size = from->real_map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
+  fsrv_to->shmem_fuzz = from->shmem_fuzz;
+  fsrv_to->shmem_fuzz_len = from->shmem_fuzz_len;
   fsrv_to->out_file = from->out_file;
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
   fsrv_to->out_fd = from->out_fd;  // not sure this is a good idea
@@ -2009,22 +2011,27 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (waitpid(fsrv->fsrv_pid, &status, 0) <= 0) { PFATAL("waitpid() failed"); }
 
+  char *which = fsrv->asanfuzz_binary ? "SAND"
+                : fsrv->cmplog_binary ? "CMPLOG"
+                                      : "fuzzing";
+
   if (WIFSIGNALED(status)) {
 
     if (fsrv->mem_limit && fsrv->mem_limit < 500 && fsrv->uses_asan) {
 
       SAYF("\n" cLRD "[-] " cRST
-           "Whoops, the target binary crashed suddenly, "
+           "Whoops, the %s target binary crashed suddenly, "
            "before receiving any input\n"
            "    from the fuzzer! Since it seems to be built with ASAN and you "
            "have a\n"
            "    restrictive memory limit configured, this is expected; please "
-           "run with '-m 0'.\n");
+           "run with '-m 0'.\n",
+           which);
 
     } else if (!fsrv->mem_limit) {
 
       SAYF("\n" cLRD "[-] " cRST
-           "Whoops, the target binary crashed suddenly, "
+           "Whoops, the %s target binary crashed suddenly, "
            "before receiving any input\n"
            "    from the fuzzer! You can try the following:\n\n"
 
@@ -2047,14 +2054,15 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "    - Less likely, there is a horrible bug in the fuzzer. If other "
            "options\n"
            "      fail, poke the Fuzzing Zulip server for troubleshooting "
-           "tips.\n");
+           "tips.\n",
+           which);
 
     } else {
 
       u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
       SAYF("\n" cLRD "[-] " cRST
-           "Whoops, the target binary crashed suddenly, "
+           "Whoops, the %s target binary crashed suddenly, "
            "before receiving any input\n"
            "    from the fuzzer! You can try the following:\n\n"
 
@@ -2093,6 +2101,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "options\n"
            "      fail, poke the Fuzzing Zulip server for troubleshooting "
            "tips.\n",
+           which,
            stringify_mem_size(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
            fsrv->mem_limit - 1);
 
@@ -2111,18 +2120,20 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   if (fsrv->mem_limit && fsrv->mem_limit < 500 && fsrv->uses_asan) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated "
+         "Hmm, looks like the %s target binary terminated "
          "before we could complete a\n"
          "    handshake with the injected code. Since it seems to be built "
          "with ASAN and\n"
          "    you have a restrictive memory limit configured, this is "
          "expected; please\n"
-         "    run with '-m 0'.\n");
+         "    run with '-m 0'.\n",
+         which);
 
   } else if (!fsrv->mem_limit) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated before we could complete"
+         "Hmm, looks like the %s target binary terminated before we could "
+         "complete"
          " a\n"
          "handshake with the injected code. You can try the following:\n\n"
 
@@ -2141,7 +2152,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
 
          "Otherwise there is a horrible bug in the fuzzer.\n"
-         "Poke the Fuzzing Zulip server for troubleshooting tips.\n");
+         "Poke the Fuzzing Zulip server for troubleshooting tips.\n",
+         which);
 
   } else {
 
@@ -2149,7 +2161,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     SAYF(
         "\n" cLRD "[-] " cRST
-        "Hmm, looks like the target binary terminated "
+        "Hmm, looks like the %s target binary terminated "
         "before we could complete a\n"
         "    handshake with the injected code. You can try the following:\n\n"
 
@@ -2197,7 +2209,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
               "never\n"
               "      reached before the program terminates.\n\n"
             : "",
-        stringify_int(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
+        which, stringify_int(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
         fsrv->mem_limit - 1);
 
   }

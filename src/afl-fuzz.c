@@ -815,7 +815,7 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
   // still available: HjJkqrv
   while ((opt = getopt(
               argc, argv,
-              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L::m:M:nNo:Op:P:QRs:S:t:T:"
+              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L::m:M:nNo:Op:P:Qs:S:t:T:"
               "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
@@ -1583,14 +1583,6 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
       case 'h':
         show_help++;
         break;  // not needed
-
-      case 'R':
-
-        FATAL(
-            "Radamsa is now a custom mutator, please use that "
-            "(custom_mutators/radamsa/).");
-
-        break;
 
   #ifdef __linux__
       case 'K':                                                 /* GUI mode */

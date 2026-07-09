@@ -1515,7 +1515,7 @@ void plot_profile_data(afl_state_t *, struct queue_entry *);
 
 /* Frameshift functions */
 void frameshift_stage(afl_state_t *);
-void fs_sanitize(fs_meta_t *, u8 *buf);
+void fs_sanitize(fs_meta_t *, u8 *buf, u32 len);
 void fs_save(fs_meta_t *meta);
 void fs_restore(fs_meta_t *meta);
 int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size, u8 ignore_invalid);
