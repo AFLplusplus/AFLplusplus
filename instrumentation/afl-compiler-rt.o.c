@@ -42,7 +42,6 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include "config.h"
 #include "types.h"
 #include "cmplog.h"
-#include "llvm-alternative-coverage.h"
 #include "afl-ijon-min.h"
 
 /* For backtrace() support in ijon_hashstack */
@@ -485,25 +484,14 @@ int        __afl_selective_coverage __attribute__((weak));
 int        __afl_selective_coverage_start_off __attribute__((weak));
 static int __afl_selective_coverage_temp = 1;
 
-/* Aligned for use as LLVM vector operands in ngram/K-ctx modes (#1855).
-   Alignment scales with PREV_LOC_T so non-default MAP_SIZE_POW2 stays safe. */
-#define AFL_PREV_LOC_ALIGN (sizeof(PREV_LOC_T) * NGRAM_SIZE_MAX)
-#define AFL_PREV_CALLER_ALIGN (sizeof(PREV_LOC_T) * CTX_MAX_K)
-_Static_assert(AFL_PREV_LOC_ALIGN >= 32,
-               "prev_loc alignment must be >= 32 for default-config compat");
-_Static_assert(AFL_PREV_CALLER_ALIGN >= 64,
-               "prev_caller alignment must be >= 64 for default-config compat");
+/* __afl_prev_loc is the previous-location accumulator used by the gcc plugin
+   instrumentation (__afl_trace). __afl_prev_ctx is the context ID used by the
+   LTO CTX/CALLER instrumentation. */
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
-PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX]
-    __attribute__((aligned(AFL_PREV_LOC_ALIGN)));
-PREV_LOC_T __afl_prev_caller[CTX_MAX_K]
-    __attribute__((aligned(AFL_PREV_CALLER_ALIGN)));
+u32 __afl_prev_loc;
 u32 __afl_prev_ctx;
 #else
-__thread PREV_LOC_T __afl_prev_loc[NGRAM_SIZE_MAX]
-    __attribute__((aligned(AFL_PREV_LOC_ALIGN)));
-__thread PREV_LOC_T __afl_prev_caller[CTX_MAX_K]
-    __attribute__((aligned(AFL_PREV_CALLER_ALIGN)));
+__thread u32 __afl_prev_loc;
 __thread u32 __afl_prev_ctx;
 #endif
 
@@ -563,8 +551,8 @@ static void at_exit(int signal) {
 
 void __afl_trace(const u32 x) {
 
-  PREV_LOC_T prev = __afl_prev_loc[0];
-  __afl_prev_loc[0] = (x >> 1);
+  u32 prev = __afl_prev_loc;
+  __afl_prev_loc = (x >> 1);
 
   u8 *p = &__afl_area_ptr[prev ^ x];
 
@@ -1897,7 +1885,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     }
 
     __afl_area_ptr[0] = 1;
-    memset_noasan(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+    __afl_prev_loc = 0;
     __afl_alloc_persistent_reset(0);
 
     first_pass = 0;
@@ -2026,7 +2014,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     }
 
-    memset_noasan(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+    __afl_prev_loc = 0;
 
     return 1;
 

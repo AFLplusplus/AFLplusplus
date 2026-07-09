@@ -46,7 +46,6 @@
 
 // Now include AFL++ headers
 #include "afl-llvm-common.h"
-#include "llvm-alternative-coverage.h"
 
 using namespace llvm;
 
