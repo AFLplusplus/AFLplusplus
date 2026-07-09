@@ -40,7 +40,6 @@
 // #include "llvm/IR/IntrinsicInst.h"
 // #include "llvm/IR/IntrinsicEnums.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
@@ -53,8 +52,6 @@
 #endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/JSON.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -162,27 +159,25 @@ class ModuleSanitizerCoverageAFL
                                                 Type *Ty);
 
   // Helper functions for cleaner code
-  bool     isAflInterestingCall(Instruction &IN);
-  void     initializeVersionSpecificTypes(IRBuilder<> &IRB);
-  void     setupEnvironmentVariables();
-  void     setupIJONSymbols(Module &M, bool uses_ijon_state);
-  uint32_t getReachabilityValue(const Function &F);
-  void     instrumentReachability(Function &F);
-  Value   *createGuardPointer(IRBuilder<> &IRB, uint32_t index);
-  void     updateCoverageBitmap(IRBuilder<> &IRB, Value *CoverageIndex,
-                                Value *MapPtr);
-  void     printDebugInfo(Instruction &IN);
-  Value   *instrumentVectorSelect(IRBuilder<> &IRB, Value *condition,
-                                  FixedVectorType *tt, uint32_t &local_selects,
-                                  uint32_t cnt_cov, uint32_t skip_blocks,
-                                  uint32_t               special,
-                                  ArrayRef<BasicBlock *> AllBlocks);
-  void updateCoverageForSelect(IRBuilder<> &IRB, Value *result, Value *MapPtr,
-                               uint32_t &vector_cnt);
-  void setNoInstrumentMetadata(Value *V);
-  void insertAbortAtFunctionEntry(Function &F);
-  void collectNoAbortFunctions(Module &M);
-  bool isNoAbortFunction(Function &F);
+  bool   isAflInterestingCall(Instruction &IN);
+  void   initializeVersionSpecificTypes(IRBuilder<> &IRB);
+  void   setupEnvironmentVariables();
+  void   setupIJONSymbols(Module &M, bool uses_ijon_state);
+  Value *createGuardPointer(IRBuilder<> &IRB, uint32_t index);
+  void   updateCoverageBitmap(IRBuilder<> &IRB, Value *CoverageIndex,
+                              Value *MapPtr);
+  void   printDebugInfo(Instruction &IN);
+  Value *instrumentVectorSelect(IRBuilder<> &IRB, Value *condition,
+                                FixedVectorType *tt, uint32_t &local_selects,
+                                uint32_t cnt_cov, uint32_t skip_blocks,
+                                uint32_t               special,
+                                ArrayRef<BasicBlock *> AllBlocks);
+  void   updateCoverageForSelect(IRBuilder<> &IRB, Value *result, Value *MapPtr,
+                                 uint32_t &vector_cnt);
+  void   setNoInstrumentMetadata(Value *V);
+  void   insertAbortAtFunctionEntry(Function &F);
+  void   collectNoAbortFunctions(Module &M);
+  bool   isNoAbortFunction(Function &F);
 
   std::string     getSectionName(const std::string &Section) const;
   std::string     getSectionStart(const std::string &Section) const;
@@ -204,17 +199,16 @@ class ModuleSanitizerCoverageAFL
   SanitizerCoverageOptions Options;
 
   uint32_t instr = 0, selects = 0, unhandled = 0, skippedbb = 0, dump_cc = 0;
-  GlobalVariable *AFLMapPtr = NULL;
-  GlobalVariable *AFLCovMapSize = NULL;
-  GlobalVariable *AFLIJONState = NULL;
-  Value          *HoistedMapPtr = NULL;
-  ConstantInt    *One = NULL;
-  ConstantInt    *Zero = NULL;
-  bool            deny_exec = false;
-  bool            abort_list = false;
-  uint32_t        first = 1;
-  bool            reachability_mode = false;
-  const char     *reachability_file = NULL;
+  GlobalVariable     *AFLMapPtr = NULL;
+  GlobalVariable     *AFLCovMapSize = NULL;
+  GlobalVariable     *AFLIJONState = NULL;
+  Value              *HoistedMapPtr = NULL;
+  ConstantInt        *One = NULL;
+  ConstantInt        *Zero = NULL;
+  bool                deny_exec = false;
+  bool                abort_list = false;
+  uint32_t            first = 1;
+  bool                reachability_mode = false;
   StringMap<uint32_t> reachabilityValues;
 
   /* Functions that run automatically outside the fuzzing entry point and must
@@ -516,89 +510,8 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
 
   }
 
-  reachability_file = getenv("AFL_LLVM_REACHABILITY");
-  if (reachability_file) {
-
-    if (getenv("AFL_LLVM_C11")) {
-
-      FATAL(
-          "AFL_LLVM_C11 and AFL_LLVM_REACHABILITY are mutually exclusive - "
-          "they write to the same map slot. Set only one of them.");
-
-    }
-
-    reachability_mode = true;
-
-    if (!be_quiet) {
-
-      SAYF(cCYA "SanitizerCoveragePCGUARD" VERSION cRST
-                " (REACHABILITY mode: %s)\n",
-           reachability_file);
-
-    }
-
-    auto BufOrErr = MemoryBuffer::getFile(reachability_file);
-    if (!BufOrErr) {
-
-      FATAL("AFL_LLVM_REACHABILITY: cannot read json file '%s': %s",
-            reachability_file, BufOrErr.getError().message().c_str());
-
-    }
-
-    Expected<json::Value> Parsed = json::parse((*BufOrErr)->getBuffer());
-    json::Object         *Root = Parsed ? Parsed->getAsObject() : nullptr;
-    json::Array          *Reachable = Root ? Root->getArray("reachable") : nullptr;
-
-    if (!Parsed) {
-
-      WARNF("AFL_LLVM_REACHABILITY: ignoring json file '%s', cannot parse: %s",
-            reachability_file, toString(Parsed.takeError()).c_str());
-
-    } else if (!Reachable) {
-
-      WARNF(
-          "AFL_LLVM_REACHABILITY: ignoring json file '%s', no \"reachable\" "
-          "array.",
-          reachability_file);
-
-    }
-
-    if (Reachable) {
-
-      for (json::Value &Item : *Reachable) {
-
-        json::Object *Obj = Item.getAsObject();
-        if (!Obj) continue;
-        std::optional<StringRef> Mangled = Obj->getString("mangled");
-        if (!Mangled) continue;
-
-        bool    interesting = Obj->getBoolean("interesting").value_or(false);
-        bool    bottleneck = Obj->getBoolean("bottleneck").value_or(false);
-        bool    dead_end = Obj->getBoolean("dead_end").value_or(false);
-        int64_t depth = Obj->getInteger("depth").value_or(0);
-
-        uint32_t value;
-        if (!interesting || dead_end) {
-
-          value = 0;
-
-        } else if (bottleneck) {
-
-          value = (uint32_t)(depth + 4);
-
-        } else {
-
-          value = (uint32_t)depth;
-
-        }
-
-        reachabilityValues[*Mangled] = value;
-
-      }
-
-    }
-
-  }
+  reachability_mode =
+      setupReachability(reachabilityValues, "SanitizerCoveragePCGUARD");
 
 }
 
@@ -624,60 +537,6 @@ void ModuleSanitizerCoverageAFL::setNoInstrumentMetadata(Value *V) {
     I->setMetadata("afl.skip", Tag);
 
   }
-
-}
-
-uint32_t ModuleSanitizerCoverageAFL::getReachabilityValue(const Function &F) {
-
-  auto it = reachabilityValues.find(F.getName());
-  if (it == reachabilityValues.end()) return 0;
-  return it->second;
-
-}
-
-void ModuleSanitizerCoverageAFL::instrumentReachability(Function &F) {
-
-  uint32_t value = getReachabilityValue(F);
-
-  if (value < 4) return;
-
-  Module      &M = *F.getParent();
-  LLVMContext &Ctx = M.getContext();
-
-  BasicBlock  &Entry = F.getEntryBlock();
-  Instruction *InsertPt = &*Entry.getFirstInsertionPt();
-  IRBuilder<>  IRB(InsertPt);
-
-  auto mark = [&](Value *V) {
-
-    setNoInstrumentMetadata(V);
-    if (auto *I = dyn_cast<Instruction>(V)) { setNoSanitizeMetadata(I); }
-
-  };
-
-  ConstantInt *Val = IRB.getInt32(value);
-
-  LoadInst *Base = IRB.CreateLoad(PtrTy, AFLMapPtr, "reach_base");
-  mark(Base);
-  Value *P = IRB.CreateGEP(Int8Ty, Base, IRB.getInt64(1), "reach_slot");
-  mark(P);
-  Value *P32 = IRB.CreateBitCast(P, Int32PtrTy);
-  mark(P32);
-
-  LoadInst *Cur = IRB.CreateAlignedLoad(Int32Ty, P32, Align(1), "reach_cur");
-  mark(Cur);
-
-  Value *Cond = IRB.CreateICmpUGT(Val, Cur, "reach_gt");
-  mark(Cond);
-  MDNode      *Unlikely = MDBuilder(Ctx).createBranchWeights(1, 1u << 20);
-  Instruction *Then = SplitBlockAndInsertIfThen(
-      Cond, InsertPt, /*Unreachable=*/false, Unlikely);
-
-  IRB.SetInsertPoint(Then);
-  StoreInst *St = IRB.CreateAlignedStore(Val, P32, Align(1));
-  mark(St);
-
-  createC11EnabledGlobal(M, Int32Ty);
 
 }
 
@@ -1576,7 +1435,12 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 #if LLVM_MAJOR >= 19
   if (F.hasFnAttribute(Attribute::DisableSanitizerInstrumentation)) return;
 #endif
-  if (reachability_mode) { instrumentReachability(F); }
+  if (reachability_mode) {
+
+    instrumentReachability(F, getReachabilityValue(reachabilityValues, F));
+
+  }
+
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
     SplitAllCriticalEdges(
         F, CriticalEdgeSplittingOptions().setIgnoreUnreachableDests());
