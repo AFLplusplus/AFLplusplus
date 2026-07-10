@@ -11,6 +11,8 @@
     - fixed SAND and FrameShift issues
   - afl-cmin (all variants: C, python, bash, awk): empty (0 byte) input files
     are now skipped
+  - afl-health
+    - more speed, more info
   - custom_mutators:
     - removed outdated and pointless radamsa
 
