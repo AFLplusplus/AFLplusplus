@@ -701,6 +701,8 @@ def collect_files(args):
                     full_path = os.path.join(root, filename)
                     if not os.path.isfile(full_path):
                         continue
+                    if os.path.getsize(full_path) == 0:
+                        continue
                     pbar.update(1)
                     files.append(full_path)
     return files

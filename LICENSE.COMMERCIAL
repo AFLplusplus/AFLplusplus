@@ -155,6 +155,14 @@ SECTION B — TERMS AND CONDITIONS (BINDING)
          license; and
      (d) does not reduce or waive any third party's rights under the AGPL.
 
+   The Apache-2.0 terms apply solely as between the Licensor and You. You may
+   not grant, and shall not purport to grant, any third party any license to the
+   Covered Software other than under the AGPL-3.0-or-later. Any copy of the
+   Covered Software that You convey to a third party is licensed to that third
+   party under the AGPL-3.0-or-later, and any Apache-2.0 notice or license text
+   You may include confers rights only as between the Licensor and You and grants
+   no Apache-2.0 rights to any third party.
+
 8. TERMINATION FOR BREACH.
    If You breach this license, it terminates automatically, and Your use of the
    Covered Software immediately reverts to being governed solely by the AGPL.

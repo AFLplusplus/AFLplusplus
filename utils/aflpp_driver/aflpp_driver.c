@@ -242,6 +242,9 @@ static void maybe_close_fd_mask() {
 __attribute__((weak)) size_t LLVMFuzzerMutate(uint8_t *Data, size_t Size,
                                               size_t MaxSize) {
 
+  (void)(Data);
+  (void)(Size);
+  (void)(MaxSize);
   // assert(false && "LLVMFuzzerMutate should not be called from afl_driver");
   return 0;
 

@@ -339,7 +339,6 @@ all:	test_x86 test_shm test_python ready $(PROGS) llvm gcc_plugin test_build all
 	@echo
 	@echo Build Summary:
 	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
-	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-13 and clang-13 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM and LLD 11+. More information at instrumentation/README.lto.md on how to build it"
 ifneq "$(SYS)" "Darwin"
@@ -853,7 +852,6 @@ endif
 	@echo
 	@echo Build Summary:
 	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
-	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-13 and clang-13 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
 ifneq "$(SYS)" "Darwin"
@@ -891,7 +889,7 @@ install: all $(MANPAGES)
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-as
 	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt.o
-	@for i in afl-llvm-dict2file.so afl-llvm-lto-instrumentlist.so afl-llvm-pass.so cmplog-instructions-pass.so cmplog-routines-pass.so cmplog-switches-pass.so compare-transform-pass.so libcompcov.so libdislocator.so libnyx.so libqasan.so libtokencap.so SanitizerCoverageLTO.so SanitizerCoveragePCGUARD.so split-compares-pass.so split-switches-pass.so injection-pass.so; do echo rm -fv $${DESTDIR}$(HELPER_PATH)/$${i}; done
+	@for i in afl-llvm-dict2file.so afl-llvm-lto-instrumentlist.so cmplog-instructions-pass.so cmplog-routines-pass.so cmplog-switches-pass.so compare-transform-pass.so libcompcov.so libdislocator.so libnyx.so libqasan.so libtokencap.so SanitizerCoverageLTO.so SanitizerCoveragePCGUARD.so split-compares-pass.so split-switches-pass.so injection-pass.so; do echo rm -fv $${DESTDIR}$(HELPER_PATH)/$${i}; done
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
 	@if [ -f afl-qemu-trace ]; then install -m 755 afl-qemu-trace $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f afl-qemu-bridge ]; then install -m 755 afl-qemu-bridge $${DESTDIR}$(BIN_PATH); fi

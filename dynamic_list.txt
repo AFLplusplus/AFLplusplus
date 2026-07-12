@@ -22,7 +22,6 @@
   "__afl_manual_init";
   "__afl_map_addr";
   "__afl_persistent_loop";
-  "__afl_prev_caller";
   "__afl_prev_ctx";
   "__afl_prev_loc";
   "__afl_selective_coverage";

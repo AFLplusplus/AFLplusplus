@@ -18,7 +18,7 @@ Just type "make" in the individual subdirectories.
 
 Use with e.g.
 
-`AFL_CUSTOM_MUTATOR_LIBRARY=custom_mutators/radamsa/radamsa-mutator.so afl-fuzz ....`
+`AFL_CUSTOM_MUTATOR_LIBRARY=custom_mutators/autotokens/autotokens.so afl-fuzz ....`
 
 and add `AFL_CUSTOM_MUTATOR_ONLY=1` if you only want to use the custom mutator.
 
@@ -60,8 +60,6 @@ More for playing than serious usage.
 
 LibAFL_base is an exmaple how to use LibAFL as mutator for AFL++.
 You can also take a look at the libafl_nautilus custom mutator for this purpose.
-
-radamsa is slow and not very good.
 
 ## 3rd Party Custom Mutators
 
