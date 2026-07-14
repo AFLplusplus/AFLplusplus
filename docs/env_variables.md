@@ -609,6 +609,35 @@ checks or alter some of the more exotic semantics of the tool:
     occurred. This may be beneficial if you look for higher-level faulty
     conditions in which your target still exits gracefully.
 
+  - Setting `AFL_CRASH_TRACES` makes afl-fuzz capture the crashing execution's
+    stdout/stderr (e.g. the AddressSanitizer report and stack trace) live and,
+    for each *saved unique* crash, write it to a text file named like the crash
+    input with `.txt` appended (e.g. `crashes/id:000000,sig:06,....txt`).
+    Because the trace comes from the run that actually crashed (not a re-run),
+    it is captured even for crashes that do not reproduce. The capture buffer is
+    cleared before every execution, so the `.txt` holds only the crashing run's
+    own output (no output accumulated from previous runs) and is written in
+    full (no size limit). Sanitizer reports are symbolized (`symbolize=1`) when
+    you have not exported your own `*_OPTIONS` and a symbolizer (e.g.
+    `llvm-symbolizer`) is on `PATH`. The feature is disabled by default (no
+    effect when unset); when enabled it adds one inexpensive truncate per
+    execution. On Linux it also forces core dumps on (raising `RLIMIT_CORE`)
+    and, for each saved signal crash, moves the kernel-written core file beside
+    the crash input as `<crash>.core` (e.g. `crashes/id:000000,sig:06,....core`).
+    This needs a file-based `core_pattern`: at startup afl-fuzz inspects
+    `/proc/sys/kernel/core_pattern` and, if it pipes to a handler or is
+    otherwise unusable, tries to set it to `core` (requires root); if that
+    fails afl-fuzz aborts, unless `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES` is set,
+    in which case it warns and continues without `.core` files. The global
+    `core_pattern` is not restored on exit, and for sanitizer targets the
+    sanitizer's default `disable_coredump=1` is overridden. Notes: a bare
+    `SIGSEGV` with the sanitizer's default
+    `handle_segv=0` produces no report, so the `.txt` then just records the
+    signal; Nyx mode is excluded (it writes its own `.log`); and in
+    split-sanitizer (SAND) mode a crash detected only by the separate sanitizer
+    binary may not have a report in the captured output (the report comes from
+    that other binary).
+
   - Setting `AFL_CUSTOM_MUTATOR_LIBRARY` to a shared library with
     afl_custom_fuzz() creates additional mutations through this library. If
     afl-fuzz is compiled with Python (which is autodetected during building

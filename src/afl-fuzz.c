@@ -414,6 +414,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
       "AFL_CMPLOG_ONLY_NEW: do not run cmplog on initial testcases (good for resumes!)\n"
       "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
+      "AFL_CRASH_TRACES: write output and core to the crash file information - slow!\n"
       "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
       "AFL_CYCLE_SCHEDULES: after completing a cycle, switch to a different -p schedule\n"
