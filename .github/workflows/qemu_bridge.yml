@@ -1,0 +1,172 @@
+name: QEMU bridge
+
+on:
+  push:
+    branches:
+      - stable
+      - dev
+    paths:
+      - 'qemu_bridge/**'
+      - 'test/test-qemu-bridge.sh'
+      - '.github/workflows/qemu_bridge.yml'
+  pull_request:
+    paths:
+      - 'qemu_bridge/**'
+      - 'test/test-qemu-bridge.sh'
+      - '.github/workflows/qemu_bridge.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      AFL_SKIP_CPUFREQ: 1
+      AFL_NO_AFFINITY: 1
+      AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential git libtool libtool-bin automake flex bison \
+            meson ninja-build libglib2.0-dev libpixman-1-dev \
+            python3 python3-pip \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi \
+            gcc-mipsel-linux-gnu \
+            gcc-powerpc-linux-gnu \
+            libc6-dev-i386
+      - name: build afl++ core
+        run: |
+          make NO_NYX=1 NO_FRIDA=1 NO_QEMU=1 NO_UNICORN=1 NO_CORESIGHT=1 all
+      - name: init bridge submodule
+        run: |
+          git submodule update --init --recursive qemu_bridge/qemu-libafl-bridge
+      - name: build qemu bridge backend (x86_64)
+        run: |
+          cd qemu_bridge
+          NO_CHECKOUT=1 ./build_qemu_bridge_support.sh
+          test -x ../afl-qemu-bridge
+          file ../afl-qemu-bridge
+      - name: acceptance suite
+        run: |
+          sudo -E ./afl-system-config || true
+          chmod +x test/test-qemu-bridge.sh
+          ./test/test-qemu-bridge.sh
+
+  arch-matrix:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cpu: i386
+            cross: i686
+            apt: libc6-dev-i386
+            cflags: '-m32'
+          - cpu: arm
+            cross: arm-linux-gnueabi
+            apt: gcc-arm-linux-gnueabi
+            cflags: ''
+          - cpu: aarch64
+            cross: aarch64-linux-gnu
+            apt: gcc-aarch64-linux-gnu
+            cflags: ''
+          - cpu: mipsel
+            cross: mipsel-linux-gnu
+            apt: gcc-mipsel-linux-gnu
+            cflags: ''
+          - cpu: ppc
+            cross: powerpc-linux-gnu
+            apt: gcc-powerpc-linux-gnu
+            cflags: ''
+    env:
+      AFL_SKIP_CPUFREQ: 1
+      AFL_NO_AFFINITY: 1
+      AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential git libtool libtool-bin automake flex bison \
+            meson ninja-build libglib2.0-dev libpixman-1-dev \
+            python3 python3-pip ${{ matrix.apt }}
+      - name: build afl++ core
+        run: |
+          make NO_NYX=1 NO_FRIDA=1 NO_QEMU=1 NO_UNICORN=1 NO_CORESIGHT=1 all
+      - name: init bridge submodule
+        run: |
+          git submodule update --init --recursive qemu_bridge/qemu-libafl-bridge
+      - name: build qemu bridge backend (${{ matrix.cpu }})
+        run: |
+          cd qemu_bridge
+          CPU_TARGET=${{ matrix.cpu }} NO_CHECKOUT=1 ./build_qemu_bridge_support.sh
+          test -x ../afl-qemu-bridge
+          file ../afl-qemu-bridge
+      - name: cross instrumentation self-test (${{ matrix.cpu }})
+        run: |
+          set -e
+          CC=${{ matrix.cross }}-gcc
+          if [ "${{ matrix.cpu }}" = "i386" ]; then
+            CC="gcc ${{ matrix.cflags }}"
+          fi
+          if ! command -v ${{ matrix.cross }}-gcc >/dev/null 2>&1 && \
+             [ "${{ matrix.cpu }}" != "i386" ]; then
+            echo "[*] cross compiler ${{ matrix.cross }}-gcc unavailable, skipping self-test"
+            exit 0
+          fi
+          printf '#include <unistd.h>\nint main(void){unsigned char b[8];int n=read(0,b,7);if(n<1)return 1;int x=0;if(b[0]==65)for(int i=0;i<7;i++){if((b[0]+i)&1)x++;}return x;}\n' > t.c
+          $CC -O0 -static -o t-${{ matrix.cpu }} t.c
+          printf 'A' > a
+          printf 'B' > b
+          AFL_PATH="$PWD" ./afl-showmap -Q -o m_a -- ./t-${{ matrix.cpu }} < a
+          AFL_PATH="$PWD" ./afl-showmap -Q -o m_b -- ./t-${{ matrix.cpu }} < b
+          if diff -q m_a m_b >/dev/null; then
+            echo "[-] coverage maps identical for differing inputs"
+            exit 1
+          fi
+          echo "[+] ${{ matrix.cpu }} instrumentation self-test passed"
+
+  libafl-nonregression:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential git meson ninja-build \
+            libglib2.0-dev libpixman-1-dev python3
+      - name: init bridge submodule
+        run: |
+          git submodule update --init --recursive qemu_bridge/qemu-libafl-bridge
+      - name: configure bridge WITHOUT --afl and build plain qemu-x86_64
+        run: |
+          cd qemu_bridge/qemu-libafl-bridge
+          ./configure \
+            --target-list=x86_64-linux-user \
+            --disable-docs \
+            --python=/usr/bin/python3
+          ninja -C build qemu-x86_64
+          test -x build/qemu-x86_64
+          echo "[+] non-afl bridge build succeeded; additive CONFIG_AFL changes do not break the plain QEMU build"
+      - name: note
+        run: |
+          echo "The full LibAFL libafl_qemu consumer build (AFLplusplus/LibAFL"
+          echo "fuzzers/qemu, pinned to this bridge checkout) is the intended"
+          echo "non-regression gate for the additive CONFIG_AFL changes. The"
+          echo "plain non-afl QEMU build above is the minimum guarantee run here."

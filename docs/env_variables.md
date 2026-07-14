@@ -83,7 +83,8 @@ fairly broad use of environment variables instead:
     Setting `AFL_INST_RATIO` to 0 is a valid choice. This will instrument only
     the transitions between function entry points, but not individual branches.
 
-    Note that this is an outdated variable. Only LLVM CLASSIC pass can use this.
+    Note that this is an outdated variable. Only the GCC plugin instrumentation
+    honors it.
 
   - Setting `AFL_INPUT_PLACEHOLDER` to a string allows you to use that string 
     as a placeholder instead of "@@" in the target command line arguments.
@@ -161,17 +162,11 @@ instrumentation mode:
 Available options:
 
   - CLANG - outdated clang instrumentation
-  - CLASSIC - classic AFL (map[cur_loc ^ prev_loc >> 1]++) (default)
-
-    You can also specify CTX and/or NGRAM, separate the options with a comma ","
-    then, e.g.: `AFL_LLVM_INSTRUMENT=CLASSIC,CTX,NGRAM-4`
-
-    Note: It is actually not a good idea to use both CTX and NGRAM. :)
-  - CTX - context sensitive instrumentation
+  - CTX - context sensitive instrumentation (LTO mode only, see README.lto.md)
+  - CALLER - single caller context instrumentation (LTO mode only)
   - GCC - outdated gcc instrumentation
   - LTO - LTO instrumentation
   - NATIVE - clang's original pcguard based instrumentation
-  - NGRAM-x - deeper previous location coverage (from NGRAM-2 up to NGRAM-16)
   - PCGUARD - our own pcguard based instrumentation (default)
 
 #### Bug-pass oracles
@@ -355,13 +350,11 @@ For more information, see
 #### CTX
 
 Setting `AFL_LLVM_CTX` or `AFL_LLVM_INSTRUMENT=CTX` activates context sensitive
-branch coverage - meaning that each edge is additionally combined with its
-caller. It is highly recommended to increase the `MAP_SIZE_POW2` definition in
-config.h to at least 18 and maybe up to 20 for this as otherwise too many map
-collisions occur.
+branch coverage in LTO mode (afl-clang-lto) - meaning that each edge is
+additionally combined with its caller.
 
 For more information, see
-[instrumentation/README.llvm.md#6) AFL++ Context Sensitive Branch Coverage](../instrumentation/README.llvm.md#6-afl-context-sensitive-branch-coverage).
+[instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
 #### INSTRUMENT LIST (selectively instrument files and functions)
 
@@ -449,17 +442,6 @@ combined.
   For more information, see
   [instrumentation/README.lto.md](../instrumentation/README.lto.md).
 
-#### NGRAM
-
-Setting `AFL_LLVM_INSTRUMENT=NGRAM-{value}` or `AFL_LLVM_NGRAM_SIZE` activates
-ngram prev_loc coverage. Good values are 2, 4, or 8 (any value between 2 and 16
-is valid). It is highly recommended to increase the `MAP_SIZE_POW2` definition
-in config.h to at least 18 and maybe up to 20 for this as otherwise too many map
-collisions occur.
-
-For more information, see
-[instrumentation/README.llvm.md#7) AFL++ N-Gram Branch Coverage](../instrumentation/README.llvm.md#7-afl-n-gram-branch-coverage).
-
 #### PATH (LTO and PCGUARD)
 
 Setting `AFL_LLVM_PATH` (or `AFL_LLVM_LTO_PATH` / `AFL_LLVM_PATH_MODE`)
@@ -519,6 +501,25 @@ functions, as the exec'd process will inherit the instrumentation but may not
 be the intended fuzzing target. Only enable this if your target should never
 call exec functions during normal operation.
 
+#### Abort on entry of non-instrumented functions
+
+When you build with an `AFL_LLVM_ALLOWLIST` or `AFL_LLVM_DENYLIST` (see INSTRUMENT
+LIST above), additionally setting `AFL_LLVM_ABORTLIST=1` inserts an `abort()`
+call at the entry of every function that the allow/deny list excluded from
+instrumentation. Reaching such a function then crashes the target. This is
+useful to catch test cases that escape the intended fuzzing scope. It only
+affects functions skipped because of the allow/deny list. Functions that run
+automatically rather than through the fuzzing entry point are left untouched,
+so they cannot crash the target before, around or after the forkserver:
+compiler/sanitizer internals, `available_externally` definitions, constructors
+and destructors (C++ ctors/dtors and `__attribute__((constructor))`/
+`((destructor))` functions), ifunc resolvers (run by the dynamic loader during
+relocation), exit/teardown callbacks registered with `atexit`, `at_quick_exit`,
+`__cxa_atexit`, `__cxa_thread_atexit[_impl]` or `pthread_key_create`, the
+`LLVMFuzzerInitialize` one-time harness setup function, and anything those reach
+through direct calls. It has no effect (and warns) if no allow/deny list is in
+use.
+
 
 ## 3) Settings for GCC / GCC_PLUGIN modes
 
@@ -568,8 +569,8 @@ The following environment variables are for a compiled AFL++ target.
 
   - Setting `AFL_OLD_FORKSERVER` will use the old AFL vanilla forkserver.
     This makes only sense when you
-      a) compile in a classic colliding coverage mode (e.g.
-         AFL_LLVM_INSTRUMENT=CLASSIC) or if the map size of the target is
+      a) compile in a classic colliding coverage mode (e.g. with the gcc
+         plugin, afl-gcc-fast) or if the map size of the target is
          below MAP_SIZE (65536 by default), AND
       b) you want to use this compiled AFL++ target with a different tool
          that expects vanilla AFL behaviour, e.g. symcc, symqemu, nautilus, etc.
@@ -1020,10 +1021,6 @@ The QEMU wrapper used to instrument binary-only code supports several settings:
   - It is possible to set `AFL_INST_RATIO` to skip the instrumentation on some
     of the basic blocks, which can be useful when dealing with very complex
     binaries.
-
-  - You can switch to block coverage that has less chances of colliding (but
-    on the other hand coverage is on blocks, not edges) with
-    `AFL_QEMU_BLOCK_COV`.
 
   - Setting `AFL_QEMU_COMPCOV` enables the CompareCoverage tracing of all cmp
     and sub in x86 and x86_64. This is an alias of `AFL_COMPCOV_LEVEL=1` when

@@ -2,9 +2,9 @@
 
 <img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/main/static/aflpp_bg.svg" alt="AFL++ logo" width="250" height="250">
 
-Release version: [5.00c](https://github.com/AFLplusplus/AFLplusplus/releases)
+Release version: [5.02c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 5.01a
+GitHub version: 5.03a
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
@@ -130,7 +130,12 @@ Step-by-step quick start:
 
    You can generate cores or use gdb directly to follow up the crashes.
 
-6. For coverage analysis of your fuzzing we recommend our partner tools [cov-analysis](https://github.com/AFLplusplus/cov-analysis)
+6. For coverage analysis of your fuzzing we recommend our partner tools
+   [cov-analysis](https://github.com/AFLplusplus/cov-analysis) (source-based
+   coverage reports from a fuzzing corpus) and
+   [fuzz-reachability](https://github.com/AFLplusplus/fuzz-reachability) (static
+   analysis of which functions a harness can reach, to tell actionable coverage
+   gaps apart from dead code and to generate instrumentation allowlists)
 
 7. We cannot stress this enough - if you want to fuzz effectively, read the
    [docs/fuzzing_in_depth.md](docs/fuzzing_in_depth.md) document!
@@ -238,6 +243,7 @@ Thank you! (For people sending pull requests - please add yourself to this list
     Ziqiao Kong                           Ryan Berger
     Sangjun Park                          Scott Guest
     Fabian Keil                           @Jay-1409
+    Gergely Nagy
   ```
 
 </details>

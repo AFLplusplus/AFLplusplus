@@ -110,7 +110,8 @@ void create_alias_table(afl_state_t *afl) {
     double avg_exec_us = 0.0;
     double avg_bitmap_size = 0.0;
     double avg_len = 0.0;
-    u32    active = 0;
+    double inv_range = 0.0;
+    u32    active = 0, c11_min = UINT_MAX, c11_max = 0;
 
     for (i = 0; i < n; i++) {
 
@@ -122,6 +123,13 @@ void create_alias_table(afl_state_t *afl) {
         avg_exec_us += q->exec_us;
         avg_bitmap_size += log(q->bitmap_size);
         avg_len += q->len;
+        if (unlikely(q->c11)) {
+
+          if (unlikely(q->c11 < c11_min)) c11_min = q->c11;
+          if (unlikely(q->c11 > c11_max)) c11_max = q->c11;
+
+        }
+
         ++active;
 
       }
@@ -138,6 +146,13 @@ void create_alias_table(afl_state_t *afl) {
     avg_exec_us /= active;
     avg_bitmap_size /= active;
     avg_len /= active;
+
+    if (unlikely(c11_max)) {
+
+      if (unlikely(c11_min == c11_max)) { --c11_min; }
+      inv_range = 1.0f / (c11_max - c11_min);
+
+    }
 
     for (i = 0; i < n; i++) {
 
@@ -238,6 +253,13 @@ void create_alias_table(afl_state_t *afl) {
           } else {
 
             weight *= 1.15;
+
+          }
+
+          if (unlikely(q->c11)) {
+
+            double t = (q->c11 - c11_min) * inv_range;
+            weight *= fmaf(0.9f, t * t, 1.1f);
 
           }
 
@@ -783,6 +805,13 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   if (unlikely(!queue_buf)) { PFATAL("alloc"); }
   queue_buf[afl->queued_items - 1] = q;
   q->id = afl->queued_items - 1;
+
+  if (unlikely(afl->c11)) {
+
+    q->c11 = afl->c11;
+    afl->c11 = 0;
+
+  }
 
   if (likely(q->len > 3)) {
 
@@ -1817,8 +1846,8 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
   // we need this while loop in case there were ever previous evictions but
   // not in this call.
-  while (unlikely(afl->q_testcase_cache[tid] != NULL &&
-                  tid < afl->q_testcase_max_cache_entries)) {
+  while (unlikely(tid < afl->q_testcase_max_cache_entries &&
+                  afl->q_testcase_cache[tid] != NULL)) {
 
     ++tid;
 
@@ -1921,12 +1950,14 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
 
   }
 
-  while (unlikely(afl->q_testcase_cache[tid] != NULL)) {
+  while (unlikely(tid < afl->q_testcase_max_cache_entries &&
+                  afl->q_testcase_cache[tid] != NULL)) {
 
     ++tid;
-    if (unlikely(tid >= afl->q_testcase_max_cache_entries)) { return; }
 
   }
+
+  if (unlikely(tid >= afl->q_testcase_max_cache_entries)) { return; }
 
   /* Map the test case into memory. */
 

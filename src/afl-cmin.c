@@ -2,15 +2,6 @@
    american fuzzy lop++ - corpus minimization tool
    -----------------------------------------------
 
-   Originally written by Michal Zalewski
-
-   Forkserver design by Jann Horn <jannhorn@googlemail.com>
-
-   Now maintained by Marc Heuse <mh@mh-sec.de>,
-                        Heiko Eissfeldt <heiko.eissfeldt@hexco.de> and
-                        Andrea Fioraldi <andreafioraldi@gmail.com> and
-                        Dominik Maier <mail@dmnk.co>
-
    Copyright 2016, 2017 Google Inc. All rights reserved.
    Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
@@ -910,6 +901,7 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
   shm->map = afl_shm_init(shm, use_map_size, 0, DEFAULT_PERMISSION, 0);
   if (!shm->map) FATAL("Unable to allocate shared memory");
   fsrv->trace_bits = shm->map;
+  fsrv->child_sync_offset = shm->child_sync_offset;
 
   fsrv->map_size = use_map_size;
   fsrv->mem_limit = mem_limit;
@@ -1277,6 +1269,7 @@ static void cmin_detect_map_size(void) {
     shm.map = afl_shm_init(&shm, detection_size, 0, DEFAULT_PERMISSION, 0);
     if (!shm.map) FATAL("Unable to allocate shared memory for detection");
     fsrv.trace_bits = shm.map;
+    fsrv.child_sync_offset = shm.child_sync_offset;
     fsrv.map_size = detection_size;
 
     // We must set AFL_MAP_SIZE to avoid FS_ERROR_MAP_SIZE fatal exit in
@@ -2156,10 +2149,23 @@ static void *collect_worker(void *arg) {
 
         if (is_reg) {
 
+          u8         *fn = alloc_printf("%s/%s", dir, entry->d_name);
+          struct stat st;
+          if (stat(fn, &st)) {
+
+            ck_free(fn);
+            continue;
+
+          }
+
+          ck_free(fn);
+
+          if (!st.st_size) continue;
+
           cmin_file_t *f = ck_alloc(sizeof(cmin_file_t));
           f->dir = dir;  // Shared string
           f->name = strdup(entry->d_name);
-          f->size = 0;  // Defer size check
+          f->size = st.st_size;
 
           pthread_mutex_lock(&files_mutex);
 
@@ -2236,7 +2242,7 @@ int main(int argc, char **argv) {
                                          {"debug", no_argument, 0, 0},
                                          {0, 0, 0, 0}};
 
-  SAYF(cCYA "afl-cmin" VERSION cRST " by AFL++ team\n");
+  SAYF(cCYA "afl-cmin" VERSION cRST "\n");
 
   cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
 

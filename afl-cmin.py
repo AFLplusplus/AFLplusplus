@@ -104,7 +104,7 @@ class HelpFormatter(argparse.HelpFormatter):
         super().__init__(prog, *args, **kargs)
         self.add_text("corpus minimization tool for AFL++ (python version)")
         self.add_text("")
-        self.add_text("%s" % prog)
+        self.add_text("%s [ options ] -- /path/to/target_app [ ... ]" % prog)
 
 
 def init_args():
@@ -238,13 +238,14 @@ def get_asan_options():
 
 
 def search_binary(name):
-    searches = [
-        None,
-        os.path.dirname(__file__),
-        os.getcwd(),
-    ]
+    searches = []
     if os.environ.get("AFL_PATH"):
         searches.append(os.environ["AFL_PATH"])
+    searches += [
+        os.path.dirname(__file__),
+        os.getcwd(),
+        None,
+    ]
 
     for search in searches:
         binary = shutil.which(name, path=search)
@@ -699,6 +700,8 @@ def collect_files(args):
                         continue
                     full_path = os.path.join(root, filename)
                     if not os.path.isfile(full_path):
+                        continue
+                    if os.path.getsize(full_path) == 0:
                         continue
                     pbar.update(1)
                     files.append(full_path)

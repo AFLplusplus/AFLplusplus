@@ -23,7 +23,6 @@ perhaps leverage some of its design and implementation.
 | CMPLOG                   |     x      | (x86/x64/aarch64 only)                        |
 | Selective Instrumentation|     x      |                                               |
 | Non-Colliding Coverage   |     -      | (not possible in binary-only instrumentation) |
-| Ngram prev_loc Coverage  |     -      |                                               |
 | Context Coverage         |     -      |                                               |
 | Auto Dictionary          |     -      |                                               |
 | Snapshot LKM Support     |     -      |                                               |

@@ -157,7 +157,7 @@ This script cannot read filenames that end with a space ' '.
 Environment variables used:
 AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
 AFL_NO_FORKSRV: run target via execve instead of using the forkserver
-AFL_PATH: last resort location to find the afl-showmap binary
+AFL_PATH: preferred location to find the afl-showmap binary (checked before PATH)
 AFL_SKIP_BIN_CHECK: skip check for target binary
 AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)
 AFL_PYTHON_MODULE: custom mutator library (post_process and send)
@@ -289,7 +289,11 @@ if [ ! "$STDIN_FILE" = "" ]; then
   touch "$STDIN_FILE" || exit 1
 fi
 
-SHOWMAP=`command -v afl-showmap 2>/dev/null`
+SHOWMAP=
+
+if [ -n "$AFL_PATH" -a -x "$AFL_PATH/afl-showmap" ]; then
+  SHOWMAP="$AFL_PATH/afl-showmap"
+fi
 
 if [ -z "$SHOWMAP" ]; then
   TMP="${0%/afl-cmin.bash}/afl-showmap"
@@ -300,10 +304,10 @@ fi
 
 if [ -z "$SHOWMAP" -a -x "./afl-showmap" ]; then
   SHOWMAP="./afl-showmap"
-else
-  if [ -n "$AFL_PATH" ]; then
-    SHOWMAP="$AFL_PATH/afl-showmap"
-  fi
+fi
+
+if [ -z "$SHOWMAP" ]; then
+  SHOWMAP=`command -v afl-showmap 2>/dev/null`
 fi
 
 if [ ! -x "$SHOWMAP" ]; then
@@ -347,7 +351,13 @@ if [ -n "$THREADS" ]; then
   fi
 fi
 
-FIRST_FILE=`ls "$IN_DIR" | head -1`
+FIRST_FILE=`ls "$IN_DIR" | while read -r fn; do test -s "$IN_DIR/$fn" && { echo "$fn"; break; }; done`
+
+if [ "$FIRST_FILE" = "" ]; then
+  echo "[-] Hmm, no non-empty inputs in the target directory. Nothing to be done."
+  rm -rf "$TRACE_DIR"
+  exit 1
+fi
 
 # Make sure that we're not dealing with a directory.
 
@@ -518,7 +528,7 @@ fi
 
 echo "[*] Sorting trace sets (this may take a while)..."
 
-ls "$IN_DIR" | sed "s#^#$TRACE_DIR/#" | tr '\n' '\0' | xargs -0 -n 1 cat | \
+ls "$IN_DIR" | sed "s#^#$TRACE_DIR/#" | tr '\n' '\0' | xargs -0 -n 1 cat 2>/dev/null | \
   sort | uniq -c | sort -k 1,1 -n >"$TRACE_DIR/.all_uniq"
 
 TUPLE_COUNT=$((`grep -c . "$TRACE_DIR/.all_uniq"`))
@@ -540,6 +550,8 @@ echo "[*] Finding best candidates for each tuple..."
 CUR=0
 
 ls -rS "$IN_DIR" | while read -r fn; do
+
+  test -s "$IN_DIR/$fn" || continue
 
   CUR=$((CUR+1))
   printf "\\r    Processing file $CUR/$IN_COUNT... "

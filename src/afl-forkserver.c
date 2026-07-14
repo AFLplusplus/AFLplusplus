@@ -191,6 +191,8 @@ void afl_nyx_runner_kill(afl_forkserver_t *fsrv) {
     if (fsrv->nyx_runner) {
 
       fsrv->nyx_handlers->nyx_shutdown(fsrv->nyx_runner);
+      /* clear the runner so a subsequent afl_fsrv_start() respawns QEMU-Nyx */
+      fsrv->nyx_runner = NULL;
 
     }
 
@@ -302,90 +304,30 @@ static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
 #if defined(__linux__) || defined(__APPLE__)
 
-static void afl_child_sync_deinit(afl_forkserver_t *fsrv) {
+/* Point fsrv->child_sync at the sync word embedded in the last bytes of the
+   trace_bits shared map (offset recorded by afl_shm_init) and reset it to
+   AFL_CHILD_IDLE. The word lives inside trace_bits, so it needs no separate
+   shared segment and is freed together with trace_bits. If no embedded word is
+   available (no offset wired, or a non-shared trace_bits map such as the
+   sanitizer forkserver's), fall back to file-descriptor based sync. */
+static void afl_child_sync_setup(afl_forkserver_t *fsrv) {
 
-  #ifdef USEMMAP
-  /* Unmap only if we have a valid mapping (guard against MAP_FAILED from a
-     failed mmap, or NULL from a failed ftruncate before mmap was called). */
-  if (fsrv->child_sync && fsrv->child_sync != MAP_FAILED) {
+  if (!fsrv->use_futex) {
 
-    munmap(fsrv->child_sync, sizeof(u32));
-
-  }
-
-  fsrv->child_sync = NULL;
-
-  /* Close and unlink even when child_sync is NULL/MAP_FAILED: shm_open may
-     have succeeded while ftruncate or mmap subsequently failed. */
-  if (fsrv->child_sync_shm_id != -1) {
-
-    close(fsrv->child_sync_shm_id);
-    fsrv->child_sync_shm_id = -1;
-    shm_unlink(fsrv->child_sync_shm_file_path);
-    fsrv->child_sync_shm_file_path[0] = 0;
-
-  }
-
-  #else
-
-  if (fsrv->child_sync) {
-
-    shmdt(fsrv->child_sync);
-    shmctl(fsrv->child_sync_shm_id, IPC_RMID, NULL);
-    fsrv->child_sync_shm_id = -1;
     fsrv->child_sync = NULL;
+    return;
 
   }
 
-  #endif                                                        /* ^USEMMAP */
+  if (fsrv->child_sync_offset && fsrv->trace_bits) {
 
-}
-
-static void afl_child_sync_init(afl_forkserver_t *fsrv) {
-
-  if (fsrv->use_futex && !fsrv->child_sync) {
-
-  #ifdef USEMMAP
-    fsrv->child_sync_shm_id = -1;
-
-    if (fsrv->dev_urandom_fd < 0)
-      fsrv->dev_urandom_fd = open("/dev/urandom", O_RDONLY);
-
-    uint32_t rid = 0;
-    ck_read(fsrv->dev_urandom_fd, &rid, sizeof(rid), "/dev/urandom");
-    snprintf(fsrv->child_sync_shm_file_path,
-             sizeof(fsrv->child_sync_shm_file_path), "/afl_%d_%" PRIx32,
-             getpid(), rid);
-
-    fsrv->child_sync_shm_id = shm_open(fsrv->child_sync_shm_file_path,
-                                       O_RDWR | O_EXCL | O_CREAT, 0600);
-    if (fsrv->child_sync_shm_id == -1) { FATAL("shm_open failed for futex"); }
-
-    if (ftruncate(fsrv->child_sync_shm_id, sizeof(u32))) {
-
-      afl_child_sync_deinit(fsrv);
-      FATAL("ftruncate failed for futex");
-
-    }
-
-    fsrv->child_sync = mmap(0, sizeof(u32), PROT_READ | PROT_WRITE, MAP_SHARED,
-                            fsrv->child_sync_shm_id, 0);
-    if (fsrv->child_sync == MAP_FAILED) {
-
-      afl_child_sync_deinit(fsrv);
-      FATAL("mmap failed for child_sync");
-
-    }
-
-  #else
-    int shm_id = shmget(IPC_PRIVATE, sizeof(u32), IPC_CREAT | IPC_EXCL | 0600);
-    if (shm_id < 0) FATAL("shmget failed for futex");
-    fsrv->child_sync = shmat(shm_id, NULL, 0);
-    if (fsrv->child_sync == (void *)-1) FATAL("shmat failed for child_sync");
-    fsrv->child_sync_shm_id = shm_id;
-  #endif
-
+    fsrv->child_sync = (u32 *)(fsrv->trace_bits + fsrv->child_sync_offset);
     __atomic_store_n(fsrv->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+
+  } else {
+
+    fsrv->child_sync = NULL;
+    fsrv->use_futex = false;
 
   }
 
@@ -576,16 +518,29 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   fsrv->perm = DEFAULT_PERMISSION;
 
+  fsrv->qemu_bridge = 0;
+  {
+
+    char *be = getenv("AFL_QEMU_BACKEND");
+    if (be && !strcmp(be, "legacy")) {
+
+      fsrv->qemu_bridge = 0;
+
+    } else {
+
+      fsrv->qemu_bridge = 1;
+
+    }
+
+  }
+
 #if defined(__linux__) || defined(__APPLE__)
   fsrv->use_futex = false;
   fsrv->child_sync = NULL;
-  fsrv->child_sync_shm_id = -1;
-  if (!getenv("AFL_OLD_CHILD_SYNC")) {
-
-    fsrv->use_futex = true;
-    afl_child_sync_init(fsrv);
-
-  }
+  fsrv->child_sync_offset = 0;
+  /* The sync word is embedded in trace_bits; it is wired up in afl_fsrv_start
+     once the offset is known (set by afl_shm_init via child_sync_offset). */
+  if (!getenv("AFL_OLD_CHILD_SYNC")) { fsrv->use_futex = true; }
 
 #endif
 
@@ -606,6 +561,8 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->map_size = from->map_size;
   fsrv_to->real_map_size = from->real_map_size;
   fsrv_to->support_shmem_fuzz = from->support_shmem_fuzz;
+  fsrv_to->shmem_fuzz = from->shmem_fuzz;
+  fsrv_to->shmem_fuzz_len = from->shmem_fuzz_len;
   fsrv_to->out_file = from->out_file;
   fsrv_to->dev_urandom_fd = from->dev_urandom_fd;
   fsrv_to->out_fd = from->out_fd;  // not sure this is a good idea
@@ -616,6 +573,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->child_kill_signal = from->child_kill_signal;
   fsrv_to->fsrv_kill_signal = from->fsrv_kill_signal;
   fsrv_to->debug = from->debug;
+  fsrv_to->qemu_bridge = from->qemu_bridge;
   fsrv_to->cmplog_size_derive_requested = from->cmplog_size_derive_requested;
   fsrv_to->supports_allocsize_derive = false;
 
@@ -633,17 +591,12 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   fsrv_to->custom_data_ptr = from->custom_data_ptr;
 
 #if defined(__linux__) || defined(__APPLE__)
-  fsrv_to->use_futex = false;
+  fsrv_to->use_futex = from->use_futex;
   fsrv_to->child_sync = NULL;
-  fsrv_to->child_sync_shm_id = -1;
-
-  if (from->use_futex) {
-
-    fsrv_to->use_futex = true;
-    afl_child_sync_init(fsrv_to);
-
-  }
-
+  /* The offset is wired by the caller after it assigns fsrv_to->trace_bits
+     (it differs per shared map); child_sync itself is derived in
+     afl_fsrv_start. */
+  fsrv_to->child_sync_offset = 0;
 #endif
 
   fsrv_to->init_child_func = from->init_child_func;
@@ -1307,12 +1260,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (pipe(st_pipe) || pipe(ctl_pipe)) { PFATAL("pipe() failed"); }
 
-#ifdef __linux__
-  /* Re-create child_sync SHM if it was destroyed by afl_fsrv_kill
-   (e.g. during map resize or fast resume restart).
-   This must happen BEFORE fork() so the parent retains a valid
-   child_sync pointer for the wait loop in afl_fsrv_run_target. */
-  afl_child_sync_init(fsrv);
+#if defined(__linux__) || defined(__APPLE__)
+  /* Point child_sync at the word embedded in trace_bits (re-derived here
+     because trace_bits may have been reallocated by a map resize or fast
+     resume restart). This must happen BEFORE fork() so the parent has a
+     valid child_sync pointer for the wait loop in afl_fsrv_run_target. */
+  afl_child_sync_setup(fsrv);
 
 #endif
 
@@ -1450,15 +1403,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     if (!getenv("LD_BIND_LAZY")) { setenv("LD_BIND_NOW", "1", 1); }
 
 #if defined(__linux__) || defined(__APPLE__)
-    if (fsrv->use_futex && fsrv->persistent_mode) {
+    /* Tell the target the byte offset of the sync word inside the trace_bits
+       shared map. It reaches the map via SHM_ENV_VAR and finds the word at
+       (map base + offset); no separate shared segment is needed. */
+    if (fsrv->use_futex && fsrv->child_sync && fsrv->persistent_mode) {
 
-  #ifdef USEMMAP
-      setenv("AFL_CHILD_SYNC_SHM", fsrv->child_sync_shm_file_path, 1);
-  #else
-      char val[32];
-      snprintf(val, sizeof(val), "%d", fsrv->child_sync_shm_id);
+      char val[16];
+      snprintf(val, sizeof(val), "%u", fsrv->child_sync_offset);
       setenv("AFL_CHILD_SYNC_SHM", val, 1);
-  #endif
 
     }
 
@@ -1678,7 +1630,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         }
 
         fsrv->use_futex = false;
-        afl_child_sync_deinit(fsrv);
+        fsrv->child_sync = NULL;
 
       }
 
@@ -1688,6 +1640,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         fsrv->use_ijon = 1;
         if (!be_quiet) { ACTF("Using IJON feature."); }
+
+      }
+
+      if (status & FS_OPT_C11) {
+
+        fsrv->c11 = 1;
+        if (!be_quiet) { ACTF("Using C11 feature."); }
 
       }
 
@@ -1799,7 +1758,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         }
 
         fsrv->use_futex = false;
-        afl_child_sync_deinit(fsrv);
+        fsrv->child_sync = NULL;
 
       }
 
@@ -1863,10 +1822,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         }
 
-        if ((status & FS_OPT_SNAPSHOT) == FS_OPT_SNAPSHOT) {
+        if ((status & FS_OPT_C11) == FS_OPT_C11) {
 
-          fsrv->snapshot = 1;
-          if (!be_quiet) { ACTF("Using SNAPSHOT feature."); }
+          fsrv->c11 = 1;
+          if (!be_quiet) { ACTF("Using C11 feature."); }
 
         }
 
@@ -2072,22 +2031,27 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (waitpid(fsrv->fsrv_pid, &status, 0) <= 0) { PFATAL("waitpid() failed"); }
 
+  char *which = fsrv->asanfuzz_binary ? "SAND"
+                : fsrv->cmplog_binary ? "CMPLOG"
+                                      : "fuzzing";
+
   if (WIFSIGNALED(status)) {
 
     if (fsrv->mem_limit && fsrv->mem_limit < 500 && fsrv->uses_asan) {
 
       SAYF("\n" cLRD "[-] " cRST
-           "Whoops, the target binary crashed suddenly, "
+           "Whoops, the %s target binary crashed suddenly, "
            "before receiving any input\n"
            "    from the fuzzer! Since it seems to be built with ASAN and you "
            "have a\n"
            "    restrictive memory limit configured, this is expected; please "
-           "run with '-m 0'.\n");
+           "run with '-m 0'.\n",
+           which);
 
     } else if (!fsrv->mem_limit) {
 
       SAYF("\n" cLRD "[-] " cRST
-           "Whoops, the target binary crashed suddenly, "
+           "Whoops, the %s target binary crashed suddenly, "
            "before receiving any input\n"
            "    from the fuzzer! You can try the following:\n\n"
 
@@ -2110,14 +2074,15 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "    - Less likely, there is a horrible bug in the fuzzer. If other "
            "options\n"
            "      fail, poke the Fuzzing Zulip server for troubleshooting "
-           "tips.\n");
+           "tips.\n",
+           which);
 
     } else {
 
       u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
       SAYF("\n" cLRD "[-] " cRST
-           "Whoops, the target binary crashed suddenly, "
+           "Whoops, the %s target binary crashed suddenly, "
            "before receiving any input\n"
            "    from the fuzzer! You can try the following:\n\n"
 
@@ -2156,6 +2121,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
            "options\n"
            "      fail, poke the Fuzzing Zulip server for troubleshooting "
            "tips.\n",
+           which,
            stringify_mem_size(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
            fsrv->mem_limit - 1);
 
@@ -2174,18 +2140,20 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   if (fsrv->mem_limit && fsrv->mem_limit < 500 && fsrv->uses_asan) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated "
+         "Hmm, looks like the %s target binary terminated "
          "before we could complete a\n"
          "    handshake with the injected code. Since it seems to be built "
          "with ASAN and\n"
          "    you have a restrictive memory limit configured, this is "
          "expected; please\n"
-         "    run with '-m 0'.\n");
+         "    run with '-m 0'.\n",
+         which);
 
   } else if (!fsrv->mem_limit) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated before we could complete"
+         "Hmm, looks like the %s target binary terminated before we could "
+         "complete"
          " a\n"
          "handshake with the injected code. You can try the following:\n\n"
 
@@ -2204,7 +2172,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
          "      Retry with setting AFL_MAP_SIZE=10000000.\n\n"
 
          "Otherwise there is a horrible bug in the fuzzer.\n"
-         "Poke the Fuzzing Zulip server for troubleshooting tips.\n");
+         "Poke the Fuzzing Zulip server for troubleshooting tips.\n",
+         which);
 
   } else {
 
@@ -2212,7 +2181,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     SAYF(
         "\n" cLRD "[-] " cRST
-        "Hmm, looks like the target binary terminated "
+        "Hmm, looks like the %s target binary terminated "
         "before we could complete a\n"
         "    handshake with the injected code. You can try the following:\n\n"
 
@@ -2260,7 +2229,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
               "never\n"
               "      reached before the program terminates.\n\n"
             : "",
-        stringify_int(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
+        which, stringify_int(val_buf, sizeof(val_buf), fsrv->mem_limit << 20),
         fsrv->mem_limit - 1);
 
   }
@@ -2322,7 +2291,10 @@ void afl_fsrv_kill(afl_forkserver_t *fsrv) {
 #endif
 
 #ifdef __linux__
-  afl_child_sync_deinit(fsrv);
+  /* child_sync lives inside trace_bits (freed by afl_shm_deinit), so there is
+     nothing to release here; just drop the pointer. It is re-derived by the
+     next afl_fsrv_start. */
+  fsrv->child_sync = NULL;
 
   afl_nyx_runner_kill(fsrv);
 
@@ -2358,7 +2330,8 @@ void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
                              char **use_argv, u32 map_size,
                              volatile u8 *stop_soon, bool unicorn_mode) {
 
-  if (!fsrv->cs_mode && !fsrv->qemu_mode && !unicorn_mode) {
+  if (!fsrv->cs_mode && (!fsrv->qemu_mode || fsrv->qemu_bridge) &&
+      !unicorn_mode) {
 
     if (map_size <= DEFAULT_SHMEM_SIZE) {
 
@@ -2401,6 +2374,7 @@ void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
           fsrv->map_size = new_map_size;
           fsrv->trace_bits =
               afl_shm_init(shm, new_map_size, 0, DEFAULT_PERMISSION, -1);
+          fsrv->child_sync_offset = shm->child_sync_offset;
           afl_fsrv_start(fsrv, use_argv, stop_soon,
                          (get_afl_env("AFL_DEBUG_CHILD") ||
                           get_afl_env("AFL_DEBUG_CHILD_OUTPUT"))

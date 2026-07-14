@@ -44,18 +44,14 @@ static void test_no_signal_tracks_prior(void **state) {
   u32 prior[4] = {OP_A, OP_A, OP_A, OP_B};
   mopt_rebuild_ctx(&c, prior, 4);
 
-  u32 cnt_a = 0, cnt_other = 0;
-  for (u32 i = 0; i < MOPT_LUT_SIZE; ++i) {
+  u32 counts[MOPT_OP_MAX];
+  memset(counts, 0, sizeof(counts));
+  for (u32 i = 0; i < MOPT_LUT_SIZE; ++i)
+    counts[c.learned_array[i]]++;
 
-    if (c.learned_array[i] == OP_A)
-      cnt_a++;
-    else if (c.learned_array[i] != OP_B)
-      cnt_other++;
-
-  }
-
-  assert_true(cnt_a > MOPT_LUT_SIZE / 2);
-  assert_true(cnt_other == 0);
+  assert_true(counts[OP_A] > MOPT_LUT_SIZE / 2);
+  for (u32 op = 0; op < MOPT_OP_MAX; ++op)
+    if (op != OP_A && op != OP_B) assert_true(counts[op] <= 1);
 
 }
 

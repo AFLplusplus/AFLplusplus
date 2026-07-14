@@ -84,9 +84,6 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR <= 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-#endif
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel  OL
 #if LLVM_VERSION_MAJOR >= 20
@@ -182,6 +179,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       SwitchInst *switchInst = nullptr;
       if ((switchInst = dyn_cast<SwitchInst>(BB.getTerminator()))) {
 
+        if (switchInst->getMetadata("afl.skip")) continue;
         if (switchInst->getNumCases() > 1) { switches.push_back(switchInst); }
 
       }

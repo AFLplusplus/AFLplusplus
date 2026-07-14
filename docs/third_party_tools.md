@@ -15,6 +15,18 @@
   function you want to fuzz requires loading a file, this allows using the
   shared memory test case feature :-) - recommended.
 
+## Coverage and reachability analysis
+
+* [cov-analysis](https://github.com/AFLplusplus/cov-analysis) - generates LLVM
+  source-based code coverage reports (HTML/text/JSON) from an AFL++, libFuzzer,
+  libafl or honggfuzz corpus, with diffing, stability analysis and per-line input
+  search. Replaces `afl-cov`.
+* [fuzz-reachability](https://github.com/AFLplusplus/fuzz-reachability) - static
+  analysis (C/C++/Rust) of which functions a fuzz harness can reach. Tells
+  actionable coverage gaps apart from dead code (feed its report to
+  `cov-analysis --reachability`) and emits `AFL_LLVM_ALLOWLIST`/`DENYLIST` files
+  to instrument only the reachable parts of a target.
+
 ## Minimization of test cases
 
 * [afl-pytmin](https://github.com/ilsani/afl-pytmin) - a wrapper for afl-tmin

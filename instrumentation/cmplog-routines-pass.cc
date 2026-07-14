@@ -82,9 +82,6 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR <= 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-#endif
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel  OL
 #if LLVM_VERSION_MAJOR >= 20
@@ -170,6 +167,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
         if ((callInst = dyn_cast<CallInst>(&IN))) {
 
+          if (callInst->getMetadata("afl.skip")) continue;
           Function *Callee = callInst->getCalledFunction();
           if (!Callee) continue;
           if (Callee->isIntrinsic()) continue;

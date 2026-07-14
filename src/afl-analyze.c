@@ -603,6 +603,8 @@ static void analyze() {
   OKF("Analysis complete. Interesting bits: %0.02f%% of the input file.",
       100.0 - ((double)boring_len * 100) / in_len);
 
+  OKF("Performed %u total execs.", total_execs);
+
   if (exec_hangs) {
 
     WARNF(cLRD "Encountered %u timeouts - results may be skewed." cRST,
@@ -989,6 +991,7 @@ int main(int argc, char **argv_orig, char **envp) {
 #endif
 
   fsrv.trace_bits = afl_shm_init(&shm, map_size, 0, DEFAULT_PERMISSION, -1);
+  fsrv.child_sync_offset = shm.child_sync_offset;
   detect_file_args(argv + optind, fsrv.out_file, &use_stdin);
   signal(SIGALRM, kill_child);
 

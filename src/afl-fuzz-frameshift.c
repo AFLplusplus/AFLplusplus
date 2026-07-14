@@ -157,8 +157,10 @@ void fs_add_relation(fs_meta_t *meta, fs_relation_t *rel) {
   if (meta->rel_count == meta->rel_capacity) {
 
     meta->rel_capacity *= 2;
-    meta->relations =
+    fs_relation_t *tmp =
         realloc(meta->relations, sizeof(fs_relation_t) * meta->rel_capacity);
+    if (!tmp) { PFATAL("alloc for frameshift relations failed."); }
+    meta->relations = tmp;
 
   }
 
@@ -256,12 +258,18 @@ void fs_track_delete(fs_meta_t *meta, u64 idx, u64 data_size) {
 
 }
 
-void fs_sanitize(fs_meta_t *meta, u8 *buf) {
+void fs_sanitize(fs_meta_t *meta, u8 *buf, u32 len) {
 
   // Apply the relations in reverse order.
   for (u32 i = meta->rel_count - 1; i != (u32)-1; i--) {
 
     if (!meta->relations[i].enabled) { continue; }
+
+    if (unlikely(meta->relations[i].pos + meta->relations[i].size > len)) {
+
+      continue;
+
+    }
 
     rel_apply(buf, &meta->relations[i]);
 
@@ -278,10 +286,17 @@ void fs_clone_meta(afl_state_t *afl) {
 
     // Initial allocation.
     fs_curr_meta = malloc(sizeof(fs_meta_t));
+    if (!fs_curr_meta) { PFATAL("alloc for frameshift metadata failed."); }
     fs_curr_meta->rel_count = 0;
     fs_curr_meta->rel_capacity = FRAMESHIFT_INITIAL_CAPACITY;
     fs_curr_meta->relations =
         malloc(sizeof(fs_relation_t) * fs_curr_meta->rel_capacity);
+    if (!fs_curr_meta->relations) {
+
+      PFATAL("alloc for frameshift relations failed.");
+
+    }
+
     afl->fs_curr_meta = fs_curr_meta;
 
   }
@@ -290,8 +305,10 @@ void fs_clone_meta(afl_state_t *afl) {
   if (fs_curr_meta->rel_capacity < meta->rel_count) {
 
     // Increase capacity if needed.
-    fs_curr_meta->relations = realloc(fs_curr_meta->relations,
-                                      sizeof(fs_relation_t) * meta->rel_count);
+    fs_relation_t *tmp = realloc(fs_curr_meta->relations,
+                                 sizeof(fs_relation_t) * meta->rel_count);
+    if (!tmp) { PFATAL("alloc for frameshift relations failed."); }
+    fs_curr_meta->relations = tmp;
     fs_curr_meta->rel_capacity = meta->rel_count;
 
   }
@@ -308,11 +325,19 @@ void fs_clone_meta(afl_state_t *afl) {
 fs_meta_t *fs_new_meta(u32 size) {
 
   fs_meta_t *meta = malloc(sizeof(fs_meta_t));
+  if (!meta) { PFATAL("alloc for frameshift metadata failed."); }
   meta->rel_count = 0;
   meta->rel_capacity = FRAMESHIFT_INITIAL_CAPACITY;
   meta->relations = malloc(sizeof(fs_relation_t) * meta->rel_capacity);
+  if (!meta->relations) { PFATAL("alloc for frameshift relations failed."); }
 
   meta->blocked_points_map = malloc(size);
+  if (!meta->blocked_points_map) {
+
+    PFATAL("alloc for frameshift blocked points map failed.");
+
+  }
+
   memset(meta->blocked_points_map, 0, size);
 
   return meta;
@@ -430,7 +455,7 @@ void check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size,
 
   fs_save(meta);
   u8 res = fs_track_insert(meta, insertion, shift_amount, 0);
-  fs_sanitize(meta, scratch);
+  fs_sanitize(meta, scratch, len + shift_amount);
   fs_restore(meta);
   if (res) {
 
@@ -479,6 +504,11 @@ void frameshift_stage(afl_state_t *afl) {
 
     // Allocate the frameshift index buffer.
     afl->frameshift_index_buffer = malloc(afl->fsrv.map_size * sizeof(u32));
+    if (!afl->frameshift_index_buffer) {
+
+      PFATAL("alloc for frameshift index buffer failed.");
+
+    }
 
   }
 
@@ -489,6 +519,7 @@ void frameshift_stage(afl_state_t *afl) {
   u32 len = afl->queue_cur->len;
 
   u8 *scratch = malloc(len + 0x100);  // We will at most shift by 0xff
+  if (!scratch) { PFATAL("alloc for frameshift scratch buffer failed."); }
 
   // Print out
 #if FRAMESHIFT_DEBUG
@@ -740,8 +771,10 @@ void frameshift_stage(afl_state_t *afl) {
           if (inflection_points_count + 3 >= inflection_points_capacity) {
 
             inflection_points_capacity *= 2;
-            inflection_points = realloc(
-                inflection_points, inflection_points_capacity * sizeof(u32));
+            u32 *tmp = realloc(inflection_points,
+                               inflection_points_capacity * sizeof(u32));
+            if (!tmp) { PFATAL("alloc for inflection_points failed."); }
+            inflection_points = tmp;
 
           }
 

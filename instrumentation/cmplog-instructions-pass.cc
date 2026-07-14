@@ -89,9 +89,6 @@ llvmGetPassPluginInfo() {
           /* lambda to insert our pass into the pass pipeline. */
           [](PassBuilder &PB) {
 
-#if LLVM_VERSION_MAJOR <= 13
-            using OptimizationLevel = typename PassBuilder::OptimizationLevel;
-#endif
             PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
                                                   OptimizationLevel  OL
 #if LLVM_VERSION_MAJOR >= 20
@@ -227,6 +224,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
         CmpInst *selectcmpInst = nullptr;
         if ((selectcmpInst = dyn_cast<CmpInst>(&IN))) {
 
+          if (selectcmpInst->getMetadata("afl.skip")) continue;
           // skip loop comparisons using LoopInfo for robust detection
           if (selectcmpInst->hasOneUse())
             if (auto BR = dyn_cast<BranchInst>(selectcmpInst->user_back()))

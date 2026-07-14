@@ -268,6 +268,7 @@ struct queue_entry {
   u8 *fname;                            /* File name for the test case      */
   u32 len;                              /* Input length                     */
   u32 id;                               /* entry number in queue_buf        */
+  u32 c11;                              /* C11 value                        */
 
   u8 colorized,                         /* Do not run redqueen stage again  */
       cal_failed;                       /* Calibration failed?              */
@@ -739,7 +740,8 @@ typedef struct afl_state {
       var_byte_count,                   /* Bitmap bytes with var behavior   */
       current_entry,                    /* Current queue entry ID           */
       havoc_div,                        /* Cycle count divisor for havoc    */
-      max_det_extras;                   /* deterministic extra count (dicts)*/
+      max_det_extras,                   /* deterministic extra count (dicts)*/
+      c11;                              /* C11 value                        */
 
   u64 total_crashes,                    /* Total number of crashes          */
       saved_crashes,                    /* Crashes with unique signatures   */
@@ -767,7 +769,8 @@ typedef struct afl_state {
       calibration_time_us,              /* Time spend on calibration        */
       sync_time_us,                     /* Time spend on sync               */
       cmplog_time_us,                   /* Time spend on cmplog             */
-      trim_time_us;                     /* Time spend on trimming           */
+      trim_time_us,                     /* Time spend on trimming           */
+      peak_rss_mb;                      /* Peak RSS of the target in MB     */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
@@ -1513,7 +1516,7 @@ void plot_profile_data(afl_state_t *, struct queue_entry *);
 
 /* Frameshift functions */
 void frameshift_stage(afl_state_t *);
-void fs_sanitize(fs_meta_t *, u8 *buf);
+void fs_sanitize(fs_meta_t *, u8 *buf, u32 len);
 void fs_save(fs_meta_t *meta);
 void fs_restore(fs_meta_t *meta);
 int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size, u8 ignore_invalid);

@@ -60,6 +60,7 @@ afl-lto.8
 afl-persistent-config.8
 afl-plot.8
 afl-qemu-trace
+afl-qemu-bridge
 afl-showmap
 afl-showmap.8
 afl-system-config.8
@@ -146,4 +147,3 @@ test/test-ijon-legacy
 test/test-ijon-pcguard
 test/test-instr.plain.mycheck
 test/test-multiple-mutators
-

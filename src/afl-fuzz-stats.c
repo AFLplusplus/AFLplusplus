@@ -321,6 +321,38 @@ void load_stats_file(afl_state_t *afl) {
 
 }
 
+#if defined(__linux__)
+static u64 get_peak_rss_kb(s32 pid) {
+
+  if (pid <= 0) { return 0; }
+
+  u8 path[64];
+  snprintf((char *)path, sizeof(path), "/proc/%d/status", pid);
+
+  FILE *fp = fopen((char *)path, "r");
+  if (!fp) { return 0; }
+
+  u64  kb = 0;
+  char line[256];
+  while (fgets(line, sizeof(line), fp)) {
+
+    if (!strncmp(line, "VmHWM:", 6)) {
+
+      unsigned long long tmp = 0;
+      if (sscanf(line + 6, "%llu", &tmp) == 1) { kb = (u64)tmp; }
+      break;
+
+    }
+
+  }
+
+  fclose(fp);
+  return kb;
+
+}
+
+#endif
+
 /* Update stats file for unattended monitoring. */
 
 void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
@@ -374,6 +406,18 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
 #ifndef __HAIKU__
   if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
+  #ifdef __APPLE__
+  u64 cur_rss_mb = (u64)rus.ru_maxrss >> 20;
+  #else
+  u64 cur_rss_mb = (u64)rus.ru_maxrss >> 10;
+  #endif
+  #if defined(__linux__)
+  u64 hwm_kb = get_peak_rss_kb(afl->fsrv.fsrv_pid);
+  u64 child_kb = get_peak_rss_kb(afl->fsrv.child_pid);
+  if (child_kb > hwm_kb) { hwm_kb = child_kb; }
+  if ((hwm_kb >> 10) > cur_rss_mb) { cur_rss_mb = hwm_kb >> 10; }
+  #endif
+  if (cur_rss_mb > afl->peak_rss_mb) { afl->peak_rss_mb = cur_rss_mb; }
 #endif
   u64 runtime_ms = afl->prev_run_time + cur_time - afl->start_time;
   u64 overhead_ms = (afl->calibration_time_us + afl->sync_time_us +
@@ -458,11 +502,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           afl->fsrv.total_execs - afl->last_crash_execs, afl->fsrv.exec_tmout,
           afl->slowest_exec_ms,
 #ifndef __HAIKU__
-  #ifdef __APPLE__
-          (unsigned long int)(rus.ru_maxrss >> 20),
-  #else
-          (unsigned long int)(rus.ru_maxrss >> 10),
-  #endif
+          (unsigned long int)afl->peak_rss_mb,
 #else
           -1UL,
 #endif
@@ -1478,8 +1518,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   if (afl->cpu_core_count) {
 
-    char *spacing = SP10, snap[24] = " " cLGN "snapshot" cRST " ";
-
+    char  *spacing = SP10;
     double cur_runnable = get_runnable_processes();
     u32    cur_utilization = cur_runnable * 100 / afl->cpu_core_count;
 
@@ -1496,8 +1535,6 @@ void show_stats_normal(afl_state_t *afl) {
     /* If we're clearly oversubscribed, use red. */
 
     if (!afl->no_cpu_meter_red && cur_utilization >= 150) { cpu_color = cLRD; }
-
-    if (afl->fsrv.snapshot) { spacing = snap; }
 
 #ifdef HAVE_AFFINITY
 
@@ -2321,8 +2358,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   if (afl->cpu_core_count) {
 
-    char *spacing = SP10, snap[80] = " " cLGN "Pizzaioli's busyness " cRST " ";
-
+    char  *spacing = SP10;
     double cur_runnable = get_runnable_processes();
     u32    cur_utilization = cur_runnable * 100 / afl->cpu_core_count;
 
@@ -2339,8 +2375,6 @@ void show_stats_pizza(afl_state_t *afl) {
     /* If we're clearly oversubscribed, use red. */
 
     if (!afl->no_cpu_meter_red && cur_utilization >= 150) { cpu_color = cLRD; }
-
-    if (afl->fsrv.snapshot) { spacing = snap; }
 
 #ifdef HAVE_AFFINITY
 

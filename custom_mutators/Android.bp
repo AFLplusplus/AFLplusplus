@@ -70,30 +70,6 @@ cc_library_shared {
 }*/
 
 cc_library_shared {
-  name: "radamsa-mutator",
-  vendor_available: true,
-  host_supported: true,
-
-  cflags: [
-    "-g",
-    "-O0",
-    "-funroll-loops",
-    "-fPIC",
-    "-Wno-unused-parameter",
-    "-Wno-unused-function",
-  ],
-
-  srcs: [
-    "radamsa/libradamsa.c",
-    "radamsa/radamsa-mutator.c",
-  ],
-
-  header_libs: [
-    "libafl_headers",
-  ],
-}
-
-cc_library_shared {
   name: "symcc-mutator",
   vendor_available: true,
   host_supported: true,

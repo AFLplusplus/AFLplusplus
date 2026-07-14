@@ -728,6 +728,31 @@ To have only the summary, use the `-s` switch, e.g., `afl-whatsup -s out/`.
 If you have multiple servers, then use the command after a sync or you have to
 execute this script per server.
 
+For a deeper analysis than the `afl-whatsup` summary, use `afl-health`. Instead
+of just listing the numbers it diagnoses the campaign and emits a verdict
+(`healthy`, `degraded`, `stalled`, `misconfigured`, or `dead`), a within-run and
+cross-run trend, and a ranked list of concrete, actionable recommendations (e.g.
+triage crashes, inject seeds, add a CMPLOG instance, investigate low stability).
+It is read-only - it never modifies the campaign it inspects - and understands
+AFL++, cargo-afl, and ziggy output directories. Like `afl-whatsup` you point it
+at the `-o` directory:
+
+```bash
+afl-health out/
+```
+
+Unlike `afl-whatsup` it can reach campaigns on other machines directly over ssh,
+so a whole fleet can be checked in one invocation without syncing first:
+
+```bash
+afl-health out/ user@host1:/target/foo/out user@host2:/target/foo/out
+```
+
+It also offers `--json` (machine-readable report including the action
+directives), `--summary` (one line per campaign / fleet roll-up), `--watch N`
+(live refresh every N seconds), `--on-change CMD` (run a hook when a campaign
+flips state or gains new crashes) and process exit codes suitable for cron/CI.
+
 Another tool to inspect the current state and history of a specific instance is
 afl-plot, which generates an index.html file and graphs that show how the
 fuzzing instance is performing. The syntax is `afl-plot instance_dir web_dir`,
@@ -771,7 +796,17 @@ and which have not been found so far.
 
 An "easy" helper script for this is
 [https://github.com/AFLplusplus/cov-analysis](https://github.com/AFLplusplus/cov-analysis),
-just follow the README.md of our separate project.
+just follow the README.md of our separate project. It replays the corpus through
+an LLVM source-based coverage build and produces annotated HTML/text reports.
+
+A coverage gap is only worth chasing if the harness can actually reach it. Our
+companion tool
+[https://github.com/AFLplusplus/fuzz-reachability](https://github.com/AFLplusplus/fuzz-reachability)
+statically computes the set of functions a fuzz entry point can reach (C, C++
+and Rust). Feed its report to `cov-analysis` with `--reachability` to have the
+coverage report tell apart code that is *reachable but not reached yet* (the
+actionable gap) from code that is *unreachable* by the harness (expected to stay
+uncovered, so safe to ignore).
 
 If you see that an important area or a feature has not been covered so far, then
 try to find an input that is able to reach that and start a new secondary in

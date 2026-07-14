@@ -23,6 +23,7 @@
 #include <fnmatch.h>
 
 #include <list>
+#include <set>
 #include <string>
 #include <fstream>
 #include <cmath>
@@ -32,6 +33,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Demangle/Demangle.h"
 
 #define IS_EXTERN extern
 #include "afl-llvm-common.h"
@@ -42,6 +44,35 @@ static std::list<std::string> allowListFiles;
 static std::list<std::string> allowListFunctions;
 static std::list<std::string> denyListFiles;
 static std::list<std::string> denyListFunctions;
+static std::set<std::string>  allowListFunctionsNoHash;
+static std::set<std::string>  denyListFunctionsNoHash;
+
+static std::string stripRustHash(const std::string &name) {
+
+  const size_t tail = 20;
+  if (name.size() > tail && name.back() == 'E' &&
+      name.compare(name.size() - tail, 3, "17h") == 0) {
+
+    bool hex = true;
+    for (size_t i = name.size() - 17; i + 1 < name.size(); ++i) {
+
+      char ch = name[i];
+      if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) {
+
+        hex = false;
+        break;
+
+      }
+
+    }
+
+    if (hex) return name.substr(0, name.size() - tail);
+
+  }
+
+  return name;
+
+}
 
 unsigned int calcCyclomaticComplexity(llvm::Function *F) {
 
@@ -197,6 +228,7 @@ void initInstrumentList() {
     fileStream.open(allowlist);
     if (!fileStream) report_fatal_error("Unable to open AFL_LLVM_ALLOWLIST");
     getline(fileStream, line);
+    bool first_entry = true;
 
     while (fileStream) {
 
@@ -210,6 +242,18 @@ void initInstrumentList() {
       // remove # and following
       if ((npos = line.find("#")) != std::string::npos)
         line = line.substr(0, npos);
+
+      if (first_entry && line.length() > 0) {
+
+        first_entry = false;
+        if (line == "src:*" || line == "source:*") {
+
+          getline(fileStream, line);
+          continue;
+
+        }
+
+      }
 
       if (line.compare(0, 4, "fun:") == 0) {
 
@@ -233,7 +277,7 @@ void initInstrumentList() {
 
       }
 
-      if (line.find(":") != std::string::npos) {
+      if (is_file != 0 && line.find(":") != std::string::npos) {
 
         FATAL("invalid line in AFL_LLVM_ALLOWLIST: %s", original_line.c_str());
 
@@ -250,8 +294,13 @@ void initInstrumentList() {
 
         if (is_file == 1)
           allowListFiles.push_back(line);
-        else
+        else {
+
           allowListFunctions.push_back(line);
+          std::string nh = stripRustHash(line);
+          if (nh != line) allowListFunctionsNoHash.insert(nh);
+
+        }
 
       }
 
@@ -308,7 +357,7 @@ void initInstrumentList() {
 
       }
 
-      if (line.find(":") != std::string::npos) {
+      if (is_file != 0 && line.find(":") != std::string::npos) {
 
         FATAL("invalid line in AFL_LLVM_DENYLIST: %s", original_line.c_str());
 
@@ -325,8 +374,13 @@ void initInstrumentList() {
 
         if (is_file == 1)
           denyListFiles.push_back(line);
-        else
+        else {
+
           denyListFunctions.push_back(line);
+          std::string nh = stripRustHash(line);
+          if (nh != line) denyListFunctionsNoHash.insert(nh);
+
+        }
 
       }
 
@@ -450,6 +504,15 @@ static std::string getSourceName(llvm::Function *F) {
 
 }
 
+/* Returns true if an AFL_LLVM_ALLOWLIST or AFL_LLVM_DENYLIST is in effect,
+   i.e. at least one allow/deny file or function entry was loaded. */
+bool isInstrumentListActive(void) {
+
+  return !allowListFiles.empty() || !allowListFunctions.empty() ||
+         !denyListFiles.empty() || !denyListFunctions.empty();
+
+}
+
 bool isInInstrumentList(llvm::Function *F, std::string Filename) {
 
   bool return_default = true;
@@ -464,28 +527,37 @@ bool isInInstrumentList(llvm::Function *F, std::string Filename) {
     if (!denyListFunctions.empty()) {
 
       std::string instFunction = F->getName().str();
+      std::string demangledFunction = llvm::demangle(instFunction);
+      std::string noHashFunction = stripRustHash(instFunction);
+
+      if (noHashFunction != instFunction &&
+          denyListFunctionsNoHash.count(noHashFunction)) {
+
+        if (debug)
+          DEBUGF(
+              "Function %s is in the deny function list, not instrumenting "
+              "... \n",
+              instFunction.c_str());
+        return false;
+
+      }
 
       for (std::list<std::string>::iterator it = denyListFunctions.begin();
            it != denyListFunctions.end(); ++it) {
 
-        /* We don't check for filename equality here because
-         * filenames might actually be full paths. Instead we
-         * check that the actual filename ends in the filename
-         * specified in the list. We also allow UNIX-style pattern
-         * matching */
+        /* The entry is used directly as an fnmatch() pattern, no wildcard is
+         * added automatically. Prefix the entry with '*' to match a suffix.
+         * Both the mangled and the demangled function name are matched. */
 
-        if (instFunction.length() >= it->length()) {
+        if (fnmatch(it->c_str(), instFunction.c_str(), 0) == 0 ||
+            fnmatch(it->c_str(), demangledFunction.c_str(), 0) == 0) {
 
-          if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
-
-            if (debug)
-              DEBUGF(
-                  "Function %s is in the deny function list, not instrumenting "
-                  "... \n",
-                  instFunction.c_str());
-            return false;
-
-          }
+          if (debug)
+            DEBUGF(
+                "Function %s is in the deny function list, not instrumenting "
+                "... \n",
+                instFunction.c_str());
+          return false;
 
         }
 
@@ -546,28 +618,37 @@ bool isInInstrumentList(llvm::Function *F, std::string Filename) {
     if (!allowListFunctions.empty()) {
 
       std::string instFunction = F->getName().str();
+      std::string demangledFunction = llvm::demangle(instFunction);
+      std::string noHashFunction = stripRustHash(instFunction);
+
+      if (noHashFunction != instFunction &&
+          allowListFunctionsNoHash.count(noHashFunction)) {
+
+        if (debug)
+          DEBUGF(
+              "Function %s is in the allow function list, instrumenting "
+              "... \n",
+              instFunction.c_str());
+        return true;
+
+      }
 
       for (std::list<std::string>::iterator it = allowListFunctions.begin();
            it != allowListFunctions.end(); ++it) {
 
-        /* We don't check for filename equality here because
-         * filenames might actually be full paths. Instead we
-         * check that the actual filename ends in the filename
-         * specified in the list. We also allow UNIX-style pattern
-         * matching */
+        /* The entry is used directly as an fnmatch() pattern, no wildcard is
+         * added automatically. Prefix the entry with '*' to match a suffix.
+         * Both the mangled and the demangled function name are matched. */
 
-        if (instFunction.length() >= it->length()) {
+        if (fnmatch(it->c_str(), instFunction.c_str(), 0) == 0 ||
+            fnmatch(it->c_str(), demangledFunction.c_str(), 0) == 0) {
 
-          if (fnmatch(("*" + *it).c_str(), instFunction.c_str(), 0) == 0) {
-
-            if (debug)
-              DEBUGF(
-                  "Function %s is in the allow function list, instrumenting "
-                  "... \n",
-                  instFunction.c_str());
-            return true;
-
-          }
+          if (debug)
+            DEBUGF(
+                "Function %s is in the allow function list, instrumenting "
+                "... \n",
+                instFunction.c_str());
+          return true;
 
         }
 
@@ -880,8 +961,25 @@ void createIJONEnabledGlobal(Module &M, Type *Int32Ty) {
 
   if (M.getNamedGlobal("__afl_ijon_enabled")) return;
   Constant *One32 = ConstantInt::get(Int32Ty, 1);
-  new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage, One32,
-                     "__afl_ijon_enabled");
+  // comdat so multiple instrumented TUs each defining it merge to one strong
+  // definition instead of a multiple-definition link error, while still
+  // overriding the runtime's weak __afl_ijon_enabled = 0 default
+  auto *GV = new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
+                                One32, "__afl_ijon_enabled");
+  GV->setComdat(M.getOrInsertComdat("__afl_ijon_enabled"));
+
+}
+
+void createC11EnabledGlobal(Module &M, Type *Int32Ty) {
+
+  if (M.getNamedGlobal("__afl_c11_enabled")) return;
+  Constant *One32 = ConstantInt::get(Int32Ty, 1);
+  // comdat so multiple instrumented TUs each defining it merge to one strong
+  // definition instead of a multiple-definition link error, while still
+  // overriding the runtime's weak __afl_c11_enabled = 0 default
+  auto *GV = new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
+                                One32, "__afl_c11_enabled");
+  GV->setComdat(M.getOrInsertComdat("__afl_c11_enabled"));
 
 }
 

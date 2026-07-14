@@ -3216,6 +3216,7 @@ havoc_stage:
 
               if (afl->queue_cur->fs_status != 0) {
 
+                fs_track_delete(afl->fs_curr_meta, off, old_len);
                 fs_track_insert(afl->fs_curr_meta, off, new_len, 1);
 
               }

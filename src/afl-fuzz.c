@@ -741,8 +741,7 @@ void afl_parse_env(afl_state_t *afl, char **envp) {
 
   afl->exit_1 = !!afl->afl_env.afl_bench_just_one;
 
-  SAYF(cCYA "afl-fuzz" VERSION cRST
-            " based on afl by Michal Zalewski and a large online community\n");
+  SAYF(cCYA "afl-fuzz" VERSION cRST "\n");
   SAYF(cGRN
        "Licensed under AGPL-3.0-or-later. A (good cause donation) commercial "
        "license is\n"
@@ -772,6 +771,8 @@ void afl_handle_version_help(int argc, char **argv) {
 
   if (argc > 1 &&
       (strcmp(argv[1], "--help") == 0 || strncmp(argv[1], "-h", 2) == 0)) {
+
+    SAYF(cCYA "afl-fuzz" VERSION cRST "\n");
 
     if (argc == 2 &&
         (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
@@ -815,7 +816,7 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
   // still available: HjJkqrv
   while ((opt = getopt(
               argc, argv,
-              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L::m:M:nNo:Op:P:QRs:S:t:T:"
+              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L::m:M:nNo:Op:P:Qs:S:t:T:"
               "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
@@ -1584,14 +1585,6 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
         show_help++;
         break;  // not needed
 
-      case 'R':
-
-        FATAL(
-            "Radamsa is now a custom mutator, please use that "
-            "(custom_mutators/radamsa/).");
-
-        break;
-
   #ifdef __linux__
       case 'K':                                                 /* GUI mode */
         if (afl->fsrv.gui_mode) { FATAL("Multiple -K options not supported"); }
@@ -2046,6 +2039,15 @@ void afl_check_environment(afl_state_t *afl) {
       add_extra(afl, "1\"><\"", 5);
 
     }
+
+  }
+
+  if (afl->min_length > afl->max_length) {
+
+    FATAL(
+        "Minimum length (-g / AFL_INPUT_LEN_MIN = %u) may not exceed maximum "
+        "length (-G / AFL_INPUT_LEN_MAX = %u)",
+        afl->min_length, afl->max_length);
 
   }
 
@@ -2684,6 +2686,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
                    afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+  afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
 
   #ifdef __AFL_CODE_COVERAGE
   // Initialize pcmap and modmap before any forkserver starts
@@ -2725,6 +2728,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+      afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
 
   #ifdef __AFL_CODE_COVERAGE
@@ -2813,6 +2817,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       afl->san_fsrvs[i].san_but_not_instrumented = 1;
       afl->san_fsrvs[i].cs_mode = afl->fsrv.cs_mode;
       afl->san_fsrvs[i].qemu_mode = afl->fsrv.qemu_mode;
+      afl->san_fsrvs[i].qemu_bridge = afl->fsrv.qemu_bridge;
       afl->san_fsrvs[i].frida_mode = afl->fsrv.frida_mode;
       afl->san_fsrvs[i].asanfuzz_binary = afl->san_binary[i];
       afl->san_fsrvs[i].target_path = afl->san_binary[i];
@@ -2820,7 +2825,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
       if ((afl->map_size <= DEFAULT_SHMEM_SIZE ||
            afl->san_fsrvs[i].map_size < afl->map_size) &&
-          !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+          !afl->non_instrumented_mode &&
+          (!afl->fsrv.qemu_mode || afl->fsrv.qemu_bridge) &&
           !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
           !afl->afl_env.afl_skip_bin_check) {
 
@@ -2854,6 +2860,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
         afl->fsrv.trace_bits =
             afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                          afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+        afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
         ck_free(afl->san_fsrvs[i].trace_bits);
         afl->san_fsrvs[i].trace_bits = ck_alloc(afl->fsrv.map_size + 8);
         afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
@@ -2880,8 +2887,10 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
     afl_fsrv_init_dup(&afl->cmplog_fsrv, &afl->fsrv);
     // TODO: this is semi-nice
     afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+    afl->cmplog_fsrv.child_sync_offset = afl->fsrv.child_sync_offset;
     afl->cmplog_fsrv.cs_mode = afl->fsrv.cs_mode;
     afl->cmplog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
+    afl->cmplog_fsrv.qemu_bridge = afl->fsrv.qemu_bridge;
     afl->cmplog_fsrv.unicorn_mode = afl->fsrv.unicorn_mode;
     afl->cmplog_fsrv.frida_mode = afl->fsrv.frida_mode;
     afl->cmplog_fsrv.cmplog_binary = afl->cmplog_binary;
@@ -2891,7 +2900,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
     if ((afl->map_size <= DEFAULT_SHMEM_SIZE ||
          afl->cmplog_fsrv.map_size < afl->map_size) &&
-        !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+        !afl->non_instrumented_mode &&
+        (!afl->fsrv.qemu_mode || afl->fsrv.qemu_bridge) &&
         !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
         !afl->afl_env.afl_skip_bin_check) {
 
@@ -2923,7 +2933,9 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       afl->fsrv.trace_bits =
           afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode,
                        afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
+      afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
       afl->cmplog_fsrv.trace_bits = afl->fsrv.trace_bits;
+      afl->cmplog_fsrv.child_sync_offset = afl->fsrv.child_sync_offset;
 
   #ifdef __AFL_CODE_COVERAGE
       if (getenv("AFL_DUMP_PC_MAP")) { afl_pcmap_resize(afl, new_map_size); }

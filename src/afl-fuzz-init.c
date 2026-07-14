@@ -651,13 +651,14 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         }
 
+        u8 *orig_mem = mem;
         u32 len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
         afl->syncing_party = foreign_name;
         afl->foreign_file = nl[i]->d_name;
         afl->queued_imported += save_if_interesting(afl, mem, len, fault);
 
-        munmap(mem, st.st_size);
+        munmap(orig_mem, st.st_size);
         close(fd);
 
         if (st.st_mtime > mtime_max) { mtime_max = st.st_mtime; }
@@ -3361,14 +3362,33 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
       !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
 
+    char *which = "fuzzing";
+    if (fname == (u8 *)afl->cmplog_binary) {
+
+      which = "CMPLOG";
+
+    } else {
+
+      for (u8 i = 0; i < afl->san_binary_length; i++) {
+
+        if (fname == (u8 *)afl->san_binary[i]) {
+
+          which = "SAND";
+          break;
+
+        }
+
+      }
+
+    }
+
     SAYF("\n" cLRD "[-] " cRST
-         "Looks like the target binary is not instrumented! The fuzzer depends "
-         "on\n"
-         "    compile-time instrumentation to isolate interesting test cases "
-         "while\n"
-         "    mutating the input data. For more information, and for tips on "
-         "how to\n"
-         "    instrument binaries, please see %s/README.md.\n\n"
+         "Looks like the %s target binary is not instrumented!\n"
+         "    The fuzzer depends on compile-time instrumentation to isolate "
+         "interesting\n"
+         "    test cases while mutating the input data. For more information, "
+         "and for tips\n"
+         "    on how to instrument binaries, please see %s/README.md.\n\n"
 
          "    When source code is not available, you may be able to leverage "
          "QEMU\n"
@@ -3383,7 +3403,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
          "non-instrumented\n"
          "    fuzzer. For that use the -n option - but expect much worse "
          "results.)\n",
-         doc_path);
+         which, doc_path);
 
     FATAL("No instrumentation detected");
 
@@ -3452,6 +3472,15 @@ void check_binary(afl_state_t *afl, u8 *fname) {
     afl->persistent_mode = 1;
     afl->fsrv.persistent_mode = 1;
     afl->shmem_testcase_mode = 1;
+
+  } else if (afl->fsrv.qemu_mode &&
+
+             (getenv("AFL_QEMU_PERSISTENT_ADDR") ||
+              getenv("AFL_QEMU_SNAPSHOT"))) {
+
+    OKF(cPIN "QEMU persistent mode configuration options detected.");
+    afl->persistent_mode = 1;
+    afl->fsrv.persistent_mode = 1;
 
   }
 
