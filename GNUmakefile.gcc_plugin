@@ -28,6 +28,14 @@ MAN_PATH    ?= $(PREFIX)/share/man/man8
 
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ./config.h | cut -d '"' -f2)
 
+ifneq "$(findstring sanitize,$(CFLAGS) $(CXXFLAGS))" ""
+ ifneq "$(findstring fuzzer,$(CFLAGS) $(CXXFLAGS))" ""
+  $(info [!] -fsanitize=...fuzzer found in CFLAGS/CXXFLAGS, ignoring these for the AFL++ build)
+  override undefine CFLAGS
+  override undefine CXXFLAGS
+ endif
+endif
+
 CFLAGS          ?= -O3 -g -funroll-loops
 # -D_FORTIFY_SOURCE=1
 CFLAGS_SAFE     := -Wall -Iinclude -Wno-pointer-sign \

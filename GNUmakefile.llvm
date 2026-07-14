@@ -284,6 +284,14 @@ endif
 
 IS_IOS          := $(findstring ios, $(shell $(CC) --version 2>/dev/null))
 
+ifneq "$(findstring sanitize,$(CFLAGS) $(CXXFLAGS))" ""
+ ifneq "$(findstring fuzzer,$(CFLAGS) $(CXXFLAGS))" ""
+  $(info [!] -fsanitize=...fuzzer found in CFLAGS/CXXFLAGS, ignoring these for the AFL++ build)
+  override undefine CFLAGS
+  override undefine CXXFLAGS
+ endif
+endif
+
 CFLAGS          ?= -O3 -funroll-loops -fPIC
 # -D_FORTIFY_SOURCE=1
 CFLAGS_SAFE     := -Wall -g -Wno-cast-qual -Wno-variadic-macros -Wno-pointer-sign \

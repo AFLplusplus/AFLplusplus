@@ -41,6 +41,14 @@ ARCH = $(shell uname -m)
 
 $(info [*] Compiling AFL++ for OS $(SYS) on ARCH $(ARCH))
 
+ifneq "$(findstring sanitize,$(CFLAGS) $(CXXFLAGS))" ""
+ ifneq "$(findstring fuzzer,$(CFLAGS) $(CXXFLAGS))" ""
+  $(info [!] -fsanitize=...fuzzer found in CFLAGS/CXXFLAGS, ignoring these for the AFL++ build)
+  override undefine CFLAGS
+  override undefine CXXFLAGS
+ endif
+endif
+
 ifdef NO_UTF
   override CFLAGS_OPT += -DFANCY_BOXES_NO_UTF
 endif
