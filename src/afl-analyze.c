@@ -603,6 +603,8 @@ static void analyze() {
   OKF("Analysis complete. Interesting bits: %0.02f%% of the input file.",
       100.0 - ((double)boring_len * 100) / in_len);
 
+  OKF("Performed %u total execs.", total_execs);
+
   if (exec_hangs) {
 
     WARNF(cLRD "Encountered %u timeouts - results may be skewed." cRST,

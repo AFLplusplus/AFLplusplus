@@ -1329,8 +1329,13 @@ static void markPersistentLoopEdges(Function &F) {
 
       if (succ->getSinglePredecessor() != &BB) continue;
       Instruction *term = succ->getTerminator();
-      BranchInst  *br = dyn_cast<BranchInst>(term);
+#if LLVM_MAJOR >= 23
+      UncondBrInst *br = dyn_cast<UncondBrInst>(term);
+      if (!br) continue;
+#else
+      BranchInst *br = dyn_cast<BranchInst>(term);
       if (!br || !br->isUnconditional()) continue;
+#endif
       if (&*succ->getFirstNonPHIOrDbg() != term) continue;
       edges.push_back(succ);
 
