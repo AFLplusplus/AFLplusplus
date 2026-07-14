@@ -2469,7 +2469,11 @@ void setup_dirs_fds(afl_state_t *afl) {
      Excluded for Nyx (its output is not a normal child stderr; it writes its
      own .log). */
 
-  if (afl->afl_env.afl_crash_traces && !afl->fsrv.nyx_mode) {
+  if (afl->afl_env.afl_crash_traces
+#ifdef __linux__
+      && !afl->fsrv.nyx_mode
+#endif
+  ) {
 
     u8 *ctf = alloc_printf("%s/.crash_trace_output", afl->out_dir);
     afl->fsrv.crash_trace_fd =
