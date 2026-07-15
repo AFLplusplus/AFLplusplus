@@ -228,6 +228,9 @@ static void configure_bug_runtime(afl_state_t *afl) {
 
 static void configure_ijon_runtime(afl_state_t *afl) {
 
+  u32 target_map_size = afl->fsrv.real_map_size +
+                        (afl->fsrv.use_bug_map ? MAP_SIZE_BUG_BYTES : 0);
+
 #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
 
@@ -258,6 +261,9 @@ static void configure_ijon_runtime(afl_state_t *afl) {
 
   afl->ijon_shared_access = setup_dynamic_shared_access(
       afl->fsrv.trace_bits, afl->fsrv.map_size, afl->fsrv.real_map_size);
+
+  save_ijon_state_for_fastresume(afl->fsrv.map_size, afl->fsrv.map_size,
+                                 afl->fsrv.real_map_size, target_map_size);
 
   afl_ijon_retire_max = getenv("AFL_IJON_RETIRE_MAX") != NULL;
 
@@ -2645,7 +2651,7 @@ void afl_setup_environment(afl_state_t *afl) {
 
 void afl_alloc_shared_memory(afl_state_t *afl) {
 
-  char  *san_abstraction;
+  char  *san_abstraction, *san_dedup_size;
   char **use_argv;
 
   if (afl->fsrv.qemu_mode) {
@@ -2761,18 +2767,16 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
         (u32)MAP_SIZE_IJON_BYTES);
 
     char *max_dir = alloc_printf("%s/ijon_max", afl->out_dir);
-    afl->ijon_state = new_ijon_min_state(max_dir);
+    afl->ijon_state = new_ijon_min_state_with_limit(max_dir, afl->max_length);
     ck_free(max_dir);
-
-    setenv("AFL_NO_IJON", "1", 1);
 
   }
 
   san_abstraction = getenv("AFL_SAN_ABSTRACTION");
+  san_dedup_size = getenv("AFL_SAN_DEDUP_SIZE");
   if (!san_abstraction || !strcmp(san_abstraction, "simplify_trace")) {
 
     afl->san_abstraction = SIMPLIFY_TRACE;
-    afl->simplified_n_fuzz = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
 
   } else if (!strcmp(san_abstraction, "coverage_increase")) {
 
@@ -2781,21 +2785,51 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
   } else if (!strcmp(san_abstraction, "unique_trace")) {
 
     afl->san_abstraction = UNIQUE_TRACE;
-    afl->n_fuzz_dup = ck_alloc(N_FUZZ_SIZE_BITMAP * sizeof(u8));
 
   } else {
 
-    WARNF("Unknown abstraction: %s, fallback to simplified trace.\n",
-          san_abstraction);
-    afl->san_abstraction = SIMPLIFY_TRACE;
+    FATAL("Unknown sanitizer abstraction: %s", san_abstraction);
 
   }
 
-  if (!afl->san_binary_length && san_abstraction) {
+  if (!afl->san_binary_length && (san_abstraction || san_dedup_size)) {
 
     WARNF(
         "No extra sanitizer instrumented binaries are given, do you forget "
         "-a?\n");
+
+  }
+
+  if (afl->san_binary_length && (afl->san_abstraction == SIMPLIFY_TRACE ||
+                                 afl->san_abstraction == UNIQUE_TRACE)) {
+
+    u64 dedup_mb = SAN_DEDUP_DEFAULT_MB;
+    if (san_dedup_size) {
+
+      char *end = NULL;
+      errno = 0;
+      dedup_mb = strtoull(san_dedup_size, &end, 10);
+      if (errno || end == san_dedup_size || *end || !dedup_mb ||
+          dedup_mb > SAN_DEDUP_MAX_MB || dedup_mb > (SIZE_MAX >> 20)) {
+
+        FATAL("AFL_SAN_DEDUP_SIZE must be between 1 and %u MB",
+              SAN_DEDUP_MAX_MB);
+
+      }
+
+    }
+
+    size_t dedup_bytes = (size_t)dedup_mb << 20;
+    afl->san_dedup_entries = dedup_bytes / sizeof(u64);
+    if (afl->san_abstraction == SIMPLIFY_TRACE) {
+
+      afl->simplified_n_fuzz = ck_alloc(dedup_bytes);
+
+    } else {
+
+      afl->n_fuzz_dup = ck_alloc(dedup_bytes);
+
+    }
 
   }
 
@@ -2838,6 +2872,14 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
       }
 
+      u8 restore_ijon_env = 0;
+      if (afl->fsrv.use_ijon && !getenv("AFL_NO_IJON")) {
+
+        setenv("AFL_NO_IJON", "1", 1);
+        restore_ijon_env = 1;
+
+      }
+
       u32 new_map_size =
           afl_fsrv_get_mapsize(&afl->san_fsrvs[i], afl->argv, &afl->stop_soon,
                                afl->afl_env.afl_debug_child);
@@ -2855,6 +2897,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
         afl->san_fsrvs[i].map_size = new_map_size;  // non-cmplog stays the same
         afl->map_size = new_map_size;
+        afl->fsrv.map_size = new_map_size;
+        afl->fsrv.real_map_size = new_map_size;
 
         setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
         afl->fsrv.trace_bits =
@@ -2862,14 +2906,20 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
                          afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
         afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
         ck_free(afl->san_fsrvs[i].trace_bits);
-        afl->san_fsrvs[i].trace_bits = ck_alloc(afl->fsrv.map_size + 8);
-        afl->san_fsrvs[i].map_size = afl->fsrv.map_size;
+        afl->san_fsrvs[i].trace_bits = ck_alloc(new_map_size + 8);
+        afl->san_fsrvs[i].map_size = new_map_size;
+        if (restore_ijon_env) { unsetenv("AFL_NO_IJON"); }
         afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                        afl->afl_env.afl_debug_child);
+        if (afl->fsrv.use_bug_map) { configure_bug_runtime(afl); }
+        if (afl->fsrv.use_ijon) { configure_ijon_runtime(afl); }
+        if (restore_ijon_env) { setenv("AFL_NO_IJON", "1", 1); }
         afl_fsrv_start(&afl->san_fsrvs[i], afl->argv, &afl->stop_soon,
                        afl->afl_env.afl_debug_child);
 
       }
+
+      if (restore_ijon_env) { unsetenv("AFL_NO_IJON"); }
 
       OKF("SAND forkserver for %s successfully started", afl->san_binary[i]);
 
@@ -2912,6 +2962,14 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
     }
 
+    u8 restore_ijon_env = 0;
+    if (afl->fsrv.use_ijon && !getenv("AFL_NO_IJON")) {
+
+      setenv("AFL_NO_IJON", "1", 1);
+      restore_ijon_env = 1;
+
+    }
+
     u32 new_map_size =
         afl_fsrv_get_mapsize(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                              afl->afl_env.afl_debug_child);
@@ -2928,6 +2986,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
       afl->cmplog_fsrv.map_size = new_map_size;  // non-cmplog stays the same
       afl->map_size = new_map_size;
+      afl->fsrv.map_size = new_map_size;
+      afl->fsrv.real_map_size = new_map_size;
 
       setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
       afl->fsrv.trace_bits =
@@ -2941,12 +3001,18 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       if (getenv("AFL_DUMP_PC_MAP")) { afl_pcmap_resize(afl, new_map_size); }
   #endif
 
+      if (restore_ijon_env) { unsetenv("AFL_NO_IJON"); }
       afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
+      if (afl->fsrv.use_bug_map) { configure_bug_runtime(afl); }
+      if (afl->fsrv.use_ijon) { configure_ijon_runtime(afl); }
+      if (restore_ijon_env) { setenv("AFL_NO_IJON", "1", 1); }
       afl_fsrv_start(&afl->cmplog_fsrv, afl->argv, &afl->stop_soon,
                      afl->afl_env.afl_debug_child);
 
     }
+
+    if (restore_ijon_env) { unsetenv("AFL_NO_IJON"); }
 
     OKF("CMPLOG forkserver successfully started");
 
@@ -3198,6 +3264,9 @@ void afl_load_seeds(afl_state_t *afl) {
     // afl_fsrv_get_mapsize() earlier, so we don't leak an orphaned forkserver
     // process and its pipe fds.
     afl_fsrv_kill(&afl->fsrv);
+
+    afl->fsrv.map_size = afl->map_size;
+    afl->fsrv.real_map_size = afl->map_size;
 
     afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                    afl->afl_env.afl_debug_child);
@@ -3563,9 +3632,12 @@ void stop_fuzzing(afl_state_t *afl) {
 
           // Calculate current IJON parameters - use same logic as fresh session
           u32 current_ijon_offset = afl->fsrv.map_size;
+          u32 target_map_size =
+              afl->fsrv.real_map_size + MAP_SIZE_IJON_BYTES +
+              (afl->fsrv.use_bug_map ? MAP_SIZE_BUG_BYTES : 0);
           save_ijon_state_for_fastresume(
               current_ijon_offset, afl->fsrv.map_size, afl->fsrv.real_map_size,
-              afl->fsrv.real_map_size);
+              target_map_size);
 
         }
 
@@ -3576,7 +3648,9 @@ void stop_fuzzing(afl_state_t *afl) {
           // arrays
           ijon_state->map_size = afl->fsrv.map_size;
           ijon_state->real_map_size = afl->fsrv.real_map_size;
-          ijon_state->target_map_size = afl->fsrv.real_map_size;
+          ijon_state->target_map_size =
+              afl->fsrv.real_map_size + MAP_SIZE_IJON_BYTES +
+              (afl->fsrv.use_bug_map ? MAP_SIZE_BUG_BYTES : 0);
 
           ZLIBWRITE(afl->fr_fd, ijon_state, sizeof(ijon_fastresume_state_t),
                     "ijon_state");

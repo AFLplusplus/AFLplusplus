@@ -84,8 +84,11 @@ void afl_shm_deinit(sharedmem_t *shm) {
 #ifdef USEMMAP
   if (shm->map != NULL) {
 
-    munmap(shm->map, shm->map_size);
+    munmap(shm->map, shm->map_alloc_size);
     shm->map = NULL;
+    shm->map_alloc_size = 0;
+    shm->child_sync = NULL;
+    shm->child_sync_offset = 0;
 
   }
 
@@ -109,8 +112,9 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
     if (shm->cmp_map != NULL) {
 
-      munmap(shm->cmp_map, shm->map_size);
+      munmap(shm->cmp_map, shm->cmp_map_alloc_size);
       shm->cmp_map = NULL;
+      shm->cmp_map_alloc_size = 0;
 
     }
 
@@ -176,6 +180,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   shm->g_shm_fd = -1;
   shm->cmplog_g_shm_fd = -1;
+  shm->map_alloc_size = 0;
+  shm->cmp_map_alloc_size = 0;
 
   const int shmflags = O_RDWR | O_EXCL;
 
@@ -258,6 +264,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
+  shm->map_alloc_size = alloc_size;
+
   /* If somebody is asking us to fuzz instrumented binaries in non-instrumented
      mode, we don't want them to detect instrumentation, since we won't be
      sending fork server commands. This should be replaced with better
@@ -312,6 +320,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       PFATAL("mmap() failed");
 
     }
+
+    shm->cmp_map_alloc_size = sizeof(struct cmp_map);
 
     /* If somebody is asking us to fuzz instrumented binaries in
        non-instrumented mode, we don't want them to detect instrumentation,

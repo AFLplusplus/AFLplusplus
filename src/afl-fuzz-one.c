@@ -299,31 +299,54 @@ u8 fuzz_one(afl_state_t *afl) {
   u64 havoc_queued = 0, orig_hit_cnt, new_hit_cnt = 0, prev_cksum, _prev_cksum;
   u32 splice_cycle = 0, perf_score = 100, orig_perf;
 
-  u8 ret_val = 1, doing_det = 0;
+  u8  ret_val = 1, doing_det = 0;
+  u8  was_doing_ijon = afl->is_doing_ijon;
+  u8  saved_frameshift_disabled = afl->afl_env.afl_frameshift_disabled;
+  u32 saved_cur_depth = afl->cur_depth;
+#ifdef INTROSPECTION
+  u8 input_is_ascii = afl->queue_cur->is_ascii;
+#endif
 
   u8  a_collect[MAX_AUTO_EXTRA];
   u32 a_len = 0;
 
   /* IJON: If we're doing IJON, skip deterministic stages and go directly to
-   * havoc */
-  if (unlikely(afl->is_doing_ijon)) {
+   * mutation */
+  if (unlikely(was_doing_ijon)) {
 
-    /* Use IJON input data that was set up in fuzz_one() */
+    /* Use IJON input data that was selected by the queue scheduler */
     len = afl->ijon_input_len;
-    orig_in = in_buf = afl->in_buf;
-    out_buf = afl->out_buf;
+    if (unlikely(!len || len > afl->max_length || !afl->ijon_input_data)) {
+
+      afl->is_doing_ijon = 0;
+      return 1;
+
+    }
+
+    in_buf = afl_realloc(AFL_BUF_PARAM(in), len);
+    out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
+    if (unlikely(!in_buf || !out_buf)) { PFATAL("alloc"); }
+    orig_in = in_buf;
     memcpy(in_buf, afl->ijon_input_data, len);
     memcpy(out_buf, afl->ijon_input_data, len);
+#ifdef INTROSPECTION
+    input_is_ascii = check_if_text_buf(in_buf, len) == len;
+#endif
 
-    /* Setup variables for havoc stage */
+    /* Setup variables for the mutation stages */
     temp_len = len;
     orig_hit_cnt = afl->queued_items + afl->saved_crashes;
     havoc_queued = afl->queued_items;
     perf_score = 100;
     orig_perf = perf_score;
+    afl->cur_depth = 0;
+    afl->subseq_tmouts = 0;
+    afl->afl_env.afl_frameshift_disabled = 1;
 
-    /* Jump directly to havoc stage */
-    goto havoc_stage;
+    if (unlikely(common_fuzz_stuff(afl, out_buf, len))) { goto abandon_entry; }
+
+    /* Jump directly to the mutation stages */
+    goto custom_mutator_stage;
 
   }
 
@@ -2073,7 +2096,7 @@ custom_mutator_stage:
   afl->stage_finds[STAGE_CUSTOM_MUTATOR] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_CUSTOM_MUTATOR] += afl->stage_cur;
 #ifdef INTROSPECTION
-  afl->queue_cur->stats_mutated += afl->stage_max;
+  if (!was_doing_ijon) { afl->queue_cur->stats_mutated += afl->stage_max; }
 #endif
 
   /****************
@@ -2084,7 +2107,7 @@ havoc_stage:
 
 #ifdef INTROSPECTION
 
-  if (!is_logged) {
+  if (was_doing_ijon || !is_logged) {
 
     is_logged = 1;
     before_havoc_findings = afl->queued_items;
@@ -2294,7 +2317,8 @@ havoc_stage:
 
 #ifdef INTROSPECTION
     snprintf(afl->mutation, sizeof(afl->mutation), "%s HAVOC-%u-%u",
-             afl->queue_cur->fname, afl->queue_cur->is_ascii, use_stacking);
+             was_doing_ijon ? "ijon-max" : (char *)afl->queue_cur->fname,
+             input_is_ascii, use_stacking);
 #endif
 
     // Frameshift: save the current input meta
@@ -3173,7 +3197,7 @@ havoc_stage:
 
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ASCIINUM_%u_%u_%u",
-                   afl->queue_cur->is_ascii, strat, off);
+                   input_is_ascii, strat, off);
           strcat(afl->mutation, afl->m_tmp);
 #endif
           // fprintf(stderr, "val: %u-%u = %ld\n", off, off2, val);
@@ -3610,7 +3634,7 @@ havoc_stage:
     afl->stage_finds[STAGE_HAVOC] += new_hit_cnt - orig_hit_cnt;
     afl->stage_cycles[STAGE_HAVOC] += afl->stage_max;
 #ifdef INTROSPECTION
-    afl->queue_cur->stats_mutated += afl->stage_max;
+    if (!was_doing_ijon) { afl->queue_cur->stats_mutated += afl->stage_max; }
 #endif
 
   } else {
@@ -3618,7 +3642,7 @@ havoc_stage:
     afl->stage_finds[STAGE_SPLICE] += new_hit_cnt - orig_hit_cnt;
     afl->stage_cycles[STAGE_SPLICE] += afl->stage_max;
 #ifdef INTROSPECTION
-    afl->queue_cur->stats_mutated += afl->stage_max;
+    if (!was_doing_ijon) { afl->queue_cur->stats_mutated += afl->stage_max; }
 #endif
 
   }
@@ -3636,7 +3660,7 @@ havoc_stage:
 
 retry_splicing:
 
-  if (afl->use_splicing && splice_cycle++ < SPLICE_CYCLES &&
+  if (!was_doing_ijon && afl->use_splicing && splice_cycle++ < SPLICE_CYCLES &&
       afl->ready_for_splicing_count > 1 && afl->queue_cur->len >= 4) {
 
     struct queue_entry *target;
@@ -3740,33 +3764,33 @@ retry_splicing:
 
 #ifdef INTROSPECTION
 
-  afl->havoc_prof->queued_det_stage =
-      before_havoc_findings - before_det_findings;
-  afl->havoc_prof->queued_havoc_stage =
-      afl->queued_items - before_havoc_findings;
-  afl->havoc_prof->total_queued_det += afl->havoc_prof->queued_det_stage;
-  afl->havoc_prof->edge_det_stage = before_havoc_edges - before_det_edges;
-  afl->havoc_prof->edge_havoc_stage =
-      count_non_255_bytes(afl, afl->virgin_bits) - before_havoc_edges;
-  afl->havoc_prof->total_det_edge += afl->havoc_prof->edge_det_stage;
-  afl->havoc_prof->det_stage_time = before_havoc_time - before_det_time;
-  afl->havoc_prof->havoc_stage_time = get_cur_time() - before_havoc_time;
-  afl->havoc_prof->total_det_time += afl->havoc_prof->det_stage_time;
+  if (!was_doing_ijon) {
 
-  plot_profile_data(afl, afl->queue_cur);
+    afl->havoc_prof->queued_det_stage =
+        before_havoc_findings - before_det_findings;
+    afl->havoc_prof->queued_havoc_stage =
+        afl->queued_items - before_havoc_findings;
+    afl->havoc_prof->total_queued_det += afl->havoc_prof->queued_det_stage;
+    afl->havoc_prof->edge_det_stage = before_havoc_edges - before_det_edges;
+    afl->havoc_prof->edge_havoc_stage =
+        count_non_255_bytes(afl, afl->virgin_bits) - before_havoc_edges;
+    afl->havoc_prof->total_det_edge += afl->havoc_prof->edge_det_stage;
+    afl->havoc_prof->det_stage_time = before_havoc_time - before_det_time;
+    afl->havoc_prof->havoc_stage_time = get_cur_time() - before_havoc_time;
+    afl->havoc_prof->total_det_time += afl->havoc_prof->det_stage_time;
+
+    plot_profile_data(afl, afl->queue_cur);
+
+  }
 
 #endif
 
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
 
-  /* IJON queue protection only - memory cleanup handled normally */
-  if (unlikely(afl->is_doing_ijon)) {
-
-    /* Reset IJON flag - memory cleanup handled by normal flow */
-    afl->is_doing_ijon = 0;
-
-  }
+  afl->is_doing_ijon = 0;
+  afl->afl_env.afl_frameshift_disabled = saved_frameshift_disabled;
+  if (was_doing_ijon) { afl->cur_depth = saved_cur_depth; }
 
   mopt_round_reset(afl);
 
@@ -3775,7 +3799,7 @@ abandon_entry:
   /* Update afl->pending_not_fuzzed count if we made it through the calibration
      cycle and have not seen this entry before. */
 
-  if (unlikely(!afl->is_doing_ijon && !afl->stop_soon &&
+  if (unlikely(!was_doing_ijon && !afl->stop_soon &&
                !afl->queue_cur->cal_failed && !afl->queue_cur->was_fuzzed &&
                !afl->queue_cur->disabled)) {
 
@@ -3791,7 +3815,7 @@ abandon_entry:
 
   }
 
-  if (unlikely(!afl->is_doing_ijon)) { ++afl->queue_cur->fuzz_level; }
+  if (unlikely(!was_doing_ijon)) { ++afl->queue_cur->fuzz_level; }
   orig_in = NULL;
   return ret_val;
 

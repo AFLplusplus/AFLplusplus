@@ -715,11 +715,10 @@ typedef struct afl_state {
   u8 *var_bytes;                        /* Bytes that appear to be variable */
 
 #define N_FUZZ_SIZE (1 << 21)
-#define N_FUZZ_SIZE_BITMAP (1 << 29)
-  u32 *n_fuzz;
-  u8  *n_fuzz_dup;
-  u8  *classified_n_fuzz;
-  u8  *simplified_n_fuzz;
+  u32   *n_fuzz;
+  u64   *n_fuzz_dup;
+  u64   *simplified_n_fuzz;
+  size_t san_dedup_entries;
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */

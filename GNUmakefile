@@ -614,13 +614,25 @@ unit_mopt: test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_mopt $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_mopt
 
+unit_cmplog: include/types.h include/cmplog.h test/unittests/unit_cmplog.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) test/unittests/unit_cmplog.c -o test/unittests/unit_cmplog $(LDFLAGS) $(ASAN_LDFLAGS)
+	./test/unittests/unit_cmplog
+
+unit_ijon_replay: include/afl-ijon-min.h test/unittests/unit_ijon_replay.c src/afl-fuzz-ijon.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_ijon_replay.c src/afl-fuzz-ijon.c -Wl,--gc-sections -o test/unittests/unit_ijon_replay $(LDFLAGS) $(ASAN_LDFLAGS)
+	./test/unittests/unit_ijon_replay
+
+unit_sharedmem_mmap: include/sharedmem.h include/cmplog.h test/unittests/unit_sharedmem_mmap.c src/afl-sharedmem.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -DUSEMMAP=1 test/unittests/unit_sharedmem_mmap.c src/afl-sharedmem.c -o test/unittests/unit_sharedmem_mmap $(LDFLAGS) $(ASAN_LDFLAGS)
+	./test/unittests/unit_sharedmem_mmap
+
 .PHONY: unit_clean
 unit_clean:
-	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_mopt test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o test/unittests/*.o
+	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_mopt ./test/unittests/unit_cmplog ./test/unittests/unit_ijon_replay ./test/unittests/unit_sharedmem_mmap test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o test/unittests/*.o
 
 .PHONY: unit
 ifneq "$(SYS)" "Darwin"
-unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_mopt
+unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_mopt unit_cmplog unit_ijon_replay unit_sharedmem_mmap
 else
 unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)

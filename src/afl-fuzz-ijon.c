@@ -99,9 +99,6 @@ u8 has_saved_ijon_offset(void) {
 
 }
 
-// Function prototypes
-void ijon_load_existing_state(ijon_min_state *self);
-
 /* Initialize global IJON history limit from environment variable */
 static void init_afl_ijon_history_limit(void) {
 
@@ -132,11 +129,21 @@ ijon_input_info *new_ijon_input_info(char *max_dir, int i) {
 
 ijon_min_state *new_ijon_min_state(char *max_dir) {
 
+  return new_ijon_min_state_with_limit(max_dir, IJON_MAX_INPUT_SIZE);
+
+}
+
+ijon_min_state *new_ijon_min_state_with_limit(char *max_dir,
+                                              u32   max_input_size) {
+
   ijon_min_state *self = (ijon_min_state *)ck_alloc(sizeof(ijon_min_state));
 
   self->max_dir = ck_strdup(max_dir);
   self->num_entries = 0;
   self->num_updates = 0;
+  self->schedule_prob = 0;
+  self->next_entry = 0;
+  self->max_input_size = max_input_size;
 
   /* Create the IJON max directory if it doesn't exist */
   if (mkdir(max_dir, 0700) && errno != EEXIST) {
@@ -152,6 +159,8 @@ ijon_min_state *new_ijon_min_state(char *max_dir) {
 
   }
 
+  ijon_load_existing_state(self);
+
   return self;
 
 }
@@ -161,15 +170,23 @@ void ijon_load_existing_state(ijon_min_state *self) {
 
   struct stat st;
 
+  self->num_entries = 0;
+
   for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
 
-    // Check if input file exists for this slot
-    if (stat(self->infos[i]->filename, &st) == 0 && st.st_size > 0) {
+    self->max_map[i] = 0;
+    self->infos[i]->len = 0;
+    self->persisted[i] = 0;
 
-      self->infos[i]->len = st.st_size;
+    // Check if input file exists for this slot
+    if (stat(self->infos[i]->filename, &st) == 0 && S_ISREG(st.st_mode) &&
+        st.st_size > 0 && (u64)st.st_size <= self->max_input_size) {
+
+      self->infos[i]->len = (size_t)st.st_size;
       // We'll set a non-zero value to indicate this slot is active
       // The actual max value will be determined when we first run this input
       self->max_map[i] = 1;  // Placeholder to indicate slot is active
+      self->persisted[i] = 1;
       self->num_entries++;
 
       /* IJON entry loaded successfully */
@@ -189,18 +206,32 @@ void ijon_load_existing_state(ijon_min_state *self) {
 
 u8 ijon_should_schedule(ijon_min_state *self) {
 
-  if (self->num_entries > 0) {
+  if (!self->num_entries) {
 
-    /* 80% scheduling probability */
-    if (random() % 100 < 80) {
-
-      return 1;  // 80% chance to schedule IJON input
-
-    }
+    self->schedule_prob = 0;
+    return 0;
 
   }
 
-  return 0;
+  if (++self->schedule_prob < IJON_REPLAY_INTERVAL) { return 0; }
+
+  self->schedule_prob = 0;
+  return 1;
+
+}
+
+static void ijon_deactivate_input(ijon_min_state *self, ijon_input_info *info) {
+
+  int slot = info->slot_id;
+  if (slot >= 0 && slot < MAP_SIZE_IJON_ENTRIES && self->max_map[slot] > 0) {
+
+    self->max_map[slot] = 0;
+    self->persisted[slot] = 0;
+    if (self->num_entries) { --self->num_entries; }
+
+  }
+
+  info->len = 0;
 
 }
 
@@ -208,15 +239,16 @@ ijon_input_info *ijon_get_input(ijon_min_state *self) {
 
   if (self->num_entries == 0) return NULL;
 
-  uint32_t rnd = random() % self->num_entries;
+  for (u32 i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
 
-  for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
+    u32 slot = (self->next_entry + i) % MAP_SIZE_IJON_ENTRIES;
 
-    if (self->max_map[i] > 0 &&
-        (!afl_ijon_retire_max || self->max_map[i] != UINT64_MAX)) {
+    if (self->max_map[slot] > 0 &&
+        (!afl_ijon_retire_max || self->max_map[slot] != UINT64_MAX)) {
 
-      if (rnd == 0) { return self->infos[i]; }
-      rnd--;
+      self->next_entry = (slot + 1) % MAP_SIZE_IJON_ENTRIES;
+      self->persisted[slot] = 0;
+      return self->infos[slot];
 
     }
 
@@ -226,11 +258,68 @@ ijon_input_info *ijon_get_input(ijon_min_state *self) {
 
 }
 
+u8 ijon_read_input(ijon_min_state *self, ijon_input_info *info, u8 **data,
+                   u32 *len) {
+
+  int fd = open(info->filename, O_RDONLY);
+  if (fd < 0) {
+
+    WARNF("Failed to open IJON max input %s: %s", info->filename,
+          strerror(errno));
+    ijon_deactivate_input(self, info);
+    return 0;
+
+  }
+
+  struct stat st;
+  if (fstat(fd, &st) || !S_ISREG(st.st_mode) || st.st_size <= 0 ||
+      (u64)st.st_size > self->max_input_size) {
+
+    WARNF("Invalid IJON max input %s", info->filename);
+    close(fd);
+    ijon_deactivate_input(self, info);
+    return 0;
+
+  }
+
+  size_t input_len = (size_t)st.st_size;
+  u8    *input = afl_realloc((void **)data, input_len);
+  if (unlikely(!input)) { PFATAL("alloc"); }
+
+  size_t offset = 0;
+  while (offset < input_len) {
+
+    ssize_t result = read(fd, input + offset, input_len - offset);
+    if (result < 0 && errno == EINTR) { continue; }
+    if (result <= 0) { break; }
+    offset += (size_t)result;
+
+  }
+
+  close(fd);
+
+  if (offset != input_len) {
+
+    WARNF("Failed to read IJON max input %s", info->filename);
+    ijon_deactivate_input(self, info);
+    return 0;
+
+  }
+
+  info->len = input_len;
+  *len = (u32)input_len;
+  return 1;
+
+}
+
 void ijon_store_max_input(ijon_min_state *self, int i, uint8_t *data,
                           size_t len) {
 
+  if (!len || len > self->max_input_size) { return; }
+
   ijon_input_info *inf = self->infos[i];
   inf->len = len;
+  self->persisted[i] = 0;
 
   // Save input that achieved new maximum for this IJON variable
   /* Store input achieving new max */
@@ -450,6 +539,8 @@ void ijon_update_max_dynamic(ijon_min_state          *self,
   for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
 
     u64 cur = shared->ijon_max_area[i];
+
+    if (self->persisted[i]) { continue; }
 
     if (afl_ijon_retire_max && self->max_map[i] == UINT64_MAX) { continue; }
 

@@ -45,6 +45,9 @@
    Default: 8MB (defined in bytes) */
 #define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
 
+#define SAN_DEDUP_DEFAULT_MB 8
+#define SAN_DEDUP_MAX_MB 4096
+
 /* Default time until when no more coverage finds are happening afl-fuzz
    switches to exploitation mode. It automatically switches back when new
    coverage is found.

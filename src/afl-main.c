@@ -247,7 +247,22 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
 }
 
-static inline void afl_fuzz_queue(afl_state_t *afl) {
+static inline u8 afl_fuzz_queue(afl_state_t *afl) {
+
+  if (unlikely(afl->queue_cur && afl->fsrv.use_ijon && afl->ijon_state &&
+               ijon_should_schedule(afl->ijon_state))) {
+
+    ijon_input_info *info = ijon_get_input(afl->ijon_state);
+    if (info && ijon_read_input(afl->ijon_state, info, &afl->ijon_input_data,
+                                &afl->ijon_input_len)) {
+
+      afl->is_doing_ijon = 1;
+      afl->skipped_fuzz = fuzz_one(afl);
+      return 0;
+
+    }
+
+  }
 
   do {
 
@@ -361,6 +376,8 @@ static inline void afl_fuzz_queue(afl_state_t *afl) {
     }
 
   } while (afl->skipped_fuzz && afl->queue_cur && !afl->stop_soon);
+
+  return 1;
 
 }
 
@@ -480,8 +497,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     cull_queue(afl);               // update favored entries
     afl_advance_queue_cycle(afl);  // start a new cycle when queue is exhausted
-    ++afl->runs_in_current_cycle;
-    afl_fuzz_queue(afl);         // pick and fuzz one queue entry
+    if (afl_fuzz_queue(afl)) { ++afl->runs_in_current_cycle; }
     afl_maybe_switch_mode(afl);  // switch to exploitation if no new finds
     afl_maybe_sync(afl);         // periodically import other fuzzers' finds
 

@@ -56,6 +56,17 @@ struct cmp_header {  // 16 bit = 2 bytes
 
 } __attribute__((packed));
 
+static inline u32 cmp_map_reserve(struct cmp_header *header, u8 *cursor,
+                                  u32 capacity) {
+
+  if (header->hits == 0) { *cursor = 0; }
+  u32 slot = *cursor & (capacity - 1);
+  *cursor = (*cursor + 1) & 63;
+  if (header->hits < capacity) { ++header->hits; }
+  return slot;
+
+}
+
 struct cmp_operands {
 
   u64 v0;
@@ -105,4 +116,3 @@ enum {
 };
 
 #endif
-

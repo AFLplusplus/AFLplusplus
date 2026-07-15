@@ -66,6 +66,8 @@ That's it!
 
 By default, SAND uses the hash value of the simplified coverage map as execution pattern, i.e. if an input has a unique simplefied coverage map, it will be sent to sanitizers for inspection. This shall work for most cases. However, if you are strongly worried about missing bugs, try `AFL_SAN_ABSTRACTION=unique_trace afl-fuzz ...`, which filters inputs having a _unique coverage map_. Do note this significantly increases the number of inputs by 4-10 times, leading to much lower throughput. Alternatively, SAND also supports `AFL_SAN_ABSTRACTION=coverage_increase`, which essentially equals to running sanitizers on the corpus and thus having almost zero overhead, but at a cost of missing ~15% bugs in our evaluation.
 
+SAND uses an 8 MB bounded deduplication cache by default. Set `AFL_SAN_DEDUP_SIZE` to the desired cache size in MB. Cache-index collisions evict the older hash and may cause an input to be checked again.
+
 ### Run as many sanitizers as possible
 
 Though we just used ASAN as an example, SAND works best if you provide more sanitizers, for example, UBSAN and MSAN.

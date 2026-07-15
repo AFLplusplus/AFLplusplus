@@ -454,7 +454,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
   /* Initialize trimming in the custom mutator */
   afl->stage_cur = 0;
   s32 retval = mutator->afl_custom_init_trim(mutator->data, in_buf, q->len);
-  if (unlikely(retval) < 0) {
+  if (unlikely(retval < 0)) {
 
     FATAL("custom_init_trim error ret: %d", retval);
 
@@ -563,7 +563,14 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
       memcpy(out_buf, retbuf, retlen);
 
       /* Tell the custom mutator that the trimming was successful */
-      afl->stage_cur = mutator->afl_custom_post_trim(mutator->data, 1);
+      s32 retval2 = mutator->afl_custom_post_trim(mutator->data, 1);
+      if (unlikely(retval2 < 0)) {
+
+        FATAL("Error ret in custom_post_trim: %d", retval2);
+
+      }
+
+      afl->stage_cur = retval2;
 
       if (afl->not_on_tty && afl->debug) {
 

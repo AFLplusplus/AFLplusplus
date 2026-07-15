@@ -507,6 +507,16 @@ static inline void classify_if_necessary(afl_state_t *afl, bool *classified) {
 
 }
 
+static inline u8 san_dedup_seen(u64 *cache, size_t entries, u32 hash) {
+
+  u64  value = (u64)hash + 1;
+  u64 *slot = &cache[hash % entries];
+  if (*slot == value) { return 1; }
+  *slot = value;
+  return 0;
+
+}
+
 static inline void calculate_cksum_if_necessary(afl_state_t *afl, u64 *cksum,
                                                 bool *cksumed,
                                                 bool *classified) {
@@ -792,10 +802,10 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       cksum_simplified =
           hash32(afl->san_fsrvs[0].trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-      if (unlikely(!bitmap_read(afl->simplified_n_fuzz, cksum_simplified))) {
+      if (unlikely(!san_dedup_seen(afl->simplified_n_fuzz,
+                                   afl->san_dedup_entries, cksum_simplified))) {
 
         feed_san = 1;
-        bitmap_set(afl->simplified_n_fuzz, cksum_simplified);
 
       }
 
@@ -821,11 +831,11 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       cksum_unique =
           hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      if (unlikely(!bitmap_read(afl->n_fuzz_dup, cksum_unique) &&
-                   fault == afl->crash_mode)) {
+      if (unlikely(fault == afl->crash_mode &&
+                   !san_dedup_seen(afl->n_fuzz_dup, afl->san_dedup_entries,
+                                   cksum_unique))) {
 
         feed_san = 1;
-        bitmap_set(afl->n_fuzz_dup, cksum_unique);
 
       }
 
