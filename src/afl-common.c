@@ -157,8 +157,10 @@ void set_sanitizer_defaults() {
      (disable_coredump=0) so the kernel still writes a core that can be saved as
      "<crash>.core". Last-wins parsing makes these override the defaults.
      Symbolization only runs when a report is printed (on a crash), so this adds
-     nothing to the fuzzing hot path. Only affects the built-in defaults (the
-     setenv calls below are guarded by !have_san_options). */
+     nothing to the fuzzing hot path. symbolize=1 is only added to the built-in
+     defaults, but disable_coredump=0 is required for the core file, so it is
+     also appended to a user-supplied ASAN_OPTIONS/UBSAN_OPTIONS (which would
+     otherwise skip the built-in defaults below and never dump a core). */
 
   {
 
@@ -166,6 +168,24 @@ void set_sanitizer_defaults() {
     if (ct && atoi((char *)ct)) {
 
       strcat(default_options, "symbolize=1:disable_coredump=0:");
+
+      if (have_asan_options) {
+
+        u8 buf[2048];
+        snprintf((char *)buf, sizeof(buf), "%s:disable_coredump=0",
+                 (char *)have_asan_options);
+        setenv("ASAN_OPTIONS", (char *)buf, 1);
+
+      }
+
+      if (have_ubsan_options) {
+
+        u8 buf[2048];
+        snprintf((char *)buf, sizeof(buf), "%s:disable_coredump=0",
+                 (char *)have_ubsan_options);
+        setenv("UBSAN_OPTIONS", (char *)buf, 1);
+
+      }
 
     }
 

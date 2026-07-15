@@ -28,7 +28,8 @@ mkdir -p "$TMP/in"
 printf 'B' > "$TMP/in/seed"          # non-crashing seed; any other byte crashes
 
 COMMON_ENV="AFL_BENCH_UNTIL_CRASH=1 AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
-AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 AFL_NO_UI=1"
+AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 AFL_NO_UI=1 \
+ASAN_OPTIONS=abort_on_error=1:detect_leaks=0:symbolize=0"
 
 run_fuzz() {  # $1=outdir  $2=traces(0/1)  $3=use_file(0/1)
   local out="$1" traces="$2" usefile="$3" tgt="$TMP/target"
