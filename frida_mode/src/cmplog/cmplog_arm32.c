@@ -4,6 +4,10 @@
 #include "util.h"
 
 #if defined(__arm__)
+void cmplog_reset(void) {
+
+}
+
 void cmplog_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
 
   UNUSED_PARAMETER(instr);

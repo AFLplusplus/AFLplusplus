@@ -12,6 +12,13 @@ static u8 __afl_cmp_cursor[CMP_MAP_W];
 
 #if defined(__i386__)
 
+void cmplog_reset(void) {
+
+  if (__afl_cmp_map == NULL) { return; }
+  memset(__afl_cmp_cursor, 0, CMP_MAP_W);
+
+}
+
 typedef struct {
 
   x86_op_type type;

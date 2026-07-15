@@ -56,13 +56,21 @@ struct cmp_header {  // 16 bit = 2 bytes
 
 } __attribute__((packed));
 
+#ifndef likely
+  #define likely(cond) __builtin_expect(!!(cond), 1)
+#endif
+
+#ifndef unlikely
+  #define unlikely(cond) __builtin_expect(!!(cond), 0)
+#endif
+
 static inline u32 cmp_map_reserve(struct cmp_header *header, u8 *cursor,
                                   u32 capacity) {
 
-  if (header->hits == 0) { *cursor = 0; }
+  if (unlikely(header->hits == 0)) { *cursor = 0; }
   u32 slot = *cursor & (capacity - 1);
   *cursor = (*cursor + 1) & 63;
-  if (header->hits < capacity) { ++header->hits; }
+  if (likely(header->hits < capacity)) { ++header->hits; }
   return slot;
 
 }
@@ -116,3 +124,4 @@ enum {
 };
 
 #endif
+

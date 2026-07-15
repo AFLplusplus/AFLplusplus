@@ -190,6 +190,14 @@ int afl_cmplog_is_active(void)
     return __afl_cmp_map != NULL;
 }
 
+void afl_cmplog_reset_cursor(void)
+{
+    if (__afl_cmp_map == NULL) {
+        return;
+    }
+    memset(__afl_cmp_cursor, 0, CMP_MAP_W);
+}
+
 void afl_cmplog_init(void)
 {
     if (!getenv("___AFL_EINS_ZWEI_POLIZEI___")) {
