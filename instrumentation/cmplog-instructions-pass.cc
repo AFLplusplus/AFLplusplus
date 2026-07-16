@@ -128,12 +128,13 @@ static bool IsLoopCondition(BranchInst *BR, LoopInfo *LI) {
 
   BasicBlock *BranchBB = BR->getParent();
 
-  // Check all loops containing this block (innermost to outermost)
+  // Only skip the comparison that drives the loop iteration itself (the
+  // induction/back-edge condition). Data comparisons that merely bail out of
+  // the loop early (e.g. `if (x != y) break;`) must stay instrumented.
   for (Loop *L = LI->getLoopFor(BranchBB); L; L = L->getParentLoop()) {
 
     if (L->isLoopLatch(BranchBB)) return true;    // Back-edge source
     if (L->getHeader() == BranchBB) return true;  // Loop header condition
-    if (L->isLoopExiting(BranchBB)) return true;  // Loop exit condition
 
   }
 
@@ -384,7 +385,10 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
       }
 
-      bool use_hookN = cast_size == 128 && cast_size != max_size;
+      bool is_native = max_size == 8 || max_size == 16 || max_size == 32 ||
+                       max_size == 64 || max_size == 128;
+      bool use_hookN = is_64_arch && !is_native;
+      if (use_hookN) { cast_size = 128; }
 
       // XXX FIXME BUG TODO
       if (is_fp && vector_cnt) { continue; }
