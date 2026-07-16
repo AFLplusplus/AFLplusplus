@@ -37,6 +37,7 @@ void afl_compcov_init(void);
 
 int afl_cmplog_is_active(void);
 void afl_cmplog_init(void);
+void afl_cmplog_reset_cursor(void);
 
 void afl_qasan_init(void);
 

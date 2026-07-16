@@ -33,12 +33,12 @@ struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 #endif
 
-void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
-                                    u8 *fname, u8 *mother_fname) {
+u8 run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
+                                  u8 *fname, u8 *mother_fname) {
+
+  u8 updated = 0;
 
   if (afl->custom_mutators_count) {
-
-    u8 updated = 0;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
@@ -69,6 +69,8 @@ void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
     }
 
   }
+
+  return updated;
 
 }
 
@@ -454,7 +456,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
   /* Initialize trimming in the custom mutator */
   afl->stage_cur = 0;
   s32 retval = mutator->afl_custom_init_trim(mutator->data, in_buf, q->len);
-  if (unlikely(retval) < 0) {
+  if (unlikely(retval < 0)) {
 
     FATAL("custom_init_trim error ret: %d", retval);
 
@@ -563,7 +565,14 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
       memcpy(out_buf, retbuf, retlen);
 
       /* Tell the custom mutator that the trimming was successful */
-      afl->stage_cur = mutator->afl_custom_post_trim(mutator->data, 1);
+      s32 retval2 = mutator->afl_custom_post_trim(mutator->data, 1);
+      if (unlikely(retval2 < 0)) {
+
+        FATAL("Error ret in custom_post_trim: %d", retval2);
+
+      }
+
+      afl->stage_cur = retval2;
 
       if (afl->not_on_tty && afl->debug) {
 

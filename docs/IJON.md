@@ -151,6 +151,11 @@ The fuzzer keeps guiding `x` upward while `x < limit`. When `x >= limit`, the
 slot writes the terminal value `UINT64_MAX`. If `AFL_IJON_RETIRE_MAX` is set
 during fuzzing, AFL++ removes that IJON max input from the IJON scheduling pool.
 
+Stored maximum-reaching inputs are validated and loaded again when AFL++ starts.
+The scheduler replays them round-robin after every 15 normal scheduler turns,
+so IJON replay occupies at most one of every 16 scheduling opportunities. New
+coverage found during replay enters the queue as an independent root entry.
+
 ## Usage Instructions
 
 ### Building AFL++ with IJON
@@ -301,4 +306,3 @@ Base Address    ┌────────────────────�
 - **Dynamic Offsets**: IJON offset calculated at runtime based on actual coverage size
 - **Consistent Layout**: Same memory organization regardless of target size
 - **Fastresume Support**: IJON offsets preserved across fuzzing sessions
-

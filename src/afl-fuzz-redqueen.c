@@ -891,44 +891,62 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     if (use_num && ((u64)num == pattern || !num)) {
 
       u8     tmp_buf[32];
-      size_t num_len = snprintf(tmp_buf, sizeof(tmp_buf), "%lld", repl);
+      size_t num_len =
+          snprintf(tmp_buf, sizeof(tmp_buf), "%lld", (long long)(s64)repl);
       size_t old_len = endptr - buf_8;
+      size_t base_len = len - old_len;
 
-      u8 *new_buf = afl_realloc((void **)&afl->out_scratch_buf, len + num_len);
-      if (unlikely(!new_buf)) { PFATAL("alloc"); }
+      if (likely(num_len < sizeof(tmp_buf) && base_len <= afl->max_length &&
+                 num_len <= afl->max_length - base_len)) {
 
-      memcpy(new_buf, buf, idx);
-      memcpy(new_buf + idx, tmp_buf, num_len);
-      memcpy(new_buf + idx + num_len, buf_8 + old_len, len - idx - old_len);
+        u32 new_len = base_len + num_len;
+        u8 *new_buf = afl_realloc((void **)&afl->out_scratch_buf, new_len);
+        if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
-      if (new_buf[idx + num_len] >= '0' && new_buf[idx + num_len] <= '9') {
+        memcpy(new_buf, buf, idx);
+        memcpy(new_buf + idx, tmp_buf, num_len);
+        memcpy(new_buf + idx + num_len, buf_8 + old_len, len - idx - old_len);
 
-        new_buf[idx + num_len] = ' ';
+        if (idx + num_len < new_len && new_buf[idx + num_len] >= '0' &&
+            new_buf[idx + num_len] <= '9') {
+
+          new_buf[idx + num_len] = ' ';
+
+        }
+
+        if (unlikely(its_fuzz(afl, new_buf, new_len, status))) { return 1; }
 
       }
-
-      if (unlikely(its_fuzz(afl, new_buf, len, status))) { return 1; }
 
     } else if (use_unum && (unum == pattern || !unum)) {
 
       u8     tmp_buf[32];
-      size_t num_len = snprintf(tmp_buf, sizeof(tmp_buf), "%llu", repl);
+      size_t num_len =
+          snprintf(tmp_buf, sizeof(tmp_buf), "%llu", (unsigned long long)repl);
       size_t old_len = endptr - buf_8;
+      size_t base_len = len - old_len;
 
-      u8 *new_buf = afl_realloc((void **)&afl->out_scratch_buf, len + num_len);
-      if (unlikely(!new_buf)) { PFATAL("alloc"); }
+      if (likely(num_len < sizeof(tmp_buf) && base_len <= afl->max_length &&
+                 num_len <= afl->max_length - base_len)) {
 
-      memcpy(new_buf, buf, idx);
-      memcpy(new_buf + idx, tmp_buf, num_len);
-      memcpy(new_buf + idx + num_len, buf_8 + old_len, len - idx - old_len);
+        u32 new_len = base_len + num_len;
+        u8 *new_buf = afl_realloc((void **)&afl->out_scratch_buf, new_len);
+        if (unlikely(!new_buf)) { PFATAL("alloc"); }
 
-      if (new_buf[idx + num_len] >= '0' && new_buf[idx + num_len] <= '9') {
+        memcpy(new_buf, buf, idx);
+        memcpy(new_buf + idx, tmp_buf, num_len);
+        memcpy(new_buf + idx + num_len, buf_8 + old_len, len - idx - old_len);
 
-        new_buf[idx + num_len] = ' ';
+        if (idx + num_len < new_len && new_buf[idx + num_len] >= '0' &&
+            new_buf[idx + num_len] <= '9') {
+
+          new_buf[idx + num_len] = ' ';
+
+        }
+
+        if (unlikely(its_fuzz(afl, new_buf, new_len, status))) { return 1; }
 
       }
-
-      if (unlikely(its_fuzz(afl, new_buf, len, status))) { return 1; }
 
     }
 
@@ -2237,23 +2255,19 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
   }
 
-  if (l0 >= 0x80 || ol0 >= 0x80) {
-
-    if (l0 >= 0x80) { l0 -= 0x80; }
-    if (l1 >= 0x80) { l1 -= 0x80; }
-    if (ol0 >= 0x80) { ol0 -= 0x80; }
-    if (ol1 >= 0x80) { ol1 -= 0x80; }
-
-  }
+  l0 &= 0x7f;
+  l1 &= 0x7f;
+  ol0 &= 0x7f;
+  ol1 &= 0x7f;
 
   if (l0 == 0 || l1 == 0 || ol0 == 0 || ol1 == 0 || l0 > 32 || l1 > 32 ||
       ol0 > 32 || ol1 > 32) {
 
-    l0 = ol0 = hshape;
+    return 0;
 
   }
 
-  u8  lmax = MAX(l0, ol0);
+  u8  lmax = MIN(MIN(l0, l1), MIN(ol0, ol1));
   u8  save[80];
   u32 saved_idx = idx, pre, from = 0, to = 0, i, j;
   u32 its_len = MIN(MIN(lmax, hshape), len - idx);
@@ -2268,7 +2282,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
     if (memcmp(changed_val, repl, its_len) != 0) { return 0; }
 
-    u32 max_to = MIN(4U, idx);
+    u32 max_to = MIN(MIN(4U, idx), lmax - saved_its_len);
     if (!(lvl & LVL1) && max_to) { from = 1; }
     to = max_to;
 
@@ -2280,25 +2294,26 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 #ifdef _DEBUG
   if (idx == 0) {
 
+    u32 debug_len = MIN(MIN(8U, (u32)lmax), len - idx);
     fprintf(stderr, "RTN T idx=%u lvl=%02x is_txt=%u shape=%u/%u ", idx, lvl,
             o->v0_len >= 0x80 ? 1 : 0, hshape, l0);
-    for (j = 0; j < 8; j++)
+    for (j = 0; j < debug_len; j++)
       fprintf(stderr, "%02x", orig_buf[idx + j]);
     fprintf(stderr, " -> ");
-    for (j = 0; j < 8; j++)
+    for (j = 0; j < debug_len; j++)
       fprintf(stderr, "%02x", o_pattern[j]);
     fprintf(stderr, " <= ");
-    for (j = 0; j < 8; j++)
+    for (j = 0; j < debug_len; j++)
       fprintf(stderr, "%02x", repl[j]);
     fprintf(stderr, "\n");
     fprintf(stderr, "                ");
-    for (j = 0; j < 8; j++)
+    for (j = 0; j < debug_len; j++)
       fprintf(stderr, "%02x", buf[idx + j]);
     fprintf(stderr, " -> ");
-    for (j = 0; j < 8; j++)
+    for (j = 0; j < debug_len; j++)
       fprintf(stderr, "%02x", pattern[j]);
     fprintf(stderr, " <= ");
-    for (j = 0; j < 8; j++)
+    for (j = 0; j < debug_len; j++)
       fprintf(stderr, "%02x", changed_val[j]);
     fprintf(stderr, "\n");
 
@@ -2407,7 +2422,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       }
 
-      if (afl->cmplog_enable_xtreme_transform && i < 16 &&
+      if (afl->cmplog_enable_xtreme_transform && i < 16 && (i << 1) + 2 <= l1 &&
           is_hex(repl + (i << 1))) {
 
         ++tohex;
@@ -2453,7 +2468,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
       if (afl->cmplog_enable_xtreme_transform) {
 
-        if (i % 3 == 2 && i < 24) {
+        if (i % 3 == 2 && i < 24 && ((i / 3) << 2) + 4 <= l1) {
 
           if (is_base64(repl + ((i / 3) << 2))) tob64 += 3;
 
@@ -2748,6 +2763,17 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
     struct cmpfn_operands *orig_o =
         &((struct cmpfn_operands *)afl->orig_cmp_map->log[key])[i];
 
+    u32 v0_len = o->v0_len & 0x7f;
+    u32 v1_len = o->v1_len & 0x7f;
+    u32 orig_v0_len = orig_o->v0_len & 0x7f;
+    u32 orig_v1_len = orig_o->v1_len & 0x7f;
+    if (!v0_len || !v1_len || !orig_v0_len || !orig_v1_len || v0_len > 32 ||
+        v1_len > 32 || orig_v0_len > 32 || orig_v1_len > 32) {
+
+      goto rtn_fuzz_next_iter;
+
+    }
+
     /*
         // opt not in the paper
         for (j = 0; j < i; ++j) {
@@ -2883,34 +2909,20 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
       // if (unlikely(!afl->pass_stats[key].total)) {
 
-      u32 shape_len = SHAPE_BYTES(h->shape);
-      u32 v0_len = shape_len, v1_len = shape_len;
-      if (afl->queue_cur->is_ascii ||
-          check_if_text_buf((u8 *)&o->v0, shape_len) == shape_len) {
-
-        if (strlen(o->v0)) v0_len = strlen(o->v0);
-
-      }
-
-      if (afl->queue_cur->is_ascii ||
-          check_if_text_buf((u8 *)&o->v1, shape_len) == shape_len) {
-
-        if (strlen(o->v1)) v1_len = strlen(o->v1);
-
-      }
+      u8 v0_same = v0_len == orig_v0_len && !memcmp(o->v0, orig_o->v0, v0_len);
+      u8 v1_same = v1_len == orig_v1_len && !memcmp(o->v1, orig_o->v1, v1_len);
 
       // fprintf(stderr, "SHOULD: found:%u ascii:%u text?%u:%u %u:%s %u:%s \n",
       // found_one, afl->queue_cur->is_ascii, check_if_text_buf((u8 *)&o->v0,
       // shape_len), check_if_text_buf((u8 *)&o->v1, shape_len), v0_len,
       // o->v0, v1_len, o->v1);
 
-      if (!memcmp(o->v0, orig_o->v0, v0_len) &&
-          ADDR_ATTR_V0(o->addr_attr) != ADDR_ATTR_NOTFOUND &&
+      if (v0_same && ADDR_ATTR_V0(o->addr_attr) != ADDR_ATTR_NOTFOUND &&
           ADDR_ATTR_V0(orig_o->addr_attr) != ADDR_ATTR_NOTFOUND) {
 
         maybe_add_auto(afl, o->v0, v0_len);
 
-      } else if (!memcmp(o->v1, orig_o->v1, v1_len) &&
+      } else if (v1_same &&
 
                  ADDR_ATTR_V1(o->addr_attr) != ADDR_ATTR_NOTFOUND &&
                  ADDR_ATTR_V1(orig_o->addr_attr) != ADDR_ATTR_NOTFOUND) {
@@ -2921,11 +2933,11 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
         // Note that this check differs from the line 1901, for RTN we are more
         // opportunistic for adding to the dictionary than cmps
-        if (!memcmp(o->v0, orig_o->v0, v0_len) &&
+        if (v0_same &&
             (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len) &&
             v0_len != 32)
           maybe_add_auto(afl, o->v0, v0_len);
-        if (!memcmp(o->v1, orig_o->v1, v1_len) &&
+        if (v1_same &&
             (!found_one || check_if_text_buf((u8 *)&o->v1, v1_len) == v1_len) &&
             v1_len != 32)
           maybe_add_auto(afl, o->v1, v1_len);
@@ -2936,7 +2948,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     }
 
-    // rtn_fuzz_next_iter:
+  rtn_fuzz_next_iter:
     afl->stage_cur++;
 
   }

@@ -2171,31 +2171,11 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
-  /* Handle IJON max directory - preserve during resume, clean during overwrite
-   */
+  /* Handle IJON max directory - preserve in place during resume, clean during
+     overwrite */
   fn = alloc_printf("%s/ijon_max", afl->out_dir);
 
-  if (afl->in_place_resume) {
-
-    /* During resume: preserve IJON directory by renaming (like crashes/hangs)
-     */
-    time_t    cur_t = time(0);
-    struct tm t;
-    localtime_r(&cur_t, &t);
-
-#ifndef SIMPLE_FILES
-    u8 *nfn =
-        alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn, t.tm_year + 1900,
-                     t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
-#else
-    u8 *nfn =
-        alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t.tm_year + 1900,
-                     t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
-#endif
-    rename(fn, nfn);                /* Ignore errors like other directories */
-    ck_free(nfn);
-
-  } else {
+  if (!afl->in_place_resume) {
 
     /* During overwrite: clean up IJON files */
     delete_files(fn,

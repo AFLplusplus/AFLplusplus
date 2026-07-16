@@ -36,10 +36,10 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 
 }
 
-void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
-                                    u8 *a, u8 *b) {
+u8 run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
+                                  u8 *a, u8 *b) {
 
-  return;
+  return 0;
 
 }
 
@@ -762,17 +762,18 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
 /* Append new test case to the queue. */
 
-void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
+u8 add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
+  u8                  file_modified = 0;
   struct queue_entry *q =
       (struct queue_entry *)ck_alloc(sizeof(struct queue_entry));
 
   q->fname = fname;
   q->len = len;
 
-  q->depth = afl->cur_depth + 1;
+  q->depth = afl->is_doing_ijon ? 1 : afl->cur_depth + 1;
   q->passed_det = passed_det;
-  q->mother = afl->queue_cur;
+  q->mother = afl->is_doing_ijon ? NULL : afl->queue_cur;
   q->weight = 1.0;
   q->perf_score = 100;
 
@@ -855,9 +856,13 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
       u8 *fname_orig = NULL;
 
-      if (afl->queue_cur) { fname_orig = afl->queue_cur->fname; }
+      if (afl->queue_cur && !afl->is_doing_ijon) {
 
-      run_afl_custom_queue_new_entry(afl, q, fname, fname_orig);
+        fname_orig = afl->queue_cur->fname;
+
+      }
+
+      file_modified = run_afl_custom_queue_new_entry(afl, q, fname, fname_orig);
 
     }
 
@@ -871,6 +876,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   }
 
   q->skipdet_e = (struct skipdet_entry *)ck_alloc(sizeof(struct skipdet_entry));
+
+  return file_modified;
 
 }
 
