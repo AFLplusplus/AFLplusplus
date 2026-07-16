@@ -1156,26 +1156,6 @@ inline void cull_queue(afl_state_t *afl) {
 
 }
 
-void consume_handicap(afl_state_t *afl, struct queue_entry *q) {
-
-  if (q->handicap >= 4) {
-
-    q->handicap -= 4;
-
-  } else if (q->handicap) {
-
-    --q->handicap;
-
-  } else {
-
-    return;
-
-  }
-
-  afl->reinit_table = 1;
-
-}
-
 /* Calculate case desirability score to adjust the length of havoc fuzzing.
    A helper function for fuzz_one(). Maybe some of these constants should
    go into config.h. */

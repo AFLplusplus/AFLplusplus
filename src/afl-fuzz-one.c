@@ -627,7 +627,17 @@ u8 fuzz_one(afl_state_t *afl) {
 
   }
 
-  consume_handicap(afl, afl->queue_cur);
+  if (unlikely(afl->queue_cur->handicap >= 4)) {
+
+    afl->queue_cur->handicap -= 4;
+    afl->reinit_table = 1;
+
+  } else if (unlikely(afl->queue_cur->handicap)) {
+
+    --afl->queue_cur->handicap;
+    afl->reinit_table = 1;
+
+  }
 
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
