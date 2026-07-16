@@ -652,9 +652,6 @@ checks or alter some of the more exotic semantics of the tool:
     function after the target has been restarted. (This is needed for e.g. TCP
     services.)
 
-  - Setting `AFL_CYCLE_SCHEDULES` will switch to a different schedule every time
-    a cycle is finished.
-
   - Setting `AFL_DEBUG_CHILD` will not suppress the child output. This lets you
     see all output of the child, making setup issues obvious. For example, in an
     unicornafl harness, you might see python stacktraces. You may also see other

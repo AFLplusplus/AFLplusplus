@@ -36,10 +36,7 @@ void mopt_adaptive_init(afl_state_t *afl) {
 
 void mopt_round_reset(afl_state_t *afl) {
 
-  struct mopt_adaptive *m = &afl->mopt_adaptive;
-  for (u32 i = 0; i < m->round_cnt; ++i)
-    m->round_seen[m->round_list[i]] = 0;
-  m->round_cnt = 0;
+  afl->mopt_adaptive.round_cnt = 0;
 
 }
 
@@ -62,14 +59,10 @@ void mopt_commit_round(afl_state_t *afl, u8 found) {
 
     u8 op = m->round_list[i];
     c->op_uses[op]++;
-    if (found && !m->round_seen[op]) {
-
-      c->op_finds[op]++;
-      m->round_seen[op] = 1;
-
-    }
 
   }
+
+  if (found && m->round_cnt) { c->op_finds[m->round_list[m->round_cnt - 1]]++; }
 
   mopt_round_reset(afl);
 

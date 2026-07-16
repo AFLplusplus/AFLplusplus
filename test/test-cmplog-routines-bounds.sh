@@ -49,6 +49,31 @@ static unsigned count_rtn_headers(const struct cmp_map *cmp_map) {
 
 }
 
+static int has_rtn_operand(const struct cmp_map *cmp_map, const char *value,
+                           u32 len) {
+
+  for (u32 i = 0; i < CMP_MAP_W; ++i) {
+
+    if (cmp_map->headers[i].type != CMP_TYPE_RTN) continue;
+    const struct cmpfn_operands *operands =
+        (const struct cmpfn_operands *)cmp_map->log[i];
+    for (u32 j = 0; j < cmp_map->headers[i].hits; ++j) {
+
+      if (operands[j].v0_len == 0x80 + len &&
+          !memcmp(operands[j].v0, value, len)) {
+
+        return 1;
+
+      }
+
+    }
+
+  }
+
+  return 0;
+
+}
+
 static char *guarded_tail(char **map_base, size_t *map_len) {
 
   long page_size = sysconf(_SC_PAGESIZE);
@@ -123,6 +148,18 @@ int main(void) {
   __cmplog_rtn_hook_str((u8 *)"abc", (u8 *)"abd");
   __cmplog_rtn_hook_strn((u8 *)"abc", (u8 *)"abd", 3);
   if (!count_rtn_headers(cmp_map)) return 2;
+
+  long cross_page_size = sysconf(_SC_PAGESIZE);
+  if (cross_page_size <= 0) return 3;
+  char *cross_map = mmap(NULL, (size_t)cross_page_size * 2U,
+                         PROT_READ | PROT_WRITE,
+                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (cross_map == MAP_FAILED) return 3;
+  char *cross = cross_map + cross_page_size - 2;
+  memcpy(cross, "abcdef", 7);
+  __cmplog_rtn_hook_str((u8 *)cross, (u8 *)"abcdef");
+  if (!has_rtn_operand(cmp_map, "abcdef", 7)) return 4;
+  munmap(cross_map, (size_t)cross_page_size * 2U);
 
   if (saved_stderr >= 0) {
 

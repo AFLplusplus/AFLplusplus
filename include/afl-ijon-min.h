@@ -40,6 +40,11 @@ typedef struct {
   u32              next_entry;
   u32              max_input_size;
 
+  /* Rolling history bookkeeping (owned per state, not process-global) */
+  int history_index;
+  int variable_discovered[MAP_SIZE_IJON_ENTRIES];
+  int num_discovered_vars;
+
 } ijon_min_state;
 
 /* UNIFIED SHARED MEMORY LAYOUT - DYNAMIC DESIGN
@@ -83,10 +88,9 @@ ijon_min_state  *new_ijon_min_state_with_limit(char *max_dir,
 void             ijon_load_existing_state(ijon_min_state *self);
 u8               ijon_should_schedule(ijon_min_state *self);
 ijon_input_info *ijon_get_input(ijon_min_state *self);
-u8   ijon_read_input(ijon_min_state *self, ijon_input_info *info, u8 **data,
-                     u32 *len);
-void ijon_store_max_input(ijon_min_state *self, int i, uint8_t *data,
-                          size_t len);
+u8 ijon_read_input(ijon_min_state *self, ijon_input_info *info, u8 **data,
+                   u32 *len);
+u8 ijon_store_max_input(ijon_min_state *self, int i, uint8_t *data, size_t len);
 void ijon_store_history_if_best(ijon_min_state *self, int i, uint8_t *data,
                                 size_t len);
 void ijon_store_history_unconditional(ijon_min_state *self, int i,

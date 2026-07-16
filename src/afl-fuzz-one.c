@@ -627,6 +627,8 @@ u8 fuzz_one(afl_state_t *afl) {
 
   }
 
+  consume_handicap(afl, afl->queue_cur);
+
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
                (u32)len <= afl->cmplog_max_filesize)) {
@@ -684,7 +686,9 @@ u8 fuzz_one(afl_state_t *afl) {
   /* if skipdet decide to skip the seed or no interesting bytes found,
      we skip the whole deterministic stage as well */
 
-  if (likely(afl->skip_deterministic) || likely(afl->queue_cur->passed_det) ||
+  if (likely(afl->skip_deterministic) ||
+      likely(!afl->queue_cur->skipdet_e->done_eff) ||
+      likely(afl->queue_cur->passed_det) ||
       likely(!afl->queue_cur->skipdet_e->quick_eff_bytes) ||
       likely(perf_score <
              (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100
@@ -2308,6 +2312,7 @@ havoc_stage:
   u64 mopt_stage_start_us = get_cur_time_us();
   u64 mopt_stage_start_finds = afl->queued_items + afl->saved_crashes;
   u64 mopt_stage_start_execs = afl->fsrv.total_execs;
+  u64 havoc_finds = mopt_stage_start_finds;
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
@@ -2369,8 +2374,7 @@ havoc_stage:
 
       u32 r = rand_below(afl, rand_max), item;
       u32 mopt_op = mutation_array[r];
-
-      mopt_record_use(afl, mopt_op);
+      u8  mopt_changed = 0;
 
       switch (mopt_op) {
 
@@ -2380,6 +2384,7 @@ havoc_stage:
           u8  bit = rand_below(afl, 8);
           u32 off = rand_below(afl, temp_len);
           out_buf[off] ^= 1 << bit;
+          mopt_changed = 1;
 
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP-BIT_%u", bit);
@@ -2398,7 +2403,9 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING8_%u", item);
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          out_buf[rand_below(afl, temp_len)] = interesting_8[item];
+          u32 pos = rand_below(afl, temp_len);
+          mopt_changed = out_buf[pos] != (u8)interesting_8[item];
+          out_buf[pos] = interesting_8[item];
           break;
 
         }
@@ -2415,8 +2422,10 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
 
-          *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
-              interesting_16[item];
+          u32 pos = rand_below(afl, temp_len - 1);
+          u16 val = interesting_16[item];
+          mopt_changed = memcmp(out_buf + pos, &val, sizeof(val)) != 0;
+          *(u16 *)(out_buf + pos) = val;
 
           break;
 
@@ -2433,8 +2442,10 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16BE_%u", item);
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
-              SWAP16(interesting_16[item]);
+          u32 pos = rand_below(afl, temp_len - 1);
+          u16 val = SWAP16(interesting_16[item]);
+          mopt_changed = memcmp(out_buf + pos, &val, sizeof(val)) != 0;
+          *(u16 *)(out_buf + pos) = val;
 
           break;
 
@@ -2452,8 +2463,10 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
 
-          *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
-              interesting_32[item];
+          u32 pos = rand_below(afl, temp_len - 3);
+          u32 val = interesting_32[item];
+          mopt_changed = memcmp(out_buf + pos, &val, sizeof(val)) != 0;
+          *(u32 *)(out_buf + pos) = val;
 
           break;
 
@@ -2470,8 +2483,10 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32BE_%u", item);
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
-              SWAP32(interesting_32[item]);
+          u32 pos = rand_below(afl, temp_len - 3);
+          u32 val = SWAP32(interesting_32[item]);
+          mopt_changed = memcmp(out_buf + pos, &val, sizeof(val)) != 0;
+          *(u32 *)(out_buf + pos) = val;
 
           break;
 
@@ -2487,6 +2502,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           out_buf[rand_below(afl, temp_len)] -= item;
+          mopt_changed = 1;
           break;
 
         }
@@ -2501,6 +2517,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           out_buf[rand_below(afl, temp_len)] += item;
+          mopt_changed = 1;
           break;
 
         }
@@ -2519,6 +2536,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           *(u16 *)(out_buf + pos) -= item;
+          mopt_changed = 1;
 
           break;
 
@@ -2539,6 +2557,7 @@ havoc_stage:
 #endif
           *(u16 *)(out_buf + pos) =
               SWAP16(SWAP16(*(u16 *)(out_buf + pos)) - num);
+          mopt_changed = 1;
 
           break;
 
@@ -2558,6 +2577,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           *(u16 *)(out_buf + pos) += item;
+          mopt_changed = 1;
 
           break;
 
@@ -2578,6 +2598,7 @@ havoc_stage:
 #endif
           *(u16 *)(out_buf + pos) =
               SWAP16(SWAP16(*(u16 *)(out_buf + pos)) + num);
+          mopt_changed = 1;
 
           break;
 
@@ -2597,6 +2618,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           *(u32 *)(out_buf + pos) -= item;
+          mopt_changed = 1;
 
           break;
 
@@ -2617,6 +2639,7 @@ havoc_stage:
 #endif
           *(u32 *)(out_buf + pos) =
               SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
+          mopt_changed = 1;
 
           break;
 
@@ -2636,6 +2659,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           *(u32 *)(out_buf + pos) += item;
+          mopt_changed = 1;
 
           break;
 
@@ -2656,6 +2680,7 @@ havoc_stage:
 #endif
           *(u32 *)(out_buf + pos) =
               SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
+          mopt_changed = 1;
 
           break;
 
@@ -2675,6 +2700,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           out_buf[pos] ^= item;
+          mopt_changed = 1;
           break;
 
         }
@@ -2713,6 +2739,7 @@ havoc_stage:
             out_buf = new_buf;
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             temp_len += clone_len;
+            mopt_changed = 1;
 
             // Frameshift tracking
             if (likely(!afl->afl_env.afl_frameshift_disabled)) {
@@ -2775,6 +2802,7 @@ havoc_stage:
             out_buf = new_buf;
             afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
             temp_len += clone_len;
+            mopt_changed = 1;
 
             // Frameshift tracking
             if (likely(!afl->afl_env.afl_frameshift_disabled)) {
@@ -2822,6 +2850,8 @@ havoc_stage:
                    copy_from, copy_to, copy_len);
           strcat(afl->mutation, afl->m_tmp);
 #endif
+          mopt_changed =
+              memcmp(out_buf + copy_to, out_buf + copy_from, copy_len) != 0;
           memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
 
           break;
@@ -2846,6 +2876,12 @@ havoc_stage:
                    copy_len);
           strcat(afl->mutation, afl->m_tmp);
 #endif
+          for (u32 pos = 0; pos < copy_len && !mopt_changed; ++pos) {
+
+            mopt_changed = out_buf[copy_to + pos] != (u8)item;
+
+          }
+
           memset(out_buf + copy_to, item, copy_len);
 
           break;
@@ -2861,6 +2897,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           out_buf[rand_below(afl, temp_len)]++;
+          mopt_changed = 1;
           break;
 
         }
@@ -2874,6 +2911,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           out_buf[rand_below(afl, temp_len)]--;
+          mopt_changed = 1;
           break;
 
         }
@@ -2887,6 +2925,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           out_buf[rand_below(afl, temp_len)] ^= 0xff;
+          mopt_changed = 1;
           break;
 
         }
@@ -2928,6 +2967,9 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
 
+          mopt_changed = memcmp(out_buf + switch_from, out_buf + switch_to,
+                                switch_len) != 0;
+
           /* Backup */
 
           memcpy(new_buf, out_buf + switch_from, switch_len);
@@ -2964,6 +3006,7 @@ havoc_stage:
                   temp_len - del_from - del_len);
 
           temp_len -= del_len;
+          mopt_changed = 1;
 
           // Frameshift tracking
           if (likely(!afl->afl_env.afl_frameshift_disabled)) {
@@ -2988,6 +3031,9 @@ havoc_stage:
 
           u32 len = choose_block_len(afl, temp_len - 1);
           u32 off = rand_below(afl, temp_len - len + 1);
+          u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), len);
+          if (unlikely(!new_buf)) { PFATAL("alloc"); }
+          memcpy(new_buf, out_buf + off, len);
 
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " SHUFFLE_%u", len);
@@ -3008,6 +3054,8 @@ havoc_stage:
             out_buf[off + j] = temp;
 
           }
+
+          mopt_changed = memcmp(new_buf, out_buf + off, len) != 0;
 
           break;
 
@@ -3032,6 +3080,7 @@ havoc_stage:
                   temp_len - del_from - del_len);
 
           temp_len -= del_len;
+          mopt_changed = 1;
 
           // Frameshift tracking
           if (likely(!afl->afl_env.afl_frameshift_disabled)) {
@@ -3082,6 +3131,7 @@ havoc_stage:
           out_buf = new_buf;
           afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
           temp_len += clone_len;
+          mopt_changed = 1;
 
           // Frameshift tracking
           if (likely(!afl->afl_env.afl_frameshift_disabled)) {
@@ -3212,9 +3262,12 @@ havoc_stage:
 
           if (old_len == new_len) {
 
+            mopt_changed = memcmp(out_buf + off, buf, new_len) != 0;
             memcpy(out_buf + off, buf, new_len);
 
           } else {
+
+            mopt_changed = 1;
 
             u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch),
                                       temp_len + new_len - old_len);
@@ -3278,8 +3331,9 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
           u64  val = rand_next(afl);
-          char buf[20];
+          char buf[20] = {0};
           snprintf(buf, sizeof(buf), "%llu", val);
+          mopt_changed = memcmp(out_buf + pos, buf, len) != 0;
           memcpy(out_buf + pos, buf, len);
 
           break;
@@ -3303,6 +3357,8 @@ havoc_stage:
                    insert_at, extra_len);
           strcat(afl->mutation, afl->m_tmp);
 #endif
+          mopt_changed = memcmp(out_buf + insert_at,
+                                afl->extras[use_extra].data, extra_len) != 0;
           memcpy(out_buf + insert_at, afl->extras[use_extra].data, extra_len);
 
           break;
@@ -3339,6 +3395,7 @@ havoc_stage:
           /* Inserted part */
           memcpy(out_buf + insert_at, ptr, extra_len);
           temp_len += extra_len;
+          mopt_changed = extra_len != 0;
 
           // Frameshift tracking
           if (likely(!afl->afl_env.afl_frameshift_disabled)) {
@@ -3372,6 +3429,8 @@ havoc_stage:
                    " AUTO-EXTRA-OVERWRITE_%u_%u", insert_at, extra_len);
           strcat(afl->mutation, afl->m_tmp);
 #endif
+          mopt_changed = memcmp(out_buf + insert_at,
+                                afl->a_extras[use_extra].data, extra_len) != 0;
           memcpy(out_buf + insert_at, afl->a_extras[use_extra].data, extra_len);
 
           break;
@@ -3408,6 +3467,7 @@ havoc_stage:
           /* Inserted part */
           memcpy(out_buf + insert_at, ptr, extra_len);
           temp_len += extra_len;
+          mopt_changed = extra_len != 0;
 
           // Frameshift tracking
           if (likely(!afl->afl_env.afl_frameshift_disabled)) {
@@ -3479,6 +3539,8 @@ havoc_stage:
                    copy_len, target->fname);
           strcat(afl->mutation, afl->m_tmp);
 #endif
+          mopt_changed =
+              memcmp(out_buf + copy_to, new_buf + copy_from, copy_len) != 0;
           memmove(out_buf + copy_to, new_buf + copy_from, copy_len);
 
           break;
@@ -3562,6 +3624,7 @@ havoc_stage:
           out_buf = temp_buf;
           afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
           temp_len += clone_len;
+          mopt_changed = clone_len != 0;
 
           // Frameshift tracking
           if (likely(!afl->afl_env.afl_frameshift_disabled)) {
@@ -3580,13 +3643,25 @@ havoc_stage:
 
       }
 
-    }
+      if (likely(mopt_changed)) { mopt_record_use(afl, mopt_op); }
 
     }
 
-    if (common_fuzz_stuff(afl, out_buf, temp_len)) { goto abandon_entry; }
+    }
 
-    mopt_commit_round(afl, (u8)(afl->queued_items != havoc_queued));
+    if (likely((temp_len != len) || memcmp(out_buf, in_buf, len))) {
+
+      if (common_fuzz_stuff(afl, out_buf, temp_len)) { goto abandon_entry; }
+
+      u64 cur_finds = afl->queued_items + afl->saved_crashes;
+      mopt_commit_round(afl, (u8)(cur_finds != havoc_finds));
+      havoc_finds = cur_finds;
+
+    } else {
+
+      mopt_round_reset(afl);
+
+    }
 
     /* out_buf might have been mangled a bit, so let's restore it to its
        original size and shape. */

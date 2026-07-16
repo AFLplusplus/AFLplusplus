@@ -202,47 +202,6 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
 #endif
 
-  if (afl->cycle_schedules) {
-
-    /* we cannot mix non-AFLfast schedules with others */
-
-    switch (afl->schedule) {
-
-      case EXPLORE:
-        afl->schedule = EXPLOIT;
-        break;
-      case EXPLOIT:
-        afl->schedule = MMOPT;
-        break;
-      case MMOPT:
-        afl->schedule = SEEK;
-        break;
-      case SEEK:
-        afl->schedule = EXPLORE;
-        break;
-      case FAST:
-        afl->schedule = COE;
-        break;
-      case COE:
-        afl->schedule = LIN;
-        break;
-      case LIN:
-        afl->schedule = QUAD;
-        break;
-      case QUAD:
-        afl->schedule = RARE;
-        break;
-      case RARE:
-        afl->schedule = FAST;
-        break;
-
-    }
-
-    // we must recalculate the scores of all queue entries
-    recalculate_all_scores(afl);
-
-  }
-
   afl->prev_queued = afl->queued_items;
 
 }

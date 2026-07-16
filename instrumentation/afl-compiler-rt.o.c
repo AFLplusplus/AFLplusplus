@@ -19,6 +19,7 @@
   #ifndef _GNU_SOURCE
     #define _GNU_SOURCE
   #endif
+  #include <dlfcn.h>
   #include <link.h>
 #endif
 
@@ -529,6 +530,10 @@ u32 __afl_already_initialized_init;
 /* Dummy pipe for area_is_valid() */
 
 static int __afl_dummy_fd[2] = {2, 2};
+
+#ifdef __linux__
+static u8 addr_table_prepare(void);
+#endif
 
 /* ensure we kill the child on termination */
 
@@ -1454,6 +1459,10 @@ static void __afl_start_forkserver(void) {
 
   if (__afl_already_initialized_forkserver) return;
   __afl_already_initialized_forkserver = 1;
+
+#ifdef __linux__
+  if (__afl_cmp_map) { addr_table_prepare(); }
+#endif
 
   struct sigaction orig_action;
   sigaction(SIGTERM, NULL, &orig_action);
@@ -3290,28 +3299,8 @@ static int area_is_valid(void *ptr, size_t len) {
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
 #endif  // HAIKU, OPENBSD, APPLE
 
-  if (r <= 0 || r > len) return 0;
-
-  // even if the write succeed this can be a false positive if we cross
-  // a page boundary. who knows why.
-
-  char *p = (char *)ptr;
-  long  page_size = sysconf(_SC_PAGE_SIZE);
-  char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
-
-  if (page > p + len) {
-
-    // no, not crossing a page boundary
-    return (int)r;
-
-  } else {
-
-    // yes it crosses a boundary, hence we can only return the length of
-    // rest of the first page, we cannot detect if the next page is valid
-    // or not, neither by SYS_write nor msync() :-(
-    return (int)(page - p);
-
-  }
+  if (r <= 0 || (size_t)r > len) return 0;
+  return (int)r;
 
 }
 
@@ -3353,9 +3342,203 @@ static int addr_static_cb(struct dl_phdr_info *info, size_t size, void *data) {
 
 }
 
-static u8 get_prog_addr_attr(const void *addr) {
+  // Immutable interval table of program-image segments, published after one
+  // build. Non-image address chunks use a bounded negative cache to avoid
+  // repeated loader queries.
+  #define AFL_ADDR_TABLE_MAX 4096
+  #define AFL_ADDR_NEGATIVE_CACHE_SIZE 256
 
-  return dl_iterate_phdr(addr_static_cb, (void *)addr);
+typedef struct {
+
+  uintptr_t start;
+  uintptr_t end;
+  u8        attr;
+  u8        readable;
+  u8        stable;
+
+} afl_addr_interval_t;
+
+static afl_addr_interval_t afl_addr_table[AFL_ADDR_TABLE_MAX];
+static u32                 afl_addr_table_count;
+static u8 afl_addr_table_state;  // 0=unbuilt 1=building 2=ready 3=fallback
+static u8 afl_addr_build_overflow;
+static uintptr_t afl_addr_negative_cache[AFL_ADDR_NEGATIVE_CACHE_SIZE];
+
+static int addr_table_build_cb(struct dl_phdr_info *info, size_t size,
+                               void *data) {
+
+  (void)size;
+  (void)data;
+
+  for (size_t i = 0; i < info->dlpi_phnum; i++) {
+
+    if (info->dlpi_phdr[i].p_type != PT_LOAD) { continue; }
+
+    if (afl_addr_table_count >= AFL_ADDR_TABLE_MAX) {
+
+      afl_addr_build_overflow = 1;
+      return 1;
+
+    }
+
+    uintptr_t addr_start = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
+    uintptr_t addr_end = addr_start + MIN(info->dlpi_phdr[i].p_memsz,
+                                          info->dlpi_phdr[i].p_filesz);
+    afl_addr_table[afl_addr_table_count].start = addr_start;
+    afl_addr_table[afl_addr_table_count].end = addr_end;
+    afl_addr_table[afl_addr_table_count].attr =
+        (info->dlpi_phdr[i].p_flags & PF_W) ? ADDR_ATTR_RW : ADDR_ATTR_RO;
+    afl_addr_table[afl_addr_table_count].readable =
+        (info->dlpi_phdr[i].p_flags & PF_R) != 0;
+    afl_addr_table[afl_addr_table_count].stable =
+        !info->dlpi_name || !info->dlpi_name[0];
+    afl_addr_table_count++;
+
+  }
+
+  return 0;
+
+}
+
+static int addr_interval_cmp(const void *a, const void *b) {
+
+  uintptr_t sa = ((const afl_addr_interval_t *)a)->start;
+  uintptr_t sb = ((const afl_addr_interval_t *)b)->start;
+  if (sa < sb) { return -1; }
+  if (sa > sb) { return 1; }
+  return 0;
+
+}
+
+static void addr_table_build(void) {
+
+  afl_addr_table_count = 0;
+  afl_addr_build_overflow = 0;
+  dl_iterate_phdr(addr_table_build_cb, NULL);
+  if (unlikely(afl_addr_build_overflow)) {
+
+    __atomic_store_n(&afl_addr_table_state, 3, __ATOMIC_RELEASE);
+    return;
+
+  }
+
+  qsort(afl_addr_table, afl_addr_table_count, sizeof(afl_addr_interval_t),
+        addr_interval_cmp);
+  __atomic_store_n(&afl_addr_table_state, 2, __ATOMIC_RELEASE);
+
+}
+
+static const afl_addr_interval_t *addr_table_lookup(const void *addr) {
+
+  uintptr_t a = (uintptr_t)addr;
+  u32       lo = 0;
+  u32       hi = afl_addr_table_count;
+  while (lo < hi) {
+
+    u32 mid = lo + (hi - lo) / 2;
+    if (a < afl_addr_table[mid].start) {
+
+      hi = mid;
+
+    } else if (a >= afl_addr_table[mid].end) {
+
+      lo = mid + 1;
+
+    } else {
+
+      return &afl_addr_table[mid];
+
+    }
+
+  }
+
+  return NULL;
+
+}
+
+static u8 addr_negative_cache_lookup(const void *addr) {
+
+  uintptr_t tag = ((uintptr_t)addr >> 12) + 1;
+  return __atomic_load_n(
+             &afl_addr_negative_cache[tag & (AFL_ADDR_NEGATIVE_CACHE_SIZE - 1)],
+             __ATOMIC_RELAXED) == tag;
+
+}
+
+static void addr_negative_cache_store(const void *addr) {
+
+  uintptr_t tag = ((uintptr_t)addr >> 12) + 1;
+  __atomic_store_n(
+      &afl_addr_negative_cache[tag & (AFL_ADDR_NEGATIVE_CACHE_SIZE - 1)], tag,
+      __ATOMIC_RELAXED);
+
+}
+
+static u8 get_prog_addr_attr_slow(const void *addr) {
+
+  if (addr_negative_cache_lookup(addr)) { return ADDR_ATTR_NOTFOUND; }
+
+  Dl_info info;
+  if (!dladdr(addr, &info) || !info.dli_fbase) {
+
+    addr_negative_cache_store(addr);
+    return ADDR_ATTR_NOTFOUND;
+
+  }
+
+  u8 attr = dl_iterate_phdr(addr_static_cb, (void *)addr);
+  if (attr == ADDR_ATTR_NOTFOUND) { addr_negative_cache_store(addr); }
+  return attr;
+
+}
+
+static u8 addr_table_prepare(void) {
+
+  u8 state = __atomic_load_n(&afl_addr_table_state, __ATOMIC_ACQUIRE);
+  if (unlikely(!state)) {
+
+    u8 expected = 0;
+    if (__atomic_compare_exchange_n(&afl_addr_table_state, &expected, 1, 0,
+                                    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+
+      addr_table_build();
+      state = __atomic_load_n(&afl_addr_table_state, __ATOMIC_ACQUIRE);
+
+    } else {
+
+      state = expected;
+
+    }
+
+  }
+
+  return state;
+
+}
+
+static size_t get_prog_addr_info(const void *addr, size_t len, u8 *attr) {
+
+  u8 state = addr_table_prepare();
+  if (unlikely(state != 2)) {
+
+    *attr = get_prog_addr_attr_slow(addr);
+    return 0;
+
+  }
+
+  const afl_addr_interval_t *interval = addr_table_lookup(addr);
+  if (unlikely(!interval)) {
+
+    *attr = get_prog_addr_attr_slow(addr);
+    return 0;
+
+  }
+
+  *attr = interval->attr;
+  if (!interval->readable || !interval->stable) { return 0; }
+
+  size_t available = interval->end - (uintptr_t)addr;
+  return MIN(available, len);
 
 }
 
@@ -3453,6 +3636,36 @@ static u8 get_prog_addr_attr(const void *addr) {
 
 #endif
 
+static inline int cmplog_area_is_valid(void *ptr, size_t len, u8 *attr) {
+
+  *attr = ADDR_ATTR_NOTFOUND;
+  if (unlikely(!ptr)) { return 0; }
+
+#ifdef AFL_HAVE_ADDR_ATTR
+  #ifdef __linux__
+  size_t valid_len = get_prog_addr_info(ptr, len, attr);
+  if (valid_len == len) {
+
+    if (unlikely(__asan_region_is_poisoned &&
+                 __asan_region_is_poisoned(ptr, len))) {
+
+      return 0;
+
+    }
+
+    return (int)valid_len;
+
+  }
+
+  #else
+  *attr = get_prog_addr_attr(ptr);
+  #endif
+#endif
+
+  return area_is_valid(ptr, len);
+
+}
+
 static inline u32 cmplog_string_len_with_nul(u32 len, u32 cap) {
 
   return len < cap ? len + 1U : cap;
@@ -3475,8 +3688,9 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
      `n`; for dictionary/redqueen purposes we want each operand up to its own
      NUL, bounded only by mapping validity and the cmplog buffer size. */
   u32 cap = (u32)__afl_cmplog_max_len;
-  int l1 = area_is_valid(ptr1, cap);
-  int l2 = area_is_valid(ptr2, cap);
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  int l1 = cmplog_area_is_valid(ptr1, cap, &attr1);
+  int l2 = cmplog_area_is_valid(ptr2, cap, &attr2);
   if (l1 <= 0 || l2 <= 0) return;
 
   cap = (u32)MIN(l1, l2);
@@ -3526,8 +3740,6 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
 // fprintf(stderr, "RTN3\n");
 #ifdef AFL_HAVE_ADDR_ATTR
-  u8 attr1 = get_prog_addr_attr(ptr1);
-  u8 attr2 = get_prog_addr_attr(ptr2);
   cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
 #endif
 
@@ -3540,8 +3752,9 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   if (likely(!__afl_cmp_map)) return;
   if (unlikely(!ptr1 || !ptr2)) return;
 
-  int l1 = area_is_valid(ptr1, 32);
-  int l2 = area_is_valid(ptr2, 32);
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  int l1 = cmplog_area_is_valid(ptr1, 32, &attr1);
+  int l2 = cmplog_area_is_valid(ptr2, 32, &attr2);
   if (l1 <= 0 || l2 <= 0) return;
 
   u32 cap = (u32)MIN(l1, l2);
@@ -3583,8 +3796,6 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
 // fprintf(stderr, "RTN3\n");
 #ifdef AFL_HAVE_ADDR_ATTR
-  u8 attr1 = get_prog_addr_attr(ptr1);
-  u8 attr2 = get_prog_addr_attr(ptr2);
   cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
 #endif
 
@@ -3608,8 +3819,9 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
   if (likely(!__afl_cmp_map)) return;
   int l1, l2;
-  if ((l1 = area_is_valid(ptr1, 32)) <= 0 ||
-      (l2 = area_is_valid(ptr2, 32)) <= 0)
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  if ((l1 = cmplog_area_is_valid(ptr1, 32, &attr1)) <= 0 ||
+      (l2 = cmplog_area_is_valid(ptr2, 32, &attr2)) <= 0)
     return;
   int len = MIN(__afl_cmplog_max_len, MIN(l1, l2));
 
@@ -3646,8 +3858,6 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
 // fprintf(stderr, "RTN3\n");
 #ifdef AFL_HAVE_ADDR_ATTR
-  u8 attr1 = get_prog_addr_attr(ptr1);
-  u8 attr2 = get_prog_addr_attr(ptr2);
   cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
 #endif
 
@@ -3769,7 +3979,9 @@ static u8 *get_llvm_stdstring(u8 *string) {
 void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (likely(!__afl_cmp_map)) return;
-  if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
+  u8 attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  if (cmplog_area_is_valid(stdstring, 32, &attr1) <= 0 ||
+      cmplog_area_is_valid(cstring, 32, &attr2) <= 0)
     return;
 
   __cmplog_rtn_hook(get_gcc_stdstring(stdstring), cstring);
@@ -3779,7 +3991,9 @@ void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
   if (likely(!__afl_cmp_map)) return;
-  if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
+  u8 attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  if (cmplog_area_is_valid(stdstring1, 32, &attr1) <= 0 ||
+      cmplog_area_is_valid(stdstring2, 32, &attr2) <= 0)
     return;
 
   __cmplog_rtn_hook(get_gcc_stdstring(stdstring1),
@@ -3790,7 +4004,9 @@ void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (likely(!__afl_cmp_map)) return;
-  if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
+  u8 attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  if (cmplog_area_is_valid(stdstring, 32, &attr1) <= 0 ||
+      cmplog_area_is_valid(cstring, 32, &attr2) <= 0)
     return;
 
   __cmplog_rtn_hook(get_llvm_stdstring(stdstring), cstring);
@@ -3800,7 +4016,9 @@ void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
   if (likely(!__afl_cmp_map)) return;
-  if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
+  u8 attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  if (cmplog_area_is_valid(stdstring1, 32, &attr1) <= 0 ||
+      cmplog_area_is_valid(stdstring2, 32, &attr2) <= 0)
     return;
 
   __cmplog_rtn_hook(get_llvm_stdstring(stdstring1),
@@ -4069,7 +4287,7 @@ uint32_t ijon_hashmem(uint32_t old, char *val, size_t len) {
   old = ijon_hashint(old, len);
   for (size_t i = 0; i < len; i++) {
 
-    old = ijon_hashint(old, val[i]);
+    old = ijon_hashint(old, (u8)val[i]);
 
   }
 
