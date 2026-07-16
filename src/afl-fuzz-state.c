@@ -896,7 +896,7 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->min_slack_ids) { ck_free(afl->min_slack_ids); }
   if (afl->orig_cmp_map) {
 
-    ck_free(afl->orig_cmp_map->log);
+    afl_free(afl->orig_cmp_map->log);
     ck_free(afl->orig_cmp_map);
 
   }
