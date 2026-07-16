@@ -1,6 +1,5 @@
-/* Regression test for SkipDet quick-effective-map resume (P2-19): a
-   >32 KiB input must have its bytes past the per-invocation budget tested
-   across resumed invocations instead of being permanently skipped. */
+/* Regression tests for SkipDet threshold admission, block inference, and
+   quick-effective-map resume. */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,28 +9,17 @@
 #include <cmocka.h>
 #include "afl-fuzz.h"
 
+u8 should_det_fuzz(afl_state_t *, struct queue_entry *);
+
 static u64 fake_time = 0;
 static u32 early_pos;
 static u32 late_pos;
 static u32 quick_runs;
+static u8  correlated_mode;
 
 u64 get_cur_time(void) {
 
   return fake_time;
-
-}
-
-u64 hash64(u8 *key, u32 len, u64 seed) {
-
-  u64 hash = seed;
-  for (u32 i = 0; i < len; ++i) {
-
-    hash ^= key[i];
-    hash *= 1099511628211ULL;
-
-  }
-
-  return hash;
 
 }
 
@@ -42,12 +30,20 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   if (!strcmp(afl->stage_short, "inf")) {
 
-    for (u32 i = 0; i < len; ++i) {
+    if (correlated_mode) {
 
-      if (out_buf[i] != 0xaa) {
+      afl->fsrv.trace_bits[1] = out_buf[0] ^ out_buf[1];
 
-        afl->fsrv.trace_bits[1] = 1;
-        break;
+    } else {
+
+      for (u32 i = 0; i < len; ++i) {
+
+        if (out_buf[i] != 0xaa) {
+
+          afl->fsrv.trace_bits[1] = 1;
+          break;
+
+        }
 
       }
 
@@ -57,7 +53,11 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
     ++quick_runs;
     afl->fsrv.trace_bits[3] = quick_runs & 1;
-    if (out_buf[early_pos] != 0xaa || out_buf[late_pos] != 0xaa) {
+    if (correlated_mode) {
+
+      afl->fsrv.trace_bits[2] = out_buf[0] ^ out_buf[1];
+
+    } else if (out_buf[early_pos] != 0xaa || out_buf[late_pos] != 0xaa) {
 
       afl->fsrv.trace_bits[2] = 1;
 
@@ -76,12 +76,12 @@ AFL_RAND_RETURN rand_next(afl_state_t *afl) {
 
 }
 
-static afl_state_t *make_afl(void) {
+static afl_state_t *make_afl(u32 map_size) {
 
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));
   assert_non_null(afl);
   afl->fixed_seed = 1;
-  afl->fsrv.map_size = 8;
+  afl->fsrv.map_size = map_size;
   afl->fsrv.trace_bits = calloc(1, afl->fsrv.map_size);
   afl->map_tmp_buf = calloc(1, afl->fsrv.map_size);
   afl->var_bytes = calloc(1, afl->fsrv.map_size);
@@ -102,11 +102,128 @@ static struct queue_entry *make_entry(u32 len) {
 
 }
 
+static struct queue_entry *make_threshold_entry(u32 map_size, u32 bit_count) {
+
+  struct queue_entry *q = make_entry(1);
+  q->favored = 1;
+  q->trace_mini = calloc(1, (map_size + 7) / 8);
+  for (u32 i = 0; i < bit_count; ++i)
+    bitmap_set(q->trace_mini, i);
+  return q;
+
+}
+
+static void free_entry(struct queue_entry *q) {
+
+  free(q->trace_mini);
+  free(q->skipdet_e->skip_eff_map);
+  free(q->skipdet_e->done_inf_map);
+  free(q->skipdet_e);
+  free(q);
+
+}
+
+static void free_afl(afl_state_t *afl) {
+
+  free(afl->fsrv.trace_bits);
+  free(afl->map_tmp_buf);
+  free(afl->var_bytes);
+  free(afl->skipdet_g->inf_prof);
+  free(afl->skipdet_g->virgin_det_bits);
+  free(afl->skipdet_g);
+  free(afl);
+
+}
+
+static void check_initial_threshold(u32 bit_count, u32 expected_threshold,
+                                    u8 expected_result) {
+
+  afl_state_t        *afl = make_afl(64);
+  struct queue_entry *q = make_threshold_entry(afl->fsrv.map_size, bit_count);
+
+  assert_int_equal(should_det_fuzz(afl, q), expected_result);
+  assert_int_equal(afl->skipdet_g->undet_bits_threshold, expected_threshold);
+  assert_int_equal(q->skipdet_e->undet_bits, expected_result ? bit_count : 0);
+
+  free_entry(q);
+  free_afl(afl);
+
+}
+
+static void test_skipdet_initial_thresholds(void **state) {
+
+  (void)state;
+  fake_time = 1;
+  check_initial_threshold(0, 0, 0);
+  check_initial_threshold(1, 1, 1);
+  check_initial_threshold(19, 1, 1);
+  check_initial_threshold(20, 1, 1);
+  check_initial_threshold(21, 2, 1);
+
+}
+
+static void test_skipdet_threshold_decay(void **state) {
+
+  (void)state;
+  afl_state_t        *afl = make_afl(64);
+  struct queue_entry *q = make_threshold_entry(afl->fsrv.map_size, 1);
+
+  afl->skipdet_g->undet_bits_threshold = 2;
+  afl->skipdet_g->last_cov_undet = 1;
+  fake_time = 1 + THRESHOLD_DEC_TIME;
+  assert_true(should_det_fuzz(afl, q));
+  assert_int_equal(afl->skipdet_g->undet_bits_threshold, 1);
+
+  free_entry(q);
+  free_afl(afl);
+
+  afl = make_afl(64);
+  q = make_threshold_entry(afl->fsrv.map_size, 1);
+  afl->skipdet_g->undet_bits_threshold = 3;
+  afl->skipdet_g->last_cov_undet = 1;
+  assert_false(should_det_fuzz(afl, q));
+  assert_int_equal(afl->skipdet_g->undet_bits_threshold, 2);
+
+  free_entry(q);
+  free_afl(afl);
+
+}
+
+static void test_skipdet_correlated_block(void **state) {
+
+  (void)state;
+  const u32           len = 1024;
+  afl_state_t        *afl = make_afl(8);
+  struct queue_entry *q = make_entry(len);
+  afl->queue_cur = q;
+
+  u8 *orig_buf = malloc(len), *out_buf = malloc(len);
+  memset(orig_buf, 0xaa, len);
+  memset(out_buf, 0xaa, len);
+
+  correlated_mode = 1;
+  quick_runs = 0;
+  fake_time = 0;
+
+  assert_true(skip_deterministic_stage(afl, orig_buf, out_buf, len, fake_time));
+  assert_true(q->skipdet_e->done_eff);
+  assert_true(bitmap_read(q->skipdet_e->skip_eff_map, 0));
+  assert_true(bitmap_read(q->skipdet_e->skip_eff_map, 1));
+  assert_int_equal(q->skipdet_e->quick_eff_bytes, 2);
+
+  correlated_mode = 0;
+  free(orig_buf);
+  free(out_buf);
+  free_entry(q);
+  free_afl(afl);
+
+}
+
 static void test_skipdet_resumes_past_32k(void **state) {
 
   (void)state;
   const u32           len = 32 * 1024 * 2 + 100;
-  afl_state_t        *afl = make_afl();
+  afl_state_t        *afl = make_afl(8);
   struct queue_entry *q = make_entry(len);
   afl->queue_cur = q;
 
@@ -117,6 +234,7 @@ static void test_skipdet_resumes_past_32k(void **state) {
   early_pos = 7;
   late_pos = len - 3;
   quick_runs = 0;
+  correlated_mode = 0;
 
   u8 r = skip_deterministic_stage(afl, orig_buf, out_buf, len, fake_time);
   assert_int_equal(r, 1);
@@ -154,16 +272,8 @@ static void test_skipdet_resumes_past_32k(void **state) {
 
   free(orig_buf);
   free(out_buf);
-  free(q->skipdet_e->skip_eff_map);
-  free(q->skipdet_e->done_inf_map);
-  free(q->skipdet_e);
-  free(q);
-  free(afl->fsrv.trace_bits);
-  free(afl->map_tmp_buf);
-  free(afl->var_bytes);
-  free(afl->skipdet_g->inf_prof);
-  free(afl->skipdet_g);
-  free(afl);
+  free_entry(q);
+  free_afl(afl);
 
 }
 
@@ -171,6 +281,9 @@ int main(void) {
 
   const struct CMUnitTest tests[] = {
 
+      cmocka_unit_test(test_skipdet_initial_thresholds),
+      cmocka_unit_test(test_skipdet_threshold_decay),
+      cmocka_unit_test(test_skipdet_correlated_block),
       cmocka_unit_test(test_skipdet_resumes_past_32k),
 
   };

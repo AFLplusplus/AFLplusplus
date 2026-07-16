@@ -13,10 +13,15 @@
 
 #include "afl-fuzz.h"
 
-void flip_range(u8 *input, u32 pos, u32 size) {
+void flip_range(u8 *input, u32 pos, u32 size, u8 pattern) {
 
-  for (u32 i = 0; i < size; i++)
-    input[pos + i] ^= 0xFF;
+  for (u32 i = 0; i < size; i++) {
+
+    u8 delta = pattern ? (u8)((pos + i) * 157U + 113U) : 0xff;
+    if (!delta) delta = 0x3d;
+    input[pos + i] ^= delta;
+
+  }
 
   return;
 
@@ -25,21 +30,30 @@ void flip_range(u8 *input, u32 pos, u32 size) {
 #define MAX_EFF_TIMEOUT (10 * 60 * 1000)
 #define MAX_DET_TIMEOUT (15 * 60 * 1000)
 
-static u64 skipdet_trace_hash(afl_state_t *afl) {
+static void skipdet_store_trace(afl_state_t *afl) {
 
-  if (!afl->var_bytes || !afl->map_tmp_buf) {
+  if (!afl->map_tmp_buf) afl->map_tmp_buf = ck_alloc(afl->fsrv.map_size);
+  memcpy(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
-    return hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+}
+
+static u8 skipdet_trace_changed(afl_state_t *afl) {
+
+  if (!afl->var_bytes) {
+
+    return memcmp(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size) !=
+           0;
 
   }
 
   for (u32 i = 0; i < afl->fsrv.map_size; ++i) {
 
-    afl->map_tmp_buf[i] = afl->var_bytes[i] ? 0 : afl->fsrv.trace_bits[i];
+    if (!afl->var_bytes[i] && afl->map_tmp_buf[i] != afl->fsrv.trace_bits[i])
+      return 1;
 
   }
 
-  return hash64(afl->map_tmp_buf, afl->fsrv.map_size, HASH_CONST);
+  return 0;
 
 }
 
@@ -99,8 +113,11 @@ u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
+  if (!new_det_bits) return 0;
+
   if (!afl->skipdet_g->undet_bits_threshold)
-    afl->skipdet_g->undet_bits_threshold = new_det_bits * 0.05;
+    afl->skipdet_g->undet_bits_threshold =
+        new_det_bits / 20 + !!(new_det_bits % 20);
 
   if (new_det_bits >= afl->skipdet_g->undet_bits_threshold) {
 
@@ -160,8 +177,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
   if (common_fuzz_stuff(afl, orig_buf, len)) { return 0; }
 
-  u64 prev_cksum = skipdet_trace_hash(afl);
-  u64 _prev_cksum = prev_cksum;
+  skipdet_store_trace(afl);
 
   if (MINIMAL_BLOCK_SIZE * 8 < len) {
 
@@ -182,26 +198,33 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
         u32 flip_block_size =
             (cur_block_size + pos < len) ? cur_block_size : len - 1 - pos;
 
-        afl->stage_cur += 1;
+        u8 trace_changed = 0;
 
-        flip_range(out_buf, pos, flip_block_size);
+        for (u8 pattern = 0; pattern < 2; ++pattern) {
 
-        if (common_fuzz_stuff(afl, out_buf, len)) {
+          afl->stage_cur += 1;
+          flip_range(out_buf, pos, flip_block_size, pattern);
 
-          flip_range(out_buf, pos, flip_block_size);
-          return 0;
+          if (common_fuzz_stuff(afl, out_buf, len)) {
+
+            flip_range(out_buf, pos, flip_block_size, pattern);
+            return 0;
+
+          }
+
+          flip_range(out_buf, pos, flip_block_size, pattern);
+
+          if (skipdet_trace_changed(afl)) {
+
+            trace_changed = 1;
+            break;
+
+          }
 
         }
 
-        flip_range(out_buf, pos, flip_block_size);
-
-        u64 cksum = skipdet_trace_hash(afl);
-
-        // printf("Now trying range %d with %d, %s.\n", pos, cur_block_size,
-        //     (cksum == prev_cksum) ? (u8*)"Yes" : (u8*) "Not");
-
         /* continue until we fail or exceed length */
-        if (cksum == _prev_cksum) {
+        if (!trace_changed) {
 
           cur_block_size *= 2;
 
@@ -297,7 +320,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
     non_eff_bytes = (u8 *)ck_alloc(sizeof(u8) * len);
 
-    // clean exec cksum
+    // clean exec baseline
     if (common_fuzz_stuff(afl, out_buf, len)) {
 
       ck_free(non_eff_bytes);
@@ -305,7 +328,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
     }
 
-    prev_cksum = skipdet_trace_hash(afl);
+    skipdet_store_trace(afl);
 
   }
 
@@ -351,8 +374,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
       out_buf[eff_pos] = orig;
       ++afl->stage_cur;
 
-      u64 current_cksum = skipdet_trace_hash(afl);
-      if (current_cksum != prev_cksum ||
+      if (skipdet_trace_changed(afl) ||
           afl->queued_items + afl->saved_crashes != before_skip_inf) {
 
         bitmap_set(skip_eff_map, eff_pos);
