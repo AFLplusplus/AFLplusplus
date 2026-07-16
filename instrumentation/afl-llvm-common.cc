@@ -987,6 +987,16 @@ void createC11EnabledGlobal(Module &M, Type *Int32Ty) {
 
 }
 
+// llvm::json accessors return llvm::Optional before LLVM 16 and std::optional
+// from LLVM 16 on; llvm::Optional only gained value_or in LLVM 15. This helper
+// works with either optional type across all supported LLVM versions.
+template <typename OptTy, typename T>
+static inline T jsonOptOr(const OptTy &opt, T def) {
+
+  return opt ? static_cast<T>(*opt) : def;
+
+}
+
 bool setupReachability(StringMap<uint32_t> &values, const char *passName) {
 
   const char *reachability_file = getenv("AFL_LLVM_REACHABILITY");
@@ -1039,13 +1049,13 @@ bool setupReachability(StringMap<uint32_t> &values, const char *passName) {
 
       json::Object *Obj = Item.getAsObject();
       if (!Obj) continue;
-      std::optional<StringRef> Mangled = Obj->getString("mangled");
+      auto Mangled = Obj->getString("mangled");
       if (!Mangled) continue;
 
-      bool    interesting = Obj->getBoolean("interesting").value_or(false);
-      bool    bottleneck = Obj->getBoolean("bottleneck").value_or(false);
-      bool    dead_end = Obj->getBoolean("dead_end").value_or(false);
-      int64_t depth = Obj->getInteger("depth").value_or(0);
+      bool    interesting = jsonOptOr(Obj->getBoolean("interesting"), false);
+      bool    bottleneck = jsonOptOr(Obj->getBoolean("bottleneck"), false);
+      bool    dead_end = jsonOptOr(Obj->getBoolean("dead_end"), false);
+      int64_t depth = jsonOptOr(Obj->getInteger("depth"), (int64_t)0);
 
       uint32_t value;
       if (!interesting || dead_end) {
