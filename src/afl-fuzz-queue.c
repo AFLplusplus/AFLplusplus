@@ -1156,7 +1156,7 @@ inline void cull_queue(afl_state_t *afl) {
 
 }
 
-inline void consume_handicap(afl_state_t *afl, struct queue_entry *q) {
+void consume_handicap(afl_state_t *afl, struct queue_entry *q) {
 
   if (q->handicap >= 4) {
 
