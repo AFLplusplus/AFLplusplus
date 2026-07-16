@@ -284,6 +284,8 @@ class ModuleSanitizerCoverageLTO
   std::ofstream                    dFile;
   size_t                           found = 0;
   bool                             deny_exec = false;
+  bool                             reachability_mode = false;
+  StringMap<uint32_t>              reachabilityValues;
   // AFL++ END
 
 };
@@ -658,6 +660,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
+
+  reachability_mode = setupReachability(reachabilityValues, "afl-llvm-lto");
 
   if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL) {
 
@@ -1767,6 +1771,12 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
   if (!isInInstrumentList(&F, FMNAME)) return;
   // AFL++ END
+
+  if (reachability_mode) {
+
+    instrumentReachability(F, getReachabilityValue(reachabilityValues, F));
+
+  }
 
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
     SplitAllCriticalEdges(

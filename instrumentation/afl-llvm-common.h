@@ -38,6 +38,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Value.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #if LLVM_VERSION_MAJOR < 17
@@ -70,6 +71,10 @@ bool                   isExecCall(llvm::Instruction *IN);
 std::pair<bool, bool>  detectIJONUsage(llvm::Module &M);
 void createIJONEnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
 void createC11EnabledGlobal(llvm::Module &M, llvm::Type *Int32Ty);
+bool setupReachability(llvm::StringMap<uint32_t> &values, const char *passName);
+uint32_t getReachabilityValue(const llvm::StringMap<uint32_t> &values,
+                              const llvm::Function            &F);
+void     instrumentReachability(llvm::Function &F, uint32_t value);
 llvm::GlobalVariable *createIJONStateGlobal(llvm::Module &M,
                                             llvm::Type   *Int32Ty,
                                             bool          uses_ijon_state);

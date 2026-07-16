@@ -23,6 +23,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/Constant.h"
@@ -198,15 +199,17 @@ class ModuleSanitizerCoverageAFL
   SanitizerCoverageOptions Options;
 
   uint32_t instr = 0, selects = 0, unhandled = 0, skippedbb = 0, dump_cc = 0;
-  GlobalVariable *AFLMapPtr = NULL;
-  GlobalVariable *AFLCovMapSize = NULL;
-  GlobalVariable *AFLIJONState = NULL;
-  Value          *HoistedMapPtr = NULL;
-  ConstantInt    *One = NULL;
-  ConstantInt    *Zero = NULL;
-  bool            deny_exec = false;
-  bool            abort_list = false;
-  uint32_t        first = 1;
+  GlobalVariable     *AFLMapPtr = NULL;
+  GlobalVariable     *AFLCovMapSize = NULL;
+  GlobalVariable     *AFLIJONState = NULL;
+  Value              *HoistedMapPtr = NULL;
+  ConstantInt        *One = NULL;
+  ConstantInt        *Zero = NULL;
+  bool                deny_exec = false;
+  bool                abort_list = false;
+  uint32_t            first = 1;
+  bool                reachability_mode = false;
+  StringMap<uint32_t> reachabilityValues;
 
   /* Functions that run automatically outside the fuzzing entry point and must
      never receive AFL_LLVM_ABORTLIST instrumentation: global constructors and
@@ -506,6 +509,9 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
          path_label);
 
   }
+
+  reachability_mode =
+      setupReachability(reachabilityValues, "SanitizerCoveragePCGUARD");
 
 }
 
@@ -1434,6 +1440,12 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 #if LLVM_MAJOR >= 19
   if (F.hasFnAttribute(Attribute::DisableSanitizerInstrumentation)) return;
 #endif
+  if (reachability_mode) {
+
+    instrumentReachability(F, getReachabilityValue(reachabilityValues, F));
+
+  }
+
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
     SplitAllCriticalEdges(
         F, CriticalEdgeSplittingOptions().setIgnoreUnreachableDests());
