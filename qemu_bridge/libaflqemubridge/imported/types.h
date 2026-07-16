@@ -69,7 +69,9 @@ typedef uint128_t         u128;
 /* Protocol phases for the futex-based forkserver handshake.
    A single 32-bit shared-memory word (child_sync) carries these values so
    that afl-fuzz and the persistent target child can coordinate each execution
-   cycle without going through the normal pipe path. */
+   cycle without going through the normal pipe path. The word is embedded in
+   the last bytes of the trace_bits shared map (see afl_shm_init), so it needs
+   no separate shared memory segment. */
 typedef enum {
 
   AFL_CHILD_IDLE = 0,  /* child not started, or dead                        */

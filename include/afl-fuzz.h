@@ -576,7 +576,8 @@ typedef struct afl_env_vars {
       afl_post_process_keep_original, afl_crashing_seeds_as_new_crash,
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
       afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
-      afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled;
+      afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled,
+      afl_crash_traces;
 
   u16 afl_forksrv_nb_supl_gids;
 
@@ -714,11 +715,10 @@ typedef struct afl_state {
   u8 *var_bytes;                        /* Bytes that appear to be variable */
 
 #define N_FUZZ_SIZE (1 << 21)
-#define N_FUZZ_SIZE_BITMAP (1 << 29)
-  u32 *n_fuzz;
-  u8  *n_fuzz_dup;
-  u8  *classified_n_fuzz;
-  u8  *simplified_n_fuzz;
+  u32   *n_fuzz;
+  u64   *n_fuzz_dup;
+  u64   *simplified_n_fuzz;
+  size_t san_dedup_entries;
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
       clear_screen;                     /* Window resized?                  */
@@ -1312,7 +1312,7 @@ void setup_custom_mutators(afl_state_t *);
 void destroy_custom_mutators(afl_state_t *);
 u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
                       struct custom_mutator *mutator);
-void run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
+u8   run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
                                     u8 *);
 
 /* Python */
@@ -1341,7 +1341,7 @@ void        deinit_py(void *);
 
 void mark_as_det_done(afl_state_t *, struct queue_entry *);
 void mark_as_variable(afl_state_t *, struct queue_entry *);
-void add_to_queue(afl_state_t *, u8 *, u32, u8);
+u8   add_to_queue(afl_state_t *, u8 *, u32, u8);
 void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *, bool);
 void cull_queue(afl_state_t *);

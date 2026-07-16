@@ -8,7 +8,16 @@
 #include "instrument.h"
 #include "util.h"
 
+static u8 __afl_cmp_cursor[CMP_MAP_W];
+
 #if defined(__x86_64__)
+
+void cmplog_reset(void) {
+
+  if (__afl_cmp_map == NULL) { return; }
+  memset(__afl_cmp_cursor, 0, CMP_MAP_W);
+
+}
 
 typedef struct {
 
@@ -116,21 +125,14 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
 
   }
 
-  u32 hits = 0;
-
   if (__afl_cmp_map->headers[k].hits == 0) {
 
     __afl_cmp_map->headers[k].shape = 30;
 
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits;
-
   }
 
-  __afl_cmp_map->headers[k].hits = hits + 1;
-
-  hits &= CMP_MAP_RTN_H - 1;
+  u32 hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
+                             CMP_MAP_RTN_H);
   ((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0_len = 31;
   ((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1_len = 31;
   gum_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0, ptr1,
@@ -190,24 +192,21 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
 
   register uintptr_t k = instrument_get_offset_hash(GUM_ADDRESS(address));
 
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS)
+  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
+
     __afl_cmp_map->headers[k].hits = 0;
 
-  u32 hits = 0;
+  }
 
   if (__afl_cmp_map->headers[k].hits == 0) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
     __afl_cmp_map->headers[k].shape = (size - 1);
 
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits;
-
   }
 
-  __afl_cmp_map->headers[k].hits = hits + 1;
-  hits &= CMP_MAP_H - 1;
+  u32 hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
+                             CMP_MAP_H);
   __afl_cmp_map->log[k][hits].v0 = operand1;
   __afl_cmp_map->log[k][hits].v1 = operand2;
 

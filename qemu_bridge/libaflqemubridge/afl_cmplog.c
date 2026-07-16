@@ -44,11 +44,12 @@ static uint64_t afl_cmplog_gen(uint64_t data, vaddr pc, size_t size)
     return (uint64_t)(afl_cmplog_hash((uint64_t)pc) & (CMP_MAP_W - 1));
 }
 
+static uint8_t __afl_cmp_cursor[CMP_MAP_W];
+
 static inline void afl_cmplog_ins(uint64_t id, uint8_t shape, uint64_t v0,
                                   uint64_t v1)
 {
     uintptr_t k = (uintptr_t)id;
-    uint32_t hits = 0;
 
     if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
         __afl_cmp_map->headers[k].hits = 0;
@@ -57,13 +58,11 @@ static inline void afl_cmplog_ins(uint64_t id, uint8_t shape, uint64_t v0,
     if (__afl_cmp_map->headers[k].hits == 0) {
         __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
         __afl_cmp_map->headers[k].shape = shape;
-    } else {
-        hits = __afl_cmp_map->headers[k].hits;
     }
 
-    __afl_cmp_map->headers[k].hits = hits + 1;
-
-    hits &= CMP_MAP_H - 1;
+    uint32_t hits =
+        cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
+                        CMP_MAP_H);
     __afl_cmp_map->log[k][hits].v0 = v0;
     __afl_cmp_map->log[k][hits].v1 = v1;
 }
@@ -161,19 +160,15 @@ static void afl_cmplog_rtn_exec(uint64_t data, uint64_t id)
 
     uintptr_t k = (uintptr_t)(afl_cmplog_hash(pcval) & (CMP_MAP_W - 1));
 
-    uint32_t hits = 0;
-
     if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
         __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
         __afl_cmp_map->headers[k].hits = 0;
         __afl_cmp_map->headers[k].shape = 30;
-    } else {
-        hits = __afl_cmp_map->headers[k].hits;
     }
 
-    __afl_cmp_map->headers[k].hits = hits + 1;
-
-    hits &= CMP_MAP_RTN_H - 1;
+    uint32_t hits =
+        cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
+                        CMP_MAP_RTN_H);
     ((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0_len = 31;
     ((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1_len = 31;
     memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0, ptr1, 31);
@@ -193,6 +188,14 @@ static uint64_t afl_cmplog_rtn_gen(uint64_t data, vaddr pc)
 int afl_cmplog_is_active(void)
 {
     return __afl_cmp_map != NULL;
+}
+
+void afl_cmplog_reset_cursor(void)
+{
+    if (__afl_cmp_map == NULL) {
+        return;
+    }
+    memset(__afl_cmp_cursor, 0, CMP_MAP_W);
 }
 
 void afl_cmplog_init(void)

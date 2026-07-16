@@ -2171,31 +2171,11 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
-  /* Handle IJON max directory - preserve during resume, clean during overwrite
-   */
+  /* Handle IJON max directory - preserve in place during resume, clean during
+     overwrite */
   fn = alloc_printf("%s/ijon_max", afl->out_dir);
 
-  if (afl->in_place_resume) {
-
-    /* During resume: preserve IJON directory by renaming (like crashes/hangs)
-     */
-    time_t    cur_t = time(0);
-    struct tm t;
-    localtime_r(&cur_t, &t);
-
-#ifndef SIMPLE_FILES
-    u8 *nfn =
-        alloc_printf("%s.%04d-%02d-%02d-%02d:%02d:%02d", fn, t.tm_year + 1900,
-                     t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
-#else
-    u8 *nfn =
-        alloc_printf("%s_%04d%02d%02d%02d%02d%02d", fn, t.tm_year + 1900,
-                     t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
-#endif
-    rename(fn, nfn);                /* Ignore errors like other directories */
-    ck_free(nfn);
-
-  } else {
+  if (!afl->in_place_resume) {
 
     /* During overwrite: clean up IJON files */
     delete_files(fn,
@@ -2463,6 +2443,35 @@ void setup_dirs_fds(afl_state_t *afl) {
   afl->fsrv.dev_urandom_fd = open("/dev/urandom", O_RDONLY);
   if (afl->fsrv.dev_urandom_fd < 0) { PFATAL("Unable to open /dev/urandom"); }
 
+  /* AFL_CRASH_TRACES: anonymous capture file for the crashing run's
+     stdout/stderr. Opened before the forkserver starts so it (and its target
+     children) inherit it; O_APPEND so writes land at EOF after each reset.
+     Excluded for Nyx (its output is not a normal child stderr; it writes its
+     own .log). */
+
+  if (afl->afl_env.afl_crash_traces
+#ifdef __linux__
+      && !afl->fsrv.nyx_mode
+#endif
+  ) {
+
+    u8 *ctf = alloc_printf("%s/.crash_trace_output", afl->out_dir);
+    afl->fsrv.crash_trace_fd =
+        open((char *)ctf, O_RDWR | O_CREAT | O_TRUNC | O_APPEND, 0600);
+    if (afl->fsrv.crash_trace_fd < 0) {
+
+      WARNF("AFL_CRASH_TRACES: unable to create '%s'; feature disabled", ctf);
+
+    } else {
+
+      unlink((char *)ctf); /* anonymous: auto-removed when all holders close */
+
+    }
+
+    ck_free(ctf);
+
+  }
+
   /* Gnuplot output file. */
 
   tmp = alloc_printf("%s/plot_data", afl->out_dir);
@@ -2621,6 +2630,73 @@ void setup_stdio_file(afl_state_t *afl) {
 /* Make sure that core dumps don't go to a program. */
 
 void check_crash_handling(void) {
+
+#ifdef __linux__
+  {
+
+    u8 *ct = (u8 *)getenv("AFL_CRASH_TRACES");
+    if (ct && atoi((char *)ct) > 0) {
+
+      s32 rfd = open("/proc/sys/kernel/core_pattern", O_RDONLY);
+      if (rfd >= 0) {
+
+        u8      pat[256];
+        ssize_t rl = read(rfd, pat, sizeof(pat) - 1);
+        close(rfd);
+        if (rl < 0) { rl = 0; }
+        pat[rl] = 0;
+
+        if (pat[0] == '|' || pat[0] == '/' || pat[0] == 0 || pat[0] == '\n') {
+
+          u8  done = 0;
+          s32 wfd = open("/proc/sys/kernel/core_pattern", O_WRONLY | O_TRUNC);
+          if (wfd >= 0) {
+
+            char want[] = "core\n";
+            if (write(wfd, want, strlen(want)) == (ssize_t)strlen(want)) {
+
+              done = 1;
+
+            }
+
+            close(wfd);
+
+          }
+
+          if (done) {
+
+            WARNF(
+                "AFL_CRASH_TRACES: changed global core_pattern to 'core' to "
+                "capture core files (not restored on exit)");
+
+          } else if (getenv("AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES")) {
+
+            WARNF(
+                "AFL_CRASH_TRACES: core_pattern cannot produce core files and "
+                "could not be changed (not root?); '.core' files will not be "
+                "written. Fix: echo core | sudo tee "
+                "/proc/sys/kernel/core_pattern");
+
+          } else {
+
+            FATAL(
+                "AFL_CRASH_TRACES: core_pattern cannot produce core files and "
+                "could not be changed. Run as root or set it manually: echo "
+                "core | sudo tee /proc/sys/kernel/core_pattern");
+
+          }
+
+        }
+
+      }
+
+      return;
+
+    }
+
+  }
+
+#endif
 
   if (getenv("AFL_ALLOW_CORES")) { return; }
 

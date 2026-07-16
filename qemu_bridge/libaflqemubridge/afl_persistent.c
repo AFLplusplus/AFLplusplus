@@ -295,6 +295,7 @@ static void afl_persistent_routine(uint64_t data, vaddr pc)
     if (afl_persistent_first_pass) {
         memset(afl_area_ptr, 0, afl_map_size);
         afl_area_ptr[0] = 1;
+        afl_cmplog_reset_cursor();
 
         afl_saved_sp_valid = afl_read_sp(cpu, &afl_saved_sp);
 

@@ -53,7 +53,7 @@ test "$CPU_TARGET" = "arm64v8" && CPU_TARGET="aarch64"
 echo "$CPU_TARGET" | grep -q arm && test "$CPU_TARGET" != "aarch64" && CPU_TARGET="arm"
 
 cd qemu-libafl-bridge || exit 1
-CONF="--target-list=${CPU_TARGET}-linux-user --disable-docs --afl"
+CONF="--target-list=${CPU_TARGET}-linux-user --disable-docs --afl -Dwerror=false"
 test "$STATIC" = "1" && CONF="$CONF --static --disable-pie"
 test "$DEBUG"  = "1" && CONF="$CONF --enable-debug"
 test -n "$HOST" && CONF="$CONF --cross-prefix=${HOST}-"

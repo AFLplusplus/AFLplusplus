@@ -1,5 +1,6 @@
 #include "frida-gumjs.h"
 
+#include "frida_cmplog.h"
 #include "instrument.h"
 #include "persistent.h"
 #include "util.h"
@@ -152,6 +153,8 @@ static void instrument_afl_persistent_loop_func(void) {
   }
 
   *instrument_previous_pc_addr = instrument_hash_zero;
+
+  cmplog_reset();
 
 }
 

@@ -1013,23 +1013,32 @@ def render_text(report: Report, summary: bool = False) -> str:
 
     hl = report.headline
     tc = _toolchain_label(s.toolchain)
+
+    stab_vals = [i.stability for i in s.instances if i.stability > 0]
+    stability = f"{min(stab_vals):.1f}%" if stab_vals else hl.get("stability", "?")
+    eps_now = sum((i.execs_ps_last_min or i.execs_per_sec) for i in s.instances if i.alive)
+    speed = f"{hl.get('speed', '?')} ({eps_now:.0f} exec/s)"
+    coverage = hl.get("coverage", "?")
+    if s.trend.last_cov_entry_age_s is not None:
+        coverage += f" (last find: {_hm(s.trend.last_cov_entry_age_s)})"
+
     lines: list[str] = [f"=== {s.campaign_id} ==="]
 
     if summary:
         lines.append(
             f"Verdict: {report.overall.upper()}  Type: {tc}  "
             f"Running: {s.alive_count}/{s.instance_count}  Runtime: {_hm(s.run_time_s)}  "
-            f"Stability: {hl.get('stability', '?')}  Speed: {hl.get('speed', '?')}  "
-            f"Coverage: {hl.get('coverage', '?')}"
+            f"Stability: {stability}  Speed: {speed}  "
+            f"Coverage: {coverage}"
         )
     else:
         lines += [
             f"{'Type:':<10} {tc}",
             f"{'Running:':<10} {s.alive_count}/{s.instance_count}",
             f"{'Runtime:':<10} {_hm(s.run_time_s)}",
-            f"{'Stability:':<10} {hl.get('stability', '?')}",
-            f"{'Speed:':<10} {hl.get('speed', '?')}",
-            f"{'Coverage:':<10} {hl.get('coverage', '?')}",
+            f"{'Stability:':<10} {stability}",
+            f"{'Speed:':<10} {speed}",
+            f"{'Coverage:':<10} {coverage}",
             "",
             f"{'Verdict:':<10} {report.overall.upper()}",
             "",
@@ -1183,15 +1192,17 @@ COLLECTOR_SH = r"""
 DIR=$1
 abs=$(cd "$DIR" 2>/dev/null && pwd) || { printf 'ERROR no such dir: %s\n' "$DIR"; exit 9; }
 now=${AFL_HEALTH_NOW:-$(date +%s)}
+stats=$(find "$abs" -maxdepth 3 \( -name queue -o -name crashes -o -name hangs \) -prune -o -type f -name fuzzer_stats -print 2>/dev/null | sort)
 hf=0
-if [ -n "$(find "$abs" -type d -name honggfuzz -print 2>/dev/null | head -n1)" ]; then hf=1; fi
+if [ -n "$(find "$abs" \( -name queue -o -name crashes -o -name hangs \) -prune -o -type d -name honggfuzz -print 2>/dev/null | head -n1)" ]; then hf=1; fi
 layout=flat
-if find "$abs" -maxdepth 3 -type f -name fuzzer_stats 2>/dev/null | grep -q '/afl/[^/]*/fuzzer_stats'; then
+if printf '%s\n' "$stats" | grep -q '/afl/[^/]*/fuzzer_stats'; then
   layout=ziggy-afl-subdir
 fi
 printf 'CAMPAIGN now=%s honggfuzz=%s layout=%s\n' "$now" "$hf" "$layout"
 printf 'DIR %s\n' "$abs"
-find "$abs" -maxdepth 3 -type f -name fuzzer_stats 2>/dev/null | sort | while IFS= read -r f; do
+printf '%s\n' "$stats" | while IFS= read -r f; do
+  [ -n "$f" ] || continue
   d=$(dirname "$f"); name=$(basename "$d")
   pid=$(awk -F: '/^fuzzer_pid/{gsub(/[ \t]/,"",$2); print $2; exit}' "$f")
   pa=0; if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then pa=1; fi
@@ -1596,7 +1607,7 @@ def _emit(reports: list[Report], args: argparse.Namespace, now: int) -> None:
     if args.summary and len(reports) > 1:
         print(_fleet_summary(reports))
         return
-    print("".join(render_text(r, summary=args.summary) for r in reports), end="")
+    print("\n".join(render_text(r, summary=args.summary) for r in reports), end="")
 
 
 def _fleet_summary(reports: list[Report]) -> str:

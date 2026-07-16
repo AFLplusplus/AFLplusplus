@@ -165,18 +165,21 @@ __attribute__((noinline)) int multi_path_sideeffect(unsigned char x) {
 #define CHAIN1(n) \
   case n:         \
     s += n;                                                  /* fallthrough */
-#define CHAIN10(n)                                                      \
-  CHAIN1(n + 0)                                                         \
-  CHAIN1(n + 1)                                                         \
-  CHAIN1(n + 2)                                                         \
-  CHAIN1(n + 3) CHAIN1(n + 4) CHAIN1(n + 5) CHAIN1(n + 6) CHAIN1(n + 7) \
-      CHAIN1(n + 8) CHAIN1(n + 9)
+#define CHAIN10(n) \
+  CHAIN1(n + 0)    \
+  CHAIN1(n + 1)    \
+  CHAIN1(n + 2)    \
+  CHAIN1(n + 3)    \
+  CHAIN1(n + 4)    \
+  CHAIN1(n + 5) CHAIN1(n + 6) CHAIN1(n + 7) CHAIN1(n + 8) CHAIN1(n + 9)
 #define CHAIN100(n)                                               \
   CHAIN10(n + 0)                                                  \
   CHAIN10(n + 10)                                                 \
   CHAIN10(n + 20)                                                 \
-  CHAIN10(n + 30) CHAIN10(n + 40) CHAIN10(n + 50) CHAIN10(n + 60) \
-      CHAIN10(n + 70) CHAIN10(n + 80) CHAIN10(n + 90)
+  CHAIN10(n + 30)                                                 \
+  CHAIN10(n + 40)                                                 \
+  CHAIN10(n + 50) CHAIN10(n + 60) CHAIN10(n + 70) CHAIN10(n + 80) \
+      CHAIN10(n + 90)
 __attribute__((noinline)) int deep_chain(unsigned int x) {
 
   int s = 0;
@@ -185,9 +188,11 @@ __attribute__((noinline)) int deep_chain(unsigned int x) {
     CHAIN100(0)
     CHAIN100(100)
     CHAIN100(200)
-    CHAIN100(300) CHAIN100(400) CHAIN100(500) CHAIN100(600) CHAIN100(700)
-        CHAIN100(800) CHAIN100(900) CHAIN100(1000) CHAIN100(1100) CHAIN100(1200)
-            CHAIN100(1300) CHAIN100(1400) default : s += 9999;
+    CHAIN100(300)
+    CHAIN100(400)
+    CHAIN100(500) CHAIN100(600) CHAIN100(700) CHAIN100(800) CHAIN100(900)
+        CHAIN100(1000) CHAIN100(1100) CHAIN100(1200) CHAIN100(1300)
+            CHAIN100(1400) default : s += 9999;
 
   }
 
