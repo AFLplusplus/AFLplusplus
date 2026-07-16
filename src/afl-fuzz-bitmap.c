@@ -984,7 +984,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
-    add_to_queue(afl, queue_fn, len, 0);
+    u8 file_modified = add_to_queue(afl, queue_fn, len, 0);
 
     if (unlikely(afl->fuzz_mode) &&
         likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode)) {
@@ -1047,7 +1047,27 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
-    res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
+    u8 *use_mem = mem;
+    u8 *reloaded = NULL;
+
+    if (unlikely(file_modified)) {
+
+      s32 rfd = open((char *)afl->queue_top->fname, O_RDONLY);
+      if (unlikely(rfd < 0)) {
+
+        PFATAL("Unable to open '%s'", (char *)afl->queue_top->fname);
+
+      }
+
+      reloaded = ck_alloc(afl->queue_top->len);
+      ck_read(rfd, reloaded, afl->queue_top->len, afl->queue_top->fname);
+      close(rfd);
+      use_mem = reloaded;
+      afl->queue_top->exec_cksum = 0;
+
+    }
+
+    res = calibrate_case(afl, afl->queue_top, use_mem, afl->queue_cycle - 1, 0);
 
     if (unlikely(res == FSRV_RUN_ERROR)) {
 
@@ -1057,9 +1077,11 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     if (likely(afl->q_testcase_max_cache_size)) {
 
-      queue_testcase_store_mem(afl, afl->queue_top, mem);
+      queue_testcase_store_mem(afl, afl->queue_top, use_mem);
 
     }
+
+    if (unlikely(reloaded)) { ck_free(reloaded); }
 
     keeping = 1;
 

@@ -1312,7 +1312,7 @@ void setup_custom_mutators(afl_state_t *);
 void destroy_custom_mutators(afl_state_t *);
 u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
                       struct custom_mutator *mutator);
-void run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
+u8   run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
                                     u8 *);
 
 /* Python */
@@ -1341,7 +1341,7 @@ void        deinit_py(void *);
 
 void mark_as_det_done(afl_state_t *, struct queue_entry *);
 void mark_as_variable(afl_state_t *, struct queue_entry *);
-void add_to_queue(afl_state_t *, u8 *, u32, u8);
+u8   add_to_queue(afl_state_t *, u8 *, u32, u8);
 void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *, bool);
 void cull_queue(afl_state_t *);

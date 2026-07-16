@@ -36,10 +36,10 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 
 }
 
-void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
-                                    u8 *a, u8 *b) {
+u8 run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
+                                  u8 *a, u8 *b) {
 
-  return;
+  return 0;
 
 }
 
@@ -762,8 +762,9 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
 /* Append new test case to the queue. */
 
-void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
+u8 add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
+  u8                  file_modified = 0;
   struct queue_entry *q =
       (struct queue_entry *)ck_alloc(sizeof(struct queue_entry));
 
@@ -861,7 +862,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
       }
 
-      run_afl_custom_queue_new_entry(afl, q, fname, fname_orig);
+      file_modified = run_afl_custom_queue_new_entry(afl, q, fname, fname_orig);
 
     }
 
@@ -875,6 +876,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   }
 
   q->skipdet_e = (struct skipdet_entry *)ck_alloc(sizeof(struct skipdet_entry));
+
+  return file_modified;
 
 }
 

@@ -33,12 +33,12 @@ struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 #endif
 
-void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
-                                    u8 *fname, u8 *mother_fname) {
+u8 run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
+                                  u8 *fname, u8 *mother_fname) {
+
+  u8 updated = 0;
 
   if (afl->custom_mutators_count) {
-
-    u8 updated = 0;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
@@ -69,6 +69,8 @@ void run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
     }
 
   }
+
+  return updated;
 
 }
 
