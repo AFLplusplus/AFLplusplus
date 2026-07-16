@@ -2488,13 +2488,13 @@ void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
 
       }
 
+      if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
+
       if (fsrv->chown_needed) {
 
         if (fchown(fd, -1, fsrv->gid) == -1) { PFATAL("fchown() failed"); }
 
       }
-
-      if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
 
     } else if (unlikely(fd <= 0)) {
 
@@ -3043,4 +3043,3 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
 #endif
 
 }
-

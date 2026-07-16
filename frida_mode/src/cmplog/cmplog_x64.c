@@ -8,14 +8,14 @@
 #include "instrument.h"
 #include "util.h"
 
-static u8 __afl_cmp_cursor[CMP_MAP_W];
+static u32 __afl_cmp_cursor[CMP_MAP_W];
 
 #if defined(__x86_64__)
 
 void cmplog_reset(void) {
 
   if (__afl_cmp_map == NULL) { return; }
-  memset(__afl_cmp_cursor, 0, CMP_MAP_W);
+  memset(__afl_cmp_cursor, 0, sizeof(__afl_cmp_cursor));
 
 }
 
@@ -116,12 +116,20 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
   void *ptr1 = GSIZE_TO_POINTER(rdi);
   void *ptr2 = GSIZE_TO_POINTER(rsi);
 
-  guint64 k = instrument_get_offset_hash(GUM_ADDRESS(address));
+  u32 k = cmp_map_select(__afl_cmp_map, address);
+  if (k == CMP_MAP_W) { return; }
 
+  if (__afl_cmp_map->headers[k].hits &&
+      __afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
+
+    return;
+
+  }
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 0;
+    cmp_map_set_attribute(__afl_cmp_map, k, CMP_ATTR_NONE);
 
   }
 
@@ -131,14 +139,17 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
 
   }
 
+  u32 occurrence;
   u32 hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                             CMP_MAP_RTN_H);
-  ((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0_len = 31;
-  ((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1_len = 31;
-  gum_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0, ptr1,
-             31);
-  gum_memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1, ptr2,
-             31);
+                             CMP_MAP_RTN_H, &occurrence);
+  struct cmpfn_operands *op =
+      &((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits];
+  memset(op, 0, sizeof(*op));
+  op->v0_len = 31;
+  op->v1_len = 31;
+  op->occurrence = occurrence;
+  gum_memcpy(op->v0, ptr1, 31);
+  gum_memcpy(op->v1, ptr2, 31);
 
 }
 
@@ -190,8 +201,15 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
 
   gsize address = ctx_read_reg(context, X86_REG_RIP);
 
-  register uintptr_t k = instrument_get_offset_hash(GUM_ADDRESS(address));
+  u32 k = cmp_map_select(__afl_cmp_map, address);
+  if (k == CMP_MAP_W) { return; }
 
+  if (__afl_cmp_map->headers[k].hits &&
+      __afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
+
+    return;
+
+  }
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
 
     __afl_cmp_map->headers[k].hits = 0;
@@ -202,13 +220,16 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
     __afl_cmp_map->headers[k].shape = (size - 1);
+    cmp_map_set_attribute(__afl_cmp_map, k, CMP_ATTR_NONE);
 
   }
 
+  u32 occurrence;
   u32 hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                             CMP_MAP_H);
+                             CMP_MAP_H, &occurrence);
   __afl_cmp_map->log[k][hits].v0 = operand1;
   __afl_cmp_map->log[k][hits].v1 = operand2;
+  __afl_cmp_map->log[k][hits].occurrence = occurrence;
 
 }
 
@@ -291,4 +312,3 @@ void cmplog_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
 }
 
 #endif
-

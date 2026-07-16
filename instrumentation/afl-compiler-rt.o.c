@@ -147,6 +147,12 @@ static inline void afl_sync_wake(void *uaddr) {
 #include <sys/mman.h>
 #include <fcntl.h>
 
+#if defined(__has_include)
+  #if __has_include(<sanitizer/common_interface_defs.h>)
+    #include <sanitizer/common_interface_defs.h>
+  #endif
+#endif
+
 #ifdef AFL_PERSISTENT_RECORD
   #include "afl-persistent-replay.h"
 #endif
@@ -498,7 +504,7 @@ __thread u32 __afl_prev_ctx;
 
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
-static u8       __afl_cmp_cursor[CMP_MAP_W];
+static u32      __afl_cmp_cursor[CMP_MAP_W];
 
 static u8 __afl_cmplog_max_len = 32;  // 16-32
 
@@ -638,6 +644,7 @@ static void __afl_map_shm_fuzz() {
     }
 
     map = (u8 *)mmap(0, shm_fuzz_map_size, PROT_READ, MAP_SHARED, shm_fd, 0);
+    close(shm_fd);
 
 #else
     u32 shm_id = atoi(id_str);
@@ -1057,6 +1064,9 @@ static void __afl_map_shm(void) {
 
     }
 
+    close(shm_fd);
+    shm_fd = -1;
+
     __afl_area_ptr = shm_base;
     /* DEFERRED IJON SETUP: Initialize on first use when actual map size is
      * known */
@@ -1269,14 +1279,14 @@ static void __afl_map_shm(void) {
 
     }
 
+    close(shm_fd);
+    shm_fd = -1;
     __afl_cmp_map = shm_base;
 #else
     u32 shm_id = atoi(id_str);
 
     __afl_cmp_map = (struct cmp_map *)shmat(shm_id, NULL, 0);
 #endif
-
-    __afl_cmp_map_backup = __afl_cmp_map;
 
     if (!__afl_cmp_map || __afl_cmp_map == (void *)-1) {
 
@@ -1285,6 +1295,8 @@ static void __afl_map_shm(void) {
       _exit(1);
 
     }
+
+    __afl_cmp_map_backup = __afl_cmp_map;
 
   }
 
@@ -1296,7 +1308,8 @@ static void __afl_map_shm(void) {
     __afl_pcmap_size = __afl_map_size * sizeof(void *);
     u32 shm_id = atoi(pcmap_id_str);
 
-    __afl_pcmap_ptr = (uintptr_t *)shmat(shm_id, NULL, 0);
+    void *pcmap = shmat(shm_id, NULL, 0);
+    __afl_pcmap_ptr = pcmap == (void *)-1 ? NULL : (uintptr_t *)pcmap;
 
     if (__afl_debug) {
 
@@ -1315,7 +1328,8 @@ static void __afl_map_shm(void) {
     __afl_modmap_size = MAX_AFL_MODULES;
     u32 shm_id = atoi(modmap_id_str);
 
-    __afl_modmap_ptr = (module_entry_t *)shmat(shm_id, NULL, 0);
+    void *modmap = shmat(shm_id, NULL, 0);
+    __afl_modmap_ptr = modmap == (void *)-1 ? NULL : (module_entry_t *)modmap;
 
     if (__afl_debug) {
 
@@ -1330,7 +1344,7 @@ static void __afl_map_shm(void) {
 
   if (!__afl_cmp_map && getenv("AFL_CMPLOG_DEBUG")) {
 
-    __afl_cmp_map_backup = __afl_cmp_map = malloc(sizeof(struct cmp_map));
+    __afl_cmp_map_backup = __afl_cmp_map = calloc(1, sizeof(struct cmp_map));
 
   }
 
@@ -1888,7 +1902,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
        it needs an explicit zero or stale MAX-channel values persist. */
     if (unlikely(__afl_cmp_map)) {
 
-      memset_noasan(__afl_cmp_cursor, 0, CMP_MAP_W);
+      memset_noasan(__afl_cmp_cursor, 0, sizeof(__afl_cmp_cursor));
 
     }
 
@@ -2920,154 +2934,115 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
 ///// CmpLog instrumentation
 
-void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
+static inline u32 cmplog_reserve(u64 site, u8 type, u8 shape, u8 attr,
+                                 u32 capacity, u32 *slot, u32 *occurrence) {
 
-  // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
-  //         (u8) arg1, (u8) arg2, attr);
+  u32 key = cmp_map_select(__afl_cmp_map, site);
+  if (unlikely(key == CMP_MAP_W)) { return key; }
 
-  return;
+  struct cmp_header *header = &__afl_cmp_map->headers[key];
+  if (unlikely(header->hits &&
+               (header->type != type ||
+                cmp_map_attribute(__afl_cmp_map, key) != attr))) {
 
-  /*
-
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    hits = 0;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = 0;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
+    return CMP_MAP_W;
 
   }
 
-  __afl_cmp_map->headers[k].attribute = attr;
+  if (!header->hits) {
 
-  hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = arg1;
-  __afl_cmp_map->log[k][hits].v1 = arg2;
+    header->type = type;
+    header->shape = shape;
+    cmp_map_set_attribute(__afl_cmp_map, key, attr);
 
-  */
+  } else if (header->shape < shape) {
+
+    header->shape = shape;
+
+  }
+
+  *slot = cmp_map_reserve(header, &__afl_cmp_cursor[key], capacity, occurrence);
+  return key;
+
+}
+
+static inline void cmplog_ins1(u64 site, uint8_t arg1, uint8_t arg2,
+                               uint8_t attr) {
+
+  if (likely(!__afl_cmp_map) || unlikely(arg1 == arg2)) return;
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_INS, 0, attr, CMP_MAP_H, &slot,
+                           &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+  __afl_cmp_map->log[key][slot].v0 = arg1;
+  __afl_cmp_map->log[key][slot].v1 = arg2;
+  __afl_cmp_map->log[key][slot].occurrence = occurrence;
+
+}
+
+static inline void cmplog_ins2(u64 site, uint16_t arg1, uint16_t arg2,
+                               uint8_t attr) {
+
+  if (likely(!__afl_cmp_map) || unlikely(arg1 == arg2)) return;
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_INS, 1, attr, CMP_MAP_H, &slot,
+                           &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+  __afl_cmp_map->log[key][slot].v0 = arg1;
+  __afl_cmp_map->log[key][slot].v1 = arg2;
+  __afl_cmp_map->log[key][slot].occurrence = occurrence;
+
+}
+
+static inline void cmplog_ins4(u64 site, uint32_t arg1, uint32_t arg2,
+                               uint8_t attr) {
+
+  if (likely(!__afl_cmp_map) || unlikely(arg1 == arg2)) return;
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_INS, 3, attr, CMP_MAP_H, &slot,
+                           &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+  __afl_cmp_map->log[key][slot].v0 = arg1;
+  __afl_cmp_map->log[key][slot].v1 = arg2;
+  __afl_cmp_map->log[key][slot].occurrence = occurrence;
+
+}
+
+static inline void cmplog_ins8(u64 site, uint64_t arg1, uint64_t arg2,
+                               uint8_t attr) {
+
+  if (likely(!__afl_cmp_map) || unlikely(arg1 == arg2)) return;
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_INS, 7, attr, CMP_MAP_H, &slot,
+                           &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+  __afl_cmp_map->log[key][slot].v0 = arg1;
+  __afl_cmp_map->log[key][slot].v1 = arg2;
+  __afl_cmp_map->log[key][slot].occurrence = occurrence;
+
+}
+
+void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
+
+  cmplog_ins1((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
 void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
 
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(arg1 == arg2)) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    __afl_cmp_map->headers[k].hits = 0;
-    __afl_cmp_map->headers[k].shape = 1;
-
-  } else {
-
-    if (!__afl_cmp_map->headers[k].shape) {
-
-      __afl_cmp_map->headers[k].shape = 1;
-
-    }
-
-  }
-
-  hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                         CMP_MAP_H);
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  __afl_cmp_map->log[k][hits].v0 = arg1;
-  __afl_cmp_map->log[k][hits].v1 = arg2;
+  cmplog_ins2((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
 void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
-  // fprintf(stderr, "hook4 arg0=%x arg1=%x attr=%u\n", arg1, arg2, attr);
-
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(arg1 == arg2)) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    __afl_cmp_map->headers[k].hits = 0;
-    __afl_cmp_map->headers[k].shape = 3;
-
-  } else {
-
-    if (__afl_cmp_map->headers[k].shape < 3) {
-
-      __afl_cmp_map->headers[k].shape = 3;
-
-    }
-
-  }
-
-  hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                         CMP_MAP_H);
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  __afl_cmp_map->log[k][hits].v0 = arg1;
-  __afl_cmp_map->log[k][hits].v1 = arg2;
+  cmplog_ins4((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
 void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
-  // fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
-
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(arg1 == arg2)) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    __afl_cmp_map->headers[k].hits = 0;
-    __afl_cmp_map->headers[k].shape = 7;
-
-  } else {
-
-    if (__afl_cmp_map->headers[k].shape < 7) {
-
-      __afl_cmp_map->headers[k].shape = 7;
-
-    }
-
-  }
-
-  hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                         CMP_MAP_H);
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  __afl_cmp_map->log[k][hits].v0 = arg1;
-  __afl_cmp_map->log[k][hits].v1 = arg2;
+  cmplog_ins8((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
@@ -3083,79 +3058,47 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
   if (likely(!__afl_cmp_map)) return;
   if (unlikely(arg1 == arg2 || size > __afl_cmplog_max_len)) return;
 
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+  u32 slot, occurrence;
+  u32 k = cmplog_reserve((u64)(uintptr_t)__builtin_return_address(0),
+                          CMP_TYPE_INS, size, attr, CMP_MAP_H, &slot,
+                          &occurrence);
+  if (unlikely(k == CMP_MAP_W)) { return; }
 
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    __afl_cmp_map->headers[k].hits = 0;
-    __afl_cmp_map->headers[k].shape = size;
-
-  } else {
-
-    if (__afl_cmp_map->headers[k].shape < size) {
-
-      __afl_cmp_map->headers[k].shape = size;
-
-    }
-
-  }
-
-  hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                         CMP_MAP_H);
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  __afl_cmp_map->log[k][hits].v0 = (u64)arg1;
-  __afl_cmp_map->log[k][hits].v1 = (u64)arg2;
+  __afl_cmp_map->log[k][slot].v0 = (u64)arg1;
+  __afl_cmp_map->log[k][slot].v1 = (u64)arg2;
+  __afl_cmp_map->log[k][slot].occurrence = occurrence;
 
   if (size > 7) {
 
-    __afl_cmp_map->log[k][hits].v0_128 = (u64)(arg1 >> 64);
-    __afl_cmp_map->log[k][hits].v1_128 = (u64)(arg2 >> 64);
+    __afl_cmp_map->log[k][slot].v0_128 = (u64)(arg1 >> 64);
+    __afl_cmp_map->log[k][slot].v1_128 = (u64)(arg2 >> 64);
 
   }
 
 }
 
-void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
+static inline void cmplog_ins16(u64 site, uint128_t arg1, uint128_t arg2,
+                                uint8_t attr) {
 
   if (likely(!__afl_cmp_map)) return;
-  if (16 > __afl_cmplog_max_len) return;
+  if (16 > __afl_cmplog_max_len || unlikely(arg1 == arg2)) return;
 
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+  u32 slot, occurrence;
+  u32 k = cmplog_reserve(site, CMP_TYPE_INS, 15, attr, CMP_MAP_H, &slot,
+                         &occurrence);
+  if (unlikely(k == CMP_MAP_W)) { return; }
 
-  u32 hits;
+  __afl_cmp_map->log[k][slot].v0 = (u64)arg1;
+  __afl_cmp_map->log[k][slot].v1 = (u64)arg2;
+  __afl_cmp_map->log[k][slot].v0_128 = (u64)(arg1 >> 64);
+  __afl_cmp_map->log[k][slot].v1_128 = (u64)(arg2 >> 64);
+  __afl_cmp_map->log[k][slot].occurrence = occurrence;
 
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
+}
 
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    __afl_cmp_map->headers[k].hits = 0;
-    __afl_cmp_map->headers[k].shape = 15;
+void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
-  } else {
-
-    if (__afl_cmp_map->headers[k].shape < 15) {
-
-      __afl_cmp_map->headers[k].shape = 15;
-
-    }
-
-  }
-
-  hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                         CMP_MAP_H);
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  __afl_cmp_map->log[k][hits].v0 = (u64)arg1;
-  __afl_cmp_map->log[k][hits].v1 = (u64)arg2;
-  __afl_cmp_map->log[k][hits].v0_128 = (u64)(arg1 >> 64);
-  __afl_cmp_map->log[k][hits].v1_128 = (u64)(arg2 >> 64);
+  cmplog_ins16((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
@@ -3163,62 +3106,72 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  //__cmplog_ins_hook1(arg1, arg2, 0);
+  (void)arg1;
+  (void)arg2;
 
 }
 
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  //__cmplog_ins_hook1(arg1, arg2, 0);
+  cmplog_ins1((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
+              CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  __cmplog_ins_hook2(arg1, arg2, 0);
+  cmplog_ins2((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
+              CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  __cmplog_ins_hook2(arg1, arg2, 0);
+  cmplog_ins2((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
+              CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  __cmplog_ins_hook4(arg1, arg2, 0);
+  cmplog_ins4((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
+              CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  __cmplog_ins_hook4(arg1, arg2, 0);
+  cmplog_ins4((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
+              CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  __cmplog_ins_hook8(arg1, arg2, 0);
+  cmplog_ins8((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
+              CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  __cmplog_ins_hook8(arg1, arg2, 0);
+  cmplog_ins8((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
+              CMP_ATTR_NONE);
 
 }
 
 #ifdef WORD_SIZE_64
 void __sanitizer_cov_trace_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  __cmplog_ins_hook16(arg1, arg2, 0);
+  cmplog_ins16((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
+               CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  __cmplog_ins_hook16(arg1, arg2, 0);
+  cmplog_ins16((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
+               CMP_ATTR_NONE);
 
 }
 
@@ -3230,35 +3183,22 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
   for (uint64_t i = 0; i < cases[0]; i++) {
 
-    uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
-    k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
-                    (CMP_MAP_W - 1));
+    u64 site = (u64)(uintptr_t)__builtin_return_address(0) + i;
+    switch (cases[1]) {
 
-    u32 hits;
-
-    if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-      __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-      __afl_cmp_map->headers[k].hits = 0;
-      __afl_cmp_map->headers[k].shape = 7;
-
-    } else {
-
-      if (__afl_cmp_map->headers[k].shape < 7) {
-
-        __afl_cmp_map->headers[k].shape = 7;
-
-      }
+      case 8:
+        cmplog_ins1(site, (u8)val, (u8)cases[i + 2], CMP_ATTR_ICMP_EQ);
+        break;
+      case 16:
+        cmplog_ins2(site, (u16)val, (u16)cases[i + 2], CMP_ATTR_ICMP_EQ);
+        break;
+      case 32:
+        cmplog_ins4(site, (u32)val, (u32)cases[i + 2], CMP_ATTR_ICMP_EQ);
+        break;
+      default:
+        cmplog_ins8(site, val, cases[i + 2], CMP_ATTR_ICMP_EQ);
 
     }
-
-    hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                           CMP_MAP_H);
-
-    __afl_cmp_map->headers[k].attribute = 1;
-
-    __afl_cmp_map->log[k][hits].v0 = val;
-    __afl_cmp_map->log[k][hits].v1 = cases[i + 2];
 
   }
 
@@ -3641,6 +3581,28 @@ static inline int cmplog_area_is_valid(void *ptr, size_t len, u8 *attr) {
   *attr = ADDR_ATTR_NOTFOUND;
   if (unlikely(!ptr)) { return 0; }
 
+  if (__afl_fuzz_ptr) {
+
+    uintptr_t base = (uintptr_t)__afl_fuzz_ptr;
+    uintptr_t addr = (uintptr_t)ptr;
+    size_t fuzz_len = *__afl_fuzz_len;
+    if (addr >= base && addr - base <= fuzz_len) {
+
+      size_t offset = addr - base;
+      if (len > fuzz_len - offset) { return 0; }
+      if (unlikely(__asan_region_is_poisoned &&
+                   __asan_region_is_poisoned(ptr, len))) {
+
+        return 0;
+
+      }
+
+      return (int)len;
+
+    }
+
+  }
+
 #ifdef AFL_HAVE_ADDR_ATTR
   #ifdef __linux__
   size_t valid_len = get_prog_addr_info(ptr, len, attr);
@@ -3672,268 +3634,139 @@ static inline u32 cmplog_string_len_with_nul(u32 len, u32 cap) {
 
 }
 
-/* hook for string with length functions, eg. strncmp, strncasecmp etc. */
-void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
+static inline u32 cmplog_string_len(u8 *ptr, u32 cap, u8 *attr) {
 
-  // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(!ptr1 || !ptr2)) return;
-  if (unlikely(!len)) return;
+  if (unlikely(!ptr || !cap)) { return 0; }
 
-  /* `len` is the strncmp()-type `n`, the maximum length
-     of an input token). Do NOT use it to bound how much of the operands we
-     capture: when the input token is shorter than the constant operand it
-     would truncate the constant (e.g. learn "f" instead of "fac"), and AFL
-     could then never recover the full keyword. The comparison semantics use
-     `n`; for dictionary/redqueen purposes we want each operand up to its own
-     NUL, bounded only by mapping validity and the cmplog buffer size. */
-  u32 cap = (u32)__afl_cmplog_max_len;
-  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
-  int l1 = cmplog_area_is_valid(ptr1, cap, &attr1);
-  int l2 = cmplog_area_is_valid(ptr2, cap, &attr2);
-  if (l1 <= 0 || l2 <= 0) return;
+  if (__afl_fuzz_ptr) {
 
-  cap = (u32)MIN(l1, l2);
+    uintptr_t base = (uintptr_t)__afl_fuzz_ptr;
+    uintptr_t addr = (uintptr_t)ptr;
+    size_t fuzz_len = *__afl_fuzz_len;
+    if (addr >= base && addr - base <= fuzz_len) {
 
-  u32 len1 = (u32)strnlen((char *)ptr1, cap);
-  u32 len2 = (u32)strnlen((char *)ptr2, cap);
-
-  u32 wn1 = cmplog_string_len_with_nul(len1, cap);
-  u32 wn2 = cmplog_string_len_with_nul(len2, cap);
-  u32 l = MAX(wn1, wn2);
-
-  if (l < 2) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
-    __afl_cmp_map->headers[k].hits = 0;
-    __afl_cmp_map->headers[k].shape = l - 1;
-
-  } else {
-
-    if (__afl_cmp_map->headers[k].shape < l) {
-
-      __afl_cmp_map->headers[k].shape = l - 1;
+      cap = (u32)MIN((size_t)cap, fuzz_len - (addr - base));
 
     }
 
   }
 
-  hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                         CMP_MAP_RTN_H);
+  if (__asan_region_is_poisoned) {
 
-  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
+    u8 *poisoned = __asan_region_is_poisoned(ptr, cap);
+    if (poisoned) { cap = (u32)(poisoned - ptr); }
 
-  /* Record each operand's own length (like __cmplog_rtn_hook_str does for
-     strcmp). The previous code stored MAX(len0,len1) for both, which recorded
-     a short constant such as "fac" with the (longer) input token's length and
-     made redqueen copy trailing rodata bytes instead of just the keyword. */
-  cmpfn[hits].v0_len = 0x80 + wn1;
-  cmpfn[hits].v1_len = 0x80 + wn2;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
-// fprintf(stderr, "RTN3\n");
-#ifdef AFL_HAVE_ADDR_ATTR
-  cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
-#endif
+  }
+
+  if (!cap) { return 0; }
+  int valid = cmplog_area_is_valid(ptr, cap, attr);
+  if (valid <= 0) { return 0; }
+  cap = (u32)valid;
+  return cmplog_string_len_with_nul((u32)strnlen((char *)ptr, cap), cap);
+
+}
+
+static inline void cmplog_rtn_store(u64 site, u8 *ptr1, u32 len1, u8 *ptr2,
+                                    u32 len2, u8 semantic_len, u8 attr1,
+                                    u8 attr2, u8 string) {
+
+  u32 shape = MAX(len1, len2);
+  if (unlikely(!shape)) { return; }
+
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_RTN, shape - 1, CMP_ATTR_NONE,
+                           CMP_MAP_RTN_H, &slot, &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+
+  struct cmpfn_operands *cmpfn =
+      (struct cmpfn_operands *)__afl_cmp_map->log[key];
+  memset_noasan(&cmpfn[slot], 0, sizeof(cmpfn[slot]));
+  cmpfn[slot].v0_len = len1 + (string ? 0x80 : 0);
+  cmpfn[slot].v1_len = len2 + (string ? 0x80 : 0);
+  cmpfn[slot].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
+  cmpfn[slot].occurrence = occurrence;
+  cmpfn[slot].unused = semantic_len;
+  __builtin_memcpy(cmpfn[slot].v0, ptr1, len1);
+  __builtin_memcpy(cmpfn[slot].v1, ptr2, len2);
+
+}
+
+static inline void cmplog_rtn_strn(u64 site, u8 *ptr1, u8 *ptr2, u64 len) {
+
+  if (likely(!__afl_cmp_map) || unlikely(!len)) return;
+  u32 cap = (u32)__afl_cmplog_max_len;
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  u32 len1 = cmplog_string_len(ptr1, cap, &attr1);
+  u32 len2 = cmplog_string_len(ptr2, cap, &attr2);
+  if (!len1 || !len2) { return; }
+  cmplog_rtn_store(site, ptr1, len1, ptr2, len2, (u8)MIN((u64)cap, len),
+                   attr1, attr2, 1);
+
+}
+
+static inline void cmplog_rtn_str(u64 site, u8 *ptr1, u8 *ptr2) {
+
+  if (likely(!__afl_cmp_map)) return;
+  u32 cap = (u32)__afl_cmplog_max_len;
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  u32 len1 = cmplog_string_len(ptr1, cap, &attr1);
+  u32 len2 = cmplog_string_len(ptr2, cap, &attr2);
+  if (!len1 || !len2) { return; }
+  cmplog_rtn_store(site, ptr1, len1, ptr2, len2, 0, attr1, attr2, 1);
+
+}
+
+static inline void cmplog_rtn(u64 site, u8 *ptr1, u8 *ptr2) {
+
+  if (likely(!__afl_cmp_map)) return;
+  u32 cap = (u32)__afl_cmplog_max_len;
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  int len1 = cmplog_area_is_valid(ptr1, cap, &attr1);
+  int len2 = cmplog_area_is_valid(ptr2, cap, &attr2);
+  if (len1 <= 0 || len2 <= 0) { return; }
+  u32 len = MIN((u32)len1, (u32)len2);
+  cmplog_rtn_store(site, ptr1, len, ptr2, len, (u8)len, attr1, attr2, 0);
+
+}
+
+static inline void cmplog_rtn_n(u64 site, u8 *ptr1, u8 *ptr2, u64 len) {
+
+  if (likely(!__afl_cmp_map) || unlikely(!len)) return;
+  u32 cap = (u32)MIN((u64)__afl_cmplog_max_len, len);
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  int len1 = cmplog_area_is_valid(ptr1, cap, &attr1);
+  int len2 = cmplog_area_is_valid(ptr2, cap, &attr2);
+  if (len1 != (int)cap || len2 != (int)cap) { return; }
+  cmplog_rtn_store(site, ptr1, cap, ptr2, cap, (u8)cap, attr1, attr2, 0);
+
+}
+
+/* hook for string with length functions, eg. strncmp, strncasecmp etc. */
+void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
+
+  cmplog_rtn_strn((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2,
+                  len);
 
 }
 
 /* hook for string functions, eg. strcmp, strcasecmp etc. */
 void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
-  // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(!ptr1 || !ptr2)) return;
-
-  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
-  int l1 = cmplog_area_is_valid(ptr1, 32, &attr1);
-  int l2 = cmplog_area_is_valid(ptr2, 32, &attr2);
-  if (l1 <= 0 || l2 <= 0) return;
-
-  u32 cap = (u32)MIN(l1, l2);
-  u32 len1 = cmplog_string_len_with_nul((u32)strnlen((char *)ptr1, cap), cap);
-  u32 len2 = cmplog_string_len_with_nul((u32)strnlen((char *)ptr2, cap), cap);
-  u32 l = MAX(len1, len2);
-
-  if (l < 2) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
-    __afl_cmp_map->headers[k].hits = 0;
-    __afl_cmp_map->headers[k].shape = l - 1;
-
-  } else {
-
-    if (__afl_cmp_map->headers[k].shape < l) {
-
-      __afl_cmp_map->headers[k].shape = l - 1;
-
-    }
-
-  }
-
-  hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                         CMP_MAP_RTN_H);
-
-  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
-
-  cmpfn[hits].v0_len = 0x80 + len1;
-  cmpfn[hits].v1_len = 0x80 + len2;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
-// fprintf(stderr, "RTN3\n");
-#ifdef AFL_HAVE_ADDR_ATTR
-  cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
-#endif
+  cmplog_rtn_str((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2);
 
 }
 
 /* hook function for all other func(ptr, ptr, ...) variants */
 void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
-  /*
-    u32 i;
-    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
-    fprintf(stderr, "rtn arg0=");
-    for (i = 0; i < 32; i++)
-      fprintf(stderr, "%02x", ptr1[i]);
-    fprintf(stderr, " arg1=");
-    for (i = 0; i < 32; i++)
-      fprintf(stderr, "%02x", ptr2[i]);
-    fprintf(stderr, "\n");
-  */
-
-  // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
-  if (likely(!__afl_cmp_map)) return;
-  int l1, l2;
-  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
-  if ((l1 = cmplog_area_is_valid(ptr1, 32, &attr1)) <= 0 ||
-      (l2 = cmplog_area_is_valid(ptr2, 32, &attr2)) <= 0)
-    return;
-  int len = MIN(__afl_cmplog_max_len, MIN(l1, l2));
-
-  // fprintf(stderr, "RTN2 %u\n", len);
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
-    __afl_cmp_map->headers[k].hits = 0;
-    __afl_cmp_map->headers[k].shape = len - 1;
-
-  } else {
-
-    if (__afl_cmp_map->headers[k].shape < len) {
-
-      __afl_cmp_map->headers[k].shape = len - 1;
-
-    }
-
-  }
-
-  hits = cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
-                         CMP_MAP_RTN_H);
-
-  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
-
-  cmpfn[hits].v0_len = len;
-  cmpfn[hits].v1_len = len;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
-// fprintf(stderr, "RTN3\n");
-#ifdef AFL_HAVE_ADDR_ATTR
-  cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
-#endif
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2);
 
 }
 
-/* hook for func(ptr, ptr, len, ...) looking functions.
-   Note that for the time being we ignore len as this could be wrong
-   information and pass it on to the standard binary rtn hook */
+/* hook for func(ptr, ptr, len, ...) looking functions. */
 void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
-  (void)(len);
-  __cmplog_rtn_hook(ptr1, ptr2);
-
-#if 0
-  /*
-    u32 i;
-    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
-    fprintf(stderr, "rtn_n len=%u arg0=", len);
-    for (i = 0; i < len; i++)
-      fprintf(stderr, "%02x", ptr1[i]);
-    fprintf(stderr, " arg1=");
-    for (i = 0; i < len; i++)
-      fprintf(stderr, "%02x", ptr2[i]);
-    fprintf(stderr, "\n");
-  */
-
-  // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
-  if (likely(!__afl_cmp_map)) return;
-  if (!len) return;
-  int l = MIN(32, len), l1, l2;
-
-  if ((l1 = area_is_valid(ptr1, l)) <= 0 || (l2 = area_is_valid(ptr2, l)) <= 0)
-    return;
-
-  len = MIN(MIN(l,__afl_cmplog_max_len), MIN(l1, l2));
-
-  // fprintf(stderr, "RTN2 %u\n", l);
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = len - 1;
-    hits = 0;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (__afl_cmp_map->headers[k].shape < l) {
-
-      __afl_cmp_map->headers[k].shape = len - 1;
-
-    }
-
-  }
-
-  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
-  hits &= CMP_MAP_RTN_H - 1;
-
-  cmpfn[hits].v0_len = len;
-  cmpfn[hits].v1_len = len;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
-  // fprintf(stderr, "RTN3\n");
-  #ifdef AFL_HAVE_ADDR_ATTR
-  u8 attr1 = get_prog_addr_attr(ptr1);
-  u8 attr2 = get_prog_addr_attr(ptr2);
-  cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
-  #endif
-
-#endif
+  cmplog_rtn_n((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2, len);
 
 }
 
@@ -3984,7 +3817,8 @@ void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
       cmplog_area_is_valid(cstring, 32, &attr2) <= 0)
     return;
 
-  __cmplog_rtn_hook(get_gcc_stdstring(stdstring), cstring);
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0),
+             get_gcc_stdstring(stdstring), cstring);
 
 }
 
@@ -3996,8 +3830,8 @@ void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
       cmplog_area_is_valid(stdstring2, 32, &attr2) <= 0)
     return;
 
-  __cmplog_rtn_hook(get_gcc_stdstring(stdstring1),
-                    get_gcc_stdstring(stdstring2));
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0),
+             get_gcc_stdstring(stdstring1), get_gcc_stdstring(stdstring2));
 
 }
 
@@ -4009,7 +3843,8 @@ void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
       cmplog_area_is_valid(cstring, 32, &attr2) <= 0)
     return;
 
-  __cmplog_rtn_hook(get_llvm_stdstring(stdstring), cstring);
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0),
+             get_llvm_stdstring(stdstring), cstring);
 
 }
 
@@ -4021,8 +3856,8 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
       cmplog_area_is_valid(stdstring2, 32, &attr2) <= 0)
     return;
 
-  __cmplog_rtn_hook(get_llvm_stdstring(stdstring1),
-                    get_llvm_stdstring(stdstring2));
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0),
+             get_llvm_stdstring(stdstring1), get_llvm_stdstring(stdstring2));
 
 }
 
@@ -4031,8 +3866,7 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
                                   size_t n, int result) {
 
-  __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2, (u64)n);
-  (void)pc;
+  cmplog_rtn_n((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
@@ -4040,17 +3874,16 @@ void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_memmem(void *pc, const void *s1, size_t len1,
                                   const void *s2, size_t len2, void *result) {
 
-  __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2, len1 < len2 ? (u64)len1 : (u64)len2);
-  (void)pc;
+  cmplog_rtn_n((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2,
+               len1 < len2 ? (u64)len1 : (u64)len2);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strncasecmp(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strncasecmp(void *pc, const char *s1, const char *s2,
                                        size_t n, int result) {
 
-  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
-  (void)pc;
+  cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
@@ -4058,53 +3891,47 @@ void __sanitizer_weak_hook_strncasecmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_strncasestr(void *pc, const void *s1, const void *s2,
                                        size_t n, char *result) {
 
-  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
-  (void)pc;
+  cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strncmp(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strncmp(void *pc, const char *s1, const char *s2,
                                    size_t n, int result) {
 
-  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
-  (void)pc;
+  cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strcasecmp(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strcasecmp(void *pc, const char *s1, const char *s2,
                                       int result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
-  (void)pc;
+  cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strcasestr(void *pc, const void *s1, const void *s2,
-                                      size_t n, char *result) {
+void __sanitizer_weak_hook_strcasestr(void *pc, const char *s1, const char *s2,
+                                      char *result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
-  (void)pc;
+  cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strcmp(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strcmp(void *pc, const char *s1, const char *s2,
                                   int result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
-  (void)pc;
+  cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strstr(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strstr(void *pc, const char *s1, const char *s2,
                                   char *result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
-  (void)pc;
+  cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
@@ -4149,7 +3976,7 @@ void __afl_coverage_discard() {
   if (__afl_cmp_map) {
 
     memset_noasan(__afl_cmp_map, 0, sizeof(struct cmp_map));
-    memset_noasan(__afl_cmp_cursor, 0, CMP_MAP_W);
+    memset_noasan(__afl_cmp_cursor, 0, sizeof(__afl_cmp_cursor));
 
   }
 
@@ -5152,28 +4979,26 @@ static void __afl_size_derive_log(AllocSizeRecord *r) {
   if (r->derive_logged) return;
   if (!r->size) return;
 
-  /* Per-(site, log2(size)) key into cmp_map; Knuth multiplicative hash on
-     site, a second golden-ratio multiplier on log2(size). Without the
-     size bucket the slot saturates fast at hot allocators called from
-     inner loops, dropping every later (size, max_off) pair from that
-     site. With the bucket, a site that mixes 16/64/256 byte allocations
-     spreads across three slots before saturation; a site that always
-     allocates the same size still maps to one slot (the bucket value is
-     constant). */
+  /* Per-(site, log2(size)) identity keeps hot allocator size classes separate
+     while sharing the CmpLog collision policy with ordinary observations. */
   u32 lg = r->size ? (64u - (u32)__builtin_clzll(r->size)) : 0;
-  u32 key =
-      ((r->alloc_site_id * 2654435761u) ^ (lg * 1597334677u)) & (CMP_MAP_W - 1);
+  u64 site = ((u64)r->alloc_site_id << 32) | lg;
+  u32 key = cmp_map_select(__afl_cmp_map, site);
+  if (key == CMP_MAP_W) return;
   struct cmp_header *h = &__afl_cmp_map->headers[key];
+  if (h->hits &&
+      (h->type != CMP_TYPE_RTN ||
+       cmp_map_attribute(__afl_cmp_map, key) != CMP_ATTR_NONE))
+    return;
   if (h->hits >= CMP_MAP_RTN_H) return;                 /* slot full — skip */
-
-  u32 slot = h->hits;
-  if (slot >= CMP_MAP_RTN_H) return;
-  h->type = CMP_TYPE_RTN;
-  h->shape = 7;                                            /* 8-byte values */
-  h->attribute = 0;
+  u32 slot, occurrence;
+  key = cmplog_reserve(site, CMP_TYPE_RTN, 7, CMP_ATTR_NONE,
+                       CMP_MAP_RTN_H, &slot, &occurrence);
+  if (key == CMP_MAP_W) return;
 
   struct cmpfn_operands *op =
       (struct cmpfn_operands *)&__afl_cmp_map->log[key][slot];
+  memset_noasan(op, 0, sizeof(*op));
   /* Bytewise little-endian copy of the two u64s into v0/v1. */
   for (u32 i = 0; i < 8; ++i) {
 
@@ -5185,7 +5010,8 @@ static void __afl_size_derive_log(AllocSizeRecord *r) {
   op->v0_len = 8;
   op->v1_len = 8;
   op->addr_attr = 0;
-  ++h->hits;
+  op->occurrence = occurrence;
+  op->unused = 8;
   r->derive_logged = 1;
 
 }
@@ -5605,4 +5431,3 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
   __afl_bug_writes("\n");
 
 }
-

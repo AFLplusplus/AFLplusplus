@@ -600,13 +600,6 @@ typedef struct afl_env_vars {
 
 } afl_env_vars_t;
 
-struct afl_pass_stat {
-
-  u8 total;
-  u8 faileds;
-
-};
-
 struct foreign_sync {
 
   u8    *dir;
@@ -857,13 +850,14 @@ typedef struct afl_state {
   u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
       cmplog_enable_xtreme_transform, cmplog_random_colorization;
   u8 cmplog_tightness, cmplog_size_derive;
-  /* Per-cmp-site minimum slack ever seen; UINT64_MAX = unseen. Indexed by
+  /* Per-cmp-site minimum slack and identity; UINT64_MAX = unseen. Indexed by
      cmp_map header key. Lazily allocated on first slack scan. */
   u64 *min_slack;
+  u32 *min_slack_ids;
   u64  cmplog_tightness_new;
 
-  struct afl_pass_stat *pass_stats;
-  struct cmp_map       *orig_cmp_map;
+  struct cmp_pass_stat    *pass_stats;
+  struct cmp_map_snapshot *orig_cmp_map;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
@@ -1641,7 +1635,7 @@ static inline int permissive_create(afl_state_t *afl, const char *fn) {
 
   }
 
-  if (afl->chown_needed) {
+  if (fd >= 0 && afl->chown_needed) {
 
     if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
 
@@ -1668,4 +1662,3 @@ static inline u8 bitmap_read(u8 *map, u32 index) {
 #endif
 
 #endif
-

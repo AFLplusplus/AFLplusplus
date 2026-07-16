@@ -28,6 +28,7 @@
 #include <signal.h>
 #include <limits.h>
 #include "afl-fuzz.h"
+#include "cmplog.h"
 #include "envs.h"
 
 char *power_names[POWER_SCHEDULES_NUM] = {"explore", "mmopt", "exploit",
@@ -891,7 +892,14 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->in_place_resume) { ck_free(afl->in_dir); }
   if (afl->sync_id) { ck_free(afl->out_dir); }
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
-  if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
+  if (afl->min_slack) { ck_free(afl->min_slack); }
+  if (afl->min_slack_ids) { ck_free(afl->min_slack_ids); }
+  if (afl->orig_cmp_map) {
+
+    ck_free(afl->orig_cmp_map->log);
+    ck_free(afl->orig_cmp_map);
+
+  }
   if (afl->cmplog_binary) { ck_free(afl->cmplog_binary); }
   afl_free(afl->queue_buf);
   afl_free(afl->out_buf);
@@ -987,4 +995,3 @@ void afl_states_request_skip(void) {
   LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
-

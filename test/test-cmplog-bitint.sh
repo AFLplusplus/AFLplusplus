@@ -35,6 +35,7 @@ __attribute__((noinline)) int test(volatile _BitInt($bits) *a,
                                    volatile _BitInt($bits) *b) {
     return *a == *b;
 }
+
 int main(void) {
     volatile _BitInt($bits) x = 1, y = 2;
     return test(&x, &y);
@@ -70,6 +71,85 @@ EOF
     fi
 }
 
+test_i8_policy() {
+    cat > "$TEMP_DIR/test-input.ll" << 'EOF'
+target triple = "x86_64-unknown-linux-gnu"
+define i1 @constant_cmp(i8 %a) {
+    %cmp = icmp eq i8 %a, -91
+    ret i1 %cmp
+}
+define i1 @variable_cmp(i8 %a, i8 %b) {
+    %cmp = icmp eq i8 %a, %b
+    ret i1 %cmp
+}
+EOF
+
+    AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ./afl-clang-fast -O0 -S -emit-llvm -x ir \
+        -o "$TEMP_DIR/test.ll" "$TEMP_DIR/test-input.ll" 2>/dev/null
+    local constant_hooks variable_hooks
+    constant_hooks=$(sed -n '/^define.*@constant_cmp(/,/^}$/p' \
+        "$TEMP_DIR/test.ll" | grep -c '__cmplog_ins_hook1' || true)
+    variable_hooks=$(sed -n '/^define.*@variable_cmp(/,/^}$/p' \
+        "$TEMP_DIR/test.ll" | grep -c '__cmplog_ins_hook1' || true)
+    if [ "$constant_hooks" -gt 0 ] && [ "$variable_hooks" -eq 0 ]; then
+        ((PASS++))
+    else
+        printf "$RED[-] %-16s FAIL (constant=%s variable=%s)\n" \
+            "i8 policy" "$constant_hooks" "$variable_hooks"
+        ((FAIL++))
+    fi
+}
+
+test_attr() {
+    local name="$1" type="$2" op="$3" expected="$4"
+    cat > "$TEMP_DIR/test.c" << EOF
+__attribute__((noinline,optnone)) int test($type a, $type b) {
+    return a $op b;
+}
+
+int main(void) { return 0; }
+EOF
+
+    AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ./afl-clang-fast -O0 -S -emit-llvm \
+        -o "$TEMP_DIR/test.ll" "$TEMP_DIR/test.c" 2>/dev/null
+    local attr
+    attr=$(sed -n '/^define.*@test(/,/^}$/p' "$TEMP_DIR/test.ll" \
+        | sed -n 's/.*@__cmplog_ins_hook[^(]*(.*i8 \([0-9][0-9]*\)).*/\1/p' \
+        | head -1)
+    if [ "$attr" = "$expected" ]; then
+        ((PASS++))
+    else
+        printf "$RED[-] %-16s attr=%-3s FAIL (expected %s)\n" \
+            "$name" "${attr:-none}" "$expected"
+        ((FAIL++))
+    fi
+}
+
+test_ir_attr() {
+    local name="$1" predicate="$2" expected="$3"
+    cat > "$TEMP_DIR/test-input.ll" << EOF
+target triple = "x86_64-unknown-linux-gnu"
+define i1 @test(float %a, float %b) {
+    %cmp = fcmp $predicate float %a, %b
+    ret i1 %cmp
+}
+EOF
+
+    AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ./afl-clang-fast -O0 -S -emit-llvm -x ir \
+        -o "$TEMP_DIR/test.ll" "$TEMP_DIR/test-input.ll" 2>/dev/null
+    local attr
+    attr=$(sed -n '/^define.*@test(/,/^}$/p' "$TEMP_DIR/test.ll" \
+        | sed -n 's/.*@__cmplog_ins_hook[^(]*(.*i8 \([0-9][0-9]*\)).*/\1/p' \
+        | head -1)
+    if [ "$attr" = "$expected" ]; then
+        ((PASS++))
+    else
+        printf "$RED[-] %-16s attr=%-3s FAIL (expected %s)\n" \
+            "$name" "${attr:-none}" "$expected"
+        ((FAIL++))
+    fi
+}
+
 echo -e "$GREY[*] Testing cmplog-instructions-pass with non-standard integer sizes..."
 
 # Non-standard sizes <=64: cast to next supported hook width.
@@ -82,6 +162,29 @@ test_bitint "_BitInt(48)" 48 "__cmplog_ins_hook8"
 test_bitint "_BitInt(16)" 16 "__cmplog_ins_hook2"
 test_bitint "_BitInt(32)" 32 "__cmplog_ins_hook4"
 test_bitint "_BitInt(64)" 64 "__cmplog_ins_hook8"
+test_i8_policy
+test_attr "signed greater" "int" ">" 38
+test_attr "unsigned greater" "unsigned" ">" 34
+test_attr "signed lesser eq" "int" "<=" 41
+test_attr "unsigned lesser eq" "unsigned" "<=" 37
+test_attr "float greater" "float" ">" 2
+test_attr "float not equal" "float" "!=" 14
+test_ir_attr "fcmp false" "false" 0
+test_ir_attr "fcmp oeq" "oeq" 1
+test_ir_attr "fcmp ogt" "ogt" 2
+test_ir_attr "fcmp oge" "oge" 3
+test_ir_attr "fcmp olt" "olt" 4
+test_ir_attr "fcmp ole" "ole" 5
+test_ir_attr "fcmp one" "one" 6
+test_ir_attr "fcmp ord" "ord" 7
+test_ir_attr "fcmp uno" "uno" 8
+test_ir_attr "fcmp ueq" "ueq" 9
+test_ir_attr "fcmp ugt" "ugt" 10
+test_ir_attr "fcmp uge" "uge" 11
+test_ir_attr "fcmp ult" "ult" 12
+test_ir_attr "fcmp ule" "ule" 13
+test_ir_attr "fcmp une" "une" 14
+test_ir_attr "fcmp true" "true" 15
 
 if [ "$(getconf LONG_BIT 2>/dev/null)" = "64" ]; then
     # >64-bit compares are only supported on 64-bit systems.

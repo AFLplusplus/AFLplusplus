@@ -37,11 +37,14 @@
 #define CMP_MAP_W 65536
 #define CMP_MAP_H 32
 #define CMP_MAP_RTN_H (CMP_MAP_H / 2)
+#define CMP_MAP_A 4
+#define CMP_MAP_S (CMP_MAP_W / CMP_MAP_A)
 
 #define SHAPE_BYTES(x) (x + 1)
 
 #define CMP_TYPE_INS 0
 #define CMP_TYPE_RTN 1
+#define CMP_ATTR_NONE 255
 
 #define ADDR_ATTR_COMBINE(v0attr, v1attr) ((v0attr & 3) + ((v1attr & 3) << 2))
 #define ADDR_ATTR_V0(x) (x & 3)
@@ -52,7 +55,7 @@ struct cmp_header {  // 16 bit = 2 bytes
   unsigned hits : 6;       // up to 63 entries, we have CMP_MAP_H = 32
   unsigned shape : 5;      // 31+1 bytes max
   unsigned type : 1;       // 2: cmp, rtn
-  unsigned attribute : 4;  // 16 for arithmetic comparison types
+  unsigned attribute : 4;  // legacy comparison type
 
 } __attribute__((packed));
 
@@ -64,12 +67,12 @@ struct cmp_header {  // 16 bit = 2 bytes
   #define unlikely(cond) __builtin_expect(!!(cond), 0)
 #endif
 
-static inline u32 cmp_map_reserve(struct cmp_header *header, u8 *cursor,
-                                  u32 capacity) {
+static inline u32 cmp_map_reserve(struct cmp_header *header, u32 *cursor,
+                                  u32 capacity, u32 *occurrence) {
 
   if (unlikely(header->hits == 0)) { *cursor = 0; }
   u32 slot = *cursor & (capacity - 1);
-  *cursor = (*cursor + 1) & 63;
+  *occurrence = (*cursor)++;
   if (likely(header->hits < capacity)) { ++header->hits; }
   return slot;
 
@@ -85,7 +88,8 @@ struct cmp_operands {
   u64 v1_128;
   u64 v1_256_0;
   u64 v1_256_1;
-  u8  unused[8];  // 2 bits could be used for "is constant operand"
+  u32 occurrence;
+  u32 unused;
 
 } __attribute__((packed));
 
@@ -96,7 +100,8 @@ struct cmpfn_operands {
   u8 v0_len;
   u8 v1_len;
   u8 addr_attr;
-  u8 unused[5];  // 2 bits could be used for "is constant operand"
+  u32 occurrence;
+  u8 unused;
 
 } __attribute__((packed));
 
@@ -106,8 +111,66 @@ struct cmp_map {
 
   struct cmp_header   headers[CMP_MAP_W];
   struct cmp_operands log[CMP_MAP_W][CMP_MAP_H];
+  u32                 site_ids[CMP_MAP_W];
+  u16                 attributes[CMP_MAP_W];
 
 };
+
+static inline u8 cmp_map_attribute(const struct cmp_map *map, u32 key) {
+
+  u16 attr = map->attributes[key];
+  return attr ? (u8)(attr - 1) : map->headers[key].attribute;
+
+}
+
+static inline void cmp_map_set_attribute(struct cmp_map *map, u32 key,
+                                         u8 attr) {
+
+  map->headers[key].attribute = attr & 15;
+  map->attributes[key] = (u16)attr + 1;
+
+}
+
+static inline u64 cmp_map_hash(u64 value) {
+
+  value ^= value >> 30;
+  value *= 0xbf58476d1ce4e5b9ULL;
+  value ^= value >> 27;
+  value *= 0x94d049bb133111ebULL;
+  return value ^ (value >> 31);
+
+}
+
+static inline u32 cmp_map_select(struct cmp_map *map, u64 site) {
+
+  u64 hash = cmp_map_hash(site);
+  u32 base = (u32)(hash & (CMP_MAP_S - 1)) * CMP_MAP_A;
+  u32 id = (u32)(hash >> 32);
+  u32 first = (u32)(hash >> 16) & (CMP_MAP_A - 1);
+  if (unlikely(!id)) { id = 1; }
+
+  for (u32 i = 0; i < CMP_MAP_A; ++i) {
+
+    u32 key = base + ((first + i) & (CMP_MAP_A - 1));
+    if (map->site_ids[key] == id) { return key; }
+
+  }
+
+  for (u32 i = 0; i < CMP_MAP_A; ++i) {
+
+    u32 key = base + ((first + i) & (CMP_MAP_A - 1));
+    if (!map->site_ids[key]) {
+
+      map->site_ids[key] = id;
+      return key;
+
+    }
+
+  }
+
+  return CMP_MAP_W;
+
+}
 
 /* Execs the child */
 
@@ -124,4 +187,3 @@ enum {
 };
 
 #endif
-
