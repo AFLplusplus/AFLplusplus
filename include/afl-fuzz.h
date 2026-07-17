@@ -435,6 +435,7 @@ enum {
 #define MOPT_ARM_MIN_SAMPLES 64   /* min execs before an arm can lose       */
 #define MOPT_ARM_DECAY_NUM 50     /* policy window decay (0.50)             */
 #define MOPT_ARM_DECAY_DEN 100
+#define MOPT_FIND_SCALE 4096U
 
 struct mopt_ctx {
 

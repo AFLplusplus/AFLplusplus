@@ -140,8 +140,8 @@ static void test_commit_credits_uses_and_finds(void **state) {
   struct mopt_ctx *c = &afl->mopt_adaptive.ctx[0];
   assert_int_equal(c->op_uses[OP_A], 2);
   assert_int_equal(c->op_uses[OP_B], 1);
-  assert_int_equal(c->op_finds[OP_A], 0);
-  assert_int_equal(c->op_finds[OP_B], 1);
+  assert_int_equal(c->op_finds[OP_A], MOPT_FIND_SCALE * 2 / 3);
+  assert_int_equal(c->op_finds[OP_B], MOPT_FIND_SCALE / 3);
   assert_int_equal(afl->mopt_adaptive.round_cnt, 0);
 
   free(afl);

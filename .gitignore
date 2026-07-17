@@ -147,3 +147,10 @@ test/test-ijon-legacy
 test/test-ijon-pcguard
 test/test-instr.plain.mycheck
 test/test-multiple-mutators
+test/unittests/unit_cmplog
+test/unittests/unit_frameshift
+test/unittests/unit_ijon
+test/unittests/unit_ijon_replay
+test/unittests/unit_mopt
+test/unittests/unit_sharedmem_mmap
+test/unittests/unit_skipdet
