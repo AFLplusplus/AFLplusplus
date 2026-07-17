@@ -109,6 +109,42 @@ static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
 
 }
 
+#if defined(__linux__)
+
+static u32 read_cpu_topology_u32(s32 cpu, const char *leaf, u8 *ok) {
+
+  u8    path[PATH_MAX];
+  FILE *f;
+  u32   val = 0;
+
+  *ok = 0;
+  snprintf((char *)path, sizeof(path), "/sys/devices/system/cpu/cpu%d/%s", cpu,
+           leaf);
+
+  if ((f = fopen((char *)path, "r"))) {
+
+    if (fscanf(f, "%u", &val) == 1) { *ok = 1; }
+    fclose(f);
+
+  }
+
+  return val;
+
+}
+
+static u8 cpu_pref_better(s32 a, s32 b, const u32 *capacity,
+                          const u32 *busy_sibs) {
+
+  if (capacity[a] != capacity[b]) { return capacity[a] > capacity[b]; }
+
+  if (busy_sibs[a] != busy_sibs[b]) { return busy_sibs[a] < busy_sibs[b]; }
+
+  return a > b;
+
+}
+
+#endif
+
 /* Build a list of processes bound to specific cores. Returns -1 if nothing
    can be found. Assumes an upper bound of 4k CPUs. */
 
@@ -408,18 +444,105 @@ void bind_to_free_cpu(afl_state_t *afl) {
         "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
   #endif
 
-  #if !defined(__aarch64__) && !defined(__arm__) && !defined(__arm64__)
+  s32 chosen = -1;
+
+  #if defined(__linux__)
+
+  {
+
+    static s32 core_key[sizeof(cpu_used)];
+    static u32 capacity[sizeof(cpu_used)];
+    static u32 busy_sibs[sizeof(cpu_used)];
+    static u8  tried[sizeof(cpu_used)];
+    s32        ncpu = afl->cpu_core_count;
+    s32        j;
+    u32        cap_min = 0xffffffffU, cap_max = 0;
+
+    if (ncpu > (s32)sizeof(cpu_used)) { ncpu = (s32)sizeof(cpu_used); }
+
+    memset(tried, 0, sizeof(tried));
+
+    for (i = 0; i < ncpu; i++) {
+
+      u8  ok;
+      u32 key = read_cpu_topology_u32(i, "topology/thread_siblings_list", &ok);
+      core_key[i] = ok ? (s32)key : i;
+      capacity[i] = read_cpu_topology_u32(i, "cpu_capacity", &ok);
+      if (capacity[i] < cap_min) { cap_min = capacity[i]; }
+      if (capacity[i] > cap_max) { cap_max = capacity[i]; }
+
+    }
+
+    for (i = 0; i < ncpu; i++) {
+
+      u32 busy = 0;
+      for (j = 0; j < ncpu; j++)
+        if (core_key[j] == core_key[i] && cpu_used[j]) { busy++; }
+      busy_sibs[i] = busy;
+
+    }
+
+    while (chosen == -1) {
+
+      s32 best = -1;
+      for (i = 0; i < ncpu; i++) {
+
+        if (cpu_used[i] || tried[i]) { continue; }
+        if (best == -1 || cpu_pref_better(i, best, capacity, busy_sibs)) {
+
+          best = i;
+
+        }
+
+      }
+
+      if (best == -1) { break; }
+
+      if (cap_max != cap_min) {
+
+        OKF("Trying to bind to CPU #%d (%s core, %s).", best,
+            capacity[best] == cap_max
+                ? "performance"
+                : (capacity[best] == cap_min ? "efficiency" : "mid"),
+            busy_sibs[best] ? "SMT sibling in use" : "fully free");
+
+      } else {
+
+        OKF("Trying to bind to CPU #%d (%s).", best,
+            busy_sibs[best] ? "SMT sibling in use" : "fully free");
+
+      }
+
+      if (bind_cpu(afl, best)) {
+
+        chosen = best;
+        if (afl->fsrv.nyx_mode) { afl->fsrv.nyx_bind_cpu_id = best; }
+
+      } else {
+
+        WARNF("setaffinity failed to CPU %d, trying next CPU", best);
+        tried[best] = 1;
+
+      }
+
+    }
+
+  }
+
+  #else
+
+    #if !defined(__aarch64__) && !defined(__arm__) && !defined(__arm64__)
 
   for (i = 0; i < afl->cpu_core_count; i++) {
 
-  #else
+    #else
 
   /* many ARM devices have performance and efficiency cores, the slower
      efficiency cores seem to always come first */
 
   for (i = afl->cpu_core_count - 1; i > -1; i--) {
 
-  #endif
+    #endif
 
     if (cpu_used[i]) { continue; }
 
@@ -427,10 +550,8 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     if (bind_cpu(afl, i)) {
 
-  #ifdef __linux__
-      if (afl->fsrv.nyx_mode) { afl->fsrv.nyx_bind_cpu_id = i; }
-  #endif
       /* Success :) */
+      chosen = i;
       break;
 
     }
@@ -439,9 +560,11 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
+  #endif
+
   if (lockfile[0]) unlink(lockfile);
 
-  if (i == afl->cpu_core_count || i == -1) {
+  if (chosen == -1) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Uh-oh, looks like all %d CPU cores on your system are allocated to\n"
