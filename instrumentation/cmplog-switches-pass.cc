@@ -295,8 +295,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
           if (new_param) {
 
             args.push_back(new_param);
-            ConstantInt *attribute =
-                ConstantInt::get(Int8Ty, CMP_ATTR_ICMP_EQ);
+            ConstantInt *attribute = ConstantInt::get(Int8Ty, CMP_ATTR_ICMP_EQ);
             args.push_back(attribute);
             if (cast_size != max_size) {
 
@@ -371,3 +370,4 @@ PreservedAnalyses CmplogSwitches::run(Module &M, ModuleAnalysisManager &MAM) {
     return PreservedAnalyses();
 
 }
+

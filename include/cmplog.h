@@ -152,13 +152,13 @@ struct cmp_operands {
 
 struct cmpfn_operands {
 
-  u8 v0[32];
-  u8 v1[32];
-  u8 v0_len;
-  u8 v1_len;
-  u8 addr_attr;
+  u8  v0[32];
+  u8  v1[32];
+  u8  v0_len;
+  u8  v1_len;
+  u8  addr_attr;
   u32 occurrence;
-  u8 unused;
+  u8  unused;
 
 } __attribute__((packed));
 
@@ -183,7 +183,7 @@ struct cmp_map_snapshot {
   u32               count;
   u32               capacity;
   u8                dense;
-  struct cmp_operands(*log)[CMP_MAP_H];
+  struct cmp_operands (*log)[CMP_MAP_H];
 
 };
 
@@ -237,8 +237,8 @@ static inline u8 cmp_map_legacy_attribute(u8 attr) {
 static inline u8 cmp_map_attribute(const struct cmp_map *map, u32 key) {
 
   u16 attr = map->attributes[key];
-  return attr ? (u8)(attr - 1) :
-                cmp_map_legacy_attribute(map->headers[key].attribute);
+  return attr ? (u8)(attr - 1)
+              : cmp_map_legacy_attribute(map->headers[key].attribute);
 
 }
 
@@ -254,8 +254,8 @@ static inline u8 cmp_map_snapshot_attribute(
     const struct cmp_map_snapshot *snapshot, u32 key) {
 
   u16 attr = snapshot->attributes[key];
-  return attr ? (u8)(attr - 1) :
-                cmp_map_legacy_attribute(snapshot->headers[key].attribute);
+  return attr ? (u8)(attr - 1)
+              : cmp_map_legacy_attribute(snapshot->headers[key].attribute);
 
 }
 
@@ -346,7 +346,7 @@ static inline void cmp_pass_record(struct cmp_pass_stat *stat, u8 found,
 }
 
 static inline u32 cmp_map_snapshot_collect(struct cmp_map_snapshot *snapshot,
-                                           const struct cmp_map *map) {
+                                           const struct cmp_map    *map) {
 
   for (u32 i = 0; i < snapshot->count; ++i) {
 
@@ -373,7 +373,7 @@ static inline u32 cmp_map_snapshot_collect(struct cmp_map_snapshot *snapshot,
 }
 
 static inline void cmp_map_snapshot_copy(struct cmp_map_snapshot *snapshot,
-                                         const struct cmp_map *map) {
+                                         const struct cmp_map    *map) {
 
   if (snapshot->dense) {
 
@@ -384,8 +384,8 @@ static inline void cmp_map_snapshot_copy(struct cmp_map_snapshot *snapshot,
 
   for (u32 slot = 0; slot < snapshot->count; ++slot) {
 
-    u32 key = snapshot->keys[slot];
-    u32 hits = snapshot->headers[key].hits;
+    u32    key = snapshot->keys[slot];
+    u32    hits = snapshot->headers[key].hits;
     size_t size;
     if (snapshot->headers[key].type == CMP_TYPE_INS) {
 
@@ -426,3 +426,4 @@ enum {
 };
 
 #endif
+

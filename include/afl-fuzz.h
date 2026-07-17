@@ -1667,3 +1667,4 @@ static inline u8 bitmap_read(u8 *map, u32 index) {
 #endif
 
 #endif
+

@@ -40,43 +40,43 @@
 
 static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
 
-  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+    #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
   cpu_set_t c;
-  #elif defined(__NetBSD__)
+    #elif defined(__NetBSD__)
   cpuset_t *c;
-  #elif defined(__sun)
+    #elif defined(__sun)
   psetid_t c;
-  #endif
+    #endif
 
   afl->cpu_aff = cpuid;
 
-  #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+    #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
 
   CPU_ZERO(&c);
   CPU_SET(cpuid, &c);
 
-  #elif defined(__NetBSD__)
+    #elif defined(__NetBSD__)
 
   c = cpuset_create();
   if (c == NULL) { PFATAL("cpuset_create failed"); }
   cpuset_set(cpuid, c);
 
-  #elif defined(__sun)
+    #elif defined(__sun)
 
   pset_create(&c);
   if (pset_assign(c, cpuid, NULL)) { PFATAL("pset_assign failed"); }
 
-  #endif
+    #endif
 
-  #if defined(__linux__)
+    #if defined(__linux__)
 
   return (sched_setaffinity(0, sizeof(c), &c) == 0);
 
-  #elif defined(__FreeBSD__) || defined(__DragonFly__)
+    #elif defined(__FreeBSD__) || defined(__DragonFly__)
 
   return (pthread_setaffinity_np(pthread_self(), sizeof(c), &c) == 0);
 
-  #elif defined(__NetBSD__)
+    #elif defined(__NetBSD__)
 
   if (pthread_setaffinity_np(pthread_self(), cpuset_size(c), c)) {
 
@@ -88,7 +88,7 @@ static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
   cpuset_destroy(c);
   return 1;
 
-  #elif defined(__sun)
+    #elif defined(__sun)
 
   if (pset_bind(c, P_PID, getpid(), NULL)) {
 
@@ -100,20 +100,20 @@ static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
   pset_destroy(c);
   return 1;
 
-  #else
+    #else
 
   // this will need something for other platforms
   // TODO: Solaris/Illumos has processor_bind ... might worth a try
   WARNF("Cannot bind to CPU yet on this platform.");
   return 1;
 
-  #endif
+    #endif
 
 }
 
   #endif
 
-#if defined(__linux__)
+  #if defined(__linux__)
 
 static u32 read_cpu_topology_u32(s32 cpu, const char *leaf, u8 *ok) {
 
@@ -147,14 +147,14 @@ static u8 cpu_pref_better(s32 a, s32 b, const u32 *capacity,
 
 }
 
-#endif
+  #endif
 
 /* Build a list of processes bound to specific cores. Returns -1 if nothing
    can be found. Assumes an upper bound of 4k CPUs. */
 
 void bind_to_free_cpu(afl_state_t *afl) {
 
-#if defined(__APPLE__)
+  #if defined(__APPLE__)
 
   int32_t nperflevels = 1, logicalcpu = 0, physicalcpu = 0;
   int32_t perf_logical = 0, eff_logical = 0;
@@ -223,7 +223,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
                     THREAD_AFFINITY_POLICY_COUNT);
   mach_port_deallocate(mach_task_self(), self);
 
-#else
+  #else
 
   u8  cpu_used[4096] = {0};
   u8  lockfile[PATH_MAX] = "";
@@ -238,9 +238,9 @@ void bind_to_free_cpu(afl_state_t *afl) {
     }
 
     WARNF("Not binding to a CPU core (AFL_NO_AFFINITY set).");
-  #ifdef __linux__
+    #ifdef __linux__
     if (afl->fsrv.nyx_mode) { afl->fsrv.nyx_bind_cpu_id = 0; }
-  #endif
+    #endif
     return;
 
   }
@@ -268,9 +268,9 @@ void bind_to_free_cpu(afl_state_t *afl) {
     } else {
 
       OKF("CPU binding request using -b %d successful.", afl->cpu_to_bind);
-  #ifdef __linux__
+    #ifdef __linux__
       if (afl->fsrv.nyx_mode) { afl->fsrv.nyx_bind_cpu_id = afl->cpu_to_bind; }
-  #endif
+    #endif
 
     }
 
@@ -309,7 +309,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-  #if defined(__linux__)
+    #if defined(__linux__)
 
   DIR           *d;
   struct dirent *de;
@@ -368,7 +368,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   closedir(d);
 
-  #elif defined(__FreeBSD__) || defined(__DragonFly__)
+    #elif defined(__FreeBSD__) || defined(__DragonFly__)
 
   struct kinfo_proc *procs;
   size_t             nprocs;
@@ -397,7 +397,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   for (i = 0; i < (s32)proccount; i++) {
 
-    #if defined(__FreeBSD__)
+      #if defined(__FreeBSD__)
 
     if (!strcmp(procs[i].ki_comm, "idle")) continue;
 
@@ -409,19 +409,19 @@ void bind_to_free_cpu(afl_state_t *afl) {
     if (oncpu != -1 && oncpu < (s32)sizeof(cpu_used) && procs[i].ki_pctcpu > 60)
       cpu_used[oncpu] = 1;
 
-    #elif defined(__DragonFly__)
+      #elif defined(__DragonFly__)
 
     if (procs[i].kp_lwp.kl_cpuid < (s32)sizeof(cpu_used) &&
         procs[i].kp_lwp.kl_pctcpu > 10)
       cpu_used[procs[i].kp_lwp.kl_cpuid] = 1;
 
-    #endif
+      #endif
 
   }
 
   ck_free(procs);
 
-  #elif defined(__NetBSD__)
+    #elif defined(__NetBSD__)
 
   struct kinfo_proc2 *procs;
   size_t              nprocs;
@@ -459,7 +459,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   ck_free(procs);
 
-  #elif defined(__sun)
+    #elif defined(__sun)
 
   kstat_named_t *n;
   kstat_ctl_t   *m;
@@ -514,14 +514,14 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   kstat_close(m);
 
-  #else
-    #warning \
-        "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
-  #endif
+    #else
+      #warning \
+          "For this platform we do not have free CPU binding code yet. If possible, please supply a PR to https://github.com/AFLplusplus/AFLplusplus"
+    #endif
 
   s32 chosen = -1;
 
-  #if defined(__linux__)
+    #if defined(__linux__)
 
   {
 
@@ -604,20 +604,20 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-  #else
+    #else
 
-    #if !defined(__aarch64__) && !defined(__arm__) && !defined(__arm64__)
+      #if !defined(__aarch64__) && !defined(__arm__) && !defined(__arm64__)
 
   for (i = 0; i < afl->cpu_core_count; i++) {
 
-    #else
+      #else
 
   /* many ARM devices have performance and efficiency cores, the slower
      efficiency cores seem to always come first */
 
   for (i = afl->cpu_core_count - 1; i > -1; i--) {
 
-    #endif
+      #endif
 
     if (cpu_used[i]) { continue; }
 
@@ -635,7 +635,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-  #endif
+    #endif
 
   if (lockfile[0]) unlink(lockfile);
 
@@ -656,7 +656,7 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
   }
 
-#endif
+  #endif
 
 }
 

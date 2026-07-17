@@ -3059,9 +3059,9 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
   if (unlikely(arg1 == arg2 || size > __afl_cmplog_max_len)) return;
 
   u32 slot, occurrence;
-  u32 k = cmplog_reserve((u64)(uintptr_t)__builtin_return_address(0),
-                          CMP_TYPE_INS, size, attr, CMP_MAP_H, &slot,
-                          &occurrence);
+  u32 k =
+      cmplog_reserve((u64)(uintptr_t)__builtin_return_address(0), CMP_TYPE_INS,
+                     size, attr, CMP_MAP_H, &slot, &occurrence);
   if (unlikely(k == CMP_MAP_W)) { return; }
 
   __afl_cmp_map->log[k][slot].v0 = (u64)arg1;
@@ -3585,7 +3585,7 @@ static inline int cmplog_area_is_valid(void *ptr, size_t len, u8 *attr) {
 
     uintptr_t base = (uintptr_t)__afl_fuzz_ptr;
     uintptr_t addr = (uintptr_t)ptr;
-    size_t fuzz_len = *__afl_fuzz_len;
+    size_t    fuzz_len = *__afl_fuzz_len;
     if (addr >= base && addr - base <= fuzz_len) {
 
       size_t offset = addr - base;
@@ -3642,7 +3642,7 @@ static inline u32 cmplog_string_len(u8 *ptr, u32 cap, u8 *attr) {
 
     uintptr_t base = (uintptr_t)__afl_fuzz_ptr;
     uintptr_t addr = (uintptr_t)ptr;
-    size_t fuzz_len = *__afl_fuzz_len;
+    size_t    fuzz_len = *__afl_fuzz_len;
     if (addr >= base && addr - base <= fuzz_len) {
 
       cap = (u32)MIN((size_t)cap, fuzz_len - (addr - base));
@@ -3699,8 +3699,8 @@ static inline void cmplog_rtn_strn(u64 site, u8 *ptr1, u8 *ptr2, u64 len) {
   u32 len1 = cmplog_string_len(ptr1, cap, &attr1);
   u32 len2 = cmplog_string_len(ptr2, cap, &attr2);
   if (!len1 || !len2) { return; }
-  cmplog_rtn_store(site, ptr1, len1, ptr2, len2, (u8)MIN((u64)cap, len),
-                   attr1, attr2, 1);
+  cmplog_rtn_store(site, ptr1, len1, ptr2, len2, (u8)MIN((u64)cap, len), attr1,
+                   attr2, 1);
 
 }
 
@@ -3744,8 +3744,7 @@ static inline void cmplog_rtn_n(u64 site, u8 *ptr1, u8 *ptr2, u64 len) {
 /* hook for string with length functions, eg. strncmp, strncasecmp etc. */
 void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
 
-  cmplog_rtn_strn((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2,
-                  len);
+  cmplog_rtn_strn((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2, len);
 
 }
 
@@ -4986,14 +4985,13 @@ static void __afl_size_derive_log(AllocSizeRecord *r) {
   u32 key = cmp_map_select(__afl_cmp_map, site);
   if (key == CMP_MAP_W) return;
   struct cmp_header *h = &__afl_cmp_map->headers[key];
-  if (h->hits &&
-      (h->type != CMP_TYPE_RTN ||
-       cmp_map_attribute(__afl_cmp_map, key) != CMP_ATTR_NONE))
+  if (h->hits && (h->type != CMP_TYPE_RTN ||
+                  cmp_map_attribute(__afl_cmp_map, key) != CMP_ATTR_NONE))
     return;
   if (h->hits >= CMP_MAP_RTN_H) return;                 /* slot full — skip */
   u32 slot, occurrence;
-  key = cmplog_reserve(site, CMP_TYPE_RTN, 7, CMP_ATTR_NONE,
-                       CMP_MAP_RTN_H, &slot, &occurrence);
+  key = cmplog_reserve(site, CMP_TYPE_RTN, 7, CMP_ATTR_NONE, CMP_MAP_RTN_H,
+                       &slot, &occurrence);
   if (key == CMP_MAP_W) return;
 
   struct cmpfn_operands *op =
@@ -5431,3 +5429,4 @@ void __afl_alloc_oracle_typed(const void *ptr, uint32_t elem_size,
   __afl_bug_writes("\n");
 
 }
+

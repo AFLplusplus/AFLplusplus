@@ -262,8 +262,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
       if (!cmpInst) { continue; }
       unsigned attr = (unsigned)cmpInst->getPredicate();
-      bool is_signed = attr == CMP_ATTR_ICMP_SGT ||
-                       attr == CMP_ATTR_ICMP_SGE ||
+      bool is_signed = attr == CMP_ATTR_ICMP_SGT || attr == CMP_ATTR_ICMP_SGE ||
                        attr == CMP_ATTR_ICMP_SLT || attr == CMP_ATTR_ICMP_SLE;
 
       if (selectcmpInst->getOpcode() == Instruction::FCmp) {
@@ -473,14 +472,12 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
           // then create a int cast, which does extend, trunc or bitcast. In our
           // case usually extend to the next larger supported type (this is a
           // nop if already the right type)
-          Value *V0 = IRB.CreateIntCast(op0_i,
-                                        IntegerType::get(C, cast_size),
+          Value *V0 = IRB.CreateIntCast(op0_i, IntegerType::get(C, cast_size),
                                         is_signed);
           args.push_back(V0);
           Value *op1_i = IRB.CreateBitCast(
               op1, IntegerType::get(C, ty1->getPrimitiveSizeInBits()));
-          Value *V1 = IRB.CreateIntCast(op1_i,
-                                        IntegerType::get(C, cast_size),
+          Value *V1 = IRB.CreateIntCast(op1_i, IntegerType::get(C, cast_size),
                                         is_signed);
           args.push_back(V1);
 
@@ -585,3 +582,4 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
     return PreservedAnalyses();
 
 }
+

@@ -3623,11 +3623,7 @@ havoc_stage:
 
           }
 
-          if (unlikely(temp_len + 1 >= MAX_FILE)) {
-
-            goto retry_havoc_step;
-
-          }
+          if (unlikely(temp_len + 1 >= MAX_FILE)) { goto retry_havoc_step; }
 
           /* Pick a random queue entry and seek to it. */
 

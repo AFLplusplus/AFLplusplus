@@ -125,6 +125,7 @@ static void cmplog_call_callout(GumCpuContext *context, gpointer user_data) {
     return;
 
   }
+
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
 
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
@@ -210,6 +211,7 @@ static void cmplog_handle_cmp_sub(GumCpuContext *context, gsize operand1,
     return;
 
   }
+
   if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
 
     __afl_cmp_map->headers[k].hits = 0;
@@ -312,3 +314,4 @@ void cmplog_instrument(const cs_insn *instr, GumStalkerIterator *iterator) {
 }
 
 #endif
+
