@@ -3863,6 +3863,12 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
 /* llvm weak hooks */
 
+#if defined(__has_include)
+  #if __has_include(<sanitizer/common_interface_defs.h>)
+    #include <sanitizer/common_interface_defs.h>
+  #endif
+#endif
+
 void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
                                   size_t n, int result) {
 
