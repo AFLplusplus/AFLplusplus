@@ -2576,9 +2576,12 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
     idx = saved_idx;
     its_len = saved_its_len;
 
-    memcpy(save, &buf[idx], its_len);
+    u32 save_len = MIN((u32)sizeof(save), len - idx);
+    memcpy(save, &buf[idx], save_len);
 
     for (i = 0; i < its_len; ++i) {
+
+      memcpy(&buf[idx], save, save_len);
 
       xor_val[i] = pattern[i] ^ buf[idx + i];
       arith_val[i] = pattern[i] - buf[idx + i];
@@ -2856,7 +2859,8 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
           }
 
-          u32 tmp_l = hlen + 1 + off;
+          u32 tmp_l = 2 * ((hlen >> 1) + 1) + off;
+          if (tmp_l > len - idx || tmp_l >= sizeof(tmp)) { continue; }
           memcpy(buf + idx, tmp, tmp_l);
           if (unlikely(its_fuzz(afl, buf, len, status))) { return 1; }
           tmp[tmp_l] = 0;
@@ -2924,7 +2928,7 @@ static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
 
     }
 
-    memcpy(&buf[idx], save, i);
+    memcpy(&buf[idx], save, save_len);
 
   }
 
