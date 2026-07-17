@@ -612,6 +612,16 @@ struct foreign_sync {
 
 };
 
+struct sync_peer_state {
+
+  u8 *name;
+  u32 cursor;
+  u32 max_start_id;
+  u8  have_max;
+  u8  loaded;
+
+};
+
 typedef struct afl_state {
 
   /* Position of this state in the global states list */
@@ -877,6 +887,9 @@ typedef struct afl_state {
   u8                  foreign_sync_cnt;
   struct foreign_sync foreign_syncs[FOREIGN_SYNCS_MAX];
   char               *foreign_file;
+
+  struct sync_peer_state *sync_states;
+  u32                     sync_states_cnt;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   u8  do_document;

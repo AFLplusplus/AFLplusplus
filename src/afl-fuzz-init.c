@@ -707,9 +707,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
   if (!afl->foreign_sync_cnt) return;
 
-  struct dirent **nl;
-  s32             nl_cnt;
-  u32             i, iter;
+  u32 iter;
 
   u8 val_buf[2][STRINGIFY_VAL_SIZE_MAX];
   u8 foreign_name[16];
@@ -746,9 +744,9 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
       /* We do not use sorting yet and do a more expensive mtime check instead.
          a mtimesort() implementation would be better though. */
 
-      nl_cnt = scandir(afl->foreign_syncs[iter].dir, &nl, NULL, NULL);
+      DIR *fdir = opendir(afl->foreign_syncs[iter].dir);
 
-      if (nl_cnt < 0) {
+      if (!fdir) {
 
         if (first) {
 
@@ -757,20 +755,6 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
         }
 
-        continue;
-
-      }
-
-      if (nl_cnt == 0) {
-
-        if (first) {
-
-          WARNF("directory %s is currently empty",
-                afl->foreign_syncs[iter].dir);
-
-        }
-
-        free(nl);
         continue;
 
       }
@@ -785,14 +769,18 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       show_stats(afl);
 
-      for (i = 0; i < (u32)nl_cnt; ++i) {
+      struct dirent *fn;
+
+      while ((fn = readdir(fdir))) {
 
         struct stat st;
 
-        u8 *fn2 =
-            alloc_printf("%s/%s", afl->foreign_syncs[iter].dir, nl[i]->d_name);
+        if (fn->d_type != DT_REG && fn->d_type != DT_UNKNOWN) { continue; }
 
-        if (unlikely(lstat(fn2, &st) || access(fn2, R_OK))) {
+        u8 *fn2 =
+            alloc_printf("%s/%s", afl->foreign_syncs[iter].dir, fn->d_name);
+
+        if (unlikely(lstat(fn2, &st) || (first && access(fn2, R_OK)))) {
 
           if (first) PFATAL("Unable to access '%s'", fn2);
           ck_free(fn2);
@@ -855,7 +843,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         u32 len = write_to_testcase(afl, (void **)&mem, st.st_size, 1);
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
         afl->syncing_party = foreign_name;
-        afl->foreign_file = nl[i]->d_name;
+        afl->foreign_file = fn->d_name;
         afl->queued_imported += save_if_interesting(afl, mem, len, fault);
 
         munmap(orig_mem, st.st_size);
@@ -866,19 +854,13 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       }
 
+      closedir(fdir);
+
       if (mtime_max > afl->foreign_syncs[iter].mtime) {
 
         afl->foreign_syncs[iter].mtime = mtime_max;
 
       }
-
-      for (i = 0; i < (u32)nl_cnt; ++i) {
-
-        free(nl[i]);                                         /* not tracked */
-
-      }
-
-      free(nl);                                              /* not tracked */
 
     }
 
