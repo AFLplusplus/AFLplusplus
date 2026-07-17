@@ -98,7 +98,7 @@
    can hope... */
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
-    defined(__DragonFly__) || defined(__sun)
+    defined(__DragonFly__) || defined(__sun) || defined(__APPLE__)
   #define HAVE_AFFINITY 1
   #if defined(__FreeBSD__) || defined(__DragonFly__)
     #include <sys/param.h>
@@ -117,6 +117,10 @@
     #include <sys/sysinfo.h>
     #include <sys/pset.h>
     #include <strings.h>
+  #elif defined(__APPLE__)
+    #include <pthread.h>
+    #include <mach/mach.h>
+    #include <mach/thread_policy.h>
   #endif
 #endif                                                         /* __linux__ */
 

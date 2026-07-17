@@ -34,6 +34,8 @@
 
 #ifdef HAVE_AFFINITY
 
+  #if !defined(__APPLE__)
+
 /* bind process to a specific cpu. Returns 0 on failure. */
 
 static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
@@ -109,6 +111,8 @@ static u8 bind_cpu(afl_state_t *afl, s32 cpuid) {
 
 }
 
+  #endif
+
 #if defined(__linux__)
 
 static u32 read_cpu_topology_u32(s32 cpu, const char *leaf, u8 *ok) {
@@ -149,6 +153,77 @@ static u8 cpu_pref_better(s32 a, s32 b, const u32 *capacity,
    can be found. Assumes an upper bound of 4k CPUs. */
 
 void bind_to_free_cpu(afl_state_t *afl) {
+
+#if defined(__APPLE__)
+
+  int32_t nperflevels = 1, logicalcpu = 0, physicalcpu = 0;
+  int32_t perf_logical = 0, eff_logical = 0;
+  size_t  len;
+
+  if (afl->afl_env.afl_no_affinity && !afl->afl_env.afl_try_affinity) {
+
+    if (afl->cpu_to_bind != -1) {
+
+      FATAL("-b and AFL_NO_AFFINITY are mututally exclusive.");
+
+    }
+
+    WARNF("Not binding to a CPU core (AFL_NO_AFFINITY set).");
+    return;
+
+  }
+
+  len = sizeof(nperflevels);
+  if (sysctlbyname("hw.nperflevels", &nperflevels, &len, NULL, 0) != 0) {
+
+    nperflevels = 1;
+
+  }
+
+  len = sizeof(logicalcpu);
+  sysctlbyname("hw.logicalcpu", &logicalcpu, &len, NULL, 0);
+  len = sizeof(physicalcpu);
+  sysctlbyname("hw.physicalcpu", &physicalcpu, &len, NULL, 0);
+
+  if (nperflevels > 1) {
+
+    len = sizeof(perf_logical);
+    sysctlbyname("hw.perflevel0.logicalcpu", &perf_logical, &len, NULL, 0);
+    len = sizeof(eff_logical);
+    sysctlbyname("hw.perflevel1.logicalcpu", &eff_logical, &len, NULL, 0);
+    OKF("CPU has %d performance and %d efficiency logical cores; preferring "
+        "the performance cores.",
+        perf_logical, eff_logical);
+
+  } else {
+
+    OKF("CPU has %d logical / %d physical cores (homogeneous).", logicalcpu,
+        physicalcpu);
+
+  }
+
+  if (afl->cpu_to_bind != -1) {
+
+    WARNF(
+        "macOS cannot pin to a specific CPU core; requesting performance-core "
+        "scheduling instead of honoring -b %d.",
+        afl->cpu_to_bind);
+
+  }
+
+  if (pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0) != 0) {
+
+    WARNF("Could not raise the QoS class for performance-core preference.");
+
+  }
+
+  thread_affinity_policy_data_t policy = {(integer_t)((getpid() & 0x7fff) + 1)};
+  mach_port_t                   self = mach_thread_self();
+  thread_policy_set(self, THREAD_AFFINITY_POLICY, (thread_policy_t)&policy,
+                    THREAD_AFFINITY_POLICY_COUNT);
+  mach_port_deallocate(mach_task_self(), self);
+
+#else
 
   u8  cpu_used[4096] = {0};
   u8  lockfile[PATH_MAX] = "";
@@ -580,6 +655,8 @@ void bind_to_free_cpu(afl_state_t *afl) {
     if (!afl->afl_env.afl_try_affinity) { FATAL("No more free CPU cores"); }
 
   }
+
+#endif
 
 }
 

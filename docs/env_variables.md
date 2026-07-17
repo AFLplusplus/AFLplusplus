@@ -764,8 +764,9 @@ checks or alter some of the more exotic semantics of the tool:
     used directly.
 
   - Setting `AFL_NO_AFFINITY` disables attempts to bind to a specific CPU core
-    on Linux systems. This slows things down, but lets you run more instances of
-    afl-fuzz than would be prudent (if you really want to).
+    on Linux systems (and disables the performance-core scheduling preference on
+    macOS). This slows things down, but lets you run more instances of afl-fuzz
+    than would be prudent (if you really want to).
 
   - `AFL_NO_ARITH` causes AFL++ to skip most of the deterministic arithmetics.
     This can be useful to speed up the fuzzing of text-based file formats.
