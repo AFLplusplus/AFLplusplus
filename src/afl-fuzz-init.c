@@ -548,6 +548,22 @@ void bind_to_free_cpu(afl_state_t *afl) {
 
     }
 
+    if (cap_max == cap_min) {
+
+      cap_min = 0xffffffffU;
+      cap_max = 0;
+
+      for (i = 0; i < ncpu; i++) {
+
+        u8 ok;
+        capacity[i] = read_cpu_topology_u32(i, "cpufreq/cpuinfo_max_freq", &ok);
+        if (capacity[i] < cap_min) { cap_min = capacity[i]; }
+        if (capacity[i] > cap_max) { cap_max = capacity[i]; }
+
+      }
+
+    }
+
     for (i = 0; i < ncpu; i++) {
 
       u32 busy = 0;

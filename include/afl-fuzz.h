@@ -1533,8 +1533,8 @@ void fs_clone_meta(afl_state_t *afl);
 
 /**** Inline routines ****/
 
-/* Generate a random number (from 0 to limit - 1). This may
-   have slight bias. */
+/* Generate a random number (from 0 to limit - 1), uniformly
+   distributed. */
 
 static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
@@ -1550,18 +1550,52 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
   }
 
-  /* Modulo is biased - we don't want our fuzzing to be biased so let's do it
-   right. See:
-   https://stackoverflow.com/questions/10984974/why-do-people-say-there-is-modulo-bias-when-using-a-random-number-generator
+  /* Lemire's nearly-divisionless bounded reduction: map the random value into
+     "limit" equal buckets with a widening multiply and reject only the values
+     that would land in the single oversized bucket. Uniform, like a modulo
+     reduction, but the division is taken on the near-never rejection path
+     instead of twice on every call. See:
+     https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/
    */
-  u64 unbiased_rnd;
-  do {
+#ifdef WORD_SIZE_64
+  u64       x = rand_next(afl);
+  uint128_t m = (uint128_t)x * (uint128_t)limit;
+  u64       l = (u64)m;
 
-    unbiased_rnd = rand_next(afl);
+  if (unlikely(l < limit)) {
 
-  } while (unlikely(unbiased_rnd >= (UINT64_MAX - (UINT64_MAX % limit))));
+    u64 t = (0 - (u64)limit) % limit;
+    while (l < t) {
 
-  return unbiased_rnd % limit;
+      x = rand_next(afl);
+      m = (uint128_t)x * (uint128_t)limit;
+      l = (u64)m;
+
+    }
+
+  }
+
+  return (u32)(m >> 64);
+#else
+  u32 x = rand_next(afl);
+  u64 m = (u64)x * (u64)limit;
+  u32 l = (u32)m;
+
+  if (unlikely(l < limit)) {
+
+    u32 t = (0 - limit) % limit;
+    while (l < t) {
+
+      x = rand_next(afl);
+      m = (u64)x * (u64)limit;
+      l = (u32)m;
+
+    }
+
+  }
+
+  return (u32)(m >> 32);
+#endif
 
 }
 
