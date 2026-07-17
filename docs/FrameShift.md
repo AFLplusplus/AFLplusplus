@@ -109,11 +109,14 @@ field value is decremented.
 
 - **`AFL_FRAMESHIFT_MAX_OVERHEAD`** -- A float between `0.0` and `1.0` (default
   `0.10`, i.e. 10%) that caps the fraction of total fuzzing time the frameshift
-  analysis is allowed to consume. Once the cumulative analysis time exceeds this
-  fraction of the overall run time, new analyses are skipped until the ratio
-  drops back under the limit. Set to `0.0` to effectively disable analysis after
-  startup, or increase toward `1.0` for thorough analysis at the cost of fewer
-  havoc executions.
+  analysis is allowed to consume. It is enforced as a token bucket: credit
+  accrues as this fraction of total run time and each analysis slice spends from
+  it. A new slice is admitted only when the remaining credit covers at least
+  `FRAMESHIFT_MIN_SLICE_MS`, and the slice deadline is capped to that remaining
+  credit, so a single slice cannot overshoot the configured overhead by a full
+  `FRAMESHIFT_TIME_BUDGET_MS` (which previously allowed nearly a two-second
+  overrun at campaign start). Set to `0.0` to disable analysis, or increase
+  toward `1.0` for thorough analysis at the cost of fewer havoc executions.
 
 ## Compile-time constants
 
@@ -125,7 +128,8 @@ adjusted by editing the source:
 | `FRAMESHIFT_MAX_ITERS` | 10 | Maximum discovery iterations per input. |
 | `FRAMESHIFT_LOSS_PCT` | 5 | Minimum coverage loss (%) to consider a field structural. |
 | `FRAMESHIFT_RECOVER_PCT` | 20 | Minimum coverage recovery (%) to accept an anchor. |
-| `FRAMESHIFT_TIME_BUDGET_MS` | 2000 | Hard per-input time budget for the analysis stage (ms). |
+| `FRAMESHIFT_TIME_BUDGET_MS` | 2000 | Hard upper bound on a single analysis slice (ms); an admitted slice is capped to the smaller of this and the remaining overhead credit. |
+| `FRAMESHIFT_MIN_SLICE_MS` | 200 | Smallest slice worth admitting (ms); below this the input is left unanalyzed until more overhead credit accrues. |
 
 ## When to use FrameShift
 

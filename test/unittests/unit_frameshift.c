@@ -14,6 +14,7 @@ int  rel_on_insert(fs_relation_t *rel, u64 idx, u64 size);
 int  rel_on_remove(fs_relation_t *rel, u64 idx, u64 size);
 void rel_apply(u8 *buf, fs_relation_t *rel);
 u8   lightweight_run(afl_state_t *afl, u8 *out_buf, u32 len);
+u64  frameshift_slice_budget(u64 spent_ms, u64 allowed_ms);
 
 static u8                g_write_ok = 1;
 static u64               g_time;
@@ -225,6 +226,41 @@ static void test_lightweight_run_deadline_and_fault(void **state) {
 
 }
 
+static void test_slice_budget_no_credit(void **state) {
+
+  (void)state;
+  assert_int_equal(frameshift_slice_budget(0, 0), 0);
+  assert_int_equal(frameshift_slice_budget(500, 500), 0);
+  assert_int_equal(frameshift_slice_budget(600, 500), 0);
+
+}
+
+static void test_slice_budget_below_min_slice(void **state) {
+
+  (void)state;
+  assert_int_equal(frameshift_slice_budget(0, 199), 0);
+  assert_int_equal(frameshift_slice_budget(1900, 2000), 0);
+  assert_int_equal(frameshift_slice_budget(0, 200), 200);
+  assert_int_equal(frameshift_slice_budget(1800, 2000), 200);
+
+}
+
+static void test_slice_budget_partial_remaining(void **state) {
+
+  (void)state;
+  assert_int_equal(frameshift_slice_budget(100, 1000), 900);
+
+}
+
+static void test_slice_budget_caps_at_full(void **state) {
+
+  (void)state;
+  assert_int_equal(frameshift_slice_budget(0, 2000), 2000);
+  assert_int_equal(frameshift_slice_budget(0, 10000), 2000);
+  assert_int_equal(frameshift_slice_budget(5000, 10000), 2000);
+
+}
+
 int main(void) {
 
   const struct CMUnitTest tests[] = {
@@ -237,6 +273,10 @@ int main(void) {
       cmocka_unit_test(test_rel_apply_endianness),
       cmocka_unit_test(test_lightweight_run_reports_skip),
       cmocka_unit_test(test_lightweight_run_deadline_and_fault),
+      cmocka_unit_test(test_slice_budget_no_credit),
+      cmocka_unit_test(test_slice_budget_below_min_slice),
+      cmocka_unit_test(test_slice_budget_partial_remaining),
+      cmocka_unit_test(test_slice_budget_caps_at_full),
 
   };
 

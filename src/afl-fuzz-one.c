@@ -592,16 +592,9 @@ u8 fuzz_one(afl_state_t *afl) {
 
     if (unlikely(afl->queue_cur->fs_status == 0)) {
 
-      /* FrameShift has not run on this input. */
-
-      /* Check frameshift overhead budget before running analysis.
-         Use total runtime since start as the reference. */
-      u64 total_runtime_ms =
-          afl->prev_run_time + get_cur_time() - afl->start_time;
-      double max_overhead = afl->afl_env.afl_frameshift_max_overhead;
-      u64    allowed_ms = (u64)((double)total_runtime_ms * max_overhead);
-
-      if (afl->fs_stats.total_time_ms <= allowed_ms) { frameshift_stage(afl); }
+      /* FrameShift has not run on this input; the stage enforces its own
+         overhead budget before committing to an analysis slice. */
+      frameshift_stage(afl);
 
     }
 

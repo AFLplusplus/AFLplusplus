@@ -2289,6 +2289,7 @@ void afl_read_pc_filter_file(const char *filter_file) {
   __afl_filter_pcs = malloc(__afl_filter_pcs_size * sizeof(FilterPCEntry));
   if (!__afl_filter_pcs) {
 
+    fclose(file);
     perror("Error allocating PC array");
     return;
 
@@ -2693,11 +2694,11 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
         "DEBUG: Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges) "
         "after_fs=%u *start=%u\n",
         start, stop, (unsigned long)(stop - start),
-        __afl_already_initialized_forkserver, *start);
+        __afl_already_initialized_forkserver, start ? *start : 0);
 
   }
 
-  if (start == stop || *start) { return; }
+  if (!start || start == stop || *start) { return; }
 
 #ifdef __AFL_CODE_COVERAGE
   u32               *orig_start = start;
