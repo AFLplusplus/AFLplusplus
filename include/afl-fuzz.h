@@ -766,6 +766,7 @@ typedef struct afl_state {
       sync_time_us,                     /* Time spend on sync               */
       cmplog_time_us,                   /* Time spend on cmplog             */
       trim_time_us,                     /* Time spend on trimming           */
+      table_time_us,                    /* Time spend building alias table  */
       peak_rss_mb;                      /* Peak RSS of the target in MB     */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
@@ -1403,6 +1404,7 @@ void update_calibration_time(afl_state_t *afl, u64 *time);
 void update_trim_time(afl_state_t *afl, u64 *time);
 void update_sync_time(afl_state_t *afl, u64 *time);
 void update_cmplog_time(afl_state_t *afl, u64 *time);
+void update_table_time(afl_state_t *afl, u64 *time);
 
 /* StatsD */
 
