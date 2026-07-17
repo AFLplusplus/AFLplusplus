@@ -31,6 +31,8 @@ test_loop "nested" '__attribute__((noinline,optnone)) int test(int n) { int s=0;
 
 test_loop "countdown" '__attribute__((noinline,optnone)) int test(int n) { int s=0; for(int i=n-1;i>=0;i--) s+=i; return s; } int main(){return test(10);}'
 
+test_loop "byte-for" '__attribute__((noinline,optnone)) int test(unsigned char n) { int s=0; for(unsigned char i=0;i<n;i++) s+=i; return s; } int main(){return test(10);}'
+
 rm -f /tmp/t.c /tmp/t.ll
 echo -e "$GREY[*] Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

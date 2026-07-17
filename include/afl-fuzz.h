@@ -241,8 +241,9 @@ struct frameshift_stats {
 
 struct skipdet_entry {
 
-  u8  continue_inf, done_eff;
+  u8  continue_inf, done_eff, eff_probe;
   u32 undet_bits, quick_eff_bytes;
+  u32 eff_cursor;
 
   u8 *skip_eff_map,                     /* we'v finish the eff_map          */
       *done_inf_map;                    /* some bytes are not done yet      */
@@ -458,7 +459,6 @@ struct mopt_adaptive {
   /* per-stacked-round attribution scratch (hot path, tiny).
      use_stacking <= 16 with default HAVOC_STACK_POW2=4; round_list is
      oversized and guarded so a user raising the pow via '+' is still safe. */
-  u8  round_seen[MOPT_OP_MAX];  /* dedup find credit within one round       */
   u8  round_list[64];          /* op ids touched this round                 */
   u32 round_cnt;
 
@@ -569,7 +569,7 @@ typedef struct afl_env_vars {
       afl_custom_mutator_late_send, afl_no_ui, afl_force_ui,
       afl_i_dont_care_about_missing_crashes, afl_bench_just_one,
       afl_bench_until_crash, afl_debug_child, afl_autoresume, afl_cal_fast,
-      afl_cycle_schedules, afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
+      afl_expand_havoc, afl_statsd, afl_cmplog_only_new,
       afl_exit_on_seed_issues, afl_try_affinity, afl_ignore_problems,
       afl_keep_timeouts, afl_no_crash_readme, afl_ignore_timeouts,
       afl_no_startup_calibration, afl_no_warn_instability,
@@ -599,13 +599,6 @@ typedef struct afl_env_vars {
   double afl_frameshift_max_overhead;           /* 0.0 to 1.0, default 0.10 */
 
 } afl_env_vars_t;
-
-struct afl_pass_stat {
-
-  u8 total;
-  u8 faileds;
-
-};
 
 struct foreign_sync {
 
@@ -696,7 +689,6 @@ typedef struct afl_state {
       disable_trim,                     /* Never trim in fuzz_one           */
       shmem_testcase_mode,              /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
-      cycle_schedules,                  /* cycle power schedules?           */
       old_seed_selection,               /* use vanilla afl seed selection   */
       reinit_table;                     /* reinit the queue weight table    */
 
@@ -825,8 +817,6 @@ typedef struct afl_state {
 
   struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
 
-  u32 **top_rated_candidates;             /* Candidate IDs per bitmap index */
-
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */
 
@@ -860,13 +850,14 @@ typedef struct afl_state {
   u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
       cmplog_enable_xtreme_transform, cmplog_random_colorization;
   u8 cmplog_tightness, cmplog_size_derive;
-  /* Per-cmp-site minimum slack ever seen; UINT64_MAX = unseen. Indexed by
+  /* Per-cmp-site minimum slack and identity; UINT64_MAX = unseen. Indexed by
      cmp_map header key. Lazily allocated on first slack scan. */
   u64 *min_slack;
+  u32 *min_slack_ids;
   u64  cmplog_tightness_new;
 
-  struct afl_pass_stat *pass_stats;
-  struct cmp_map       *orig_cmp_map;
+  struct cmp_pass_stat    *pass_stats;
+  struct cmp_map_snapshot *orig_cmp_map;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
@@ -974,11 +965,10 @@ typedef struct afl_state {
 
   struct frameshift_stats fs_stats;
   u32       *frameshift_index_buffer;        /* Buffer for frameshift index */
+  u64        frameshift_deadline;
   fs_meta_t *fs_curr_meta;    /* Metadata for the current input (full copy) */
 
   struct skipdet_global *skipdet_g;
-
-  s64 last_scored_idx;           /* Index of the last queue entry re-scored */
 
 #ifdef INTROSPECTION
   char  mutation[8072];
@@ -1346,8 +1336,7 @@ void destroy_queue(afl_state_t *);
 void update_bitmap_score(afl_state_t *, struct queue_entry *, bool);
 void cull_queue(afl_state_t *);
 u32  calculate_score(afl_state_t *, struct queue_entry *);
-void recalculate_all_scores(afl_state_t *);
-void update_bitmap_rescore(afl_state_t *, struct queue_entry *, u32);
+void consume_handicap(afl_state_t *, struct queue_entry *);
 
 /* Bitmap */
 
@@ -1646,7 +1635,7 @@ static inline int permissive_create(afl_state_t *afl, const char *fn) {
 
   }
 
-  if (afl->chown_needed) {
+  if (fd >= 0 && afl->chown_needed) {
 
     if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
 
@@ -1673,4 +1662,3 @@ static inline u8 bitmap_read(u8 *map, u32 index) {
 #endif
 
 #endif
-

@@ -28,6 +28,7 @@
 #include <signal.h>
 #include <limits.h>
 #include "afl-fuzz.h"
+#include "cmplog.h"
 #include "envs.h"
 
 char *power_names[POWER_SCHEDULES_NUM] = {"explore", "mmopt", "exploit",
@@ -76,7 +77,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->switch_fuzz_mode = STRATEGY_SWITCH_TIME * 1000;
   afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
   afl->q_testcase_max_cache_entries = 64 * 1024;
-  afl->last_scored_idx = -1;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -137,12 +137,6 @@ void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
   afl->virgin_crash = ck_realloc(afl->virgin_crash, new_size);
   afl->var_bytes = ck_realloc(afl->var_bytes, new_size);
   afl->top_rated = ck_realloc(afl->top_rated, new_size * sizeof(void *));
-  if (afl->cycle_schedules && afl->top_rated_candidates) {
-
-    afl->top_rated_candidates =
-        ck_realloc(afl->top_rated_candidates, new_size * sizeof(u32 *));
-
-  }
 
   afl->clean_trace = ck_realloc(afl->clean_trace, new_size);
   afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, new_size);
@@ -155,12 +149,6 @@ void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
 
     memset(afl->var_bytes + old_size, 0, size_diff);
     memset(afl->top_rated + old_size, 0, size_diff * sizeof(void *));
-    if (afl->cycle_schedules && afl->top_rated_candidates) {
-
-      memset(afl->top_rated_candidates + old_size, 0,
-             size_diff * sizeof(u32 *));
-
-    }
 
     memset(afl->clean_trace + old_size, 0, size_diff);
     memset(afl->clean_trace_custom + old_size, 0, size_diff);
@@ -191,6 +179,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
           "Potentially mistyped AFL environment variable: %s, did you mean "
           "AFL_%s?",
           env, env);
+      issue_detected = 1;
+
+    } else if (!strncmp(env, "AFL_CYCLE_SCHEDULES=",
+
+                        sizeof("AFL_CYCLE_SCHEDULES=") - 1)) {
+
+      WARNF("AFL_CYCLE_SCHEDULES was removed and is ignored.");
       issue_detected = 1;
 
     } else if (strncmp(env, "AFL_", 4) == 0) {
@@ -435,13 +430,6 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_persistent_record =
                 get_afl_env(afl_environment_variables[i]);
-
-          } else if (!strncmp(env, "AFL_CYCLE_SCHEDULES",
-
-                              afl_environment_variable_len)) {
-
-            afl->cycle_schedules = afl->afl_env.afl_cycle_schedules =
-                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_EXIT_ON_SEED_ISSUES",
 
@@ -904,24 +892,15 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->in_place_resume) { ck_free(afl->in_dir); }
   if (afl->sync_id) { ck_free(afl->out_dir); }
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
-  if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
-  if (afl->cmplog_binary) { ck_free(afl->cmplog_binary); }
-  if (afl->cycle_schedules) {
+  if (afl->min_slack) { ck_free(afl->min_slack); }
+  if (afl->min_slack_ids) { ck_free(afl->min_slack_ids); }
+  if (afl->orig_cmp_map) {
 
-    for (u32 i = 0; i < afl->fsrv.map_size; i++) {
-
-      if (afl->top_rated_candidates[i]) {
-
-        ck_free(afl->top_rated_candidates[i]);
-
-      }
-
-    }
-
-    ck_free(afl->top_rated_candidates);
+    afl_free(afl->orig_cmp_map->log);
+    ck_free(afl->orig_cmp_map);
 
   }
-
+  if (afl->cmplog_binary) { ck_free(afl->cmplog_binary); }
   afl_free(afl->queue_buf);
   afl_free(afl->out_buf);
   afl_free(afl->out_scratch_buf);
@@ -1016,4 +995,3 @@ void afl_states_request_skip(void) {
   LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
-

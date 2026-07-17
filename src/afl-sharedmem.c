@@ -232,7 +232,11 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     if (gid != -1 && shm->g_shm_fd != -1) {
 
-      if (fchown(shm->g_shm_fd, -1, gid) == -1) { PFATAL("fchown() failed"); }
+      if (fchown(shm->g_shm_fd, -1, gid) == -1) {
+
+        PFATAL("fchown() failed");
+
+      }
 
     }
 
@@ -265,6 +269,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   }
 
   shm->map_alloc_size = alloc_size;
+  close(shm->g_shm_fd);
+  shm->g_shm_fd = -1;
 
   /* If somebody is asking us to fuzz instrumented binaries in non-instrumented
      mode, we don't want them to detect instrumentation, since we won't be
@@ -297,7 +303,11 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     if (shm->cmplog_g_shm_fd == -1) { PFATAL("shm_open() failed"); }
     if (gid != -1) {
 
-      if (fchown(shm->g_shm_fd, -1, gid) == -1) { PFATAL("fchown() failed"); }
+      if (fchown(shm->cmplog_g_shm_fd, -1, gid) == -1) {
+
+        PFATAL("fchown() failed");
+
+      }
 
     }
 
@@ -320,6 +330,9 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       PFATAL("mmap() failed");
 
     }
+
+    close(shm->cmplog_g_shm_fd);
+    shm->cmplog_g_shm_fd = -1;
 
     shm->cmp_map_alloc_size = sizeof(struct cmp_map);
 
@@ -479,4 +492,3 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   return shm->map;
 
 }
-

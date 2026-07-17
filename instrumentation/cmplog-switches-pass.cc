@@ -54,6 +54,7 @@
 
 #include <set>
 #include "afl-llvm-common.h"
+#include "cmplog.h"
 
 using namespace llvm;
 
@@ -203,7 +204,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       unsigned int  max_size = Val->getType()->getIntegerBitWidth(), cast_size;
       unsigned char do_cast = 0;
 
-      if (!SI->getNumCases() || max_size < 16) {
+      if (!SI->getNumCases() || max_size < 8) {
 
         // if (!be_quiet) errs() << "skip trivial switch..\n";
         continue;
@@ -294,7 +295,8 @@ bool CmplogSwitches::hookInstrs(Module &M) {
           if (new_param) {
 
             args.push_back(new_param);
-            ConstantInt *attribute = ConstantInt::get(Int8Ty, 1);
+            ConstantInt *attribute =
+                ConstantInt::get(Int8Ty, CMP_ATTR_ICMP_EQ);
             args.push_back(attribute);
             if (cast_size != max_size) {
 
@@ -369,4 +371,3 @@ PreservedAnalyses CmplogSwitches::run(Module &M, ModuleAnalysisManager &MAM) {
     return PreservedAnalyses();
 
 }
-

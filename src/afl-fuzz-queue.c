@@ -304,6 +304,11 @@ void create_alias_table(afl_state_t *afl) {
 
           if (unlikely(!q->was_fuzzed)) { weight *= 2.5; }
           if (unlikely(q->fs_redundant)) { weight *= 0.75; }
+          if (unlikely(q->handicap)) {
+
+            weight *= (1.0 + (double)q->handicap / 10);
+
+          }
 
         }
 
@@ -1151,195 +1156,6 @@ inline void cull_queue(afl_state_t *afl) {
 
 }
 
-/* Re-selects top_rated[] entries based on the current fuzzing schedule.
-   Each queued entry is executed once to collect trace_bits, and potential
-   candidates for each bitmap index are stored.
-
-   The candidate list format is [count][id1][id2]... as a u32 array,
-   where 'count' indicates how many queue IDs hit that index. */
-
-void recalculate_all_scores(afl_state_t *afl) {
-
-  u8 *in_buf;
-  u32 i;
-  u32 j;
-
-  for (i = afl->last_scored_idx + 1; i < afl->queued_items; i++) {
-
-    if (likely(!afl->queue_buf[i]->disabled)) {
-
-      in_buf = queue_testcase_get(afl, afl->queue_buf[i]);
-      (void)write_to_testcase(afl, (void **)&in_buf, afl->queue_buf[i]->len, 1);
-      (void)fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-
-      for (j = 0; j < afl->fsrv.map_size; ++j) {
-
-        if (afl->fsrv.trace_bits[j]) {
-
-          u32 *candidate_ids = afl->top_rated_candidates[j];
-          u32  id = afl->queue_buf[i]->id;
-
-          if (!candidate_ids) {
-
-            /* format: [count][cap][id0][id1...] */
-            candidate_ids = ck_alloc(sizeof(u32) * 4);
-            candidate_ids[0] = 1;   // count = 1
-            candidate_ids[1] = 2;   // capacity = 2
-            candidate_ids[2] = id;  // first ID
-
-          } else {
-
-            u32 count = candidate_ids[0];
-            u32 cap = candidate_ids[1];
-
-            if (unlikely(count == cap)) {
-
-              u32 new_cap = cap * 2;
-              candidate_ids =
-                  ck_realloc(candidate_ids, sizeof(u32) * (new_cap + 2));
-              candidate_ids[1] = new_cap;
-
-            }
-
-            candidate_ids[0] = count + 1;   // increment the count
-            candidate_ids[count + 2] = id;  // append the new ID
-
-          }
-
-          afl->top_rated_candidates[j] = candidate_ids;
-
-        }
-
-      }
-
-    }
-
-    afl->last_scored_idx = i;
-
-  }
-
-  for (i = 0; i < afl->fsrv.map_size; ++i) {
-
-    u32 *candidate_ids = afl->top_rated_candidates[i];
-    if (candidate_ids) {
-
-      u32 count = candidate_ids[0];
-
-      for (u32 k = 0; k < count; k++) {
-
-        u32                 id = candidate_ids[k + 2];
-        struct queue_entry *entry = afl->queue_buf[id];
-        update_bitmap_rescore(afl, entry, i);
-
-      }
-
-    }
-
-  }
-
-}
-
-/* Re-evaluates top-rated entries without checking trace_bits.
-   Unlike update_bitmap_score(), this function assumes the trace
-   information is already known and only compares entries */
-
-void update_bitmap_rescore(afl_state_t *afl, struct queue_entry *q, u32 index) {
-
-  u32 i = index;
-  u64 fav_factor;
-  u64 fuzz_p2;
-
-  if (unlikely(q->disabled)) { return; }
-
-  if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
-
-    fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
-
-  } else if (unlikely(afl->schedule == RARE)) {
-
-    fuzz_p2 = next_pow2(afl->n_fuzz[q->n_fuzz_entry]);
-
-  } else {
-
-    fuzz_p2 = q->fuzz_level;
-
-  }
-
-  if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
-
-    fav_factor = q->len << 2;
-
-  } else {
-
-    fav_factor = q->exec_us * q->len;
-
-  }
-
-  if (afl->top_rated[i]) {
-
-    /* Faster-executing or smaller test cases are favored. */
-    u64 top_rated_fav_factor;
-    u64 top_rated_fuzz_p2;
-
-    if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
-
-      top_rated_fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
-
-    } else if (unlikely(afl->schedule == RARE)) {
-
-      top_rated_fuzz_p2 =
-          next_pow2(afl->n_fuzz[afl->top_rated[i]->n_fuzz_entry]);
-
-    } else {
-
-      top_rated_fuzz_p2 = afl->top_rated[i]->fuzz_level;
-
-    }
-
-    if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
-
-      top_rated_fav_factor = afl->top_rated[i]->len << 2;
-
-    } else {
-
-      top_rated_fav_factor =
-          afl->top_rated[i]->exec_us * afl->top_rated[i]->len;
-
-    }
-
-    if (likely(fuzz_p2 > top_rated_fuzz_p2)) { return; }
-
-    if (likely(fav_factor > top_rated_fav_factor)) { return; }
-
-    /* Looks like we're going to win. Decrease ref count for the
-        previous winner, discard its afl->fsrv.trace_bits[] if necessary. */
-
-    if (!--afl->top_rated[i]->tc_ref) {
-
-      ck_free(afl->top_rated[i]->trace_mini);
-      afl->top_rated[i]->trace_mini = NULL;
-
-    }
-
-  }
-
-  /* Insert ourselves as the new winner. */
-
-  afl->top_rated[i] = q;
-  ++q->tc_ref;
-
-  if (!q->trace_mini) {
-
-    u32 len = (afl->fsrv.map_size >> 3);
-    q->trace_mini = (u8 *)ck_alloc(len);
-    minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
-
-  }
-
-  afl->score_changed = 1;
-
-}
-
 /* Calculate case desirability score to adjust the length of havoc fuzzing.
    A helper function for fuzz_one(). Maybe some of these constants should
    go into config.h. */
@@ -1436,12 +1252,10 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   if (q->handicap >= 4) {
 
     perf_score *= 4;
-    q->handicap -= 4;
 
   } else if (q->handicap) {
 
     perf_score *= 2;
-    --q->handicap;
 
   }
 
@@ -1560,15 +1374,16 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       // Don't modify perf_score for unfuzzed seeds
       if (!q->fuzz_level) break;
 
-      factor = q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
+      factor =
+          (double)q->fuzz_level / ((double)afl->n_fuzz[q->n_fuzz_entry] + 1.0);
       break;
 
     case QUAD:
       // Don't modify perf_score for unfuzzed seeds
       if (!q->fuzz_level) break;
 
-      factor =
-          q->fuzz_level * q->fuzz_level / (afl->n_fuzz[q->n_fuzz_entry] + 1);
+      factor = ((double)q->fuzz_level * (double)q->fuzz_level) /
+               ((double)afl->n_fuzz[q->n_fuzz_entry] + 1.0);
       break;
 
     case MMOPT:

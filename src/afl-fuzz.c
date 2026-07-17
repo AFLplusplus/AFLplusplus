@@ -423,7 +423,6 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_CRASH_TRACES: write output and core to the crash file information - slow!\n"
       "AFL_CUSTOM_MUTATOR_LIBRARY: lib with afl_custom_fuzz() to mutate inputs\n"
       "AFL_CUSTOM_MUTATOR_ONLY: avoid AFL++'s internal mutators\n"
-      "AFL_CYCLE_SCHEDULES: after completing a cycle, switch to a different -p schedule\n"
       "AFL_DEBUG: extra debugging output for Python mode trimming\n"
       "AFL_DEBUG_CHILD: do not suppress stdout/stderr from target\n"
       "AFL_DISABLE_REDUNDANT: disable any queue item that is redundant\n"
@@ -1896,12 +1895,6 @@ void afl_check_environment(afl_state_t *afl) {
   if (afl->schedule >= FAST && afl->schedule <= RARE) {
 
     afl->n_fuzz = ck_alloc(N_FUZZ_SIZE * sizeof(u32));
-
-  }
-
-  if (afl->cycle_schedules) {
-
-    afl->top_rated_candidates = ck_alloc(afl->map_size * sizeof(u32 *));
 
   }
 

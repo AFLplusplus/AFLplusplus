@@ -144,6 +144,14 @@ ijon_min_state *new_ijon_min_state_with_limit(char *max_dir,
   self->schedule_prob = 0;
   self->next_entry = 0;
   self->max_input_size = max_input_size;
+  self->history_index = 0;
+  self->num_discovered_vars = 0;
+
+  for (int i = 0; i < MAP_SIZE_IJON_ENTRIES; i++) {
+
+    self->variable_discovered[i] = -1;
+
+  }
 
   /* Create the IJON max directory if it doesn't exist */
   if (mkdir(max_dir, 0700) && errno != EEXIST) {
@@ -312,17 +320,68 @@ u8 ijon_read_input(ijon_min_state *self, ijon_input_info *info, u8 **data,
 
 }
 
-void ijon_store_max_input(ijon_min_state *self, int i, uint8_t *data,
-                          size_t len) {
+/* Write the whole buffer, retrying on EINTR and short writes.
+   Returns 1 on success, 0 on failure. */
+static u8 ijon_write_all(int fd, const uint8_t *data, size_t len) {
 
-  if (!len || len > self->max_input_size) { return; }
+  size_t off = 0;
+  while (off < len) {
+
+    ssize_t w = write(fd, data + off, len - off);
+    if (w < 0) {
+
+      if (errno == EINTR) { continue; }
+      return 0;
+
+    }
+
+    if (w == 0) {
+
+      errno = EIO;
+      return 0;
+
+    }
+
+    off += (size_t)w;
+
+  }
+
+  return 1;
+
+}
+
+static u8 ijon_write_and_close(int fd, const uint8_t *data, size_t len) {
+
+  u8  ok = ijon_write_all(fd, data, len);
+  int saved_errno = ok ? 0 : errno;
+
+  if (ok && fsync(fd)) {
+
+    ok = 0;
+    saved_errno = errno;
+
+  }
+
+  if (close(fd) && ok) {
+
+    ok = 0;
+    saved_errno = errno;
+
+  }
+
+  if (!ok) { errno = saved_errno; }
+  return ok;
+
+}
+
+/* Persist the input for variable i. Commits inf->len and history only after
+   the file is consistent on disk. Returns 1 on success, 0 on failure. */
+u8 ijon_store_max_input(ijon_min_state *self, int i, uint8_t *data,
+                        size_t len) {
+
+  if (!len || len > self->max_input_size) { return 0; }
 
   ijon_input_info *inf = self->infos[i];
-  inf->len = len;
-  self->persisted[i] = 0;
-
-  // Save input that achieved new maximum for this IJON variable
-  /* Store input achieving new max */
 
   // Store in slot-specific file using atomic write to prevent race conditions
   char temp_filename[512];
@@ -333,19 +392,18 @@ void ijon_store_max_input(ijon_min_state *self, int i, uint8_t *data,
 
     WARNF("Failed to open IJON temp file %s: %s", temp_filename,
           strerror(errno));
-    return;
+    return 0;
 
   }
 
-  ssize_t written = write(fd, data, len);
-  close(fd);
+  u8 ok = ijon_write_and_close(fd, data, len);
 
-  if (written != (ssize_t)len) {
+  if (!ok) {
 
     WARNF("Failed to write IJON max input to %s: %s", temp_filename,
           strerror(errno));
     unlink(temp_filename);                     /* Clean up failed temp file */
-    return;
+    return 0;
 
   }
 
@@ -355,14 +413,19 @@ void ijon_store_max_input(ijon_min_state *self, int i, uint8_t *data,
     WARNF("Failed to rename IJON temp file %s to %s: %s", temp_filename,
           inf->filename, strerror(errno));
     unlink(temp_filename);                     /* Clean up failed temp file */
+    return 0;
 
   }
+
+  /* Commit in-memory length only after the file is consistent on disk. */
+  inf->len = len;
+  self->persisted[i] = 0;
 
   // Store in history file ONLY if this input achieves the best value for
   // variable i
   ijon_store_history_if_best(self, i, data, len);
 
-  self->num_updates++;
+  return 1;
 
 }
 
@@ -379,27 +442,6 @@ void ijon_store_history_if_best(ijon_min_state *self, int i, uint8_t *data,
 void ijon_store_history_unconditional(ijon_min_state *self, int i,
                                       uint8_t *data, size_t len) {
 
-  // Rolling history buffer with per-variable guaranteed coverage
-  static int history_init = -1;  // -1 = not initialized
-  static int global_history_index = 0;
-  static int variable_to_index[MAP_SIZE_IJON_ENTRIES];  // Maps variable slot to
-                                                        // history index
-  static int num_discovered_vars = 0;
-
-  // Initialize history limit from environment variable (once)
-  if (unlikely(history_init == -1)) {
-
-    // Initialize variable mapping
-    for (int j = 0; j < MAP_SIZE_IJON_ENTRIES; j++) {
-
-      variable_to_index[j] = -1;  // -1 means not assigned
-
-    }
-
-    history_init = 1;
-
-  }
-
   // Initialize global history limit if not done yet
   init_afl_ijon_history_limit();
 
@@ -407,29 +449,25 @@ void ijon_store_history_unconditional(ijon_min_state *self, int i,
   if (afl_ijon_history_limit_global > 0) {
 
     // Check if limit is sufficient for discovered variables (one-time check)
-    if (variable_to_index[i] == -1) {
+    if (self->variable_discovered[i] == -1) {
 
       // New variable discovered - check if limit is sufficient
-      if (num_discovered_vars + 1 > afl_ijon_history_limit_global) {
+      if (self->num_discovered_vars + 1 > afl_ijon_history_limit_global) {
 
         FATAL(
             "AFL_IJON_HISTORY_LIMIT=%d insufficient for %d variables. Minimum "
             "required: %d. "
             "Either increase limit or disable history (unset "
             "AFL_IJON_HISTORY_LIMIT).",
-            afl_ijon_history_limit_global, num_discovered_vars + 1,
-            num_discovered_vars + 1);
+            afl_ijon_history_limit_global, self->num_discovered_vars + 1,
+            self->num_discovered_vars + 1);
 
       }
-
-      // Track this new variable
-      variable_to_index[i] = 1;  // Mark as discovered
-      num_discovered_vars++;
 
     }
 
     // Use global rolling buffer for all finding files
-    int idx = global_history_index++ % afl_ijon_history_limit_global;
+    int idx = self->history_index % afl_ijon_history_limit_global;
 
     char *history_filename = NULL;
 
@@ -453,10 +491,7 @@ void ijon_store_history_unconditional(ijon_min_state *self, int i,
     int fd = open(temp_history_filename, O_CREAT | O_TRUNC | O_WRONLY, 0600);
     if (likely(fd >= 0)) {
 
-      ssize_t written = write(fd, data, len);
-      close(fd);
-
-      if (written != (ssize_t)len) {
+      if (!ijon_write_and_close(fd, data, len)) {
 
         WARNF("Failed to write IJON history input: %s", strerror(errno));
         unlink(temp_history_filename);         /* Clean up failed temp file */
@@ -469,6 +504,16 @@ void ijon_store_history_unconditional(ijon_min_state *self, int i,
           WARNF("Failed to rename IJON history temp file %s to %s: %s",
                 temp_history_filename, history_filename, strerror(errno));
           unlink(temp_history_filename);       /* Clean up failed temp file */
+
+        } else {
+
+          self->history_index++;
+          if (self->variable_discovered[i] == -1) {
+
+            self->variable_discovered[i] = 1;
+            self->num_discovered_vars++;
+
+          }
 
         }
 
@@ -546,11 +591,18 @@ void ijon_update_max_dynamic(ijon_min_state          *self,
 
     if (afl_ijon_retire_max && cur == UINT64_MAX) {
 
+      if (unlink(self->infos[i]->filename) && errno != ENOENT) {
+
+        WARNF("Failed to retire IJON max input %s: %s",
+              self->infos[i]->filename, strerror(errno));
+        continue;
+
+      }
+
       if (self->max_map[i] > 0) { self->num_entries--; }
 
       self->max_map[i] = UINT64_MAX;
       self->infos[i]->len = 0;
-      unlink(self->infos[i]->filename);
       self->num_updates++;
 
       continue;
@@ -559,12 +611,14 @@ void ijon_update_max_dynamic(ijon_min_state          *self,
 
     if (cur > self->max_map[i]) {
 
-      if (self->max_map[i] == 0) { self->num_entries++; }
+      if (ijon_store_max_input(self, i, data, len)) {
 
-      self->max_map[i] = cur;
-      self->num_updates++;
+        if (self->max_map[i] == 0) { self->num_entries++; }
 
-      ijon_store_max_input(self, i, data, len);
+        self->max_map[i] = cur;
+        self->num_updates++;
+
+      }
 
     }
 

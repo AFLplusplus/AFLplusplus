@@ -55,6 +55,7 @@
 
 #include <set>
 #include "afl-llvm-common.h"
+#include "cmplog.h"
 
 static bool is_64_arch = false;
 
@@ -127,12 +128,13 @@ static bool IsLoopCondition(BranchInst *BR, LoopInfo *LI) {
 
   BasicBlock *BranchBB = BR->getParent();
 
-  // Check all loops containing this block (innermost to outermost)
+  // Only skip the comparison that drives the loop iteration itself (the
+  // induction/back-edge condition). Data comparisons that merely bail out of
+  // the loop early (e.g. `if (x != y) break;`) must stay instrumented.
   for (Loop *L = LI->getLoopFor(BranchBB); L; L = L->getParentLoop()) {
 
     if (L->isLoopLatch(BranchBB)) return true;    // Back-edge source
     if (L->getHeader() == BranchBB) return true;  // Loop header condition
-    if (L->isLoopExiting(BranchBB)) return true;  // Loop exit condition
 
   }
 
@@ -158,25 +160,9 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
   Type *PtrTy = PointerType::get(Int8Ty, 0);
 #endif
 
-  /*
-  #if LLVM_VERSION_MAJOR >= 9
-    FunctionCallee
-  #else
-    Constant *
-  #endif
-        c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty,
-                                   Int8Ty
-  #if LLVM_VERSION_MAJOR < 5
-                                   ,
-                                   NULL
-  #endif
-        );
-  #if LLVM_VERSION_MAJOR >= 9
-    FunctionCallee cmplogHookIns1 = c1;
-  #else
-    Function *cmplogHookIns1 = cast<Function>(c1);
-  #endif
-  */
+  FunctionCallee c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy,
+                                            Int8Ty, Int8Ty, Int8Ty);
+  FunctionCallee cmplogHookIns1 = c1;
 
   FunctionCallee c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy,
                                             Int16Ty, Int16Ty, Int8Ty);
@@ -271,50 +257,14 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
       IntegerType *intTyOp0 = NULL;
       IntegerType *intTyOp1 = NULL;
       unsigned     max_size = 0, cast_size = 0;
-      unsigned     attr = 0, vector_cnt = 0, is_fp = 0;
+      unsigned     vector_cnt = 0, is_fp = 0;
       CmpInst     *cmpInst = dyn_cast<CmpInst>(selectcmpInst);
 
       if (!cmpInst) { continue; }
-
-      switch (cmpInst->getPredicate()) {
-
-        case CmpInst::ICMP_NE:
-        case CmpInst::FCMP_UNE:
-        case CmpInst::FCMP_ONE:
-          break;
-        case CmpInst::ICMP_EQ:
-        case CmpInst::FCMP_UEQ:
-        case CmpInst::FCMP_OEQ:
-          attr += 1;
-          break;
-        case CmpInst::ICMP_UGT:
-        case CmpInst::ICMP_SGT:
-        case CmpInst::FCMP_OGT:
-        case CmpInst::FCMP_UGT:
-          attr += 2;
-          break;
-        case CmpInst::ICMP_UGE:
-        case CmpInst::ICMP_SGE:
-        case CmpInst::FCMP_OGE:
-        case CmpInst::FCMP_UGE:
-          attr += 3;
-          break;
-        case CmpInst::ICMP_ULT:
-        case CmpInst::ICMP_SLT:
-        case CmpInst::FCMP_OLT:
-        case CmpInst::FCMP_ULT:
-          attr += 4;
-          break;
-        case CmpInst::ICMP_ULE:
-        case CmpInst::ICMP_SLE:
-        case CmpInst::FCMP_OLE:
-        case CmpInst::FCMP_ULE:
-          attr += 5;
-          break;
-        default:
-          break;
-
-      }
+      unsigned attr = (unsigned)cmpInst->getPredicate();
+      bool is_signed = attr == CMP_ATTR_ICMP_SGT ||
+                       attr == CMP_ATTR_ICMP_SGE ||
+                       attr == CMP_ATTR_ICMP_SLT || attr == CMP_ATTR_ICMP_SLE;
 
       if (selectcmpInst->getOpcode() == Instruction::FCmp) {
 
@@ -347,7 +297,6 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
           fprintf(stderr, "Warning: unsupported cmp type for cmplog: %u!\n",
                   ty0->getTypeID());
 
-        attr += 8;
         is_fp = 1;
         // fprintf(stderr, "HAVE FP %u!\n", vector_cnt);
 
@@ -390,7 +339,9 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
       }
 
-      if (!max_size || max_size < 16) {
+      if (!max_size || max_size < 8 ||
+          (max_size == 8 && !isa<Constant>(op0_saved) &&
+           !isa<Constant>(op1_saved))) {
 
         // fprintf(stderr, "too small\n");
         continue;
@@ -416,6 +367,9 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
       // do we need to cast?
       switch (max_size) {
 
+        case 8:
+          cast_size = 8;
+          break;
         case 16:
           cast_size = 16;
           break;
@@ -431,7 +385,10 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
       }
 
-      bool use_hookN = cast_size == 128 && cast_size != max_size;
+      bool is_native = max_size == 8 || max_size == 16 || max_size == 32 ||
+                       max_size == 64 || max_size == 128;
+      bool use_hookN = is_64_arch && !is_native;
+      if (use_hookN) { cast_size = 128; }
 
       // XXX FIXME BUG TODO
       if (is_fp && vector_cnt) { continue; }
@@ -513,16 +470,18 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
           // type (this is a nop, if already integer)
           Value *op0_i = IRB.CreateBitCast(
               op0, IntegerType::get(C, ty0->getPrimitiveSizeInBits()));
-          // then create a int cast, which does zext, trunc or bitcast. In our
-          // case usually zext to the next larger supported type (this is a nop
-          // if already the right type)
-          Value *V0 =
-              IRB.CreateIntCast(op0_i, IntegerType::get(C, cast_size), false);
+          // then create a int cast, which does extend, trunc or bitcast. In our
+          // case usually extend to the next larger supported type (this is a
+          // nop if already the right type)
+          Value *V0 = IRB.CreateIntCast(op0_i,
+                                        IntegerType::get(C, cast_size),
+                                        is_signed);
           args.push_back(V0);
           Value *op1_i = IRB.CreateBitCast(
               op1, IntegerType::get(C, ty1->getPrimitiveSizeInBits()));
-          Value *V1 =
-              IRB.CreateIntCast(op1_i, IntegerType::get(C, cast_size), false);
+          Value *V1 = IRB.CreateIntCast(op1_i,
+                                        IntegerType::get(C, cast_size),
+                                        is_signed);
           args.push_back(V1);
 
           // errs() << "[CMPLOG] casted parameters:\n0: " << *V0 << "\n1: " <<
@@ -545,7 +504,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
           switch (cast_size) {
 
             case 8:
-              // IRB.CreateCall(cmplogHookIns1, args);
+              IRB.CreateCall(cmplogHookIns1, args);
               break;
             case 16:
               IRB.CreateCall(cmplogHookIns2, args);
@@ -626,4 +585,3 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
     return PreservedAnalyses();
 
 }
-
