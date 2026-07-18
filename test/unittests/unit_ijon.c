@@ -9,6 +9,7 @@
 #include <setjmp.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <cmocka.h>
 #include "types.h"
@@ -112,6 +113,34 @@ static void reset_failures(void) {
 
 }
 
+static int suppress_stderr(void) {
+
+  fflush(stderr);
+  int saved = dup(STDERR_FILENO);
+  int devnull = open("/dev/null", O_WRONLY);
+  if (devnull >= 0) {
+
+    dup2(devnull, STDERR_FILENO);
+    __real_close(devnull);
+
+  }
+
+  return saved;
+
+}
+
+static void restore_stderr(int saved) {
+
+  fflush(stderr);
+  if (saved >= 0) {
+
+    dup2(saved, STDERR_FILENO);
+    __real_close(saved);
+
+  }
+
+}
+
 static void cleanup_state(ijon_min_state *st, const char *dir,
                           const char *root) {
 
@@ -190,11 +219,17 @@ static void test_store_sync_close_and_rename_failures(void **state) {
 
   reset_failures();
   fail_close = 1;
-  assert_int_equal(ijon_store_max_input(st, 3, data, sizeof(data)), 0);
+  int saved = suppress_stderr();
+  u8  ret = ijon_store_max_input(st, 3, data, sizeof(data));
+  restore_stderr(saved);
+  assert_int_equal(ret, 0);
   assert_int_equal(st->infos[3]->len, 0);
 
   fail_rename = 1;
-  assert_int_equal(ijon_store_max_input(st, 3, data, sizeof(data)), 0);
+  saved = suppress_stderr();
+  ret = ijon_store_max_input(st, 3, data, sizeof(data));
+  restore_stderr(saved);
+  assert_int_equal(ret, 0);
   assert_int_equal(st->infos[3]->len, 0);
 
   struct stat stt;
@@ -220,7 +255,10 @@ static void test_store_failure_no_commit(void **state) {
   /* Remove the directory so the temp-file open fails. */
   rmdir(dir);
 
-  assert_int_equal(ijon_store_max_input(st, 5, data, sizeof(data)), 0);
+  int saved = suppress_stderr();
+  u8  ret = ijon_store_max_input(st, 5, data, sizeof(data));
+  restore_stderr(saved);
+  assert_int_equal(ret, 0);
   assert_int_equal(st->infos[5]->len, 0);
   assert_int_equal(st->num_updates, 0);
 
@@ -273,7 +311,9 @@ static void test_update_failure_no_commit(void **state) {
   dynamic_shared_access_t shared = {.ijon_max_area = max_area};
   max_area[7] = 100;
 
+  int saved = suppress_stderr();
   ijon_update_max_dynamic(st, &shared, data, sizeof(data));
+  restore_stderr(saved);
 
   assert_int_equal(st->num_updates, 0);
   assert_int_equal(st->num_entries, 0);
@@ -306,7 +346,9 @@ static void test_retire_unlink_failure_no_commit(void **state) {
   fail_unlink = 1;
   unlink_path = st->infos[7]->filename;
   afl_ijon_retire_max = 1;
+  int saved = suppress_stderr();
   ijon_update_max_dynamic(st, &shared, data, sizeof(data));
+  restore_stderr(saved);
   afl_ijon_retire_max = 0;
 
   assert_int_equal(st->max_map[7], 100);
