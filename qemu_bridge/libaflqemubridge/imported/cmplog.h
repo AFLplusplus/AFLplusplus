@@ -31,6 +31,7 @@
 #define _AFL_CMPLOG_H
 
 #include "config.h"
+#include "types.h"
 
 #define CMPLOG_LVL_MAX 3
 
@@ -39,12 +40,45 @@
 #define CMP_MAP_RTN_H (CMP_MAP_H / 2)
 #define CMP_MAP_A 4
 #define CMP_MAP_S (CMP_MAP_W / CMP_MAP_A)
+#define CMP_MAP_SNAPSHOT_DENSE_MIN ((CMP_MAP_W * 3) / 4)
 
 #define SHAPE_BYTES(x) (x + 1)
 
 #define CMP_TYPE_INS 0
 #define CMP_TYPE_RTN 1
+
+#define CMP_ATTR_FCMP_FALSE 0
+#define CMP_ATTR_FCMP_OEQ 1
+#define CMP_ATTR_FCMP_OGT 2
+#define CMP_ATTR_FCMP_OGE 3
+#define CMP_ATTR_FCMP_OLT 4
+#define CMP_ATTR_FCMP_OLE 5
+#define CMP_ATTR_FCMP_ONE 6
+#define CMP_ATTR_FCMP_ORD 7
+#define CMP_ATTR_FCMP_UNO 8
+#define CMP_ATTR_FCMP_UEQ 9
+#define CMP_ATTR_FCMP_UGT 10
+#define CMP_ATTR_FCMP_UGE 11
+#define CMP_ATTR_FCMP_ULT 12
+#define CMP_ATTR_FCMP_ULE 13
+#define CMP_ATTR_FCMP_UNE 14
+#define CMP_ATTR_FCMP_TRUE 15
+#define CMP_ATTR_ICMP_EQ 32
+#define CMP_ATTR_ICMP_NE 33
+#define CMP_ATTR_ICMP_UGT 34
+#define CMP_ATTR_ICMP_UGE 35
+#define CMP_ATTR_ICMP_ULT 36
+#define CMP_ATTR_ICMP_ULE 37
+#define CMP_ATTR_ICMP_SGT 38
+#define CMP_ATTR_ICMP_SGE 39
+#define CMP_ATTR_ICMP_SLT 40
+#define CMP_ATTR_ICMP_SLE 41
+#define CMP_ATTR_MOD_FLOAT 240
+#define CMP_ATTR_MOD_INTEGER 241
+#define CMP_ATTR_TRANSFORM 242
 #define CMP_ATTR_NONE 255
+
+#define CMPLOG_RETRY_INTERVAL 16
 
 #define ADDR_ATTR_COMBINE(v0attr, v1attr) ((v0attr & 3) + ((v1attr & 3) << 2))
 #define ADDR_ATTR_V0(x) (x & 3)
@@ -59,6 +93,16 @@ struct cmp_header {  // 16 bit = 2 bytes
 
 } __attribute__((packed));
 
+struct cmp_pass_stat {
+
+  u8  total;
+  u8  faileds;
+  u8  retry;
+  u8  loop;
+  u32 id;
+
+};
+
 #ifndef likely
   #define likely(cond) __builtin_expect(!!(cond), 1)
 #endif
@@ -66,6 +110,19 @@ struct cmp_header {  // 16 bit = 2 bytes
 #ifndef unlikely
   #define unlikely(cond) __builtin_expect(!!(cond), 0)
 #endif
+
+static inline u64 cmp_map_hash(u64 value) {
+
+  value ^= value >> 30;
+  value *= 0xbf58476d1ce4e5b9ULL;
+  value ^= value >> 27;
+  value *= 0x94d049bb133111ebULL;
+  return value ^ (value >> 31);
+
+}
+
+struct cmp_map;
+static inline u32 cmp_map_select(struct cmp_map *map, u64 site);
 
 static inline u32 cmp_map_reserve(struct cmp_header *header, u32 *cursor,
                                   u32 capacity, u32 *occurrence) {
@@ -95,13 +152,13 @@ struct cmp_operands {
 
 struct cmpfn_operands {
 
-  u8 v0[32];
-  u8 v1[32];
-  u8 v0_len;
-  u8 v1_len;
-  u8 addr_attr;
+  u8  v0[32];
+  u8  v1[32];
+  u8  v0_len;
+  u8  v1_len;
+  u8  addr_attr;
   u32 occurrence;
-  u8 unused;
+  u8  unused;
 
 } __attribute__((packed));
 
@@ -116,10 +173,72 @@ struct cmp_map {
 
 };
 
+struct cmp_map_snapshot {
+
+  struct cmp_header headers[CMP_MAP_W];
+  u32               site_ids[CMP_MAP_W];
+  u16               attributes[CMP_MAP_W];
+  u16               keys[CMP_MAP_W];
+  u16               slots[CMP_MAP_W];
+  u32               count;
+  u32               capacity;
+  u8                dense;
+  struct cmp_operands (*log)[CMP_MAP_H];
+
+};
+
+static inline u8 cmp_map_legacy_attribute(u8 attr) {
+
+  u8 relation = attr & 7;
+  if (attr & 8) {
+
+    switch (relation) {
+
+      case 0:
+        return CMP_ATTR_FCMP_ONE;
+      case 1:
+        return CMP_ATTR_FCMP_OEQ;
+      case 2:
+        return CMP_ATTR_FCMP_OGT;
+      case 3:
+        return CMP_ATTR_FCMP_OGE;
+      case 4:
+        return CMP_ATTR_FCMP_OLT;
+      case 5:
+        return CMP_ATTR_FCMP_OLE;
+      default:
+        return CMP_ATTR_NONE;
+
+    }
+
+  }
+
+  switch (relation) {
+
+    case 0:
+      return CMP_ATTR_ICMP_NE;
+    case 1:
+      return CMP_ATTR_ICMP_EQ;
+    case 2:
+      return CMP_ATTR_ICMP_UGT;
+    case 3:
+      return CMP_ATTR_ICMP_UGE;
+    case 4:
+      return CMP_ATTR_ICMP_ULT;
+    case 5:
+      return CMP_ATTR_ICMP_ULE;
+    default:
+      return CMP_ATTR_NONE;
+
+  }
+
+}
+
 static inline u8 cmp_map_attribute(const struct cmp_map *map, u32 key) {
 
   u16 attr = map->attributes[key];
-  return attr ? (u8)(attr - 1) : map->headers[key].attribute;
+  return attr ? (u8)(attr - 1)
+              : cmp_map_legacy_attribute(map->headers[key].attribute);
 
 }
 
@@ -131,13 +250,12 @@ static inline void cmp_map_set_attribute(struct cmp_map *map, u32 key,
 
 }
 
-static inline u64 cmp_map_hash(u64 value) {
+static inline u8 cmp_map_snapshot_attribute(
+    const struct cmp_map_snapshot *snapshot, u32 key) {
 
-  value ^= value >> 30;
-  value *= 0xbf58476d1ce4e5b9ULL;
-  value ^= value >> 27;
-  value *= 0x94d049bb133111ebULL;
-  return value ^ (value >> 31);
+  u16 attr = snapshot->attributes[key];
+  return attr ? (u8)(attr - 1)
+              : cmp_map_legacy_attribute(snapshot->headers[key].attribute);
 
 }
 
@@ -172,6 +290,127 @@ static inline u32 cmp_map_select(struct cmp_map *map, u64 site) {
 
 }
 
+static inline u8 cmp_pass_should_skip(struct cmp_pass_stat *stat, u32 id) {
+
+  if (unlikely(stat->id != id)) {
+
+    stat->total = 0;
+    stat->faileds = 0;
+    stat->retry = 0;
+    stat->loop = 0;
+    stat->id = id;
+
+  }
+
+  if (stat->loop) { return 1; }
+  if (stat->faileds < CMPLOG_FAIL_MAX) { return 0; }
+  if (stat->retry) {
+
+    --stat->retry;
+    return 1;
+
+  }
+
+  stat->retry = CMPLOG_RETRY_INTERVAL - 1;
+  return 0;
+
+}
+
+static inline void cmp_pass_record(struct cmp_pass_stat *stat, u8 found,
+                                   u8 loop) {
+
+  if (loop) {
+
+    stat->loop = 1;
+    return;
+
+  }
+
+  if (found) {
+
+    stat->total = 0;
+    stat->faileds = 0;
+    stat->retry = 0;
+    return;
+
+  }
+
+  if (stat->faileds < CMPLOG_FAIL_MAX) { ++stat->faileds; }
+  if (stat->total < 0xff) { ++stat->total; }
+  if (stat->faileds == CMPLOG_FAIL_MAX && !stat->retry) {
+
+    stat->retry = CMPLOG_RETRY_INTERVAL - 1;
+
+  }
+
+}
+
+static inline u32 cmp_map_snapshot_collect(struct cmp_map_snapshot *snapshot,
+                                           const struct cmp_map    *map) {
+
+  for (u32 i = 0; i < snapshot->count; ++i) {
+
+    snapshot->headers[snapshot->keys[i]].hits = 0;
+
+  }
+
+  snapshot->count = 0;
+  for (u32 key = 0; key < CMP_MAP_W; ++key) {
+
+    if (!map->headers[key].hits) { continue; }
+    u32 slot = snapshot->count++;
+    snapshot->keys[slot] = (u16)key;
+    snapshot->slots[key] = (u16)slot;
+    snapshot->headers[key] = map->headers[key];
+    snapshot->site_ids[key] = map->site_ids[key];
+    snapshot->attributes[key] = map->attributes[key];
+
+  }
+
+  snapshot->dense = snapshot->count >= CMP_MAP_SNAPSHOT_DENSE_MIN;
+  return snapshot->dense ? CMP_MAP_W : snapshot->count;
+
+}
+
+static inline void cmp_map_snapshot_copy(struct cmp_map_snapshot *snapshot,
+                                         const struct cmp_map    *map) {
+
+  if (snapshot->dense) {
+
+    __builtin_memcpy(snapshot->log, map->log, sizeof(map->log));
+    return;
+
+  }
+
+  for (u32 slot = 0; slot < snapshot->count; ++slot) {
+
+    u32    key = snapshot->keys[slot];
+    u32    hits = snapshot->headers[key].hits;
+    size_t size;
+    if (snapshot->headers[key].type == CMP_TYPE_INS) {
+
+      size = MIN(hits, CMP_MAP_H) * sizeof(struct cmp_operands);
+
+    } else {
+
+      size = MIN(hits, CMP_MAP_RTN_H) * sizeof(struct cmpfn_operands);
+
+    }
+
+    __builtin_memcpy(snapshot->log[slot], map->log[key], size);
+
+  }
+
+}
+
+static inline struct cmp_operands *cmp_map_snapshot_log(
+    struct cmp_map_snapshot *snapshot, u32 key) {
+
+  u32 slot = snapshot->dense ? key : snapshot->slots[key];
+  return snapshot->log[slot];
+
+}
+
 /* Execs the child */
 
 struct afl_forkserver;
@@ -187,3 +426,4 @@ enum {
 };
 
 #endif
+
