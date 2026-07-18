@@ -2178,9 +2178,6 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 
     __afl_first_final_loc = __afl_final_loc + 1;
 
-    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial)
-      free(__afl_area_ptr);
-
     if (__afl_map_addr)
       ptr = (u8 *)mmap((void *)__afl_map_addr, __afl_first_final_loc,
                        PROT_READ | PROT_WRITE,
@@ -2190,9 +2187,12 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 
     if (ptr && (ssize_t)ptr != -1) {
 
+      u8 *old_area = __afl_area_ptr;
       __afl_area_ptr = ptr;
       __afl_area_ptr_dummy = __afl_area_ptr;
       __afl_area_ptr_backup = __afl_area_ptr;
+
+      if (old_area && old_area != __afl_area_initial) free(old_area);
 
     }
 

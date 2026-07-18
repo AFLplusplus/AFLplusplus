@@ -176,9 +176,16 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
 }
 
-static bool starts_with(char *key, char *line) {
+static bool key_matches(char *key, char *line) {
 
-  return strncmp(key, line, strlen(key)) == 0;
+  size_t n = strlen(line);
+  while (n && (line[n - 1] == ' ' || line[n - 1] == '\t')) {
+
+    n--;
+
+  }
+
+  return strlen(key) == n && strncmp(key, line, n) == 0;
 
 }
 
@@ -224,56 +231,56 @@ void load_stats_file(afl_state_t *afl) {
       strcpy(keystring, lstartptr);
       lptr++;
       char *nptr;
-      if (starts_with("run_time", keystring)) {
+      if (key_matches("run_time", keystring)) {
 
         afl->prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("cycles_done", keystring)) {
+      if (key_matches("cycles_done", keystring)) {
 
         afl->queue_cycle =
             strtoull(lptr, &nptr, 10) ? strtoull(lptr, &nptr, 10) + 1 : 0;
 
       }
 
-      if (starts_with("calibration_time", keystring)) {
+      if (key_matches("calibration_time", keystring)) {
 
         afl->calibration_time_us = strtoull(lptr, &nptr, 10) * 1000000;
 
       }
 
-      if (starts_with("sync_time", keystring)) {
+      if (key_matches("sync_time", keystring)) {
 
         afl->sync_time_us = strtoull(lptr, &nptr, 10) * 1000000;
 
       }
 
-      if (starts_with("cmplog_time", keystring)) {
+      if (key_matches("cmplog_time", keystring)) {
 
         afl->cmplog_time_us = strtoull(lptr, &nptr, 10) * 1000000;
 
       }
 
-      if (starts_with("trim_time", keystring)) {
+      if (key_matches("trim_time", keystring)) {
 
         afl->trim_time_us = strtoull(lptr, &nptr, 10) * 1000000;
 
       }
 
-      if (starts_with("table_time", keystring)) {
+      if (key_matches("table_time", keystring)) {
 
         afl->table_time_us = strtoull(lptr, &nptr, 10) * 1000000;
 
       }
 
-      if (starts_with("execs_done", keystring)) {
+      if (key_matches("execs_done", keystring)) {
 
         afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("corpus_count", keystring)) {
+      if (key_matches("corpus_count", keystring)) {
 
         u32 corpus_count = strtoul(lptr, &nptr, 10);
         if (corpus_count != afl->queued_items) {
@@ -287,31 +294,31 @@ void load_stats_file(afl_state_t *afl) {
 
       }
 
-      if (starts_with("corpus_found", keystring)) {
+      if (key_matches("corpus_found", keystring)) {
 
         afl->queued_discovered = strtoul(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("corpus_imported", keystring)) {
+      if (key_matches("corpus_imported", keystring)) {
 
         afl->queued_imported = strtoul(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("max_depth", keystring)) {
+      if (key_matches("max_depth", keystring)) {
 
         afl->max_depth = strtoul(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("saved_crashes", keystring)) {
+      if (key_matches("saved_crashes", keystring)) {
 
         afl->saved_crashes = strtoull(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("saved_hangs", keystring)) {
+      if (key_matches("saved_hangs", keystring)) {
 
         afl->saved_hangs = strtoull(lptr, &nptr, 10);
 
@@ -320,6 +327,8 @@ void load_stats_file(afl_state_t *afl) {
     }
 
   }
+
+  fclose(f);
 
   if (afl->saved_crashes) { write_crash_readme(afl); }
 
