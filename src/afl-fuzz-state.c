@@ -900,7 +900,20 @@ void afl_state_deinit(afl_state_t *afl) {
     ck_free(afl->orig_cmp_map);
 
   }
+
   if (afl->cmplog_binary) { ck_free(afl->cmplog_binary); }
+  if (afl->sync_states) {
+
+    for (u32 i = 0; i < afl->sync_states_cnt; ++i) {
+
+      ck_free(afl->sync_states[i].name);
+
+    }
+
+    ck_free(afl->sync_states);
+
+  }
+
   afl_free(afl->queue_buf);
   afl_free(afl->out_buf);
   afl_free(afl->out_scratch_buf);
@@ -995,3 +1008,4 @@ void afl_states_request_skip(void) {
   LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
+

@@ -138,7 +138,7 @@ ijon_min_state *new_ijon_min_state_with_limit(char *max_dir,
 
   ijon_min_state *self = (ijon_min_state *)ck_alloc(sizeof(ijon_min_state));
 
-  self->max_dir = ck_strdup(max_dir);
+  self->max_dir = (char *)ck_strdup((u8 *)max_dir);
   self->num_entries = 0;
   self->num_updates = 0;
   self->schedule_prob = 0;
@@ -354,13 +354,6 @@ static u8 ijon_write_and_close(int fd, const uint8_t *data, size_t len) {
 
   u8  ok = ijon_write_all(fd, data, len);
   int saved_errno = ok ? 0 : errno;
-
-  if (ok && fsync(fd)) {
-
-    ok = 0;
-    saved_errno = errno;
-
-  }
 
   if (close(fd) && ok) {
 
@@ -585,7 +578,12 @@ void ijon_update_max_dynamic(ijon_min_state          *self,
 
     u64 cur = shared->ijon_max_area[i];
 
-    if (self->persisted[i]) { continue; }
+    if (self->persisted[i]) {
+
+      if (cur > self->max_map[i]) { self->max_map[i] = cur; }
+      continue;
+
+    }
 
     if (afl_ijon_retire_max && self->max_map[i] == UINT64_MAX) { continue; }
 

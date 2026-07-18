@@ -176,9 +176,16 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
 
 }
 
-static bool starts_with(char *key, char *line) {
+static bool key_matches(char *key, char *line) {
 
-  return strncmp(key, line, strlen(key)) == 0;
+  size_t n = strlen(line);
+  while (n && (line[n - 1] == ' ' || line[n - 1] == '\t')) {
+
+    n--;
+
+  }
+
+  return strlen(key) == n && strncmp(key, line, n) == 0;
 
 }
 
@@ -224,50 +231,56 @@ void load_stats_file(afl_state_t *afl) {
       strcpy(keystring, lstartptr);
       lptr++;
       char *nptr;
-      if (starts_with("run_time", keystring)) {
+      if (key_matches("run_time", keystring)) {
 
         afl->prev_run_time = 1000 * strtoull(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("cycles_done", keystring)) {
+      if (key_matches("cycles_done", keystring)) {
 
         afl->queue_cycle =
             strtoull(lptr, &nptr, 10) ? strtoull(lptr, &nptr, 10) + 1 : 0;
 
       }
 
-      if (starts_with("calibration_time", keystring)) {
+      if (key_matches("calibration_time", keystring)) {
 
         afl->calibration_time_us = strtoull(lptr, &nptr, 10) * 1000000;
 
       }
 
-      if (starts_with("sync_time", keystring)) {
+      if (key_matches("sync_time", keystring)) {
 
         afl->sync_time_us = strtoull(lptr, &nptr, 10) * 1000000;
 
       }
 
-      if (starts_with("cmplog_time", keystring)) {
+      if (key_matches("cmplog_time", keystring)) {
 
         afl->cmplog_time_us = strtoull(lptr, &nptr, 10) * 1000000;
 
       }
 
-      if (starts_with("trim_time", keystring)) {
+      if (key_matches("trim_time", keystring)) {
 
         afl->trim_time_us = strtoull(lptr, &nptr, 10) * 1000000;
 
       }
 
-      if (starts_with("execs_done", keystring)) {
+      if (key_matches("table_time", keystring)) {
+
+        afl->table_time_us = strtoull(lptr, &nptr, 10) * 1000000;
+
+      }
+
+      if (key_matches("execs_done", keystring)) {
 
         afl->fsrv.total_execs = strtoull(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("corpus_count", keystring)) {
+      if (key_matches("corpus_count", keystring)) {
 
         u32 corpus_count = strtoul(lptr, &nptr, 10);
         if (corpus_count != afl->queued_items) {
@@ -281,31 +294,31 @@ void load_stats_file(afl_state_t *afl) {
 
       }
 
-      if (starts_with("corpus_found", keystring)) {
+      if (key_matches("corpus_found", keystring)) {
 
         afl->queued_discovered = strtoul(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("corpus_imported", keystring)) {
+      if (key_matches("corpus_imported", keystring)) {
 
         afl->queued_imported = strtoul(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("max_depth", keystring)) {
+      if (key_matches("max_depth", keystring)) {
 
         afl->max_depth = strtoul(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("saved_crashes", keystring)) {
+      if (key_matches("saved_crashes", keystring)) {
 
         afl->saved_crashes = strtoull(lptr, &nptr, 10);
 
       }
 
-      if (starts_with("saved_hangs", keystring)) {
+      if (key_matches("saved_hangs", keystring)) {
 
         afl->saved_hangs = strtoull(lptr, &nptr, 10);
 
@@ -314,6 +327,8 @@ void load_stats_file(afl_state_t *afl) {
     }
 
   }
+
+  fclose(f);
 
   if (afl->saved_crashes) { write_crash_readme(afl); }
 
@@ -420,114 +435,116 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   if (cur_rss_mb > afl->peak_rss_mb) { afl->peak_rss_mb = cur_rss_mb; }
 #endif
   u64 runtime_ms = afl->prev_run_time + cur_time - afl->start_time;
-  u64 overhead_ms = (afl->calibration_time_us + afl->sync_time_us +
-                     afl->trim_time_us + afl->cmplog_time_us) /
-                    1000;
+  u64 overhead_ms =
+      (afl->calibration_time_us + afl->sync_time_us + afl->trim_time_us +
+       afl->cmplog_time_us + afl->table_time_us) /
+      1000;
   if (!runtime_ms) { runtime_ms = 1; }
 
-  fprintf(f,
-          "start_time        : %llu\n"
-          "last_update       : %llu\n"
-          "run_time          : %llu\n"
-          "fuzzer_pid        : %u\n"
-          "cycles_done       : %llu\n"
-          "cycles_wo_finds   : %llu\n"
-          "time_wo_finds     : %llu\n"
-          "fuzz_time         : %llu\n"
-          "calibration_time  : %llu\n"
-          "cmplog_time       : %llu\n"
-          "cmplog_tightness  : %u\n"
-          "cmplog_tight_new  : %llu\n"
-          "cmplog_size_derive: %u\n"
-          "sync_time         : %llu\n"
-          "trim_time         : %llu\n"
-          "execs_done        : %llu\n"
-          "execs_per_sec     : %0.02f\n"
-          "execs_ps_last_min : %0.02f\n"
-          "corpus_count      : %u\n"
-          "corpus_favored    : %u\n"
-          "corpus_found      : %u\n"
-          "corpus_imported   : %u\n"
-          "corpus_variable   : %u\n"
-          "max_depth         : %u\n"
-          "cur_item          : %u\n"
-          "pending_favs      : %u\n"
-          "pending_total     : %u\n"
-          "stability         : %0.02f%%\n"
-          "bitmap_cvg        : %0.02f%%\n"
-          "saved_crashes     : %llu\n"
-          "saved_hangs       : %llu\n"
-          "total_tmout       : %llu\n"
-          "last_find         : %llu\n"
-          "last_crash        : %llu\n"
-          "last_hang         : %llu\n"
-          "execs_since_crash : %llu\n"
-          "exec_timeout      : %u\n"
-          "slowest_exec_ms   : %u\n"
-          "peak_rss_mb       : %lu\n"
-          "cpu_affinity      : %d\n"
-          "edges_found       : %u\n"
-          "total_edges       : %u\n"
-          "var_byte_count    : %u\n"
-          "havoc_expansion   : %u\n"
-          "auto_dict_entries : %u\n"
-          "testcache_size    : %llu\n"
-          "testcache_count   : %u\n"
-          "testcache_evict   : %u\n"
-          "afl_banner        : %s\n"
-          "afl_version       : " VERSION
-          "\n"
-          "target_mode       : %s%s%s%s%s%s%s%s%s%s\n"
-          "command_line      : %s\n",
-          (afl->start_time /*- afl->prev_run_time*/) / 1000, cur_time / 1000,
-          runtime_ms / 1000, (u32)getpid(),
-          afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
-          afl->longest_find_time > cur_time - afl->last_find_time
-              ? afl->longest_find_time / 1000
-              : ((afl->start_time == 0 || afl->last_find_time == 0)
-                     ? 0
-                     : (cur_time - afl->last_find_time) / 1000),
-          (runtime_ms - MIN(runtime_ms, overhead_ms)) / 1000,
-          afl->calibration_time_us / 1000000, afl->cmplog_time_us / 1000000,
-          afl->cmplog_tightness, afl->cmplog_tightness_new,
-          afl->cmplog_size_derive, afl->sync_time_us / 1000000,
-          afl->trim_time_us / 1000000, afl->fsrv.total_execs,
-          afl->fsrv.total_execs / ((double)(runtime_ms) / 1000),
-          afl->last_avg_execs_saved, afl->queued_items, afl->queued_favored,
-          afl->queued_discovered, afl->queued_imported, afl->queued_variable,
-          afl->max_depth, afl->current_entry, afl->pending_favored,
-          afl->pending_not_fuzzed, stability, bitmap_cvg, afl->saved_crashes,
-          afl->saved_hangs, afl->total_tmouts, afl->last_find_time / 1000,
-          afl->last_crash_time / 1000, afl->last_hang_time / 1000,
-          afl->fsrv.total_execs - afl->last_crash_execs, afl->fsrv.exec_tmout,
-          afl->slowest_exec_ms,
+  fprintf(
+      f,
+      "start_time        : %llu\n"
+      "last_update       : %llu\n"
+      "run_time          : %llu\n"
+      "fuzzer_pid        : %u\n"
+      "cycles_done       : %llu\n"
+      "cycles_wo_finds   : %llu\n"
+      "time_wo_finds     : %llu\n"
+      "fuzz_time         : %llu\n"
+      "calibration_time  : %llu\n"
+      "cmplog_time       : %llu\n"
+      "cmplog_tightness  : %u\n"
+      "cmplog_tight_new  : %llu\n"
+      "cmplog_size_derive: %u\n"
+      "sync_time         : %llu\n"
+      "trim_time         : %llu\n"
+      "table_time        : %llu\n"
+      "execs_done        : %llu\n"
+      "execs_per_sec     : %0.02f\n"
+      "execs_ps_last_min : %0.02f\n"
+      "corpus_count      : %u\n"
+      "corpus_favored    : %u\n"
+      "corpus_found      : %u\n"
+      "corpus_imported   : %u\n"
+      "corpus_variable   : %u\n"
+      "max_depth         : %u\n"
+      "cur_item          : %u\n"
+      "pending_favs      : %u\n"
+      "pending_total     : %u\n"
+      "stability         : %0.02f%%\n"
+      "bitmap_cvg        : %0.02f%%\n"
+      "saved_crashes     : %llu\n"
+      "saved_hangs       : %llu\n"
+      "total_tmout       : %llu\n"
+      "last_find         : %llu\n"
+      "last_crash        : %llu\n"
+      "last_hang         : %llu\n"
+      "execs_since_crash : %llu\n"
+      "exec_timeout      : %u\n"
+      "slowest_exec_ms   : %u\n"
+      "peak_rss_mb       : %lu\n"
+      "cpu_affinity      : %d\n"
+      "edges_found       : %u\n"
+      "total_edges       : %u\n"
+      "var_byte_count    : %u\n"
+      "havoc_expansion   : %u\n"
+      "auto_dict_entries : %u\n"
+      "testcache_size    : %llu\n"
+      "testcache_count   : %u\n"
+      "testcache_evict   : %u\n"
+      "afl_banner        : %s\n"
+      "afl_version       : " VERSION
+      "\n"
+      "target_mode       : %s%s%s%s%s%s%s%s%s%s\n"
+      "command_line      : %s\n",
+      (afl->start_time /*- afl->prev_run_time*/) / 1000, cur_time / 1000,
+      runtime_ms / 1000, (u32)getpid(),
+      afl->queue_cycle ? (afl->queue_cycle - 1) : 0, afl->cycles_wo_finds,
+      afl->longest_find_time > cur_time - afl->last_find_time
+          ? afl->longest_find_time / 1000
+          : ((afl->start_time == 0 || afl->last_find_time == 0)
+                 ? 0
+                 : (cur_time - afl->last_find_time) / 1000),
+      (runtime_ms - MIN(runtime_ms, overhead_ms)) / 1000,
+      afl->calibration_time_us / 1000000, afl->cmplog_time_us / 1000000,
+      afl->cmplog_tightness, afl->cmplog_tightness_new, afl->cmplog_size_derive,
+      afl->sync_time_us / 1000000, afl->trim_time_us / 1000000,
+      afl->table_time_us / 1000000, afl->fsrv.total_execs,
+      afl->fsrv.total_execs / ((double)(runtime_ms) / 1000),
+      afl->last_avg_execs_saved, afl->queued_items, afl->queued_favored,
+      afl->queued_discovered, afl->queued_imported, afl->queued_variable,
+      afl->max_depth, afl->current_entry, afl->pending_favored,
+      afl->pending_not_fuzzed, stability, bitmap_cvg, afl->saved_crashes,
+      afl->saved_hangs, afl->total_tmouts, afl->last_find_time / 1000,
+      afl->last_crash_time / 1000, afl->last_hang_time / 1000,
+      afl->fsrv.total_execs - afl->last_crash_execs, afl->fsrv.exec_tmout,
+      afl->slowest_exec_ms,
 #ifndef __HAIKU__
-          (unsigned long int)afl->peak_rss_mb,
+      (unsigned long int)afl->peak_rss_mb,
 #else
-          -1UL,
+      -1UL,
 #endif
 #ifdef HAVE_AFFINITY
-          afl->cpu_aff,
+      afl->cpu_aff,
 #else
-          -1,
+      -1,
 #endif
-          t_bytes, afl->fsrv.real_map_size, afl->var_byte_count,
-          afl->expand_havoc, afl->a_extras_cnt, afl->q_testcase_cache_size,
-          afl->q_testcase_cache_count, afl->q_testcase_evictions,
-          afl->use_banner, afl->unicorn_mode ? "unicorn" : "",
-          afl->fsrv.qemu_mode ? "qemu " : "",
-          afl->fsrv.cs_mode ? "coresight" : "",
-          afl->non_instrumented_mode ? " non_instrumented " : "",
-          afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
-          afl->persistent_mode ? "persistent " : "",
-          afl->shmem_testcase_mode ? "shmem_testcase " : "",
-          afl->deferred_mode ? "deferred " : "",
-          (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->fsrv.cs_mode ||
-           afl->non_instrumented_mode || afl->no_forkserver ||
-           afl->crash_mode || afl->persistent_mode || afl->deferred_mode)
-              ? ""
-              : "default",
-          afl->orig_cmdline);
+      t_bytes, afl->fsrv.real_map_size, afl->var_byte_count, afl->expand_havoc,
+      afl->a_extras_cnt, afl->q_testcase_cache_size,
+      afl->q_testcase_cache_count, afl->q_testcase_evictions, afl->use_banner,
+      afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
+      afl->fsrv.cs_mode ? "coresight" : "",
+      afl->non_instrumented_mode ? " non_instrumented " : "",
+      afl->no_forkserver ? "no_fsrv " : "", afl->crash_mode ? "crash " : "",
+      afl->persistent_mode ? "persistent " : "",
+      afl->shmem_testcase_mode ? "shmem_testcase " : "",
+      afl->deferred_mode ? "deferred " : "",
+      (afl->unicorn_mode || afl->fsrv.qemu_mode || afl->fsrv.cs_mode ||
+       afl->non_instrumented_mode || afl->no_forkserver || afl->crash_mode ||
+       afl->persistent_mode || afl->deferred_mode)
+          ? ""
+          : "default",
+      afl->orig_cmdline);
 
   if (afl->san_binary_length) {
 
@@ -2633,6 +2650,14 @@ inline void update_cmplog_time(afl_state_t *afl, u64 *time) {
 
   u64 cur = get_cur_time_us();
   afl->cmplog_time_us += cur - *time;
+  *time = cur;
+
+}
+
+inline void update_table_time(afl_state_t *afl, u64 *time) {
+
+  u64 cur = get_cur_time_us();
+  afl->table_time_us += cur - *time;
   *time = cur;
 
 }

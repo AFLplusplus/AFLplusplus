@@ -24,6 +24,8 @@
 // Hard time budget for frameshift analysis per input (milliseconds)
 #define FRAMESHIFT_TIME_BUDGET_MS 2000
 
+#define FRAMESHIFT_MIN_SLICE_MS 200
+
 // Maximum number of inflection-point anchors probed per candidate field.
 #define FRAMESHIFT_MAX_INFLECTION_PROBES 64
 
@@ -566,6 +568,23 @@ u8 check_anchor(afl_state_t *afl, u32 anchor, u32 len, u32 curr_size, u8 *buf,
 
 }
 
+u64 frameshift_slice_budget(u64 spent_ms, u64 allowed_ms) {
+
+  if (spent_ms >= allowed_ms) { return 0; }
+
+  u64 remaining = allowed_ms - spent_ms;
+  if (remaining < FRAMESHIFT_MIN_SLICE_MS) { return 0; }
+
+  if (remaining > FRAMESHIFT_TIME_BUDGET_MS) {
+
+    return FRAMESHIFT_TIME_BUDGET_MS;
+
+  }
+
+  return remaining;
+
+}
+
 void frameshift_stage(afl_state_t *afl) {
 
 #if FRAMESHIFT_DEBUG
@@ -573,6 +592,13 @@ void frameshift_stage(afl_state_t *afl) {
 #endif
 
   u64 time_start = get_cur_time();
+  u64 total_runtime_ms = afl->prev_run_time + time_start - afl->start_time;
+  u64 allowed_ms = (u64)((double)total_runtime_ms *
+                         afl->afl_env.afl_frameshift_max_overhead);
+  u64 budget_ms =
+      frameshift_slice_budget(afl->fs_stats.total_time_ms, allowed_ms);
+  if (!budget_ms) { return; }
+
   afl->frameshift_deadline = time_start + FRAMESHIFT_TIME_BUDGET_MS;
   u32 *inflection_points = NULL;
   u32 *loss_buffer = NULL;

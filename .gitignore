@@ -51,6 +51,7 @@ afl-g++-fast
 afl-g++-fast.8
 afl-gotcpu
 afl-gotcpu.8
+afl-health.8
 afl-ld
 afl-ld-lto
 afl-lto
@@ -147,3 +148,11 @@ test/test-ijon-legacy
 test/test-ijon-pcguard
 test/test-instr.plain.mycheck
 test/test-multiple-mutators
+test/unittests/unit_cmplog
+test/unittests/unit_frameshift
+test/unittests/unit_ijon
+test/unittests/unit_ijon_replay
+test/unittests/unit_mopt
+test/unittests/unit_sharedmem_mmap
+test/unittests/unit_skipdet
+test/unittests/unit_queue_score

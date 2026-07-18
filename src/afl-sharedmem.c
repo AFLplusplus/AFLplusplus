@@ -232,11 +232,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     if (gid != -1 && shm->g_shm_fd != -1) {
 
-      if (fchown(shm->g_shm_fd, -1, gid) == -1) {
-
-        PFATAL("fchown() failed");
-
-      }
+      if (fchown(shm->g_shm_fd, -1, gid) == -1) { PFATAL("fchown() failed"); }
 
     }
 
@@ -492,3 +488,4 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   return shm->map;
 
 }
+

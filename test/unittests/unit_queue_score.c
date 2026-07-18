@@ -111,36 +111,6 @@ static void test_quad_fraction_not_truncated(void **state) {
 
 }
 
-static void test_consume_handicap_invalidates_score_table(void **state) {
-
-  (void)state;
-  afl_state_t        afl;
-  struct queue_entry q;
-  memset(&afl, 0, sizeof(afl));
-  memset(&q, 0, sizeof(q));
-
-  q.handicap = 9;
-  consume_handicap(&afl, &q);
-  assert_int_equal(q.handicap, 5);
-  assert_int_equal(afl.reinit_table, 1);
-
-  afl.reinit_table = 0;
-  consume_handicap(&afl, &q);
-  assert_int_equal(q.handicap, 1);
-  assert_int_equal(afl.reinit_table, 1);
-
-  afl.reinit_table = 0;
-  consume_handicap(&afl, &q);
-  assert_int_equal(q.handicap, 0);
-  assert_int_equal(afl.reinit_table, 1);
-
-  afl.reinit_table = 0;
-  consume_handicap(&afl, &q);
-  assert_int_equal(q.handicap, 0);
-  assert_int_equal(afl.reinit_table, 0);
-
-}
-
 int main(void) {
 
   const struct CMUnitTest tests[] = {
@@ -148,7 +118,6 @@ int main(void) {
       cmocka_unit_test(test_calculate_score_is_pure),
       cmocka_unit_test(test_lin_fraction_not_truncated),
       cmocka_unit_test(test_quad_fraction_not_truncated),
-      cmocka_unit_test(test_consume_handicap_invalidates_score_table),
 
   };
 

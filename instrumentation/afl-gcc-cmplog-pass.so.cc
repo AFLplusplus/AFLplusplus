@@ -199,8 +199,8 @@ struct afl_cmplog_pass : afl_base_pass {
 
     /* Set attr according to the compare operation.  */
     unsigned char attr = CMP_ATTR_NONE;
-    bool floating = FLOAT_TYPE_P(TREE_TYPE(lhs));
-    bool signed_int = !floating && !TYPE_UNSIGNED(TREE_TYPE(lhs));
+    bool          floating = FLOAT_TYPE_P(TREE_TYPE(lhs));
+    bool          signed_int = !floating && !TYPE_UNSIGNED(TREE_TYPE(lhs));
 
     switch (code) {
 
@@ -225,32 +225,36 @@ struct afl_cmplog_pass : afl_base_pass {
         break;
 
       case GT_EXPR:
-        attr = floating ? CMP_ATTR_FCMP_OGT
-                        : signed_int ? CMP_ATTR_ICMP_SGT : CMP_ATTR_ICMP_UGT;
+        attr = floating     ? CMP_ATTR_FCMP_OGT
+               : signed_int ? CMP_ATTR_ICMP_SGT
+                            : CMP_ATTR_ICMP_UGT;
         break;
       case UNGT_EXPR:
         attr = CMP_ATTR_FCMP_UGT;
         break;
 
       case GE_EXPR:
-        attr = floating ? CMP_ATTR_FCMP_OGE
-                        : signed_int ? CMP_ATTR_ICMP_SGE : CMP_ATTR_ICMP_UGE;
+        attr = floating     ? CMP_ATTR_FCMP_OGE
+               : signed_int ? CMP_ATTR_ICMP_SGE
+                            : CMP_ATTR_ICMP_UGE;
         break;
       case UNGE_EXPR:
         attr = CMP_ATTR_FCMP_UGE;
         break;
 
       case LT_EXPR:
-        attr = floating ? CMP_ATTR_FCMP_OLT
-                        : signed_int ? CMP_ATTR_ICMP_SLT : CMP_ATTR_ICMP_ULT;
+        attr = floating     ? CMP_ATTR_FCMP_OLT
+               : signed_int ? CMP_ATTR_ICMP_SLT
+                            : CMP_ATTR_ICMP_ULT;
         break;
       case UNLT_EXPR:
         attr = CMP_ATTR_FCMP_ULT;
         break;
 
       case LE_EXPR:
-        attr = floating ? CMP_ATTR_FCMP_OLE
-                        : signed_int ? CMP_ATTR_ICMP_SLE : CMP_ATTR_ICMP_ULE;
+        attr = floating     ? CMP_ATTR_FCMP_OLE
+               : signed_int ? CMP_ATTR_ICMP_SLE
+                            : CMP_ATTR_ICMP_ULE;
         break;
       case UNLE_EXPR:
         attr = CMP_ATTR_FCMP_ULE;
@@ -424,3 +428,4 @@ int plugin_init(struct plugin_name_args   *info,
   return 0;
 
 }
+

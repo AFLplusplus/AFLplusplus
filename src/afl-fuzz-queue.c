@@ -121,7 +121,8 @@ void create_alias_table(afl_state_t *afl) {
       if (likely(!q->disabled)) {
 
         avg_exec_us += q->exec_us;
-        avg_bitmap_size += log(q->bitmap_size);
+        P[i] = log(q->bitmap_size);
+        avg_bitmap_size += P[i];
         avg_len += q->len;
         if (unlikely(q->c11)) {
 
@@ -263,7 +264,7 @@ void create_alias_table(afl_state_t *afl) {
 
           }
 
-          double bms = log(q->bitmap_size) / avg_bitmap_size;
+          double bms = P[i] / avg_bitmap_size;
           if (likely(bms < 0.1)) {
 
             weight *= 0.01;
@@ -440,6 +441,7 @@ void create_alias_table(afl_state_t *afl) {
   free(Small);
   free(Large);
   afl->reinit_table = 0;
+  afl->pending_reinit = 0;
 
   /*
   #ifdef INTROSPECTION
@@ -1071,6 +1073,7 @@ inline void cull_queue(afl_state_t *afl) {
 
   afl->queued_favored = 0;
   afl->pending_favored = 0;
+  afl->smallest_favored = -1;
 
   for (i = 0; i < afl->queued_items; i++) {
 
@@ -1093,12 +1096,27 @@ inline void cull_queue(afl_state_t *afl) {
 
     q->favored = q->tightness_novel;
 
+    if (unlikely(q->favored && !q->disabled)) {
+
+      ++afl->queued_favored;
+      if (!q->was_fuzzed) {
+
+        ++afl->pending_favored;
+        if (unlikely(afl->smallest_favored < 0 ||
+                     afl->smallest_favored > (s64)q->id)) {
+
+          afl->smallest_favored = (s64)q->id;
+
+        }
+
+      }
+
+    }
+
   }
 
   /* Let's see if anything in the bitmap isn't captured in temp_v.
      If yes, and if it has a afl->top_rated[] contender, let's use it. */
-
-  afl->smallest_favored = -1;
 
   for (i = 0; i < afl->fsrv.map_size; ++i) {
 

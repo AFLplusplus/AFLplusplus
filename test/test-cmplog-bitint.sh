@@ -2,8 +2,11 @@
 # Regression test for GitHub issue #2704:
 # cmplog-instructions-pass ICE with non-standard integer sizes (_BitInt).
 #
-# For non-standard integer sizes, the pass should cast to the next supported
-# width up to 64-bit and only use __cmplog_ins_hookN for >64-bit sizes.
+# On 64-bit hosts every non-native width (including sizes <=64) uses
+# __cmplog_ins_hookN, whose extra byte-width argument lets CmpLog/RedQueen
+# match the operand at its true field width. Only the native widths
+# (8/16/32/64/128) use the specialized hooks. On 32-bit hosts non-native
+# sizes <=64 cast up to the next specialized native hook instead.
 
 cd "$(dirname "$0")/.." || exit 1
 
@@ -152,12 +155,6 @@ EOF
 
 echo -e "$GREY[*] Testing cmplog-instructions-pass with non-standard integer sizes..."
 
-# Non-standard sizes <=64: cast to next supported hook width.
-test_bitint "_BitInt(24)" 24 "__cmplog_ins_hook4"
-test_bitint "_BitInt(33)" 33 "__cmplog_ins_hook8"
-test_bitint "_BitInt(40)" 40 "__cmplog_ins_hook8"
-test_bitint "_BitInt(48)" 48 "__cmplog_ins_hook8"
-
 # Standard sizes: must use the efficient specialized hooks
 test_bitint "_BitInt(16)" 16 "__cmplog_ins_hook2"
 test_bitint "_BitInt(32)" 32 "__cmplog_ins_hook4"
@@ -187,10 +184,22 @@ test_ir_attr "fcmp une" "une" 14
 test_ir_attr "fcmp true" "true" 15
 
 if [ "$(getconf LONG_BIT 2>/dev/null)" = "64" ]; then
-    # >64-bit compares are only supported on 64-bit systems.
+    # On 64-bit hosts every non-native width uses the generic hook, which
+    # carries the exact byte width so RedQueen can match the field; 128-bit
+    # is native and keeps its specialized hook.
+    test_bitint "_BitInt(24)"  24  "__cmplog_ins_hookN"
+    test_bitint "_BitInt(33)"  33  "__cmplog_ins_hookN"
+    test_bitint "_BitInt(40)"  40  "__cmplog_ins_hookN"
+    test_bitint "_BitInt(48)"  48  "__cmplog_ins_hookN"
     test_bitint "_BitInt(100)" 100 "__cmplog_ins_hookN"
     test_bitint "_BitInt(128)" 128 "__cmplog_ins_hook16"
 else
+    # On 32-bit hosts non-native sizes <=64 cast up to the next native hook,
+    # and >64-bit compares are unsupported.
+    test_bitint "_BitInt(24)" 24 "__cmplog_ins_hook4"
+    test_bitint "_BitInt(33)" 33 "__cmplog_ins_hook8"
+    test_bitint "_BitInt(40)" 40 "__cmplog_ins_hook8"
+    test_bitint "_BitInt(48)" 48 "__cmplog_ins_hook8"
     echo "Skipping >64-bit hook checks on 32-bit host"
 fi
 

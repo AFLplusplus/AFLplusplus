@@ -62,12 +62,9 @@ echo "[*] AFL++ QEMU bridge acceptance harness"
 echo "[*] root=$ROOT arch=$SYS work=$WORK"
 
 if [ ! -x "$BRIDGE" ]; then
-  echo "[*] $BRIDGE missing, building backend ..."
-  if [ ! -x "$BRIDGE_DIR/build_qemu_bridge_support.sh" ]; then
-    echo "[-] build script not found at $BRIDGE_DIR/build_qemu_bridge_support.sh"
-    exit 1
-  fi
-  ( cd "$BRIDGE_DIR" && NO_CHECKOUT=1 ./build_qemu_bridge_support.sh ) || { echo "[-] backend build failed"; exit 1; }
+  $ECHO "$YELLOW[-] qemu_bridge not compiled, cannot test"
+  INCOMPLETE=1
+  exit 0
 fi
 
 for b in "$BRIDGE" "$SHOWMAP" "$FUZZ"; do

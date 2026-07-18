@@ -916,6 +916,28 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
 }
 
+static struct sync_peer_state *get_sync_peer(afl_state_t *afl, u8 *name) {
+
+  for (u32 i = 0; i < afl->sync_states_cnt; ++i) {
+
+    if (!strcmp((char *)afl->sync_states[i].name, (char *)name)) {
+
+      return &afl->sync_states[i];
+
+    }
+
+  }
+
+  afl->sync_states =
+      ck_realloc(afl->sync_states,
+                 (afl->sync_states_cnt + 1) * sizeof(struct sync_peer_state));
+  struct sync_peer_state *sp = &afl->sync_states[afl->sync_states_cnt++];
+  memset(sp, 0, sizeof(*sp));
+  sp->name = ck_strdup(name);
+  return sp;
+
+}
+
 /* Grab interesting test cases from other fuzzers. */
 
 void sync_fuzzers(afl_state_t *afl) {
@@ -986,17 +1008,9 @@ void sync_fuzzers(afl_state_t *afl) {
 
     sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
 
-    struct dirent **namelist = NULL;
-    int             m = 0, n, o;
+    DIR *qd = opendir(qd_path);
 
-    n = scandir(qd_path, &namelist, NULL, alphasort);
-
-    if (n < 1) {
-
-      if (namelist) free(namelist);
-      continue;
-
-    }
+    if (!qd) { continue; }
 
     // Retrieve the ID of the last seen test case.
 
@@ -1012,25 +1026,45 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
-    if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
+    struct sync_peer_state *sp = get_sync_peer(afl, sd_ent->d_name);
 
-      next_min_accept = min_accept;
-      lseek(id_fd, 0, SEEK_SET);
+    if (!sp->loaded) {
+
+      if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
+
+        sp->cursor = min_accept;
+        lseek(id_fd, 0, SEEK_SET);
+
+      }
+
+      // check if there is a file documenting the maximum id seen on startup
+      sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir,
+              sd_ent->d_name);
+      s32 max_fd = open(qd_synced_maxid, O_RDONLY, DEFAULT_PERMISSION);
+
+      if (max_fd >= 0) {
+
+        if (read(max_fd, &sp->max_start_id, sizeof(u32)) == sizeof(u32)) {
+
+          sp->have_max = 1;
+
+        }
+
+        close(max_fd);
+
+      }
+
+      sp->loaded = 1;
 
     }
 
-    // now document the attempt to sync to this instance
-    sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
-    int id_fd2 =
-        open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
-    if (id_fd2 >= 0) close(id_fd2);
+    min_accept = next_min_accept = sp->cursor;
+    max_start_id = sp->have_max ? sp->max_start_id : 0;
 
     // It could be that the target syncing instance was restarted, check!
-    time_t      last_mtime = 0;
+    time_t      last_mtime = (time_t)(get_cur_time() / 1000);
     char        id0[PATH_MAX];
     struct stat st;
-
-    if (stat(qd_synced_path, &st) == 0) { last_mtime = st.st_mtime; }
 
     snprintf(id0, sizeof(id0), "%s/%s/cmdline", afl->sync_dir, sd_ent->d_name);
 
@@ -1038,11 +1072,11 @@ void sync_fuzzers(afl_state_t *afl) {
 
       if (unlikely(last_mtime && last_mtime <= st.st_mtime)) {
 
-        // the first entry is newer than when we synced last - instance was
-        // restarted - we have to reset our counter and will skip this instance
-        // this time. It could also be this was trimmed later, or restated with
-        // resume-in-place though but better be safe.
+        // the syncing instance was restarted since our last attempt - reset our
+        // counter and skip it this time. It could also be this was trimmed
+        // later, or restarted with resume-in-place though but better be safe.
         min_accept = 0;
+        sp->cursor = 0;
         ck_write(id_fd, &min_accept, sizeof(u32), qd_synced_path);
         goto close_sync;
 
@@ -1050,21 +1084,12 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }  // else { This is likely a non-AFL++ but compliant instance, e.g. SymCC }
 
-    // check if there is a file documented the maximum id seen on startup
-    sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir, sd_ent->d_name);
-    s32 max_fd = open(qd_synced_maxid, O_RDONLY, DEFAULT_PERMISSION);
+    if (sp->have_max && sp->max_start_id < next_min_accept) {
 
-    if (likely(max_fd >= 0)) {
-
-      if (unlikely(read(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32))) {
-
-        /* Use default value on read failure */
-        max_start_id = 0;
-
-      }
-
-      close(max_fd);
-      if (max_start_id < next_min_accept) { unlink(qd_synced_maxid); }
+      sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir,
+              sd_ent->d_name);
+      unlink(qd_synced_maxid);
+      sp->have_max = 0;
 
     }
 
@@ -1079,35 +1104,29 @@ void sync_fuzzers(afl_state_t *afl) {
     show_stats(afl);
 
     /* For every file queued by this fuzzer, parse ID and see if we have
-       looked at it before; exec a test case if not. */
+       looked at it before; exec a test case if not. Ordering is not required:
+       already-synced IDs are skipped and the cursor advances to the highest ID
+       seen, so holes are tolerated. */
 
-    u8 entry[12];
-    sprintf(entry, "id:%06u", next_min_accept);
+    struct dirent *qd_ent;
+    u32            highest_seen = 0;
+    u8             saw_any = 0;
 
-    while (m < n) {
+    while ((qd_ent = readdir(qd))) {
 
-      if (strncmp(namelist[m]->d_name, entry, 9)) {
+      if (strncmp(qd_ent->d_name, "id:", 3)) { continue; }
 
-        m++;
+      u32 cur_id = (u32)strtoul(qd_ent->d_name + 3, NULL, 10);
+      if (cur_id < next_min_accept) { continue; }
 
-      } else {
-
-        break;
-
-      }
-
-    }
-
-    if (m >= n) { goto close_sync; }  // nothing new
-
-    for (o = m; o < n; o++) {
+      if (cur_id > highest_seen) { highest_seen = cur_id; }
+      saw_any = 1;
 
       s32         fd;
       struct stat st;
 
-      snprintf(path, sizeof(path), "%s/%s", qd_path, namelist[o]->d_name);
-      afl->syncing_case = next_min_accept;
-      next_min_accept++;
+      snprintf(path, sizeof(path), "%s/%s", qd_path, qd_ent->d_name);
+      afl->syncing_case = cur_id;
 
       /* Allow this to fail in case the other fuzzer is resuming or so... */
 
@@ -1121,8 +1140,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
       if (st.st_size && st.st_size <= MAX_FILE) {
 
-        if (likely(next_min_accept < max_start_id ||
-                   !is_known_case(afl, namelist[o]->d_name))) {
+        if (likely(cur_id < max_start_id ||
+                   !is_known_case(afl, qd_ent->d_name))) {
 
           /* See what happens. We rely on save_if_interesting() to catch major
              errors and save the test case. */
@@ -1159,14 +1178,17 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
-    ck_write(id_fd, &next_min_accept, sizeof(u32), qd_synced_path);
+    if (saw_any) {
+
+      next_min_accept = highest_seen + 1;
+      sp->cursor = next_min_accept;
+      ck_write(id_fd, &next_min_accept, sizeof(u32), qd_synced_path);
+
+    }
 
   close_sync:
     close(id_fd);
-    if (n > 0)
-      for (m = 0; m < n; m++)
-        free(namelist[m]);
-    free(namelist);
+    closedir(qd);
 
   }
 

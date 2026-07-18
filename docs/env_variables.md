@@ -764,8 +764,9 @@ checks or alter some of the more exotic semantics of the tool:
     used directly.
 
   - Setting `AFL_NO_AFFINITY` disables attempts to bind to a specific CPU core
-    on Linux systems. This slows things down, but lets you run more instances of
-    afl-fuzz than would be prudent (if you really want to).
+    on Linux systems (and disables the performance-core scheduling preference on
+    macOS). This slows things down, but lets you run more instances of afl-fuzz
+    than would be prudent (if you really want to).
 
   - `AFL_NO_ARITH` causes AFL++ to skip most of the deterministic arithmetics.
     This can be useful to speed up the fuzzing of text-based file formats.
@@ -966,9 +967,12 @@ checks or alter some of the more exotic semantics of the tool:
 
   - `AFL_FRAMESHIFT_MAX_OVERHEAD` controls the maximum fraction of total fuzzing
     time that frameshift analysis is allowed to consume. The value is a float
-    between `0.0` and `1.0` (default `0.10`, i.e. 10%). If the cumulative time
-    spent in frameshift analysis exceeds this fraction of the overall run time,
-    new analyses are skipped until the ratio drops back under the limit.
+    between `0.0` and `1.0` (default `0.10`, i.e. 10%). It is enforced as a token
+    bucket: credit accrues as this fraction of the total run time and each
+    analysis slice spends from it. A new slice is admitted only when enough
+    credit remains for a minimally useful slice, and its deadline is capped to
+    the remaining credit, so a single slice cannot overshoot the configured
+    overhead by a full analysis budget.
 
   - Normally a `README.txt` is written to the `crashes/` directory when a first
     crash is found. Setting `AFL_NO_CRASH_README` will prevent this. Useful when

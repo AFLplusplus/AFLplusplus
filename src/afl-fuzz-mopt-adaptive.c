@@ -55,14 +55,29 @@ void mopt_commit_round(afl_state_t *afl, u8 found) {
   struct mopt_adaptive *m = &afl->mopt_adaptive;
   struct mopt_ctx      *c = &m->ctx[m->cur_ctx];
 
+  u32 cnt[MOPT_OP_MAX];
+  memset(cnt, 0, sizeof(cnt));
+
   for (u32 i = 0; i < m->round_cnt; ++i) {
 
     u8 op = m->round_list[i];
     c->op_uses[op]++;
+    cnt[op]++;
 
   }
 
-  if (found && m->round_cnt) { c->op_finds[m->round_list[m->round_cnt - 1]]++; }
+  if (found && m->round_cnt) {
+
+    for (u32 op = 0; op < MOPT_OP_MAX; ++op)
+      if (cnt[op]) {
+
+        u64 share = (u64)MOPT_FIND_SCALE * cnt[op] / m->round_cnt;
+        if (!share) { share = 1; }
+        c->op_finds[op] += share;
+
+      }
+
+  }
 
   mopt_round_reset(afl);
 

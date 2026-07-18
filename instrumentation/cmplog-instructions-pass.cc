@@ -122,19 +122,35 @@ Iterator Unique(Iterator first, Iterator last) {
 }
 
 // Check if a compare instruction is a loop condition that should be skipped.
-// Returns true if the branch is part of loop control flow (latch, header, or
-// exiting block) for any containing loop.
+// Returns true if the branch is the loop iteration (induction / back-edge)
+// condition for any containing loop: the loop header, the latch, or - for
+// bottom-tested loops whose back-edge the coverage pass split off into a
+// separate latch block - an exiting branch whose in-loop successor is the
+// header or that latch. The split-back-edge case is only applied when the
+// header itself is not the loop's exit test, so early-break data comparisons
+// in top-tested loops (e.g. `if (x != y) break;`) stay instrumented.
 static bool IsLoopCondition(BranchInst *BR, LoopInfo *LI) {
+
+  if (!BR->isConditional()) return false;
 
   BasicBlock *BranchBB = BR->getParent();
 
-  // Only skip the comparison that drives the loop iteration itself (the
-  // induction/back-edge condition). Data comparisons that merely bail out of
-  // the loop early (e.g. `if (x != y) break;`) must stay instrumented.
   for (Loop *L = LI->getLoopFor(BranchBB); L; L = L->getParentLoop()) {
 
-    if (L->isLoopLatch(BranchBB)) return true;    // Back-edge source
     if (L->getHeader() == BranchBB) return true;  // Loop header condition
+    if (L->isLoopLatch(BranchBB)) return true;    // Back-edge source
+
+    if (!L->isLoopExiting(L->getHeader()) && L->isLoopExiting(BranchBB)) {
+
+      for (unsigned i = 0, e = BR->getNumSuccessors(); i < e; ++i) {
+
+        BasicBlock *Succ = BR->getSuccessor(i);
+        if (!L->contains(Succ)) continue;
+        if (Succ == L->getHeader() || L->isLoopLatch(Succ)) return true;
+
+      }
+
+    }
 
   }
 
@@ -262,8 +278,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
 
       if (!cmpInst) { continue; }
       unsigned attr = (unsigned)cmpInst->getPredicate();
-      bool is_signed = attr == CMP_ATTR_ICMP_SGT ||
-                       attr == CMP_ATTR_ICMP_SGE ||
+      bool is_signed = attr == CMP_ATTR_ICMP_SGT || attr == CMP_ATTR_ICMP_SGE ||
                        attr == CMP_ATTR_ICMP_SLT || attr == CMP_ATTR_ICMP_SLE;
 
       if (selectcmpInst->getOpcode() == Instruction::FCmp) {
@@ -473,14 +488,12 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback) {
           // then create a int cast, which does extend, trunc or bitcast. In our
           // case usually extend to the next larger supported type (this is a
           // nop if already the right type)
-          Value *V0 = IRB.CreateIntCast(op0_i,
-                                        IntegerType::get(C, cast_size),
+          Value *V0 = IRB.CreateIntCast(op0_i, IntegerType::get(C, cast_size),
                                         is_signed);
           args.push_back(V0);
           Value *op1_i = IRB.CreateBitCast(
               op1, IntegerType::get(C, ty1->getPrimitiveSizeInBits()));
-          Value *V1 = IRB.CreateIntCast(op1_i,
-                                        IntegerType::get(C, cast_size),
+          Value *V1 = IRB.CreateIntCast(op1_i, IntegerType::get(C, cast_size),
                                         is_signed);
           args.push_back(V1);
 
@@ -585,3 +598,4 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
     return PreservedAnalyses();
 
 }
+

@@ -218,16 +218,24 @@ static void dup_and_close_stderr() {
   int output_fileno = fileno(output_file);
   int output_fd = dup(output_fileno);
   if (output_fd <= 0) abort();
-  FILE *new_output_file = fdopen(output_fd, "w");
-  if (!new_output_file) abort();
-  if (!__sanitizer_set_report_fd) return;
-  __sanitizer_set_report_fd((void *)(long int)output_fd);
+  if (__sanitizer_set_report_fd) {
+
+    __sanitizer_set_report_fd((void *)(long int)output_fd);
+
+  } else {
+
+    close(output_fd);
+
+  }
   discard_output(output_fileno);
 
 }
 
-// Close stdout and/or stderr if user asks for it.
-static void maybe_close_fd_mask() {
+// Close stdout and/or stderr if the user asks for it, but only while actually
+// fuzzing and not when AFL_DEBUG or AFL_CRASH_TRACES need the output visible.
+static void maybe_close_fd_mask(bool in_afl) {
+
+  if (!in_afl || getenv("AFL_DEBUG") || getenv("AFL_CRASH_TRACES")) return;
 
   char *fd_mask_str = getenv("AFL_DRIVER_CLOSE_FD_MASK");
   if (!fd_mask_str) return;
@@ -377,7 +385,7 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
 
   output_file = stderr;
   maybe_duplicate_stderr();
-  maybe_close_fd_mask();
+  maybe_close_fd_mask(in_afl);
 
   if (LLVMFuzzerInitialize) {
 

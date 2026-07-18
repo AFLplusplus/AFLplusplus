@@ -98,7 +98,7 @@
    can hope... */
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
-    defined(__DragonFly__) || defined(__sun)
+    defined(__DragonFly__) || defined(__sun) || defined(__APPLE__)
   #define HAVE_AFFINITY 1
   #if defined(__FreeBSD__) || defined(__DragonFly__)
     #include <sys/param.h>
@@ -117,6 +117,10 @@
     #include <sys/sysinfo.h>
     #include <sys/pset.h>
     #include <strings.h>
+  #elif defined(__APPLE__)
+    #include <pthread.h>
+    #include <mach/mach.h>
+    #include <mach/thread_policy.h>
   #endif
 #endif                                                         /* __linux__ */
 
@@ -435,6 +439,7 @@ enum {
 #define MOPT_ARM_MIN_SAMPLES 64   /* min execs before an arm can lose       */
 #define MOPT_ARM_DECAY_NUM 50     /* policy window decay (0.50)             */
 #define MOPT_ARM_DECAY_DEN 100
+#define MOPT_FIND_SCALE 4096U
 
 struct mopt_ctx {
 
@@ -607,6 +612,16 @@ struct foreign_sync {
 
 };
 
+struct sync_peer_state {
+
+  u8 *name;
+  u32 cursor;
+  u32 max_start_id;
+  u8  have_max;
+  u8  loaded;
+
+};
+
 typedef struct afl_state {
 
   /* Position of this state in the global states list */
@@ -699,6 +714,7 @@ typedef struct afl_state {
   double *alias_probability;            /* alias weighted probabilities     */
   u32    *alias_table;                /* alias weighted random lookup table */
   u32     alias_map_size;             /* allocated capacity of alias arrays */
+  u32     pending_reinit;
   u32    *splice_buf_ids;             /* pre-filtered splice candidate IDs  */
   u32     splice_buf_count;           /* number of splice candidates        */
   u32     splice_buf_alloc;           /* allocated capacity of splice_buf   */
@@ -761,6 +777,7 @@ typedef struct afl_state {
       sync_time_us,                     /* Time spend on sync               */
       cmplog_time_us,                   /* Time spend on cmplog             */
       trim_time_us,                     /* Time spend on trimming           */
+      table_time_us,                    /* Time spend building alias table  */
       peak_rss_mb;                      /* Peak RSS of the target in MB     */
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
@@ -871,6 +888,9 @@ typedef struct afl_state {
   u8                  foreign_sync_cnt;
   struct foreign_sync foreign_syncs[FOREIGN_SYNCS_MAX];
   char               *foreign_file;
+
+  struct sync_peer_state *sync_states;
+  u32                     sync_states_cnt;
 
 #ifdef _AFL_DOCUMENT_MUTATIONS
   u8  do_document;
@@ -1398,6 +1418,7 @@ void update_calibration_time(afl_state_t *afl, u64 *time);
 void update_trim_time(afl_state_t *afl, u64 *time);
 void update_sync_time(afl_state_t *afl, u64 *time);
 void update_cmplog_time(afl_state_t *afl, u64 *time);
+void update_table_time(afl_state_t *afl, u64 *time);
 
 /* StatsD */
 
@@ -1513,8 +1534,8 @@ void fs_clone_meta(afl_state_t *afl);
 
 /**** Inline routines ****/
 
-/* Generate a random number (from 0 to limit - 1). This may
-   have slight bias. */
+/* Generate a random number (from 0 to limit - 1), uniformly
+   distributed. */
 
 static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
@@ -1530,18 +1551,52 @@ static inline u32 rand_below(afl_state_t *afl, u32 limit) {
 
   }
 
-  /* Modulo is biased - we don't want our fuzzing to be biased so let's do it
-   right. See:
-   https://stackoverflow.com/questions/10984974/why-do-people-say-there-is-modulo-bias-when-using-a-random-number-generator
+  /* Lemire's nearly-divisionless bounded reduction: map the random value into
+     "limit" equal buckets with a widening multiply and reject only the values
+     that would land in the single oversized bucket. Uniform, like a modulo
+     reduction, but the division is taken on the near-never rejection path
+     instead of twice on every call. See:
+     https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/
    */
-  u64 unbiased_rnd;
-  do {
+#ifdef WORD_SIZE_64
+  u64       x = rand_next(afl);
+  uint128_t m = (uint128_t)x * (uint128_t)limit;
+  u64       l = (u64)m;
 
-    unbiased_rnd = rand_next(afl);
+  if (unlikely(l < limit)) {
 
-  } while (unlikely(unbiased_rnd >= (UINT64_MAX - (UINT64_MAX % limit))));
+    u64 t = (0 - (u64)limit) % limit;
+    while (l < t) {
 
-  return unbiased_rnd % limit;
+      x = rand_next(afl);
+      m = (uint128_t)x * (uint128_t)limit;
+      l = (u64)m;
+
+    }
+
+  }
+
+  return (u32)(m >> 64);
+#else
+  u32 x = rand_next(afl);
+  u64 m = (u64)x * (u64)limit;
+  u32 l = (u32)m;
+
+  if (unlikely(l < limit)) {
+
+    u32 t = (0 - limit) % limit;
+    while (l < t) {
+
+      x = rand_next(afl);
+      m = (u64)x * (u64)limit;
+      l = (u32)m;
+
+    }
+
+  }
+
+  return (u32)(m >> 32);
+#endif
 
 }
 
@@ -1662,3 +1717,4 @@ static inline u8 bitmap_read(u8 *map, u32 index) {
 #endif
 
 #endif
+

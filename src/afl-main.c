@@ -260,7 +260,9 @@ static inline u8 afl_fuzz_queue(afl_state_t *afl) {
           // we have new queue entries since the last run, recreate alias
           // table
           afl->prev_queued_items = afl->queued_items;
+          u64 table_start_us = get_cur_time_us();
           create_alias_table(afl);
+          update_table_time(afl, &table_start_us);
 
         }
 
