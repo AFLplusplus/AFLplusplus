@@ -7,7 +7,7 @@ TEST_DIR=$(pwd)
 
 #temp block
 echo -e "$BLUE[*] Testing: nautilus mutator$RED DISABLED$WHITE"
-. ./test-post.sh
+#. ./test-post.sh
 exit 0
 
 # normalize path
