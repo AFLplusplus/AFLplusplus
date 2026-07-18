@@ -155,3 +155,4 @@ test/unittests/unit_ijon_replay
 test/unittests/unit_mopt
 test/unittests/unit_sharedmem_mmap
 test/unittests/unit_skipdet
+test/unittests/unit_queue_score
