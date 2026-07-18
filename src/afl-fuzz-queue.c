@@ -121,7 +121,8 @@ void create_alias_table(afl_state_t *afl) {
       if (likely(!q->disabled)) {
 
         avg_exec_us += q->exec_us;
-        avg_bitmap_size += log(q->bitmap_size);
+        P[i] = log(q->bitmap_size);
+        avg_bitmap_size += P[i];
         avg_len += q->len;
         if (unlikely(q->c11)) {
 
@@ -263,7 +264,7 @@ void create_alias_table(afl_state_t *afl) {
 
           }
 
-          double bms = log(q->bitmap_size) / avg_bitmap_size;
+          double bms = P[i] / avg_bitmap_size;
           if (likely(bms < 0.1)) {
 
             weight *= 0.01;
@@ -440,6 +441,7 @@ void create_alias_table(afl_state_t *afl) {
   free(Small);
   free(Large);
   afl->reinit_table = 0;
+  afl->pending_reinit = 0;
 
   /*
   #ifdef INTROSPECTION

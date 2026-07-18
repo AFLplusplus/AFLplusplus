@@ -714,6 +714,7 @@ typedef struct afl_state {
   double *alias_probability;            /* alias weighted probabilities     */
   u32    *alias_table;                /* alias weighted random lookup table */
   u32     alias_map_size;             /* allocated capacity of alias arrays */
+  u32     pending_reinit;
   u32    *splice_buf_ids;             /* pre-filtered splice candidate IDs  */
   u32     splice_buf_count;           /* number of splice candidates        */
   u32     splice_buf_alloc;           /* allocated capacity of splice_buf   */

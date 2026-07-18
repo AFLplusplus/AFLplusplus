@@ -620,15 +620,23 @@ u8 fuzz_one(afl_state_t *afl) {
 
   }
 
-  if (unlikely(afl->queue_cur->handicap >= 4)) {
+  if (unlikely(afl->queue_cur->handicap)) {
 
-    afl->queue_cur->handicap -= 4;
-    afl->reinit_table = 1;
+    if (afl->queue_cur->handicap >= 4) {
 
-  } else if (unlikely(afl->queue_cur->handicap)) {
+      afl->queue_cur->handicap -= 4;
 
-    --afl->queue_cur->handicap;
-    afl->reinit_table = 1;
+    } else {
+
+      --afl->queue_cur->handicap;
+
+    }
+
+    if (unlikely(++afl->pending_reinit > (afl->active_items >> 3))) {
+
+      afl->reinit_table = 1;
+
+    }
 
   }
 
