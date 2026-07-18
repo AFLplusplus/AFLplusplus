@@ -85,6 +85,14 @@ int main(void) {
 
   }
 
+  ijon_update_max_dynamic(state, &shared, &nominal, 1);
+  if (state->infos[3]->len != 100000 || state->max_map[3] != 32) {
+
+    result = 11;
+    goto cleanup;
+
+  }
+
   u32 len = 0;
   if (!ijon_read_input(state, info, &input, &len) || len != 100000 ||
       memcmp(input, data, 100000)) {

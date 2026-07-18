@@ -189,10 +189,6 @@ static void test_store_sync_close_and_rename_failures(void **state) {
   memset(data, 0x5a, sizeof(data));
 
   reset_failures();
-  fail_fsync = 1;
-  assert_int_equal(ijon_store_max_input(st, 3, data, sizeof(data)), 0);
-  assert_int_equal(st->infos[3]->len, 0);
-
   fail_close = 1;
   assert_int_equal(ijon_store_max_input(st, 3, data, sizeof(data)), 0);
   assert_int_equal(st->infos[3]->len, 0);

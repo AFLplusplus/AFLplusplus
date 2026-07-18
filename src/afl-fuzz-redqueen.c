@@ -3233,6 +3233,7 @@ static void collect_tightness_minima(afl_state_t *afl) {
     /* Stamp the cycle so cull_queue can decay this flag later. */
     afl->queue_cur->tightness_novel_cycle = afl->queue_cycle;
     afl->queue_cur->favored = 1;
+    afl->score_changed = 1;
 
   }
 

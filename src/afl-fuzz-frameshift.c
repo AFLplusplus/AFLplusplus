@@ -595,11 +595,11 @@ void frameshift_stage(afl_state_t *afl) {
   u64 total_runtime_ms = afl->prev_run_time + time_start - afl->start_time;
   u64 allowed_ms = (u64)((double)total_runtime_ms *
                          afl->afl_env.afl_frameshift_max_overhead);
-  u64 slice_ms =
+  u64 budget_ms =
       frameshift_slice_budget(afl->fs_stats.total_time_ms, allowed_ms);
-  if (!slice_ms) { return; }
+  if (!budget_ms) { return; }
 
-  afl->frameshift_deadline = time_start + slice_ms;
+  afl->frameshift_deadline = time_start + FRAMESHIFT_TIME_BUDGET_MS;
   u32 *inflection_points = NULL;
   u32 *loss_buffer = NULL;
   u8  *repeat_buffer = NULL;

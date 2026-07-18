@@ -122,19 +122,35 @@ Iterator Unique(Iterator first, Iterator last) {
 }
 
 // Check if a compare instruction is a loop condition that should be skipped.
-// Returns true if the branch is part of loop control flow (latch, header, or
-// exiting block) for any containing loop.
+// Returns true if the branch is the loop iteration (induction / back-edge)
+// condition for any containing loop: the loop header, the latch, or - for
+// bottom-tested loops whose back-edge the coverage pass split off into a
+// separate latch block - an exiting branch whose in-loop successor is the
+// header or that latch. The split-back-edge case is only applied when the
+// header itself is not the loop's exit test, so early-break data comparisons
+// in top-tested loops (e.g. `if (x != y) break;`) stay instrumented.
 static bool IsLoopCondition(BranchInst *BR, LoopInfo *LI) {
+
+  if (!BR->isConditional()) return false;
 
   BasicBlock *BranchBB = BR->getParent();
 
-  // Only skip the comparison that drives the loop iteration itself (the
-  // induction/back-edge condition). Data comparisons that merely bail out of
-  // the loop early (e.g. `if (x != y) break;`) must stay instrumented.
   for (Loop *L = LI->getLoopFor(BranchBB); L; L = L->getParentLoop()) {
 
-    if (L->isLoopLatch(BranchBB)) return true;    // Back-edge source
     if (L->getHeader() == BranchBB) return true;  // Loop header condition
+    if (L->isLoopLatch(BranchBB)) return true;    // Back-edge source
+
+    if (!L->isLoopExiting(L->getHeader()) && L->isLoopExiting(BranchBB)) {
+
+      for (unsigned i = 0, e = BR->getNumSuccessors(); i < e; ++i) {
+
+        BasicBlock *Succ = BR->getSuccessor(i);
+        if (!L->contains(Succ)) continue;
+        if (Succ == L->getHeader() || L->isLoopLatch(Succ)) return true;
+
+      }
+
+    }
 
   }
 

@@ -592,8 +592,9 @@ u8 fuzz_one(afl_state_t *afl) {
 
     if (unlikely(afl->queue_cur->fs_status == 0)) {
 
-      /* FrameShift has not run on this input; the stage enforces its own
-         overhead budget before committing to an analysis slice. */
+      /* FrameShift has not run on this input; the stage gates admission on the
+         cumulative overhead budget, then analyses the input with the full
+         per-input time budget. */
       frameshift_stage(afl);
 
     }
