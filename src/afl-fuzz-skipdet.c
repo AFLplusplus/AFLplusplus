@@ -374,8 +374,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
       out_buf[eff_pos] = orig;
       ++afl->stage_cur;
 
-      if (skipdet_trace_changed(afl) ||
-          afl->queued_items + afl->saved_crashes != before_skip_inf) {
+      if (afl->queued_items + afl->saved_crashes != before_skip_inf) {
 
         bitmap_set(skip_eff_map, eff_pos);
         afl->queue_cur->skipdet_e->quick_eff_bytes += 1;
