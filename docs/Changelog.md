@@ -7,6 +7,7 @@
   - afl-cc
     - remove classic AFL instrumentation (colliding coverage), as AFL_LLVM_PATH
       and AFL_LLVM_CALLER replace these mostly and are overall much better
+    - removed the obsolete afl-as assembler wrapper and its remaining references
   - afl-fuzz
     - fixed SAND and FrameShift issues
     - enhancements and fixes for cmplog and ijon

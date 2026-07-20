@@ -227,6 +227,7 @@ static void dup_and_close_stderr() {
     close(output_fd);
 
   }
+
   discard_output(output_fileno);
 
 }

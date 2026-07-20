@@ -1105,12 +1105,14 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
 inline u64 get_cur_time(void) {
 
-  struct timeval tv;
+  struct timespec ts;
 
-  // TO NOT REPLACE WITH clock_gettime!!!
-  gettimeofday(&tv, NULL);
+  // only CLOCK_REALTIME is safe here: MONOTONIC breaks the wall-clock
+  // comparisons, and any _COARSE clock is too low-resolution and wrecks
+  // fuzzing effectiveness by collapsing the per-exec timing
+  clock_gettime(CLOCK_REALTIME, &ts);
 
-  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
+  return (ts.tv_sec * 1000ULL) + (ts.tv_nsec / 1000000);
 
 }
 
@@ -1118,12 +1120,14 @@ inline u64 get_cur_time(void) {
 
 inline u64 get_cur_time_us(void) {
 
-  struct timeval tv;
+  struct timespec ts;
 
-  // TO NOT REPLACE WITH clock_gettime!!!
-  gettimeofday(&tv, NULL);
+  // only CLOCK_REALTIME is safe here: MONOTONIC breaks the wall-clock
+  // comparisons, and any _COARSE clock is too low-resolution and wrecks
+  // fuzzing effectiveness by collapsing the per-exec timing
+  clock_gettime(CLOCK_REALTIME, &ts);
 
-  return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
+  return (ts.tv_sec * 1000000ULL) + (ts.tv_nsec / 1000);
 
 }
 

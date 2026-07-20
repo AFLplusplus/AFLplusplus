@@ -98,7 +98,7 @@ fairly broad use of environment variables instead:
   - `AFL_PATH` can be used to point a directory that contains LLVM/GCC plugins
     for AFL++, AFL++'s runtime objects and QEMU/Frida support files.
 
-  - Setting `AFL_QUIET` will prevent afl-as and afl-cc banners from being
+  - Setting `AFL_QUIET` will prevent afl-cc banners from being
     displayed during compilation, in case you find them distracting.
 
   - Setting `AFL_USE_...` automatically enables supported sanitizers - provided
@@ -123,15 +123,10 @@ fairly broad use of environment variables instead:
     - [SAND](./SAND.md). In this case, the binaries built in this way will serve as extra oracles. Check the corresponding documents for details.
     - Compatible with LibAFL ForkserverExecutor implementation and thus faster to repeatedly run, compared to simple CommandExecutor.
 
-  - `TMPDIR` is used by afl-as for temporary files; if this variable is not set,
-    the tool defaults to /tmp.
-
 ## 2) Settings for LLVM and LTO: afl-clang-fast / afl-clang-fast++ / afl-clang-lto / afl-clang-lto++
 
 The native instrumentation helpers (instrumentation and gcc_plugin) accept a
 subset of the settings discussed in section 1, with the exception of:
-
-  - `AFL_AS`, since this toolchain does not directly invoke GNU `as`.
 
   - `AFL_INST_RATIO`, as we use collision free instrumentation by default. Not
     all passes support this option though as it is an outdated feature.
@@ -142,9 +137,6 @@ subset of the settings discussed in section 1, with the exception of:
 
   - An option to `AFL_LLVM_DICT2FILE` is `AFL_LLVM_DICT2FILE_NO_MAIN=1` which
     skill not parse `main()`.
-
-  - `TMPDIR` and `AFL_KEEP_ASSEMBLY`, since no temporary assembly files are
-    created.
 
   - LLVM modes compiling C++ will normally set rpath in the binary if LLVM is
     not in a usual location (/usr or /lib). Setting `AFL_LLVM_NO_RPATH=1`
@@ -521,21 +513,9 @@ through direct calls. It has no effect (and warns) if no allow/deny list is in
 use.
 
 
-## 3) Settings for GCC / GCC_PLUGIN modes
+## 3) Settings for GCC_PLUGIN mode
 
-There are a few specific features that are only available in GCC and GCC_PLUGIN
-mode.
-
-  - GCC mode only: Setting `AFL_KEEP_ASSEMBLY` prevents afl-as from deleting
-    instrumented assembly files. Useful for troubleshooting problems or
-    understanding how the tool works.
-
-    To get them in a predictable place, try something like:
-
-    ```
-    mkdir assembly_here
-    TMPDIR=$PWD/assembly_here AFL_KEEP_ASSEMBLY=1 make clean all
-    ```
+There are a few specific features that are only available in GCC_PLUGIN mode.
 
   - GCC_PLUGIN mode only: Setting `AFL_GCC_INSTRUMENT_FILE` or
     `AFL_GCC_ALLOWLIST` with a filename will only instrument those files that

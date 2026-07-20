@@ -177,7 +177,7 @@ typedef struct aflcc_state {
 
   u8 cmplog_mode, c11_mode;
 
-  u8 have_instr_env, have_gcc, have_clang, have_llvm, have_gcc_plugin, have_lto,
+  u8 have_instr_env, have_llvm, have_gcc_plugin, have_lto,
       have_optimized_pcguard, have_instr_list, wnoerror,
       mapped_sancov_allowlist, mapped_sancov_denylist;
 
@@ -306,7 +306,6 @@ void     add_sanitizers(aflcc_state_t *, char **envp);
 void     add_optimized_pcguard(aflcc_state_t *);
 void     add_native_pcguard(aflcc_state_t *);
 
-void add_assembler(aflcc_state_t *);
 void add_gcc_plugin(aflcc_state_t *);
 
 param_st parse_misc_params(aflcc_state_t *, u8 *, u8);
@@ -571,20 +570,6 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
 void find_built_deps(aflcc_state_t *aflcc) {
 
   char *ptr = NULL;
-
-#if defined(__x86_64__) || defined(__i386__)
-  if ((ptr = find_object(aflcc, "afl-as")) != NULL) {
-
-  #ifndef __APPLE__
-    // on OSX clang masquerades as GCC
-    aflcc->have_gcc = 1;
-  #endif
-    aflcc->have_clang = 1;
-    ck_free(ptr);
-
-  }
-
-#endif
 
   if ((ptr = find_object(aflcc, "SanitizerCoveragePCGUARD.so")) != NULL) {
 
@@ -1143,10 +1128,6 @@ void mode_final_checkout(aflcc_state_t *aflcc) {
       aflcc->compiler_mode = LLVM;
     else if (aflcc->have_gcc_plugin)
       aflcc->compiler_mode = GCC_PLUGIN;
-    else if (aflcc->have_gcc)
-      aflcc->compiler_mode = GCC;
-    else if (aflcc->have_clang)
-      aflcc->compiler_mode = CLANG;
     else if (aflcc->have_lto)
       aflcc->compiler_mode = LTO;
     else
@@ -1198,7 +1179,6 @@ void mode_final_checkout(aflcc_state_t *aflcc) {
     } else {
 
       aflcc->instrument_mode = INSTRUMENT_CLANG;
-      setenv(CLANG_ENV_VAR, "1", 1);  // used by afl-as
 
     }
 
@@ -2509,73 +2489,6 @@ void add_runtime(aflcc_state_t *aflcc) {
 
 /** Miscellaneous routines -----BEGIN----- **/
 
-/*
-  Add params to make compiler driver use our afl-as
-  as assembler, required by the vanilla instrumentation.
-*/
-void add_assembler(aflcc_state_t *aflcc) {
-
-  u8 *afl_as = find_object(aflcc, "afl-as");
-
-  if (!afl_as) FATAL("Cannot find 'afl-as'.");
-
-  u8 *slash = strrchr(afl_as, '/');
-  if (slash) *slash = 0;
-
-    // Search for 'as' may be unreliable in some cases (see #2058)
-    // so use 'afl-as' instead, because 'as' is usually a symbolic link,
-    // or can be a renamed copy of 'afl-as' created in the same dir.
-    // Now we should verify if the compiler can find the 'as' we need.
-
-#define AFL_AS_ERR "(should be a symlink or copy of 'afl-as')"
-
-  u8 *afl_as_dup = alloc_printf("%s/as", afl_as);
-
-  int fd = open(afl_as_dup, O_RDONLY);
-  if (fd < 0) { PFATAL("Unable to open '%s' " AFL_AS_ERR, afl_as_dup); }
-
-  struct stat st;
-  if (fstat(fd, &st) < 0) {
-
-    PFATAL("Unable to fstat '%s' " AFL_AS_ERR, afl_as_dup);
-
-  }
-
-  u32 f_len = st.st_size;
-
-  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
-  if (f_data == MAP_FAILED) {
-
-    PFATAL("Unable to mmap file '%s' " AFL_AS_ERR, afl_as_dup);
-
-  }
-
-  close(fd);
-
-  // "AFL_AS" is a const str passed to getenv in afl-as.c
-  if (!memmem(f_data, f_len, "AFL_AS", strlen("AFL_AS") + 1)) {
-
-    FATAL(
-        "Looks like '%s' is not a valid symlink or copy of '%s/afl-as'. "
-        "It is a prerequisite to override system-wide 'as' for "
-        "instrumentation.",
-        afl_as_dup, afl_as);
-
-  }
-
-  if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
-
-  ck_free(afl_as_dup);
-
-#undef AFL_AS_ERR
-
-  insert_param(aflcc, "-B");
-  insert_param(aflcc, afl_as);
-
-  if (aflcc->compiler_mode == CLANG) insert_param(aflcc, "-no-integrated-as");
-
-}
-
 /* Add params to launch the gcc plugins for instrumentation. */
 void add_gcc_plugin(aflcc_state_t *aflcc) {
 
@@ -3590,12 +3503,6 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
   if (aflcc->compiler_mode != GCC_PLUGIN && aflcc->compiler_mode != GCC) {
 
     insert_param(aflcc, "-Wno-unused-command-line-argument");
-
-  }
-
-  if (aflcc->compiler_mode == GCC || aflcc->compiler_mode == CLANG) {
-
-    add_assembler(aflcc);
 
   }
 

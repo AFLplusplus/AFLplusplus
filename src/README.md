@@ -3,7 +3,6 @@
 Quick explanation about the files here:
 
 - `afl-analyze.c`	- afl-analyze binary tool
-- `afl-as.c`		- afl-as binary tool
 - `afl-cc.c`		- afl-cc binary tool
 - `afl-common.c`	- common functions, used by afl-analyze, afl-fuzz, afl-showmap and afl-tmin
 - `afl-forkserver.c`	- forkserver implementation, used by afl-fuzz afl-showmap, afl-tmin

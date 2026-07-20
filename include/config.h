@@ -447,8 +447,6 @@ We add 4 byte for one u32 length field. */
 
 /* Other less interesting, internal-only variables. */
 
-#define CLANG_ENV_VAR "__AFL_CLANG_MODE"
-#define AS_LOOP_ENV_VAR "__AFL_AS_LOOPCHECK"
 #define PERSIST_ENV_VAR "__AFL_PERSISTENT"
 #define DEFER_ENV_VAR "__AFL_DEFER_FORKSRV"
 
