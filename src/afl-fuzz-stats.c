@@ -1473,8 +1473,8 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
-  SAYF(bV bSTOP "py/custom/rq : " cRST "%-36s " bSTG bVR bH20 bH2 bH bRB "\n",
-       tmp);
+  SAYF(bV bSTOP "py/custom/rq : " cRST "%-36s " bSTG bVR bH5 "%s" bH5 bH2 bH bRB "\n",
+       tmp, unlikely(afl->starved) ? cPIN "[starved]" bSTG bH : bH10);
 
   if (likely(afl->disable_trim)) {
 

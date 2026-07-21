@@ -947,6 +947,25 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     calculate_cksum_if_necessary(afl, &cksum, &cksumed, &classified);
     calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
 
+    if (new_bits > 1) {
+
+      // do not set afl->last_find_time here
+      afl->last_real_find_time = get_cur_time();
+
+      if (unlikely(afl->starved)) {
+
+        afl->starved = 0;
+        afl->reinit_table = 1;
+        afl->input_mode = afl->saved_input_mode;
+        afl->schedule = afl->saved_schedule;
+        afl->use_splicing = afl->saved_use_splicing;
+
+        if (afl->afl_env.afl_no_ui) { ACTF("Leaving starve mode"); }
+
+      }
+
+    }
+
 #ifndef SIMPLE_FILES
 
     if (!afl->afl_env.afl_sha1_filenames) {

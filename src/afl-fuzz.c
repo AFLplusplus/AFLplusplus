@@ -1636,6 +1636,10 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
 
   }
 
+  afl->saved_schedule = afl->schedule;
+  afl->saved_input_mode = afl->input_mode;
+  afl->saved_use_splicing = afl->use_splicing;
+
   if (optind == argc || !afl->in_dir || !afl->out_dir || show_help) {
 
     usage(argv[0], show_help);

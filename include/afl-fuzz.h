@@ -673,11 +673,14 @@ typedef struct afl_state {
       is_secondary_node,                /* if this is a secondary instance  */
       pizza_is_served,                  /* pizza mode                       */
       input_mode,                       /* target wants text inputs         */
+      saved_input_mode,                 /* saved input mode                 */
       fuzz_mode,          /* coverage/exploration or crash/exploitation mode */
       schedule,                         /* Power schedule (default: EXPLORE)*/
+      saved_schedule,                   /* saved power schedule             */
       havoc_max_mult,                   /* havoc multiplier                 */
       skip_deterministic,               /* Skip deterministic stages?       */
       use_splicing,                     /* Recombine input files?           */
+      saved_use_splicing,               /* saved use splicing               */
       non_instrumented_mode,            /* Run in non-instrumented mode?    */
       score_changed,                    /* Scoring for favorites changed?   */
       resuming_fuzz,                    /* Resuming an older fuzzing job?   */
@@ -705,7 +708,8 @@ typedef struct afl_state {
       shmem_testcase_mode,              /* If sharedmem testcases are used  */
       expand_havoc,                /* perform expensive havoc after no find */
       old_seed_selection,               /* use vanilla afl seed selection   */
-      reinit_table;                     /* reinit the queue weight table    */
+      reinit_table,                     /* reinit the queue weight table    */
+      starved;                          /* no finds for some time           */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
@@ -767,6 +771,7 @@ typedef struct afl_state {
       last_sync_time,                   /* Time of last sync                */
       last_sync_cycle,                  /* Cycle no. of the last sync       */
       last_find_time,                   /* Time for most recent path (ms)   */
+      last_real_find_time,              /* Time for most recent edge (ms)   */
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time,                   /* Time for most recent hang (ms)   */
       longest_find_time,                /* Longest time taken for a find    */

@@ -37,6 +37,21 @@ static void afl_import_first(afl_state_t *afl) {
 
 static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
+  // Temporarily enter starve mode if no finds for 2000 seconds and no new edge
+  // finds for 2500 seconds (also if this is not the begin of a new cycle)
+  u64 cur_time = get_cur_time();
+  if (unlikely(cur_time > (afl->last_find_time + (2000 * 1000)) &&
+               cur_time > (afl->last_real_find_time + (2500 * 1000))) &&
+      likely(!afl->starved && afl->runs_in_current_cycle)) {
+
+    afl->starved = 1;
+    afl->reinit_table = 1;
+    afl->use_splicing = 1;
+
+    if (afl->afl_env.afl_no_ui) { ACTF("Entering starve mode"); }
+
+  }
+
   if (likely(!(!afl->old_seed_selection &&
                afl->runs_in_current_cycle > afl->queued_items) &&
              !(afl->old_seed_selection && !afl->queue_cur))) {

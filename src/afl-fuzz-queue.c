@@ -45,6 +45,31 @@ u8 run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
 
 #endif
 
+static inline u8 rand_schedule(afl_state_t *afl, u8 schedule) {
+
+  if (unlikely(schedule >= FAST && schedule < RARE)) {
+
+    return FAST + (rand_next(afl) % 5);
+
+  } else {
+
+    switch ((rand_next(afl) % 3)) {
+
+      case 0:
+        return EXPLORE;
+      case 1:
+        return EXPLOIT;
+      case 2:
+        return SEEK;
+
+    }
+
+  }
+
+  return EXPLORE;  // not reached
+
+}
+
 /* select next queue entry based on alias algo - fast! */
 
 inline u32 select_next_queue_entry(afl_state_t *afl) {
@@ -105,6 +130,12 @@ void create_alias_table(afl_state_t *afl) {
 
   }
 
+  if (unlikely(afl->starved)) {
+
+    afl->schedule = rand_schedule(afl, afl->saved_schedule);
+
+  };
+
   if (likely(afl->schedule < RARE)) {
 
     double avg_exec_us = 0.0;
@@ -148,7 +179,7 @@ void create_alias_table(afl_state_t *afl) {
     avg_bitmap_size /= active;
     avg_len /= active;
 
-    if (unlikely(c11_max)) {
+    if (unlikely(c11_max && !afl->starved)) {
 
       if (unlikely(c11_min == c11_max)) { --c11_min; }
       inv_range = 1.0f / (c11_max - c11_min);
@@ -303,11 +334,14 @@ void create_alias_table(afl_state_t *afl) {
 
           }
 
+          // if we are in starved mode, even out the weight up to this point
+          if (unlikely(afl->starved)) { weight = sqrt(weight); }
+
           if (unlikely(!q->was_fuzzed)) { weight *= 2.5; }
           if (unlikely(q->fs_redundant)) { weight *= 0.75; }
           if (unlikely(q->handicap)) {
 
-            weight *= (1.0 + (double)q->handicap / 10);
+            weight *= (1.0 + ((double)q->handicap / 10));
 
           }
 
@@ -949,11 +983,11 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
 
   if (unlikely(q->disabled)) { return; }
 
-  if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
+  if (unlikely(afl->saved_schedule >= FAST && afl->saved_schedule < RARE)) {
 
     fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
 
-  } else if (unlikely(afl->schedule == RARE)) {
+  } else if (unlikely(afl->saved_schedule == RARE)) {
 
     fuzz_p2 = next_pow2(afl->n_fuzz[q->n_fuzz_entry]);
 
@@ -963,7 +997,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
 
   }
 
-  if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
+  if (unlikely(afl->saved_schedule >= RARE) || unlikely(afl->fixed_seed)) {
 
     fav_factor = q->len << 2;
 
@@ -987,11 +1021,12 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
           u64 top_rated_fav_factor;
           u64 top_rated_fuzz_p2;
 
-          if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
+          if (unlikely(afl->saved_schedule >= FAST &&
+                       afl->saved_schedule < RARE)) {
 
             top_rated_fuzz_p2 = 0;  // Skip the fuzz_p2 comparison
 
-          } else if (unlikely(afl->schedule == RARE)) {
+          } else if (unlikely(afl->saved_schedule == RARE)) {
 
             top_rated_fuzz_p2 =
                 next_pow2(afl->n_fuzz[afl->top_rated[i]->n_fuzz_entry]);
@@ -1002,7 +1037,8 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
 
           }
 
-          if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
+          if (unlikely(afl->saved_schedule >= RARE) ||
+              unlikely(afl->fixed_seed)) {
 
             top_rated_fav_factor = afl->top_rated[i]->len << 2;
 
@@ -1085,7 +1121,8 @@ inline void cull_queue(afl_state_t *afl) {
     struct queue_entry *q = afl->queue_buf[i];
     if (unlikely(q->tightness_novel)) {
 
-      if (afl->queue_cycle - q->tightness_novel_cycle >= 3) {
+      if (unlikely(afl->queue_cycle - q->tightness_novel_cycle >= 3 ||
+                   q->disabled)) {
 
         q->tightness_novel = 0;
         q->tightness_novel_cycle = 0;

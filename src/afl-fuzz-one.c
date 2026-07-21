@@ -2213,6 +2213,8 @@ havoc_stage:
   u32 *mutation_array;
   u32  stack_max, rand_max;  // stack_max_pow = afl->havoc_stack_pow2;
 
+  if (unlikely(afl->starved)) { afl->input_mode = (rand_next(afl) % 3); }
+
   switch (afl->input_mode) {
 
     case 1: {  // TEXT
@@ -3948,11 +3950,20 @@ abandon_entry:
 
     if (likely(afl->pending_not_fuzzed)) { --afl->pending_not_fuzzed; }
     afl->queue_cur->was_fuzzed = 1;
-    afl->reinit_table = 1;
+
     if (afl->queue_cur->favored) {
 
       if (likely(afl->pending_favored)) { --afl->pending_favored; }
       afl->smallest_favored = -1;
+      afl->reinit_table = 1;
+
+    } else {
+
+      if (unlikely(++afl->pending_reinit > (afl->active_items >> 3))) {
+
+        afl->reinit_table = 1;
+
+      }
 
     }
 

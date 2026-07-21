@@ -1195,12 +1195,12 @@ void perform_dry_run(afl_state_t *afl) {
           ++cal_failures;
           q->cal_failed = CAL_CHANCES;
           q->disabled = 1;
+          afl->reinit_table = 1;
           q->perf_score = 0;
 
           if (!q->was_fuzzed) {
 
             q->was_fuzzed = 1;
-            afl->reinit_table = 1;
             --afl->pending_not_fuzzed;
             --afl->active_items;
 
@@ -1241,7 +1241,6 @@ void perform_dry_run(afl_state_t *afl) {
           if (unlikely(!q->was_fuzzed)) {
 
             q->was_fuzzed = 1;
-            afl->reinit_table = 1;
             --afl->pending_not_fuzzed;
             --afl->active_items;
 
@@ -1249,6 +1248,7 @@ void perform_dry_run(afl_state_t *afl) {
 
           q->disabled = 1;
           q->perf_score = 0;
+          afl->reinit_table = 1;
 
           WARNF("Test case '%s' results in a timeout, skipping", fn);
           break;
@@ -1418,7 +1418,6 @@ void perform_dry_run(afl_state_t *afl) {
         if (!q->was_fuzzed) {
 
           q->was_fuzzed = 1;
-          afl->reinit_table = 1;
           --afl->pending_not_fuzzed;
           --afl->active_items;
 
@@ -1582,6 +1581,7 @@ void perform_dry_run(afl_state_t *afl) {
         }
 
         q->disabled = 1;
+        afl->reinit_table = 1;
         q->perf_score = 0;
 
         break;
@@ -1686,12 +1686,12 @@ void perform_dry_run(afl_state_t *afl) {
       if (!to_disable->was_fuzzed) {
 
         to_disable->was_fuzzed = 1;
-        afl->reinit_table = 1;
         --afl->pending_not_fuzzed;
         --afl->active_items;
 
       }
 
+      afl->reinit_table = 1;
       to_disable->disabled = 1;
       to_disable->perf_score = 0;
 
