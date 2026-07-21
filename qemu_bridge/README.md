@@ -342,7 +342,7 @@ AFL_USE_QASAN=1 afl-fuzz -Q -i in -o out -- ./target @@
 via `AFL_PATH` or next to `afl-qemu-bridge`) and enables the in-QEMU shadow — no
 manual `AFL_PRELOAD` is needed. Overflow **detection** works on all
 architectures; the report's PC/BP/SP context and backtraces are populated on
-x86/x86_64, arm, and aarch64.
+x86/x86_64, arm, aarch64, and riscv.
 
 Current limitations versus a full ASan build:
 
@@ -381,7 +381,7 @@ target with that target's feature set.
 | CMPLOG (routines / RTN)          |  yes   |  no  | no  |   no    |  no  | no  | no    |
 | Persistent mode + futex sync     |  yes   | yes  | no  |   no    |  no  | no  | no    |
 | QASan — overflow detection       |  yes   | yes  | yes |  yes    | yes  | yes | yes   |
-| QASan — report context           |  yes   | yes  | yes |  yes    |  no  | no  | no    |
+| QASan — report context           |  yes   | yes  | yes |  yes    |  no  | no  | yes   |
 
 x86_64 is the primary, fully-supported target. The HOST is fully supported on
 x86_64; other hosts (e.g. aarch64) are expected to work via QEMU's native TCG
