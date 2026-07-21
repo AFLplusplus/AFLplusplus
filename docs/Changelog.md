@@ -9,6 +9,7 @@
       and AFL_LLVM_CALLER replace these mostly and are overall much better
     - removed the obsolete afl-as assembler wrapper and its remaining references
   - afl-fuzz
+    - big change: limits before switching modes is not time based but exec based now.
     - for more variability, a "starved" mode is implemented now. If for a longer
       time no finds are found, then more seed and mutation variability is
       introduced incl. splicing phase enabled. This is visible in the UI.

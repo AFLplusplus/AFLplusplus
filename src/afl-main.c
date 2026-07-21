@@ -37,11 +37,11 @@ static void afl_import_first(afl_state_t *afl) {
 
 static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
-  // Temporarily enter starve mode if no finds for 2000 seconds and no new edge
-  // finds for 2500 seconds (also if this is not the begin of a new cycle)
-  u64 cur_time = get_cur_time();
-  if (unlikely(cur_time > (afl->last_find_time + (2000 * 1000)) &&
-               cur_time > (afl->last_real_find_time + (2500 * 1000))) &&
+  // Temporarily enter starve mode once the favored set is exhausted and no new
+  // edge has been found for STARVE_EDGE_EXECS executions.
+  if (unlikely(afl->pending_favored == 0 &&
+               afl->fsrv.total_execs - afl->last_edge_execs >=
+                   STARVE_EDGE_EXECS) &&
       likely(!afl->starved && afl->runs_in_current_cycle)) {
 
     afl->starved = 1;
@@ -361,21 +361,29 @@ static inline void afl_maybe_switch_mode(afl_state_t *afl) {
 
   u64 cur_time = get_cur_time();
   if (likely(afl->switch_fuzz_mode && afl->fuzz_mode == 0 &&
-             !afl->non_instrumented_mode) &&
-      unlikely(cur_time > (likely(afl->last_find_time) ? afl->last_find_time
-                                                       : afl->start_time) +
-                              afl->switch_fuzz_mode)) {
+             !afl->non_instrumented_mode)) {
 
-    if (afl->afl_env.afl_no_ui) {
+    u64 time_base =
+        likely(afl->last_find_time) ? afl->last_find_time : afl->start_time;
 
-      ACTF(
-          "No new coverage found for %llu seconds, switching to exploitation "
-          "strategy.",
-          afl->switch_fuzz_mode / 1000);
+    if (unlikely(
+            (afl->pending_favored == 0 &&
+             afl->fsrv.total_execs - afl->last_find_execs >= SWITCH_EXECS) ||
+            cur_time >= time_base + afl->switch_fuzz_mode)) {
+
+      if (afl->afl_env.afl_no_ui) {
+
+        ACTF(
+            "No new coverage (%llu execs / %llu s), switching to exploitation "
+            "strategy.",
+            afl->fsrv.total_execs - afl->last_find_execs,
+            (cur_time - time_base) / 1000);
+
+      }
+
+      afl->fuzz_mode = 1;
 
     }
-
-    afl->fuzz_mode = 1;
 
   }
 

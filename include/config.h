@@ -51,8 +51,14 @@
 /* Default time until when no more coverage finds are happening afl-fuzz
    switches to exploitation mode. It automatically switches back when new
    coverage is found.
-   Default: 300 (seconds) */
+   Default: 1000 (seconds) */
 #define STRATEGY_SWITCH_TIME 1000
+#define STARVE_EDGE_EXECS (6000000ULL)
+#define SWITCH_EXECS (10000000ULL)
+#define CMPLOG_I2S_EXECS (5000000ULL)
+#define SKIPDET_DECAY_EXECS (15000000ULL)
+#define MAX_EFF_EXECS (7000000ULL)
+#define MAX_DET_EXECS (10000000ULL)
 
 /* Default file permission umode when creating directories */
 #define DEFAULT_DIRS_PERMISSION 0700
@@ -75,10 +81,8 @@
 /* SkipDet's global configuration */
 
 #define MINIMAL_BLOCK_SIZE 64
-#define SMALL_DET_TIME (60 * 1000 * 1000U)
 #define MAXIMUM_INF_EXECS (16 * 1024U)
 #define MAXIMUM_QUICK_EFF_EXECS (64 * 1024U)
-#define THRESHOLD_DEC_TIME (20 * 60 * 1000U)
 
 /* Set the Prob of selecting eff_bytes 3 times more than original,
    Now disabled */

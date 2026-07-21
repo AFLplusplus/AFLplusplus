@@ -655,7 +655,8 @@ u8 fuzz_one(afl_state_t *afl) {
           (afl->cmplog_lvl == 2 &&
            (afl->queue_cur->tc_ref ||
             afl->fsrv.total_execs % afl->queued_items <= 10)) ||
-          get_cur_time() - afl->last_find_time > 250000) {  // 250 seconds
+          (afl->pending_favored == 0 &&
+           afl->fsrv.total_execs - afl->last_find_execs >= CMPLOG_I2S_EXECS)) {
 
         if (input_to_state_stage(afl, in_buf, out_buf, len)) {
 
@@ -670,6 +671,8 @@ u8 fuzz_one(afl_state_t *afl) {
   }
 
   u64 before_det_time = get_cur_time();
+  afl->det_start_time = before_det_time;
+  afl->det_start_execs = afl->fsrv.total_execs;
 #ifdef INTROSPECTION
 
   u64 before_havoc_time;
@@ -681,7 +684,7 @@ u8 fuzz_one(afl_state_t *afl) {
 #endif
   if (!afl->skip_deterministic) {
 
-    if (!skip_deterministic_stage(afl, in_buf, out_buf, len, before_det_time)) {
+    if (!skip_deterministic_stage(afl, in_buf, out_buf, len)) {
 
       goto abandon_entry;
 
@@ -762,7 +765,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
     if (!bitmap_read(skip_eff_map, afl->stage_cur_byte)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
 
@@ -882,7 +885,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
     if (!bitmap_read(skip_eff_map, afl->stage_cur_byte)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -921,7 +924,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
     if (!bitmap_read(skip_eff_map, afl->stage_cur_byte)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     FLIP_BIT(out_buf, afl->stage_cur);
     FLIP_BIT(out_buf, afl->stage_cur + 1);
@@ -965,7 +968,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
     if (!bitmap_read(skip_eff_map, afl->stage_cur_byte)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     out_buf[afl->stage_cur] ^= 0xFF;
 
@@ -1015,7 +1018,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1058,7 +1061,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1111,7 +1114,7 @@ skip_bitflip:
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1195,7 +1198,7 @@ skip_bitflip:
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1325,7 +1328,7 @@ skip_bitflip:
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1459,7 +1462,7 @@ skip_arith:
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1519,7 +1522,7 @@ skip_arith:
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1607,7 +1610,7 @@ skip_arith:
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1701,7 +1704,7 @@ skip_interest:
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1770,7 +1773,7 @@ skip_interest:
 
     if (!bitmap_read(skip_eff_map, i % len)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1836,7 +1839,7 @@ skip_user_extras:
 
     if (!bitmap_read(skip_eff_map, i)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 
@@ -1896,7 +1899,7 @@ skip_user_extras:
 
     if (!bitmap_read(skip_eff_map, i % len)) continue;
 
-    if (is_det_timeout(before_det_time, 0)) { goto custom_mutator_stage; }
+    if (is_det_timeout(afl, 0)) { goto custom_mutator_stage; }
 
     afl->stage_cur_byte = i;
 

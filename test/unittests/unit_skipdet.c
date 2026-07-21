@@ -63,6 +63,8 @@ u8 common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
     }
 
+    if (afl->fsrv.trace_bits[2]) { ++afl->queued_items; }
+
   }
 
   return 0;
@@ -169,8 +171,8 @@ static void test_skipdet_threshold_decay(void **state) {
   struct queue_entry *q = make_threshold_entry(afl->fsrv.map_size, 1);
 
   afl->skipdet_g->undet_bits_threshold = 2;
-  afl->skipdet_g->last_cov_undet = 1;
-  fake_time = 1 + THRESHOLD_DEC_TIME;
+  afl->skipdet_g->last_cov_undet_execs = 1;
+  afl->fsrv.total_execs = 1 + SKIPDET_DECAY_EXECS;
   assert_true(should_det_fuzz(afl, q));
   assert_int_equal(afl->skipdet_g->undet_bits_threshold, 1);
 
@@ -180,7 +182,8 @@ static void test_skipdet_threshold_decay(void **state) {
   afl = make_afl(64);
   q = make_threshold_entry(afl->fsrv.map_size, 1);
   afl->skipdet_g->undet_bits_threshold = 3;
-  afl->skipdet_g->last_cov_undet = 1;
+  afl->skipdet_g->last_cov_undet_execs = 1;
+  afl->fsrv.total_execs = 1 + SKIPDET_DECAY_EXECS;
   assert_false(should_det_fuzz(afl, q));
   assert_int_equal(afl->skipdet_g->undet_bits_threshold, 2);
 
@@ -205,7 +208,9 @@ static void test_skipdet_correlated_block(void **state) {
   quick_runs = 0;
   fake_time = 0;
 
-  assert_true(skip_deterministic_stage(afl, orig_buf, out_buf, len, fake_time));
+  afl->det_start_time = fake_time;
+  afl->det_start_execs = afl->fsrv.total_execs;
+  assert_true(skip_deterministic_stage(afl, orig_buf, out_buf, len));
   assert_true(q->skipdet_e->done_eff);
   assert_true(bitmap_read(q->skipdet_e->skip_eff_map, 0));
   assert_true(bitmap_read(q->skipdet_e->skip_eff_map, 1));
@@ -236,7 +241,9 @@ static void test_skipdet_resumes_past_32k(void **state) {
   quick_runs = 0;
   correlated_mode = 0;
 
-  u8 r = skip_deterministic_stage(afl, orig_buf, out_buf, len, fake_time);
+  afl->det_start_time = fake_time;
+  afl->det_start_execs = afl->fsrv.total_execs;
+  u8 r = skip_deterministic_stage(afl, orig_buf, out_buf, len);
   assert_int_equal(r, 1);
   assert_int_equal(q->skipdet_e->done_eff, 0);
   assert_true(bitmap_read(q->skipdet_e->skip_eff_map, early_pos));
@@ -250,7 +257,9 @@ static void test_skipdet_resumes_past_32k(void **state) {
   while (!q->skipdet_e->done_eff && guard++ < 100) {
 
     memset(out_buf, 0xAA, len);
-    r = skip_deterministic_stage(afl, orig_buf, out_buf, len, fake_time);
+    afl->det_start_time = fake_time;
+    afl->det_start_execs = afl->fsrv.total_execs;
+    r = skip_deterministic_stage(afl, orig_buf, out_buf, len);
     assert_int_equal(r, 1);
 
     if (!q->skipdet_e->done_eff) {
@@ -277,6 +286,29 @@ static void test_skipdet_resumes_past_32k(void **state) {
 
 }
 
+static void test_is_det_timeout_exec_cap(void **state) {
+
+  (void)state;
+  afl_state_t *afl = make_afl(64);
+  fake_time = 1000;
+  afl->det_start_time = fake_time;
+  afl->det_start_execs = 0;
+
+  afl->fsrv.total_execs = 0;
+  assert_int_equal(is_det_timeout(afl, 0), 0);
+  assert_int_equal(is_det_timeout(afl, 1), 0);
+
+  afl->fsrv.total_execs = MAX_EFF_EXECS + 1;
+  assert_int_equal(is_det_timeout(afl, 1), 1);
+  assert_int_equal(is_det_timeout(afl, 0), 0);
+
+  afl->fsrv.total_execs = MAX_DET_EXECS + 1;
+  assert_int_equal(is_det_timeout(afl, 0), 1);
+
+  free_afl(afl);
+
+}
+
 int main(void) {
 
   const struct CMUnitTest tests[] = {
@@ -285,6 +317,7 @@ int main(void) {
       cmocka_unit_test(test_skipdet_threshold_decay),
       cmocka_unit_test(test_skipdet_correlated_block),
       cmocka_unit_test(test_skipdet_resumes_past_32k),
+      cmocka_unit_test(test_is_det_timeout_exec_cap),
 
   };
 

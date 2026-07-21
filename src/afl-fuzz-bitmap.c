@@ -950,7 +950,8 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     if (new_bits > 1) {
 
       // do not set afl->last_find_time here
-      afl->last_real_find_time = get_cur_time();
+      afl->last_edge_time = get_cur_time();
+      afl->last_edge_execs = afl->fsrv.total_execs;
 
       if (unlikely(afl->starved)) {
 

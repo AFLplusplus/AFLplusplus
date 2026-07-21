@@ -260,7 +260,7 @@ struct skipdet_global {
 
   u32 undet_bits_threshold;
 
-  u64 last_cov_undet;
+  u64 last_cov_undet_execs;
 
   u8 *virgin_det_bits;                  /* global fuzzed bits               */
 
@@ -771,7 +771,11 @@ typedef struct afl_state {
       last_sync_time,                   /* Time of last sync                */
       last_sync_cycle,                  /* Cycle no. of the last sync       */
       last_find_time,                   /* Time for most recent path (ms)   */
-      last_real_find_time,              /* Time for most recent edge (ms)   */
+      last_edge_time,                   /* Time for most recent edge (ms)   */
+      last_find_execs, 			/* last queue item find time        */
+      last_edge_execs,                  /* last time a new edge was found   */
+      det_start_time,                   /* deterministic fuzzing start time */
+      det_start_execs,                  /* deterministic fuzzing start execs*/
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time,                   /* Time for most recent hang (ms)   */
       longest_find_time,                /* Longest time taken for a find    */
@@ -1507,8 +1511,8 @@ double rand_next_percent(afl_state_t *afl);
 
 /* SkipDet Functions */
 
-u8 skip_deterministic_stage(afl_state_t *, u8 *, u8 *, u32, u64);
-u8 is_det_timeout(u64, u8);
+u8 skip_deterministic_stage(afl_state_t *, u8 *, u8 *, u32);
+u8 is_det_timeout(afl_state_t *, u8);
 
 /* afl-fuzz-mopt-adaptive.c */
 void       mopt_adaptive_init(afl_state_t *);

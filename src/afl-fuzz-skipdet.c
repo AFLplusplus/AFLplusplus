@@ -57,15 +57,20 @@ static u8 skipdet_trace_changed(afl_state_t *afl) {
 
 }
 
-u8 is_det_timeout(u64 cur_ms, u8 is_flip) {
+u8 is_det_timeout(afl_state_t *afl, u8 is_flip) {
+
+  u64 exec_delta = afl->fsrv.total_execs - afl->det_start_execs;
+  u64 time_delta = get_cur_time() - afl->det_start_time;
 
   if (is_flip) {
 
-    if (unlikely(get_cur_time() - cur_ms > MAX_EFF_TIMEOUT)) return 1;
+    if (unlikely(time_delta > MAX_EFF_TIMEOUT || exec_delta > MAX_EFF_EXECS))
+      return 1;
 
   } else {
 
-    if (unlikely(get_cur_time() - cur_ms > MAX_DET_TIMEOUT)) return 1;
+    if (unlikely(time_delta > MAX_DET_TIMEOUT || exec_delta > MAX_DET_EXECS))
+      return 1;
 
   }
 
@@ -87,15 +92,16 @@ u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
   if (likely(!q->favored || q->passed_det)) return 0;
   if (unlikely(!q->trace_mini)) return 0;
 
-  if (!afl->skipdet_g->last_cov_undet)
-    afl->skipdet_g->last_cov_undet = get_cur_time();
+  if (!afl->skipdet_g->last_cov_undet_execs)
+    afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
 
-  if (get_cur_time() - afl->skipdet_g->last_cov_undet >= THRESHOLD_DEC_TIME) {
+  if (afl->fsrv.total_execs - afl->skipdet_g->last_cov_undet_execs >=
+      SKIPDET_DECAY_EXECS) {
 
     if (afl->skipdet_g->undet_bits_threshold >= 2) {
 
       afl->skipdet_g->undet_bits_threshold *= 0.75;
-      afl->skipdet_g->last_cov_undet = get_cur_time();
+      afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
 
     }
 
@@ -121,7 +127,7 @@ u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
 
   if (new_det_bits >= afl->skipdet_g->undet_bits_threshold) {
 
-    afl->skipdet_g->last_cov_undet = get_cur_time();
+    afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
     q->skipdet_e->undet_bits = new_det_bits;
 
     for (u32 i = 0; i < afl->fsrv.map_size; i++) {
@@ -149,7 +155,7 @@ u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
 */
 
 u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
-                            u32 len, u64 before_det_time) {
+                            u32 len) {
 
   u64 orig_hit_cnt, new_hit_cnt;
 
@@ -349,7 +355,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
     while (eff_probe < probe_limit) {
 
-      if (is_det_timeout(before_det_time, 1)) { goto cleanup_skipdet; }
+      if (is_det_timeout(afl, 1)) { goto cleanup_skipdet; }
 
       if (afl->stage_cur >= afl->stage_max) { goto cleanup_skipdet; }
 
