@@ -78,6 +78,14 @@ AFL_RAND_RETURN rand_next(afl_state_t *afl) {
 
 }
 
+void afl_trig_log(afl_state_t *afl, const char *event, u8 mode) {
+
+  (void)afl;
+  (void)event;
+  (void)mode;
+
+}
+
 static afl_state_t *make_afl(u32 map_size) {
 
   afl_state_t *afl = calloc(1, sizeof(afl_state_t));

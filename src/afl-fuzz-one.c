@@ -651,12 +651,29 @@ u8 fuzz_one(afl_state_t *afl) {
 
     } else {
 
+      u8 m3 = afl->trig_mode[3];
+      u8 m3_exec =
+          (afl->pending_favored == 0 &&
+           afl->fsrv.total_execs - afl->last_edge_execs >= CMPLOG_I2S_EXECS);
+      u8 m3_time = (get_cur_time() - afl->last_find_time > 250000);
+      u8 m3term = (m3 == 1)   ? m3_time
+                  : (m3 == 2) ? 0
+                  : (m3 == 3) ? (m3_exec || m3_time)
+                              : m3_exec;
+
+      if (unlikely(m3 == 2 && m3_exec)) {
+
+        afl_trig_log(afl, "M3_wouldfire", m3);
+
+      }
+
       if (afl->queue_cur->favored || afl->cmplog_lvl == 3 ||
           (afl->cmplog_lvl == 2 &&
            (afl->queue_cur->tc_ref ||
             afl->fsrv.total_execs % afl->queued_items <= 10)) ||
-          (afl->pending_favored == 0 &&
-           afl->fsrv.total_execs - afl->last_find_execs >= CMPLOG_I2S_EXECS)) {
+          m3term) {
+
+        if (unlikely(m3term)) { afl_trig_log(afl, "M3", m3); }
 
         if (input_to_state_stage(afl, in_buf, out_buf, len)) {
 
@@ -673,6 +690,7 @@ u8 fuzz_one(afl_state_t *afl) {
   u64 before_det_time = get_cur_time();
   afl->det_start_time = before_det_time;
   afl->det_start_execs = afl->fsrv.total_execs;
+  afl->trig_m4_logged = 0;
 #ifdef INTROSPECTION
 
   u64 before_havoc_time;

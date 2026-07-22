@@ -38,17 +38,35 @@ static void afl_import_first(afl_state_t *afl) {
 static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
   // Temporarily enter starve mode once the favored set is exhausted and no new
-  // edge has been found for STARVE_EDGE_EXECS executions.
-  if (unlikely(afl->pending_favored == 0 &&
-               afl->fsrv.total_execs - afl->last_edge_execs >=
-                   STARVE_EDGE_EXECS) &&
-      likely(!afl->starved && afl->runs_in_current_cycle)) {
+  // edge has been found for STARVE_EDGE_EXECS executions. AFL_TRIG_M1 can select
+  // the legacy time trigger ("time") or disable the action ("off") for testing.
+  u64 cur_time = get_cur_time();
+  u8  m1 = afl->trig_mode[1];
+  u8  exec_cond =
+      (afl->pending_favored == 0 &&
+       afl->fsrv.total_execs - afl->last_edge_execs >= STARVE_EDGE_EXECS);
+  u8 time_cond = (cur_time > afl->last_find_time + 2000000ULL &&
+                  cur_time > afl->last_edge_time + 2500000ULL);
+  u8 want = (m1 == 1) ? time_cond
+            : (m1 == 3) ? (exec_cond || time_cond)
+                        : exec_cond;
 
-    afl->starved = 1;
-    afl->reinit_table = 1;
-    afl->use_splicing = 1;
+  if (unlikely(want) && likely(!afl->starved && afl->runs_in_current_cycle)) {
 
-    if (afl->afl_env.afl_no_ui) { ACTF("Entering starve mode"); }
+    if (m1 == 2) {
+
+      afl_trig_log(afl, "M1_wouldfire", m1);
+
+    } else {
+
+      afl->starved = 1;
+      afl->reinit_table = 1;
+      afl->use_splicing = 1;
+      afl_trig_log(afl, "M1", m1);
+
+      if (afl->afl_env.afl_no_ui) { ACTF("Entering starve mode"); }
+
+    }
 
   }
 
@@ -365,23 +383,33 @@ static inline void afl_maybe_switch_mode(afl_state_t *afl) {
 
     u64 time_base =
         likely(afl->last_find_time) ? afl->last_find_time : afl->start_time;
+    u8 m2 = afl->trig_mode[2];
+    u8 exec_leg =
+        (afl->pending_favored == 0 &&
+         afl->fsrv.total_execs - afl->last_edge_execs >= SWITCH_EXECS);
+    u8 time_leg = (cur_time >= time_base + afl->switch_fuzz_mode);
+    u8 want = (m2 == 1) ? time_leg : (m2 == 2 ? 0 : (exec_leg || time_leg));
 
-    if (unlikely(
-            (afl->pending_favored == 0 &&
-             afl->fsrv.total_execs - afl->last_find_execs >= SWITCH_EXECS) ||
-            cur_time >= time_base + afl->switch_fuzz_mode)) {
+    if (unlikely(m2 == 2 && (exec_leg || time_leg))) {
+
+      afl_trig_log(afl, "M2_wouldfire", m2);
+
+    }
+
+    if (unlikely(want)) {
 
       if (afl->afl_env.afl_no_ui) {
 
         ACTF(
             "No new coverage (%llu execs / %llu s), switching to exploitation "
             "strategy.",
-            afl->fsrv.total_execs - afl->last_find_execs,
+            afl->fsrv.total_execs - afl->last_edge_execs,
             (cur_time - time_base) / 1000);
 
       }
 
       afl->fuzz_mode = 1;
+      afl_trig_log(afl, "M2", m2);
 
     }
 
@@ -477,13 +505,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_import_first(afl);  // sync peers before first cycle if AFL_IMPORT_FIRST
 
+  setup_exec_triggers(afl);  // AFL_TRIG_* test toggles + telemetry
+
   while (likely(!afl->stop_soon)) {
 
     cull_queue(afl);               // update favored entries
     afl_advance_queue_cycle(afl);  // start a new cycle when queue is exhausted
     if (afl_fuzz_queue(afl)) { ++afl->runs_in_current_cycle; }
-    afl_maybe_switch_mode(afl);  // switch to exploitation if no new finds
+    afl_maybe_switch_mode(afl);  // switch to exploitation if no new edges
     afl_maybe_sync(afl);         // periodically import other fuzzers' finds
+
+    if (unlikely(afl->trig_log) &&
+        afl->fsrv.total_execs - afl->trig_last_hb >= 200000) {
+
+      afl->trig_last_hb = afl->fsrv.total_execs;
+      afl_trig_log(afl, "HEARTBEAT", 255);
+
+    }
 
   }
 

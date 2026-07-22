@@ -262,6 +262,8 @@ struct skipdet_global {
 
   u64 last_cov_undet_execs;
 
+  u64 last_cov_undet_time;
+
   u8 *virgin_det_bits;                  /* global fuzzed bits               */
 
   struct inf_profile *inf_prof;
@@ -710,6 +712,11 @@ typedef struct afl_state {
       old_seed_selection,               /* use vanilla afl seed selection   */
       reinit_table,                     /* reinit the queue weight table    */
       starved;                          /* no finds for some time           */
+
+  u8    trig_mode[6];
+  u8    trig_m4_logged;
+  FILE *trig_log;
+  u64   trig_last_hb;
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
@@ -1416,6 +1423,8 @@ void load_stats_file(afl_state_t *);
 void write_setup_file(afl_state_t *, u32, char **);
 void write_stats_file(afl_state_t *, u32, double, double, double);
 void maybe_update_plot_file(afl_state_t *, u32, double, double);
+void setup_exec_triggers(afl_state_t *);
+void afl_trig_log(afl_state_t *, const char *, u8);
 void write_queue_stats(afl_state_t *);
 void make_space_for_stats();
 void show_stats(afl_state_t *);

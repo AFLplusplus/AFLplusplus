@@ -537,12 +537,13 @@ Additional entries appear only in specific modes: `extra_binary` and
 giving each binary's path and its own execution count; `virgin_bytes` and
 `var_bytes` are emitted only when `AFL_DEBUG` is set (raw coverage dumps).
 
-`last_edge_execs` backs an execution-count based strategy switch: once the
-favored/covering seed set is exhausted (`pending_favs` reaches 0), staying
-stuck for a flat number of executions with no new edge triggers starve mode.
-The explore -> exploit switch (`-P`) works the same way: it fires once the
-favored set is exhausted and a flat number of executions have passed with no
-new find, or after the `-P` time if one was given, whichever comes first.
+`last_edge_execs` backs the execution-count based strategy switches: once the
+favored/covering seed set is exhausted (`pending_favs` reaches 0), staying stuck
+for a flat number of executions with no new edge drives all three of them --
+forcing the CmpLog input-to-state stage first, then starve mode, then the
+explore -> exploit switch (`-P`), at increasing execution thresholds. The
+explore -> exploit switch also fires after the `-P` time if one was given,
+whichever comes first.
 
 Most of these map directly to the UI elements discussed earlier on.
 

@@ -61,18 +61,23 @@ u8 is_det_timeout(afl_state_t *afl, u8 is_flip) {
 
   u64 exec_delta = afl->fsrv.total_execs - afl->det_start_execs;
   u64 time_delta = get_cur_time() - afl->det_start_time;
+  u8  m4 = afl->trig_mode[4];
+  u64 exec_cap = is_flip ? MAX_EFF_EXECS : MAX_DET_EXECS;
+  u64 time_cap = is_flip ? MAX_EFF_TIMEOUT : MAX_DET_TIMEOUT;
+  u8  time_hit = (time_delta > time_cap);
+  u8  exec_hit = (exec_delta > exec_cap);
 
-  if (is_flip) {
+  if (unlikely(exec_hit && !time_hit && !afl->trig_m4_logged)) {
 
-    if (unlikely(time_delta > MAX_EFF_TIMEOUT || exec_delta > MAX_EFF_EXECS))
-      return 1;
-
-  } else {
-
-    if (unlikely(time_delta > MAX_DET_TIMEOUT || exec_delta > MAX_DET_EXECS))
-      return 1;
+    afl->trig_m4_logged = 1;
+    const char *ev = is_flip ? (m4 == 0 ? "M4_eff" : "M4_eff_wouldfire")
+                             : (m4 == 0 ? "M4_det" : "M4_det_wouldfire");
+    afl_trig_log(afl, ev, m4);
 
   }
+
+  if (unlikely(time_hit)) { return 1; }
+  if (unlikely(m4 == 0 && exec_hit)) { return 1; }
 
   return 0;
 
@@ -92,16 +97,33 @@ u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
   if (likely(!q->favored || q->passed_det)) return 0;
   if (unlikely(!q->trace_mini)) return 0;
 
-  if (!afl->skipdet_g->last_cov_undet_execs)
-    afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
+  if (!afl->skipdet_g->last_cov_undet_execs) {
 
-  if (afl->fsrv.total_execs - afl->skipdet_g->last_cov_undet_execs >=
-      SKIPDET_DECAY_EXECS) {
+    afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
+    afl->skipdet_g->last_cov_undet_time = get_cur_time();
+
+  }
+
+  u8 m5 = afl->trig_mode[5];
+  u8 e5 = (afl->fsrv.total_execs - afl->skipdet_g->last_cov_undet_execs >=
+           SKIPDET_DECAY_EXECS);
+  u8 t5 =
+      (get_cur_time() - afl->skipdet_g->last_cov_undet_time >= 1200000ULL);
+  u8 do5 = (m5 == 1)   ? t5
+           : (m5 == 2) ? 0
+           : (m5 == 3) ? (e5 || t5)
+                       : e5;
+
+  if (unlikely(m5 == 2 && e5)) { afl_trig_log(afl, "M5_wouldfire", m5); }
+
+  if (do5) {
 
     if (afl->skipdet_g->undet_bits_threshold >= 2) {
 
       afl->skipdet_g->undet_bits_threshold *= 0.75;
       afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
+      afl->skipdet_g->last_cov_undet_time = get_cur_time();
+      afl_trig_log(afl, "M5", m5);
 
     }
 
@@ -128,6 +150,7 @@ u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
   if (new_det_bits >= afl->skipdet_g->undet_bits_threshold) {
 
     afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
+    afl->skipdet_g->last_cov_undet_time = get_cur_time();
     q->skipdet_e->undet_bits = new_det_bits;
 
     for (u32 i = 0; i < afl->fsrv.map_size; i++) {
