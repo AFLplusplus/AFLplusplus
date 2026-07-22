@@ -713,11 +713,6 @@ typedef struct afl_state {
       reinit_table,                     /* reinit the queue weight table    */
       starved;                          /* no finds for some time           */
 
-  u8    trig_mode[6];
-  u8    trig_m4_logged;
-  FILE *trig_log;
-  u64   trig_last_hb;
-
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
       *virgin_crash;                    /* Bits we haven't seen in crashes  */
@@ -779,7 +774,7 @@ typedef struct afl_state {
       last_sync_cycle,                  /* Cycle no. of the last sync       */
       last_find_time,                   /* Time for most recent path (ms)   */
       last_edge_time,                   /* Time for most recent edge (ms)   */
-      last_find_execs, 			/* last queue item find time        */
+      last_find_execs,                  /* last queue item find time        */
       last_edge_execs,                  /* last time a new edge was found   */
       det_start_time,                   /* deterministic fuzzing start time */
       det_start_execs,                  /* deterministic fuzzing start execs*/
@@ -882,6 +877,7 @@ typedef struct afl_state {
   u32 colorize_success;
   u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
       cmplog_enable_xtreme_transform, cmplog_random_colorization;
+  u8 saved_cmplog_enable_arith;
   u8 cmplog_tightness, cmplog_size_derive;
   /* Per-cmp-site minimum slack and identity; UINT64_MAX = unseen. Indexed by
      cmp_map header key. Lazily allocated on first slack scan. */
@@ -1423,8 +1419,6 @@ void load_stats_file(afl_state_t *);
 void write_setup_file(afl_state_t *, u32, char **);
 void write_stats_file(afl_state_t *, u32, double, double, double);
 void maybe_update_plot_file(afl_state_t *, u32, double, double);
-void setup_exec_triggers(afl_state_t *);
-void afl_trig_log(afl_state_t *, const char *, u8);
 void write_queue_stats(afl_state_t *);
 void make_space_for_stats();
 void show_stats(afl_state_t *);

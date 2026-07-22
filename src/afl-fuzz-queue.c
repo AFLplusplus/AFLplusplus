@@ -337,6 +337,35 @@ void create_alias_table(afl_state_t *afl) {
           // if we are in starved mode, even out the weight up to this point
           if (unlikely(afl->starved)) { weight = sqrt(weight); }
 
+          /*
+                    // different starve approaches: instead concentrates air
+             time
+                    // on the top seeds (1 = amplify, 2 = rarely-hit + deep
+             frontier). if (unlikely(afl->starved)) {
+
+                      if (afl->starve_focus == 1) {
+
+                        weight = weight * weight;
+
+                      } else if (afl->starve_focus == 2) {
+
+                        u32    fhits = afl->n_fuzz[q->n_fuzz_entry];
+                        double frontier =
+                            (1.0 + (afl->max_depth
+                                        ? (double)q->depth /
+             (double)afl->max_depth : 0.0)) / (log10(fhits ? fhits : 1) + 1.0);
+                        weight *= frontier;
+
+                      } else {
+
+                        weight = sqrt(weight);
+
+                      }
+
+                    }
+
+          */
+
           if (unlikely(!q->was_fuzzed)) { weight *= 2.5; }
           if (unlikely(q->fs_redundant)) { weight *= 0.75; }
           if (unlikely(q->handicap)) {

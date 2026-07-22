@@ -2112,6 +2112,15 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     struct cmp_operands *o = &afl->shm.cmp_map->log[key][i];
 
+    // add agressively to dictionary in starved mode
+    if (unlikely(afl->starved)) {
+
+      u32 asz = hshape > 8 ? 8 : hshape;
+      maybe_add_auto(afl, (u8 *)&o->v1, asz);
+      maybe_add_auto(afl, (u8 *)&o->v0, asz);
+
+    }
+
     // loop detection code
     if (i == 0) {
 
@@ -2947,6 +2956,23 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     struct cmpfn_operands *o =
         &((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[i];
+
+    // agressively add dictionary entries if starved
+    if (unlikely(afl->starved)) {
+
+      if (o->v1_len && o->v1_len <= 32) {
+
+        maybe_add_auto(afl, o->v1, o->v1_len);
+
+      }
+
+      if (o->v0_len && o->v0_len <= 32) {
+
+        maybe_add_auto(afl, o->v0, o->v0_len);
+
+      }
+
+    }
 
     struct cmpfn_operands *orig_o = NULL;
     if (!afl->shm.cmp_map->site_ids[key]) {
