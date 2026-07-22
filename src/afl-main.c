@@ -367,9 +367,9 @@ static inline void afl_maybe_switch_mode(afl_state_t *afl) {
     u64 time_base =
         likely(afl->last_find_time) ? afl->last_find_time : afl->start_time;
 
-    if (unlikely(!afl->pending_favored &&
-                     afl->fsrv.total_execs - afl->last_edge_execs >=
-                         SWITCH_EXECS ||
+    if (unlikely((!afl->pending_favored &&
+                  afl->fsrv.total_execs - afl->last_edge_execs >=
+                      SWITCH_EXECS) ||
                  cur_time >= time_base + afl->switch_fuzz_mode)) {
 
       if (afl->afl_env.afl_no_ui) {

@@ -389,11 +389,11 @@ static inline void cmp_map_snapshot_copy(struct cmp_map_snapshot *snapshot,
     size_t size;
     if (snapshot->headers[key].type == CMP_TYPE_INS) {
 
-      size = MIN(hits, CMP_MAP_H) * sizeof(struct cmp_operands);
+      size = MIN(hits, (u32)CMP_MAP_H) * sizeof(struct cmp_operands);
 
     } else {
 
-      size = MIN(hits, CMP_MAP_RTN_H) * sizeof(struct cmpfn_operands);
+      size = MIN(hits, (u32)CMP_MAP_RTN_H) * sizeof(struct cmpfn_operands);
 
     }
 
