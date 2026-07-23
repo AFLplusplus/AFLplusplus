@@ -168,6 +168,14 @@ class CampaignSnapshot:
         """Representative campaign edge count: the max across (synced) instances."""
         return max((i.edges_found for i in self.instances), default=0)
 
+    def bitmap_cvg_max(self) -> float:
+        """Top map coverage (%) across instances."""
+        return max((i.bitmap_cvg for i in self.instances), default=0.0)
+
+    def pending_favs_total(self) -> int:
+        """Favored queue entries still awaiting fuzzing, summed across instances."""
+        return sum(i.pending_favs for i in self.instances)
+
     def to_dict(self) -> dict[str, Any]:
         return {"schema_version": SCHEMA_VERSION, **asdict(self)}
 
@@ -1006,6 +1014,67 @@ def _toolchain_label(toolchain: str) -> str:
     return "AFL++" if toolchain == "aflpp" else toolchain
 
 
+_ACTION_NUM = re.compile(r"\d+(?:\.\d+)?%?")
+_SEV_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+def _group_actions(actions: list[ActionDirective]) -> list[tuple[str, str, str, list[ActionDirective]]]:
+    """Collapse directives that differ only in embedded numbers into one group.
+
+    Keyed by (severity, action, rationale-with-numbers-blanked), insertion order preserved.
+    The same finding across many instances becomes one group whose members are the affected
+    instances, so the finding is stated once instead of once per instance.
+    """
+    groups: dict[tuple[str, str, str], list[ActionDirective]] = {}
+    order: list[tuple[str, str, str]] = []
+    for a in actions:
+        key = (a.severity, a.action, _ACTION_NUM.sub("\x00", a.rationale))
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(a)
+    return [(k[0], k[1], k[2], groups[k]) for k in order]
+
+
+def _action_group_view(template: str, members: list[ActionDirective]) -> tuple[str, list[str]]:
+    """Split a group into a shared title and per-member labels.
+
+    Numeric tokens shared by every member are restored into the title; tokens that vary
+    are elided from the title and shown per member (as ``instance (values)``), so the
+    common finding reads once and each instance keeps its own distinguishing values.
+    """
+    nums = [_ACTION_NUM.findall(m.rationale) for m in members]
+    slots = template.count("\x00")
+    varying = [len({n[j] for n in nums}) > 1 for j in range(slots)]
+    segs = template.split("\x00")
+    title = segs[0]
+    for j in range(slots):
+        title += ("" if varying[j] else nums[0][j]) + segs[j + 1]
+    title = re.sub(r"\s{2,}", " ", title).strip()
+    labels: list[str] = []
+    for m, ns in zip(members, nums):
+        detail = " ".join(ns[j] for j in range(slots) if varying[j])
+        name = m.target.get("instance") or "campaign"
+        labels.append(f"{name} ({detail})" if detail else name)
+    return title, labels
+
+
+def _wrap_labels(labels: list[str], indent: str, width: int = 92) -> list[str]:
+    """Comma-join labels into indented lines, wrapping at ``width`` without splitting a label."""
+    out: list[str] = []
+    cur = ""
+    for idx, label in enumerate(labels):
+        piece = label + ("," if idx < len(labels) - 1 else "")
+        if cur and len(indent) + len(cur) + 1 + len(piece) > width:
+            out.append(indent + cur)
+            cur = piece
+        else:
+            cur = f"{cur} {piece}" if cur else piece
+    if cur:
+        out.append(indent + cur)
+    return out
+
+
 def render_text(report: Report, summary: bool = False) -> str:
     s = report.snapshot
     if report.overall == "collection_error":
@@ -1029,7 +1098,8 @@ def render_text(report: Report, summary: bool = False) -> str:
             f"Verdict: {report.overall.upper()}  Type: {tc}  "
             f"Running: {s.alive_count}/{s.instance_count}  Runtime: {_hm(s.run_time_s)}  "
             f"Stability: {stability}  Speed: {speed}  "
-            f"Coverage: {coverage}"
+            f"Coverage: {s.bitmap_cvg_max():.2f}% {coverage}  "
+            f"Favs pending: {s.pending_favs_total()}"
         )
     else:
         lines += [
@@ -1077,11 +1147,20 @@ def render_text(report: Report, summary: bool = False) -> str:
     if report.actions:
         lines.append("")
         lines.append("Action required:")
-        for a in sorted(report.actions, key=lambda x: {"high": 0, "medium": 1, "low": 2}.get(x.severity, 3)):
-            where = a.target.get("instance", "campaign")
-            lines.append(f"  [{a.severity}] {a.action} ({where}) — {a.rationale}")
-            if a.suggested_command:
-                lines.append(f"          $ {a.suggested_command}")
+        for severity, action, template, members in sorted(
+            _group_actions(report.actions), key=lambda g: _SEV_RANK.get(g[0], 3)
+        ):
+            cmd = next((m.suggested_command for m in members if m.suggested_command), None)
+            if len(members) == 1:
+                where = members[0].target.get("instance") or "campaign"
+                lines.append(f"  [{severity}] {action} ({where}) — {members[0].rationale}")
+            else:
+                title, labels = _action_group_view(template, members)
+                head = f"  [{severity}] {action} ({len(members)} instances)"
+                lines.append(f"{head} — {title}" if title else head)
+                lines += _wrap_labels(labels, indent="          ")
+            if cmd:
+                lines.append(f"          $ {cmd}")
     for note in report.notes:
         lines.append(f"note: {note}")
     return "\n".join(lines) + "\n"
@@ -1616,7 +1695,8 @@ def _fleet_summary(reports: list[Report]) -> str:
         s = r.snapshot
         lines.append(
             f"  {r.overall.upper():<14} {s.campaign_id}  "
-            f"({s.alive_count}/{s.instance_count} alive, {s.crashes.total} crashes)"
+            f"({s.alive_count}/{s.instance_count} alive, {s.bitmap_cvg_max():.2f}% cov, "
+            f"{s.pending_favs_total()} favs, {s.crashes.total} crashes)"
         )
     return "\n".join(lines)
 
