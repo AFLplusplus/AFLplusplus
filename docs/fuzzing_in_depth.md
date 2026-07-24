@@ -456,6 +456,22 @@ produce a new path/coverage in the target:
 This step is highly recommended, because afterwards the testcase corpus is not
 bloated with duplicates anymore, which would slow down the fuzzing progress!
 
+To instead *add* only the inputs that give new coverage to an already existing
+corpus (like libFuzzer's `-merge=1`), use `afl-merge`. Unlike `afl-cmin` it does
+not minimize the output directory itself, it only appends inputs that cover
+something the output corpus does not already cover:
+
+```
+afl-merge -o CORPUS -i NEW_INPUTS -- bin/target -someopt @@
+```
+
+The output corpus may also be given as the first directory (then `-i` must not
+be used), and `-o` may appear at the beginning or the end:
+
+```
+afl-merge CORPUS NEW_INPUTS1 NEW_INPUTS2 -- bin/target -someopt @@
+```
+
 ### c) Minimizing all corpus files
 
 The shorter the input files that still traverse the same path within the target,

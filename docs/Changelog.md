@@ -15,8 +15,12 @@
       introduced incl. splicing phase enabled. This is visible in the UI.
     - fixed SAND and FrameShift issues
     - enhancements and fixes for cmplog and ijon
-  - afl-cmin (all variants: C, python, bash, awk): empty (0 byte) input files
-    are now skipped
+  - afl-cmin:
+    - (all variants: C, python, bash, awk): empty (0 byte) input files are now
+      skipped
+    - afl-merge (symlink) - merge new files into an existing corpus (that is
+      not minimized)
+    - afl-cmin.c is now the default afl-cmin
   - afl-health
     - more speed, more info
   - custom_mutators:

@@ -104,6 +104,7 @@ static u8 debug_mode,                  /* debug mode                        */
     qemu_mode,                         /* QEMU mode                         */
     unicorn_mode,                      /* Unicorn mode                      */
     nyx_mode,                          /* Nyx mode                          */
+    merge_mode,
     wine_mode;                         /* Wine mode                         */
 
 static cmin_file_t **files;
@@ -611,6 +612,7 @@ static void dedup_files(void) {
 
 static u32  map_size = MAP_SIZE;
 static u32 *best_files;
+static u8  *baseline_covered;
 
 typedef struct {
 
@@ -1599,6 +1601,12 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
   u32 covered_cnt = 0;
   u32 written_cnt = 0;
 
+  if (merge_mode && baseline_covered) {
+
+    memcpy(covered, baseline_covered, effective_map_size);
+
+  }
+
   u64 start_ms = get_cur_time();
 
   // Prepare sortable tuples
@@ -1944,6 +1952,163 @@ static void test_target_binary(void) {
 
 }
 
+static void seed_baseline(void) {
+
+  DIR *d = opendir(out_dir);
+  if (!d) return;
+
+  cmin_file_t  **bfiles = NULL;
+  u32            bcnt = 0, bcap = 0;
+  struct dirent *de;
+
+  while ((de = readdir(d))) {
+
+    if (de->d_name[0] == '.') continue;
+
+    u8         *fn = alloc_printf("%s/%s", out_dir, de->d_name);
+    struct stat st;
+    if (stat(fn, &st) || !S_ISREG(st.st_mode) || !st.st_size) {
+
+      ck_free(fn);
+      continue;
+
+    }
+
+    ck_free(fn);
+
+    if (bcnt >= bcap) {
+
+      bcap = bcap ? bcap * 2 : 256;
+      bfiles = ck_realloc(bfiles, bcap * sizeof(cmin_file_t *));
+
+    }
+
+    cmin_file_t *f = ck_alloc(sizeof(cmin_file_t));
+    f->dir = out_dir;
+    f->name = strdup(de->d_name);
+    f->size = st.st_size;
+    bfiles[bcnt++] = f;
+
+  }
+
+  closedir(d);
+
+  if (!bcnt) {
+
+    if (bfiles) ck_free(bfiles);
+    return;
+
+  }
+
+  OKF("Seeding coverage baseline from %u existing files in '%s'...", bcnt,
+      out_dir);
+
+  afl_forkserver_t fsrv = {0};
+  sharedmem_t      shm = {0};
+  u8               stop_soon = 0;
+  char           **argv;
+
+#ifdef __linux__
+  if (nyx_mode)
+    argv = prepare_fsrv(&fsrv, &shm, map_size, 0, "%s/.cur_input_%u");
+  else
+#endif
+    argv = prepare_fsrv(&fsrv, &shm, map_size, (u32)-1, NULL);
+
+  sharedmem_t shm_fuzz = {0};
+  u8         *fuzz_map =
+      afl_shm_init(&shm_fuzz, MAX_FILE + sizeof(u32), 1, DEFAULT_PERMISSION, 0);
+
+  if (fuzz_map) {
+
+    shm_fuzz.shmemfuzz_mode = 1;
+    fsrv.support_shmem_fuzz = 1;
+    fsrv.shmem_fuzz_len = (u32 *)fuzz_map;
+    fsrv.shmem_fuzz = fuzz_map + sizeof(u32);
+
+    u8 *shm_fuzz_map_size_str = alloc_printf("%lu", MAX_FILE + sizeof(u32));
+    setenv(SHM_FUZZ_MAP_SIZE_ENV_VAR, shm_fuzz_map_size_str, 1);
+    ck_free(shm_fuzz_map_size_str);
+
+  }
+
+  afl_fsrv_start(&fsrv, (char **)argv, &stop_soon, debug_mode ? 1 : 0);
+
+  if (fsrv.support_shmem_fuzz && !fsrv.use_shmem_fuzz) {
+
+    afl_shm_deinit(&shm_fuzz);
+    fsrv.support_shmem_fuzz = 0;
+    fsrv.shmem_fuzz_len = NULL;
+    fsrv.shmem_fuzz = NULL;
+
+  }
+
+  int  dirfd = open(out_dir, O_RDONLY | O_DIRECTORY);
+  u32 *tuples = ck_alloc(map_size * sizeof(u32));
+
+  for (u32 i = 0; i < bcnt; i++) {
+
+    fsrv_run_result_t ret =
+        run_target_file(&fsrv, bfiles[i], dirfd, &stop_soon);
+    if (ret == FSRV_RUN_ERROR) continue;
+
+    u32 t_len = collect_coverage_counts(fsrv.trace_bits, map_size, tuples);
+    for (u32 j = 0; j < t_len; j++)
+      baseline_covered[tuples[j]] = 1;
+
+    if (stop_soon) break;
+
+  }
+
+  ck_free(tuples);
+  if (dirfd >= 0) close(dirfd);
+
+  afl_fsrv_deinit(&fsrv);
+  afl_shm_deinit(&shm);
+  if (fsrv.use_shmem_fuzz) afl_shm_deinit(&shm_fuzz);
+  cleanup_fsrv_allocs(&fsrv, argv);
+
+  for (u32 i = 0; i < bcnt; i++) {
+
+    ck_free(bfiles[i]->name);
+    ck_free(bfiles[i]);
+
+  }
+
+  ck_free(bfiles);
+
+  OKF("Coverage baseline established.");
+
+}
+
+static void cleanup_tmp_files(void) {
+
+  u8 *fn = alloc_printf("%s/.afl-cmin.test_input", out_dir);
+  unlink(fn);
+  ck_free(fn);
+
+  for (u32 i = 0; i < exec_workers; i++) {
+
+    fn = alloc_printf("%s/.cur_input_%u", out_dir, i);
+    unlink(fn);
+    ck_free(fn);
+
+  }
+
+  for (u32 i = 0; i < update_workers; i++) {
+
+    fn = alloc_printf("%s/.traces/worker_%u.dat", out_dir, i);
+    unlink(fn);
+    ck_free(fn);
+
+  }
+
+  fn = alloc_printf("%s/.traces", out_dir);
+  rmdir(fn);
+  ck_free(fn);
+
+}
+
 static void execute_cmin(void) {
 
   cmin_detect_map_size();
@@ -1952,6 +2117,13 @@ static void execute_cmin(void) {
   effective_map_size = map_size;
   if (!edges_only) effective_map_size *= 8;
   OKF("Effective map size: %u", effective_map_size);
+
+  if (merge_mode) {
+
+    baseline_covered = ck_alloc(effective_map_size);
+    seed_baseline();
+
+  }
 
   best_files = ck_alloc((effective_map_size) * sizeof(u32));  // Global best
   for (u32 i = 0; i < effective_map_size; i++)
@@ -1968,9 +2140,62 @@ static void execute_cmin(void) {
 
   ck_free(best_files);
 
+  if (baseline_covered) {
+
+    ck_free(baseline_covered);
+    baseline_covered = NULL;
+
+  }
+
+  cleanup_tmp_files();
+
 }
 
 static void usage(u8 *argv0) {
+
+  if (merge_mode) {
+
+    SAYF(
+        "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
+
+        "Merge inputs that add new coverage into an output corpus, similar to\n"
+        "libFuzzer's -merge=1. Only inputs whose coverage is not already "
+        "present\n"
+        "in the output corpus are added; existing output files are never "
+        "changed\n"
+        "or removed.\n\n"
+
+        "Usage (any of):\n"
+        "  %s -o out_dir -i in_dir [-i in_dir ...] -- /path/to/target [ ... ]\n"
+        "  %s -o out_dir in_dir [in_dir ...]       -- /path/to/target [ ... ]\n"
+        "  %s out_dir in_dir [in_dir ...]          -- /path/to/target [ ... ]\n"
+        "\n"
+        "In the last form the first directory is the output corpus and -i must "
+        "not\n"
+        "be used. -o may be given at the beginning or the end.\n\n"
+
+        "Execution control settings:\n"
+        "  -f file     - location read by the fuzzed program (stdin)\n"
+        "  -m megs     - memory limit for child process (default: none)\n"
+        "  -t msec     - timeout for each run (default: 5000ms)\n"
+        "  -O          - use binary-only instrumentation (FRIDA mode)\n"
+        "  -Q          - use binary-only instrumentation (QEMU mode)\n"
+        "  -W          - use binary-only instrumentation (WINE mode)\n"
+        "  -U          - use unicorn-based instrumentation (Unicorn mode)\n"
+        "  -X          - use Nyx mode\n\n"
+
+        "Misc:\n"
+        "  -T workers  - number of concurrent workers (default: 1)\n"
+        "  -e          - solve for edge coverage only, ignore hit counts\n"
+        "  --debug     - debug mode\n\n"
+
+        "For additional help, consult %s/README.md.\n\n",
+
+        argv0, argv0, argv0, argv0, DOC_PATH);
+
+    exit(0);
+
+  }
 
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
@@ -2227,10 +2452,50 @@ static int compare_files(const void *a, const void *b) {
 
 }
 
+static void add_input_dir(u8 *pattern) {
+
+  glob_t g;
+  int    ret = glob((char *)pattern, GLOB_NOCHECK | GLOB_TILDE, NULL, &g);
+  size_t pathc = (ret == 0) ? g.gl_pathc : 1;
+
+  if (!in_dir) {
+
+    in_dir_cap = pathc + 64;
+    in_dir = ck_alloc(in_dir_cap * sizeof(u8 *));
+
+  } else if (in_dir_cnt + pathc >= in_dir_cap) {
+
+    in_dir_cap = ((in_dir_cnt + pathc) * 2) + 64;
+    in_dir = ck_realloc(in_dir, in_dir_cap * sizeof(u8 *));
+
+  }
+
+  if (ret == 0) {
+
+    for (size_t k = 0; k < g.gl_pathc; k++) {
+
+      in_dir[in_dir_cnt++] = strdup(g.gl_pathv[k]);
+
+    }
+
+    globfree(&g);
+
+  } else {
+
+    in_dir[in_dir_cnt++] = strdup((char *)pattern);
+
+  }
+
+}
+
 int main(int argc, char **argv) {
 
   progname = argv[0];
   SR(getpid() ^ (u32)time(NULL));
+
+  u8 *cname = (u8 *)strrchr(argv[0], '/');
+  cname = cname ? cname + 1 : (u8 *)argv[0];
+  if (!strcmp((char *)cname, "afl-merge")) merge_mode = 1;
 
   s32 opt;
   int option_index = 0;
@@ -2242,12 +2507,34 @@ int main(int argc, char **argv) {
                                          {"debug", no_argument, 0, 0},
                                          {0, 0, 0, 0}};
 
-  SAYF(cCYA "afl-cmin" VERSION cRST "\n");
+  SAYF(cCYA "%s" VERSION cRST "\n", merge_mode ? "afl-merge" : "afl-cmin");
 
   cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
 
-  while ((opt = getopt_long(argc, argv, "+i:o:f:m:t:T:OQUWXACeh", long_options,
-                            &option_index)) != -1) {
+  s32 sep = argc;
+
+  if (merge_mode) {
+
+    for (s32 i = 1; i < argc; i++) {
+
+      if (!strcmp(argv[i], "--")) {
+
+        sep = i;
+        break;
+
+      }
+
+    }
+
+    if (sep == argc) usage(argv[0]);
+    argv[sep] = NULL;
+
+  }
+
+  while ((opt = getopt_long(merge_mode ? sep : argc, argv,
+                            merge_mode ? "i:o:f:m:t:T:OQUWXACeh"
+                                       : "+i:o:f:m:t:T:OQUWXACeh",
+                            long_options, &option_index)) != -1) {
 
     if (opt == 0) {
 
@@ -2275,41 +2562,9 @@ int main(int argc, char **argv) {
 
     switch (opt) {
 
-      case 'i': {
-
-        glob_t g;
-        int    ret = glob(optarg, GLOB_NOCHECK | GLOB_TILDE, NULL, &g);
-        size_t pathc = (ret == 0) ? g.gl_pathc : 1;
-
-        if (!in_dir) {
-
-          in_dir_cap = pathc + 64;
-          in_dir = ck_alloc(in_dir_cap * sizeof(u8 *));
-
-        } else if (in_dir_cnt + pathc >= in_dir_cap) {
-
-          in_dir_cap = ((in_dir_cnt + pathc) * 2) + 64;
-          in_dir = ck_realloc(in_dir, in_dir_cap * sizeof(u8 *));
-
-        }
-
-        if (ret == 0) {
-
-          for (size_t k = 0; k < g.gl_pathc; k++) {
-
-            in_dir[in_dir_cnt++] = strdup(g.gl_pathv[k]);
-
-          }
-
-          globfree(&g);
-
-        } else {
-
-          in_dir[in_dir_cnt++] = strdup(optarg);
-
-        }
-
-      } break;
+      case 'i':
+        add_input_dir((u8 *)optarg);
+        break;
 
       case 'o':
         if (out_dir) FATAL("Multiple -o options not supported");
@@ -2448,21 +2703,51 @@ int main(int argc, char **argv) {
 
   }
 
-  if (optind == argc || !out_dir || !in_dir_cnt) usage(argv[0]);
+  s32 tgt_idx;
 
-  target_bin = argv[optind];
-  target_args = (u8 **)(argv + optind);
+  if (merge_mode) {
+
+    s32 first_pos = optind;
+
+    if (!out_dir) {
+
+      if (in_dir_cnt)
+        FATAL(
+            "In merge mode without -o do not use -i; pass the output corpus as "
+            "the first directory");
+      if (first_pos >= sep) FATAL("No output directory specified");
+      out_dir = argv[first_pos];
+      first_pos++;
+
+    }
+
+    for (s32 i = first_pos; i < sep; i++)
+      add_input_dir((u8 *)argv[i]);
+
+    if (!in_dir_cnt) FATAL("No input directories specified");
+    if (sep + 1 >= argc) FATAL("No target binary specified after --");
+    tgt_idx = sep + 1;
+
+  } else {
+
+    if (optind == argc || !out_dir || !in_dir_cnt) usage(argv[0]);
+    tgt_idx = optind;
+
+  }
+
+  target_bin = argv[tgt_idx];
+  target_args = (u8 **)(argv + tgt_idx);
   if (qemu_mode) {
 
     if (wine_mode) {
 
-      target_args = (u8 **)get_wine_argv(argv[0], &target_bin, argc - optind,
-                                         argv + optind);
+      target_args = (u8 **)get_wine_argv(argv[0], &target_bin, argc - tgt_idx,
+                                         argv + tgt_idx);
 
     } else {
 
-      target_args = (u8 **)get_qemu_argv(argv[0], &target_bin, argc - optind,
-                                         argv + optind);
+      target_args = (u8 **)get_qemu_argv(argv[0], &target_bin, argc - tgt_idx,
+                                         argv + tgt_idx);
 
     }
 
@@ -2484,18 +2769,22 @@ int main(int argc, char **argv) {
     if (errno != EEXIST)
       FATAL("Unable to create output directory '%s'", out_dir);
 
-    DIR *d = opendir(out_dir);
-    if (!d) FATAL("Unable to open output directory '%s'", out_dir);
+    if (!merge_mode) {
 
-    struct dirent *de;
-    while ((de = readdir(d))) {
+      DIR *d = opendir(out_dir);
+      if (!d) FATAL("Unable to open output directory '%s'", out_dir);
 
-      if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
-      FATAL("Output directory '%s' is not empty", out_dir);
+      struct dirent *de;
+      while ((de = readdir(d))) {
+
+        if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
+        FATAL("Output directory '%s' is not empty", out_dir);
+
+      }
+
+      closedir(d);
 
     }
-
-    closedir(d);
 
   }
 

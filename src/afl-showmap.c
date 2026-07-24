@@ -1925,6 +1925,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   } else {
 
+    map_size = fsrv->map_size;
+
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz) {
 
       shm_fuzz = deinit_shmem(fsrv, shm_fuzz);

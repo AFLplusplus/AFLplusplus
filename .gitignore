@@ -37,6 +37,8 @@ afl-cmin
 afl-cmin.8
 afl-cmin.bash.8
 afl-cmin.py.8
+afl-merge
+afl-merge.8
 afl-cs-proxy
 afl-frida-trace.so
 afl-fuzz
