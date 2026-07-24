@@ -4,10 +4,6 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.03a (dev)
-  - afl-cc
-    - remove classic AFL instrumentation (colliding coverage), as AFL_LLVM_PATH
-      and AFL_LLVM_CALLER replace these mostly and are overall much better
-    - removed the obsolete afl-as assembler wrapper and its remaining references
   - afl-fuzz
     - big change: limits before switching modes is not time based but exec based now.
     - for more variability, a "starved" mode is implemented now. If for a longer
@@ -15,6 +11,10 @@
       introduced incl. splicing phase enabled. This is visible in the UI.
     - fixed SAND and FrameShift issues
     - enhancements and fixes for cmplog and ijon
+  - afl-cc
+    - remove classic AFL instrumentation (colliding coverage), as AFL_LLVM_PATH
+      and AFL_LLVM_CALLER replace these mostly and are overall much better
+    - removed the obsolete afl-as assembler wrapper and its remaining references
   - afl-cmin:
     - (all variants: C, python, bash, awk): empty (0 byte) input files are now
       skipped

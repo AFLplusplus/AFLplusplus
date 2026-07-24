@@ -93,6 +93,7 @@ void create_alias_table(afl_state_t *afl) {
 
   u32    n = afl->queued_items, i = 0, nSmall = 0, nLarge = n - 1;
   double sum = 0;
+  u8     find_favored = (afl->smallest_favored == -1);
 
   if (likely(afl->alias_table)) {
 
@@ -159,6 +160,17 @@ void create_alias_table(afl_state_t *afl) {
 
           if (unlikely(q->c11 < c11_min)) c11_min = q->c11;
           if (unlikely(q->c11 > c11_max)) c11_max = q->c11;
+
+        }
+
+        if (unlikely(find_favored)) {
+
+          if (unlikely(q->favored && !q->was_fuzzed)) {
+
+            afl->smallest_favored = i;
+            find_favored = 0;
+
+          }
 
         }
 
@@ -428,6 +440,17 @@ void create_alias_table(afl_state_t *afl) {
 
         q->perf_score = calculate_score(afl, q);
         sum += q->perf_score;
+
+        if (unlikely(find_favored)) {
+
+          if (unlikely(q->favored && !q->was_fuzzed)) {
+
+            afl->smallest_favored = i;
+            find_favored = 0;
+
+          }
+
+        }
 
       }
 
