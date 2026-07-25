@@ -396,7 +396,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
   } else if (!afl->non_instrumented_mode && !afl->queue_cur->favored &&
 
-             afl->queued_items > 10) {
+             !afl->prefer_unfuzzed && afl->queued_items > 10) {
 
     /* Otherwise, still possibly skip non-favored cases, albeit less often.
        The odds of skipping stuff are higher for already-fuzzed inputs and

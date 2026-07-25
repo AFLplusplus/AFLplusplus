@@ -643,7 +643,7 @@ typedef struct afl_state {
   /* Status UI and timing globals where it really makes no sense to haul them
      around as function parameters. */
   u64 most_time_key, most_time, most_execs_key, most_execs, force_ui_update,
-      prev_run_time, starved_count;      /* how often starve mode was entered */
+      prev_run_time, starved_count;    /* how often starve mode was entered */
 
   struct mopt_adaptive mopt_adaptive;
 
@@ -711,7 +711,8 @@ typedef struct afl_state {
       expand_havoc,                /* perform expensive havoc after no find */
       old_seed_selection,               /* use vanilla afl seed selection   */
       reinit_table,                     /* reinit the queue weight table    */
-      starved;                          /* no finds for some time           */
+      starved,                          /* no finds for some time           */
+      prefer_unfuzzed;            /* fuzz unfuzzed entries before starving  */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
@@ -803,6 +804,7 @@ typedef struct afl_state {
   u32 stage_cur, stage_max;             /* Stage progression                */
   s32 splicing_with;                    /* Splicing with which test case?   */
   s64 smallest_favored;                 /* smallest queue id favored        */
+  u32 unfuzzed_cursor;              /* monotonic scan hint for prefer mode  */
   s32 afl_ijon_history_limit;           /* IJON history buffer limit        */
 
   u32 main_node_id, main_node_max;      /*   Main instance job splitting    */

@@ -37,20 +37,59 @@ static void afl_import_first(afl_state_t *afl) {
 
 static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
-  // Temporarily enter starve mode once the favored set is exhausted and no new
-  // edge has been found for STARVE_EDGE_EXECS executions.
+  // Once the favored set is exhausted and no new edge has been found for
+  // STARVE_EDGE_EXECS executions, prefer any still-unfuzzed queue entries by
+  // pointing smallest_favored at the smallest such entry. Only when no unfuzzed
+  // entries remain do we temporarily enter starve mode.
   if (unlikely(afl->fsrv.total_execs - afl->last_edge_execs >=
                STARVE_EDGE_EXECS) &&
       likely(!afl->pending_favored && !afl->starved &&
              afl->runs_in_current_cycle)) {
 
-    afl->starved = 1;
-    ++afl->starved_count;
-    afl->reinit_table = 1;
-    afl->use_splicing = 1;
-    afl->cmplog_enable_arith = 1;
+    s64 unfuzzed = -1;
 
-    if (afl->afl_env.afl_no_ui) { ACTF("Entering starve mode"); }
+    if (afl->pending_not_fuzzed) {
+
+      // was_fuzzed and disabled are monotonic within a run and no unfuzzed
+      // entry is favored while pending_favored is 0, so every entry below the
+      // cursor stays a non-candidate and the scan can resume from there.
+      for (u32 i = afl->unfuzzed_cursor; i < afl->queued_items; ++i) {
+
+        struct queue_entry *q = afl->queue_buf[i];
+        if (!q->was_fuzzed && !q->favored && !q->disabled) {
+
+          unfuzzed = (s64)i;
+          afl->unfuzzed_cursor = i;
+          break;
+
+        }
+
+      }
+
+    }
+
+    if (unfuzzed >= 0) {
+
+      afl->smallest_favored = unfuzzed;
+      afl->prefer_unfuzzed = 1;
+
+    } else {
+
+      afl->prefer_unfuzzed = 0;
+      afl->starved = 1;
+      ++afl->starved_count;
+      afl->reinit_table = 1;
+      afl->use_splicing = 1;
+      afl->cmplog_enable_arith = 1;
+
+      if (afl->afl_env.afl_no_ui) { ACTF("Entering starve mode"); }
+
+    }
+
+  } else if (unlikely(afl->prefer_unfuzzed)) {
+
+    afl->prefer_unfuzzed = 0;
+    if (!afl->pending_favored) { afl->smallest_favored = -1; }
 
   }
 
@@ -244,7 +283,8 @@ static inline u8 afl_fuzz_queue(afl_state_t *afl) {
 
     if (likely(!afl->old_seed_selection)) {
 
-      if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
+      if (likely((afl->pending_favored || afl->prefer_unfuzzed) &&
+                 afl->smallest_favored >= 0)) {
 
         afl->current_entry = afl->smallest_favored;
 
@@ -368,10 +408,10 @@ static inline void afl_maybe_switch_mode(afl_state_t *afl) {
     u64 time_base =
         likely(afl->last_find_time) ? afl->last_find_time : afl->start_time;
 
-    if (unlikely((!afl->pending_favored &&
-                  afl->fsrv.total_execs - afl->last_edge_execs >=
-                      SWITCH_EXECS) ||
-                 cur_time >= time_base + afl->switch_fuzz_mode)) {
+    if (unlikely(
+            (!afl->pending_favored &&
+             afl->fsrv.total_execs - afl->last_edge_execs >= SWITCH_EXECS) ||
+            cur_time >= time_base + afl->switch_fuzz_mode)) {
 
       if (afl->afl_env.afl_no_ui) {
 
