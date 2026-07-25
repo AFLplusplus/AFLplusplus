@@ -45,6 +45,7 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
              afl->runs_in_current_cycle)) {
 
     afl->starved = 1;
+    ++afl->starved_count;
     afl->reinit_table = 1;
     afl->use_splicing = 1;
     afl->cmplog_enable_arith = 1;

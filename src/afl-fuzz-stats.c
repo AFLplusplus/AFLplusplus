@@ -547,6 +547,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
           : "default",
       afl->orig_cmdline);
 
+  fprintf(f, "starved_count     : %llu\n", afl->starved_count);
+
   if (afl->san_binary_length) {
 
     for (u8 i = 0; i < afl->san_binary_length; i++) {
