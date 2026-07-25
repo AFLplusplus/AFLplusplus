@@ -1659,6 +1659,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", help="JSON config defining targets / ssh opts / state dir")
     p.add_argument("--json", action="store_true", help="machine report (incl. action directives)")
     p.add_argument("--summary", action="store_true", help="condensed one-line per campaign (fleet roll-up for many)")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("-r", "--running", "-a", "--alive", action="store_true", help="show only running/alive campaigns (>=1 instance alive)")
+    g.add_argument("-d", "--dead", action="store_true", help="show only dead campaigns (no instance alive)")
     p.add_argument("--watch", type=float, metavar="SECONDS", help="live refresh every N seconds")
     p.add_argument(
         "--on-change", metavar="CMD", help="run CMD when a target changes state; event JSON is piped on stdin"
@@ -1677,11 +1680,22 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _filter_reports(reports: list[Report], args: argparse.Namespace) -> list[Report]:
+    if args.running:
+        return [r for r in reports if r.snapshot.alive_count > 0]
+    if args.dead:
+        return [r for r in reports if r.snapshot.alive_count == 0]
+    return reports
+
+
 def _emit(reports: list[Report], args: argparse.Namespace, now: int) -> None:
     if args.json:
         print(render_json(reports, now=now, version=__version__))
         return
     if args.quiet:
+        return
+    if not reports:
+        print("No running campaigns." if args.running else "No dead campaigns." if args.dead else "No campaigns.")
         return
     if args.summary and len(reports) > 1:
         print(_fleet_summary(reports))
@@ -1713,6 +1727,7 @@ def _watch(targets: list[Target], args: argparse.Namespace, store: TrendStore | 
     try:
         while True:
             reports = run_once(targets, store=store, expected_eps=args.expect_eps, now=now, on_change=args.on_change)
+            reports = _filter_reports(reports, args)
             sys.stdout.write("\x1b[2J\x1b[H")  # clear screen
             _emit(reports, args, now or int(time.time()))
             sys.stdout.flush()
@@ -1746,6 +1761,7 @@ def main(argv: list[str] | None = None) -> int:
         return _watch(targets, args, store, now)
 
     reports = run_once(targets, store=store, expected_eps=args.expect_eps, now=now, on_change=args.on_change)
+    reports = _filter_reports(reports, args)
     _emit(reports, args, now or int(time.time()))
     return _final_rc(reports, args)
 
