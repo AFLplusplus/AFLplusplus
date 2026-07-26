@@ -408,6 +408,11 @@ shared-memory test cases and hence gives you the fastest speed possible.
 For more information, see
 [utils/aflpp_driver/README.md](../utils/aflpp_driver/README.md).
 
+Writing a harness that actually exercises the interesting parts of the target is
+a skill of its own. For a practical walkthrough of what makes a harness
+effective - and the common mistakes that cripple one - see
+[https://srlabs.de/blog/unlocking-secrets-effective-fuzzing-harness](https://srlabs.de/blog/unlocking-secrets-effective-fuzzing-harness).
+
 ## 2. Preparing the fuzzing campaign
 
 As you fuzz the target with mutated input, having as diverse inputs for the
@@ -835,6 +840,10 @@ and Rust). Feed its report to `cov-analysis` with `--reachability` to have the
 coverage report tell apart code that is *reachable but not reached yet* (the
 actionable gap) from code that is *unreachable* by the harness (expected to stay
 uncovered, so safe to ignore).
+
+For a walkthrough on how to read such coverage reports and turn them into
+concrete next steps for a campaign, see
+[https://srlabs.de/blog/coverage-analysis](https://srlabs.de/blog/coverage-analysis).
 
 If you see that an important area or a feature has not been covered so far, then
 try to find an input that is able to reach that and start a new secondary in
