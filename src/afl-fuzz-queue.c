@@ -87,6 +87,31 @@ inline u32 select_next_queue_entry(afl_state_t *afl) {
 
 }
 
+/* mean log2(n_fuzz) over the active queue, used by the COE schedule. It is the
+   same for every entry, so it is computed once per alias table build. */
+
+static void update_coe_fuzz_mu(afl_state_t *afl) {
+
+  long double fuzz_mu = 0.0;
+  u32         n_items = 0;
+
+  for (u32 i = 0; i < afl->queued_items; i++) {
+
+    if (likely(!afl->queue_buf[i]->disabled)) {
+
+      fuzz_mu += log2(afl->n_fuzz[afl->queue_buf[i]->n_fuzz_entry]);
+      ++n_items;
+
+    }
+
+  }
+
+  if (unlikely(!n_items)) { FATAL("Queue state corrupt"); }
+
+  afl->coe_fuzz_mu = fuzz_mu / n_items;
+
+}
+
 /* create the alias table that allows weighted random selection - expensive */
 
 void create_alias_table(afl_state_t *afl) {
@@ -190,6 +215,13 @@ void create_alias_table(afl_state_t *afl) {
     avg_exec_us /= active;
     avg_bitmap_size /= active;
     avg_len /= active;
+
+    if (unlikely(afl->schedule == COE)) {
+
+      update_coe_fuzz_mu(afl);
+      afl->coe_mu_cached = 1;
+
+    }
 
     if (unlikely(c11_max && !afl->starved)) {
 
@@ -389,6 +421,7 @@ void create_alias_table(afl_state_t *afl) {
         }
 
         q->weight = weight;
+        q->perf_score = calculate_score(afl, q);
         sum += q->weight;
 
       }
@@ -527,6 +560,7 @@ void create_alias_table(afl_state_t *afl) {
   free(Large);
   afl->reinit_table = 0;
   afl->pending_reinit = 0;
+  afl->coe_mu_cached = 0;
 
   /*
   #ifdef INTROSPECTION
@@ -1390,9 +1424,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
-  u32         n_items;
-  double      factor = 1.0;
-  long double fuzz_mu;
+  double factor = 1.0;
 
   switch (afl->schedule) {
 
@@ -1407,29 +1439,12 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
       break;
 
     case COE:
-      fuzz_mu = 0.0;
-      n_items = 0;
-
       // Don't modify perf_score for unfuzzed seeds
       if (!q->fuzz_level) break;
 
-      u32 i;
-      for (i = 0; i < afl->queued_items; i++) {
+      if (unlikely(!afl->coe_mu_cached)) { update_coe_fuzz_mu(afl); }
 
-        if (likely(!afl->queue_buf[i]->disabled)) {
-
-          fuzz_mu += log2(afl->n_fuzz[afl->queue_buf[i]->n_fuzz_entry]);
-          n_items++;
-
-        }
-
-      }
-
-      if (unlikely(!n_items)) { FATAL("Queue state corrupt"); }
-
-      fuzz_mu = fuzz_mu / n_items;
-
-      if (log2(afl->n_fuzz[q->n_fuzz_entry]) > fuzz_mu) {
+      if (log2(afl->n_fuzz[q->n_fuzz_entry]) > afl->coe_fuzz_mu) {
 
         /* Never skip favourites */
         if (!q->favored) factor = 0;

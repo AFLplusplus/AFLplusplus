@@ -679,6 +679,7 @@ typedef struct afl_state {
       fuzz_mode,          /* coverage/exploration or crash/exploitation mode */
       schedule,                         /* Power schedule (default: EXPLORE)*/
       saved_schedule,                   /* saved power schedule             */
+      coe_mu_cached,                   /* coe_fuzz_mu valid this build?     */
       havoc_max_mult,                   /* havoc multiplier                 */
       skip_deterministic,               /* Skip deterministic stages?       */
       use_splicing,                     /* Recombine input files?           */
@@ -726,6 +727,8 @@ typedef struct afl_state {
   u32     splice_buf_count;           /* number of splice candidates        */
   u32     splice_buf_alloc;           /* allocated capacity of splice_buf   */
   u32     active_items;                 /* enabled entries in the queue     */
+
+  long double coe_fuzz_mu;              /* COE mean log2(n_fuzz) of queue   */
 
   u8 *var_bytes;                        /* Bytes that appear to be variable */
 
