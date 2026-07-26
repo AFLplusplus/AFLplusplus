@@ -1323,6 +1323,8 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
+  u32 speed_score = perf_score;
+
   /* Adjust score based on bitmap size. The working theory is that better
      coverage translates to better targets. Multiplier from 0.25x to 3x. */
 
@@ -1529,6 +1531,12 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
     if (factor > MAX_FACTOR) { factor = MAX_FACTOR; }
     perf_score *= factor / POWER_BETA;
+
+  }
+
+  if (unlikely(afl->starved)) {
+
+    perf_score = speed_score * sqrt((double)perf_score / speed_score);
 
   }
 
