@@ -769,6 +769,18 @@ directives), `--summary` (one line per campaign / fleet roll-up), `--watch N`
 (live refresh every N seconds), `--on-change CMD` (run a hook when a campaign
 flips state or gains new crashes) and process exit codes suitable for cron/CI.
 
+A `DEGRADED` verdict always names its reason - `dead-instances`,
+`low-stability`, `exec-slowdown`, or a `+`-joined combination. Instances that
+are no longer running are told apart rather than lumped together: `killed` (died
+unexpectedly - OOM, SIGKILL, a crash), `stopped` (shut down cleanly by the user
+or by a `-V`/`-E` limit) and `leftover` (ran before the currently running
+instances started, i.e. a previous campaign generation that was not restarted).
+Only the first counts against the verdict, so deliberately stopped or retired
+instances no longer make a healthy campaign look degraded. The distinction comes
+from the `fastresume.bin` file, which afl-fuzz writes only on a clean shutdown
+(so it needs AFL++ >= 4.22a and no `AFL_NO_FASTRESUME`; otherwise the cause is
+reported as `unknown` and does count).
+
 Another tool to inspect the current state and history of a specific instance is
 afl-plot, which generates an index.html file and graphs that show how the
 fuzzing instance is performing. The syntax is `afl-plot instance_dir web_dir`,

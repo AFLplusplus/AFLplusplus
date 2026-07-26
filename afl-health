@@ -69,6 +69,9 @@ class RawInstance:
     crash_count: int
     hang_count: int
     core_bytes: int
+    fastresume_present: bool = False
+    main_node_file: bool = False
+    no_fastresume_env: bool = False
 
 
 @dataclass
@@ -116,6 +119,9 @@ class Instance:
     run_time_s: int
     last_update_age_s: int
     last_find_age_s: int | None
+    start_time: int = 0
+    afl_version: str = ""
+    death: str = ""
     absent_fields: list[str] = field(default_factory=list)
     status: str = ""  # filled by analyze
     issues: list[str] = field(default_factory=list)
@@ -210,6 +216,7 @@ class Report:
     actions: list[ActionDirective] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     headline: dict[str, str] = field(default_factory=dict)  # one-word status per dimension
+    degraded_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         d = self.snapshot.to_dict()
@@ -217,6 +224,7 @@ class Report:
             {
                 "overall": self.overall,
                 "verdict_explainer": self.verdict_explainer,
+                "degraded_reasons": list(self.degraded_reasons),
                 "headline": dict(self.headline),
                 "findings": [asdict(f) for f in self.findings],
                 "actions": [asdict(a) for a in self.actions],
@@ -389,6 +397,48 @@ STALE_SECONDS = 180  # since last_update beyond which an instance is presumed no
 # Fields newer AFL++ builds may omit; tracked as "absent" so callers never read 0.
 _WATCHED_OPTIONAL = ("slowest_exec_ms", "peak_rss_mb")
 
+FASTRESUME_MIN_VERSION = (4, 22)
+_VERSION_RE = re.compile(r"(\d+)\.(\d+)")
+
+
+def supports_fastresume(afl_version: str) -> bool:
+    """True if this afl-fuzz build writes ``fastresume.bin`` on a clean exit.
+
+    afl-fuzz writes it only from ``stop_fuzzing()`` — the graceful shutdown path — and
+    unlinks it again the moment it resumes from it. So on a *non-running* instance the
+    file is a positive marker of a clean shutdown. It exists since AFL++ 4.22a; older
+    builds leave no marker at all, which makes absence meaningless.
+    """
+    m = _VERSION_RE.search(afl_version or "")
+    if not m:
+        return False
+    return (int(m.group(1)), int(m.group(2))) >= FASTRESUME_MIN_VERSION
+
+
+def classify_death(inst: Instance, raw: RawInstance, *, generation_start: int | None, last_update: int) -> str:
+    """Why a non-running instance is not running.
+
+    ``leftover``  started *and* stopped before the currently-running instances began —
+                  a previous campaign generation that simply was not restarted.
+    ``stopped``   left a clean-exit marker: a user stop, or a ``-V``/``-E`` limit reached.
+    ``killed``    died mid-campaign with no such marker: OOM-killed, SIGKILL, a crash of
+                  afl-fuzz itself, a FATAL, or the machine going down.
+    ``unknown``   no marker is available (AFL++ < 4.22a, or AFL_NO_FASTRESUME suppressed
+                  it), so a clean exit cannot be ruled out either way.
+
+    ``generation_start`` is the start_time of the earliest *freshly reporting* instance:
+    pid liveness alone cannot define it, since a recycled pid can fake a live instance.
+
+    Only ``killed`` and ``unknown`` reflect badly on the campaign.
+    """
+    if generation_start is not None and 0 < inst.start_time < generation_start and last_update < generation_start:
+        return "leftover"
+    if raw.fastresume_present:
+        return "stopped"
+    if raw.no_fastresume_env or not supports_fastresume(inst.afl_version):
+        return "killed" if inst.role == "main" and raw.main_node_file else "unknown"
+    return "killed"
+
 
 def _fnum(kv: dict[str, str], key: str) -> tuple[float, bool]:
     """(value, absent). Strips a trailing ``%``; non-numeric/missing -> (0.0, True)."""
@@ -493,9 +543,24 @@ def build_snapshot(raw: RawCampaign) -> CampaignSnapshot:
                 run_time_s=run_time,
                 last_update_age_s=lu_age,
                 last_find_age_s=lf_age,
+                start_time=_inum(kv, "start_time"),
+                afl_version=kv.get("afl_version", ""),
                 absent_fields=absent,
             ),
         )
+
+    generation_start = min(
+        (i.start_time for i in instances if i.last_update_age_s < STALE_SECONDS and i.start_time > 0),
+        default=None,
+    )
+    for i, ri in zip(instances, raw.instances):
+        if not i.alive:
+            i.death = classify_death(
+                i,
+                ri,
+                generation_start=generation_start,
+                last_update=raw.now - i.last_update_age_s,
+            )
 
     toolchain = "ziggy" if tc_ziggy else "cargo-afl" if tc_cargo else "aflpp"
 
@@ -563,6 +628,40 @@ CORE_BYTES_WARN = 2 * 1024**3  # 2 GB of .core dumps
 THROUGHPUT_RUNTIME = 6 * 3600  # only call a campaign "throughput-bound" after this long
 EPS_DROP_FRACTION = 0.5  # execs/sec below this fraction of its own peak = slowdown
 
+DEGRADED_REASON_TEXT = {
+    "dead-instances": "instance(s) died unexpectedly",
+    "low-stability": "low stability",
+    "exec-slowdown": "dropped exec rate",
+}
+
+DEATH_UNEXPECTED = ("killed", "unknown", "")
+DEATH_ORDER = ("killed", "unknown", "stopped", "leftover")
+
+DEATH_CAUSE = {
+    "killed": "OOM-killed, SIGKILL, a crash of afl-fuzz itself, a FATAL, or the machine went down",
+    "unknown": "no clean-exit marker available (AFL++ < 4.22a or AFL_NO_FASTRESUME) — cause undeterminable",
+    "stopped": "shut down cleanly: stopped by the user, or a -V/-E limit was reached",
+    "leftover": "ran before the current instances started: a previous campaign generation, not restarted",
+    "": "crashed or OOM-killed, or the campaign was stopped",
+}
+
+DEATH_ISSUE = {
+    "killed": "died unexpectedly (no clean-exit marker)",
+    "unknown": "not running; clean exit could not be confirmed",
+    "stopped": "stopped cleanly (user stop or -V/-E limit)",
+    "leftover": "leftover from an earlier campaign generation",
+}
+
+
+def dead_breakdown(snap: CampaignSnapshot) -> str:
+    """``2 killed`` — instances that died on us. Empty unless some actually did.
+
+    Instances that stopped cleanly or are leftovers of an earlier generation are
+    deliberately not listed: they are expected states, reported in the notes instead.
+    """
+    by_class = Counter(i.death for i in snap.instances if not i.alive and i.death in DEATH_UNEXPECTED and i.death)
+    return ", ".join(f"{by_class[c]} {c}" for c in DEATH_ORDER if by_class[c])
+
 
 def _target(snap: CampaignSnapshot, instance: str | None = None) -> dict[str, Any]:
     t = {"host": snap.host, "output_dir": snap.output_dir}
@@ -591,6 +690,8 @@ def analyze(
     n = snap.instance_count
     alive = [i for i in snap.instances if i.alive]
     dead = [i for i in snap.instances if not i.alive]
+    died = [i for i in dead if i.death in DEATH_UNEXPECTED]
+    idle = [i for i in dead if i.death not in DEATH_UNEXPECTED]
     t = snap.trend
     pending_favs_total = sum(i.pending_favs for i in snap.instances)
     cycles_max = max((i.cycles_done for i in snap.instances), default=0)
@@ -698,31 +799,43 @@ def analyze(
         issues: list[str] = []
         status = "healthy"
         if not i.alive:
-            status = "dead"
-            issues.append("not running (pid dead / last_update stale)")
-            findings.append(
-                Finding(
-                    "medium" if alive else "high",
-                    "instance",
-                    i.name,
-                    "instance not running",
-                    "crashed or OOM-killed, or the campaign was stopped",
+            status = i.death or "dead"
+            issues.append(DEATH_ISSUE.get(i.death, "not running (pid dead / last_update stale)"))
+            if i.death in DEATH_UNEXPECTED:
+                findings.append(
+                    Finding(
+                        "medium" if alive else "high",
+                        "instance",
+                        i.name,
+                        f"instance {DEATH_ISSUE.get(i.death, 'not running')}",
+                        DEATH_CAUSE[i.death],
+                    )
                 )
-            )
-            actions.append(
-                ActionDirective(
-                    "relaunch_instance",
-                    "medium",
-                    "instance",
-                    _target(snap, i.name),
-                    "instance is not running while others are" if alive else "instance not running",
-                    {"last_update_age_s": i.last_update_age_s},
-                    suggested_command="re-run its launch line with AFL_AUTORESUME=1",
+                actions.append(
+                    ActionDirective(
+                        "relaunch_instance",
+                        "medium",
+                        "instance",
+                        _target(snap, i.name),
+                        "instance is not running while others are" if alive else "instance not running",
+                        {"last_update_age_s": i.last_update_age_s, "death": i.death},
+                        suggested_command="re-run its launch line with AFL_AUTORESUME=1",
+                    )
                 )
-            )
-        elif i.stability and i.stability < STABILITY_BAD:
+            else:
+                findings.append(
+                    Finding(
+                        "low",
+                        "instance",
+                        i.name,
+                        f"instance {DEATH_ISSUE[i.death]}",
+                        DEATH_CAUSE[i.death],
+                    )
+                )
+        if i.stability and i.stability < STABILITY_BAD:
             low_stability = True
-            status = "unstable"
+            if i.alive:
+                status = "unstable"
             issues.append(f"stability {i.stability:.0f}% (<{STABILITY_BAD:.0f}%)")
             findings.append(
                 Finding(
@@ -834,7 +947,7 @@ def analyze(
                 _target(snap),
                 "coverage plateaued with the favored queue exhausted",
                 {"slope_per_min": t.edges_slope_recent_per_min, "last_cov_age_s": t.last_cov_entry_age_s},
-                suggested_command="build/inject a richer seed corpus + dictionary (seed-corpus-and-dictionary)",
+                suggested_command="perform a seed corpus and dictionary refresh: build/inject richer seeds + a dictionary",
             )
         )
         actions.append(
@@ -845,7 +958,7 @@ def analyze(
                 _target(snap),
                 "find which reachable code is still uncovered",
                 {},
-                suggested_command="coverage-analysis skill (llvm-cov)",
+                suggested_command="perform a coverage analysis with cov-analysis",
             )
         )
 
@@ -862,10 +975,18 @@ def analyze(
             )
         )
 
+    if idle:
+        by_class = Counter(i.death for i in idle)
+        notes.append(
+            f"{len(idle)} of {snap.instance_count} instance(s) are not running but did not die: "
+            + "; ".join(f"{n}x {cls} ({DEATH_CAUSE[cls]})" for cls, n in by_class.items())
+            + " — not counted against the verdict."
+        )
+
     if snap.honggfuzz_present:
         notes.append(
             "ziggy honggfuzz instance present but not interpreted (out of scope); "
-            "run casr-crash-triage on the shared crashes/ dir for honggfuzz findings."
+            "perform a crash triage (casr-afl) on the shared crashes/ dir for honggfuzz findings."
         )
     absent = sorted({f for i in snap.instances for f in i.absent_fields})
     if absent:
@@ -875,16 +996,26 @@ def analyze(
         )
 
     # --- verdict ----------------------------------------------------------------
+    degraded_reasons: list[str] = []
+    if died:
+        degraded_reasons.append("dead-instances")
+    if low_stability:
+        degraded_reasons.append("low-stability")
+    if eps_drop and not throughput_bound:
+        degraded_reasons.append("exec-slowdown")
+
     if misconfigured:
         overall = "misconfigured"
     elif n > 0 and snap.alive_count == 0:
         overall = "dead"
-    elif dead or low_stability or (eps_drop and not throughput_bound):
+    elif degraded_reasons:
         overall = "degraded"
     elif plateau:
         overall = "stalled"
     else:
         overall = "healthy"
+    if overall != "degraded":
+        degraded_reasons = []
 
     headline = _headline(
         snap,
@@ -896,8 +1027,17 @@ def analyze(
         all_zero_eps=all_zero_eps,
         saturated=bool(saturated),
     )
-    explainer = _explain(overall, snap, throughput_bound=throughput_bound)
-    return Report(snap, overall, explainer, findings=findings, actions=actions, notes=notes, headline=headline)
+    explainer = _explain(overall, snap, throughput_bound=throughput_bound, degraded_reasons=degraded_reasons)
+    return Report(
+        snap,
+        overall,
+        explainer,
+        findings=findings,
+        actions=actions,
+        notes=notes,
+        headline=headline,
+        degraded_reasons=degraded_reasons,
+    )
 
 
 def _headline(
@@ -944,15 +1084,35 @@ def _headline(
     return {"stability": stability, "speed": speed, "coverage": coverage}
 
 
-def _explain(overall: str, snap: CampaignSnapshot, *, throughput_bound: bool) -> str:
+def degraded_tag(reasons: list[str]) -> str:
+    """The single-word reason tags of a degraded verdict, joined for one-line output."""
+    return "+".join(reasons)
+
+
+def _explain(
+    overall: str,
+    snap: CampaignSnapshot,
+    *,
+    throughput_bound: bool,
+    degraded_reasons: list[str] | None = None,
+) -> str:
     t = snap.trend
-    alive = f"{snap.alive_count}/{snap.instance_count} instances alive"
+    breakdown = dead_breakdown(snap)
+    alive = f"{snap.alive_count}/{snap.instance_count} instances alive" + (f" ({breakdown})" if breakdown else "")
     if overall == "misconfigured":
         return f"Setup failure: {alive}, but coverage/feedback is not working (see findings)."
     if overall == "dead":
-        return f"No instance is running ({alive}) — campaign stopped (possibly intended)."
+        clean = all(i.death in ("stopped", "leftover") for i in snap.instances if not i.alive)
+        detail = f" ({breakdown})" if breakdown else ""
+        return (
+            f"No instance is running, {snap.instance_count} total{detail} — "
+            f"campaign {'was stopped cleanly' if clean else 'died or was stopped'}."
+        )
     if overall == "degraded":
-        return f"{alive}, but a subset is unwell (dead instance, low stability, or dropped exec rate)."
+        why = ", ".join(DEGRADED_REASON_TEXT.get(r, r) for r in degraded_reasons or []) or (
+            "dead instance, low stability, or dropped exec rate"
+        )
+        return f"{alive}, but a subset is unwell ({why})."
     if overall == "stalled":
         return (
             f"{alive} and running, but coverage plateaued: edge slope "
@@ -1003,6 +1163,11 @@ def render_json(reports: list[Report], *, now: int, version: str) -> str:
         },
     }
     return json.dumps(envelope, indent=2)
+
+
+def _dead_suffix(snap: CampaignSnapshot) -> str:
+    breakdown = dead_breakdown(snap)
+    return f" [{breakdown}]" if breakdown else ""
 
 
 def _hm(seconds: int) -> str:
@@ -1091,12 +1256,16 @@ def render_text(report: Report, summary: bool = False) -> str:
     if s.trend.last_cov_entry_age_s is not None:
         coverage += f" (last find: {_hm(s.trend.last_cov_entry_age_s)})"
 
+    verdict = report.overall.upper()
+    if report.degraded_reasons:
+        verdict += f" ({degraded_tag(report.degraded_reasons)})"
+
     lines: list[str] = [f"=== {s.campaign_id} ==="]
 
     if summary:
         lines.append(
-            f"Verdict: {report.overall.upper()}  Type: {tc}  "
-            f"Running: {s.alive_count}/{s.instance_count}  Runtime: {_hm(s.run_time_s)}  "
+            f"Verdict: {verdict}  Type: {tc}  "
+            f"Running: {s.alive_count}/{s.instance_count}{_dead_suffix(s)}  Runtime: {_hm(s.run_time_s)}  "
             f"Stability: {stability}  Speed: {speed}  "
             f"Coverage: {s.bitmap_cvg_max():.2f}% {coverage}  "
             f"Favs pending: {s.pending_favs_total()}"
@@ -1104,13 +1273,13 @@ def render_text(report: Report, summary: bool = False) -> str:
     else:
         lines += [
             f"{'Type:':<10} {tc}",
-            f"{'Running:':<10} {s.alive_count}/{s.instance_count}",
+            f"{'Running:':<10} {s.alive_count}/{s.instance_count}{_dead_suffix(s)}",
             f"{'Runtime:':<10} {_hm(s.run_time_s)}",
             f"{'Stability:':<10} {stability}",
             f"{'Speed:':<10} {speed}",
             f"{'Coverage:':<10} {coverage}",
             "",
-            f"{'Verdict:':<10} {report.overall.upper()}",
+            f"{'Verdict:':<10} {verdict}",
             "",
         ]
 
@@ -1289,12 +1458,18 @@ printf '%s\n' "$stats" | while IFS= read -r f; do
   cr=$(find "$d/crashes" -maxdepth 1 -type f -name 'id:*' ! -name '*.core' ! -name '*.txt' ! -name '*.metadata' ! -name 'README.txt' 2>/dev/null | wc -l | tr -d ' ')
   hg=$(find "$d/hangs" -maxdepth 1 -type f -name 'id:*' ! -name '*.core' ! -name '*.txt' ! -name '*.metadata' ! -name 'README.txt' 2>/dev/null | wc -l | tr -d ' ')
   cb=$(find "$d/crashes" -maxdepth 1 -type f -name '*.core' -printf '%s\n' 2>/dev/null | awk '{s+=$1} END{printf "%d", s+0}')
+  fr=0; if [ -f "$d/fastresume.bin" ]; then fr=1; fi
+  mn=0; if [ -f "$d/is_main_node" ]; then mn=1; fi
+  nf=0; if grep -q '^AFL_NO_FASTRESUME=.' "$d/fuzzer_setup" 2>/dev/null; then nf=1; fi
   printf 'INSTANCE %s\n' "$name"
   printf 'PIDALIVE %s\n' "$pa"
   printf 'COVMTIME %s\n' "$cov"
   printf 'CRASHES %s\n' "$cr"
   printf 'HANGS %s\n' "$hg"
   printf 'COREBYTES %s\n' "$cb"
+  printf 'FASTRESUME %s\n' "$fr"
+  printf 'MAINNODEFILE %s\n' "$mn"
+  printf 'NOFASTRESUME %s\n' "$nf"
   sn=$(wc -c < "$f" | tr -d ' ')
   printf 'BLOB stats %s\n' "$sn"
   cat "$f"
@@ -1428,13 +1603,30 @@ def parse_dump(data: bytes, *, host: str) -> RawCampaign:
         crash_count = int(field_after_space() or 0)
         hang_count = int(field_after_space() or 0)
         core_bytes = int(field_after_space() or 0)
+        fastresume = field_after_space() == "1"
+        main_node_file = field_after_space() == "1"
+        no_fastresume_env = field_after_space() == "1"
         b = read_line().split()  # BLOB stats N
         stats = read_bytes(int(b[2])).decode("utf-8", "replace")
         b = read_line().split()  # BLOB plot N
         nplot = int(b[2])
         plot = read_bytes(nplot).decode("utf-8", "replace") if nplot > 0 else None
         read_line()  # ENDINSTANCE
-        instances.append(RawInstance(name, stats, plot, cov_mtime, pid_alive, crash_count, hang_count, core_bytes))
+        instances.append(
+            RawInstance(
+                name,
+                stats,
+                plot,
+                cov_mtime,
+                pid_alive,
+                crash_count,
+                hang_count,
+                core_bytes,
+                fastresume,
+                main_node_file,
+                no_fastresume_env,
+            )
+        )
 
     return RawCampaign(
         f"{host}:{absdir}",
@@ -1658,7 +1850,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--config", help="JSON config defining targets / ssh opts / state dir")
     p.add_argument("--json", action="store_true", help="machine report (incl. action directives)")
-    p.add_argument("--summary", action="store_true", help="condensed one-line per campaign (fleet roll-up for many)")
+    p.add_argument(
+        "--summary",
+        action="store_true",
+        help="condensed one-line per campaign (fleet roll-up for many); a degraded campaign names "
+        "its reason(s): " + " / ".join(DEGRADED_REASON_TEXT),
+    )
     g = p.add_mutually_exclusive_group()
     g.add_argument("-r", "--running", "-a", "--alive", action="store_true", help="show only running/alive campaigns (>=1 instance alive)")
     g.add_argument("-d", "--dead", action="store_true", help="show only dead campaigns (no instance alive)")
@@ -1707,10 +1904,11 @@ def _fleet_summary(reports: list[Report]) -> str:
     lines = [f"FLEET verdict: {fleet_verdict(reports).upper()}  ({len(reports)} campaigns)", ""]
     for r in reports:
         s = r.snapshot
+        why = f", degraded: {degraded_tag(r.degraded_reasons)}" if r.degraded_reasons else ""
         lines.append(
             f"  {r.overall.upper():<14} {s.campaign_id}  "
-            f"({s.alive_count}/{s.instance_count} alive, {s.bitmap_cvg_max():.2f}% cov, "
-            f"{s.pending_favs_total()} favs, {s.crashes.total} crashes)"
+            f"({s.alive_count}/{s.instance_count} alive{_dead_suffix(s)}, {s.bitmap_cvg_max():.2f}% cov, "
+            f"{s.pending_favs_total()} favs, {s.crashes.total} crashes{why})"
         )
     return "\n".join(lines)
 
