@@ -136,7 +136,7 @@ subset of the settings discussed in section 1, with the exception of:
     afl-fuzz' `-x` option.
 
   - An option to `AFL_LLVM_DICT2FILE` is `AFL_LLVM_DICT2FILE_NO_MAIN=1` which
-    skill not parse `main()`.
+    will not parse `main()`.
 
   - LLVM modes compiling C++ will normally set rpath in the binary if LLVM is
     not in a usual location (/usr or /lib). Setting `AFL_LLVM_NO_RPATH=1`

@@ -69,6 +69,7 @@ class RawInstance:
     crash_count: int
     hang_count: int
     core_bytes: int
+    newest_queue_mtime: float | None = None
     fastresume_present: bool = False
     main_node_file: bool = False
     no_fastresume_env: bool = False
@@ -464,13 +465,8 @@ def build_snapshot(raw: RawCampaign) -> CampaignSnapshot:
     variants: dict[str, int] = {}
     by_instance: dict[str, int] = {}
     crash_total = hang_total = core_bytes = 0
-    run_time_max = last_find_max = alive_count = 0
+    run_time_max = alive_count = 0
     tc_ziggy = tc_cargo = False
-
-    main_mtime: float | None = None
-    primary_plot: str | None = None
-    primary_edges = -1
-    have_main = False
 
     for ri in raw.instances:
         kv = parse_fuzzer_stats(ri.fuzzer_stats)
@@ -487,19 +483,12 @@ def build_snapshot(raw: RawCampaign) -> CampaignSnapshot:
         last_update = _inum(kv, "last_update")
         lu_age = max(0, raw.now - last_update)
         last_find = _inum(kv, "last_find")
-        last_find_max = max(last_find_max, last_find)
         lf_age = max(0, raw.now - last_find) if last_find > 0 else None
         alive = ri.pid_alive or lu_age < STALE_SECONDS
         if alive:
             alive_count += 1
 
         edges_found = _inum(kv, "edges_found")
-        if role == "main":
-            have_main = True
-            main_mtime = ri.newest_cov_mtime
-            primary_plot, primary_edges = ri.plot_data, 1 << 62
-        elif edges_found > primary_edges:
-            primary_plot, primary_edges = ri.plot_data, edges_found
 
         crash_total += ri.crash_count
         hang_total += ri.hang_count
@@ -564,19 +553,29 @@ def build_snapshot(raw: RawCampaign) -> CampaignSnapshot:
 
     toolchain = "ziggy" if tc_ziggy else "cargo-afl" if tc_cargo else "aflpp"
 
-    # +cov age: prefer the main queue's newest +cov mtime, else the max across all
-    cov_mtime = (
-        main_mtime
-        if have_main
-        else max(
-            (ri.newest_cov_mtime for ri in raw.instances if ri.newest_cov_mtime is not None),
-            default=None,
-        )
-    )
-    last_cov_age = int(raw.now - cov_mtime) if cov_mtime is not None else None
-    if last_cov_age is not None and last_cov_age < 0:
-        last_cov_age = 0
-    last_find_age = max(0, raw.now - last_find_max) if last_find_max > 0 else None
+    # Campaign-level trend comes from the running main's queue (it syncs everything), else
+    # from the newest/leading running instance — never from one that is no longer running.
+    pairs = list(zip(instances, raw.instances))
+    running = [p for p in pairs if p[0].alive] or pairs
+    main = next((p for p in running if p[0].role == "main"), None)
+
+    def newest(attr: str) -> float | None:
+        return max((getattr(ri, attr) for _, ri in running if getattr(ri, attr) is not None), default=None)
+
+    cov_mtime = (main[1].newest_cov_mtime if main else None) or newest("newest_cov_mtime")
+    queue_mtime = (main[1].newest_queue_mtime if main else None) or newest("newest_queue_mtime")
+
+    def age(ts: float | None) -> int | None:
+        return max(0, int(raw.now - ts)) if ts is not None else None
+
+    last_cov_age = age(cov_mtime)
+    stats_find = max((raw.now - i.last_find_age_s for i, _ in running if i.last_find_age_s is not None), default=None)
+    last_find_age = age(max([t for t in (stats_find, queue_mtime) if t is not None], default=None))
+
+    primary_plot = main[1].plot_data if main else None
+    if primary_plot is None:
+        best = max(running, key=lambda p: p[0].edges_found, default=None)
+        primary_plot = best[1].plot_data if best else None
 
     pt = parse_plot_data(primary_plot or "")
     trend = Trend(
@@ -622,7 +621,7 @@ def build_snapshot(raw: RawCampaign) -> CampaignSnapshot:
 
 STABILITY_BAD = 85.0
 STABILITY_WARN = 90.0
-FLAT_SLOPE = 0.5  # edges/min at/under which coverage is "flat"
+FLAT_SLOPE = 0.5  # edges/min at/under which growth is too slow to rule out a plateau
 SATURATION_CVG = 99.5
 CORE_BYTES_WARN = 2 * 1024**3  # 2 GB of .core dumps
 THROUGHPUT_RUNTIME = 6 * 3600  # only call a campaign "throughput-bound" after this long
@@ -1026,6 +1025,7 @@ def analyze(
         all_zero_edges=all_zero_edges,
         all_zero_eps=all_zero_eps,
         saturated=bool(saturated),
+        cov_recent=t.last_cov_entry_age_s is not None and not cov_old,
     )
     explainer = _explain(overall, snap, throughput_bound=throughput_bound, degraded_reasons=degraded_reasons)
     return Report(
@@ -1050,8 +1050,14 @@ def _headline(
     all_zero_edges: bool,
     all_zero_eps: bool,
     saturated: bool,
+    cov_recent: bool,
 ) -> dict[str, str]:
-    """One-word status per dimension for the header block."""
+    """One-word status per dimension for the header block.
+
+    ``coverage`` states the recent *direction*, not a rate: plot_data's edges_found only
+    accumulates, so any positive slope means new edges landed inside the window. ``flat``
+    is therefore reserved for windows with no new edge at all and no fresh +cov entry.
+    """
     stab_vals = [i.stability for i in snap.instances if i.stability > 0]
     stab_min = min(stab_vals) if stab_vals else None
     if low_stability or (stab_min is not None and stab_min < STABILITY_BAD):
@@ -1076,7 +1082,7 @@ def _headline(
         coverage = "saturated"
     elif plateau:
         coverage = "plateaued"
-    elif throughput_bound or snap.trend.edges_slope_recent_per_min > FLAT_SLOPE:
+    elif throughput_bound or snap.trend.edges_slope_recent_per_min > 0 or cov_recent:
         coverage = "gaining coverage"
     else:
         coverage = "flat"
@@ -1253,8 +1259,13 @@ def render_text(report: Report, summary: bool = False) -> str:
     eps_now = sum((i.execs_ps_last_min or i.execs_per_sec) for i in s.instances if i.alive)
     speed = f"{hl.get('speed', '?')} ({eps_now:.0f} exec/s)"
     coverage = hl.get("coverage", "?")
-    if s.trend.last_cov_entry_age_s is not None:
-        coverage += f" (last find: {_hm(s.trend.last_cov_entry_age_s)})"
+    ages = [
+        f"last find: {_hm(s.trend.last_find_age_s)}" if s.trend.last_find_age_s is not None else "",
+        f"last +cov: {_hm(s.trend.last_cov_entry_age_s)}" if s.trend.last_cov_entry_age_s is not None else "",
+    ]
+    ages = [a for a in ages if a]
+    if ages:
+        coverage += f" ({', '.join(ages)})"
 
     verdict = report.overall.upper()
     if report.degraded_reasons:
@@ -1454,7 +1465,8 @@ printf '%s\n' "$stats" | while IFS= read -r f; do
   d=$(dirname "$f"); name=$(basename "$d")
   pid=$(awk -F: '/^fuzzer_pid/{gsub(/[ \t]/,"",$2); print $2; exit}' "$f")
   pa=0; if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then pa=1; fi
-  cov=$(find "$d/queue" -maxdepth 1 -type f -name '*+cov' -printf '%T@\n' 2>/dev/null | sort -n | tail -n1)
+  qm=$(find "$d/queue" -maxdepth 1 -type f -name 'id:*' -printf '%T@ %f\n' 2>/dev/null | awk '{ if ($1+0>q) q=$1+0; if (index($2,"+cov") && $1+0>c) c=$1+0 } END { printf "%.0f %.0f", q+0, c+0 }')
+  qmtime=${qm%% *}; cov=${qm##* }
   cr=$(find "$d/crashes" -maxdepth 1 -type f -name 'id:*' ! -name '*.core' ! -name '*.txt' ! -name '*.metadata' ! -name 'README.txt' 2>/dev/null | wc -l | tr -d ' ')
   hg=$(find "$d/hangs" -maxdepth 1 -type f -name 'id:*' ! -name '*.core' ! -name '*.txt' ! -name '*.metadata' ! -name 'README.txt' 2>/dev/null | wc -l | tr -d ' ')
   cb=$(find "$d/crashes" -maxdepth 1 -type f -name '*.core' -printf '%s\n' 2>/dev/null | awk '{s+=$1} END{printf "%d", s+0}')
@@ -1464,6 +1476,7 @@ printf '%s\n' "$stats" | while IFS= read -r f; do
   printf 'INSTANCE %s\n' "$name"
   printf 'PIDALIVE %s\n' "$pa"
   printf 'COVMTIME %s\n' "$cov"
+  printf 'QUEUEMTIME %s\n' "$qmtime"
   printf 'CRASHES %s\n' "$cr"
   printf 'HANGS %s\n' "$hg"
   printf 'COREBYTES %s\n' "$cb"
@@ -1552,6 +1565,15 @@ def collect(target: Target, *, now_override: int | None = None) -> RawCampaign:
     return raw
 
 
+def _opt_mtime(token: str) -> float | None:
+    """An mtime field from the collector; absent/zero (no such file) becomes None."""
+    try:
+        value = float(token.strip())
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def parse_dump(data: bytes, *, host: str) -> RawCampaign:
     pos = 0
 
@@ -1598,8 +1620,8 @@ def parse_dump(data: bytes, *, host: str) -> RawCampaign:
             continue
         name = line[len("INSTANCE ") :]
         pid_alive = field_after_space() == "1"
-        cov = field_after_space().strip()
-        cov_mtime = float(cov) if cov else None
+        cov_mtime = _opt_mtime(field_after_space())
+        queue_mtime = _opt_mtime(field_after_space())
         crash_count = int(field_after_space() or 0)
         hang_count = int(field_after_space() or 0)
         core_bytes = int(field_after_space() or 0)
@@ -1622,6 +1644,7 @@ def parse_dump(data: bytes, *, host: str) -> RawCampaign:
                 crash_count,
                 hang_count,
                 core_bytes,
+                queue_mtime,
                 fastresume,
                 main_node_file,
                 no_fastresume_env,

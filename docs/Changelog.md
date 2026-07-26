@@ -22,7 +22,7 @@
       not minimized)
     - afl-cmin.c is now the default afl-cmin
   - afl-health
-    - more speed, more info
+    - more speed, more info, a few fixes
   - custom_mutators:
     - removed outdated and pointless radamsa
 
