@@ -609,7 +609,7 @@ u8 fuzz_one(afl_state_t *afl) {
    * PERFORMANCE SCORE *
    *********************/
 
-  if (likely(!afl->old_seed_selection))
+  if (unlikely(afl->schedule >= RARE) && likely(!afl->old_seed_selection)))
     orig_perf = perf_score = afl->queue_cur->perf_score;
   else
     afl->queue_cur->perf_score = orig_perf = perf_score =

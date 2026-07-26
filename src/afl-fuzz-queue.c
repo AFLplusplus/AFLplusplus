@@ -389,7 +389,6 @@ void create_alias_table(afl_state_t *afl) {
         }
 
         q->weight = weight;
-        q->perf_score = calculate_score(afl, q);
         sum += q->weight;
 
       }
