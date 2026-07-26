@@ -584,7 +584,7 @@ typedef struct afl_env_vars {
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
       afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
       afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled,
-      afl_crash_traces;
+      afl_crash_traces, afl_starved_minimize_queue;
 
   u16 afl_forksrv_nb_supl_gids;
 
@@ -713,6 +713,7 @@ typedef struct afl_state {
       old_seed_selection,               /* use vanilla afl seed selection   */
       reinit_table,                     /* reinit the queue weight table    */
       starved,                          /* no finds for some time           */
+      starve_minimize,       /* starved: 1 rescore, 2 minimize queue, 3 done */
       prefer_unfuzzed;            /* fuzz unfuzzed entries before starving  */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */

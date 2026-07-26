@@ -956,6 +956,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       if (unlikely(afl->starved)) {
 
         afl->starved = 0;
+        afl->starve_minimize = 0;
         afl->reinit_table = 1;
         afl->cmplog_enable_arith = afl->saved_cmplog_enable_arith;
         afl->input_mode = afl->saved_input_mode;

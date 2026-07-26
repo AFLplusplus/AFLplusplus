@@ -104,8 +104,7 @@ static u8 debug_mode,                  /* debug mode                        */
     qemu_mode,                         /* QEMU mode                         */
     unicorn_mode,                      /* Unicorn mode                      */
     nyx_mode,                          /* Nyx mode                          */
-    merge_mode,
-    wine_mode;                         /* Wine mode                         */
+    merge_mode, wine_mode;             /* Wine mode                         */
 
 static cmin_file_t **files;
 static u32           items;
@@ -2531,10 +2530,10 @@ int main(int argc, char **argv) {
 
   }
 
-  while ((opt = getopt_long(merge_mode ? sep : argc, argv,
-                            merge_mode ? "i:o:f:m:t:T:OQUWXACeh"
-                                       : "+i:o:f:m:t:T:OQUWXACeh",
-                            long_options, &option_index)) != -1) {
+  while ((opt = getopt_long(
+              merge_mode ? sep : argc, argv,
+              merge_mode ? "i:o:f:m:t:T:OQUWXACeh" : "+i:o:f:m:t:T:OQUWXACeh",
+              long_options, &option_index)) != -1) {
 
     if (opt == 0) {
 

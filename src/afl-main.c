@@ -86,6 +86,15 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
     }
 
+  } else if (unlikely(afl->starved && !afl->starve_minimize &&
+
+                      afl->afl_env.afl_starved_minimize_queue &&
+                      afl->fsrv.total_execs - afl->last_edge_execs >=
+                          2 * STARVE_EDGE_EXECS)) {
+
+    afl->starve_minimize = 1;
+    afl->score_changed = 1;
+
   } else if (unlikely(afl->prefer_unfuzzed)) {
 
     afl->prefer_unfuzzed = 0;

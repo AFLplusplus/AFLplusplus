@@ -56,8 +56,8 @@
 #define STARVE_EDGE_EXECS (5000000ULL)
 #define SWITCH_EXECS (6000000ULL)
 #define CMPLOG_I2S_EXECS (2000000ULL)
-#define SKIPDET_DECAY_EXECS (10000000ULL)
-#define MAX_EFF_EXECS (5000000ULL)
+#define SKIPDET_DECAY_EXECS (9000000ULL)
+#define MAX_EFF_EXECS (5500000ULL)
 #define MAX_DET_EXECS (8000000ULL)
 
 /* Default file permission umode when creating directories */

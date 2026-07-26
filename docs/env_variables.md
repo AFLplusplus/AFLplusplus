@@ -645,6 +645,17 @@ checks or alter some of the more exotic semantics of the tool:
   - Setting `AFL_DISABLE_REDUNDANT` disables any queue items that are redundant.
     This can be useful with huge queues.
 
+  - `AFL_STARVED_MINIMIZE_QUEUE` minimizes the queue once afl-fuzz has been in
+    starve mode - which it enters after 5 million executions without a new edge
+    - for another 5 million executions without a new edge. Every enabled queue
+    entry is executed again to score it freshly, then all entries that are not
+    needed to reach the coverage of the whole queue are disabled, the same
+    selection `afl-cmin` performs. Entries that were never fuzzed are always
+    kept. The coverage that is lost this way is reset in the virgin bitmap, so
+    it can be found again - by smaller and faster inputs, hopefully. With `-B`
+    the bitmap is left untouched, because it is an explicit baseline of coverage
+    that shall not be rediscovered.
+
   - Setting `AFL_KEEP_TIMEOUTS` will keep longer running inputs if they reach
     new coverage
 
