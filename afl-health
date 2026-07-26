@@ -180,8 +180,13 @@ class CampaignSnapshot:
         return max((i.bitmap_cvg for i in self.instances), default=0.0)
 
     def pending_favs_total(self) -> int:
-        """Favored queue entries still awaiting fuzzing, summed across instances."""
-        return sum(i.pending_favs for i in self.instances)
+        """Favored queue entries still awaiting fuzzing, summed across *running* instances.
+
+        A stopped instance's backlog is frozen process state, not campaign work in flight:
+        nothing will ever fuzz it, so counting it both overstates the todo list and hides
+        a plateau (a drained live queue looks busy).
+        """
+        return sum(i.pending_favs for i in self.instances if i.alive)
 
     def to_dict(self) -> dict[str, Any]:
         return {"schema_version": SCHEMA_VERSION, **asdict(self)}
@@ -692,7 +697,7 @@ def analyze(
     died = [i for i in dead if i.death in DEATH_UNEXPECTED]
     idle = [i for i in dead if i.death not in DEATH_UNEXPECTED]
     t = snap.trend
-    pending_favs_total = sum(i.pending_favs for i in snap.instances)
+    pending_favs_total = snap.pending_favs_total()
     cycles_max = max((i.cycles_done for i in snap.instances), default=0)
 
     # --- cross-run delta (from a prior stored snapshot) -------------------------
@@ -897,7 +902,7 @@ def analyze(
     # --- throughput-bound vs plateau (need a trend, not a snapshot) -------------
     cov_old = t.last_cov_entry_age_s is not None and t.last_cov_entry_age_s >= max(1800, snap.run_time_s // 4)
     flat = t.source == "plot_data" and t.edges_slope_recent_per_min <= FLAT_SLOPE
-    drained = pending_favs_total <= n  # favored queue essentially exhausted
+    drained = pending_favs_total <= max(1, snap.alive_count)  # favored queue essentially exhausted
     throughput_bound = cycles_max == 0 and snap.run_time_s >= THROUGHPUT_RUNTIME and pending_favs_total > 0
     plateau = flat and cov_old and drained and not throughput_bound
 
