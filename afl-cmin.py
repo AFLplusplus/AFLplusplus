@@ -730,6 +730,7 @@ def main():
         files, hash_list = dedup(args, files)
         logger.info("Remain %d files after dedup", len(files))
     else:
+        hash_list = [None] * len(files)
         logger.info("Skipping file deduplication.")
 
     file_index_type_code = detect_type_code(len(files))

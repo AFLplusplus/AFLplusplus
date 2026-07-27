@@ -37,7 +37,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -50,7 +49,6 @@
 #include "config.h"
 #include "debug.h"
 #include "forkserver.h"
-#include "hash.h"
 #include "hash.h"
 #include "sharedmem.h"
 #include "types.h"
@@ -109,6 +107,7 @@ static u8 debug_mode,                  /* debug mode                        */
 static cmin_file_t **files;
 static u32           items;
 static u32           files_capacity;
+static u8           *crashing_files; /* marked by exec workers, --crash-dir */
 
 /* Parallel collection structures */
 static pthread_mutex_t files_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -127,12 +126,61 @@ static dir_queue_item_t *queue_tail;
 static u32               busy_collectors;
 static volatile u8       collection_done;
 
+/* Remember which directories were handed out already. Input dirs may be
+   given twice and symlinks can form cycles, both of which would otherwise
+   make the scan loop forever. Called with queue_mutex held. */
+
+static struct {
+
+  dev_t dev;
+  ino_t ino;
+
+} *seen_dirs;
+
+static u32 seen_dirs_cnt, seen_dirs_cap;
+
+static u8 dir_already_seen(u8 *dir) {
+
+  struct stat st;
+  if (stat((char *)dir, &st)) return 0;
+
+  for (u32 i = 0; i < seen_dirs_cnt; i++) {
+
+    if (seen_dirs[i].dev == st.st_dev && seen_dirs[i].ino == st.st_ino)
+      return 1;
+
+  }
+
+  if (seen_dirs_cnt >= seen_dirs_cap) {
+
+    seen_dirs_cap = seen_dirs_cap ? seen_dirs_cap * 2 : 256;
+    seen_dirs = ck_realloc(seen_dirs, seen_dirs_cap * sizeof(*seen_dirs));
+
+  }
+
+  seen_dirs[seen_dirs_cnt].dev = st.st_dev;
+  seen_dirs[seen_dirs_cnt].ino = st.st_ino;
+  seen_dirs_cnt++;
+  return 0;
+
+}
+
 static void queue_add(u8 *dir) {
 
   dir_queue_item_t *item = ck_alloc(sizeof(dir_queue_item_t));
   item->dir = strdup(dir);
 
   pthread_mutex_lock(&queue_mutex);
+
+  if (dir_already_seen(dir)) {
+
+    pthread_mutex_unlock(&queue_mutex);
+    ck_free(item->dir);
+    ck_free(item);
+    return;
+
+  }
+
   if (!queue_head) {
 
     queue_head = item;
@@ -209,11 +257,13 @@ typedef struct {
 
 static cmin_queue_t *queue;
 
-static void queue_init(u32 capacity) {
+static void queue_init(u64 capacity) {
+
+  if (capacity > 0xF0000000ULL) FATAL("Requested queue size is too large");
 
   // Align to page size? sharedmem_t usually handles this but we need a custom
   // structure We use mmap anon shared
-  u32 total_size = sizeof(cmin_queue_t) + capacity;
+  size_t total_size = sizeof(cmin_queue_t) + capacity;
   queue = mmap(NULL, total_size, PROT_READ | PROT_WRITE,
                MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   if (queue == MAP_FAILED) PFATAL("mmap queue");
@@ -273,6 +323,42 @@ static u8 *unique_out_name(const u8 *name) {
   }
 
   FATAL("Unable to find unique output name for '%s'", name);
+
+}
+
+static u8 copy_file(u8 *src_path, u8 *dst_path) {
+
+  int src = open(src_path, O_RDONLY);
+  if (src < 0) return 1;
+
+  int dst = open(dst_path, O_WRONLY | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
+  if (dst < 0) {
+
+    close(src);
+    return 1;
+
+  }
+
+  u8      buf[4096];
+  ssize_t n;
+  u8      ret = 0;
+
+  while ((n = read(src, buf, sizeof(buf))) > 0) {
+
+    if (write(dst, buf, n) != n) {
+
+      ret = 1;
+      break;
+
+    }
+
+  }
+
+  if (n < 0) ret = 1;
+
+  close(src);
+  close(dst);
+  return ret;
 
 }
 
@@ -355,7 +441,9 @@ static u32 queue_pop(u32 *type, void *buf, u32 max_len) {
   packet_len = sizeof(u32) * 2 + len;
   queue->size -= packet_len;
 
-  pthread_cond_signal(&queue->cond_write);  // Notify writer space available
+  /* Broadcast: writers wait for different amounts of room, so waking just
+     one of them can leave a writer that would fit asleep indefinitely. */
+  pthread_cond_broadcast(&queue->cond_write);
   pthread_mutex_unlock(&queue->mutex);
 
   return len;
@@ -399,7 +487,9 @@ void get_binary_hash_local(cmin_file_t *f, int dirfd) {
 
   if (fd < 0) {
 
-    WARNF("Unable to open '%s/'%s'", f->dir, f->name);
+    WARNF("Unable to open '%s/%s'", f->dir, f->name);
+    f->size = 0;
+    memset(f->sha1, 0, SHA1_SIZE);
     return;
 
   }
@@ -433,6 +523,7 @@ void get_binary_hash_local(cmin_file_t *f, int dirfd) {
 
     WARNF("Unable to fstat '%s/%s'", f->dir, f->name);
     close(fd);
+    f->size = 0;
     memset(f->sha1, 0, SHA1_SIZE);
     return;
 
@@ -513,7 +604,12 @@ static int compare_hashes(const void *a, const void *b) {
   cmin_file_t *fa = *(cmin_file_t **)a;
   cmin_file_t *fb = *(cmin_file_t **)b;
 
-  return memcmp(fa->sha1, fb->sha1, SHA1_SIZE);
+  int d = memcmp(fa->sha1, fb->sha1, SHA1_SIZE);
+  if (d) return d;
+  if (fa->size != fb->size) return fa->size < fb->size ? -1 : 1;
+  d = strcmp(fa->dir, fb->dir);
+  if (d) return d;
+  return strcmp(fa->name, fb->name);
 
 }
 
@@ -527,7 +623,8 @@ static void dedup_files(void) {
 
   for (u32 i = 0; i < update_workers; i++) {
 
-    pthread_create(&t[i], NULL, dedup_worker, (void *)(size_t)i);
+    if (pthread_create(&t[i], NULL, dedup_worker, (void *)(size_t)i))
+      PFATAL("pthread_create failed");
 
   }
 
@@ -600,12 +697,6 @@ static void dedup_files(void) {
 
   OKF("Remain %u files after dedup", unique);
   items = unique;
-  files_capacity = items;
-  if (items > unique) {
-
-    files = ck_realloc(files, files_capacity * sizeof(cmin_file_t *));
-
-  }
 
 }
 
@@ -617,16 +708,22 @@ typedef struct {
 
   u32 tuple;
   u32 count;
+  u32 best;
 
 } tuple_info_t;
+
+/* Rarest tuple first; among equally rare ones start with those whose
+   representative is the largest file (files[] is sorted by size), so that its
+   coverage can absorb the cheaper tuples still to come. */
 
 static int compare_tuple_counts(const void *a, const void *b) {
 
   const tuple_info_t *ta = (const tuple_info_t *)a;
   const tuple_info_t *tb = (const tuple_info_t *)b;
 
-  if (ta->count != tb->count) return ta->count - tb->count;  // ascending
-  return ta->tuple - tb->tuple;
+  if (ta->count != tb->count) return ta->count < tb->count ? -1 : 1;
+  if (ta->best != tb->best) return ta->best > tb->best ? -1 : 1;
+  return ta->tuple > tb->tuple ? -1 : 1;
 
 }
 
@@ -1102,8 +1199,8 @@ static void exec_worker(worker_data_t *data, u32 *shared_cmin_idx) {
 
     if (ret == FSRV_RUN_CRASH) {
 
-      // files[i]->is_crash = 1;
-      if (!crashes_only && !allow_any) continue;
+      if (crashing_files) crashing_files[i] = 1;
+      if (crash_dir || (!crashes_only && !allow_any)) continue;
 
     } else if (ret == FSRV_RUN_TMOUT) {
 
@@ -1152,17 +1249,21 @@ static void process_update_message(worker_data_t *data, u32 *unpack_buf) {
   u32  i = unpack_buf[0];
   u32  t_len = unpack_buf[1];
   u32 *tuples = &unpack_buf[2];
+  u32  size = files[i]->size;
+
+  /* Track the smallest size seen per tuple and keep the trace of every file
+     that reaches it. Which of the equally small files ends up representing a
+     tuple can only be decided once all hit counts are in, so the choice is
+     deferred to select_representatives() in the parent. */
 
   u8 better = 0;
   for (u32 j = 0; j < t_len; j++) {
 
     u32 tuple = tuples[j];
 
-    // Given files[cmin_sentinel_idx]->size == max, we don't need to
-    // check if data->local_best[tuple] == cmin_sentinel_idx.
-    if (files[i]->size < files[data->local_best[tuple]]->size) {
+    if (size <= data->local_best[tuple]) {
 
-      data->local_best[tuple] = i;
+      data->local_best[tuple] = size;
       better = 1;
 
     }
@@ -1365,7 +1466,7 @@ static void cmin_run_workers(void) {
   if (global_best_maps == MAP_FAILED) PFATAL("mmap global_best_maps failed");
 
   for (u32 i = 0; i < update_workers * effective_map_size; i++)
-    global_best_maps[i] = cmin_sentinel_idx;
+    global_best_maps[i] = 0xFFFFFFFF;
 
   global_counts_maps =
       mmap(NULL, update_workers * effective_map_size * sizeof(u32),
@@ -1375,14 +1476,27 @@ static void cmin_run_workers(void) {
   memset(global_counts_maps, 0,
          update_workers * effective_map_size * sizeof(u32));
 
+  // Crash markers, set by the exec workers for --crash-dir
+  if (crash_dir) {
+
+    crashing_files = mmap(NULL, items, PROT_READ | PROT_WRITE,
+                          MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (crashing_files == MAP_FAILED) PFATAL("mmap crashing_files failed");
+
+  }
+
   // Shared counter for coordination (Exec workers)
   shared_cmin_idx = mmap(NULL, sizeof(u32), PROT_READ | PROT_WRITE,
                          MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   if (shared_cmin_idx == MAP_FAILED) PFATAL("mmap");
   *shared_cmin_idx = 0;
 
-  // Init Queue (64MB)
-  queue_init(QUEUE_CAPACITY);
+  /* The ring has to hold at least one full trace message, otherwise
+     queue_push() would reject it outright on targets with a large map. */
+  u64 msg_max = ((u64)map_size + 2) * sizeof(u32);
+  u64 cap = QUEUE_CAPACITY;
+  if (cap < msg_max * 2) { cap = msg_max * 2; }
+  queue_init(cap);
 
   // Fork all workers (Exec: 0..exec_workers-1, Update:
   // exec_workers..total-1)
@@ -1466,7 +1580,11 @@ static void cmin_run_workers(void) {
   // Wait for all EXEC workers
   for (u32 i = 0; i < exec_workers; i++) {
 
-    waitpid(worker_pids[i], NULL, 0);
+    int status;
+    if (waitpid(worker_pids[i], &status, 0) > 0 &&
+        (!WIFEXITED(status) || WEXITSTATUS(status)))
+      FATAL("Execution worker %d died unexpectedly (status %d)", worker_pids[i],
+            status);
 
   }
 
@@ -1476,15 +1594,22 @@ static void cmin_run_workers(void) {
     queue_push(QUEUE_MSG_STOP, NULL, 0);
 
   // Wait for Update Workers
-  for (u32 i = 0; i < update_workers; i++)
-    waitpid(worker_pids[exec_workers + i], NULL, 0);
+  for (u32 i = 0; i < update_workers; i++) {
+
+    int status;
+    if (waitpid(worker_pids[exec_workers + i], &status, 0) > 0 &&
+        (!WIFEXITED(status) || WEXITSTATUS(status)))
+      FATAL("Update worker %d died unexpectedly (status %d)",
+            worker_pids[exec_workers + i], status);
+
+  }
 
   munmap(shared_cmin_idx, sizeof(u32));
   munmap(queue, sizeof(cmin_queue_t) + queue->capacity);
 
 }
 
-static void merge_results(u32 *final_best, u32 *tuple_counts) {
+static void merge_results(u32 *min_size, u32 *tuple_counts) {
 
   u32 *global_map = global_best_maps;
   u32 *global_cnt = global_counts_maps;
@@ -1497,19 +1622,73 @@ static void merge_results(u32 *final_best, u32 *tuple_counts) {
     for (u32 i = 0; i < effective_map_size; i++) {
 
       tuple_counts[i] += worker_cnt[i];
+      if (worker_map[i] < min_size[i]) { min_size[i] = worker_map[i]; }
 
-      u32 idx = worker_map[i];
-      if (idx == cmin_sentinel_idx) continue;
+    }
 
-      if (final_best[i] == cmin_sentinel_idx) {
+  }
 
-        final_best[i] = idx;
+}
 
-      } else {
+/* Second look at the traces on disk: now that all hit counts are known, elect
+   the representative of every tuple among the smallest inputs covering it.
+   Rarity decides - a file scores the sum of 1/count over its own tuples, so
+   the input carrying the most hard-to-find coverage wins and the set cover
+   below needs fewer files. */
 
-        if (files[idx]->size < files[final_best[i]]->size) {
+static void select_representatives(u32 *final_best, u32 *tuple_counts,
+                                   u32 *min_size) {
 
-          final_best[i] = idx;
+  double *best_score = ck_alloc(effective_map_size * sizeof(double));
+  u32    *buf = ck_alloc(map_size * sizeof(u32));
+
+  for (u32 w = 0; w < update_workers; w++) {
+
+    u8   *trace_fn = alloc_printf("%s/.traces/worker_%u.dat", out_dir, w);
+    FILE *f = fopen(trace_fn, "rb");
+    ck_free(trace_fn);
+    if (!f) continue;
+
+    u32 idx, len;
+
+    while (fread(&idx, sizeof(u32), 1, f) == 1 &&
+           fread(&len, sizeof(u32), 1, f) == 1) {
+
+      if (idx >= items || len > map_size) {
+
+        WARNF("Corrupt trace log, ignoring the remainder");
+        break;
+
+      }
+
+      if (len && fread(buf, sizeof(u32), len, f) != len) {
+
+        WARNF("Short read on trace log");
+        break;
+
+      }
+
+      u32 size = files[idx]->size;
+
+      double score = 0.0;
+      for (u32 j = 0; j < len; j++) {
+
+        u32 cnt = tuple_counts[buf[j]];
+        if (cnt) { score += 1.0 / (double)cnt; }
+
+      }
+
+      for (u32 j = 0; j < len; j++) {
+
+        u32 tuple = buf[j];
+        if (size != min_size[tuple]) continue;
+
+        if (final_best[tuple] == cmin_sentinel_idx ||
+            score > best_score[tuple] ||
+            (score == best_score[tuple] && idx < final_best[tuple])) {
+
+          final_best[tuple] = idx;
+          best_score[tuple] = score;
 
         }
 
@@ -1517,7 +1696,12 @@ static void merge_results(u32 *final_best, u32 *tuple_counts) {
 
     }
 
+    fclose(f);
+
   }
+
+  ck_free(buf);
+  ck_free(best_score);
 
 }
 
@@ -1562,6 +1746,13 @@ static void load_traces(u8 *is_candidate, trace_t *candidate_traces) {
         u32 idx, len;
         if (fread(&idx, sizeof(u32), 1, f) != 1) break;
         if (fread(&len, sizeof(u32), 1, f) != 1) break;
+
+        if (idx >= items || len > map_size) {
+
+          WARNF("Corrupt trace log, ignoring the remainder");
+          break;
+
+        }
 
         if (is_candidate[idx] && !candidate_traces[idx].tuples) {
 
@@ -1617,6 +1808,7 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
 
       sorted_tuples[st_idx].tuple = i;
       sorted_tuples[st_idx].count = tuple_counts[i];
+      sorted_tuples[st_idx].best = final_best[i];
       st_idx++;
 
     }
@@ -1659,7 +1851,10 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
     u8          *out_name;
     u8           use_orig_name = 0;
 
-    if (no_dedup || !sha1fn) {
+    /* Without the dedup pass the hashes were never computed, so do it now */
+    if (sha1fn && no_dedup) { get_binary_hash_local(f, -1); }
+
+    if (!sha1fn) {
 
       if (as_queue)
         out_name = alloc_printf("%s/id:%06u,orig:%s", out_dir, written_cnt - 1,
@@ -1697,21 +1892,9 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
       }
 
       if (errno == EEXIST) unlink(out_name);
-      if (link(src_path, out_name) < 0) {
+      if (link(src_path, out_name) < 0 && copy_file(src_path, out_name)) {
 
-        int src = open(src_path, O_RDONLY);
-        if (src < 0) PFATAL("Unable to open '%s'", src_path);
-
-        int dst = open(out_name, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-        if (dst < 0) PFATAL("Unable to open '%s'", out_name);
-
-        char    buf[4096];
-        ssize_t n;
-        while ((n = read(src, buf, sizeof(buf))) > 0)
-          if (write(dst, buf, n) != n) PFATAL("Short write to %s", out_name);
-
-        close(src);
-        close(dst);
+        PFATAL("Unable to copy '%s' to '%s'", src_path, out_name);
 
       }
 
@@ -1753,35 +1936,52 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
 
 }
 
-/*
 static void write_crash_files(void) {
 
   u32 count = 0;
+
   for (u32 i = 0; i < items; i++) {
 
-    if (!files[i]->is_crash) continue;
+    if (!crashing_files[i]) continue;
 
-    u8 *name = files[i]->name;
-    u8 *out_name = unique_out_name(name);
+    u8 *out_name;
+
+    if (sha1fn) {
+
+      u8 hash[SHA1_SIZE * 2 + 1];
+      if (no_dedup) get_binary_hash_local(files[i], -1);
+      for (int x = 0; x < SHA1_SIZE; x++)
+        sprintf((char *)hash + x * 2, "%02x", files[i]->sha1[x]);
+      hash[SHA1_SIZE * 2] = 0;
+      out_name = alloc_printf("%s/%s", crash_dir, hash);
+
+    } else {
+
+      out_name = alloc_printf("%s/%s", crash_dir, files[i]->name);
+
+    }
 
     u8 *src_path = alloc_printf("%s/%s", files[i]->dir, files[i]->name);
-    if (link(src_path, out_name) != 0) {
 
-      WARNF("Cannot add %s to minimization", src_path);
+    if (link(src_path, out_name) && errno != EEXIST &&
+        copy_file(src_path, out_name)) {
+
+      WARNF("Cannot save crash '%s' to '%s'", src_path, out_name);
+
+    } else {
+
+      count++;
 
     }
 
     ck_free(src_path);
     ck_free(out_name);
-    count++;
 
   }
 
-  OKF("Wrote %u crashing files.", count);
+  OKF("Saved %u crashing files in '%s'.", count, crash_dir);
 
 }
-
-*/
 
 static void cmin_process_results(void) {
 
@@ -1790,19 +1990,24 @@ static void cmin_process_results(void) {
 
   OKF("Merging traces and computing candidates...");
 
-  // Step 1: Merge global best maps and counts
+  // Step 1: Merge the per-tuple minimum sizes and the hit counts
   u32 *final_best = ck_alloc(effective_map_size * sizeof(u32));
   u32 *tuple_counts = ck_alloc(effective_map_size * sizeof(u32));
+  u32 *min_size = ck_alloc(effective_map_size * sizeof(u32));
   for (u32 i = 0; i < effective_map_size; i++) {
 
     final_best[i] = cmin_sentinel_idx;
     tuple_counts[i] = 0;
+    min_size[i] = 0xFFFFFFFF;
 
   }
 
-  merge_results(final_best, tuple_counts);
+  merge_results(min_size, tuple_counts);
 
-  // Step 2: Identify candidates (files that are best for at least one tuple)
+  // Step 2: Elect a representative per tuple, then identify candidates
+  select_representatives(final_best, tuple_counts, min_size);
+  ck_free(min_size);
+
   u8 *is_candidate = ck_alloc(items);  // bool
   u32 candidates_cnt = 0;
   u32 total_tuples = 0;
@@ -1838,11 +2043,13 @@ static void cmin_process_results(void) {
   if (global_best_maps)
     munmap(global_best_maps, update_workers * effective_map_size * sizeof(u32));
 
-  //} else {
+  if (crashing_files) {
 
-  //  write_crash_files();
+    write_crash_files();
+    munmap(crashing_files, items);
+    crashing_files = NULL;
 
-  //}
+  }
 
 }
 
@@ -2256,6 +2463,24 @@ static void check_binary(u8 *fname) {
 
 }
 
+static u8 has_entry(u8 *dir, const char *name, u8 want_dir) {
+
+  struct stat st;
+  u8         *fn = alloc_printf("%s/%s", dir, name);
+  u8          ok = !stat((char *)fn, &st) &&
+          (want_dir ? S_ISDIR(st.st_mode) : S_ISREG(st.st_mode));
+  ck_free(fn);
+  return ok;
+
+}
+
+static u8 is_afl_dir(u8 *dir) {
+
+  return has_entry(dir, "queue", 1) && has_entry(dir, "hangs", 1) &&
+         has_entry(dir, "crashes", 1) && has_entry(dir, "fuzzer_setup", 0);
+
+}
+
 static void *collect_worker(void *arg) {
 
   (void)arg;
@@ -2332,6 +2557,11 @@ static void *collect_worker(void *arg) {
 
     } else {
 
+      /* An afl-fuzz output directory holds metadata files (fuzzer_stats,
+         plot_data, cmdline, ...) next to the queue/crashes/hangs subdirs.
+         Descend into the subdirs but never treat the metadata as inputs. */
+      u8 skip_files = !crashes_only && is_afl_dir(dir);
+
       struct dirent *entry;
       while ((entry = readdir(d))) {
 
@@ -2345,11 +2575,14 @@ static void *collect_worker(void *arg) {
           is_dir = 1;
         else if (entry->d_type == DT_REG)
           is_reg = 1;
-        else if (entry->d_type == DT_UNKNOWN) {
+        else if (entry->d_type == DT_UNKNOWN || entry->d_type == DT_LNK) {
+
+          /* Follow symlinks like afl-cmin.py does, cycles are caught by
+             dir_already_seen() */
 
           struct stat st;
           u8         *fn = alloc_printf("%s/%s", dir, entry->d_name);
-          if (!lstat(fn, &st)) {
+          if (!stat(fn, &st)) {
 
             if (S_ISDIR(st.st_mode))
               is_dir = 1;
@@ -2373,6 +2606,8 @@ static void *collect_worker(void *arg) {
 
         if (is_reg) {
 
+          if (skip_files) continue;
+
           u8         *fn = alloc_printf("%s/%s", dir, entry->d_name);
           struct stat st;
           if (stat(fn, &st)) {
@@ -2382,9 +2617,22 @@ static void *collect_worker(void *arg) {
 
           }
 
-          ck_free(fn);
+          if (!st.st_size) {
 
-          if (!st.st_size) continue;
+            ck_free(fn);
+            continue;
+
+          }
+
+          if ((u64)st.st_size >= UINT32_MAX) {
+
+            WARNF("Skipping '%s', it is too large", fn);
+            ck_free(fn);
+            continue;
+
+          }
+
+          ck_free(fn);
 
           cmin_file_t *f = ck_alloc(sizeof(cmin_file_t));
           f->dir = dir;  // Shared string
@@ -2444,7 +2692,7 @@ static int compare_files(const void *a, const void *b) {
   cmin_file_t *fa = *(cmin_file_t **)a;
   cmin_file_t *fb = *(cmin_file_t **)b;
 
-  if (fa->size != fb->size) return fa->size - fb->size;
+  if (fa->size != fb->size) return fa->size < fb->size ? -1 : 1;
   int d = strcmp(fa->dir, fb->dir);
   if (d) return d;
   return strcmp(fa->name, fb->name);
@@ -2620,8 +2868,9 @@ int main(int argc, char **argv) {
 
         } else {
 
-          time_limit = atoi(optarg);
-          if (time_limit < 10) FATAL("Dangerously low timeout");
+          s32 t_val = atoi(optarg);
+          if (t_val < 10) FATAL("Dangerously low timeout");
+          time_limit = t_val;
 
         }
 
@@ -2752,6 +3001,9 @@ int main(int argc, char **argv) {
 
   }
 
+  if (crash_dir && crashes_only)
+    FATAL("-C and --crash-dir are mutually exclusive");
+
   if (stdin_file && exec_workers > 1) {
 
     WARNF("disabling parallel mode because of -f");
@@ -2805,7 +3057,8 @@ int main(int argc, char **argv) {
   pthread_t *threads = ck_alloc(sizeof(pthread_t) * update_workers);
   for (u32 i = 0; i < update_workers; i++) {
 
-    pthread_create(&threads[i], NULL, collect_worker, NULL);
+    if (pthread_create(&threads[i], NULL, collect_worker, NULL))
+      PFATAL("pthread_create failed");
 
   }
 
@@ -2854,6 +3107,8 @@ int main(int argc, char **argv) {
   OKF("Found %u input files", items);
 
   if (!no_dedup) { dedup_files(); }
+
+  if (!items) FATAL("No usable input files left");
 
   qsort(files, items, sizeof(cmin_file_t *), compare_files);
 
