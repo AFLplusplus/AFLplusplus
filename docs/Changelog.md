@@ -11,7 +11,8 @@
       introduced incl. splicing phase enabled. This is visible in the UI.
     - env `AFL_STARVED_MINIMIZE_QUEUE`: if starve mode does not help either,
       minimize the the queue like afl-cmin does and make the coverage of the
-      removed entries rediscoverable
+      removed entries rediscoverable. Inspired by `Novelty Not Found: Adaptive
+      Fuzzer Restarts to Improve Input Space Coverage`
     - fixed SAND and FrameShift issues
     - enhancements and fixes for cmplog and ijon
   - afl-cc
@@ -217,7 +218,7 @@
     - multiple AFL++ out directories now supported, thanks to @Jay-1409 !
 
 
-### Version ++4.35a (release)
+### Version ++4.35c (release)
   - GUIFuzz++ merged: Unleashing Grey-box Fuzzing on Desktop Graphical User
                       Interfacing Applications
     https://futures.cs.utah.edu/papers/25ASE.pdf
