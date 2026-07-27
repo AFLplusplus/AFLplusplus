@@ -110,7 +110,7 @@ If you find an interesting or important question missing, submit it via
 
   ```
   Control-C  # to terminate afl-fuzz
-  $ afl-cmin -T nproc -i out/default/queue -o minimized_queue -- ./target
+  $ afl-cmin -T all -i out/default/queue -o minimized_queue -- ./target
   $ AFL_FAST_CAL=1 AFL_CMPLOG_ONLY_NEW=1 afl-fuzz -i minimized_queue -o out2 [other options] -- ./target
   ```
 

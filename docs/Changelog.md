@@ -20,10 +20,10 @@
     - removed the obsolete afl-as assembler wrapper and its remaining references
   - afl-cmin:
     - (all variants: C, python, bash, awk): empty (0 byte) input files are now
-      skipped
+      skipped, plus various other fixes and corner case handling
     - afl-merge (symlink) - merge new files into an existing corpus (that is
       not minimized)
-    - afl-cmin.c is now the default afl-cmin
+    - afl-cmin.c is now the default afl-cmin, but it needed a larger rewrite
   - afl-health
     - more speed, more info, a few fixes
   - custom_mutators:
