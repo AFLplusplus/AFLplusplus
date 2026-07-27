@@ -76,7 +76,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->max_length = MAX_FILE;
   afl->switch_fuzz_mode = STRATEGY_SWITCH_TIME * 1000;
   afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
-  afl->q_testcase_max_cache_entries = 64 * 1024;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */

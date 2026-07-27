@@ -630,6 +630,10 @@ unit_queue_score: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_queue_score
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_queue_score.c src/afl-fuzz-queue.c -Wl,--gc-sections -o test/unittests/unit_queue_score $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_queue_score
 
+unit_testcache: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_testcache.c src/afl-fuzz-queue.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_testcache.c src/afl-fuzz-queue.c -Wl,--gc-sections -o test/unittests/unit_testcache $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	./test/unittests/unit_testcache
+
 unit_skipdet: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_skipdet.c src/afl-fuzz-skipdet.c
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_skipdet.c src/afl-fuzz-skipdet.c -Wl,--gc-sections -o test/unittests/unit_skipdet $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_skipdet
@@ -644,11 +648,11 @@ unit_ijon: $(COMM_HDR) include/afl-ijon-min.h test/unittests/unit_ijon.c src/afl
 
 .PHONY: unit_clean
 unit_clean:
-	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_mopt ./test/unittests/unit_cmplog ./test/unittests/unit_ijon_replay ./test/unittests/unit_sharedmem_mmap ./test/unittests/unit_queue_score ./test/unittests/unit_skipdet ./test/unittests/unit_frameshift ./test/unittests/unit_ijon test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o test/unittests/*.o
+	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_mopt ./test/unittests/unit_cmplog ./test/unittests/unit_ijon_replay ./test/unittests/unit_sharedmem_mmap ./test/unittests/unit_queue_score ./test/unittests/unit_testcache ./test/unittests/unit_skipdet ./test/unittests/unit_frameshift ./test/unittests/unit_ijon test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o test/unittests/*.o
 
 .PHONY: unit
 ifneq "$(SYS)" "Darwin"
-unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_mopt unit_cmplog unit_ijon_replay unit_sharedmem_mmap unit_queue_score unit_skipdet unit_frameshift unit_ijon
+unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_mopt unit_cmplog unit_ijon_replay unit_sharedmem_mmap unit_queue_score unit_testcache unit_skipdet unit_frameshift unit_ijon
 else
 unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)

@@ -876,9 +876,14 @@ checks or alter some of the more exotic semantics of the tool:
     the format is different from `AFL_TARGET_ENV`) to apply the environment
     variables to the target and not QEMU.
 
+  - `AFL_TESTCACHE_ENTRIES` is obsolete and ignored. The test case cache is
+    bounded by `AFL_TESTCACHE_SIZE` alone.
+
   - `AFL_TESTCACHE_SIZE` allows you to override the size of `#define
     TESTCASE_CACHE` in config.h. Recommended values are 50-250MB - or more if
-    your fuzzing finds a huge amount of paths for large inputs.
+    your fuzzing finds a huge amount of paths for large inputs. The cache
+    holds the queue entries with the highest selection probability per byte,
+    so a larger value keeps paying off.
 
   - `AFL_TMPDIR` is used to write the `.cur_input` file to if it exists, and in
     the normal output directory otherwise. You would use this to point to a

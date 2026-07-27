@@ -1947,17 +1947,7 @@ void afl_check_environment(afl_state_t *afl) {
 
   if (afl->afl_env.afl_testcache_entries) {
 
-    afl->q_testcase_max_cache_entries =
-        (u32)atoi(afl->afl_env.afl_testcache_entries);
-
-    // user_set_cache = 1;
-
-  }
-
-  if (!afl->afl_env.afl_testcache_size || !afl->afl_env.afl_testcache_entries) {
-
-    afl->afl_env.afl_testcache_entries = 0;
-    afl->afl_env.afl_testcache_size = 0;
+    ACTF("AFL_TESTCACHE_ENTRIES is obsolete and ignored");
 
   }
 
@@ -3339,14 +3329,6 @@ void afl_load_seeds(afl_state_t *afl) {
 
   }
 
-  if (afl->q_testcase_max_cache_entries) {
-
-    afl->q_testcase_cache =
-        ck_alloc(afl->q_testcase_max_cache_entries * sizeof(size_t));
-    if (!afl->q_testcase_cache) { PFATAL("malloc failed for cache entries"); }
-
-  }
-
   if (afl->afl_env.afl_sha1_filenames) {
 
     WARNF(
@@ -3746,7 +3728,6 @@ void stop_fuzzing(afl_state_t *afl) {
   ck_free(afl->fsrv.target_path);
   if (afl->fsrv.out_file) { ck_free(afl->fsrv.out_file); }
   ck_free(afl->sync_id);
-  if (afl->q_testcase_cache) { ck_free(afl->q_testcase_cache); }
 
   char **argv_cpy = afl->argv_cpy;
 

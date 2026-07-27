@@ -527,6 +527,8 @@ directory. This includes:
 - `testcache_size`    - test case cache size in bytes
 - `testcache_count`   - number of test cases currently held in the cache
 - `testcache_evict`   - number of test case cache evictions so far
+- `testcache_hits`    - test case cache hits (buffer was already resident)
+- `testcache_misses`  - test case cache misses (buffer had to be read)
 - `afl_banner`        - banner text (e.g., the target name)
 - `afl_version`       - the version of AFL++ used
 - `target_mode`       - default, persistent, qemu, unicorn, non-instrumented

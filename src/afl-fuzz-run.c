@@ -144,6 +144,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
                                            u32 len, u32 fix) {
 
   u8 sent = 0;
+  u8 did_swap = 0;
 
   if (unlikely(afl->custom_mutators_count)) {
 
@@ -191,7 +192,6 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
     }
 
     ssize_t valid_size = new_size;
-    u8      did_swap = 0;
 
     if (unlikely(new_size < afl->min_length && !fix)) {
 
@@ -267,6 +267,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
       /* restore the original memory which was saved in new_mem */
       *mem = new_mem;
       afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+      did_swap = 0;
 
     }
 
@@ -280,6 +281,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
       memset(padded + len, 0, afl->min_length - len);
       *mem = padded;
       afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+      did_swap = 1;
       len = afl->min_length;
 
     } else if (unlikely(len > afl->max_length)) {
@@ -327,6 +329,12 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
   }
 
 #endif
+
+  if (unlikely(did_swap)) {
+
+    afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+
+  }
 
   return len;
 
@@ -1241,8 +1249,17 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       if (el->afl_custom_trim) {
 
+        u32 pre_len = q->len;
+
         trimmed_case = trim_case_custom(afl, q, in_buf, el);
         custom_trimmed = true;
+
+        if (unlikely(q->len != pre_len)) {
+
+          queue_testcase_retake(afl, q, pre_len);
+          in_buf = queue_testcase_get(afl, q);
+
+        }
 
       }
 
@@ -1250,7 +1267,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     if (orig_len != q->len || custom_trimmed) {
 
-      queue_testcase_retake(afl, q, orig_len);
+      queue_testcase_retake(afl, q, q->len);
 
     }
 
@@ -1412,6 +1429,12 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       } else if (unlikely(new_size > afl->max_length)) {
 
         new_size = afl->max_length;
+
+      }
+
+      if (unlikely(new_mem == in_buf && new_size > orig_len)) {
+
+        new_size = orig_len;
 
       }
 
