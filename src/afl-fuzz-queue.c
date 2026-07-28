@@ -1293,6 +1293,8 @@ static void minimize_queue_disable(afl_state_t *afl) {
 
   if (unlikely(!disabled)) { return; }
 
+  ++afl->starved_minimize_count;
+
   if (afl->afl_env.afl_no_ui) {
 
     ACTF("Minimized the queue while starved, %u of %u entries disabled",

@@ -654,7 +654,9 @@ checks or alter some of the more exotic semantics of the tool:
     kept. The coverage that is lost this way is reset in the virgin bitmap, so
     it can be found again - by smaller and faster inputs, hopefully. With `-B`
     the bitmap is left untouched, because it is an explicit baseline of coverage
-    that shall not be rediscovered.
+    that shall not be rediscovered. How often the queue was really minimized -
+    which requires that entries were actually disabled - is reported as
+    `starve_minimized` in the `fuzzer_stats` file.
 
   - Setting `AFL_KEEP_TIMEOUTS` will keep longer running inputs if they reach
     new coverage

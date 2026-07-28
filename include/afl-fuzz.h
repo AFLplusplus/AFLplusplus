@@ -643,7 +643,8 @@ typedef struct afl_state {
   /* Status UI and timing globals where it really makes no sense to haul them
      around as function parameters. */
   u64 most_time_key, most_time, most_execs_key, most_execs, force_ui_update,
-      prev_run_time, starved_count;    /* how often starve mode was entered */
+      prev_run_time, starved_count,    /* how often starve mode was entered */
+      starved_minimize_count;          /* how often the queue was minimized */
 
   struct mopt_adaptive mopt_adaptive;
 
