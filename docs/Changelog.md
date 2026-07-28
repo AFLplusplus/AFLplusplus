@@ -13,6 +13,8 @@
       minimize the the queue like afl-cmin does and make the coverage of the
       removed entries rediscoverable. Inspired by `Novelty Not Found: Adaptive
       Fuzzer Restarts to Improve Input Space Coverage`
+    - `-s fixed_seed` now only sets a fixed seed and does not ignore timings
+      anymore (required for proper benchmarking in containers without urandom)
     - fixed SAND and FrameShift issues
     - enhancements and fixes for cmplog and ijon
   - afl-cc
