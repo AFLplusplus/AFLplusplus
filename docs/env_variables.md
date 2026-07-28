@@ -654,7 +654,9 @@ checks or alter some of the more exotic semantics of the tool:
     kept. The coverage that is lost this way is reset in the virgin bitmap, so
     it can be found again - by smaller and faster inputs, hopefully. With `-B`
     the bitmap is left untouched, because it is an explicit baseline of coverage
-    that shall not be rediscovered.
+    that shall not be rediscovered. How often the queue was really minimized -
+    which requires that entries were actually disabled - is reported as
+    `starve_minimized` in the `fuzzer_stats` file.
 
   - Setting `AFL_KEEP_TIMEOUTS` will keep longer running inputs if they reach
     new coverage
@@ -1145,23 +1147,33 @@ support.
   dump you must set a sufficient timeout (using `-t`) to avoid `afl-fuzz`
   killing the process whilst it is being dumped.
 
-## 8) Settings for afl-cmin
+## 8) Settings for afl-cmin and afl-merge
 
-The corpus minimization script offers very little customization:
+`afl-cmin` (and its `afl-merge` symlink) offers very little customization:
 
-  - `AFL_ALLOW_TMP` permits this and some other scripts to run in /tmp. This is
-    a modest security risk on multi-user systems with rogue users, but should be
-    safe on dedicated fuzzing boxes.
+  - `AFL_MAP_SIZE` (alias `AFL_MAPSIZE`) sets the coverage map size instead of
+    detecting it from the target. The value is validated and rounded up to a
+    multiple of 64, exactly as for the other tools.
 
-  - `AFL_KEEP_TRACES` makes the tool keep traces and other metadata used for
-    minimization and normally deleted at exit. The files can be found in the
-    `<out_dir>/.traces/` directory.
+  - `AFL_SHA1_FILENAMES` names the output files after the SHA-1 of their
+    contents instead of keeping the original file name.
 
-  - Setting `AFL_PATH` offers a way to specify the location of afl-showmap and
-    afl-qemu-trace (the latter only in `-Q` mode).
+  - `AFL_INPUT_PLACEHOLDER` replaces `@@` as the input file placeholder in the
+    target command line.
 
-  - `AFL_PRINT_FILENAMES` prints each filename to stdout, as it gets processed.
-    This can help when embedding `afl-cmin` or `afl-showmap` in other scripts.
+  - Setting `AFL_PATH` offers a way to specify the location of afl-qemu-trace
+    (`-Q` mode) and libnyx.so (`-X` mode).
+
+  - `AFL_SKIP_BIN_CHECK` skips the instrumentation check of the target binary.
+
+  Temporary files (the test case handed to the target and the per-worker trace
+  logs) are kept in a private directory below the output directory that is
+  removed again when the run ends, also when it fails.
+
+  The script variants (`afl-cmin.py`, `afl-cmin.bash`) collect coverage with
+  `afl-showmap` and additionally honor `AFL_ALLOW_TMP`, `AFL_KEEP_TRACES`
+  (leaving `<out_dir>/.traces/` in place) and `AFL_CMIN_ALLOW_ANY`, plus every
+  `afl-showmap` variable such as `AFL_PRINT_FILENAMES`.
 
 ## 9) Settings for afl-tmin
 

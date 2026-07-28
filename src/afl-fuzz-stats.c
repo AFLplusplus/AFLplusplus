@@ -386,7 +386,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   snprintf(fn_final, PATH_MAX, "%s/fuzzer_stats", afl->out_dir);
   f = create_ffile(fn_tmp, afl->perm);
 
-  if (afl->chown_needed) {
+  if (unlikely(afl->chown_needed)) {
 
     if (chown(fn_tmp, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
 
@@ -395,7 +395,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   /* Keep last values in case we're called from another context
      where exec/sec stats and such are not readily available. */
 
-  if (!bitmap_cvg && !stability && !eps) {
+  if (unlikely(!bitmap_cvg && !stability && !eps)) {
 
     bitmap_cvg = afl->last_bitmap_cvg;
     stability = afl->last_stability;
@@ -420,7 +420,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   }
 
 #ifndef __HAIKU__
-  if (getrusage(RUSAGE_CHILDREN, &rus)) { rus.ru_maxrss = 0; }
+  if (unlikely(getrusage(RUSAGE_CHILDREN, &rus))) { rus.ru_maxrss = 0; }
   #ifdef __APPLE__
   u64 cur_rss_mb = (u64)rus.ru_maxrss >> 20;
   #else
@@ -439,7 +439,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       (afl->calibration_time_us + afl->sync_time_us + afl->trim_time_us +
        afl->cmplog_time_us + afl->table_time_us) /
       1000;
-  if (!runtime_ms) { runtime_ms = 1; }
+  if (unlikely(!runtime_ms)) { runtime_ms = 1; }
 
   fprintf(
       f,
@@ -552,7 +552,13 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   fprintf(f, "starved_count     : %llu\n", afl->starved_count);
 
-  if (afl->san_binary_length) {
+  if (unlikely(afl->afl_env.afl_starved_minimize_queue)) {
+
+    fprintf(f, "starve_minimized  : %llu\n", afl->starved_minimize_count);
+
+  }
+
+  if (unlikely(afl->san_binary_length)) {
 
     for (u8 i = 0; i < afl->san_binary_length; i++) {
 
@@ -567,7 +573,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   /* ignore errors */
 
-  if (afl->debug) {
+  if (unlikely(afl->debug)) {
 
     u32 i = 0;
     fprintf(f, "virgin_bytes     :");
@@ -585,7 +591,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
     fprintf(f, "var_bytes        :");
     for (i = 0; i < afl->fsrv.real_map_size; i++) {
 
-      if (afl->var_bytes[i]) { fprintf(f, " %u", i); }
+      if (unlikely(afl->var_bytes[i])) { fprintf(f, " %u", i); }
 
     }
 
@@ -603,7 +609,7 @@ void write_queue_stats(afl_state_t *afl) {
 
   FILE *f;
   u8   *fn = alloc_printf("%s/queue_data", afl->out_dir);
-  if ((f = fopen(fn, "w")) != NULL) {
+  if (likely((f = fopen(fn, "w")) != NULL)) {
 
     u32 id;
     fprintf(f,
@@ -2490,11 +2496,7 @@ void show_init_stats(afl_state_t *afl) {
 
   /* Let's keep things moving with slow binaries. */
 
-  if (unlikely(afl->fixed_seed)) {
-
-    afl->havoc_div = 1;
-
-  } else if (avg_us > 50000) {
+  if (avg_us > 50000) {
 
     afl->havoc_div = 10;                                /* 0-19 execs/sec   */
 
@@ -2574,11 +2576,7 @@ void show_init_stats(afl_state_t *afl) {
        random scheduler jitter is less likely to have any impact, and because
        our patience is wearing thin =) */
 
-    if (unlikely(afl->fixed_seed)) {
-
-      afl->fsrv.exec_tmout = avg_us * 5 / 1000;
-
-    } else if (avg_us > 50000) {
+    if (avg_us > 50000) {
 
       afl->fsrv.exec_tmout = avg_us * 2 / 1000;
 

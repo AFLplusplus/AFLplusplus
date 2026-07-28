@@ -11,7 +11,10 @@
       introduced incl. splicing phase enabled. This is visible in the UI.
     - env `AFL_STARVED_MINIMIZE_QUEUE`: if starve mode does not help either,
       minimize the the queue like afl-cmin does and make the coverage of the
-      removed entries rediscoverable
+      removed entries rediscoverable. Inspired by `Novelty Not Found: Adaptive
+      Fuzzer Restarts to Improve Input Space Coverage`
+    - `-s fixed_seed` now only sets a fixed seed and does not ignore timings
+      anymore (required for proper benchmarking in containers without urandom)
     - fixed SAND and FrameShift issues
     - enhancements and fixes for cmplog and ijon
   - afl-cc
@@ -20,10 +23,10 @@
     - removed the obsolete afl-as assembler wrapper and its remaining references
   - afl-cmin:
     - (all variants: C, python, bash, awk): empty (0 byte) input files are now
-      skipped
+      skipped, plus various other fixes and corner case handling
     - afl-merge (symlink) - merge new files into an existing corpus (that is
       not minimized)
-    - afl-cmin.c is now the default afl-cmin
+    - afl-cmin.c is now the default afl-cmin, but it needed a larger rewrite
   - afl-health
     - more speed, more info, a few fixes
   - custom_mutators:
@@ -217,7 +220,7 @@
     - multiple AFL++ out directories now supported, thanks to @Jay-1409 !
 
 
-### Version ++4.35a (release)
+### Version ++4.35c (release)
   - GUIFuzz++ merged: Unleashing Grey-box Fuzzing on Desktop Graphical User
                       Interfacing Applications
     https://futures.cs.utah.edu/papers/25ASE.pdf

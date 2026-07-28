@@ -55,12 +55,55 @@ unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN F_ARG \
 
 export AFL_QUIET=1
 
+usage() {
+
+  cat 1>&2 <<_EOF_
+Usage: $0 [ options ] -- /path/to/target_app [ ... ]
+
+Required parameters:
+
+  -i dir        - input directory with the starting corpus
+  -o dir        - output directory for minimized files
+
+Execution control settings:
+
+  -T tasks      - how many parallel processes to create (default=1, "all"=nproc)
+  -f file       - location read by the fuzzed program (default: stdin)
+  -m megs       - memory limit for child process (default=$MEM_LIMIT MB)
+  -t msec       - run time limit for child process (default: 5000ms)
+  -O            - use binary-only instrumentation (FRIDA mode)
+  -Q            - use binary-only instrumentation (QEMU mode)
+  -U            - use unicorn-based instrumentation (Unicorn mode)
+  -X            - use Nyx mode
+  
+Minimization settings:
+
+  -A            - allow crashing and timeout inputs
+  -C            - keep crashing inputs, reject everything else
+  -e            - solve for edge coverage only, ignore hit counts
+
+For additional tips, please consult README.md.
+This script cannot read filenames that end with a space ' '.
+
+Environment variables used:
+AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
+AFL_NO_FORKSRV: run target via execve instead of using the forkserver
+AFL_PATH: preferred location to find the afl-showmap binary (checked before PATH)
+AFL_SKIP_BIN_CHECK: skip check for target binary
+AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)
+AFL_PYTHON_MODULE: custom mutator library (post_process and send)
+_EOF_
+  exit $1
+
+}
+
 while getopts "+i:o:f:m:t:T:eOQUAChXY" opt; do
 
   case "$opt" in 
 
     "h")
-	;;
+         usage 0
+         ;;
 
     "i")
          IN_DIR="$OPTARG"
@@ -126,43 +169,8 @@ TARGET_BIN="$1"
 
 if [ "$TARGET_BIN" = "" -o "$IN_DIR" = "" -o "$OUT_DIR" = "" ]; then
 
-  cat 1>&2 <<_EOF_
-Usage: $0 [ options ] -- /path/to/target_app [ ... ]
+  usage 1
 
-Required parameters:
-
-  -i dir        - input directory with the starting corpus
-  -o dir        - output directory for minimized files
-
-Execution control settings:
-
-  -T tasks      - how many parallel processes to create (default=1, "all"=nproc)
-  -f file       - location read by the fuzzed program (default: stdin)
-  -m megs       - memory limit for child process (default=$MEM_LIMIT MB)
-  -t msec       - run time limit for child process (default: 5000ms)
-  -O            - use binary-only instrumentation (FRIDA mode)
-  -Q            - use binary-only instrumentation (QEMU mode)
-  -U            - use unicorn-based instrumentation (Unicorn mode)
-  -X            - use Nyx mode
-  
-Minimization settings:
-
-  -A            - allow crashing and timeout inputs
-  -C            - keep crashing inputs, reject everything else
-  -e            - solve for edge coverage only, ignore hit counts
-
-For additional tips, please consult README.md.
-This script cannot read filenames that end with a space ' '.
-
-Environment variables used:
-AFL_KEEP_TRACES: leave the temporary <out_dir>\.traces directory
-AFL_NO_FORKSRV: run target via execve instead of using the forkserver
-AFL_PATH: preferred location to find the afl-showmap binary (checked before PATH)
-AFL_SKIP_BIN_CHECK: skip check for target binary
-AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)
-AFL_PYTHON_MODULE: custom mutator library (post_process and send)
-_EOF_
-  exit 1
 fi
 
 # Do a sanity check to discourage the use of /tmp, since we can't really

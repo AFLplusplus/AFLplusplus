@@ -578,8 +578,7 @@ static u8 colorization(afl_state_t *afl, u8 *buf, u32 len,
       though ...*/
     if (!trace_matches(afl->fsrv.trace_bits, baseline, unstable,
                        afl->fsrv.map_size) ||
-        (unlikely(stop_us - start_us > 3 * afl->queue_cur->exec_us) &&
-         likely(!afl->fixed_seed))) {
+        unlikely(stop_us - start_us > 3 * afl->queue_cur->exec_us)) {
 
       memcpy(buf + rng.start, backup + rng.start, s);
 
