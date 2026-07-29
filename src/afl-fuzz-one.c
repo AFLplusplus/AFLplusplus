@@ -2235,14 +2235,14 @@ havoc_stage:
     case 1: {  // TEXT
 
       if (likely(afl->fuzz_mode == 0)) {  // is exploration?
-        mutation_array = (unsigned int *)&binary_array;
-        rand_max = MUT_BIN_ARRAY_SIZE;
+        mutation_array = (unsigned int *)&mutation_strategy_exploration_text;
+        rand_max = MUT_STRATEGY_ARRAY_SIZE;
         // TODO: versus mutation_strategy_exploration_text?
 
       } else {  // exploitation mode
 
-        mutation_array = (unsigned int *)&text_array;
-        rand_max = MUT_TXT_ARRAY_SIZE;
+        mutation_array = (unsigned int *)&mutation_strategy_exploitation_text;
+        rand_max = MUT_STRATEGY_ARRAY_SIZE;
         // TODO: maybe this should be mutation_strategy_exploitation_text?
 
       }
