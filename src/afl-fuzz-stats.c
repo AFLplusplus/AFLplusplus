@@ -2591,14 +2591,21 @@ void show_init_stats(afl_state_t *afl) {
     afl->fsrv.exec_tmout =
         (afl->fsrv.exec_tmout + EXEC_TM_ROUND) / EXEC_TM_ROUND * EXEC_TM_ROUND;
 
-    if (afl->fsrv.exec_tmout > EXEC_TIMEOUT) {
+    u32 cap = afl->exec_tmout_ceil ? afl->exec_tmout_ceil : EXEC_TIMEOUT;
 
-      afl->fsrv.exec_tmout = EXEC_TIMEOUT;
+    if (afl->fsrv.exec_tmout > cap) { afl->fsrv.exec_tmout = cap; }
+
+    if (afl->exec_tmout_ceil) {
+
+      ACTF("-t %u+ specified, starting with an exec timeout of %u ms.",
+           afl->exec_tmout_ceil, afl->fsrv.exec_tmout);
+
+    } else {
+
+      ACTF("No -t option specified, so I'll use an exec timeout of %u ms.",
+           afl->fsrv.exec_tmout);
 
     }
-
-    ACTF("No -t option specified, so I'll use an exec timeout of %u ms.",
-         afl->fsrv.exec_tmout);
 
     afl->timeout_given = 1;
 

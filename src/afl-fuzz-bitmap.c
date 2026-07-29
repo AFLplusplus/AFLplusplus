@@ -250,9 +250,23 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 #endif                                                     /* ^WORD_SIZE_64 */
 
   u8 ret = 0;
+  u8 undo = (u8)(afl->virgin_undo_armed && !afl->virgin_undo_valid &&
+                 virgin_map == afl->virgin_bits);
+
   while (i--) {
 
-    if (unlikely(*current)) discover_word(&ret, current, virgin);
+    if (unlikely(*current)) {
+
+      if (unlikely(undo && (*current & *virgin))) {
+
+        virgin_undo_save(afl);
+        undo = 0;
+
+      }
+
+      discover_word(&ret, current, virgin);
+
+    }
 
     current++;
     virgin++;
@@ -263,6 +277,79 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
     afl->bitmap_changed = 1;
 
   return ret;
+
+}
+
+/* An entry that fails calibration is never fuzzed, so the coverage it claimed
+   is reached by nothing reproducible and has to become discoverable again.
+   virgin_bits is therefore copied aside right before a discovery clears the
+   first bit in it, and put back if the calibration that follows fails. The
+   copy is lazy so that the hot path, where nothing is discovered, pays only
+   for the two tests above. */
+
+void virgin_undo_arm(afl_state_t *afl) {
+
+  afl->virgin_undo_armed = 1;
+  afl->virgin_undo_valid = 0;
+
+}
+
+void virgin_undo_save(afl_state_t *afl) {
+
+  if (likely(!afl->virgin_undo_armed || afl->virgin_undo_valid)) { return; }
+
+  memcpy(afl->virgin_undo, afl->virgin_bits, afl->fsrv.map_size);
+  afl->virgin_undo_valid = 1;
+
+}
+
+void virgin_undo_commit(afl_state_t *afl) {
+
+  afl->virgin_undo_armed = 0;
+  afl->virgin_undo_valid = 0;
+
+}
+
+void virgin_undo_rollback(afl_state_t *afl, struct queue_entry *q) {
+
+  u32 i, restored = 0;
+
+  if (likely(!afl->virgin_undo_valid)) {
+
+    virgin_undo_commit(afl);
+    return;
+
+  }
+
+  for (i = 0; i < afl->fsrv.map_size; i++) {
+
+    if (likely(afl->virgin_bits[i] == afl->virgin_undo[i])) { continue; }
+
+    if (unlikely(afl->virgin_reclaim[i] >= CAL_RECLAIM_MAX)) { continue; }
+
+    ++afl->virgin_reclaim[i];
+
+    /* var_bytes is not restored, so keep the edges it already retired. */
+
+    if (likely(!afl->var_bytes[i])) {
+
+      afl->virgin_bits[i] = afl->virgin_undo[i];
+      ++restored;
+
+    }
+
+  }
+
+  if (q && q->has_new_cov) {
+
+    q->has_new_cov = 0;
+    if (likely(afl->queued_with_cov)) { --afl->queued_with_cov; }
+
+  }
+
+  if (restored) { afl->bitmap_changed = 1; }
+
+  virgin_undo_commit(afl);
 
 }
 
@@ -535,6 +622,8 @@ static inline void calculate_new_bits_if_necessary(afl_state_t *afl,
 
   if (*bits_counted) return;
 
+  virgin_undo_arm(afl);
+
   if (*classified) {
 
     *new_bits = has_new_bits(afl, afl->virgin_bits);
@@ -546,6 +635,97 @@ static inline void calculate_new_bits_if_necessary(afl_state_t *afl,
   }
 
   *bits_counted = true;
+
+}
+
+static void raise_exec_tmout(afl_state_t *afl, u64 observed_us) {
+
+  u32 want = (u32)(observed_us * 12 / 10 / 1000);
+
+  want = (want + EXEC_TM_ROUND) / EXEC_TM_ROUND * EXEC_TM_ROUND;
+
+  if (want > afl->exec_tmout_ceil) { want = afl->exec_tmout_ceil; }
+
+  if (want > afl->fsrv.exec_tmout) { afl->fsrv.exec_tmout = want; }
+
+}
+
+static u8 probe_at_raised_tmout(afl_state_t *afl, void **mem, u32 *len,
+                                u32 tmout, u64 *elapsed_us) {
+
+  u32 tmp_len = write_to_testcase(afl, mem, *len, 0);
+
+  if (likely(tmp_len)) {
+
+    *len = tmp_len;
+
+  } else {
+
+    *len = write_to_testcase(afl, mem, *len, 1);
+
+  }
+
+  u64 start_us = get_cur_time_us();
+  u8  fault = fuzz_run_target(afl, &afl->fsrv, tmout);
+
+  *elapsed_us = get_cur_time_us() - start_us;
+
+  return fault;
+
+}
+
+static u8 tmout_probe_allowed(afl_state_t *afl) {
+
+  u64 now = get_cur_time();
+  u64 wait = MAX((u64)TMOUT_PROBE_INTERVAL, (u64)afl->exec_tmout_ceil * 100);
+
+  if (now - afl->last_tmout_probe < wait) { return 0; }
+
+  afl->last_tmout_probe = now;
+  return 1;
+
+}
+
+enum {
+
+  PROBE_IS_HANG = 0,
+  PROBE_KEEP_IN_QUEUE,
+  PROBE_KEEP_AS_CRASH,
+  PROBE_DISCARD,
+  PROBE_FAILED
+
+};
+
+static u8 classify_tmout_probe(afl_state_t *afl, u8 new_fault, u64 probe_us,
+                               u8 *new_bits, bool *bits_counted,
+                               bool *classified) {
+
+  if (unlikely(new_fault == FSRV_RUN_ERROR)) { return PROBE_FAILED; }
+
+  if (unlikely(afl->stop_soon)) { return PROBE_DISCARD; }
+
+  if (new_fault == FSRV_RUN_TMOUT) { return PROBE_IS_HANG; }
+
+  if (new_fault == afl->crash_mode &&
+      probe_us <= (u64)afl->exec_tmout_ceil * 1000) {
+
+    calculate_new_bits_if_necessary(afl, new_bits, bits_counted, classified);
+
+    if (*new_bits) {
+
+      raise_exec_tmout(afl, probe_us);
+      return PROBE_KEEP_IN_QUEUE;
+
+    }
+
+  }
+
+  /* A corner case that one user reported bumping into: increasing the
+     timeout actually uncovers a crash. Make sure we don't discard it if so. */
+
+  if (new_fault == FSRV_RUN_CRASH) { return PROBE_KEEP_AS_CRASH; }
+
+  return PROBE_DISCARD;
 
 }
 
@@ -757,6 +937,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u32 cksum_simplified = 0, cksum_unique = 0;
 
   bool classified = false, bits_counted = false, cksumed = false;
+  bool probed = false;
   u8   new_bits = 0;                       /* valid if bits_counted is true */
   u64  cksum = 0;                               /* valid if cksumed is true */
 
@@ -1097,6 +1278,16 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
+    if (unlikely(afl->queue_top->cal_failed) && likely(!afl->stop_soon)) {
+
+      virgin_undo_rollback(afl, afl->queue_top);
+
+    } else {
+
+      virgin_undo_commit(afl);
+
+    }
+
     if (likely(afl->q_testcase_max_cache_size)) {
 
       queue_testcase_store_mem(afl, afl->queue_top, use_mem);
@@ -1120,6 +1311,55 @@ may_save_fault:
          mode, we just keep everything. */
 
       ++afl->total_tmouts;
+
+      if (unlikely(afl->exec_tmout_ceil &&
+                   afl->fsrv.exec_tmout < afl->exec_tmout_ceil && !probed)) {
+
+        if (tmout_probe_allowed(afl)) {
+
+          u8  new_fault;
+          u64 probe_us = 0;
+
+          probed = true;
+          new_fault = probe_at_raised_tmout(
+              afl, &mem, &len, MAX(afl->hang_tmout, afl->exec_tmout_ceil),
+              &probe_us);
+          classified = false;
+          bits_counted = false;
+          cksumed = false;
+
+          switch (classify_tmout_probe(afl, new_fault, probe_us, &new_bits,
+                                       &bits_counted, &classified)) {
+
+            case PROBE_KEEP_IN_QUEUE:
+              is_timeout = 0;
+              fault = afl->crash_mode;
+              goto save_to_queue;
+
+            case PROBE_KEEP_AS_CRASH:
+              goto keep_as_crash;
+
+            case PROBE_FAILED:
+              return keeping;
+
+            case PROBE_DISCARD:
+              if (afl->afl_env.afl_keep_timeouts) {
+
+                ++afl->saved_tmouts;
+                goto save_to_queue;
+
+              }
+
+              return keeping;
+
+            default:
+              break;
+
+          }
+
+        }
+
+      }
 
       if (afl->saved_hangs >= KEEP_UNIQUE_HANG) { return keeping; }
 
@@ -1163,48 +1403,62 @@ may_save_fault:
 
       /* Before saving, we make sure that it's a genuine hang by re-running
          the target with a more generous timeout (unless the default timeout
-         is already generous). */
+         is already generous). With -t <n>+ the re-run also tells us whether
+         the input was merely slow, which raises the timeout towards <n>.
+         Stretching the re-run past hang_tmout to reach the ceiling costs real
+         wall clock time, so it draws from the same budget as the backstop
+         probe; without a free slot the confirmation stays at hang_tmout. */
 
-      if (afl->fsrv.exec_tmout < afl->hang_tmout) {
+      if (!probed &&
+          afl->fsrv.exec_tmout < MAX(afl->hang_tmout, afl->exec_tmout_ceil)) {
 
         u8  new_fault;
-        u32 tmp_len = write_to_testcase(afl, &mem, len, 0);
+        u64 probe_us = 0;
+        u32 probe_tmout = afl->hang_tmout;
 
-        if (likely(tmp_len)) {
+        if (afl->exec_tmout_ceil > probe_tmout &&
+            afl->fsrv.exec_tmout < afl->exec_tmout_ceil &&
+            tmout_probe_allowed(afl)) {
 
-          len = tmp_len;
-
-        } else {
-
-          len = write_to_testcase(afl, &mem, len, 1);
-
-        }
-
-        new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
-        classified = false;
-        bits_counted = false;
-        cksumed = false;
-
-        /* A corner case that one user reported bumping into: increasing the
-           timeout actually uncovers a crash. Make sure we don't discard it if
-           so. */
-
-        if (!afl->stop_soon && new_fault == FSRV_RUN_CRASH) {
-
-          goto keep_as_crash;
+          probe_tmout = afl->exec_tmout_ceil;
 
         }
 
-        if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) {
+        if (afl->fsrv.exec_tmout < probe_tmout) {
 
-          if (afl->afl_env.afl_keep_timeouts) {
+          probed = true;
+          new_fault =
+              probe_at_raised_tmout(afl, &mem, &len, probe_tmout, &probe_us);
+          classified = false;
+          bits_counted = false;
+          cksumed = false;
 
-            ++afl->saved_tmouts;
-            goto save_to_queue;
+          switch (classify_tmout_probe(afl, new_fault, probe_us, &new_bits,
+                                       &bits_counted, &classified)) {
 
-          } else {
+            case PROBE_KEEP_IN_QUEUE:
+              is_timeout = 0;
+              fault = afl->crash_mode;
+              goto save_to_queue;
 
-            return keeping;
+            case PROBE_KEEP_AS_CRASH:
+              goto keep_as_crash;
+
+            case PROBE_FAILED:
+              return keeping;
+
+            case PROBE_DISCARD:
+              if (afl->afl_env.afl_keep_timeouts) {
+
+                ++afl->saved_tmouts;
+                goto save_to_queue;
+
+              }
+
+              return keeping;
+
+            default:
+              break;
 
           }
 

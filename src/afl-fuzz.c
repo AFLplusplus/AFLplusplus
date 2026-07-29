@@ -298,8 +298,9 @@ static void usage(u8 *argv0, int more_help) {
       "or @@)\n"
       "  -t msec       - timeout for each run (auto-scaled, default %u ms). "
       "Add a '+'\n"
-      "                  to auto-calculate the timeout, the value being the "
-      "maximum.\n"
+      "                  to auto-calculate the timeout and raise it towards "
+      "msec\n"
+      "                  as slower reachable code is found.\n"
       "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
       "[default])\n"
 #if defined(__linux__) && defined(__aarch64__)
@@ -1222,6 +1223,7 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
 
         if (suffix == '+') {
 
+          afl->exec_tmout_ceil = afl->fsrv.exec_tmout;
           afl->timeout_given = 2;
 
         } else {
@@ -3368,38 +3370,6 @@ void afl_load_seeds(afl_state_t *afl) {
 
   }
 
-  if (afl->timeout_given == 2) {  // -t ...+ option
-
-    if (valid_seeds == 1) {
-
-      WARNF(
-          "Only one valid seed is present, auto-calculating the timeout is "
-          "disabled!");
-      afl->timeout_given = 1;
-
-    } else {
-
-      u64 max_ms = 0;
-
-      for (entry = 0; entry < afl->queued_items; ++entry)
-        if (!afl->queue_buf[entry]->disabled)
-          if ((afl->queue_buf[entry]->exec_us / 1000) > max_ms)
-            max_ms = afl->queue_buf[entry]->exec_us / 1000;
-
-      // Add 20% as a safety margin, capped to exec_tmout given in -t option
-      max_ms *= 1.2;
-      if (max_ms > afl->fsrv.exec_tmout) max_ms = afl->fsrv.exec_tmout;
-
-      // Ensure that there is a sensible timeout even for very fast binaries
-      if (max_ms < 5) max_ms = 5;
-
-      afl->fsrv.exec_tmout = max_ms;
-      afl->timeout_given = 1;
-
-    }
-
-  }
-
   show_init_stats(afl);
 
   if (!getenv("AFL_NO_UI") && !afl->not_on_tty) { make_space_for_stats(); }
@@ -3408,6 +3378,7 @@ void afl_load_seeds(afl_state_t *afl) {
     afl->seek_to = find_start_position(afl);
 
   afl->start_time = get_cur_time();
+  afl->last_tmout_probe = afl->start_time;
   if (afl->in_place_resume || afl->afl_env.afl_autoresume) {
 
     load_stats_file(afl);

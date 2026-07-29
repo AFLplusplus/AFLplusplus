@@ -526,12 +526,24 @@ u8 fuzz_one(afl_state_t *afl) {
 
       afl->queue_cur->exec_cksum = 0;
 
+      virgin_undo_arm(afl);
+
       res =
           calibrate_case(afl, afl->queue_cur, in_buf, afl->queue_cycle - 1, 0);
 
       if (unlikely(res == FSRV_RUN_ERROR)) {
 
         FATAL("Unable to execute target application");
+
+      }
+
+      if (unlikely(afl->queue_cur->cal_failed) && likely(!afl->stop_soon)) {
+
+        virgin_undo_rollback(afl, afl->queue_cur);
+
+      } else {
+
+        virgin_undo_commit(afl);
 
       }
 

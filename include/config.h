@@ -177,6 +177,15 @@
 
 #define EXEC_TM_ROUND 20U
 
+/* Rate limit for every -t <n>+ timeout probe that may run for the full
+   ceiling (milliseconds). The effective interval is the larger of this and
+   100x the -t ceiling, which bounds the probe overhead at 1% of wall clock
+   time: */
+
+#ifndef TMOUT_PROBE_INTERVAL
+  #define TMOUT_PROBE_INTERVAL 60000U
+#endif
+
 /* 64bit arch MACRO */
 #if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__) ||    \
      (defined(__riscv) && __riscv_xlen == 64) || defined(__powerpc64le__) || \
@@ -471,6 +480,13 @@ We add 4 byte for one u32 length field. */
 /* Number of chances to calibrate a case before giving up: */
 
 #define CAL_CHANCES 3
+
+/* How often the coverage of an entry that failed calibration is handed back
+   to virgin_bits, counted per map byte. A path that can never be calibrated
+   would otherwise be rediscovered and requeued without bound, so beyond this
+   the claim stays in place: */
+
+#define CAL_RECLAIM_MAX 3
 
 /* Map size for the traced binary (2^MAP_SIZE_POW2). Must be greater than
    2; you probably want to keep it under 18 or so for performance reasons

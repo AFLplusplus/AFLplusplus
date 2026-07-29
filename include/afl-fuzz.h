@@ -665,6 +665,7 @@ typedef struct afl_state {
   u8 chown_needed;             /* Group owner of files needs to be modified */
 
   u32 hang_tmout,                       /* Timeout used for hang det (ms)   */
+      exec_tmout_ceil,                  /* -t <n>+ ceiling, 0 if not given  */
       stats_update_freq;                /* Stats update frequency (execs)   */
 
   u8 havoc_stack_pow2,                  /* HAVOC_STACK_POW2                 */
@@ -720,6 +721,11 @@ typedef struct afl_state {
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
       *virgin_crash;                    /* Bits we haven't seen in crashes  */
+
+  u8 *virgin_undo;              /* virgin_bits before the pending discovery */
+  u8 *virgin_reclaim;                  /* handbacks per byte, see rollback  */
+  u8  virgin_undo_armed;                /* a discovery may still be undone  */
+  u8  virgin_undo_valid;               /* virgin_undo holds a usable copy   */
 
   double *alias_probability;            /* alias weighted probabilities     */
   u32    *alias_table;                /* alias weighted random lookup table */
@@ -786,6 +792,7 @@ typedef struct afl_state {
       det_start_execs,                  /* deterministic fuzzing start execs*/
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time,                   /* Time for most recent hang (ms)   */
+      last_tmout_probe,                 /* Last -t <n>+ probe (ms)          */
       longest_find_time,                /* Longest time taken for a find    */
       exit_on_time,                     /* Delay to exit if no new paths    */
       sync_time,                        /* Sync time (ms)                   */
@@ -1394,8 +1401,12 @@ void minimize_bits(afl_state_t *, u8 *, u8 *);
 #ifndef SIMPLE_FILES
 u8 *describe_op(afl_state_t *, u8, size_t);
 #endif
-u8 save_if_interesting(afl_state_t *, void *, u32, u8);
-u8 has_new_bits(afl_state_t *, u8 *);
+u8   save_if_interesting(afl_state_t *, void *, u32, u8);
+u8   has_new_bits(afl_state_t *, u8 *);
+void virgin_undo_arm(afl_state_t *);
+void virgin_undo_save(afl_state_t *);
+void virgin_undo_commit(afl_state_t *);
+void virgin_undo_rollback(afl_state_t *, struct queue_entry *);
 #ifndef AFL_SHOWMAP
 void classify_counts(afl_forkserver_t *);
 #endif
