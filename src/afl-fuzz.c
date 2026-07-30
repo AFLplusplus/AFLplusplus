@@ -429,6 +429,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DISABLE_REDUNDANT: disable any queue item that is redundant\n"
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
+      "AFL_ELF_DICT: mine the target ELF for string and numeric constants and\n"
+      "              add them to the dictionary. 1 = data sections, 2 = also\n"
+      "              scan code, N>2 = cap at N tokens, L:N = level plus cap\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
       "AFL_EXIT_ON_TIME: exit when no new coverage is found within the specified time\n"
       "AFL_EXIT_ON_SEED_ISSUES: exit on any kind of seed issues\n"
@@ -3027,6 +3030,16 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       load_extras(afl, afl->extras_dir[i]);
 
     }
+
+  }
+
+  /* Strictly after every -x dictionary: user dictionaries keep priority, and
+     mined tokens that duplicate one are skipped rather than displacing it. */
+
+  if (afl->afl_env.afl_elf_dict && atoi((char *)afl->afl_env.afl_elf_dict) &&
+      afl->fsrv.target_path) {
+
+    load_extras_from_elf(afl, (u8 *)afl->fsrv.target_path);
 
   }
 

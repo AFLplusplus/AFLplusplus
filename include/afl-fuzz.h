@@ -593,7 +593,7 @@ typedef struct afl_env_vars {
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
-      *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
+      *afl_target_env, *afl_persistent_record, *afl_exit_on_time, *afl_elf_dict;
 
   s32 afl_pizza_mode, afl_ijon_history_limit;
 
@@ -1426,10 +1426,17 @@ void load_extras(afl_state_t *, u8 *);
 void dedup_extras(afl_state_t *);
 void deunicode_extras(afl_state_t *);
 void add_extra(afl_state_t *afl, u8 *mem, u32 len);
+void add_extra_nocheck(afl_state_t *, u8 *, u32);
+void sort_extras(afl_state_t *);
 void maybe_add_auto(afl_state_t *, u8 *, u32);
 void save_auto(afl_state_t *);
 void load_auto(afl_state_t *);
 void destroy_extras(afl_state_t *);
+
+/* ELF dictionary mining (AFL_ELF_DICT), src/afl-fuzz-elf.c */
+
+void load_extras_from_elf(afl_state_t *, u8 *);
+u8   elf_dict_in_extras(struct extra_data *, u32, u8 *, u32);
 
 /* Stats */
 

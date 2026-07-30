@@ -290,7 +290,7 @@ ifneq "$(findstring OpenBSD, $(SYS))" ""
   override LDFLAGS += -lpthread -lm
 endif
 
-COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h include/afl-fuzz.h include/hash.h include/sharedmem.h include/forkserver.h include/common.h include/list.h
+COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h include/afl-fuzz.h include/hash.h include/sharedmem.h include/forkserver.h include/common.h include/list.h include/afl-elf.h include/afl-elf-dict.h
 
 ifeq "$(shell echo '$(HASH)include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test $(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	PYTHON_OK=1
@@ -642,13 +642,17 @@ unit_ijon: $(COMM_HDR) include/afl-ijon-min.h test/unittests/unit_ijon.c src/afl
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_ijon.c src/afl-fuzz-ijon.c -Wl,--gc-sections -Wl,--wrap=write -Wl,--wrap=fsync -Wl,--wrap=close -Wl,--wrap=rename -Wl,--wrap=unlink -o test/unittests/unit_ijon $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
 	./test/unittests/unit_ijon
 
+unit_elf_dict: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_elf_dict.c src/afl-fuzz-elf.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_elf_dict.c src/afl-fuzz-elf.c -Wl,--gc-sections -o test/unittests/unit_elf_dict $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	./test/unittests/unit_elf_dict
+
 .PHONY: unit_clean
 unit_clean:
-	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_mopt ./test/unittests/unit_cmplog ./test/unittests/unit_ijon_replay ./test/unittests/unit_sharedmem_mmap ./test/unittests/unit_queue_score ./test/unittests/unit_skipdet ./test/unittests/unit_frameshift ./test/unittests/unit_ijon test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o test/unittests/*.o
+	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_mopt ./test/unittests/unit_cmplog ./test/unittests/unit_ijon_replay ./test/unittests/unit_sharedmem_mmap ./test/unittests/unit_queue_score ./test/unittests/unit_skipdet ./test/unittests/unit_frameshift ./test/unittests/unit_ijon ./test/unittests/unit_elf_dict test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o test/unittests/*.o
 
 .PHONY: unit
 ifneq "$(SYS)" "Darwin"
-unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_mopt unit_cmplog unit_ijon_replay unit_sharedmem_mmap unit_queue_score unit_skipdet unit_frameshift unit_ijon
+unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_mopt unit_cmplog unit_ijon_replay unit_sharedmem_mmap unit_queue_score unit_skipdet unit_frameshift unit_ijon unit_elf_dict
 else
 unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)

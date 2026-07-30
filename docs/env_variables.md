@@ -670,6 +670,66 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_CRASHING_SEEDS_AS_NEW_CRASH` will treat crashing seeds as new crash. these
     crashes will be written to crashes folder as op:dry_run, and orig:<seed_file_name>.
 
+  - Setting `AFL_ELF_DICT=1` makes afl-fuzz parse the target ELF binary and mine
+    its data sections for dictionary tokens. This is most useful for
+    binary-only targets and for targets not built with `afl-clang-lto`, which
+    have no autodictionary of their own.
+
+    The read-only and writable data sections are scanned - `.rodata*`,
+    `.data.rel.ro*` and `.data*`, falling back to the non-executable `PT_LOAD`
+    segments if the binary is stripped of section headers. Two kinds of token
+    are collected: NUL-terminated printable ASCII strings of 4 to 32 bytes, and
+    32, 64 and 128 bit constants at their natural alignment.
+
+    A constant is discarded if all of its bytes are identical, if it is just a
+    single byte zero- or sign-extended, if it is entirely printable text (the
+    string pass already covers those), if it looks like a pointer into the
+    stack, heap, or a PIE or non-PIE image, or if it is a value AFL++ already
+    tries on its own. Surviving 32 and 64 bit constants are added in both byte
+    orders, so a big-endian wire format parsed on a little-endian host is
+    covered as well.
+
+    If `-a text` is given, the target consumes textual input, so raw byte
+    constants are of no use to it: strings are mined as usual, but a numeric
+    constant is only kept when it consists entirely of letters and digits, with
+    an optional trailing NUL byte.
+
+    Setting `AFL_ELF_DICT=2` additionally scans the executable sections. A
+    compiler often turns a small magic into an instruction immediate rather
+    than data - `cmpl $0x50424557, 0x8(%rbx)` for libwebp's `WEBP` - and such
+    values exist nowhere else in the binary. Because an immediate sits at
+    whatever offset the instruction stream puts it at, this pass scans every
+    byte offset rather than aligned ones only, and it keeps a value only if it
+    reads like a tag: all bytes alphanumeric, underscore or space, with at
+    least one letter. Without that restriction roughly 94% of code windows
+    would qualify, since instruction bytes are close to random.
+
+    Code-derived tokens get their own share of the budget, so they cannot crowd
+    out the ones mined from data. The extra pass costs about 20 ms per megabyte
+    of code.
+
+    The value is read as follows:
+
+    | Value | Meaning |
+    | ----- | ------- |
+    | `1` | data sections only |
+    | `2` | data sections plus executable code |
+    | `N` greater than 2 | data sections only, token budget `N` |
+    | `L:N` | level `L` (1 or 2) with token budget `N` |
+
+    At most 2048 tokens are added by default, and when more candidates survive
+    than fit, the ones occurring most often in the binary are kept. A target
+    whose format is defined by many 4-byte magic values benefits from a larger
+    budget, e.g. `AFL_ELF_DICT=2:16384`.
+
+    Tokens from a `-x` dictionary always take priority: they are loaded first,
+    and a mined token that duplicates one of them is skipped rather than
+    replacing it.
+
+    The result is written to `<out_dir>/afl-elf.dict` in dictionary format, so
+    it can be inspected, hand-pruned and reused later with `-x`. Run with
+    `AFL_DEBUG=1` to see per-class and per-filter counts.
+
   - `AFL_EXIT_ON_TIME` causes afl-fuzz to terminate if no new paths were found
     within a specified period of time (in seconds). May be convenient for some
     types of automated jobs.

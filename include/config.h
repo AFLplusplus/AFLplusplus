@@ -598,5 +598,35 @@ We add 4 byte for one u32 length field. */
 
 #define AFL_TXT_MIN_PERCENT 99
 
+/* ELF dictionary mining (AFL_ELF_DICT), see src/afl-fuzz-elf.c */
+
+/* Total tokens mined from the target binary: */
+
+#define ELF_DICT_MAX_TOKENS 2048
+
+/* Per-class share of the budget above. Must sum to ELF_DICT_MAX_TOKENS.
+   Unused quota rolls over, so with AFL_ELF_DICT=1 the text quota is simply
+   redistributed to the data classes. */
+
+#define ELF_DICT_QUOTA_STRING 896
+#define ELF_DICT_QUOTA_32 448
+#define ELF_DICT_QUOTA_64 320
+#define ELF_DICT_QUOTA_128 128
+#define ELF_DICT_QUOTA_TEXT 256
+
+/* Upper bound on candidates collected per class before subsampling. Keeps
+   memory bounded on a pathologically large binary: */
+
+#define ELF_DICT_MAX_CANDIDATES 100000
+
+/* Length bounds for mined strings. 32 matches MAX_AUTO_EXTRA. */
+
+#define ELF_DICT_MIN_STRING 4
+#define ELF_DICT_MAX_STRING 32
+
+/* Maximum PT_LOAD ranges recorded for the 32-bit pointer filter: */
+
+#define ELF_DICT_MAX_LOAD 32
+
 #endif                                                  /* ! _HAVE_CONFIG_H */
 
