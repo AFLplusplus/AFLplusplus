@@ -467,6 +467,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "corpus_found      : %u\n"
       "corpus_imported   : %u\n"
       "corpus_variable   : %u\n"
+      "corpus_disabled   : %u\n"
       "max_depth         : %u\n"
       "cur_item          : %u\n"
       "pending_favs      : %u\n"
@@ -514,12 +515,12 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       afl->fsrv.total_execs / ((double)(runtime_ms) / 1000),
       afl->last_avg_execs_saved, afl->queued_items, afl->queued_favored,
       afl->queued_discovered, afl->queued_imported, afl->queued_variable,
-      afl->max_depth, afl->current_entry, afl->pending_favored,
-      afl->pending_not_fuzzed, stability, bitmap_cvg, afl->saved_crashes,
-      afl->saved_hangs, afl->total_tmouts, afl->last_find_time / 1000,
-      afl->last_crash_time / 1000, afl->last_hang_time / 1000,
-      afl->fsrv.total_execs - afl->last_crash_execs, afl->last_edge_execs,
-      afl->fsrv.exec_tmout, afl->slowest_exec_ms,
+      afl->disabled_items, afl->max_depth, afl->current_entry,
+      afl->pending_favored, afl->pending_not_fuzzed, stability, bitmap_cvg,
+      afl->saved_crashes, afl->saved_hangs, afl->total_tmouts,
+      afl->last_find_time / 1000, afl->last_crash_time / 1000,
+      afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
+      afl->last_edge_execs, afl->fsrv.exec_tmout, afl->slowest_exec_ms,
 #ifndef __HAIKU__
       (unsigned long int)afl->peak_rss_mb,
 #else

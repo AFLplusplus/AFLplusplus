@@ -680,7 +680,12 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
   if (state) {
 
-    if (unlikely(afl->afl_env.afl_disable_redundant)) { q->disabled = 1; }
+    if (unlikely(afl->afl_env.afl_disable_redundant)) {
+
+      q->disabled = 1;
+      ++afl->disabled_items;
+
+    }
 
   }
 
@@ -1284,6 +1289,7 @@ static void minimize_queue_disable(afl_state_t *afl) {
     if (q->favored || q->disabled || !q->was_fuzzed) { continue; }
 
     --afl->active_items;
+    ++afl->disabled_items;
     q->disabled = 1;
     q->perf_score = 0;
     ++disabled;

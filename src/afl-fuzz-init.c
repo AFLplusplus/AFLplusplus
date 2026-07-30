@@ -1195,6 +1195,7 @@ void perform_dry_run(afl_state_t *afl) {
           ++cal_failures;
           q->cal_failed = CAL_CHANCES;
           q->disabled = 1;
+          ++afl->disabled_items;
           afl->reinit_table = 1;
           q->perf_score = 0;
 
@@ -1248,6 +1249,7 @@ void perform_dry_run(afl_state_t *afl) {
 
           q->disabled = 1;
           q->perf_score = 0;
+          ++afl->disabled_items;
           afl->reinit_table = 1;
 
           WARNF("Test case '%s' results in a timeout, skipping", fn);
@@ -1581,8 +1583,9 @@ void perform_dry_run(afl_state_t *afl) {
         }
 
         q->disabled = 1;
-        afl->reinit_table = 1;
         q->perf_score = 0;
+        ++afl->disabled_items;
+        afl->reinit_table = 1;
 
         break;
 
@@ -1692,6 +1695,7 @@ void perform_dry_run(afl_state_t *afl) {
       }
 
       afl->reinit_table = 1;
+      ++afl->disabled_items;
       to_disable->disabled = 1;
       to_disable->perf_score = 0;
 

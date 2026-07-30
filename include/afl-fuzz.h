@@ -735,6 +735,7 @@ typedef struct afl_state {
   u32     splice_buf_count;           /* number of splice candidates        */
   u32     splice_buf_alloc;           /* allocated capacity of splice_buf   */
   u32     active_items;                 /* enabled entries in the queue     */
+  u32     disabled_items;               /* disabled entries in the queue    */
 
   long double coe_fuzz_mu;              /* COE mean log2(n_fuzz) of queue   */
 
