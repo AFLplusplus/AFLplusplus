@@ -91,6 +91,20 @@ typedef struct elf_dict_ctx {
   /* Set for AFL_ELF_DICT=2: also scan executable sections. */
   u8 scan_text;
 
+  /* Set for AFL_CMPLOG_BINARY_CONSTS. Collects raw constants for the cmplog
+     gate instead of extracting dictionary tokens: every byte offset, no
+     filtering at all. Precision is not needed here because the runtime
+     comparison supplies the relevance - the set only answers "does this value
+     occur in the binary". Swept unaligned so an instruction immediate counts,
+     since a missing entry would silently drop a real cmplog token. */
+  u8   collect_consts;
+  u32 *c32;
+  u32  c32_cnt;
+  u64 *c64;
+  u32  c64_cnt;
+  u8   c_overflow;                   /* set if the cap was hit: fail open   */
+
+  u16 e_machine;                              /* target architecture        */
   u8  ptr_width;                              /* 4 or 8                     */
   u32 load_cnt;
   u64 load_lo[ELF_DICT_MAX_LOAD];             /* PT_LOAD vaddr ranges       */
@@ -149,6 +163,20 @@ u32 elf_dict_select(elf_dict_ctx_t *ctx, u32 cap);
 u8 elf_dict_parse(elf_dict_ctx_t *ctx, u8 *map, u64 map_len);
 
 void elf_dict_free(elf_dict_ctx_t *ctx);
+
+/* Sort ascending and remove duplicates in place; return the new count. */
+u32 elf_const_dedup32(u32 *v, u32 cnt);
+u32 elf_const_dedup64(u64 *v, u32 cnt);
+
+/* Binary search a deduped array. 0 for an empty or NULL set, so a set that
+   could not be built never claims membership. */
+u8 elf_const_lookup32(u32 *v, u32 cnt, u32 needle);
+u8 elf_const_lookup64(u64 *v, u32 cnt, u64 needle);
+
+/* 1 when a wide immediate appears as one contiguous field in this
+   architecture's instruction stream, which is what the cmplog gate needs in
+   order not to reject constants that only exist in code. */
+u8 elf_dict_immediates_contiguous(u16 e_machine);
 
 #endif                                              /* _HAVE_AFL_ELF_DICT_H */
 

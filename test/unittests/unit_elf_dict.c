@@ -785,6 +785,7 @@ static u32 build_elf64(u8 *out, u32 out_len, u8 *payload, u32 payload_len,
   eh.e_ident[AFL_EI_CLASS] = AFL_ELFCLASS64;
   eh.e_ident[AFL_EI_DATA] = AFL_ELFDATA2LSB;
   eh.e_type = AFL_ET_EXEC;
+  eh.e_machine = AFL_EM_X86_64;
   eh.e_ehsize = (u16)sizeof(eh);
   eh.e_shoff = shoff_override ? shoff_override : sh_off;
   eh.e_shentsize = (u16)sizeof(afl_elf64_shdr);
@@ -945,6 +946,254 @@ static void test_in_extras_gives_user_dict_priority(void **state) {
 
 }
 
+/* --- AFL_CMPLOG_BINARY_CONSTS: the constant set used to gate cmplog --- */
+
+static void test_const_dedup_and_lookup32(void **state) {
+
+  (void)state;
+  u32 v[8] = {7, 3, 3, 0xdeadbeef, 1, 7, 0xdeadbeef, 42};
+  u32 cnt = elf_const_dedup32(v, 8);
+
+  /* 7, 3, 0xdeadbeef, 1, 42 -> five distinct, sorted ascending */
+  assert_int_equal(cnt, 5);
+  assert_int_equal(v[0], 1);
+  assert_int_equal(v[1], 3);
+  assert_int_equal(v[2], 7);
+  assert_int_equal(v[3], 42);
+  assert_int_equal(v[4], 0xdeadbeef);
+
+  assert_int_equal(elf_const_lookup32(v, cnt, 0xdeadbeef), 1);
+  assert_int_equal(elf_const_lookup32(v, cnt, 1), 1);
+  assert_int_equal(elf_const_lookup32(v, cnt, 42), 1);
+  assert_int_equal(elf_const_lookup32(v, cnt, 0xcafebabe), 0);
+  assert_int_equal(elf_const_lookup32(v, cnt, 0), 0);
+
+  /* an empty set must never claim membership */
+  assert_int_equal(elf_const_lookup32(v, 0, 1), 0);
+  assert_int_equal(elf_const_lookup32(NULL, 0, 1), 0);
+
+}
+
+static void test_const_dedup_and_lookup64(void **state) {
+
+  (void)state;
+  u64 v[6] = {0xdeadbeefcafebabeULL, 5, 5, 0xdeadbeefcafebabeULL, 1, 9};
+  u32 cnt = elf_const_dedup64(v, 6);
+
+  assert_int_equal(cnt, 4);
+  assert_int_equal(v[0], 1);
+  assert_int_equal(v[3], 0xdeadbeefcafebabeULL);
+
+  assert_int_equal(elf_const_lookup64(v, cnt, 0xdeadbeefcafebabeULL), 1);
+  assert_int_equal(elf_const_lookup64(v, cnt, 9), 1);
+  assert_int_equal(elf_const_lookup64(v, cnt, 0xcafebabeULL), 0);
+  assert_int_equal(elf_const_lookup64(NULL, 0, 5), 0);
+
+}
+
+/* The set must be swept unaligned, so a constant embedded at an odd offset -
+   an instruction immediate, typically - is still found. */
+static void test_const_collect_is_unaligned(void **state) {
+
+  (void)state;
+  static u8      img[8192];
+  elf_dict_ctx_t ctx;
+  u8             payload[32];
+
+  memset(&ctx, 0, sizeof(ctx));
+  ctx.collect_consts = 1;
+
+  memset(payload, 0x41, sizeof(payload));
+  /* 0xdeadbeef little-endian at offset 3, deliberately unaligned */
+  payload[3] = 0xef;
+  payload[4] = 0xbe;
+  payload[5] = 0xad;
+  payload[6] = 0xde;
+
+  u32 len = build_elf64(img, sizeof(img), payload, sizeof(payload), 0, 0);
+
+  assert_int_equal(elf_dict_parse(&ctx, img, len), 1);
+
+  ctx.c32_cnt = elf_const_dedup32(ctx.c32, ctx.c32_cnt);
+
+  assert_true(ctx.c32_cnt > 0);
+  assert_int_equal(elf_const_lookup32(ctx.c32, ctx.c32_cnt, 0xdeadbeef), 1);
+
+  /* the filler is there too, but an unrelated value is not */
+  assert_int_equal(elf_const_lookup32(ctx.c32, ctx.c32_cnt, 0x41414141), 1);
+  assert_int_equal(elf_const_lookup32(ctx.c32, ctx.c32_cnt, 0x12345678), 0);
+
+  /* collecting constants must not produce dictionary tokens */
+  assert_int_equal(ctx.tok_cnt[ELF_DICT_CLASS_STRING], 0);
+  assert_int_equal(ctx.tok_cnt[ELF_DICT_CLASS_32], 0);
+
+  elf_dict_free(&ctx);
+
+}
+
+/* The gate must fail open: an absent or empty set means "do not gate", never
+   "reject everything", or cmplog would silently lose every token. */
+static void test_const_in_binary_fails_open(void **state) {
+
+  (void)state;
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+  u32          set32[2] = {0x11223344, 0xdeadbeef};
+  u64          set64[2] = {0x1122334455667788ULL, 0xdeadbeefcafebabeULL};
+
+  assert_non_null(afl);
+
+  /* no set at all -> everything passes */
+  assert_int_equal(const_in_binary(afl, 0xdeadbeef, 4), 1);
+  assert_int_equal(const_in_binary(afl, 0x99999999, 4), 1);
+  assert_int_equal(const_in_binary(afl, 0xdeadbeefcafebabeULL, 8), 1);
+
+  afl->ro_consts32 = set32;
+  afl->ro_consts32_cnt = 2;
+  afl->ro_consts64 = set64;
+  afl->ro_consts64_cnt = 2;
+
+  /* with a set, membership decides */
+  assert_int_equal(const_in_binary(afl, 0xdeadbeef, 4), 1);
+  assert_int_equal(const_in_binary(afl, 0x11223344, 4), 1);
+  assert_int_equal(const_in_binary(afl, 0x99999999, 4), 0);
+  assert_int_equal(const_in_binary(afl, 0xdeadbeefcafebabeULL, 8), 1);
+  assert_int_equal(const_in_binary(afl, 0x1234567812345678ULL, 8), 0);
+
+  /* widths where the answer carries no information are never gated */
+  assert_int_equal(const_in_binary(afl, 0x99, 1), 1);
+  assert_int_equal(const_in_binary(afl, 0x9999, 2), 1);
+  assert_int_equal(const_in_binary(afl, 0x99999999, 16), 1);
+
+  /* a 32-bit set present but the 64-bit one missing must not gate 64-bit */
+  afl->ro_consts64 = NULL;
+  afl->ro_consts64_cnt = 0;
+  assert_int_equal(const_in_binary(afl, 0x1234567812345678ULL, 8), 1);
+
+  afl->ro_consts32 = NULL;
+  afl->ro_consts32_cnt = 0;
+  free(afl);
+
+}
+
+/* The cmplog gate may only be enabled implicitly where a wide immediate is one
+   contiguous field. Verified with clang: on aarch64 a 32-bit magic used in a
+   comparison is assembled by "mov"+"movk" and appears nowhere in the object, so
+   gating there would reject it. */
+static void test_immediates_contiguous_by_arch(void **state) {
+
+  (void)state;
+
+  assert_int_equal(elf_dict_immediates_contiguous(AFL_EM_X86_64), 1);
+  assert_int_equal(elf_dict_immediates_contiguous(AFL_EM_386), 1);
+
+  assert_int_equal(elf_dict_immediates_contiguous(AFL_EM_AARCH64), 0);
+  assert_int_equal(elf_dict_immediates_contiguous(AFL_EM_ARM), 0);
+  assert_int_equal(elf_dict_immediates_contiguous(AFL_EM_RISCV), 0);
+  assert_int_equal(elf_dict_immediates_contiguous(AFL_EM_MIPS), 0);
+  assert_int_equal(elf_dict_immediates_contiguous(AFL_EM_PPC64), 0);
+
+  /* an architecture we have not characterised must default to "not safe" */
+  assert_int_equal(elf_dict_immediates_contiguous(0), 0);
+  assert_int_equal(elf_dict_immediates_contiguous(9999), 0);
+
+}
+
+/* e_machine has to be picked up by the header walk, since the gate decision
+   depends on it. */
+static void test_parse_records_e_machine(void **state) {
+
+  (void)state;
+  static u8      img[8192];
+  elf_dict_ctx_t ctx;
+  u8             payload[32];
+
+  memset(&ctx, 0, sizeof(ctx));
+  memset(payload, 0x41, sizeof(payload));
+
+  u32 len = build_elf64(img, sizeof(img), payload, sizeof(payload), 0, 0);
+
+  assert_int_equal(elf_dict_parse(&ctx, img, len), 1);
+  assert_int_equal(ctx.e_machine, AFL_EM_X86_64);
+
+  elf_dict_free(&ctx);
+
+}
+
+/* The gate is on by default, so it has to notice when it is wrong about a
+   target. Rejecting nearly every operand means the constants live somewhere the
+   scan never looked - typically an instrumented shared library, whose values
+   are in the .so and not in the executable. It must then stop gating rather
+   than quietly starve cmplog of its dictionary. */
+static void test_const_gate_disables_itself(void **state) {
+
+  (void)state;
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+  u32          set32[2] = {0x11223344, 0xdeadbeef};
+  u32          i;
+
+  assert_non_null(afl);
+  afl->ro_consts32 = set32;
+  afl->ro_consts32_cnt = 2;
+
+  /* feed it values that are all absent, as the shared-library case would */
+  for (i = 0; i < ELF_CONST_GATE_SAMPLE - 1; ++i) {
+
+    assert_int_equal(const_in_binary(afl, 0x90000000 + i, 4), 0);
+
+  }
+
+  assert_int_equal(afl->const_gate_off, 0);
+
+  /* the decision is taken on the sample'th operand */
+  assert_int_equal(const_in_binary(afl, 0x90000000 + i, 4), 1);
+  assert_int_equal(afl->const_gate_off, 1);
+
+  /* from then on nothing is gated, not even a value clearly absent */
+  assert_int_equal(const_in_binary(afl, 0x12345678, 4), 1);
+  assert_int_equal(const_in_binary(afl, 0x12345678, 8), 1);
+
+  afl->ro_consts32 = NULL;
+  afl->ro_consts32_cnt = 0;
+  free(afl);
+
+}
+
+/* A healthy target accepts a decent fraction, so the gate must stay on. */
+static void test_const_gate_survives_healthy_target(void **state) {
+
+  (void)state;
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+  u32          set32[2] = {0x11223344, 0xdeadbeef};
+  u32          i;
+
+  assert_non_null(afl);
+  afl->ro_consts32 = set32;
+  afl->ro_consts32_cnt = 2;
+
+  /* one in ten present, far above the 1-in-200 floor */
+  for (i = 0; i < ELF_CONST_GATE_SAMPLE + 10; ++i) {
+
+    if (i % 10 == 0) {
+
+      assert_int_equal(const_in_binary(afl, 0xdeadbeef, 4), 1);
+
+    } else {
+
+      const_in_binary(afl, 0x90000000 + i, 4);
+
+    }
+
+  }
+
+  assert_int_equal(afl->const_gate_off, 0);
+  assert_int_equal(const_in_binary(afl, 0x12345678, 4), 0);
+
+  afl->ro_consts32 = NULL;
+  afl->ro_consts32_cnt = 0;
+  free(afl);
+
+}
+
 int main(void) {
 
   const struct CMUnitTest tests[] = {
@@ -984,6 +1233,14 @@ int main(void) {
       cmocka_unit_test(test_parse_survives_shnum_overflow),
       cmocka_unit_test(test_parse_survives_truncated_buffer),
       cmocka_unit_test(test_in_extras_gives_user_dict_priority),
+      cmocka_unit_test(test_const_dedup_and_lookup32),
+      cmocka_unit_test(test_const_dedup_and_lookup64),
+      cmocka_unit_test(test_const_collect_is_unaligned),
+      cmocka_unit_test(test_const_in_binary_fails_open),
+      cmocka_unit_test(test_immediates_contiguous_by_arch),
+      cmocka_unit_test(test_parse_records_e_machine),
+      cmocka_unit_test(test_const_gate_disables_itself),
+      cmocka_unit_test(test_const_gate_survives_healthy_target),
 
   };
 

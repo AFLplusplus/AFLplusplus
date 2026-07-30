@@ -429,6 +429,9 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DISABLE_REDUNDANT: disable any queue item that is redundant\n"
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
+      "AFL_CMPLOG_BINARY_CONSTS: only let CMPLOG add a comparison operand to the\n"
+      "              dictionary if that constant occurs in the target binary.\n"
+      "              Implied by AFL_ELF_DICT on x86; 0 disables, 1 forces\n"
       "AFL_ELF_DICT: mine the target ELF for string and numeric constants and\n"
       "              add them to the dictionary. 1 = data sections, 2 = also\n"
       "              scan code, N>2 = cap at N tokens, L:N = level plus cap\n"
@@ -2420,6 +2423,18 @@ void afl_setup_environment(afl_state_t *afl) {
 
   check_binary(afl, afl->argv_cpy[optind]);
 
+  /* Remember the real fuzz target. check_binary() overwrites
+     fsrv.target_path, and the later calls for the cmplog and SAND binaries
+     leave it pointing at one of those, so anything that wants to inspect the
+     actual target - AFL_ELF_DICT, AFL_CMPLOG_BINARY_CONSTS - has to keep its
+     own copy from here. */
+
+  if (afl->fsrv.target_path) {
+
+    afl->real_target_path = ck_strdup(afl->fsrv.target_path);
+
+  }
+
   u64 prev_target_hash = 0;
 
   if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume &&
@@ -3036,10 +3051,58 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
   /* Strictly after every -x dictionary: user dictionaries keep priority, and
      mined tokens that duplicate one are skipped rather than displacing it. */
 
-  if (afl->afl_env.afl_elf_dict && atoi((char *)afl->afl_env.afl_elf_dict) &&
-      afl->fsrv.target_path) {
+  u8 *elf_target =
+      afl->real_target_path ? afl->real_target_path : afl->fsrv.target_path;
 
-    load_extras_from_elf(afl, (u8 *)afl->fsrv.target_path);
+  if (afl->afl_env.afl_elf_dict && atoi((char *)afl->afl_env.afl_elf_dict) &&
+      elf_target) {
+
+    load_extras_from_elf(afl, elf_target);
+
+  }
+
+  /* The cmplog gate needs the target's constants before the first cmplog run,
+     and is only useful when cmplog is actually in play.
+
+     It stays tied to AFL_ELF_DICT rather than being on by default. The gate
+     cannot see constants that live outside the binary it scanned, so on a
+     target whose instrumented code sits in a shared library it rejects
+     everything and silently removes cmplog's whole dictionary contribution.
+     That was measured: 4 tokens without the gate, 0 with it.
+
+     A self-check on the accept rate looked like it would make default-on safe,
+     but the signal is far too sparse to act on - try_to_add_to_dict() reaches
+     the gate about 18 times per session on a direct target and 3 times on a
+     shared-library one, so no threshold is both meaningful and reachable. The
+     check below is kept as a backstop for high-volume targets, not as a
+     licence to enable this everywhere.
+
+     collect_binary_consts() additionally declines on an architecture that
+     assembles wide immediates from pieces, where a code-only magic is genuinely
+     absent from the file, unless the user forces it.
+
+     AFL_CMPLOG_BINARY_CONSTS overrides either way: =0 off, anything else on
+     regardless of architecture. */
+
+  if (afl->shm.cmplog_mode && elf_target) {
+
+    u8 *e = afl->afl_env.afl_cmplog_binary_consts;
+    u8  forced = 0, want = 0;
+
+    if (e) {
+
+      forced = strcmp((char *)e, "0") ? 1 : 0;
+      want = forced;
+
+    } else if (afl->afl_env.afl_elf_dict &&
+
+               atoi((char *)afl->afl_env.afl_elf_dict)) {
+
+      want = 1;
+
+    }
+
+    if (want) { collect_binary_consts(afl, elf_target, forced); }
 
   }
 
@@ -3687,6 +3750,8 @@ void stop_fuzzing(afl_state_t *afl) {
 
   destroy_queue(afl);
   destroy_extras(afl);
+  destroy_binary_consts(afl);
+  if (afl->real_target_path) { ck_free(afl->real_target_path); }
   destroy_custom_mutators(afl);
   afl_shm_deinit(&afl->shm);
 

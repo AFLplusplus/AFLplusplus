@@ -494,12 +494,74 @@ static void elf_dict_scan_numeric(elf_dict_ctx_t *ctx, u8 *base, u32 len,
 
 }
 
+/* Raw constant collection for the cmplog gate. No filtering and no alignment:
+   the runtime comparison decides what matters, so the only job here is to be
+   complete. */
+
+static void elf_dict_collect_consts(elf_dict_ctx_t *ctx, u8 *base, u32 len) {
+
+  u32 off, n32, n64;
+
+  if (ctx->c_overflow || len < 4) { return; }
+
+  n32 = len - 3;
+  n64 = len >= 8 ? len - 7 : 0;
+
+  if ((u64)ctx->c32_cnt + n32 > ELF_CONST_MAX_VALUES ||
+      (u64)ctx->c64_cnt + n64 > ELF_CONST_MAX_VALUES) {
+
+    ctx->c_overflow = 1;
+    return;
+
+  }
+
+  /* reserve the whole region in one go rather than per value */
+
+  ctx->c32 =
+      afl_realloc((void **)&ctx->c32, ((u64)ctx->c32_cnt + n32) * sizeof(u32));
+  if (unlikely(!ctx->c32)) { PFATAL("alloc"); }
+
+  if (n64) {
+
+    ctx->c64 = afl_realloc((void **)&ctx->c64,
+                           ((u64)ctx->c64_cnt + n64) * sizeof(u64));
+    if (unlikely(!ctx->c64)) { PFATAL("alloc"); }
+
+  }
+
+  for (off = 0; off < n32; ++off) {
+
+    memcpy(&ctx->c32[ctx->c32_cnt + off], base + off, 4);
+
+  }
+
+  ctx->c32_cnt += n32;
+
+  for (off = 0; off < n64; ++off) {
+
+    memcpy(&ctx->c64[ctx->c64_cnt + off], base + off, 8);
+
+  }
+
+  ctx->c64_cnt += n64;
+
+}
+
 void elf_dict_scan_region(elf_dict_ctx_t *ctx, u8 *base, u32 len,
                           u64 file_off) {
 
   u32 bitmap_len;
 
-  if (!base || len < ELF_DICT_MIN_STRING) { return; }
+  if (!base || len < 4) { return; }
+
+  if (ctx->collect_consts) {
+
+    elf_dict_collect_consts(ctx, base, len);
+    return;
+
+  }
+
+  if (len < ELF_DICT_MIN_STRING) { return; }
 
   /* One bit per region byte, so the textual filter can tell text inside a real
      string from a printable word that no string covers. */
@@ -697,6 +759,13 @@ void elf_dict_scan_text_region(elf_dict_ctx_t *ctx, u8 *base, u32 len) {
 
   if (!base || len < 4) { return; }
 
+  if (ctx->collect_consts) {
+
+    elf_dict_collect_consts(ctx, base, len);
+    return;
+
+  }
+
   for (k = 0; k < 2; ++k) {
 
     u32 w = widths[k];
@@ -756,9 +825,162 @@ void elf_dict_free(elf_dict_ctx_t *ctx) {
 
   }
 
+  if (ctx->c32) {
+
+    afl_free(ctx->c32);
+    ctx->c32 = NULL;
+
+  }
+
+  if (ctx->c64) {
+
+    afl_free(ctx->c64);
+    ctx->c64 = NULL;
+
+  }
+
+  ctx->c32_cnt = 0;
+  ctx->c64_cnt = 0;
+
   ctx->sel_cnt = 0;
   ctx->region = NULL;
   ctx->region_len = 0;
+
+}
+
+static int elf_const_cmp32(const void *a, const void *b) {
+
+  u32 x = *(const u32 *)a, y = *(const u32 *)b;
+
+  if (x < y) { return -1; }
+  if (x > y) { return 1; }
+
+  return 0;
+
+}
+
+static int elf_const_cmp64(const void *a, const void *b) {
+
+  u64 x = *(const u64 *)a, y = *(const u64 *)b;
+
+  if (x < y) { return -1; }
+  if (x > y) { return 1; }
+
+  return 0;
+
+}
+
+u32 elf_const_dedup32(u32 *v, u32 cnt) {
+
+  u32 i, w;
+
+  if (!v || cnt < 2) { return cnt; }
+
+  qsort(v, cnt, sizeof(u32), elf_const_cmp32);
+
+  for (i = 1, w = 1; i < cnt; ++i) {
+
+    if (v[i] != v[w - 1]) { v[w++] = v[i]; }
+
+  }
+
+  return w;
+
+}
+
+u32 elf_const_dedup64(u64 *v, u32 cnt) {
+
+  u32 i, w;
+
+  if (!v || cnt < 2) { return cnt; }
+
+  qsort(v, cnt, sizeof(u64), elf_const_cmp64);
+
+  for (i = 1, w = 1; i < cnt; ++i) {
+
+    if (v[i] != v[w - 1]) { v[w++] = v[i]; }
+
+  }
+
+  return w;
+
+}
+
+u8 elf_const_lookup32(u32 *v, u32 cnt, u32 needle) {
+
+  u32 lo = 0, hi = cnt;
+
+  if (!v || !cnt) { return 0; }
+
+  while (lo < hi) {
+
+    u32 mid = lo + (hi - lo) / 2;
+
+    if (v[mid] < needle) {
+
+      lo = mid + 1;
+
+    } else {
+
+      hi = mid;
+
+    }
+
+  }
+
+  return (lo < cnt && v[lo] == needle) ? 1 : 0;
+
+}
+
+u8 elf_const_lookup64(u64 *v, u32 cnt, u64 needle) {
+
+  u32 lo = 0, hi = cnt;
+
+  if (!v || !cnt) { return 0; }
+
+  while (lo < hi) {
+
+    u32 mid = lo + (hi - lo) / 2;
+
+    if (v[mid] < needle) {
+
+      lo = mid + 1;
+
+    } else {
+
+      hi = mid;
+
+    }
+
+  }
+
+  return (lo < cnt && v[lo] == needle) ? 1 : 0;
+
+}
+
+/* Whether a wide immediate is one contiguous field in the instruction stream.
+
+   It is on x86, where "cmpl $0x89504e47, (%rdi)" carries the value verbatim.
+   It is not on the RISC targets: AArch64 assembles 0x89504e47 as
+   "mov w10, #0x4e47" followed by "movk w10, #0x8950, lsl #16", so the constant
+   never appears as a whole anywhere in the binary. Verified with clang for
+   aarch64 and riscv64 - on both, a 32-bit magic used only in a comparison is
+   absent from the object file entirely.
+
+   This decides whether the cmplog gate may be enabled implicitly: on a RISC
+   target it would reject genuine magics that live only in code. */
+
+u8 elf_dict_immediates_contiguous(u16 e_machine) {
+
+  switch (e_machine) {
+
+    case AFL_EM_386:
+    case AFL_EM_X86_64:
+      return 1;
+    default:
+      return 0;
+
+  }
 
 }
 
@@ -1090,6 +1312,7 @@ u8 elf_dict_parse(elf_dict_ctx_t *ctx, u8 *map, u64 map_len) {
 
     if (map_len < sizeof(eh)) { return 0; }
     memcpy(&eh, map, sizeof(eh));
+    ctx->e_machine = elf_dict_r16(eh.e_machine);
     shoff = elf_dict_r64(eh.e_shoff);
     phoff = elf_dict_r64(eh.e_phoff);
     shnum = elf_dict_r16(eh.e_shnum);
@@ -1104,6 +1327,7 @@ u8 elf_dict_parse(elf_dict_ctx_t *ctx, u8 *map, u64 map_len) {
 
     if (map_len < sizeof(eh)) { return 0; }
     memcpy(&eh, map, sizeof(eh));
+    ctx->e_machine = elf_dict_r16(eh.e_machine);
     shoff = elf_dict_r32(eh.e_shoff);
     phoff = elf_dict_r32(eh.e_phoff);
     shnum = elf_dict_r16(eh.e_shnum);
@@ -1349,6 +1573,243 @@ void load_extras_from_elf(afl_state_t *afl, u8 *fname) {
 
   munmap(map, map_len);
   elf_dict_free(&ctx);
+
+}
+
+/* --- AFL_CMPLOG_BINARY_CONSTS ---------------------------------------------
+
+   honggfuzz observes (linux/bfd.c, arch_elfCollectRoValues) that constants
+   pulled out of an ELF do not have to be precise if the runtime decides what
+   matters: it collects every value with no filtering at all, then gates
+   __sanitizer_cov_trace_cmp on membership, so a comparison operand only counts
+   when it also occurs in the binary.
+
+   The same inversion applies to cmplog. try_to_add_to_dict() currently
+   promotes every comparison operand it sees, including values the program
+   computed at runtime - buffer lengths, offsets, pointers - which are useless
+   as dictionary tokens. Requiring the operand to occur verbatim in the target
+   separates embedded magics from computed noise, and needs no heuristics.
+
+   Failure is always open: if the set cannot be built the gate does nothing,
+   because a missing entry would silently drop a real token. */
+
+void collect_binary_consts(afl_state_t *afl, u8 *fname, u8 forced) {
+
+  elf_dict_ctx_t ctx;
+  struct stat    st;
+  s32            fd;
+  u8            *map;
+  u64            map_len;
+
+  if (!fname) { return; }
+
+  memset(&ctx, 0, sizeof(ctx));
+  ctx.collect_consts = 1;
+  ctx.scan_text = 1;                   /* immediates count as constants too */
+
+  fd = open((char *)fname, O_RDONLY);
+
+  if (fd < 0) {
+
+    WARNF("AFL_CMPLOG_BINARY_CONSTS: unable to open '%s', gate disabled",
+          fname);
+    return;
+
+  }
+
+  if (fstat(fd, &st) || st.st_size < 20) {
+
+    close(fd);
+    return;
+
+  }
+
+  map_len = (u64)st.st_size;
+  map = mmap(0, map_len, PROT_READ, MAP_PRIVATE, fd, 0);
+  close(fd);
+
+  if (map == MAP_FAILED) {
+
+    WARNF("AFL_CMPLOG_BINARY_CONSTS: unable to mmap '%s', gate disabled",
+          fname);
+    return;
+
+  }
+
+  if (!elf_dict_parse(&ctx, map, map_len)) {
+
+    WARNF("AFL_CMPLOG_BINARY_CONSTS: '%s' yielded no sections, gate disabled",
+          fname);
+    munmap(map, map_len);
+    elf_dict_free(&ctx);
+    return;
+
+  }
+
+  munmap(map, map_len);
+
+  /* On a RISC target a wide immediate is assembled from pieces, so a magic used
+     only in a comparison is nowhere in the binary and the gate would reject it.
+     Do not enable that implicitly - only when the user asked for it by name. */
+
+  if (!forced && !elf_dict_immediates_contiguous(ctx.e_machine)) {
+
+    if (afl->debug) {
+
+      WARNF(
+          "AFL_CMPLOG_BINARY_CONSTS not enabled implicitly: e_machine %u "
+          "builds "
+          "wide immediates from pieces, so constants used only in code would "
+          "be "
+          "rejected. Set AFL_CMPLOG_BINARY_CONSTS=1 to force it.",
+          ctx.e_machine);
+
+    }
+
+    elf_dict_free(&ctx);
+    return;
+
+  }
+
+  if (ctx.c_overflow) {
+
+    WARNF(
+        "AFL_CMPLOG_BINARY_CONSTS: '%s' has more than %u constants, gate "
+        "disabled rather than applied to an incomplete set",
+        fname, (u32)ELF_CONST_MAX_VALUES);
+    elf_dict_free(&ctx);
+    return;
+
+  }
+
+  ctx.c32_cnt = elf_const_dedup32(ctx.c32, ctx.c32_cnt);
+  ctx.c64_cnt = elf_const_dedup64(ctx.c64, ctx.c64_cnt);
+
+  if (!ctx.c32_cnt && !ctx.c64_cnt) {
+
+    elf_dict_free(&ctx);
+    return;
+
+  }
+
+  /* hand the arrays over to afl_state; ck_alloc so they are not tied to the
+     scan context's lifetime */
+
+  if (ctx.c32_cnt) {
+
+    afl->ro_consts32 = ck_alloc(ctx.c32_cnt * sizeof(u32));
+    memcpy(afl->ro_consts32, ctx.c32, ctx.c32_cnt * sizeof(u32));
+    afl->ro_consts32_cnt = ctx.c32_cnt;
+
+  }
+
+  if (ctx.c64_cnt) {
+
+    afl->ro_consts64 = ck_alloc(ctx.c64_cnt * sizeof(u64));
+    memcpy(afl->ro_consts64, ctx.c64, ctx.c64_cnt * sizeof(u64));
+    afl->ro_consts64_cnt = ctx.c64_cnt;
+
+  }
+
+  elf_dict_free(&ctx);
+
+  OKF("CMPLOG will only promote constants present in '%s' (%u 32-bit, %u "
+      "64-bit).",
+      fname, afl->ro_consts32_cnt, afl->ro_consts64_cnt);
+
+}
+
+void destroy_binary_consts(afl_state_t *afl) {
+
+  if (afl->debug && afl->const_gate_seen) {
+
+    SAYF("[AFL_CMPLOG_BINARY_CONSTS] decisions %llu, passed %llu, gate %s\n",
+         afl->const_gate_seen, afl->const_gate_passed,
+         afl->const_gate_off ? "disabled itself" : "stayed on");
+
+  }
+
+  if (afl->ro_consts32) {
+
+    ck_free(afl->ro_consts32);
+    afl->ro_consts32 = NULL;
+
+  }
+
+  if (afl->ro_consts64) {
+
+    ck_free(afl->ro_consts64);
+    afl->ro_consts64 = NULL;
+
+  }
+
+  afl->ro_consts32_cnt = 0;
+  afl->ro_consts64_cnt = 0;
+
+}
+
+/* 1 when the value occurs in the target binary, or when no set was built - the
+   caller must not lose tokens because the gate is unavailable.
+
+   Only widths 4 and 8 are meaningful. A 1- or 2-byte value occurs in virtually
+   any binary, so the answer would carry no information; honggfuzz likewise
+   ignores everything below 0x10000. */
+
+u8 const_in_binary(afl_state_t *afl, u64 v, u8 shape) {
+
+  u8 pass;
+
+  if (afl->const_gate_off) { return 1; }
+
+  if (shape == 4) {
+
+    if (!afl->ro_consts32_cnt) { return 1; }
+    pass = elf_const_lookup32(afl->ro_consts32, afl->ro_consts32_cnt, (u32)v);
+
+  } else if (shape == 8) {
+
+    if (!afl->ro_consts64_cnt) { return 1; }
+    pass = elf_const_lookup64(afl->ro_consts64, afl->ro_consts64_cnt, v);
+
+  } else {
+
+    return 1;
+
+  }
+
+  /* Backstop, not a guarantee. Rejecting essentially everything means the
+     constants are not in the file we scanned - the usual cause is instrumented
+     code living in a shared library, whose values are in the .so and not in the
+     executable - so stop gating rather than deprive cmplog of its dictionary.
+
+     Do not rely on this to make the gate safe to enable everywhere: measured,
+     this function is reached about 18 times per session on a direct target and
+     3 times on a shared-library one, so the checkpoint below usually never
+     arrives. It helps only on targets that exercise cmplog heavily. */
+
+  ++afl->const_gate_seen;
+  if (pass) { ++afl->const_gate_passed; }
+
+  if (unlikely(afl->const_gate_seen % ELF_CONST_GATE_SAMPLE == 0)) {
+
+    if (afl->const_gate_passed * ELF_CONST_GATE_MIN_RATIO <
+        afl->const_gate_seen) {
+
+      afl->const_gate_off = 1;
+
+      WARNF(
+          "CMPLOG constant gate accepted only %llu of %llu operands, so the "
+          "target's constants are not in the binary that was scanned (usually "
+          "the instrumented code is in a shared library). Disabling the gate.",
+          afl->const_gate_passed, afl->const_gate_seen);
+
+      return 1;
+
+    }
+
+  }
+
+  return pass;
 
 }
 

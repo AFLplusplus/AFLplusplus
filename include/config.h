@@ -628,5 +628,33 @@ We add 4 byte for one u32 length field. */
 
 #define ELF_DICT_MAX_LOAD 32
 
+/* AFL_CMPLOG_BINARY_CONSTS: upper bound on collected constants per width.
+   Beyond this the gate is disabled rather than applied to an incomplete set,
+   because a missing entry silently drops a real cmplog token.
+
+   The set costs about 12 bytes per byte of scanned section and is held for the
+   whole session, per fuzzer instance, so this bound is what keeps a default-on
+   feature from taking 100 MB on a large target: 2M entries is ~24 MB worst
+   case, reached at roughly 2 MB of code plus data. Larger targets fail open. */
+
+#define ELF_CONST_MAX_VALUES (2 * 1024 * 1024)
+
+/* The gate cannot see constants that live outside the scanned binary, which is
+   what happens when the instrumented code is in a shared library: it then
+   rejects nearly every operand and would silently disable cmplog's dictionary.
+   That is detectable - a healthy target accepts on the order of 20% - so the
+   gate reviews its own accept rate every this many decisions and switches
+   itself off if fewer than 1 in ELF_CONST_GATE_MIN_RATIO passed.
+
+   The review has to happen early and repeatedly, not once at a high count: a
+   target that makes only a few dozen comparison decisions per run would
+   otherwise never reach the checkpoint and the gate would starve cmplog for the
+   whole session. At the first checkpoint the ratio test demands literally zero
+   accepts, which a target accepting ~20% reaches with probability 0.8^64, about
+   1 in 70000; later checkpoints relax it to the proportional 0.5%. */
+
+#define ELF_CONST_GATE_SAMPLE 64
+#define ELF_CONST_GATE_MIN_RATIO 200
+
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

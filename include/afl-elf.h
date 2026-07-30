@@ -46,6 +46,18 @@
 #define AFL_ET_EXEC 2
 #define AFL_ET_DYN 3
 
+/* e_machine, only those we need to tell apart. On a CISC target a wide
+   immediate is one contiguous field in the instruction stream; on a RISC target
+   it is assembled from pieces and never appears as a whole. */
+
+#define AFL_EM_386 3
+#define AFL_EM_MIPS 8
+#define AFL_EM_PPC64 21
+#define AFL_EM_ARM 40
+#define AFL_EM_X86_64 62
+#define AFL_EM_AARCH64 183
+#define AFL_EM_RISCV 243
+
 #define AFL_SHT_NULL 0
 #define AFL_SHT_PROGBITS 1
 #define AFL_SHT_STRTAB 3
