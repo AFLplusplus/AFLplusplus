@@ -32,6 +32,7 @@
 
 #include "llvm/Config/llvm-config.h"
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/BasicBlock.h"
@@ -57,6 +58,161 @@
 constexpr std::nullopt_t None = std::nullopt;
 #endif
 
+enum class CompareObserverMode {
+
+  CmpLog,
+  ValueProfile,
+
+};
+
+CompareObserverMode getCompareObserverModeFromEnv();
+inline bool         isValueProfileMode(CompareObserverMode mode) {
+
+  return mode == CompareObserverMode::ValueProfile;
+
+}
+
+inline uint64_t mixValueProfileSiteToken(uint64_t value) {
+
+  value ^= value >> 30;
+  value *= 0xbf58476d1ce4e5b9ULL;
+  value ^= value >> 27;
+  value *= 0x94d049bb133111ebULL;
+  return value ^ (value >> 31);
+
+}
+
+inline uint64_t updateValueProfileSiteHash(uint64_t hash, uint64_t value) {
+
+  for (unsigned i = 0; i < 8; ++i) {
+
+    hash ^= (uint8_t)value;
+    hash *= 0x100000001b3ULL;
+    value >>= 8;
+
+  }
+
+  return hash;
+
+}
+
+inline uint64_t updateValueProfileSiteHash(uint64_t        hash,
+                                           llvm::StringRef value) {
+
+  hash = updateValueProfileSiteHash(hash, (uint64_t)value.size());
+  for (char byte : value) {
+
+    hash ^= (uint8_t)byte;
+    hash *= 0x100000001b3ULL;
+
+  }
+
+  return hash;
+
+}
+
+inline uint64_t hashValueProfileDebugLocation(const llvm::DILocation *Loc) {
+
+  if (!Loc) { return 0; }
+
+  uint64_t hash = 0xcbf29ce484222325ULL;
+  for (const llvm::DILocation *At = Loc; At; At = At->getInlinedAt()) {
+
+    hash = updateValueProfileSiteHash(hash, At->getDirectory());
+    hash = updateValueProfileSiteHash(hash, At->getFilename());
+    hash = updateValueProfileSiteHash(hash, At->getLine());
+    hash = updateValueProfileSiteHash(hash, At->getColumn());
+    hash = updateValueProfileSiteHash(hash, At->getDiscriminator());
+
+  }
+
+  return mixValueProfileSiteToken(hash);
+
+}
+
+inline uint64_t getValueProfileDebugSiteKey(const llvm::Instruction &I) {
+
+  if (const llvm::DILocation *Loc = I.getDebugLoc()) {
+
+    return hashValueProfileDebugLocation(Loc);
+
+  }
+
+  return 0ULL;
+
+}
+
+inline void getValueProfileCompileUnitIdentity(const llvm::Instruction &I,
+                                               llvm::StringRef         &Dir,
+                                               llvm::StringRef         &File) {
+
+  if (const llvm::DISubprogram *SP = I.getFunction()->getSubprogram()) {
+
+    if (const llvm::DICompileUnit *CU = SP->getUnit()) {
+
+      if (const llvm::DIFile *CUFile = CU->getFile()) {
+
+        Dir = CUFile->getDirectory();
+        File = CUFile->getFilename();
+
+      }
+
+    }
+
+    if (Dir.empty() && File.empty()) {
+
+      if (const llvm::DIFile *SPFile = SP->getFile()) {
+
+        Dir = SPFile->getDirectory();
+        File = SPFile->getFilename();
+
+      } else {
+
+        Dir = SP->getDirectory();
+        File = SP->getFilename();
+
+      }
+
+    }
+
+  }
+
+  if ((Dir.empty() && File.empty())) {
+
+    const llvm::Module &M = *I.getModule();
+    File = M.getSourceFileName();
+    if (File.empty()) { File = M.getModuleIdentifier(); }
+
+  }
+
+}
+
+inline uint64_t computeValueProfileSiteToken(const llvm::Instruction &I,
+                                             uint64_t                 salt,
+                                             uint64_t disambiguator,
+                                             uint64_t subsite_index) {
+
+  llvm::StringRef Dir;
+  llvm::StringRef File;
+  getValueProfileCompileUnitIdentity(I, Dir, File);
+
+  const llvm::Module &M = *I.getModule();
+
+  uint64_t hash = 0xcbf29ce484222325ULL;
+  hash = updateValueProfileSiteHash(hash, salt);
+  hash = updateValueProfileSiteHash(hash, Dir);
+  hash = updateValueProfileSiteHash(hash, File);
+  hash = updateValueProfileSiteHash(hash, M.getSourceFileName());
+  hash = updateValueProfileSiteHash(hash, M.getModuleIdentifier());
+  hash = updateValueProfileSiteHash(hash, I.getFunction()->getName());
+  hash = updateValueProfileSiteHash(
+      hash, hashValueProfileDebugLocation(I.getDebugLoc()));
+  hash = updateValueProfileSiteHash(hash, disambiguator);
+  hash = updateValueProfileSiteHash(hash, subsite_index);
+  return mixValueProfileSiteToken(hash);
+
+}
+
 char *getBBName(const llvm::BasicBlock *BB);
 bool  isIgnoreFunction(const llvm::Function *F);
 void  initInstrumentList();
@@ -75,6 +231,16 @@ bool setupReachability(llvm::StringMap<uint32_t> &values, const char *passName);
 uint32_t getReachabilityValue(const llvm::StringMap<uint32_t> &values,
                               const llvm::Function            &F);
 void     instrumentReachability(llvm::Function &F, uint32_t value);
+void     markInstrumentedMarker(llvm::Module &M, const char *marker_name);
+llvm::GlobalVariable *getOrCreateExternalWeakPtrGlobal(llvm::Module &M,
+                                                       llvm::Type   *ptr_ty,
+                                                       const char   *name);
+llvm::GlobalVariable *getOrCreateExternalPtrGlobal(llvm::Module &M,
+                                                   llvm::Type   *ptr_ty,
+                                                   const char   *name);
+llvm::Value *createMapPtrNotNullGuard(llvm::IRBuilder<> &IRB, llvm::Module &M,
+                                      llvm::GlobalVariable *map_ptr,
+                                      llvm::Type           *ptr_ty);
 llvm::GlobalVariable *createIJONStateGlobal(llvm::Module &M,
                                             llvm::Type   *Int32Ty,
                                             bool          uses_ijon_state);
@@ -126,6 +292,42 @@ inline void setNoSanitizeMetadata(llvm::Instruction *I) {
   I->setMetadata(I->getModule()->getMDKindID("nosanitize"),
                  llvm::MDNode::get(I->getContext(), llvm::None));
 #endif
+
+}
+
+/* Mark an instruction as synthetic AFL IR so later AFL coverage passes skip it
+   when needed. */
+inline void setAflSkipMetadata(llvm::Instruction *I) {
+
+  I->setMetadata("afl.skip", llvm::MDNode::get(I->getContext(), {}));
+
+}
+
+/* Mark a synthetic basic block so AFL coverage passes can ignore it during
+   block coverage injection. */
+inline void markAflSyntheticBlock(llvm::BasicBlock *BB) {
+
+  if (!BB) return;
+  if (auto *TI = BB->getTerminator()) {
+
+    setAflSkipMetadata(TI);
+    setNoSanitizeMetadata(TI);
+
+  }
+
+}
+
+/* Detect synthetic AFL basic blocks that should not get edge coverage. */
+inline bool isAflSyntheticBlock(const llvm::BasicBlock *BB) {
+
+  if (!BB) return false;
+  if (const auto *TI = BB->getTerminator()) {
+
+    return TI->getMetadata("afl.skip") != nullptr;
+
+  }
+
+  return false;
 
 }
 
@@ -181,14 +383,40 @@ inline llvm::Value *hoistMapPointerLoad(llvm::Function       &F,
   IRB.CreateBr(OldEntry);
 
   /* Move static allocas into the preamble so ASan keeps them function-wide. */
-  for (auto *AI : StaticAllocas)
-#if LLVM_MAJOR >= 20
+  for (auto *AI : StaticAllocas) {
+
+#if LLVM_VERSION_MAJOR >= 20
     AI->moveBefore(Load->getIterator());
 #else
     AI->moveBefore(Load);
 #endif
 
+  }
+
   return Load;
+
+}
+
+/* Load the per-exec VP enabled byte from a runtime-exported pointer and return
+   `enabled != 0`. Both loads are volatile because the fuzzer updates this
+   shared-memory control byte between target executions. */
+inline llvm::Value *createValueProfileEnabledGuard(
+    llvm::IRBuilder<> &IRB, llvm::GlobalVariable *vp_enabled_ptr,
+    llvm::Type *PtrTy, llvm::Type *Int8Ty) {
+
+  auto *EnabledBytePtr = IRB.CreateLoad(PtrTy, vp_enabled_ptr);
+  EnabledBytePtr->setVolatile(true);
+  setNoSanitizeMetadata(EnabledBytePtr);
+
+  auto *EnabledValue = IRB.CreateLoad(Int8Ty, EnabledBytePtr);
+  EnabledValue->setVolatile(true);
+  setNoSanitizeMetadata(EnabledValue);
+
+  auto *IsEnabled = llvm::cast<llvm::Instruction>(IRB.CreateICmpNE(
+      EnabledValue,
+      llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(Int8Ty), 0)));
+  setNoSanitizeMetadata(IsEnabled);
+  return IsEnabled;
 
 }
 
