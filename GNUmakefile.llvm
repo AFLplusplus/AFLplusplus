@@ -224,11 +224,23 @@ endif
 ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto=full -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
         AFL_CLANG_FLTO ?= -flto=full
 else
- ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
-        AFL_CLANG_FLTO ?= -flto=thin
+ ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto=full -fuse-ld=lld -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto=full
  else
-  ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+  ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto=thin -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto=thin
+  else
+   ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto=thin -fuse-ld=lld -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto=thin
+   else
+    ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
         AFL_CLANG_FLTO ?= -flto
+    else
+     ifeq "$(shell echo 'int main() {return 0; }' | $(CLANG_BIN) -x c - -flto -fuse-ld=lld -o .test 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
+        AFL_CLANG_FLTO ?= -flto
+     endif
+    endif
+   endif
   endif
  endif
 endif
