@@ -179,6 +179,34 @@ static u8 could_be_arith(u32 old_val, u32 new_val, u8 blen) {
 
 }
 
+/* Finalize trim bookkeeping. Guarded VP owners may need one deferred retry
+   after ownership drops so they can trim once without VP constraints. */
+static inline void vp_finalize_trim_state(struct queue_entry *q,
+                                          u8 was_guarded_trim) {
+
+  if (was_guarded_trim) {
+
+    q->vp_trim_deferred = 1;
+    if (!q->vp_ref_cnt) {
+
+      q->vp_trim_deferred = 0;
+      q->trim_done = 0;
+
+    } else {
+
+      q->trim_done = 1;
+
+    }
+
+  } else {
+
+    q->vp_trim_deferred = 0;
+    q->trim_done = 1;
+
+  }
+
+}
+
 /* Last but not least, a similar helper to see if insertion of an
    interesting integer is redundant given the insertions done for
    shorter blen. The last param (check_le) is set if the caller
@@ -566,6 +594,8 @@ u8 fuzz_one(afl_state_t *afl) {
                !afl->disable_trim)) {
 
     u32 old_len = afl->queue_cur->len;
+    u8  was_guarded_trim =
+        (u8)(afl->value_profile_active && afl->queue_cur->vp_ref_cnt);
 
     u8 res = trim_case(afl, afl->queue_cur, in_buf);
     orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
@@ -583,9 +613,7 @@ u8 fuzz_one(afl_state_t *afl) {
 
     }
 
-    /* Don't retry trimming, even if it failed. */
-
-    afl->queue_cur->trim_done = 1;
+    vp_finalize_trim_state(afl->queue_cur, was_guarded_trim);
 
     len = afl->queue_cur->len;
 

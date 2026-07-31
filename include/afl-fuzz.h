@@ -1387,7 +1387,7 @@ void read_afl_environment(afl_state_t *, char **);
 void setup_custom_mutators(afl_state_t *);
 void destroy_custom_mutators(afl_state_t *);
 u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
-                      struct custom_mutator *mutator);
+                      struct custom_mutator *mutator, vp_trim_hooks_t *vp_hooks);
 u8   run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
                                     u8 *);
 
