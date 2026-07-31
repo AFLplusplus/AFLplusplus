@@ -969,11 +969,11 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
       struct stat st;
       u8          dfn[PATH_MAX];
       u8          vfn[PATH_MAX];
+      u8         *case_name = ck_strdup((u8 *)nl[i]->d_name);
       snprintf(dfn, PATH_MAX, "%s/.state/deterministic_done/%s", afl->in_dir,
-               nl[i]->d_name);
-      snprintf(vfn, PATH_MAX, "%s/.state/variable/%s", afl->in_dir,
-               nl[i]->d_name);
-      u8 *fn2 = alloc_printf("%s/%s", dir, nl[i]->d_name);
+               case_name);
+      snprintf(vfn, PATH_MAX, "%s/.state/variable/%s", afl->in_dir, case_name);
+      u8 *fn2 = alloc_printf("%s/%s", dir, case_name);
 
       u8 passed_det = 0;
       u8 var_behavior = 0;
@@ -987,7 +987,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
       /* obviously we want to skip "descending" into . and .. directories,
          however it is a good idea to skip also directories that start with
          a dot */
-      if (subdirs && S_ISDIR(st.st_mode) && nl[i]->d_name[0] != '.') {
+      if (subdirs && S_ISDIR(st.st_mode) && case_name[0] != '.') {
 
         free(nl[i]);                                         /* not tracked */
         read_testcases(afl, fn2);
@@ -1026,7 +1026,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
       } else {
 
         snprintf(vfn, PATH_MAX, "%s/.state/variable_behavior/%s", afl->in_dir,
-                 nl[i]->d_name);
+                 case_name);
         if (!access(vfn, F_OK)) { var_behavior = 1; }
 
       }
@@ -1035,6 +1035,8 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
                    passed_det);
       afl->queue_top->var_behavior = var_behavior;
       if (var_behavior) { ++afl->queued_variable; }
+      vp_restore_queue_entry_state(afl, afl->queue_top,
+                                   (const char *)case_name);
 
       if (unlikely(afl->shm.cmplog_mode)) {
 
@@ -1063,6 +1065,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
       free(nl[i]);
 
     next_entry:
+      ck_free(case_name);
       if (unlikely(++i >= (u32)nl_cnt)) { done = 1; }
 
     } while (!done);
@@ -1779,7 +1782,7 @@ void pivot_inputs(afl_state_t *afl) {
 
     q = afl->queue_buf[i];
 
-    if (unlikely(q->disabled)) { continue; }
+    if (unlikely(q->disabled) && !afl->in_place_resume) { continue; }
 
     u8 *nfn, *rsl = strrchr(q->fname, '/');
     u32 orig_id;
@@ -2111,6 +2114,14 @@ void nuke_resume_dir(afl_state_t *afl) {
   if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
+  fn = alloc_printf("%s/_resume/.state/vp_only", afl->out_dir);
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
+  ck_free(fn);
+
+  fn = alloc_printf("%s/_resume/.state/vp_disabled", afl->out_dir);
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
+  ck_free(fn);
+
   fn = alloc_printf("%s/_resume/.state/variable_behavior", afl->out_dir);
   if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
@@ -2273,6 +2284,14 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   ck_free(fn);
 
   fn = alloc_printf("%s/queue/.state/variable", afl->out_dir);
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
+  ck_free(fn);
+
+  fn = alloc_printf("%s/queue/.state/vp_only", afl->out_dir);
+  if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
+  ck_free(fn);
+
+  fn = alloc_printf("%s/queue/.state/vp_disabled", afl->out_dir);
   if (delete_files(fn, case_prefix)) { goto dir_cleanup_failed; }
   ck_free(fn);
 
@@ -2605,6 +2624,14 @@ void setup_dirs_fds(afl_state_t *afl) {
   /* Directory for flagging queue entries with variable behavior. */
 
   tmp = alloc_printf("%s/queue/.state/variable/", afl->out_dir);
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
+  ck_free(tmp);
+
+  tmp = alloc_printf("%s/queue/.state/vp_only/", afl->out_dir);
+  if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
+  ck_free(tmp);
+
+  tmp = alloc_printf("%s/queue/.state/vp_disabled/", afl->out_dir);
   if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
