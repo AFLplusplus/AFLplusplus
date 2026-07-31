@@ -351,6 +351,8 @@ static inline u8 afl_fuzz_queue(afl_state_t *afl) {
 
     }
 
+    if (unlikely(afl->value_profile_mode == 2)) { vp_update_activation(afl); }
+
     afl->skipped_fuzz = fuzz_one(afl);
 #ifdef INTROSPECTION
     ++afl->queue_cur->stats_selected;

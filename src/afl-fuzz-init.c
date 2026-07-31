@@ -888,6 +888,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
   if (first) {
 
     afl->last_find_time = 0;
+    afl->last_edge_time = 0;
     afl->queued_at_start = afl->queued_items;
 
   }
@@ -1104,6 +1105,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
   }
 
   afl->last_find_time = 0;
+  afl->last_edge_time = 0;
   afl->queued_at_start = afl->queued_items;
 
 }
@@ -1135,6 +1137,8 @@ void perform_dry_run(afl_state_t *afl) {
     if (unlikely(!q || q->disabled)) { continue; }
 
     u8  res;
+    u8  vp_restore_suppressed = 0;
+    u8  vp_runtime_refresh = 0;
     s32 fd;
 
     if (unlikely(!q->len)) {
@@ -1159,13 +1163,45 @@ void perform_dry_run(afl_state_t *afl) {
 
     close(fd);
 
+    if (unlikely(afl->value_profile_active)) {
+
+      /* Keep runtime VP state stable while calibration re-runs this seed. */
+      afl->value_profile_suppressed = 1;
+      vp_restore_suppressed = 1;
+      vp_runtime_refresh = 1;
+
+    }
+
     res = calibrate_case(afl, q, use_mem, 0, 1);
+
+    if (vp_restore_suppressed) {
+
+      afl->value_profile_suppressed = 0;
+      vp_restore_suppressed = 0;
+
+    }
 
     /* For AFLFast schedules we update the queue entry */
     if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE) &&
         likely(q->exec_cksum)) {
 
       q->n_fuzz_entry = q->exec_cksum % N_FUZZ_SIZE;
+
+    }
+
+    if (afl->value_profile_mode && afl->value_profile_active &&
+        !q->cal_failed && (res == afl->crash_mode || res == FSRV_RUN_NOBITS)) {
+
+      u8 vp_ready = 0;
+
+      if (vp_runtime_refresh) {
+
+        /* Dry-run L1/runtime: collect one post-calibration VP sample. */
+        vp_ready = vp_collect_signal_for_input(afl, use_mem, read_len);
+
+      }
+
+      if (vp_ready) { vp_frontier_apply(afl, q); }
 
     }
 
@@ -1689,18 +1725,7 @@ void perform_dry_run(afl_state_t *afl) {
 
       }
 
-      if (!to_disable->was_fuzzed) {
-
-        to_disable->was_fuzzed = 1;
-        --afl->pending_not_fuzzed;
-        --afl->active_items;
-
-      }
-
-      afl->reinit_table = 1;
-      ++afl->disabled_items;
-      to_disable->disabled = 1;
-      to_disable->perf_score = 0;
+      if (!vp_try_disable_coverage_duplicate(afl, to_disable)) continue;
 
       if (afl->debug) {
 
