@@ -47,6 +47,8 @@
     - Futex implementation missed the clean-up of the shmem
     - Futex shmem now lives in general shared memory map as by default only
       32 such regions are supported in MacOS
+    - new runtime value-profiling guidance mode (`-r0`/`-rN`) for LLVM targets
+      compiled with `AFL_LLVM_VALUE_PROFILE=1`
   - afl-cc:
     - new C11 mode (`AFL_LLVM_C11` at compile time): afl-cc records each
       function's local variable count and afl-fuzz uses it as an extra queue

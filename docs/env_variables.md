@@ -585,6 +585,25 @@ checks or alter some of the more exotic semantics of the tool:
     (`-i in`). This is an important feature to set when resuming a fuzzing
     session.
 
+  - Value-profile guidance is controlled by command-line options:
+      - `-r 0`: enable runtime value profiling from startup.
+      - `-r N`: enable runtime value profiling after `N` seconds without new
+        edge coverage, then keep it enabled for the rest of the run.
+    Value profiling may help when compare operands are transformed in ways
+    that make direct solve attempts less effective.
+    Notes:
+      - Value profiling requires binaries compiled with
+        `AFL_LLVM_VALUE_PROFILE=1`.
+      - Value profiling and CmpLog are alternative compare-observer
+        instrumentation modes for a single compile. Build a separate CmpLog
+        binary and pass it with `-c` if you want to use CmpLog in the same
+        fuzzing session.
+      - Runtime value profiling requires an LLVM-instrumented main target and
+        is not supported with `-n`, QEMU, Frida, Unicorn, CoreSight, or Nyx
+        execution modes.
+      - Routine-compare VP features record separate matched-prefix and
+        whole-buffer hamming-distance signals.
+
   - `AFL_IGNORE_SEED_PROBLEMS` will skip over crashes and timeouts in the seeds
     instead of exiting.
 
