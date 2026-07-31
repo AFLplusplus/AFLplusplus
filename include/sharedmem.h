@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 #include "types.h"
+#include "value-profile.h"
 
 typedef struct sharedmem {
 
@@ -44,12 +45,15 @@ typedef struct sharedmem {
   char   g_shm_file_path[L_tmpnam];
   int    cmplog_g_shm_fd;
   char   cmplog_g_shm_file_path[L_tmpnam];
+  int    vp_g_shm_fd;
+  char   vp_g_shm_file_path[L_tmpnam];
   size_t map_alloc_size;
   size_t cmp_map_alloc_size;
 /* ========================================= */
 #else
   s32 shm_id;                          /* ID of the SHM region              */
   s32 cmplog_shm_id;
+  s32 vp_shm_id;
 #endif
 
   u8 *map;                                          /* shared memory region */
@@ -63,15 +67,20 @@ typedef struct sharedmem {
   u32 *child_sync;                 /* pointer to the 4-byte sync word       */
 
   int             cmplog_mode;
+  int             vp_mode;
   int             sanfuzz_mode;
   int             shmemfuzz_mode;
   struct cmp_map *cmp_map;
+  vp_map_t       *vp_map;
 
 } sharedmem_t;
 
 u8  *afl_shm_init(sharedmem_t *, size_t, unsigned char non_instrumented_mode,
                   mode_t mode, int gid);
 void afl_shm_deinit(sharedmem_t *);
+void afl_shm_deinit_all(void);
+void afl_shm_vp_env_set(sharedmem_t *);
+void afl_shm_vp_env_unset(void);
 
 #endif
 
