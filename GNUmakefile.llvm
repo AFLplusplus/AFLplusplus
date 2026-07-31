@@ -450,7 +450,7 @@ endif
 	@test -f ./afl-showmap || ( echo "[-] Oops, can't find './afl-showmap'. Be sure to compile AFL first."; exit 1 )
 	@echo "[+] All set and ready to build."
 
-instrumentation/afl-common.o: ./src/afl-common.c ./include/envs.h ./include/forkserver.h ./include/common.h ./include/debug.h ./include/alloc-inl.h
+instrumentation/afl-common.o: ./src/afl-common.c ./include/envs.h ./include/forkserver.h ./include/common.h ./include/config.h ./include/types.h ./include/debug.h ./include/alloc-inl.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ $(LDFLAGS)
 
 ./afl-cc: src/afl-cc.c instrumentation/afl-common.o

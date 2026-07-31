@@ -336,6 +336,11 @@ produce a CmpLog binary.
 
 For afl-gcc-fast, set `AFL_GCC_CMPLOG=1` instead.
 
+Value-profile compare-observer builds run a small mem2reg promotion before
+compare hook insertion so `-O0` builds expose canonical loop counters to
+loop-control filtering. Set `AFL_LLVM_NO_COMPARE_MEM2REG=1` to disable this
+promotion.
+
 For more information, see
 [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
