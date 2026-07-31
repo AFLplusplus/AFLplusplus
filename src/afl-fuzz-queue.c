@@ -1065,6 +1065,17 @@ void destroy_queue(afl_state_t *afl) {
    previous contender, or if the contender has a more favorable speed x size
    factor. */
 
+static inline void queue_entry_dec_tc_ref(afl_state_t        *afl,
+                                          struct queue_entry *q) {
+
+  if (--q->tc_ref) return;
+
+  ck_free(q->trace_mini);
+  q->trace_mini = NULL;
+  vp_coverage_owner_released(afl, q);
+
+}
+
 void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
                          bool have_trace) {
 
@@ -1147,12 +1158,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
              previous winner, discard its afl->fsrv.trace_bits[] if necessary.
            */
 
-          if (!--afl->top_rated[i]->tc_ref) {
-
-            ck_free(afl->top_rated[i]->trace_mini);
-            afl->top_rated[i]->trace_mini = NULL;
-
-          }
+          queue_entry_dec_tc_ref(afl, afl->top_rated[i]);
 
         }
 
@@ -1365,6 +1371,12 @@ inline void cull_queue(afl_state_t *afl) {
 
   afl->score_changed = 0;
 
+  if (unlikely(afl->vp_delayed_evictions_pending)) {
+
+    vp_apply_delayed_evictions(afl);
+
+  }
+
   memset(temp_v, 255, len);
 
   afl->queued_favored = 0;
@@ -1415,6 +1427,8 @@ inline void cull_queue(afl_state_t *afl) {
   /* Let's see if anything in the bitmap isn't captured in temp_v.
      If yes, and if it has a afl->top_rated[] contender, let's use it. */
 
+  u8 vp_favoring_active = afl->vp_frontier && afl->value_profile_active;
+
   for (i = 0; i < afl->fsrv.map_size; ++i) {
 
     if (afl->top_rated[i] && (temp_v[i >> 3] & (1 << (i & 7))) &&
@@ -1458,6 +1472,12 @@ inline void cull_queue(afl_state_t *afl) {
   }
 
   for (i = 0; i < afl->queued_items; i++) {
+
+    if (vp_favoring_active) {
+
+      vp_mark_favored_queue_entry(afl, afl->queue_buf[i]);
+
+    }
 
     if (likely(!afl->queue_buf[i]->disabled)) {
 

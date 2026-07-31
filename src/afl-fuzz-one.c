@@ -722,7 +722,16 @@ u8 fuzz_one(afl_state_t *afl) {
   u8 is_logged = 0;
 
 #endif
-  if (!afl->skip_deterministic) {
+  u8 *skip_eff_map = afl->queue_cur->skipdet_e->skip_eff_map;
+  /* Favored VP-only entries that still own unresolved comparison work are
+     routed straight to havoc/custom stages. Other VP-only entries may still
+     run deterministic stages. */
+  u8 vp_skip_det_candidate =
+      (u8)(afl->value_profile_active && afl->queue_cur->favored &&
+           afl->queue_cur->vp_only &&
+           vp_queue_has_unresolved_work(afl->queue_cur));
+
+  if (!afl->skip_deterministic && !vp_skip_det_candidate) {
 
     if (!skip_deterministic_stage(afl, in_buf, out_buf, len)) {
 
@@ -730,20 +739,20 @@ u8 fuzz_one(afl_state_t *afl) {
 
     }
 
-  }
+    skip_eff_map = afl->queue_cur->skipdet_e->skip_eff_map;
 
-  u8 *skip_eff_map = afl->queue_cur->skipdet_e->skip_eff_map;
+  }
 
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs
      (passed_det). */
-  /* if skipdet decide to skip the seed or no interesting bytes found,
-     we skip the whole deterministic stage as well */
+  /* If skipdet skips this seed (or finds no effective bytes), skip the whole
+     deterministic stage. */
 
   if (likely(afl->skip_deterministic) ||
       likely(!afl->queue_cur->skipdet_e->done_eff) ||
-      likely(afl->queue_cur->passed_det) ||
+      likely(afl->queue_cur->passed_det) || likely(vp_skip_det_candidate) ||
       likely(!afl->queue_cur->skipdet_e->quick_eff_bytes) ||
       likely(perf_score <
              (afl->queue_cur->depth * 30 <= afl->havoc_max_mult * 100

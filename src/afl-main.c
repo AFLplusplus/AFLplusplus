@@ -127,6 +127,13 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
   afl->runs_in_current_cycle = (u32)-1;
   afl->cur_skipped_items = 0;
 
+  if (unlikely(afl->vp_delayed_evictions_pending)) {
+
+    vp_apply_delayed_evictions(afl);
+    cull_queue(afl);
+
+  }
+
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
     afl->reinit_table = 1;  // periodically reinit table because of nfuzz
