@@ -558,6 +558,7 @@ We add 4 byte for one u32 length field. */
 /* AFL RedQueen */
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
+#define VP_SHM_ENV_VAR "__AFL_VP_SHM_ID"
 
 /* ASAN SHM ID */
 #define AFL_ASAN_FUZZ_SHM_ENV_VAR "__AFL_ASAN_SHM_ID"

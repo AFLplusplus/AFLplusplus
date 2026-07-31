@@ -42,7 +42,10 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #endif
 #include "config.h"
 #include "types.h"
+#include "hash.h"
+#include "bitops.h"
 #include "cmplog.h"
+#include "value-profile.h"
 #include "afl-ijon-min.h"
 
 /* For backtrace() support in ijon_hashstack */
@@ -505,6 +508,11 @@ __thread u32 __afl_prev_ctx;
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
 static u32      __afl_cmp_cursor[CMP_MAP_W];
+vp_map_t       *__afl_vp_map;
+vp_map_t       *__afl_vp_map_backup;
+u8              __afl_vp_enabled_fallback;
+u8             *__afl_vp_enabled_ptr = &__afl_vp_enabled_fallback;
+extern const u8 __afl_vp_instrumented __attribute__((weak));
 
 static u8 __afl_cmplog_max_len = 32;  // 16-32
 
@@ -519,6 +527,19 @@ static u8 is_persistent;
 
 /* Are we in sancov mode? */
 // static u8 _is_sancov;
+
+static inline void __afl_vp_refresh_enabled_ptr(void) {
+
+  __afl_vp_enabled_ptr =
+      __afl_vp_map ? (u8 *)&__afl_vp_map->enabled : &__afl_vp_enabled_fallback;
+
+}
+
+static inline u8 __afl_vp_target_supports_runtime(void) {
+
+  return (u8)((uintptr_t)&__afl_vp_instrumented != 0);
+
+}
 
 /* Debug? */
 
@@ -965,6 +986,72 @@ static void __afl_map_shm(void) {
               __afl_area_ptr_dummy);
 
     }
+
+  }
+
+  char *vp_id_str = getenv(VP_SHM_ENV_VAR);
+
+  if (__afl_debug) {
+
+    fprintf(stderr, "DEBUG: vp id_str %s\n",
+            vp_id_str == NULL ? "<null>" : vp_id_str);
+
+  }
+
+  if (vp_id_str && __afl_vp_target_supports_runtime()) {
+
+    if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
+
+      if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[1] = 1; }
+
+    }
+
+#ifdef USEMMAP
+    const char *shm_file_path = vp_id_str;
+    int         shm_fd = -1;
+    vp_map_t   *shm_base = NULL;
+
+    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+    if (shm_fd == -1) {
+
+      perror("shm_open() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(1);
+
+    }
+
+    shm_base = mmap(0, sizeof(vp_map_t), PROT_READ | PROT_WRITE, MAP_SHARED,
+                    shm_fd, 0);
+    if (shm_base == MAP_FAILED) {
+
+      close(shm_fd);
+      shm_fd = -1;
+
+      fprintf(stderr, "mmap() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(2);
+
+    }
+
+    close(shm_fd);
+    shm_fd = -1;
+    __afl_vp_map = shm_base;
+#else
+    u32 shm_id = atoi(vp_id_str);
+
+    __afl_vp_map = (vp_map_t *)shmat(shm_id, NULL, 0);
+#endif
+
+    if (!__afl_vp_map || __afl_vp_map == (void *)-1) {
+
+      perror("shmat for value-profile");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
+
+    __afl_vp_map_backup = __afl_vp_map;
+    __afl_vp_refresh_enabled_ptr();
 
   }
 
@@ -1435,6 +1522,26 @@ static void __afl_unmap_shm(void) {
 
   }
 
+  id_str = getenv(VP_SHM_ENV_VAR);
+
+  if (id_str && __afl_vp_map) {
+
+#ifdef USEMMAP
+
+    munmap((void *)__afl_vp_map, sizeof(vp_map_t));
+
+#else
+
+    shmdt((void *)__afl_vp_map);
+
+#endif
+
+    __afl_vp_map = NULL;
+    __afl_vp_map_backup = NULL;
+    __afl_vp_refresh_enabled_ptr();
+
+  }
+
   __afl_already_initialized_shm = 0;
 
 }
@@ -1612,6 +1719,12 @@ static void __afl_start_forkserver(void) {
 
     }
 
+    if (__afl_vp_map && __afl_vp_target_supports_runtime()) {
+
+      status |= FS_NEW_OPT_VALUE_PROFILE;
+
+    }
+
     if (__afl_dictionary_len && __afl_dictionary) {
 
       status |= FS_NEW_OPT_AUTODICT;
@@ -1652,6 +1765,10 @@ static void __afl_start_forkserver(void) {
     // FS_NEW_OPT_FUTEX - no data
 
     // FS_NEW_OPT_ALLOCSIZE_DERIVE - no data
+
+    // FS_NEW_OPT_BUG_MAP - no data
+
+    // FS_NEW_OPT_VALUE_PROFILE - no data
 
     // FS_NEW_OPT_AUTODICT - send autodictionary
     if (__afl_dictionary_len && __afl_dictionary) {
