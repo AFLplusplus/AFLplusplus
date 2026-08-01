@@ -336,6 +336,11 @@ produce a CmpLog binary.
 
 For afl-gcc-fast, set `AFL_GCC_CMPLOG=1` instead.
 
+Value-profile compare-observer builds run a small mem2reg promotion before
+compare hook insertion so `-O0` builds expose canonical loop counters to
+loop-control filtering. Set `AFL_LLVM_NO_COMPARE_MEM2REG=1` to disable this
+promotion.
+
 For more information, see
 [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
 
@@ -579,6 +584,25 @@ checks or alter some of the more exotic semantics of the tool:
     newly found test cases and not for test cases that are loaded on startup
     (`-i in`). This is an important feature to set when resuming a fuzzing
     session.
+
+  - Value-profile guidance is controlled by command-line options:
+      - `-r 0`: enable runtime value profiling from startup.
+      - `-r N`: enable runtime value profiling after `N` seconds without new
+        edge coverage, then keep it enabled for the rest of the run.
+    Value profiling may help when compare operands are transformed in ways
+    that make direct solve attempts less effective.
+    Notes:
+      - Value profiling requires binaries compiled with
+        `AFL_LLVM_VALUE_PROFILE=1`.
+      - Value profiling and CmpLog are alternative compare-observer
+        instrumentation modes for a single compile. Build a separate CmpLog
+        binary and pass it with `-c` if you want to use CmpLog in the same
+        fuzzing session.
+      - Runtime value profiling requires an LLVM-instrumented main target and
+        is not supported with `-n`, QEMU, Frida, Unicorn, CoreSight, or Nyx
+        execution modes.
+      - Routine-compare VP features record separate matched-prefix and
+        whole-buffer hamming-distance signals.
 
   - `AFL_IGNORE_SEED_PROBLEMS` will skip over crashes and timeouts in the seeds
     instead of exiting.

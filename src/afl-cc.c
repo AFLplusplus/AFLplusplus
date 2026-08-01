@@ -101,6 +101,14 @@ typedef enum {
 
 } compiler_mode_id;
 
+typedef enum {
+
+  COMPARE_OBSERVER_NONE = 0,
+  COMPARE_OBSERVER_CMPLOG = 1,
+  COMPARE_OBSERVER_VALUE_PROFILE = 2,
+
+} compare_observer_mode_id;
+
 static u8   cwd[4096];
 static char opt_level = '3';
 
@@ -175,7 +183,7 @@ typedef struct aflcc_state {
 
   u8 instrument_mode, instrument_opt_mode;
 
-  u8 cmplog_mode, c11_mode;
+  u8 compare_observer_mode, c11_mode;
 
   u8 have_instr_env, have_llvm, have_gcc_plugin, have_lto,
       have_optimized_pcguard, have_instr_list, wnoerror,
@@ -198,6 +206,24 @@ void aflcc_state_init(aflcc_state_t *, u8 *argv0);
 u8 *find_object(aflcc_state_t *, u8 *obj);
 
 void find_built_deps(aflcc_state_t *);
+
+static inline u8 use_compare_observer_passes(aflcc_state_t *aflcc) {
+
+  return aflcc->compare_observer_mode != COMPARE_OBSERVER_NONE;
+
+}
+
+static inline u8 use_cmplog_passes(aflcc_state_t *aflcc) {
+
+  return aflcc->compare_observer_mode == COMPARE_OBSERVER_CMPLOG;
+
+}
+
+static inline u8 use_value_profile_passes(aflcc_state_t *aflcc) {
+
+  return aflcc->compare_observer_mode == COMPARE_OBSERVER_VALUE_PROFILE;
+
+}
 
 static inline void increment_cc_parameter_cnt(aflcc_state_t *aflcc) {
 
@@ -1135,6 +1161,16 @@ void mode_final_checkout(aflcc_state_t *aflcc) {
 
   }
 
+  if (getenv("AFL_LLVM_VALUE_PROFILE") && aflcc->compiler_mode != LLVM &&
+      aflcc->compiler_mode != LTO) {
+
+    FATAL(
+        "AFL_LLVM_VALUE_PROFILE requires an LLVM compiler mode; selected "
+        "mode is %s",
+        compiler_mode_2str(aflcc->compiler_mode));
+
+  }
+
   switch (aflcc->compiler_mode) {
 
     case GCC:
@@ -1288,8 +1324,35 @@ void mode_final_checkout(aflcc_state_t *aflcc) {
        getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES")))
     FATAL("AFL_LLVM_DICT2FILE is incompatible with AFL_LLVM_LAF_*");
 
-  aflcc->cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
-                       getenv("AFL_GCC_CMPLOG");
+  u8 use_value_profile_env = getenv("AFL_LLVM_VALUE_PROFILE") != NULL;
+  u8 use_cmplog_env = (getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG") ||
+                       getenv("AFL_GCC_CMPLOG"))
+                          ? 1
+                          : 0;
+
+  if (use_value_profile_env && use_cmplog_env) {
+
+    FATAL(
+        "AFL_LLVM_VALUE_PROFILE cannot be combined with AFL_CMPLOG, "
+        "AFL_LLVM_CMPLOG, or AFL_GCC_CMPLOG in one compiler invocation. "
+        "Compile the main binary with value profiling and the -c binary with "
+        "CmpLog separately.");
+
+  }
+
+  if (use_value_profile_env) {
+
+    aflcc->compare_observer_mode = COMPARE_OBSERVER_VALUE_PROFILE;
+
+  } else if (use_cmplog_env) {
+
+    aflcc->compare_observer_mode = COMPARE_OBSERVER_CMPLOG;
+
+  } else {
+
+    aflcc->compare_observer_mode = COMPARE_OBSERVER_NONE;
+
+  }
 
   aflcc->c11_mode = getenv("AFL_LLVM_C11") != NULL;
 
@@ -2499,7 +2562,7 @@ void add_gcc_plugin(aflcc_state_t *aflcc) {
 
   }
 
-  if (aflcc->cmplog_mode) {
+  if (use_cmplog_passes(aflcc)) {
 
     insert_object(aflcc, "afl-gcc-cmplog-pass.so", "-fplugin=%s", 0);
     insert_object(aflcc, "afl-gcc-cmptrs-pass.so", "-fplugin=%s", 0);
@@ -2544,7 +2607,7 @@ char *get_opt_level() {
 void add_misc_params(aflcc_state_t *aflcc) {
 
   if (getenv("AFL_NO_BUILTIN") || getenv("AFL_LLVM_LAF_TRANSFORM_COMPARES") ||
-      getenv("AFL_LLVM_LAF_ALL") || getenv("AFL_LLVM_CMPLOG") ||
+      getenv("AFL_LLVM_LAF_ALL") || use_compare_observer_passes(aflcc) ||
       aflcc->lto_mode) {
 
     insert_param(aflcc, "-fno-builtin-strcmp");
@@ -3549,13 +3612,18 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     // /laf
 
-    if (aflcc->cmplog_mode) {
+    if (use_compare_observer_passes(aflcc)) {
 
-      insert_param(aflcc, "-fno-inline");
+      if (use_cmplog_passes(aflcc)) { insert_param(aflcc, "-fno-inline"); }
 
       load_llvm_pass(aflcc, "cmplog-switches-pass.so");
-      // reuse split switches from laf
-      load_llvm_pass(aflcc, "split-switches-pass.so");
+      if (use_cmplog_passes(aflcc)) {
+
+        // TODO: reconsider dropping split-switch lowering for CmpLog too once
+        // switch handling is modeled directly without CFG blow-up.
+        load_llvm_pass(aflcc, "split-switches-pass.so");
+
+      }
 
     }
 
@@ -3584,7 +3652,7 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     }
 
-    if (aflcc->cmplog_mode) {
+    if (use_compare_observer_passes(aflcc)) {
 
       load_llvm_pass(aflcc, "cmplog-instructions-pass.so");
       load_llvm_pass(aflcc, "cmplog-routines-pass.so");
@@ -3617,7 +3685,7 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
        with the AFL_LLVM_BUG=1 path (which keeps DERIVE) and broke setups that
        provide the cmp_map themselves.  DERIVE implies ALLOCSIZE, so ensure the
        OOB oracle is enabled too. */
-    if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") && !aflcc->cmplog_mode) {
+    if (getenv("AFL_LLVM_BUG_ALLOCSIZE_DERIVE") && !use_cmplog_passes(aflcc)) {
 
       if (!be_quiet) {
 
@@ -3776,10 +3844,19 @@ int main(int argc, char **argv, char **envp) {
 
   if (aflcc->compiler_mode == LLVM) {
 
-    if (aflcc->cmplog_mode) {
+    if (use_compare_observer_passes(aflcc)) {
 
-      WARNF("CMPLOG support requires LLVM 14+");
-      aflcc->cmplog_mode = 0;
+      if (use_value_profile_passes(aflcc)) {
+
+        WARNF("Value profile support requires LLVM 14+");
+
+      } else {
+
+        WARNF("CMPLOG support requires LLVM 14+");
+
+      }
+
+      aflcc->compare_observer_mode = COMPARE_OBSERVER_NONE;
 
     }
 

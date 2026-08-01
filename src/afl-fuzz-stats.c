@@ -262,6 +262,25 @@ void load_stats_file(afl_state_t *afl) {
 
       }
 
+      if (key_matches("vp_start_time", keystring)) {
+
+        afl->vp_start_time = 1000 * strtoull(lptr, &nptr, 10);
+
+      }
+
+      if (key_matches("value_profile_finds", keystring)) {
+
+        afl->value_profile_finds = strtoull(lptr, &nptr, 10);
+
+      }
+
+      if (key_matches("last_cov_find_time", keystring)) {
+
+        /* Restore the edge-coverage clock used for VP stagnation. */
+        afl->last_edge_time = 1000 * strtoull(lptr, &nptr, 10);
+
+      }
+
       if (key_matches("trim_time", keystring)) {
 
         afl->trim_time_us = strtoull(lptr, &nptr, 10) * 1000000;
@@ -594,6 +613,17 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
     }
 
     fprintf(f, "\n");
+
+  }
+
+  if (afl->value_profile_mode) {
+
+    fprintf(f, "value_profile_finds  : %llu\n",
+            (unsigned long long)afl->value_profile_finds);
+    fprintf(f, "vp_start_time        : %llu\n",
+            (unsigned long long)(afl->vp_start_time / 1000));
+    fprintf(f, "last_cov_find_time   : %llu\n",
+            (unsigned long long)(afl->last_edge_time / 1000));
 
   }
 
