@@ -22,6 +22,8 @@
       rediscovered by an input that does calibrate.
     - fixed SAND and FrameShift issues
     - enhancements and fixes for cmplog and ijon
+    - due to a bug first introduced in v4.30c the cmplog target was used for
+      fuzzing if present - fixed
   - afl-cc
     - remove classic AFL instrumentation (colliding coverage), as `AFL_LLVM_PATH`
       and `AFL_LLVM_CALLER` replace these mostly and are overall much better
