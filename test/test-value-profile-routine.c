@@ -102,7 +102,7 @@ int main(void) {
 
   memset(&vp_local, 0, sizeof(vp_local));
   if (vp_test_claim_site(&vp_local, site_token, site)) return 18;
-  vp_local.filter_enabled = 1;
+  vp_local.filter_mode = VP_FILTER_STRICT;
   vp_local.filter_bitmap[site >> 6] = (1ULL << (site & 63));
   __afl_vp_map = &vp_local;
 
@@ -198,9 +198,9 @@ int main(void) {
   uint8_t hay_case[] = {'x', 'x', 'N', 'E', 'E', 'D', 'L', 'E', 0};
 
   begin_exec();
-  vp_local.filter_enabled = 0;
+  vp_local.filter_mode = VP_FILTER_OFF;
   __sanitizer_weak_hook_strncasestr((void *)0x1234, hay_case, needle, 8, NULL);
-  vp_local.filter_enabled = 1;
+  vp_local.filter_mode = VP_FILTER_STRICT;
   if (vp_local.control_len != 1) return 37;
   site_state = &vp_local.site[vp_local.control[0]];
   if (site_state->slots[0].best_dist != 0) return 38;

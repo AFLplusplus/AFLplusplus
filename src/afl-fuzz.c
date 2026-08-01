@@ -2004,6 +2004,8 @@ void afl_check_environment(afl_state_t *afl) {
 
     }
 
+    vp_focus_init(afl);
+
     OKF("Value profiling: mode %u%s, slots %u, source=%s",
         afl->value_profile_mode,
         afl->value_profile_mode == 1 ? " (always on)" : " (stagnation)",

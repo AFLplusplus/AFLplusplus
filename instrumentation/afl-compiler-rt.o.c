@@ -3361,16 +3361,18 @@ static inline void vp_runtime_append_control(vp_map_t *vp, u16 site_id) {
 
 }
 
-/* Select a physical site and prepare its per-exec state. Filtered observation
-   may only reuse assignments established by normal campaign execution. */
+/* Select a physical site and prepare its per-exec state. Strictly filtered
+   observation may only reuse assignments established by normal campaign
+   execution; the focus set still lets unseen sites claim a key. */
 static inline vp_site_t *vp_runtime_prepare_site(vp_map_t *vp, u64 site_token,
                                                  u16 *site_id) {
 
-  u32 key = vp_map_select(vp, site_token, (u8)!vp->filter_enabled);
+  u8  filter = vp->filter_mode;
+  u32 key = vp_map_select(vp, site_token, (u8)(filter != VP_FILTER_STRICT));
   if (unlikely(key == VP_MAP_INVALID)) return NULL;
   *site_id = (u16)key;
 
-  if (unlikely(vp->filter_enabled) &&
+  if (unlikely(filter) &&
       !(vp->filter_bitmap[key >> 6] & (1ULL << (key & 63)))) {
 
     return NULL;
@@ -3378,6 +3380,8 @@ static inline vp_site_t *vp_runtime_prepare_site(vp_map_t *vp, u64 site_token,
   }
 
   vp_site_t *site = &vp->site[key];
+  if (unlikely(site->flags & VP_SITE_RETIRED)) return NULL;
+
   if (unlikely(site->exec_seen != vp->exec_id)) {
 
     /* Lazy per-site reset: only clear metadata for sites touched in this

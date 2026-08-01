@@ -102,6 +102,8 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
   }
 
+  if (unlikely(afl->vp_focus_rebuild_pending)) { vp_focus_rotate(afl); }
+
   if (likely(!(!afl->old_seed_selection &&
                afl->runs_in_current_cycle > afl->queued_items) &&
              !(afl->old_seed_selection && !afl->queue_cur))) {
@@ -133,6 +135,8 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
     cull_queue(afl);
 
   }
+
+  if (unlikely(afl->value_profile_active)) { vp_focus_rotate(afl); }
 
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 

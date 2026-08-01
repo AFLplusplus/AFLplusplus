@@ -82,7 +82,7 @@ int main(void) {
 
   memset(&vp_local, 0, sizeof(vp_local));
   if (vp_test_claim_site(&vp_local, site_token, site)) return 110;
-  vp_local.filter_enabled = 1;
+  vp_local.filter_mode = VP_FILTER_STRICT;
   vp_local.filter_bitmap[site >> 6] = (1ULL << (site & 63));
   __afl_vp_map = &vp_local;
 
@@ -184,7 +184,7 @@ int main(void) {
   /* SanitizerCoverage provides a useful i8 fallback only for constant
      compares. Its return-address token is assigned dynamically. */
   vp_local.enabled = 0;
-  vp_local.filter_enabled = 0;
+  vp_local.filter_mode = VP_FILTER_OFF;
   ++vp_local.exec_id;
   if (!vp_local.exec_id) ++vp_local.exec_id;
   vp_local.control_len = 0;

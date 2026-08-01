@@ -49,6 +49,12 @@
 /* Max real VP distance is 256; 257 means no candidate for this site. */
 #define VP_DIST_UNSOLVED 257U
 
+#define VP_FILTER_OFF 0U
+#define VP_FILTER_STRICT 1U
+#define VP_FILTER_FOCUS 2U
+
+#define VP_SITE_RETIRED 1U
+
 typedef struct {
 
   u16 best_dist;    /* Best distance for this physical-site slot            */
@@ -61,7 +67,7 @@ typedef struct {
   u16       hit_count;          /* Next wrapping per-exec hit ordinal       */
   u16       touched_mask;       /* Per-exec slots updated this execution    */
   vp_slot_t slots[VP_SLOTS];    /* Per-physical-site best distances         */
-  u32       abi_padding;        /* Keep the site stride fixed across ABIs   */
+  u32       flags;              /* VP_SITE_* bits; keeps the stride fixed   */
 
 } vp_site_t;
 
@@ -69,7 +75,7 @@ typedef struct {
 
   u64 exec_id;               /* Monotonic execution epoch                   */
   u8  enabled;               /* Runtime collection enabled for this exec    */
-  u8  filter_enabled;        /* Restrict recording to filter_bitmap sites   */
+  u8  filter_mode;           /* VP_FILTER_*: recording restriction in force */
   u32 control_len;           /* Number of valid site ids in control[]       */
   u64 filter_bitmap[VP_MAP_W / 64U]; /* Optional per-exec site allowlist      */
   u16 control[VP_CONTROL_CAP];  /* Site ids with at least one slot update     */

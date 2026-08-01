@@ -30,7 +30,7 @@ int main(void) {
 #ifdef __SIZEOF_INT128__
   memset(&vp_local, 0, sizeof(vp_local));
   if (vp_test_claim_site(&vp_local, site_token, site)) return 6;
-  vp_local.filter_enabled = 1;
+  vp_local.filter_mode = VP_FILTER_STRICT;
   vp_local.filter_bitmap[site >> 6] = (1ULL << (site & 63));
   __afl_vp_map = &vp_local;
 
