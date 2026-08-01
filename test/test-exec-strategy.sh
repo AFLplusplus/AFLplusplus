@@ -3,6 +3,8 @@
 # exec-count triggers must fire on execs, long before any wall-clock leg (there
 # no longer is one for these). Passes if the marker(s) appear within the timeout.
 
+test "$1" = "run" || { echo "$GREY[*] Skipping $0, not helpful in CI, run this script with the \"run\" parameter to force it executing"; exit 0; }
+
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"

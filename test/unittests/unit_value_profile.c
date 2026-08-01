@@ -924,6 +924,48 @@ static void test_runtime_frontier_applies_direct_slots(void **state) {
 
 }
 
+static void test_solved_only_signal_does_not_admit(void **state) {
+
+  (void)state;
+
+  afl_state_t afl;
+  vp_map_t   *vp;
+  u32         site = 7;
+
+  memset(&afl, 0, sizeof(afl));
+
+  vp = calloc(1, sizeof(vp_map_t));
+  assert_non_null(vp);
+  afl.value_profile_mode = 1;
+  afl.value_profile_active = 1;
+  afl.queue_cycle = 1;
+  afl.shm.vp_map = vp;
+  setup_vp_frontier(&afl);
+
+  vp->exec_id = 1;
+  vp->enabled = 1;
+  vp->control_len = 1;
+  vp->control[0] = (u16)site;
+  vp_test_init_direct_site(&vp->site[site], vp->exec_id);
+  vp->site[site].touched_mask = (u16)((1U << 0) | (1U << 1));
+  vp->site[site].slots[0].best_dist = 0;
+  vp->site[site].slots[1].best_dist = 0;
+
+  assert_false(vp_frontier_would_improve(&afl));
+
+  vp->exec_id = 2;
+  vp_test_init_direct_site(&vp->site[site], vp->exec_id);
+  vp->site[site].touched_mask = (u16)((1U << 0) | (1U << 1));
+  vp->site[site].slots[0].best_dist = 4;
+  vp->site[site].slots[1].best_dist = 0;
+
+  assert_true(vp_frontier_would_improve(&afl));
+
+  free_vp_frontier(&afl);
+  free(vp);
+
+}
+
 static void test_runtime_frontier_replaces_owner_and_clears_trim_deferred(
     void **state) {
 
@@ -1511,6 +1553,7 @@ int main(int argc, char **argv) {
       cmocka_unit_test(test_fastresume_defers_vp_disabled_counter_restore),
       cmocka_unit_test(test_vp_restore_recreates_queue_state_markers),
       cmocka_unit_test(test_runtime_frontier_applies_direct_slots),
+      cmocka_unit_test(test_solved_only_signal_does_not_admit),
       cmocka_unit_test(
           test_runtime_frontier_replaces_owner_and_clears_trim_deferred),
       cmocka_unit_test(test_runtime_frontier_anchors_solved_slots),

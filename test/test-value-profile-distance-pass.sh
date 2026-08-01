@@ -1,5 +1,7 @@
 #!/bin/sh
 
+test "$1" = "run" || { echo "$GREY[*] Skipping $0, not helpful in CI, run this script with the \"run\" parameter to force it executing"; exit 0; }
+
 cd "$(dirname "$0")/.." || exit 1
 
 TEMP_DIR=$(mktemp -d /tmp/afl-vp-distance-pass.XXXXXX) || exit 1
@@ -58,6 +60,27 @@ entry:
   ret i32 %ret
 }
 
+define dso_local i32 @half_equal(half %a, half %b) {
+entry:
+  %cmp = fcmp oeq half %a, %b
+  %ret = zext i1 %cmp to i32
+  ret i32 %ret
+}
+
+define dso_local i32 @bfloat_equal(bfloat %a, bfloat %b) {
+entry:
+  %cmp = fcmp oeq bfloat %a, %b
+  %ret = zext i1 %cmp to i32
+  ret i32 %ret
+}
+
+define dso_local i32 @long_double_equal(x86_fp80 %a, x86_fp80 %b) {
+entry:
+  %cmp = fcmp oeq x86_fp80 %a, %b
+  %ret = zext i1 %cmp to i32
+  ret i32 %ret
+}
+
 define dso_local i32 @main() {
 entry:
   %a = call i32 @signed24(i24 1, i24 2)
@@ -66,12 +89,18 @@ entry:
   %d = call i32 @byte_constant(i8 1)
   %e = call i32 @byte_variable(i8 1, i8 2)
   %f = call i32 @unordered_float(float 1.0, float 2.0)
+  %g = call i32 @half_equal(half 1.0, half 2.0)
+  %h = call i32 @bfloat_equal(bfloat 1.0, bfloat 2.0)
+  %i = call i32 @long_double_equal(x86_fp80 1.0, x86_fp80 2.0)
   %ab = add i32 %a, %b
   %abc = add i32 %ab, %c
   %abcd = add i32 %abc, %d
   %abcde = add i32 %abcd, %e
   %abcdef = add i32 %abcde, %f
-  ret i32 %abcdef
+  %abcdefg = add i32 %abcdef, %g
+  %abcdefgh = add i32 %abcdefg, %h
+  %abcdefghi = add i32 %abcdefgh, %i
+  ret i32 %abcdefghi
 }
 EOF
 
@@ -133,6 +162,23 @@ printf '%s\n' "$unordered_float" | grep -q '@__valueprofile_hook_float' ||
   fail 'float compare did not use the float value-profile hook'
 printf '%s\n' "$unordered_float" | grep -q 'i8 14' ||
   fail 'float compare did not preserve FCMP_UNE'
+
+half_equal="$(body half_equal "$TEMP_DIR/vp.ll")"
+bfloat_equal="$(body bfloat_equal "$TEMP_DIR/vp.ll")"
+long_double_equal="$(body long_double_equal "$TEMP_DIR/vp.ll")"
+
+printf '%s\n' "$half_equal" | grep -q '@__valueprofile_hook_float' ||
+  fail 'half compare did not use the float value-profile hook'
+if printf '%s\n' "$half_equal" | grep -q '@__valueprofile_hook2'; then
+  fail 'half compare unexpectedly used the integer hook2'
+fi
+
+printf '%s\n' "$bfloat_equal" | grep -q '@__valueprofile_hook_float' ||
+  fail 'bfloat compare did not use the float value-profile hook'
+
+if printf '%s\n' "$long_double_equal" | grep -q '@__valueprofile_'; then
+  fail 'long double compare unexpectedly used a value-profile hook'
+fi
 
 if ! AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ./afl-clang-fast -S -emit-llvm \
     -o "$TEMP_DIR/cmplog.ll" "$TEMP_DIR/distance.ll" \

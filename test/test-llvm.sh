@@ -385,6 +385,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin -o test-value-profile-hookn.vp test-value-profile-hookn.c > /dev/null 2>&1
   AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin -o test-value-profile-distance.vp test-value-profile-distance.c > /dev/null 2>&1
   AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin -o test-value-profile-discard.vp test-value-profile-discard.c > /dev/null 2>&1
+  AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin -o test-value-profile-float-semantics.vp test-value-profile-float-semantics.c > /dev/null 2>&1
   AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin \
     -shared -fPIC -o test-value-profile-dlopen.vp.so \
     test-value-profile-dlopen-target.c > /dev/null 2>&1
@@ -409,6 +410,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     -e test-value-profile-hookn.vp -a \
     -e test-value-profile-distance.vp -a \
     -e test-value-profile-discard.vp -a \
+    -e test-value-profile-float-semantics.vp -a \
     -e test-value-profile-dlopen.vp.so -a \
     -e test-dlopen.vp -a \
     -e test-value-profile-weak-guard.o -a \
@@ -421,6 +423,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       ./test-value-profile-routine.vp >>errors 2>&1
       ./test-value-profile-hookn.vp >>errors 2>&1
       ./test-value-profile-distance.vp >>errors 2>&1
+      ./test-value-profile-float-semantics.vp >>errors 2>&1
       if test -e test-value-profile-switch-128.vp; then
         ./test-value-profile-switch-128.vp >>errors 2>&1
       fi
@@ -539,7 +542,8 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     test-value-profile test-value-profile.vp test-value-profile-slot-spill.vp \
     test-value-profile-switch.vp test-value-profile-routine.vp \
     test-value-profile-hookn.vp test-value-profile-distance.vp \
-    test-value-profile-discard.vp test-vp-conflict.o test-vp-postprocess \
+    test-value-profile-discard.vp test-value-profile-float-semantics.vp \
+    test-vp-conflict.o test-vp-postprocess \
     test-vp-postprocess-mutator.so \
     in in_discard in_post out_no_vp out_vp out_vp_stag out_vp_discard \
     out_l1_err out_vp_noninst out_vp_post core.* /tmp/afl-vp-main.log
@@ -567,7 +571,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       mkdir -p in
       echo 00000000000000000000000000000000 > in/in
-      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 ../afl-fuzz -Z -m none -V64 -i in -o out -- ./ijon-maze >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 ../afl-fuzz -Z -m none -V40 -i in -o out -- ./ijon-maze >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/default/crashes/* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with IJON"

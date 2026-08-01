@@ -4,6 +4,10 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.03a (dev)
+  ! Value Profile implementation for AFL++ by Khaled Yakdan (@kyakdan) that
+    is much more efficient and intelligent than the libfuzzer implementation.
+    Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for
+    afl-fuzz with `-r <seconds>` when to activate (default off)
   - afl-fuzz
     - big change: limits before switching modes is not time based but exec based now.
     - for more variability, a "starved" mode is implemented now. If for a longer

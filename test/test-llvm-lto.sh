@@ -97,6 +97,7 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
     rm -f test-value-profile-switch.lto test-value-profile-switch-128.lto \
       test-value-profile-slot-spill.lto \
       test-value-profile-routine.lto test-value-profile-hookn.lto \
+      test-value-profile-float-semantics.lto \
       test-value-profile-weak-guard-lto \
       test-value-profile-weak-guard-lto.o \
       test-value-profile-weak-guard-stubs-lto.o \
@@ -124,6 +125,9 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
       -o test-value-profile-hookn.lto test-value-profile-hookn.c \
       >> test-vp-lto.out 2>&1
     AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-lto -O0 -fno-inline -fno-builtin \
+      -o test-value-profile-float-semantics.lto \
+      test-value-profile-float-semantics.c >> test-vp-lto.out 2>&1
+    AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-lto -O0 -fno-inline -fno-builtin \
       -shared -fPIC -o test-value-profile-dlopen.lto.so \
       test-value-profile-dlopen-target.c >> test-vp-lto.out 2>&1
     AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-lto -o test-dlopen.lto \
@@ -143,6 +147,7 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
       -e test-value-profile-slot-spill.lto -a \
       -e test-value-profile-routine.lto -a \
       -e test-value-profile-hookn.lto -a \
+      -e test-value-profile-float-semantics.lto -a \
       -e test-value-profile-dlopen.lto.so -a \
       -e test-dlopen.lto -a \
       -e test-value-profile-weak-guard-lto.o -a \
@@ -155,6 +160,7 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
       ./test-value-profile-slot-spill.lto >> test-vp-lto.out 2>&1
       ./test-value-profile-routine.lto >> test-vp-lto.out 2>&1
       ./test-value-profile-hookn.lto >> test-vp-lto.out 2>&1
+      ./test-value-profile-float-semantics.lto >> test-vp-lto.out 2>&1
       vp_dlopen_rc=0
       DYLD_INSERT_LIBRARIES=./test-value-profile-dlopen.lto.so \
       LD_BIND_NOW=1 \
@@ -183,6 +189,7 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
     rm -f test-value-profile-switch.lto test-value-profile-switch-128.lto \
       test-value-profile-slot-spill.lto \
       test-value-profile-routine.lto test-value-profile-hookn.lto \
+      test-value-profile-float-semantics.lto \
       test-value-profile-weak-guard-lto \
       test-value-profile-weak-guard-lto.o \
       test-value-profile-weak-guard-stubs-lto.o \

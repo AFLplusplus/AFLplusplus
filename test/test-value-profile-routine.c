@@ -23,6 +23,14 @@ void __valueprofile_rtn_hook_n(uint8_t *ptr1, uint8_t *ptr2, uint64_t len,
                                uint64_t site_token);
 void __valueprofile_rtn_hook_strn(uint8_t *ptr1, uint8_t *ptr2, uint64_t len,
                                   uint64_t site_token);
+void __valueprofile_rtn_hook_str_ci(uint8_t *ptr1, uint8_t *ptr2,
+                                    uint64_t site_token);
+void __valueprofile_rtn_hook_strn_ci(uint8_t *ptr1, uint8_t *ptr2, uint64_t len,
+                                     uint64_t site_token);
+void __valueprofile_rtn_hook_sub(uint8_t *hay, uint8_t *needle,
+                                 uint64_t site_token);
+void __valueprofile_rtn_hook_sub_hn(uint8_t *hay, uint64_t hay_len,
+                                    uint8_t *needle, uint64_t site_token);
 
 static const uint16_t site = 0x3456U;
 static const uint64_t site_token = VP_TEST_TOKEN_FOR_SITE(0x3456U, 0x3456789aU);
@@ -119,6 +127,68 @@ int main(void) {
   int guarded_result = test_guarded_operands();
   if (guarded_result) return guarded_result;
 #endif
+
+  uint8_t lhs_ci[] = {'A', 'B', 'C', 0};
+  uint8_t rhs_ci[] = {'a', 'b', 'c', 0};
+
+  begin_exec();
+  __valueprofile_rtn_hook_str_ci(lhs_ci, rhs_ci, site_token);
+  site_state = &vp_local.site[site];
+  if (vp_local.control_len != 1) return 20;
+  if (site_state->slots[0].best_dist != 0) return 21;
+  if (site_state->slots[1].best_dist != 0) return 22;
+
+  uint8_t lhs_cin[] = {'A', 'B', 'X', 0};
+  uint8_t rhs_cin[] = {'a', 'b', 'y', 0};
+
+  begin_exec();
+  __valueprofile_rtn_hook_strn_ci(lhs_cin, rhs_cin, 3, site_token);
+  site_state = &vp_local.site[site];
+  if (vp_local.control_len != 1) return 23;
+  if (site_state->slots[0].best_dist == 0) return 24;
+
+  uint8_t hay[] = {'x', 'x', 'n', 'e', 'e', 'd', 'l', 'e', 0};
+  uint8_t needle[] = {'n', 'e', 'e', 'd', 'l', 'e', 0};
+
+  begin_exec();
+  __valueprofile_rtn_hook_sub(hay, needle, site_token);
+  site_state = &vp_local.site[site];
+  if (vp_local.control_len != 1) return 25;
+  if (site_state->slots[0].best_dist != 0) return 26;
+  if (site_state->slots[1].best_dist != 0) return 27;
+
+  uint8_t hay_miss[] = {'x', 'x', 'n', 'e', 'e', 'd', 'l', 'f', 0};
+
+  begin_exec();
+  __valueprofile_rtn_hook_sub(hay_miss, needle, site_token);
+  site_state = &vp_local.site[site];
+  if (vp_local.control_len != 1) return 28;
+  if (site_state->slots[1].best_dist == 0) return 29;
+
+  /* strnstr/g_strstr_len: negative length means nul-terminated, a bounded
+     length is still cut short by an embedded nul. */
+  begin_exec();
+  __valueprofile_rtn_hook_sub_hn(hay, (uint64_t)-1, needle, site_token);
+  site_state = &vp_local.site[site];
+  if (vp_local.control_len != 1) return 30;
+  if (site_state->slots[0].best_dist != 0) return 31;
+  if (site_state->slots[1].best_dist != 0) return 32;
+
+  begin_exec();
+  __valueprofile_rtn_hook_sub_hn(hay, 8, needle, site_token);
+  site_state = &vp_local.site[site];
+  if (vp_local.control_len != 1) return 33;
+  if (site_state->slots[0].best_dist != 0) return 34;
+
+  begin_exec();
+  __valueprofile_rtn_hook_sub_hn(hay, 5, needle, site_token);
+  if (vp_local.control_len != 0) return 35;
+
+  uint8_t hay_nul[] = {'z', 'z', 0, 'n', 'e', 'e', 'd', 'l', 'e', 0};
+
+  begin_exec();
+  __valueprofile_rtn_hook_sub_hn(hay_nul, 9, needle, site_token);
+  if (vp_local.control_len != 0) return 36;
 
   return 0;
 

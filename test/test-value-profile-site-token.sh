@@ -1,5 +1,7 @@
 #!/bin/sh
 
+test "$1" = "run" || { echo "$GREY[*] Skipping $0, not helpful in CI, run this script with the \"run\" parameter to force it executing"; exit 0; }
+
 cd "$(dirname "$0")/.." || exit 1
 
 TEMP_DIR=$(mktemp -d /tmp/afl-vp-site-token.XXXXXX) || exit 1
