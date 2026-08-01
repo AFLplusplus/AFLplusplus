@@ -92,7 +92,7 @@ class CompareObserverPromotePass
     : public PassInfoMixin<CompareObserverPromotePass> {
 
  public:
-  CompareObserverPromotePass() {
+  explicit CompareObserverPromotePass(bool opt_zero) : opt_zero_(opt_zero) {
 
     initInstrumentList();
 
@@ -102,6 +102,8 @@ class CompareObserverPromotePass
 
     if (F.empty()) { return PreservedAnalyses::all(); }
     if (!isInInstrumentList(&F, FMNAME)) { return PreservedAnalyses::all(); }
+    // Clang marks every function optnone at -O0, so honour it only above -O0
+    if (F.hasOptNone() && !opt_zero_) { return PreservedAnalyses::all(); }
 
     SmallVector<AllocaInst *, 16> Allocas;
     for (Instruction &I : F.getEntryBlock()) {
@@ -128,6 +130,9 @@ class CompareObserverPromotePass
     return true;
 
   }
+
+ private:
+  bool opt_zero_;
 
 };
 
@@ -177,7 +182,8 @@ llvmGetPassPluginInfo() {
               !getenv("AFL_LLVM_NO_COMPARE_MEM2REG")) {
 
             FunctionPassManager FPM;
-            FPM.addPass(CompareObserverPromotePass());
+            FPM.addPass(
+                CompareObserverPromotePass(OL == OptimizationLevel::O0));
             MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
           }
@@ -807,17 +813,13 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
   GlobalVariable *AFLCmplogPtr =
       getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_cmp_map");
 
-  GlobalVariable *AFLVpPtr = nullptr;
   GlobalVariable *AFLVpEnabledPtr = nullptr;
   if (vp_mode) {
 
-    AFLVpPtr = getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_vp_map");
     AFLVpEnabledPtr =
         getOrCreateExternalPtrGlobal(M, PtrTy, "__afl_vp_enabled_ptr");
 
   }
-
-  GlobalVariable *AFLMapPtr = vp_mode ? AFLVpPtr : AFLCmplogPtr;
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
@@ -882,8 +884,9 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
         Value *is_enabled = createValueProfileEnabledGuard(
             IRB2, AFLVpEnabledPtr, PtrTy, Int8Ty);
 
-        Instruction *ThenTerm =
-            SplitBlockAndInsertIfThen(is_enabled, InsertBefore, false);
+        Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+            is_enabled, InsertBefore, false,
+            createValueProfileGuardWeights(M.getContext()));
         markAflSyntheticBlock(ThenTerm->getParent());
         return ThenTerm;
 
@@ -891,7 +894,8 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
 
       IRBuilder<> IRB2(InsertBefore->getParent());
       IRB2.SetInsertPoint(InsertBefore);
-      Value *is_not_null = createMapPtrNotNullGuard(IRB2, M, AFLMapPtr, PtrTy);
+      Value *is_not_null =
+          createMapPtrNotNullGuard(IRB2, M, AFLCmplogPtr, PtrTy);
 
       return SplitBlockAndInsertIfThen(is_not_null, InsertBefore, false);
 
@@ -1063,6 +1067,19 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
       // XXX FIXME BUG TODO
       if (is_fp && vector_cnt) { continue; }
 
+      /* Half and bfloat widen to float exactly, so they can share the float
+         hook. x86_fp80, fp128 and ppc_fp128 have no exact widening target, and
+         an integer-encoding distance would contradict float comparison
+         semantics, so they are left uninstrumented. Decide that here, before
+         the enabled guard splits the block, so an unsupported type does not
+         leave an empty guarded block behind. */
+      if (vp_mode && is_fp && cast_size != 16 && cast_size != 32 &&
+          cast_size != 64) {
+
+        continue;
+
+      }
+
       IRBuilder<> IRB(getHookInsertPoint(selectcmpInst));
 
       uint64_t cur = 0, last_val0 = 0, last_val1 = 0, cur_val;
@@ -1148,19 +1165,36 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
 
           }
 
-          if (vp_mode && is_fp && (cast_size == 32 || cast_size == 64)) {
+          if (vp_mode && is_fp) {
 
-            args.push_back(op0);
-            args.push_back(op1);
-            args.push_back(attribute);
-            if (vp_mode) { args.push_back(siteToken); }
-            if (cast_size == 32) {
+            if (cast_size == 16) {
 
+              args.push_back(IRB.CreateFPExt(op0, floatTy));
+              args.push_back(IRB.CreateFPExt(op1, floatTy));
+              args.push_back(attribute);
+              args.push_back(siteToken);
               IRB.CreateCall(hookFloat, args);
+              goto next_vec_elem;
 
-            } else {
+            }
 
-              IRB.CreateCall(hookDouble, args);
+            if (cast_size == 32 || cast_size == 64) {
+
+              args.push_back(op0);
+              args.push_back(op1);
+              args.push_back(attribute);
+              args.push_back(siteToken);
+              if (cast_size == 32) {
+
+                IRB.CreateCall(hookFloat, args);
+
+              } else {
+
+                IRB.CreateCall(hookDouble, args);
+
+              }
+
+              goto next_vec_elem;
 
             }
 
@@ -1287,24 +1321,25 @@ PreservedAnalyses CmpLogInstructions::run(Module                &M,
 
   if (vp_mode) { markInstrumentedMarker(M, "__afl_vp_instrumented"); }
 
-  if (getenv("AFL_QUIET") == NULL)
-    if (vp_mode) {
+  if (getenv("AFL_QUIET") != NULL) {
 
-      printf("Running valueprofile-instructions-pass by AFL++ team\n");
-
-    } else {
-
-      printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
-
-    }
-
-  else
     be_quiet = 1;
+
+  } else if (vp_mode) {
+
+    printf("Running valueprofile-instructions-pass by AFL++ team\n");
+
+  } else {
+
+    printf("Running cmplog-instructions-pass by andreafioraldi@gmail.com\n");
+
+  }
 
   bool ret = hookInstrs(M, LICallback, SECallback);
 
   verifyModule(M);
-  return ret ? PreservedAnalyses() : PreservedAnalyses::all();
+  if (ret || vp_mode) { return PreservedAnalyses::none(); }
+  return PreservedAnalyses::all();
 
 }
 

@@ -47,6 +47,35 @@ admission is intentionally strict-distance-only: equal-distance cost
 improvements do not admit a new queue entry by themselves, although cost still
 breaks ties among already-admitted frontier owners.
 
+A distance of zero on a frontier slot that no queue entry owns yet does not
+by itself admit a new queue entry: the constraint is already satisfied, so
+there is no gradient left to follow. Entries admitted for any other reason
+still take and hold such slots, which keeps the solved constraint anchored.
+
+Routine-compare sites are restricted to functions with recognised comparison or
+search semantics (the `memcmp`, `strcmp`, `strncmp`, `strstr`, `memmem` and
+`std::string` families). CmpLog's broader "any two same-typed pointer arguments"
+heuristic is deliberately not applied under value profiling: a non-comparison
+call such as `strcpy` would otherwise contribute a synthetic gradient that can
+admit and permanently favour queue entries.
+
+Routine-compare VP features record separate matched-prefix and whole-buffer
+hamming-distance signals. Substring routines (`strstr`, `strcasestr`, `memmem`
+and similar) record the minimum of both metrics over every candidate offset in
+the haystack, so a successful match records distance 0.
+
+All routine hooks read at most 32 bytes per operand, the same bound CmpLog
+uses, which caps the substring scan at 32 x 32 byte comparisons per call. A
+match that only starts beyond the first 32 haystack bytes is therefore recorded
+as a non-zero distance even though the call itself succeeds; the gradient over
+the scanned window stays valid, the constraint just never reports as solved.
+
+Floating-point compares are modelled for `float`, `double`, `_Float16` and
+`__bf16` (the last two are widened to `float`, which is exact). `long double`,
+`__float128` and PowerPC double-double compares are not instrumented, because
+their encodings have no exact widening target and an integer-encoding distance
+would contradict floating-point comparison semantics.
+
 For scalar and routine compares, each dynamic hit ordinal selects one adjacent
 slot pair, with the two metrics stored in that pair. Once an execution observes
 more hits than the four pairs can represent, later hits wrap around and update
@@ -59,6 +88,18 @@ a free way in the primary set and then the secondary set. Assignments remain
 stable for the lifetime of the runtime map. If all eight candidate ways are
 occupied by other tags, the new logical site is omitted instead of sharing or
 evicting an existing site's state.
+
+## Stats
+
+VP-only queue entries are counted in `value_profile_finds` and in
+`corpus_count`, but they deliberately do not update `last_find_time`. The
+"no new finds" clock that drives `AFL_EXIT_ON_TIME`, the explore/exploit
+switch and the `time_wo_finds` display stays coverage-based, matching the
+`last_cov_find_time` clock that `-rN` stagnation mode uses.
+
+Note that `cycles_wo_finds`, and the havoc escalation gated on it, count
+queue growth rather than the find clock, so VP-only entries do still reset
+them.
 
 ## Mutation Scope
 

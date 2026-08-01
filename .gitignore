@@ -161,3 +161,7 @@ test/unittests/unit_queue_score
 test/unittests/unit_value_profile
 **/*~
 test/ijon-maze
+t
+te
+empty
+test/empty

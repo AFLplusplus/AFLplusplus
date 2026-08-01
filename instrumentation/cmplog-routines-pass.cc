@@ -107,7 +107,8 @@ llvmGetPassPluginInfo() {
 bool CmpLogRoutines::hookRtns(Module &M) {
 
   std::vector<CallInst *> calls, llvmStdStd, llvmStdC, gccStdStd, gccStdC,
-      Memcmp, Strcmp, Strncmp, GStrstrLen, Memmem;
+      Memcmp, Strcmp, Strncmp, Strcasecmp, Strncasecmp, GStrstrLen, Memmem,
+      Strstr, Strcasestr, Strnstr;
   LLVMContext &C = M.getContext();
   bool         vp_mode = isValueProfileMode(mode_);
 
@@ -125,6 +126,12 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   FunctionCallee hookFnN = nullptr;
   FunctionCallee hookFnStrN = nullptr;
   FunctionCallee hookFnStr = nullptr;
+  FunctionCallee hookFnStrNCi = nullptr;
+  FunctionCallee hookFnStrCi = nullptr;
+  FunctionCallee hookFnSub = nullptr;
+  FunctionCallee hookFnSubCi = nullptr;
+  FunctionCallee hookFnSubN = nullptr;
+  FunctionCallee hookFnSubHN = nullptr;
 
   if (vp_mode) {
 
@@ -156,6 +163,27 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     hookFnStr = M.getOrInsertFunction("__valueprofile_rtn_hook_str", VoidTy,
                                       i8PtrTy, i8PtrTy, Int64Ty);
 
+    hookFnStrNCi =
+        M.getOrInsertFunction("__valueprofile_rtn_hook_strn_ci", VoidTy,
+                              i8PtrTy, i8PtrTy, Int64Ty, Int64Ty);
+
+    hookFnStrCi = M.getOrInsertFunction("__valueprofile_rtn_hook_str_ci",
+                                        VoidTy, i8PtrTy, i8PtrTy, Int64Ty);
+
+    hookFnSub = M.getOrInsertFunction("__valueprofile_rtn_hook_sub", VoidTy,
+                                      i8PtrTy, i8PtrTy, Int64Ty);
+
+    hookFnSubCi = M.getOrInsertFunction("__valueprofile_rtn_hook_sub_ci",
+                                        VoidTy, i8PtrTy, i8PtrTy, Int64Ty);
+
+    hookFnSubN =
+        M.getOrInsertFunction("__valueprofile_rtn_hook_sub_n", VoidTy, i8PtrTy,
+                              Int64Ty, i8PtrTy, Int64Ty, Int64Ty);
+
+    hookFnSubHN =
+        M.getOrInsertFunction("__valueprofile_rtn_hook_sub_hn", VoidTy, i8PtrTy,
+                              Int64Ty, i8PtrTy, Int64Ty);
+
   } else {
 
     hookFn =
@@ -182,27 +210,26 @@ bool CmpLogRoutines::hookRtns(Module &M) {
     hookFnStr = M.getOrInsertFunction("__cmplog_rtn_hook_str", VoidTy, i8PtrTy,
                                       i8PtrTy);
 
+    hookFnStrNCi = hookFnStrN;
+    hookFnStrCi = hookFnStr;
+
   }
 
   Type           *PtrTy = PointerType::get(Int8Ty, 0);
   GlobalVariable *AFLCmplogPtr =
       getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_cmp_map");
 
-  GlobalVariable *AFLVpPtr = nullptr;
   GlobalVariable *AFLVpEnabledPtr = nullptr;
   if (vp_mode) {
 
-    AFLVpPtr = getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_vp_map");
     AFLVpEnabledPtr =
         getOrCreateExternalPtrGlobal(M, PtrTy, "__afl_vp_enabled_ptr");
 
   }
 
-  GlobalVariable *AFLMapPtr = vp_mode ? AFLVpPtr : AFLCmplogPtr;
-
   auto buildMapGuard = [&](IRBuilder<> &IRB2) -> Value * {
 
-    return createMapPtrNotNullGuard(IRB2, M, AFLMapPtr, PtrTy);
+    return createMapPtrNotNullGuard(IRB2, M, AFLCmplogPtr, PtrTy);
 
   };
 
@@ -215,8 +242,9 @@ bool CmpLogRoutines::hookRtns(Module &M) {
       Value *is_enabled =
           createValueProfileEnabledGuard(IRB2, AFLVpEnabledPtr, PtrTy, Int8Ty);
 
-      Instruction *ThenTerm =
-          SplitBlockAndInsertIfThen(is_enabled, InsertBefore, false);
+      Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+          is_enabled, InsertBefore, false,
+          createValueProfileGuardWeights(M.getContext()));
       markAflSyntheticBlock(ThenTerm->getParent());
       return ThenTerm;
 
@@ -296,19 +324,6 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                !FuncName.compare("g_strcmp0") ||
                !FuncName.compare("curl_strequal") ||
                !FuncName.compare("strcsequal") ||
-               !FuncName.compare("strcasecmp") ||
-               !FuncName.compare("stricmp") ||
-               !FuncName.compare("ap_cstr_casecmp") ||
-               !FuncName.compare("apr_cstr_casecmp") ||
-               !FuncName.compare("OPENSSL_strcasecmp") ||
-               !FuncName.compare("xmlStrcasecmp") ||
-               !FuncName.compare("g_strcasecmp") ||
-               !FuncName.compare("g_ascii_strcasecmp") ||
-               !FuncName.compare("Curl_strcasecompare") ||
-               !FuncName.compare("Curl_safe_strcasecompare") ||
-               !FuncName.compare("cmsstrcasecmp") ||
-               !FuncName.compare("sqlite3_stricmp") ||
-               !FuncName.compare("sqlite3StrICmp") ||
                !FuncName.compare("g_str_has_prefix") ||
                !FuncName.compare("g_str_has_suffix"));
           isStrcmp &= FT->getNumParams() == 2 &&
@@ -322,19 +337,33 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                               ->getPointerTo(0);
 #endif
 
+          bool isStrcasecmp = (!FuncName.compare("strcasecmp") ||
+                               !FuncName.compare("stricmp") ||
+                               !FuncName.compare("ap_cstr_casecmp") ||
+                               !FuncName.compare("apr_cstr_casecmp") ||
+                               !FuncName.compare("OPENSSL_strcasecmp") ||
+                               !FuncName.compare("xmlStrcasecmp") ||
+                               !FuncName.compare("g_strcasecmp") ||
+                               !FuncName.compare("g_ascii_strcasecmp") ||
+                               !FuncName.compare("Curl_strcasecompare") ||
+                               !FuncName.compare("Curl_safe_strcasecompare") ||
+                               !FuncName.compare("cmsstrcasecmp") ||
+                               !FuncName.compare("sqlite3_stricmp") ||
+                               !FuncName.compare("sqlite3StrICmp"));
+          isStrcasecmp &= FT->getNumParams() == 2 &&
+                          FT->getReturnType()->isIntegerTy(32) &&
+                          FT->getParamType(0) == FT->getParamType(1) &&
+#if LLVM_MAJOR >= 17
+                          FT->getParamType(0)->isPointerTy();
+#else
+                          FT->getParamType(0) ==
+                              IntegerType::getInt8Ty(M.getContext())
+                                  ->getPointerTo(0);
+#endif
+
           bool isStrncmp = (!FuncName.compare("strncmp") ||
                             !FuncName.compare("xmlStrncmp") ||
-                            !FuncName.compare("curl_strnequal") ||
-                            !FuncName.compare("strncasecmp") ||
-                            !FuncName.compare("strnicmp") ||
-                            !FuncName.compare("ap_cstr_casecmpn") ||
-                            !FuncName.compare("apr_cstr_casecmpn") ||
-                            !FuncName.compare("OPENSSL_strncasecmp") ||
-                            !FuncName.compare("xmlStrncasecmp") ||
-                            !FuncName.compare("g_ascii_strncasecmp") ||
-                            !FuncName.compare("Curl_strncasecompare") ||
-                            !FuncName.compare("g_strncasecmp") ||
-                            !FuncName.compare("sqlite3_strnicmp"));
+                            !FuncName.compare("curl_strnequal"));
           isStrncmp &= FT->getNumParams() == 3 &&
                        FT->getReturnType()->isIntegerTy(32) &&
                        FT->getParamType(0) == FT->getParamType(1) &&
@@ -347,17 +376,44 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 #endif
                        FT->getParamType(2)->isIntegerTy();
 
+          bool isStrncasecmp = (!FuncName.compare("strncasecmp") ||
+                                !FuncName.compare("strnicmp") ||
+                                !FuncName.compare("ap_cstr_casecmpn") ||
+                                !FuncName.compare("apr_cstr_casecmpn") ||
+                                !FuncName.compare("OPENSSL_strncasecmp") ||
+                                !FuncName.compare("xmlStrncasecmp") ||
+                                !FuncName.compare("g_ascii_strncasecmp") ||
+                                !FuncName.compare("Curl_strncasecompare") ||
+                                !FuncName.compare("g_strncasecmp") ||
+                                !FuncName.compare("sqlite3_strnicmp"));
+          isStrncasecmp &= FT->getNumParams() == 3 &&
+                           FT->getReturnType()->isIntegerTy(32) &&
+                           FT->getParamType(0) == FT->getParamType(1) &&
+#if LLVM_MAJOR >= 17
+                           FT->getParamType(0)->isPointerTy() &&
+#else
+                           FT->getParamType(0) ==
+                               IntegerType::getInt8Ty(M.getContext())
+                                   ->getPointerTo(0) &&
+#endif
+                           FT->getParamType(2)->isIntegerTy();
+
           // Functions like strstr that return a pointer to the found substring
           // Signature: ptr strstr(ptr haystack, ptr needle)
           bool isStrstr =
-              (!FuncName.compare("strstr") || !FuncName.compare("strcasestr") ||
-               !FuncName.compare("ap_strcasestr") ||
-               !FuncName.compare("xmlStrstr") ||
-               !FuncName.compare("xmlStrcasestr"));
+              (!FuncName.compare("strstr") || !FuncName.compare("xmlStrstr"));
           isStrstr &= FT->getNumParams() == 2 &&
                       FT->getReturnType()->isPointerTy() &&
                       FT->getParamType(0)->isPointerTy() &&
                       FT->getParamType(1)->isPointerTy();
+
+          bool isStrcasestr = (!FuncName.compare("strcasestr") ||
+                               !FuncName.compare("ap_strcasestr") ||
+                               !FuncName.compare("xmlStrcasestr"));
+          isStrcasestr &= FT->getNumParams() == 2 &&
+                          FT->getReturnType()->isPointerTy() &&
+                          FT->getParamType(0)->isPointerTy() &&
+                          FT->getParamType(1)->isPointerTy();
 
           // g_strstr_len: gchar* (const gchar *haystack, gssize haystack_len,
           //                       const gchar *needle)
@@ -435,7 +491,8 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           if (isGccStdStringCString || isGccStdStringStdString ||
               isLlvmStdStringStdString || isLlvmStdStringCString || isMemcmp ||
-              isStrcmp || isStrncmp || isStrstr || isGStrstrLen || isMemmem ||
+              isStrcmp || isStrncmp || isStrcasecmp || isStrncasecmp ||
+              isStrstr || isStrcasestr || isGStrstrLen || isMemmem ||
               isStrnstr) {
 
             isPtrRtnN = isPtrRtn = false;
@@ -444,12 +501,32 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           if (isPtrRtnN) { isPtrRtn = false; }
 
-          if (isPtrRtn) { calls.push_back(callInst); }
-          if (isMemcmp || isPtrRtnN) { Memcmp.push_back(callInst); }
-          if (isStrcmp || isStrstr) { Strcmp.push_back(callInst); }
-          if (isStrncmp || isStrnstr) { Strncmp.push_back(callInst); }
+          if (isPtrRtn && !vp_mode) { calls.push_back(callInst); }
+          if (isMemcmp || (isPtrRtnN && !vp_mode)) {
+
+            Memcmp.push_back(callInst);
+
+          }
+
+          if (isStrcmp || ((isStrstr || isStrcasestr) && !vp_mode)) {
+
+            Strcmp.push_back(callInst);
+
+          }
+
+          if (isStrncmp || (isStrnstr && !vp_mode)) {
+
+            Strncmp.push_back(callInst);
+
+          }
+
+          if (isStrcasecmp) { Strcasecmp.push_back(callInst); }
+          if (isStrncasecmp) { Strncasecmp.push_back(callInst); }
           if (isGStrstrLen) { GStrstrLen.push_back(callInst); }
           if (isMemmem) { Memmem.push_back(callInst); }
+          if (vp_mode && isStrstr) { Strstr.push_back(callInst); }
+          if (vp_mode && isStrcasestr) { Strcasestr.push_back(callInst); }
+          if (vp_mode && isStrnstr) { Strnstr.push_back(callInst); }
           if (isGccStdStringStdString) { gccStdStd.push_back(callInst); }
           if (isGccStdStringCString) { gccStdC.push_back(callInst); }
           if (isLlvmStdStringStdString) { llvmStdStd.push_back(callInst); }
@@ -465,7 +542,9 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
   if (!calls.size() && !gccStdStd.size() && !gccStdC.size() &&
       !llvmStdStd.size() && !llvmStdC.size() && !Memcmp.size() &&
-      !Strcmp.size() && !Strncmp.size() && !GStrstrLen.size() && !Memmem.size())
+      !Strcmp.size() && !Strncmp.size() && !Strcasecmp.size() &&
+      !Strncasecmp.size() && !GStrstrLen.size() && !Memmem.size() &&
+      !Strstr.size() && !Strcasestr.size() && !Strnstr.size())
     return false;
 
   constexpr uint64_t                   kVpRoutineSiteSalt = 0x52565350ULL;
@@ -588,6 +667,80 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
   }
 
+  for (auto &callInst : Strcasecmp) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
+
+    IRBuilder<> IRB(getHookInsertPoint(callInst));
+
+    std::vector<Value *> args;
+    Value               *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value               *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+    if (vp_mode) { args.push_back(getVpSiteToken(callInst)); }
+
+    IRB.CreateCall(hookFnStrCi, args);
+
+  }
+
+  for (auto &callInst : Strncasecmp) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1),
+          *v3P = callInst->getArgOperand(2);
+
+    IRBuilder<> IRB(getHookInsertPoint(callInst));
+
+    std::vector<Value *> args;
+    Value               *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value               *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    Value               *v3Pbitcast = IRB.CreateBitCast(
+        v3P, IntegerType::get(C, v3P->getType()->getPrimitiveSizeInBits()));
+    Value *v3Pcasted =
+        IRB.CreateIntCast(v3Pbitcast, IntegerType::get(C, 64), false);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+    args.push_back(v3Pcasted);
+    if (vp_mode) { args.push_back(getVpSiteToken(callInst)); }
+
+    IRB.CreateCall(hookFnStrNCi, args);
+
+  }
+
+  for (auto &callInst : Strstr) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
+
+    IRBuilder<> IRB(getHookInsertPoint(callInst));
+
+    std::vector<Value *> args;
+    Value               *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value               *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+    args.push_back(getVpSiteToken(callInst));
+
+    IRB.CreateCall(hookFnSub, args);
+
+  }
+
+  for (auto &callInst : Strcasestr) {
+
+    Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
+
+    IRBuilder<> IRB(getHookInsertPoint(callInst));
+
+    std::vector<Value *> args;
+    Value               *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value               *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
+    args.push_back(v1Pcasted);
+    args.push_back(v2Pcasted);
+    args.push_back(getVpSiteToken(callInst));
+
+    IRB.CreateCall(hookFnSubCi, args);
+
+  }
+
   for (auto &callInst : gccStdStd) {
 
     Value *v1P = callInst->getArgOperand(0), *v2P = callInst->getArgOperand(1);
@@ -674,14 +827,25 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
     IRBuilder<> IRB(getHookInsertPoint(callInst));
 
-    std::vector<Value *> args;
-    Value               *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
-    Value               *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
-    args.push_back(v1Pcasted);
-    args.push_back(v2Pcasted);
-    if (vp_mode) { args.push_back(getVpSiteToken(callInst)); }
+    Value *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
 
-    IRB.CreateCall(hookFnStr, args);
+    if (vp_mode) {
+
+      Value *hayLenP = callInst->getArgOperand(1);
+      Value *hayLenCasted = IRB.CreateIntCast(hayLenP, Int64Ty, true);
+
+      std::vector<Value *> args = {v1Pcasted, hayLenCasted, v2Pcasted,
+                                   getVpSiteToken(callInst)};
+
+      IRB.CreateCall(hookFnSubHN, args);
+
+    } else {
+
+      std::vector<Value *> args = {v1Pcasted, v2Pcasted};
+      IRB.CreateCall(hookFnStr, args);
+
+    }
 
     // errs() << callInst->getCalledFunction()->getName() << "\n";
 
@@ -692,27 +856,59 @@ bool CmpLogRoutines::hookRtns(Module &M) {
   // Extract arg0 (haystack), arg2 (needle), arg3 (needlelen)
   for (auto &callInst : Memmem) {
 
-    Value *v1P = callInst->getArgOperand(0),    // haystack
-        *v2P = callInst->getArgOperand(2),      // needle
-            *v3P = callInst->getArgOperand(3);  // needlelen
+    Value *v1P = callInst->getArgOperand(0),  // haystack
+        *v2P = callInst->getArgOperand(2);    // needle
 
     IRBuilder<> IRB(getHookInsertPoint(callInst));
 
-    std::vector<Value *> args;
-    Value               *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
-    Value               *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
-    Value               *v3Pbitcast = IRB.CreateBitCast(
-        v3P, IntegerType::get(C, v3P->getType()->getPrimitiveSizeInBits()));
-    Value *v3Pcasted =
-        IRB.CreateIntCast(v3Pbitcast, IntegerType::get(C, 64), false);
-    args.push_back(v1Pcasted);
-    args.push_back(v2Pcasted);
-    args.push_back(v3Pcasted);
-    if (vp_mode) { args.push_back(getVpSiteToken(callInst)); }
+    Value *v1Pcasted = IRB.CreatePointerCast(v1P, i8PtrTy);
+    Value *v2Pcasted = IRB.CreatePointerCast(v2P, i8PtrTy);
 
-    IRB.CreateCall(hookFnN, args);
+    if (vp_mode) {
+
+      Value *hayLenP = callInst->getArgOperand(1);
+      Value *needleLenP = callInst->getArgOperand(3);
+      Value *hayLenCasted = IRB.CreateIntCast(hayLenP, Int64Ty, false);
+      Value *needleLenCasted = IRB.CreateIntCast(needleLenP, Int64Ty, false);
+
+      std::vector<Value *> args = {v1Pcasted, hayLenCasted, v2Pcasted,
+                                   needleLenCasted, getVpSiteToken(callInst)};
+
+      IRB.CreateCall(hookFnSubN, args);
+
+    } else {
+
+      Value *v3P = callInst->getArgOperand(3);  // needlelen
+      Value *v3Pbitcast = IRB.CreateBitCast(
+          v3P, IntegerType::get(C, v3P->getType()->getPrimitiveSizeInBits()));
+      Value *v3Pcasted =
+          IRB.CreateIntCast(v3Pbitcast, IntegerType::get(C, 64), false);
+
+      std::vector<Value *> args = {v1Pcasted, v2Pcasted, v3Pcasted};
+      IRB.CreateCall(hookFnN, args);
+
+    }
 
     // errs() << callInst->getCalledFunction()->getName() << "\n";
+
+  }
+
+  for (auto &callInst : Strnstr) {
+
+    Value *hayP = callInst->getArgOperand(0),
+          *needleP = callInst->getArgOperand(1),
+          *hayLenP = callInst->getArgOperand(2);
+
+    IRBuilder<> IRB(getHookInsertPoint(callInst));
+
+    Value *hayPcasted = IRB.CreatePointerCast(hayP, i8PtrTy);
+    Value *needlePcasted = IRB.CreatePointerCast(needleP, i8PtrTy);
+    Value *hayLenCasted = IRB.CreateIntCast(hayLenP, Int64Ty, false);
+
+    std::vector<Value *> args = {hayPcasted, hayLenCasted, needlePcasted,
+                                 getVpSiteToken(callInst)};
+
+    IRB.CreateCall(hookFnSubHN, args);
 
   }
 
@@ -726,23 +922,25 @@ PreservedAnalyses CmpLogRoutines::run(Module &M, ModuleAnalysisManager &MAM) {
 
   if (vp_mode) { markInstrumentedMarker(M, "__afl_vp_instrumented"); }
 
-  if (getenv("AFL_QUIET") == NULL)
-    if (vp_mode) {
+  if (getenv("AFL_QUIET") != NULL) {
 
-      printf("Running valueprofile-routines-pass by AFL++ team\n");
-
-    } else {
-
-      printf("Running cmplog-routines-pass by andreafioraldi@gmail.com\n");
-
-    }
-
-  else
     be_quiet = 1;
+
+  } else if (vp_mode) {
+
+    printf("Running valueprofile-routines-pass by AFL++ team\n");
+
+  } else {
+
+    printf("Running cmplog-routines-pass by andreafioraldi@gmail.com\n");
+
+  }
+
   bool ret = hookRtns(M);
 
   verifyModule(M);
-  return ret ? PreservedAnalyses() : PreservedAnalyses::all();
+  if (ret || vp_mode) { return PreservedAnalyses::none(); }
+  return PreservedAnalyses::all();
 
 }
 

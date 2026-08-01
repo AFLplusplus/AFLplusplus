@@ -80,6 +80,7 @@ void vp_mark_entry_vp_only(afl_state_t *afl, struct queue_entry *q) {
 
   if (!q) return;
 
+  if (!q->vp_only) { ++afl->vp_only_items; }
   q->vp_only = 1;
   vp_state_create_marker(afl, "vp_only", vp_entry_basename(q));
 
@@ -102,6 +103,9 @@ void vp_restore_queue_entry_state(afl_state_t *afl, struct queue_entry *q,
 
   if (was_vp_only || was_disabled) {
 
+    /* On a fastresume the blob is authoritative for vp_only and the restore
+       loop does the counting, exactly as for disabled entries below. */
+    if (!q->vp_only && !afl->fast_resume) { ++afl->vp_only_items; }
     q->vp_only = 1;
     vp_state_create_marker(afl, "vp_only", case_name);
 
@@ -528,7 +532,11 @@ void vp_mark_favored_queue_entry(afl_state_t *afl, struct queue_entry *q) {
 
 /* Queue admission for VP-only inputs is intentionally strict-distance-only.
    Equal-distance cost improvements are not admitted on VP alone; they only
-   matter once a seed is already being applied to the frontier. */
+   matter once a seed is already being applied to the frontier. A solved
+   distance (0) on a slot no queue entry owns yet also does not admit: the
+   constraint is already satisfied and there is no gradient left to follow,
+   so admitting on that signal alone would teach the frontier nothing an
+   existing owner cannot already represent. */
 static inline u8 vp_frontier_runtime_slot_would_improve(afl_state_t *afl,
                                                         u32 site, u16 slot_rel,
                                                         u32 dist) {
@@ -537,7 +545,7 @@ static inline u8 vp_frontier_runtime_slot_would_improve(afl_state_t *afl,
 
   size_t               idx = vp_runtime_slot_base(site, slot_rel);
   vp_frontier_entry_t *entry = &afl->vp_frontier[idx];
-  if (vp_frontier_slot_is_empty(entry->owner, entry->dist)) return 1;
+  if (vp_frontier_slot_is_empty(entry->owner, entry->dist)) return dist != 0;
 
   return dist < entry->dist;
 
@@ -679,24 +687,10 @@ static inline void vp_trim_guard_add_site(vp_trim_guard_t *guard, u32 site) {
 }
 
 static inline void vp_trim_guard_add_req(vp_trim_guard_t *guard, u32 site,
-                                         u32 site_req_start, u16 slot_rel,
-                                         u32 max_dist) {
+                                         u16 slot_rel, u32 max_dist) {
 
-  /* Only deduplicate against requests already emitted for this same site.
-     Different sites may have identical relative slots and distances but must
-     remain independent preservation requirements. */
-  for (u32 i = site_req_start; i < guard->req_cnt; ++i) {
-
-    vp_trim_req_t *r = &guard->req[i];
-    if (r->slot_rel == slot_rel && r->max_dist == max_dist) {
-
-      if (r->need < 0xffffU) { ++r->need; }
-      return;
-
-    }
-
-  }
-
+  /* The caller visits each (site, rel) pair at most once, so every request
+     added here is independent; need is always 1. */
   if (guard->req_cnt == guard->req_cap) {
 
     u32 new_cap = guard->req_cap ? guard->req_cap << 1 : 8;
@@ -808,7 +802,6 @@ vp_trim_guard_t *vp_trim_guard_init(afl_state_t *afl, struct queue_entry *q) {
 
     size_t base = vp_site_base(site);
     u8     site_added = 0;
-    u32    site_req_start = guard->req_cnt;
     for (u16 rel = 0; rel < VP_SLOTS && refs_left; ++rel) {
 
       vp_frontier_entry_t *entry = &afl->vp_frontier[base + rel];
@@ -821,7 +814,7 @@ vp_trim_guard_t *vp_trim_guard_init(afl_state_t *afl, struct queue_entry *q) {
 
       }
 
-      vp_trim_guard_add_req(guard, site, site_req_start, rel, entry->dist);
+      vp_trim_guard_add_req(guard, site, rel, entry->dist);
       --refs_left;
 
     }
@@ -1073,9 +1066,8 @@ static void vp_replay_queue(afl_state_t *afl) {
 
   }
 
-  ACTF("Value profile replaying %u queued entries.", end - start);
-
   u32 i = start;
+  u32 replayed = 0;
   for (; i < end; ++i) {
 
     if (afl->stop_soon) break;
@@ -1086,9 +1078,11 @@ static void vp_replay_queue(afl_state_t *afl) {
     u8 *mem = queue_testcase_get(afl, q);
     if (!vp_collect_signal_for_input(afl, mem, q->len)) continue;
     vp_frontier_apply(afl, q);
+    ++replayed;
 
   }
 
+  ACTF("Value profile replayed %u queued entries.", replayed);
   afl->value_profile_replay_idx = i;
 
 }

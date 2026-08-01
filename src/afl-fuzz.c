@@ -1885,6 +1885,16 @@ void afl_check_environment(afl_state_t *afl) {
 
     }
 
+    if (afl->cmplog_binary && !strcmp("0", (char *)afl->cmplog_binary)) {
+
+      WARNF(
+          "-c 0 reuses the main target as the CmpLog binary, but a target "
+          "built with AFL_LLVM_VALUE_PROFILE=1 has no CmpLog instrumentation. "
+          "CmpLog will collect nothing. Build a separate CmpLog binary and "
+          "pass it with -c <binary>.");
+
+    }
+
   }
 
   setenv("__AFL_OUT_DIR", afl->out_dir, 1);
@@ -3295,9 +3305,11 @@ void afl_load_seeds(afl_state_t *afl) {
 
         if (!q->was_fuzzed) { --afl->pending_not_fuzzed; }
         --afl->active_items;
+        ++afl->disabled_items;
 
       }
 
+      if (q->vp_only) { ++afl->vp_only_items; }
       if (q->var_behavior) { ++afl->queued_variable; }
       if (q->favored) {
 

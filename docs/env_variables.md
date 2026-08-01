@@ -338,8 +338,10 @@ For afl-gcc-fast, set `AFL_GCC_CMPLOG=1` instead.
 
 Value-profile compare-observer builds run a small mem2reg promotion before
 compare hook insertion so `-O0` builds expose canonical loop counters to
-loop-control filtering. Set `AFL_LLVM_NO_COMPARE_MEM2REG=1` to disable this
-promotion.
+loop-control filtering. Above `-O0` the promotion skips `optnone` functions; at
+`-O0` it does not, because Clang marks every function `optnone` there and
+skipping them would disable the promotion entirely. Set
+`AFL_LLVM_NO_COMPARE_MEM2REG=1` to disable this promotion.
 
 For more information, see
 [instrumentation/README.cmplog.md](../instrumentation/README.cmplog.md).
@@ -602,7 +604,10 @@ checks or alter some of the more exotic semantics of the tool:
         is not supported with `-n`, QEMU, Frida, Unicorn, CoreSight, or Nyx
         execution modes.
       - Routine-compare VP features record separate matched-prefix and
-        whole-buffer hamming-distance signals.
+        whole-buffer hamming-distance signals. Substring routines (`strstr`,
+        `strcasestr`, `memmem` and similar) record the minimum of both metrics
+        over every candidate offset in the haystack, so a successful match
+        records distance 0.
 
   - `AFL_IGNORE_SEED_PROBLEMS` will skip over crashes and timeouts in the seeds
     instead of exiting.

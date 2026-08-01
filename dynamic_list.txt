@@ -54,7 +54,13 @@
   "__valueprofile_rtn_hook";
   "__valueprofile_rtn_hook_n";
   "__valueprofile_rtn_hook_str";
+  "__valueprofile_rtn_hook_str_ci";
   "__valueprofile_rtn_hook_strn";
+  "__valueprofile_rtn_hook_strn_ci";
+  "__valueprofile_rtn_hook_sub";
+  "__valueprofile_rtn_hook_sub_ci";
+  "__valueprofile_rtn_hook_sub_hn";
+  "__valueprofile_rtn_hook_sub_n";
   "__valueprofile_rtn_llvm_stdstring_cstring";
   "__valueprofile_rtn_llvm_stdstring_stdstring";
   "__valueprofile_switch";

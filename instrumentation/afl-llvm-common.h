@@ -47,6 +47,7 @@
 #endif
 
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/CFG.h"
 
 #define MNAME M.getSourceFileName()
@@ -398,14 +399,19 @@ inline llvm::Value *hoistMapPointerLoad(llvm::Function       &F,
 }
 
 /* Load the per-exec VP enabled byte from a runtime-exported pointer and return
-   `enabled != 0`. Both loads are volatile because the fuzzer updates this
-   shared-memory control byte between target executions. */
+   `enabled != 0`. The byte load stays volatile because the fuzzer updates
+   this shared-memory control byte between target executions and a
+   persistent-mode child must observe it. The pointer load does not: it is
+   only ever reassigned from inside the AFL runtime itself (shared-memory
+   attach/detach, selective-coverage toggles), always through opaque
+   external calls that already force a reload, so a plain load here is both
+   correct and CSE-able (and for that same reason !invariant.load must not
+   be added). */
 inline llvm::Value *createValueProfileEnabledGuard(
     llvm::IRBuilder<> &IRB, llvm::GlobalVariable *vp_enabled_ptr,
     llvm::Type *PtrTy, llvm::Type *Int8Ty) {
 
   auto *EnabledBytePtr = IRB.CreateLoad(PtrTy, vp_enabled_ptr);
-  EnabledBytePtr->setVolatile(true);
   setNoSanitizeMetadata(EnabledBytePtr);
 
   auto *EnabledValue = IRB.CreateLoad(Int8Ty, EnabledBytePtr);
@@ -416,7 +422,20 @@ inline llvm::Value *createValueProfileEnabledGuard(
       EnabledValue,
       llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(Int8Ty), 0)));
   setNoSanitizeMetadata(IsEnabled);
+  /* afl.skip keeps a later compare-observer pass from value-profiling this
+     guard itself. The switch pass runs first, so without it every guarded
+     switch site also emits a bogus 8-bit compare hook on the enabled byte. */
+  setAflSkipMetadata(IsEnabled);
   return IsEnabled;
+
+}
+
+/* Value profiling is off unless the fuzzer switches it on, so the guarded hook
+   block is cold: weight it so the enabled test falls through on the hot path
+   and the call is laid out away from it. */
+inline llvm::MDNode *createValueProfileGuardWeights(llvm::LLVMContext &Ctx) {
+
+  return llvm::MDBuilder(Ctx).createBranchWeights(1, 1u << 20);
 
 }
 

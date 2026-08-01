@@ -1204,9 +1204,23 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
+    /* add_to_queue() always advances the find clock and clears the
+       cycles-without-finds counter, but a value-profile-only entry is not a
+       coverage find. Snapshot both here and restore them below so
+       AFL_EXIT_ON_TIME, the explore/exploit switch and the havoc escalation
+       stay driven by coverage alone. */
+    u64 saved_find_time = afl->last_find_time;
+    u64 saved_find_execs = afl->last_find_execs;
+    u64 saved_longest_find = afl->longest_find_time;
+    u64 saved_cycles_wo_finds = afl->cycles_wo_finds;
+
     u8 file_modified = add_to_queue(afl, queue_fn, len, 0);
     if (vp_entry) {
 
+      afl->last_find_time = saved_find_time;
+      afl->last_find_execs = saved_find_execs;
+      afl->longest_find_time = saved_longest_find;
+      afl->cycles_wo_finds = saved_cycles_wo_finds;
       vp_mark_entry_vp_only(afl, afl->queue_top);
       afl->queue_top->vp_last_ref_cycle = afl->queue_cycle;
 

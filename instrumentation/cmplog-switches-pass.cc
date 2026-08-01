@@ -91,46 +91,17 @@ llvmGetPassPluginInfo() {
 #if LLVM_VERSION_MAJOR <= 13
         using OptimizationLevel = typename PassBuilder::OptimizationLevel;
 #endif
-        if (isValueProfileMode(getCompareObserverModeFromEnv())) {
-
-#if LLVM_MAJOR >= 16
-          PB.registerOptimizerEarlyEPCallback([](ModulePassManager &MPM,
-                                                 OptimizationLevel  OL
-  #if LLVM_VERSION_MAJOR >= 20
-                                                 ,
-                                                 ThinOrFullLTOPhase Phase
-  #endif
-                                              ) {
-
-            MPM.addPass(CmplogSwitches(getCompareObserverModeFromEnv()));
-
-          });
-
-#else
-          PB.registerOptimizerLastEPCallback(
-              [](ModulePassManager &MPM, OptimizationLevel OL) {
-
-                MPM.addPass(CmplogSwitches(getCompareObserverModeFromEnv()));
-
-              });
-
-#endif
-
-        } else {
-
-          PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
-                                                OptimizationLevel  OL
+        PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
+                                              OptimizationLevel  OL
 #if LLVM_VERSION_MAJOR >= 20
-                                                ,
-                                                ThinOrFullLTOPhase Phase
+                                              ,
+                                              ThinOrFullLTOPhase Phase
 #endif
-                                             ) {
+                                           ) {
 
-            MPM.addPass(CmplogSwitches(getCompareObserverModeFromEnv()));
+          MPM.addPass(CmplogSwitches(getCompareObserverModeFromEnv()));
 
-          });
-
-        }
+        });
 
       }};
 
@@ -230,17 +201,13 @@ bool CmplogSwitches::hookInstrs(Module &M) {
   GlobalVariable *AFLCmplogPtr =
       getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_cmp_map");
 
-  GlobalVariable *AFLVpPtr = nullptr;
   GlobalVariable *AFLVpEnabledPtr = nullptr;
   if (vp_mode) {
 
-    AFLVpPtr = getOrCreateExternalWeakPtrGlobal(M, PtrTy, "__afl_vp_map");
     AFLVpEnabledPtr =
         getOrCreateExternalPtrGlobal(M, PtrTy, "__afl_vp_enabled_ptr");
 
   }
-
-  GlobalVariable *AFLMapPtr = vp_mode ? AFLVpPtr : AFLCmplogPtr;
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
   for (auto &F : M) {
@@ -284,8 +251,9 @@ bool CmplogSwitches::hookInstrs(Module &M) {
         Value *is_enabled = createValueProfileEnabledGuard(
             IRB2, AFLVpEnabledPtr, PtrTy, Int8Ty);
 
-        Instruction *ThenTerm =
-            SplitBlockAndInsertIfThen(is_enabled, InsertBefore, false);
+        Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+            is_enabled, InsertBefore, false,
+            createValueProfileGuardWeights(M.getContext()));
         markAflSyntheticBlock(ThenTerm->getParent());
         return ThenTerm;
 
@@ -293,7 +261,8 @@ bool CmplogSwitches::hookInstrs(Module &M) {
 
       IRBuilder<> IRB2(InsertBefore->getParent());
       IRB2.SetInsertPoint(InsertBefore);
-      Value *is_not_null = createMapPtrNotNullGuard(IRB2, M, AFLMapPtr, PtrTy);
+      Value *is_not_null =
+          createMapPtrNotNullGuard(IRB2, M, AFLCmplogPtr, PtrTy);
 
       return SplitBlockAndInsertIfThen(is_not_null, InsertBefore, false);
 
@@ -527,23 +496,25 @@ PreservedAnalyses CmplogSwitches::run(Module &M, ModuleAnalysisManager &MAM) {
 
   if (vp_mode) { markInstrumentedMarker(M, "__afl_vp_instrumented"); }
 
-  if (getenv("AFL_QUIET") == NULL)
-    if (vp_mode) {
+  if (getenv("AFL_QUIET") != NULL) {
 
-      printf("Running valueprofile-switches-pass by AFL++ team\n");
-
-    } else {
-
-      printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");
-
-    }
-
-  else
     be_quiet = 1;
+
+  } else if (vp_mode) {
+
+    printf("Running valueprofile-switches-pass by AFL++ team\n");
+
+  } else {
+
+    printf("Running cmplog-switches-pass by andreafioraldi@gmail.com\n");
+
+  }
+
   bool ret = hookInstrs(M);
 
   verifyModule(M);
-  return ret ? PreservedAnalyses() : PreservedAnalyses::all();
+  if (ret || vp_mode) { return PreservedAnalyses::none(); }
+  return PreservedAnalyses::all();
 
 }
 

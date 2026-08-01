@@ -193,7 +193,9 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
   /* If we had a full queue cycle with no new finds, try
      recombination strategies next. */
 
-  if (unlikely(afl->queued_items == afl->prev_queued
+  /* Value-profile-only entries are not coverage finds, so they must not count
+     as progress here either. */
+  if (unlikely((u64)(afl->queued_items - afl->vp_only_items) == afl->prev_queued
                /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
                   3600 */
                )) {
@@ -274,7 +276,7 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
 #endif
 
-  afl->prev_queued = afl->queued_items;
+  afl->prev_queued = (u64)(afl->queued_items - afl->vp_only_items);
 
 }
 

@@ -31,6 +31,8 @@ void __valueprofile_rtn_hook_sub(uint8_t *hay, uint8_t *needle,
                                  uint64_t site_token);
 void __valueprofile_rtn_hook_sub_hn(uint8_t *hay, uint64_t hay_len,
                                     uint8_t *needle, uint64_t site_token);
+void __sanitizer_weak_hook_strncasestr(void *pc, const void *s1, const void *s2,
+                                       size_t n, char *result);
 
 static const uint16_t site = 0x3456U;
 static const uint64_t site_token = VP_TEST_TOKEN_FOR_SITE(0x3456U, 0x3456789aU);
@@ -189,6 +191,20 @@ int main(void) {
   begin_exec();
   __valueprofile_rtn_hook_sub_hn(hay_nul, 9, needle, site_token);
   if (vp_local.control_len != 0) return 36;
+
+  /* The weak strncasestr hook folds case, so a match differing only in case
+     is solved. Its site comes from the caller pc, so drop the site filter and
+     read the touched site back. */
+  uint8_t hay_case[] = {'x', 'x', 'N', 'E', 'E', 'D', 'L', 'E', 0};
+
+  begin_exec();
+  vp_local.filter_enabled = 0;
+  __sanitizer_weak_hook_strncasestr((void *)0x1234, hay_case, needle, 8, NULL);
+  vp_local.filter_enabled = 1;
+  if (vp_local.control_len != 1) return 37;
+  site_state = &vp_local.site[vp_local.control[0]];
+  if (site_state->slots[0].best_dist != 0) return 38;
+  if (site_state->slots[1].best_dist != 0) return 39;
 
   return 0;
 

@@ -684,6 +684,7 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
       q->disabled = 1;
       ++afl->disabled_items;
+      afl->reinit_table = 1;
 
     }
 
