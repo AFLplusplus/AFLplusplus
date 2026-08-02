@@ -726,6 +726,121 @@ static bool IsCanonicalLoopCondition(CmpInst *Cmp, LoopInfo *LI,
 
 }
 
+static constexpr unsigned kVpInputDepDepthLimit = 32;
+
+static bool isValueProfileInputDerived(Value *V, SmallPtrSetImpl<Value *> &Seen,
+                                       unsigned Depth) {
+
+  if (!V) { return false; }
+  if (Depth >= kVpInputDepDepthLimit) { return true; }
+  if (!Seen.insert(V).second) { return false; }
+
+  if (isa<Argument>(V)) { return true; }
+  if (isa<Constant>(V)) { return false; }
+
+  auto *I = dyn_cast<Instruction>(V);
+  if (!I) { return true; }
+
+  switch (I->getOpcode()) {
+
+    case Instruction::Alloca:
+      return false;
+
+    case Instruction::Load:
+    case Instruction::AtomicRMW:
+    case Instruction::AtomicCmpXchg:
+    case Instruction::Call:
+    case Instruction::Invoke:
+    case Instruction::CallBr:
+    case Instruction::VAArg:
+    case Instruction::LandingPad:
+      return true;
+
+    case Instruction::PHI:
+    case Instruction::Select:
+    case Instruction::GetElementPtr:
+    case Instruction::ExtractValue:
+    case Instruction::InsertValue:
+    case Instruction::ExtractElement:
+    case Instruction::InsertElement:
+    case Instruction::ShuffleVector:
+    case Instruction::Freeze:
+    case Instruction::ICmp:
+    case Instruction::FCmp:
+      break;
+
+    default:
+      if (!I->isUnaryOp() && !I->isBinaryOp() && !isa<CastInst>(I)) {
+
+        return true;
+
+      }
+
+      break;
+
+  }
+
+  for (Value *Op : I->operands()) {
+
+    if (isValueProfileInputDerived(Op, Seen, Depth + 1)) { return true; }
+
+  }
+
+  return false;
+
+}
+
+static bool comparesRoutineResult(CmpInst *Cmp) {
+
+  for (Value *Op : Cmp->operands()) {
+
+    Value *V = Op;
+    for (;;) {
+
+      if (auto *Cast = dyn_cast<CastInst>(V)) {
+
+        V = Cast->getOperand(0);
+        continue;
+
+      }
+
+      if (auto *Frozen = dyn_cast<FreezeInst>(V)) {
+
+        V = Frozen->getOperand(0);
+        continue;
+
+      }
+
+      break;
+
+    }
+
+    auto *Call = dyn_cast<CallInst>(V);
+    if (!Call) { continue; }
+
+    Function *Callee = Call->getCalledFunction();
+    if (!Callee) { continue; }
+    if (isCompareResultRoutineName(Callee->getName())) { return true; }
+
+  }
+
+  return false;
+
+}
+
+static bool hasValueProfileInputDependence(CmpInst *Cmp) {
+
+  for (Value *Op : Cmp->operands()) {
+
+    SmallPtrSet<Value *, 32> Seen;
+    if (isValueProfileInputDerived(Op, Seen, 0)) { return true; }
+
+  }
+
+  return false;
+
+}
+
 bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
                                     ScalarEvolutionCallback SECallback) {
 
@@ -846,6 +961,9 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
               continue;
 
             }
+
+            if (!hasValueProfileInputDependence(selectcmpInst)) { continue; }
+            if (comparesRoutineResult(selectcmpInst)) { continue; }
 
           } else if (selectcmpInst->hasOneUse()) {
 

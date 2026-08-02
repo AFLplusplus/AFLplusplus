@@ -23,6 +23,8 @@ void __valueprofile_rtn_hook_n(uint8_t *ptr1, uint8_t *ptr2, uint64_t len,
                                uint64_t site_token);
 void __valueprofile_rtn_hook_strn(uint8_t *ptr1, uint8_t *ptr2, uint64_t len,
                                   uint64_t site_token);
+void __valueprofile_rtn_hook_str(uint8_t *ptr1, uint8_t *ptr2,
+                                 uint64_t site_token);
 void __valueprofile_rtn_hook_str_ci(uint8_t *ptr1, uint8_t *ptr2,
                                     uint64_t site_token);
 void __valueprofile_rtn_hook_strn_ci(uint8_t *ptr1, uint8_t *ptr2, uint64_t len,
@@ -102,7 +104,7 @@ int main(void) {
 
   memset(&vp_local, 0, sizeof(vp_local));
   if (vp_test_claim_site(&vp_local, site_token, site)) return 18;
-  vp_local.filter_enabled = 1;
+  vp_local.filter_mode = VP_FILTER_STRICT;
   vp_local.filter_bitmap[site >> 6] = (1ULL << (site & 63));
   __afl_vp_map = &vp_local;
 
@@ -198,13 +200,51 @@ int main(void) {
   uint8_t hay_case[] = {'x', 'x', 'N', 'E', 'E', 'D', 'L', 'E', 0};
 
   begin_exec();
-  vp_local.filter_enabled = 0;
+  vp_local.filter_mode = VP_FILTER_OFF;
   __sanitizer_weak_hook_strncasestr((void *)0x1234, hay_case, needle, 8, NULL);
-  vp_local.filter_enabled = 1;
+  vp_local.filter_mode = VP_FILTER_STRICT;
   if (vp_local.control_len != 1) return 37;
   site_state = &vp_local.site[vp_local.control[0]];
   if (site_state->slots[0].best_dist != 0) return 38;
   if (site_state->slots[1].best_dist != 0) return 39;
+
+  /* A nul in only one operand is a mismatch like any other: the comparison
+     ends only where both operands are nul, so neither metric may collapse
+     towards zero for an input that shares just a one byte prefix. */
+  uint8_t lhs_nul[] = {'A', 0, 0, 0, 0, 0, 0, 0};
+  uint8_t rhs_nul[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+
+  begin_exec();
+  vp_local.filter_mode = VP_FILTER_STRICT;
+  __valueprofile_rtn_hook_strn(lhs_nul, rhs_nul, 8, site_token);
+  site_state = &vp_local.site[site];
+  if (vp_local.control_len != 1) return 40;
+  if (site_state->slots[0].best_dist != 50) return 41;
+  if (site_state->slots[1].best_dist != 19) return 42;
+
+  /* Same, across the word-at-a-time part of the hamming sum. */
+  uint8_t lhs_nul16[16] = {'A', 'A', 'A', 0};
+  uint8_t rhs_nul16[16];
+  memset(rhs_nul16, 'A', sizeof(rhs_nul16));
+
+  begin_exec();
+  __valueprofile_rtn_hook_strn(lhs_nul16, rhs_nul16, 16, site_token);
+  site_state = &vp_local.site[site];
+  if (vp_local.control_len != 1) return 43;
+  if (site_state->slots[0].best_dist != 98) return 44;
+  if (site_state->slots[1].best_dist != 26) return 45;
+
+  /* strcmp sizes its window from the longer operand, so a short input is
+     scored on the bytes it still has to grow. */
+  uint8_t lhs_short[] = {'A', 0, 0, 0, 0, 0, 0, 0};
+  uint8_t rhs_long[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 0};
+
+  begin_exec();
+  __valueprofile_rtn_hook_str(lhs_short, rhs_long, site_token);
+  site_state = &vp_local.site[site];
+  if (vp_local.control_len != 1) return 46;
+  if (site_state->slots[0].best_dist != 50) return 47;
+  if (site_state->slots[1].best_dist != 17) return 48;
 
   return 0;
 

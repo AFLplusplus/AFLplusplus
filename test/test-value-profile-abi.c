@@ -20,14 +20,14 @@ _Static_assert(VP_ABI_OFFSETOF(vp_site_t, touched_mask) == 10U,
                "unexpected VP site touched-mask offset");
 _Static_assert(VP_ABI_OFFSETOF(vp_site_t, slots) == 12U,
                "unexpected VP site slot offset");
-_Static_assert(VP_ABI_OFFSETOF(vp_site_t, abi_padding) == 28U,
+_Static_assert(VP_ABI_OFFSETOF(vp_site_t, flags) == 28U,
                "unexpected VP site padding offset");
 
 _Static_assert(VP_ABI_OFFSETOF(vp_map_t, exec_id) == 0U,
                "unexpected VP map epoch offset");
 _Static_assert(VP_ABI_OFFSETOF(vp_map_t, enabled) == 8U,
                "unexpected VP map enabled offset");
-_Static_assert(VP_ABI_OFFSETOF(vp_map_t, filter_enabled) == 9U,
+_Static_assert(VP_ABI_OFFSETOF(vp_map_t, filter_mode) == 9U,
                "unexpected VP map filter-enabled offset");
 _Static_assert(VP_ABI_OFFSETOF(vp_map_t, control_len) == 12U,
                "unexpected VP map control-length offset");

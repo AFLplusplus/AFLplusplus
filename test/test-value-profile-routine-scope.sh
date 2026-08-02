@@ -50,9 +50,9 @@ EOF
 check() {
   local desc="$1" file="$2" pattern="$3" want="$4" got
   got=$(grep -c "$pattern" "$file")
-  if [ "$got" -eq "$want" ]; then ((PASS++)); else
+  if [ "$got" -eq "$want" ]; then PASS=$((PASS + 1)); else
     printf "$RED[-] %-42s %s=%d expected=%d$NC\n" "$desc" "$pattern" "$got" "$want"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
   fi
 }
 
@@ -74,6 +74,23 @@ check "CmpLog: broad 2-arg heuristic unchanged" "$WORK/cl.ll" "call void @__cmpl
 check "CmpLog: 3-arg pointer helper still hooked" "$WORK/cl.ll" "call void @__cmplog_rtn_hook_n(" 3
 check "CmpLog: strcasecmp/strstr still hook_str" "$WORK/cl.ll" "call void @__cmplog_rtn_hook_str(" 4
 check "CmpLog: strncasecmp/strnstr still hook_strn" "$WORK/cl.ll" "call void @__cmplog_rtn_hook_strn(" 2
+
+# A compare against a comparison routine's return value carries no operand
+# distance, so VP must score the routine call and not the compare.
+cat > "$WORK/r.c" <<'EOF'
+#include <string.h>
+__attribute__((noinline)) int cmp_result(const char *a, const char *b, int n) {
+  if (strncmp(a, b, 8)) return 1;
+  if (n > 3) return 2;
+  return 0;
+}
+EOF
+
+AFL_QUIET=1 AFL_LLVM_VALUE_PROFILE=1 ./afl-clang-fast -O1 -fno-builtin \
+  -S -emit-llvm -o "$WORK/rvp.ll" "$WORK/r.c" 2>/dev/null
+
+check "VP: strncmp itself is hooked"          "$WORK/rvp.ll" "call void @__valueprofile_rtn_hook_strn(" 1
+check "VP: only the non-routine compare is scored" "$WORK/rvp.ll" "call void @__valueprofile_hook4(" 1
 
 echo -e "$GREY[*] Results: $PASS passed, $FAIL failed$NC"
 [ "$FAIL" -eq 0 ] || exit 1

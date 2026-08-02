@@ -941,7 +941,19 @@ typedef struct afl_state {
   u32 value_profile_replay_idx;        /* Next queue index to replay when   */
                                      /* stagnation mode first activates VP */
   vp_frontier_entry_t *vp_frontier;    /* Frontier slots                    */
-  u8 vp_delayed_evictions_pending;     /* VP-only disables due next cycle   */
+  u8   vp_delayed_evictions_pending;   /* VP-only disables due next cycle   */
+  u64 *vp_focus_bitmap;
+  u64 *vp_focus_prev;
+  u64 *vp_focus_relevant;
+  u16 *vp_site_idle;
+  u8  *vp_site_owned;
+  u32  vp_focus_cursor;
+  u32  vp_focus_sample_cursor;
+  u32  vp_focus_live;
+  u32  vp_sites_assigned;
+  u32  vp_sites_retired;
+  u8   vp_focus_active;
+  u8   vp_focus_rebuild_pending;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
@@ -1483,6 +1495,8 @@ void vp_persist_disabled_marker(afl_state_t *, struct queue_entry *);
 void vp_restore_queue_entry_state(afl_state_t *, struct queue_entry *,
                                   const char *);
 void vp_prepare_exec(afl_state_t *, afl_forkserver_t *);
+void vp_focus_init(afl_state_t *);
+void vp_focus_rotate(afl_state_t *);
 void vp_runtime_set_site_filter(afl_state_t *, const u16 *, u32);
 void vp_runtime_clear_site_filter(afl_state_t *);
 u8   vp_runtime_observe_begin(afl_state_t *, const u16 *, u32, vp_site_t *);

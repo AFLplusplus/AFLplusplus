@@ -140,7 +140,7 @@ static void test_site_selector_primary_secondary_and_filter(void **state) {
   assert_int_equal(key, 47U * VP_MAP_A + 3U);
   assert_int_equal(vp->site_ids[key], 0x87654321U);
 
-  vp->filter_enabled = 1;
+  vp->filter_mode = VP_FILTER_STRICT;
   token = vp_test_site_token(53, 1, 59, 2, 0xabcdef01U);
   assert_int_equal(vp_map_select(vp, token, 0), VP_MAP_INVALID);
   assert_int_equal(vp->site_ids[53U * VP_MAP_A + 1U], 0);
@@ -196,6 +196,56 @@ static void setup_vp_frontier(afl_state_t *afl) {
 static void free_vp_frontier(afl_state_t *afl) {
 
   free(afl->vp_frontier);
+
+}
+
+static void setup_vp_focus(afl_state_t *afl) {
+
+  afl->vp_focus_bitmap = calloc(VP_MAP_W / 64U, sizeof(u64));
+  assert_non_null(afl->vp_focus_bitmap);
+  afl->vp_focus_prev = calloc(VP_MAP_W / 64U, sizeof(u64));
+  assert_non_null(afl->vp_focus_prev);
+  afl->vp_focus_relevant = calloc(VP_MAP_W / 64U, sizeof(u64));
+  assert_non_null(afl->vp_focus_relevant);
+  afl->vp_site_idle = calloc(VP_MAP_W, sizeof(u16));
+  assert_non_null(afl->vp_site_idle);
+  afl->vp_site_owned = calloc(VP_MAP_W, sizeof(u8));
+  assert_non_null(afl->vp_site_owned);
+
+}
+
+static void free_vp_focus(afl_state_t *afl) {
+
+  free(afl->vp_focus_bitmap);
+  free(afl->vp_focus_prev);
+  free(afl->vp_focus_relevant);
+  free(afl->vp_site_idle);
+  free(afl->vp_site_owned);
+  afl->vp_site_owned = NULL;
+  afl->vp_focus_bitmap = NULL;
+  afl->vp_focus_prev = NULL;
+  afl->vp_focus_relevant = NULL;
+  afl->vp_site_idle = NULL;
+
+}
+
+static u32 vp_test_focus_popcount(const afl_state_t *afl) {
+
+  u32 total = 0;
+
+  for (u32 i = 0; i < VP_MAP_W / 64U; ++i) {
+
+    u64 word = afl->vp_focus_bitmap[i];
+    while (word) {
+
+      word &= word - 1U;
+      ++total;
+
+    }
+
+  }
+
+  return total;
 
 }
 
@@ -1452,7 +1502,7 @@ static void test_runtime_observe_helper_resets_and_restores_sites(
   untouched = vp->site[4];
 
   assert_true(vp_runtime_observe_begin(&afl, site_ids, 2, saved));
-  assert_true(vp->filter_enabled);
+  assert_int_equal(vp->filter_mode, VP_FILTER_STRICT);
   assert_int_equal(vp->site[3].exec_seen, 0);
   assert_int_equal(vp->site[3].hit_count, 0);
   assert_int_equal(vp->site[3].touched_mask, 0);
@@ -1462,7 +1512,7 @@ static void test_runtime_observe_helper_resets_and_restores_sites(
   vp->site[3].touched_mask = 1;
   vp->site[9].touched_mask = 1;
   vp_runtime_observe_end(&afl, site_ids, 2, saved);
-  assert_false(vp->filter_enabled);
+  assert_int_equal(vp->filter_mode, VP_FILTER_OFF);
   assert_memory_equal(&vp->site[3], &orig0, sizeof(vp_site_t));
   assert_memory_equal(&vp->site[9], &orig1, sizeof(vp_site_t));
   assert_memory_equal(&vp->site[4], &untouched, sizeof(vp_site_t));
@@ -1531,6 +1581,263 @@ static void test_runtime_trim_guard_preserve_and_regress(void **state) {
 
 }
 
+static void test_focus_retires_solved_and_never_owning_sites(void **state) {
+
+  (void)state;
+
+  afl_state_t        afl;
+  vp_map_t          *vp;
+  struct queue_entry q_solved, q_open;
+
+  memset(&afl, 0, sizeof(afl));
+  memset(&q_solved, 0, sizeof(q_solved));
+  memset(&q_open, 0, sizeof(q_open));
+
+  vp = calloc(1, sizeof(vp_map_t));
+  assert_non_null(vp);
+  afl.value_profile_mode = 1;
+  afl.value_profile_active = 1;
+  afl.queue_cycle = 1;
+  afl.shm.vp_map = vp;
+  setup_vp_frontier(&afl);
+  setup_vp_focus(&afl);
+
+  vp->site_ids[5] = 0x1111U;
+  for (u16 rel = 0; rel < VP_SLOTS; ++rel) {
+
+    afl.vp_frontier[vp_test_frontier_idx(5, rel)].owner = &q_solved;
+    afl.vp_frontier[vp_test_frontier_idx(5, rel)].dist = 0;
+
+  }
+
+  vp->site_ids[9] = 0x2222U;
+  afl.vp_frontier[vp_test_frontier_idx(9, 0)].owner = &q_open;
+  afl.vp_frontier[vp_test_frontier_idx(9, 0)].dist = 4;
+
+  vp->site_ids[11] = 0x3333U;
+
+  vp_focus_rotate(&afl);
+
+  assert_int_equal(afl.vp_sites_assigned, 3);
+  assert_int_equal(afl.vp_sites_retired, 1);
+  assert_true(vp->site[5].flags & VP_SITE_RETIRED);
+  assert_false(vp->site[9].flags & VP_SITE_RETIRED);
+  assert_false(vp->site[11].flags & VP_SITE_RETIRED);
+
+  assert_false(afl.vp_focus_active);
+  assert_int_equal(vp->filter_mode, VP_FILTER_OFF);
+
+  for (u32 i = 0; i < VP_IDLE_RETIRE_CYCLES; ++i) {
+
+    vp_focus_rotate(&afl);
+
+  }
+
+  assert_true(vp->site[11].flags & VP_SITE_RETIRED);
+  assert_false(vp->site[9].flags & VP_SITE_RETIRED);
+
+  vp_restore_resume_state(&afl);
+  assert_false(vp->site[5].flags & VP_SITE_RETIRED);
+  assert_false(vp->site[11].flags & VP_SITE_RETIRED);
+  assert_int_equal(afl.vp_site_idle[11], 1);
+
+  free_vp_focus(&afl);
+  free_vp_frontier(&afl);
+  free(vp);
+
+}
+
+static void test_partial_ordinal_site_is_not_solved(void **state) {
+
+  (void)state;
+
+  afl_state_t        afl;
+  vp_map_t          *vp;
+  struct queue_entry q;
+
+  memset(&afl, 0, sizeof(afl));
+  memset(&q, 0, sizeof(q));
+
+  vp = calloc(1, sizeof(vp_map_t));
+  assert_non_null(vp);
+  afl.value_profile_mode = 1;
+  afl.value_profile_active = 1;
+  afl.queue_cycle = 1;
+  afl.shm.vp_map = vp;
+  setup_vp_frontier(&afl);
+  setup_vp_focus(&afl);
+
+  vp->site_ids[7] = 0x4444U;
+  afl.vp_frontier[vp_test_frontier_idx(7, 0)].owner = &q;
+  afl.vp_frontier[vp_test_frontier_idx(7, 0)].dist = 0;
+  afl.vp_frontier[vp_test_frontier_idx(7, 1)].owner = &q;
+  afl.vp_frontier[vp_test_frontier_idx(7, 1)].dist = 0;
+
+  vp_focus_rotate(&afl);
+  assert_false(vp->site[7].flags & VP_SITE_RETIRED);
+
+  afl.vp_frontier[vp_test_frontier_idx(7, 2)].owner = &q;
+  afl.vp_frontier[vp_test_frontier_idx(7, 2)].dist = 3;
+  vp_focus_rotate(&afl);
+  assert_false(vp->site[7].flags & VP_SITE_RETIRED);
+  assert_int_equal(afl.vp_site_idle[7], 0);
+
+  for (u32 i = 0; i < VP_IDLE_RETIRE_CYCLES + 2U; ++i) {
+
+    vp_focus_rotate(&afl);
+
+  }
+
+  assert_false(vp->site[7].flags & VP_SITE_RETIRED);
+
+  free_vp_focus(&afl);
+  free_vp_frontier(&afl);
+  free(vp);
+
+}
+
+static void test_retired_heavy_map_keeps_filtering(void **state) {
+
+  (void)state;
+
+  afl_state_t        afl;
+  vp_map_t          *vp;
+  struct queue_entry q_solved, q_open;
+  u32                assigned = 6000U;
+  u32                solved = 5000U;
+
+  memset(&afl, 0, sizeof(afl));
+  memset(&q_solved, 0, sizeof(q_solved));
+  memset(&q_open, 0, sizeof(q_open));
+
+  vp = calloc(1, sizeof(vp_map_t));
+  assert_non_null(vp);
+  afl.value_profile_mode = 1;
+  afl.value_profile_active = 1;
+  afl.queue_cycle = 1;
+  afl.shm.vp_map = vp;
+  setup_vp_frontier(&afl);
+  setup_vp_focus(&afl);
+
+  for (u32 s = 0; s < assigned; ++s) {
+
+    vp->site_ids[s] = s + 1U;
+
+  }
+
+  for (u32 s = 0; s < solved; ++s) {
+
+    for (u16 rel = 0; rel < VP_SLOTS; ++rel) {
+
+      afl.vp_frontier[vp_test_frontier_idx(s, rel)].owner = &q_solved;
+      afl.vp_frontier[vp_test_frontier_idx(s, rel)].dist = 0;
+
+    }
+
+  }
+
+  for (u32 s = solved; s < assigned; ++s) {
+
+    afl.vp_frontier[vp_test_frontier_idx(s, 0)].owner = &q_open;
+    afl.vp_frontier[vp_test_frontier_idx(s, 0)].dist = 5;
+
+  }
+
+  vp_focus_rotate(&afl);
+
+  assert_int_equal(afl.vp_sites_assigned, assigned);
+  assert_int_equal(afl.vp_sites_retired, solved);
+  assert_true(afl.vp_focus_live < VP_FOCUS_TARGET_SITES);
+  assert_true(afl.vp_focus_active);
+  assert_int_equal(vp->filter_mode, VP_FILTER_FOCUS);
+
+  for (u32 s = 0; s < solved; ++s) {
+
+    assert_false(afl.vp_focus_bitmap[s >> 6] & (1ULL << (s & 63)));
+
+  }
+
+  free_vp_focus(&afl);
+  free_vp_frontier(&afl);
+  free(vp);
+
+}
+
+static void test_focus_caps_live_sites_and_rotates(void **state) {
+
+  (void)state;
+
+  afl_state_t        afl;
+  vp_map_t          *vp;
+  struct queue_entry q_open;
+  u32                assigned = 6000U;
+  u32                owners = 5000U;
+  u64               *first_round;
+  u32                sampled = 0;
+
+  memset(&afl, 0, sizeof(afl));
+  memset(&q_open, 0, sizeof(q_open));
+
+  vp = calloc(1, sizeof(vp_map_t));
+  assert_non_null(vp);
+  afl.value_profile_mode = 1;
+  afl.value_profile_active = 1;
+  afl.queue_cycle = 1;
+  afl.shm.vp_map = vp;
+  setup_vp_frontier(&afl);
+  setup_vp_focus(&afl);
+
+  for (u32 s = 0; s < assigned; ++s) {
+
+    vp->site_ids[s] = s + 1U;
+
+  }
+
+  for (u32 s = 0; s < owners; ++s) {
+
+    afl.vp_frontier[vp_test_frontier_idx(s, 0)].owner = &q_open;
+    afl.vp_frontier[vp_test_frontier_idx(s, 0)].dist = 6;
+
+  }
+
+  vp_focus_rotate(&afl);
+
+  assert_true(afl.vp_focus_active);
+  assert_int_equal(vp->filter_mode, VP_FILTER_FOCUS);
+  assert_int_equal(afl.vp_sites_assigned, assigned);
+  assert_int_equal(afl.vp_sites_retired, 0);
+  assert_int_equal(afl.vp_focus_live, VP_FOCUS_TARGET_SITES);
+  assert_int_equal(vp_test_focus_popcount(&afl), VP_FOCUS_TARGET_SITES);
+  assert_memory_equal(vp->filter_bitmap, afl.vp_focus_bitmap,
+                      sizeof(vp->filter_bitmap));
+
+  for (u32 s = owners; s < assigned; ++s) {
+
+    if (afl.vp_focus_bitmap[s >> 6] & (1ULL << (s & 63))) { ++sampled; }
+
+  }
+
+  assert_true(sampled > 0);
+
+  first_round = calloc(VP_MAP_W / 64U, sizeof(u64));
+  assert_non_null(first_round);
+  memcpy(first_round, afl.vp_focus_bitmap, (VP_MAP_W / 64U) * sizeof(u64));
+
+  vp_focus_rotate(&afl);
+
+  assert_true(afl.vp_focus_active);
+  assert_int_equal(afl.vp_focus_live, VP_FOCUS_TARGET_SITES);
+  assert_int_equal(vp_test_focus_popcount(&afl), VP_FOCUS_TARGET_SITES);
+  assert_memory_not_equal(first_round, afl.vp_focus_bitmap,
+                          (VP_MAP_W / 64U) * sizeof(u64));
+
+  free(first_round);
+  free_vp_focus(&afl);
+  free_vp_frontier(&afl);
+  free(vp);
+
+}
+
 int main(int argc, char **argv) {
 
   (void)argc;
@@ -1566,7 +1873,11 @@ int main(int argc, char **argv) {
       cmocka_unit_test(
           test_l1_favoring_uses_unresolved_refs_and_skips_disabled),
       cmocka_unit_test(test_runtime_observe_helper_resets_and_restores_sites),
-      cmocka_unit_test(test_runtime_trim_guard_preserve_and_regress)};
+      cmocka_unit_test(test_runtime_trim_guard_preserve_and_regress),
+      cmocka_unit_test(test_focus_retires_solved_and_never_owning_sites),
+      cmocka_unit_test(test_partial_ordinal_site_is_not_solved),
+      cmocka_unit_test(test_retired_heavy_map_keeps_filtering),
+      cmocka_unit_test(test_focus_caps_live_sites_and_rotates)};
 
   __real_exit(cmocka_run_group_tests(tests, NULL, NULL));
   return 0;

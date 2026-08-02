@@ -948,6 +948,11 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->var_bytes);
   ck_free(afl->top_rated);
   if (afl->vp_frontier) { ck_free(afl->vp_frontier); }
+  if (afl->vp_focus_bitmap) { ck_free(afl->vp_focus_bitmap); }
+  if (afl->vp_focus_prev) { ck_free(afl->vp_focus_prev); }
+  if (afl->vp_focus_relevant) { ck_free(afl->vp_focus_relevant); }
+  if (afl->vp_site_idle) { ck_free(afl->vp_site_idle); }
+  if (afl->vp_site_owned) { ck_free(afl->vp_site_owned); }
 
   ck_free(afl->clean_trace);
   ck_free(afl->clean_trace_custom);

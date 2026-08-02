@@ -334,7 +334,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   # Test value-profile switch pass with byte-sized switches
   test -e test-value-profile-switch-pass.sh && {
-    sh ./test-value-profile-switch-pass.sh > /dev/null 2>&1 && {
+    sh ./test-value-profile-switch-pass.sh run > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] value-profile byte switch pass test passed"
     } || {
       $ECHO "$RED[!] value-profile byte switch pass test failed"
@@ -343,7 +343,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   # Test value-profile signed distance pass output
   test -e test-value-profile-distance-pass.sh && {
-    sh ./test-value-profile-distance-pass.sh > /dev/null 2>&1 && {
+    sh ./test-value-profile-distance-pass.sh run > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] value-profile signed distance pass test passed"
     } || {
       $ECHO "$RED[!] value-profile signed distance pass test failed"
@@ -352,16 +352,25 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   }
   # Test compile-time token stability and owning-CU disambiguation
   test -e test-value-profile-site-token.sh && {
-    sh ./test-value-profile-site-token.sh > /dev/null 2>&1 && {
+    sh ./test-value-profile-site-token.sh run > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] value-profile compile-time site-token test passed"
     } || {
       $ECHO "$RED[!] value-profile compile-time site-token test failed"
       CODE=1
     }
   }
+  # Test compare site counts and coverage-point parity for VP filtering
+  test -e test-value-profile-site-count.sh && {
+    sh ./test-value-profile-site-count.sh run > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] value-profile compare site count test passed"
+    } || {
+      $ECHO "$RED[!] value-profile compare site count test failed"
+      CODE=1
+    }
+  }
   # Test that the value-profile shared-memory ABI is fixed across word sizes
   test -e test-value-profile-abi.sh && {
-    sh ./test-value-profile-abi.sh > /dev/null 2>&1 && {
+    sh ./test-value-profile-abi.sh run > /dev/null 2>&1 && {
       $ECHO "$GREEN[+] value-profile shared-memory ABI layout test passed"
     } || {
       $ECHO "$RED[!] value-profile shared-memory ABI layout test failed"
@@ -386,6 +395,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin -o test-value-profile-distance.vp test-value-profile-distance.c > /dev/null 2>&1
   AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin -o test-value-profile-discard.vp test-value-profile-discard.c > /dev/null 2>&1
   AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin -o test-value-profile-float-semantics.vp test-value-profile-float-semantics.c > /dev/null 2>&1
+  AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin -o test-value-profile-site-filter.vp test-value-profile-site-filter.c > /dev/null 2>&1
   AFL_LLVM_VALUE_PROFILE=1 ../afl-clang-fast -O0 -fno-inline -fno-builtin \
     -shared -fPIC -o test-value-profile-dlopen.vp.so \
     test-value-profile-dlopen-target.c > /dev/null 2>&1
@@ -411,6 +421,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     -e test-value-profile-distance.vp -a \
     -e test-value-profile-discard.vp -a \
     -e test-value-profile-float-semantics.vp -a \
+    -e test-value-profile-site-filter.vp -a \
     -e test-value-profile-dlopen.vp.so -a \
     -e test-dlopen.vp -a \
     -e test-value-profile-weak-guard.o -a \
@@ -424,6 +435,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       ./test-value-profile-hookn.vp >>errors 2>&1
       ./test-value-profile-distance.vp >>errors 2>&1
       ./test-value-profile-float-semantics.vp >>errors 2>&1
+      ./test-value-profile-site-filter.vp >>errors 2>&1
       if test -e test-value-profile-switch-128.vp; then
         ./test-value-profile-switch-128.vp >>errors 2>&1
       fi
@@ -543,6 +555,7 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     test-value-profile-switch.vp test-value-profile-routine.vp \
     test-value-profile-hookn.vp test-value-profile-distance.vp \
     test-value-profile-discard.vp test-value-profile-float-semantics.vp \
+    test-value-profile-site-filter.vp \
     test-vp-conflict.o test-vp-postprocess \
     test-vp-postprocess-mutator.so \
     in in_discard in_post out_no_vp out_vp out_vp_stag out_vp_discard \
