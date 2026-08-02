@@ -561,7 +561,7 @@ u32 __afl_already_initialized_init;
 
 /* Dummy pipe for area_is_valid() */
 
-static int __afl_dummy_fd[2] = {2, 2};
+static int __afl_dummy_fd[2] = {-1, -1};
 
 #ifdef __linux__
 static u8 addr_table_prepare(void);
@@ -819,14 +819,19 @@ static void __afl_bug_bind_map(void) {
 
 /* Scratch descriptor for the operand-readability probes. /dev/null does not
    work: the kernel never reads the source buffer, so the probe would report
-   unmapped memory as valid - which is also why there is no fallback to
-   stdout, whose sink the target does not control. The pipe fallback is set
-   non-blocking because nothing ever drains it: once the 64K buffer is full
-   the probes fail closed and stop collecting instead of blocking the target
-   forever. Idempotent - the initial value is stderr. */
+   unmapped memory as valid - which is also why there is no fallback to the
+   target's own stdout or stderr, whose sink the target does not control and
+   which afl-fuzz points at /dev/null. The pipe fallback is set non-blocking
+   because nothing ever drains it: once the 64K buffer is full the probes fail
+   closed and stop collecting instead of blocking the target forever. Runs at
+   most once - until it does, the descriptor stays -1 and the probes fail
+   closed. */
 static void __afl_open_dummy_fd(void) {
 
-  if (__afl_dummy_fd[1] != 2) { return; }
+  static u8 attempted = 0;
+
+  if (attempted) { return; }
+  attempted = 1;
   if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
 
     if (pipe(__afl_dummy_fd) < 0) {
@@ -4199,6 +4204,13 @@ static int area_is_valid(void *ptr, size_t len) {
 
   }
 
+  if (unlikely(__afl_dummy_fd[1] < 0)) {
+
+    __afl_open_dummy_fd();
+    if (__afl_dummy_fd[1] < 0) { return 0; }
+
+  }
+
 #ifdef __HAIKU__
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
 #elif defined(__OpenBSD__)
@@ -4232,6 +4244,13 @@ static u32 area_pair_valid_len(void *ptr1, void *ptr2, size_t len) {
                  __asan_region_is_poisoned(ptr2, len))))) {
 
     return 0;
+
+  }
+
+  if (unlikely(__afl_dummy_fd[1] < 0)) {
+
+    __afl_open_dummy_fd();
+    if (__afl_dummy_fd[1] < 0) { return 0; }
 
   }
 

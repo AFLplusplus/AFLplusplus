@@ -107,9 +107,11 @@ the scanned window stays valid, the constraint just never reports as solved.
 
 Floating-point compares are modelled for `float`, `double`, `_Float16` and
 `__bf16` (the last two are widened to `float`, which is exact). `long double`,
-`__float128` and PowerPC double-double compares are not instrumented, because
-their encodings have no exact widening target and an integer-encoding distance
-would contradict floating-point comparison semantics.
+`__float128` and PowerPC double-double have no exact widening target, so they
+are scored on their bit encoding through the 128-bit integer hooks. The
+encoding is mapped to a radix-sort key first, so that its unsigned order
+matches floating-point order instead of contradicting it. On 32-bit hosts,
+where the 128-bit hooks do not exist, these types stay uninstrumented.
 
 For scalar and routine compares, each dynamic hit ordinal selects one adjacent
 slot pair, with the two metrics stored in that pair. Once an execution observes
