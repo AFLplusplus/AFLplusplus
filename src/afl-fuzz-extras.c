@@ -52,6 +52,19 @@ static int compare_extras_len(const void *e1, const void *e2) {
 
 }
 
+/* Sorts the extras array by length. add_extra() re-sorts on every insert,
+   which is fine for a handful of tokens and quadratic for thousands; bulk
+   producers use add_extra_nocheck() and call this once at the end. */
+
+void sort_extras(afl_state_t *afl) {
+
+  if (afl->extras_cnt < 2) { return; }
+
+  qsort(afl->extras, afl->extras_cnt, sizeof(struct extra_data),
+        compare_extras_len);
+
+}
+
 /* Read extras from a file, sort by size. */
 
 void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
@@ -409,7 +422,7 @@ static inline u8 memcmp_nocase(u8 *m1, u8 *m2, u32 len) {
 
 /* add an extra/dict/token - no checks performed, no sorting */
 
-static void add_extra_nocheck(afl_state_t *afl, u8 *mem, u32 len) {
+void add_extra_nocheck(afl_state_t *afl, u8 *mem, u32 len) {
 
   afl->extras = afl_realloc((void **)&afl->extras,
                             (afl->extras_cnt + 1) * sizeof(struct extra_data));
