@@ -420,6 +420,13 @@ void create_alias_table(afl_state_t *afl) {
 
         }
 
+        if (unlikely(afl->value_profile_active &&
+                     vp_queue_has_unresolved_work(q))) {
+
+          weight *= VP_FRONTIER_WEIGHT_MULT;
+
+        }
+
         q->weight = weight;
         q->perf_score = calculate_score(afl, q);
         sum += q->weight;
@@ -1085,6 +1092,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
   u64 fuzz_p2;
 
   if (unlikely(q->disabled)) { return; }
+  if (unlikely(q->vp_only && !q->has_new_cov)) { return; }
 
   if (unlikely(afl->saved_schedule >= FAST && afl->saved_schedule < RARE)) {
 

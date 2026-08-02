@@ -354,6 +354,7 @@ static inline u8 vp_is_better(u32 cand_dist, u64 cand_cost,
 
   if (old_entry->dist >= VP_DIST_UNSOLVED) return 1;
   if (cand_dist < old_entry->dist) return 1;
+  if (!old_entry->owner) return 0;
   if (cand_dist == old_entry->dist &&
       cand_cost < vp_entry_cost(old_entry->owner))
     return 1;
@@ -517,11 +518,24 @@ typedef struct {
 
 } vp_runtime_candidate_iter_t;
 
-/* Frontier slot validity check shared by scan paths. */
+/* Frontier slot validity check shared by scan paths. A solved slot stays
+   closed without an owner. */
 static inline u8 vp_frontier_slot_is_empty(const struct queue_entry *owner,
                                            u32                       dist) {
 
-  return !owner || owner->disabled || dist >= VP_DIST_UNSOLVED;
+  if (dist >= VP_DIST_UNSOLVED) return 1;
+  if (!dist) return 0;
+  return !owner || owner->disabled;
+
+}
+
+static inline void vp_release_solved_slot(afl_state_t *afl, size_t idx) {
+
+  vp_frontier_entry_t *entry = &afl->vp_frontier[idx];
+  if (entry->dist || !entry->owner) return;
+
+  vp_dec_ref(afl, entry->owner);
+  entry->owner = NULL;
 
 }
 
@@ -655,7 +669,16 @@ static inline void vp_frontier_site_clear_stale(afl_state_t *afl, u32 site) {
 
     size_t              idx = base + rel;
     struct queue_entry *owner = afl->vp_frontier[idx].owner;
-    if (owner && owner->disabled) { vp_clear_slot(afl, idx); }
+    if (!owner || !owner->disabled) continue;
+    if (!afl->vp_frontier[idx].dist) {
+
+      vp_release_solved_slot(afl, idx);
+
+    } else {
+
+      vp_clear_slot(afl, idx);
+
+    }
 
   }
 
@@ -769,6 +792,12 @@ void vp_focus_rotate(afl_state_t *afl) {
     u8         was_retired = (u8)((flags & VP_SITE_RETIRED) != 0);
     u8         was_recording = (u8)(!was_retired &&
                             (!afl->vp_focus_active || vp_bitmap_test(prev, s)));
+
+    for (size_t rel = 0; rel < VP_SLOTS; ++rel) {
+
+      vp_release_solved_slot(afl, vp_site_base(s) + rel);
+
+    }
 
     u8 owned_cnt, has_unresolved;
     vp_site_frontier_state(afl, s, &owned_cnt, &has_unresolved);

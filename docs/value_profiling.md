@@ -40,6 +40,15 @@ coverage-duplicate seeds, are not reconsidered for VP.
 VP maintains a frontier of the best known distances for `(site, slot)` pairs.
 Queue entries owning frontier slots are favored for more fuzzing.
 
+Being favored is not enough on its own. The favored set is the minimal set of
+queue entries covering every known edge, and on a small target that set alone
+already fills it, so an entry owning the gradient the campaign is following
+ends up with the same share of air time as an entry that only represents an
+edge some other input covers too. Entries owning an unresolved frontier slot
+therefore also get their queue-selection weight multiplied by
+`VP_FRONTIER_WEIGHT_MULT` in `config.h` (16), which is roughly what it takes to
+put them on par with the coverage favorites rather than behind them.
+
 Inputs admitted only through VP are marked with `,+vp` in their queue filename
 and with state files under `.state/vp_only`. If a VP-only entry later owns no
 frontier slots, AFL++ disables it after a one-cycle grace period. VP-only queue
@@ -49,8 +58,16 @@ breaks ties among already-admitted frontier owners.
 
 A distance of zero on a frontier slot that no queue entry owns yet does not
 by itself admit a new queue entry: the constraint is already satisfied, so
-there is no gradient left to follow. Entries admitted for any other reason
-still take and hold such slots, which keeps the solved constraint anchored.
+there is no gradient left to follow. A solved slot stays closed for the rest
+of the campaign whether or not a queue entry holds it, so AFL++ hands it back
+at the next queue-cycle boundary. That lets a VP-only entry whose slots are all
+solved retire on schedule instead of staying alive - and competing for air time
+- for a gradient it can no longer produce.
+
+VP-only entries do not compete for the coverage favorites either. They add no
+coverage of their own, so letting one win a `top_rated` slot would displace a
+real coverage find from the favored set and pin the VP-only entry alive through
+its trace reference long after its gradient was exhausted.
 
 Routine-compare sites are restricted to functions with recognised comparison or
 search semantics (the `memcmp`, `strcmp`, `strncmp`, `strstr`, `memmem` and
@@ -63,6 +80,24 @@ Routine-compare VP features record separate matched-prefix and whole-buffer
 hamming-distance signals. Substring routines (`strstr`, `strcasestr`, `memmem`
 and similar) record the minimum of both metrics over every candidate offset in
 the haystack, so a successful match records distance 0.
+
+Both signals span the whole compared window. For the nul-terminated families
+the comparison ends only where *both* operands are nul: a nul in one operand
+alone is a mismatch like any other, and every byte behind it still has to be
+made equal. Stopping the hamming sum at the first nul in either operand would
+report a near-solved distance for an input that is nowhere near matching, and
+because that distance can never reach zero the false minimum would hold its
+frontier slot - and keep its queue entry favored - for the rest of the run. For
+the same reason the `strcmp` and `strcasecmp` families size their window from
+the *longer* operand, so a short input is scored on the bytes it still has to
+grow, not only on the ones it already has.
+
+A compare against the *result* of one of these routines - the `if (strncmp(a,
+b, n))` idiom - is not value-profiled. The routine's own hook already carries
+the operand distance, while the returned integer only encodes equal-or-not and
+in which direction: a return of `-1` is one byte away from a match but has
+maximal hamming weight against `0`, so scoring it would add an inverted
+gradient that admits and permanently favours queue entries.
 
 All routine hooks read at most 32 bytes per operand, the same bound CmpLog
 uses, which caps the substring scan at 32 x 32 byte comparisons per call. A
@@ -159,8 +194,8 @@ campaign. A retired site records nothing even when the focus set is not in
 force.
 
 Retirement is undone by a frontier reset, so a site retired early can always
-come back, and solved retirement also lifts by itself once the owning queue
-entry goes away.
+come back. A solved site stays retired when its owner goes away, because the
+slot stays closed without one.
 
 The idle clock counts only cycles in which the site was actually allowed to
 record, and it restarts whenever the site claims a slot, improves a distance,

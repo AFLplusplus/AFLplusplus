@@ -3475,8 +3475,7 @@ static inline u32 vp_runtime_hamming_sum_bytes_stop_at_zero(const u8 *ptr1,
     u64 lhs = 0, rhs = 0;
     memcpy((void *)&lhs, (const void *)ptr1, sizeof(lhs));
     memcpy((void *)&rhs, (const void *)ptr2, sizeof(rhs));
-    if (vp_runtime_u64_has_zero_byte(lhs) || vp_runtime_u64_has_zero_byte(rhs))
-      break;
+    if (vp_runtime_u64_has_zero_byte(lhs | rhs)) break;
     total += popcount_u64(lhs ^ rhs);
     ptr1 += sizeof(u64);
     ptr2 += sizeof(u64);
@@ -3486,7 +3485,7 @@ static inline u32 vp_runtime_hamming_sum_bytes_stop_at_zero(const u8 *ptr1,
 
   while (len--) {
 
-    if (*ptr1 == 0 || *ptr2 == 0) break;
+    if (!*ptr1 && !*ptr2) break;
     total += popcount_u8(*ptr1 ^ *ptr2);
     ++ptr1;
     ++ptr2;
@@ -3858,7 +3857,7 @@ static inline u32 vp_runtime_hamming_sum_folded(const u8 *ptr1, const u8 *ptr2,
 
     u8 a = vp_runtime_fold(*ptr1);
     u8 b = vp_runtime_fold(*ptr2);
-    if (stop_at_zero && (!a || !b)) break;
+    if (stop_at_zero && !a && !b) break;
     total += popcount_u8(a ^ b);
     ++ptr1;
     ++ptr2;
@@ -4899,7 +4898,7 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
   if (cap < 2) return;
   u32 n1 = (u32)strnlen((char *)ptr1, cap);
   u32 n2 = (u32)strnlen((char *)ptr2, cap);
-  u32 max_len = MIN(MIN(n1, n2) + 1U, cap);
+  u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
   if (max_len < 2) return;
   vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, VP_RTN_STOP_AT_ZERO);
 
@@ -4934,7 +4933,7 @@ void __valueprofile_rtn_hook_str_ci(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
   if (cap < 2) return;
   u32 n1 = (u32)strnlen((char *)ptr1, cap);
   u32 n2 = (u32)strnlen((char *)ptr2, cap);
-  u32 max_len = MIN(MIN(n1, n2) + 1U, cap);
+  u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
   if (max_len < 2) return;
   vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len,
                         VP_RTN_STOP_AT_ZERO | VP_RTN_FOLD_CASE);

@@ -73,6 +73,59 @@ inline bool         isValueProfileMode(CompareObserverMode mode) {
 
 }
 
+inline bool isMemcmpRoutineName(llvm::StringRef Name) {
+
+  return Name == "memcmp" || Name == "bcmp" || Name == "CRYPTO_memcmp" ||
+         Name == "OPENSSL_memcmp" || Name == "memcmp_const_time" ||
+         Name == "memcmpct";
+
+}
+
+inline bool isStrcmpRoutineName(llvm::StringRef Name) {
+
+  return Name == "strcmp" || Name == "xmlStrcmp" || Name == "xmlStrEqual" ||
+         Name == "g_strcmp0" || Name == "curl_strequal" ||
+         Name == "strcsequal" || Name == "g_str_has_prefix" ||
+         Name == "g_str_has_suffix";
+
+}
+
+inline bool isStrcasecmpRoutineName(llvm::StringRef Name) {
+
+  return Name == "strcasecmp" || Name == "stricmp" ||
+         Name == "ap_cstr_casecmp" || Name == "apr_cstr_casecmp" ||
+         Name == "OPENSSL_strcasecmp" || Name == "xmlStrcasecmp" ||
+         Name == "g_strcasecmp" || Name == "g_ascii_strcasecmp" ||
+         Name == "Curl_strcasecompare" || Name == "Curl_safe_strcasecompare" ||
+         Name == "cmsstrcasecmp" || Name == "sqlite3_stricmp" ||
+         Name == "sqlite3StrICmp";
+
+}
+
+inline bool isStrncmpRoutineName(llvm::StringRef Name) {
+
+  return Name == "strncmp" || Name == "xmlStrncmp" || Name == "curl_strnequal";
+
+}
+
+inline bool isStrncasecmpRoutineName(llvm::StringRef Name) {
+
+  return Name == "strncasecmp" || Name == "strnicmp" ||
+         Name == "ap_cstr_casecmpn" || Name == "apr_cstr_casecmpn" ||
+         Name == "OPENSSL_strncasecmp" || Name == "xmlStrncasecmp" ||
+         Name == "g_ascii_strncasecmp" || Name == "Curl_strncasecompare" ||
+         Name == "g_strncasecmp" || Name == "sqlite3_strnicmp";
+
+}
+
+inline bool isCompareResultRoutineName(llvm::StringRef Name) {
+
+  return isMemcmpRoutineName(Name) || isStrcmpRoutineName(Name) ||
+         isStrcasecmpRoutineName(Name) || isStrncmpRoutineName(Name) ||
+         isStrncasecmpRoutineName(Name);
+
+}
+
 inline uint64_t mixValueProfileSiteToken(uint64_t value) {
 
   value ^= value >> 30;

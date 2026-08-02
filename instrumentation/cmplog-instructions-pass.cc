@@ -790,6 +790,44 @@ static bool isValueProfileInputDerived(Value *V, SmallPtrSetImpl<Value *> &Seen,
 
 }
 
+static bool comparesRoutineResult(CmpInst *Cmp) {
+
+  for (Value *Op : Cmp->operands()) {
+
+    Value *V = Op;
+    for (;;) {
+
+      if (auto *Cast = dyn_cast<CastInst>(V)) {
+
+        V = Cast->getOperand(0);
+        continue;
+
+      }
+
+      if (auto *Frozen = dyn_cast<FreezeInst>(V)) {
+
+        V = Frozen->getOperand(0);
+        continue;
+
+      }
+
+      break;
+
+    }
+
+    auto *Call = dyn_cast<CallInst>(V);
+    if (!Call) { continue; }
+
+    Function *Callee = Call->getCalledFunction();
+    if (!Callee) { continue; }
+    if (isCompareResultRoutineName(Callee->getName())) { return true; }
+
+  }
+
+  return false;
+
+}
+
 static bool hasValueProfileInputDependence(CmpInst *Cmp) {
 
   for (Value *Op : Cmp->operands()) {
@@ -925,6 +963,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
             }
 
             if (!hasValueProfileInputDependence(selectcmpInst)) { continue; }
+            if (comparesRoutineResult(selectcmpInst)) { continue; }
 
           } else if (selectcmpInst->hasOneUse()) {
 

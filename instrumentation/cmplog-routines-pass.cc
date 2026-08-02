@@ -306,26 +306,14 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 
           }
 
-          bool isMemcmp =
-              (!FuncName.compare("memcmp") || !FuncName.compare("bcmp") ||
-               !FuncName.compare("CRYPTO_memcmp") ||
-               !FuncName.compare("OPENSSL_memcmp") ||
-               !FuncName.compare("memcmp_const_time") ||
-               !FuncName.compare("memcmpct"));
+          bool isMemcmp = isMemcmpRoutineName(FuncName);
           isMemcmp &= FT->getNumParams() == 3 &&
                       FT->getReturnType()->isIntegerTy(32) &&
                       FT->getParamType(0)->isPointerTy() &&
                       FT->getParamType(1)->isPointerTy() &&
                       FT->getParamType(2)->isIntegerTy();
 
-          bool isStrcmp =
-              (!FuncName.compare("strcmp") || !FuncName.compare("xmlStrcmp") ||
-               !FuncName.compare("xmlStrEqual") ||
-               !FuncName.compare("g_strcmp0") ||
-               !FuncName.compare("curl_strequal") ||
-               !FuncName.compare("strcsequal") ||
-               !FuncName.compare("g_str_has_prefix") ||
-               !FuncName.compare("g_str_has_suffix"));
+          bool isStrcmp = isStrcmpRoutineName(FuncName);
           isStrcmp &= FT->getNumParams() == 2 &&
                       FT->getReturnType()->isIntegerTy(32) &&
                       FT->getParamType(0) == FT->getParamType(1) &&
@@ -337,19 +325,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                               ->getPointerTo(0);
 #endif
 
-          bool isStrcasecmp = (!FuncName.compare("strcasecmp") ||
-                               !FuncName.compare("stricmp") ||
-                               !FuncName.compare("ap_cstr_casecmp") ||
-                               !FuncName.compare("apr_cstr_casecmp") ||
-                               !FuncName.compare("OPENSSL_strcasecmp") ||
-                               !FuncName.compare("xmlStrcasecmp") ||
-                               !FuncName.compare("g_strcasecmp") ||
-                               !FuncName.compare("g_ascii_strcasecmp") ||
-                               !FuncName.compare("Curl_strcasecompare") ||
-                               !FuncName.compare("Curl_safe_strcasecompare") ||
-                               !FuncName.compare("cmsstrcasecmp") ||
-                               !FuncName.compare("sqlite3_stricmp") ||
-                               !FuncName.compare("sqlite3StrICmp"));
+          bool isStrcasecmp = isStrcasecmpRoutineName(FuncName);
           isStrcasecmp &= FT->getNumParams() == 2 &&
                           FT->getReturnType()->isIntegerTy(32) &&
                           FT->getParamType(0) == FT->getParamType(1) &&
@@ -361,9 +337,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
                                   ->getPointerTo(0);
 #endif
 
-          bool isStrncmp = (!FuncName.compare("strncmp") ||
-                            !FuncName.compare("xmlStrncmp") ||
-                            !FuncName.compare("curl_strnequal"));
+          bool isStrncmp = isStrncmpRoutineName(FuncName);
           isStrncmp &= FT->getNumParams() == 3 &&
                        FT->getReturnType()->isIntegerTy(32) &&
                        FT->getParamType(0) == FT->getParamType(1) &&
@@ -376,16 +350,7 @@ bool CmpLogRoutines::hookRtns(Module &M) {
 #endif
                        FT->getParamType(2)->isIntegerTy();
 
-          bool isStrncasecmp = (!FuncName.compare("strncasecmp") ||
-                                !FuncName.compare("strnicmp") ||
-                                !FuncName.compare("ap_cstr_casecmpn") ||
-                                !FuncName.compare("apr_cstr_casecmpn") ||
-                                !FuncName.compare("OPENSSL_strncasecmp") ||
-                                !FuncName.compare("xmlStrncasecmp") ||
-                                !FuncName.compare("g_ascii_strncasecmp") ||
-                                !FuncName.compare("Curl_strncasecompare") ||
-                                !FuncName.compare("g_strncasecmp") ||
-                                !FuncName.compare("sqlite3_strnicmp"));
+          bool isStrncasecmp = isStrncasecmpRoutineName(FuncName);
           isStrncasecmp &= FT->getNumParams() == 3 &&
                            FT->getReturnType()->isIntegerTy(32) &&
                            FT->getParamType(0) == FT->getParamType(1) &&
