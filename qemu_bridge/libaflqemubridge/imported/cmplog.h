@@ -31,6 +31,7 @@
 #define _AFL_CMPLOG_H
 
 #include "config.h"
+#include "cmp-attrs.h"
 #include "types.h"
 
 #define CMPLOG_LVL_MAX 3
@@ -46,37 +47,6 @@
 
 #define CMP_TYPE_INS 0
 #define CMP_TYPE_RTN 1
-
-#define CMP_ATTR_FCMP_FALSE 0
-#define CMP_ATTR_FCMP_OEQ 1
-#define CMP_ATTR_FCMP_OGT 2
-#define CMP_ATTR_FCMP_OGE 3
-#define CMP_ATTR_FCMP_OLT 4
-#define CMP_ATTR_FCMP_OLE 5
-#define CMP_ATTR_FCMP_ONE 6
-#define CMP_ATTR_FCMP_ORD 7
-#define CMP_ATTR_FCMP_UNO 8
-#define CMP_ATTR_FCMP_UEQ 9
-#define CMP_ATTR_FCMP_UGT 10
-#define CMP_ATTR_FCMP_UGE 11
-#define CMP_ATTR_FCMP_ULT 12
-#define CMP_ATTR_FCMP_ULE 13
-#define CMP_ATTR_FCMP_UNE 14
-#define CMP_ATTR_FCMP_TRUE 15
-#define CMP_ATTR_ICMP_EQ 32
-#define CMP_ATTR_ICMP_NE 33
-#define CMP_ATTR_ICMP_UGT 34
-#define CMP_ATTR_ICMP_UGE 35
-#define CMP_ATTR_ICMP_ULT 36
-#define CMP_ATTR_ICMP_ULE 37
-#define CMP_ATTR_ICMP_SGT 38
-#define CMP_ATTR_ICMP_SGE 39
-#define CMP_ATTR_ICMP_SLT 40
-#define CMP_ATTR_ICMP_SLE 41
-#define CMP_ATTR_MOD_FLOAT 240
-#define CMP_ATTR_MOD_INTEGER 241
-#define CMP_ATTR_TRANSFORM 242
-#define CMP_ATTR_NONE 255
 
 #define CMPLOG_RETRY_INTERVAL 16
 
@@ -389,11 +359,11 @@ static inline void cmp_map_snapshot_copy(struct cmp_map_snapshot *snapshot,
     size_t size;
     if (snapshot->headers[key].type == CMP_TYPE_INS) {
 
-      size = MIN(hits, CMP_MAP_H) * sizeof(struct cmp_operands);
+      size = MIN(hits, (u32)CMP_MAP_H) * sizeof(struct cmp_operands);
 
     } else {
 
-      size = MIN(hits, CMP_MAP_RTN_H) * sizeof(struct cmpfn_operands);
+      size = MIN(hits, (u32)CMP_MAP_RTN_H) * sizeof(struct cmpfn_operands);
 
     }
 
