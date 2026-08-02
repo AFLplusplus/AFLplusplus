@@ -84,6 +84,19 @@ static bool isSignedOrderedICmp(CmpInst::Predicate Pred) {
 
 }
 
+static Value *createFloatOrderKey(IRBuilder<> &IRB, Value *fp_value,
+                                  unsigned bit_width) {
+
+  IntegerType *IntTy = IntegerType::get(IRB.getContext(), bit_width);
+  Value       *Raw = IRB.CreateBitCast(fp_value, IntTy);
+  Value       *SignSpread = IRB.CreateAShr(Raw, bit_width - 1);
+  Value       *Flip = IRB.CreateOr(
+      SignSpread, ConstantInt::get(IntTy, APInt::getSignedMinValue(bit_width)));
+
+  return IRB.CreateXor(Raw, Flip);
+
+}
+
 namespace {
 
 using LoopInfoCallback = function_ref<LoopInfo *(Function &F)>;
@@ -1186,17 +1199,12 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
       if (is_fp && vector_cnt) { continue; }
 
       /* Half and bfloat widen to float exactly, so they can share the float
-         hook. x86_fp80, fp128 and ppc_fp128 have no exact widening target, and
-         an integer-encoding distance would contradict float comparison
-         semantics, so they are left uninstrumented. Decide that here, before
-         the enabled guard splits the block, so an unsupported type does not
-         leave an empty guarded block behind. */
-      if (vp_mode && is_fp && cast_size != 16 && cast_size != 32 &&
-          cast_size != 64) {
-
-        continue;
-
-      }
+         hook. x86_fp80, fp128 and ppc_fp128 have no exact widening target and
+         are scored on their bit encoding through the 128-bit integer hooks,
+         which only exist on 64-bit hosts. Decide that here, before the enabled
+         guard splits the block, so an unsupported type does not leave an empty
+         guarded block behind. */
+      if (vp_mode && is_fp && cast_size == 128 && !is_64_arch) { continue; }
 
       IRBuilder<> IRB(getHookInsertPoint(selectcmpInst));
 
@@ -1316,7 +1324,8 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
 
             }
 
-            goto next_vec_elem;
+            op0 = createFloatOrderKey(IRB, op0, ty0->getPrimitiveSizeInBits());
+            op1 = createFloatOrderKey(IRB, op1, ty1->getPrimitiveSizeInBits());
 
           }
 
