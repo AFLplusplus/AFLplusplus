@@ -502,6 +502,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
    * reported size */
   fsrv->real_map_size = fsrv->map_size;
   fsrv->use_fauxsrv = false;
+  fsrv->use_value_profile = false;
   fsrv->last_run_timed_out = false;
   fsrv->debug = false;
   fsrv->uses_crash_exitcode = false;
@@ -1660,6 +1661,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+      if (status & FS_NEW_OPT_VALUE_PROFILE) {
+
+        fsrv->use_value_profile = 1;
+        if (!be_quiet) { ACTF("Using VALUE PROFILE feature."); }
+
+      }
+
       if (status & FS_NEW_OPT_AUTODICT) {
 
         // even if we do not need the dictionary we have to read it
@@ -1735,6 +1743,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       // Mask out expected capability flags when comparing handshake status
       u32 expected_flags = 0;
       if (fsrv->use_ijon) { expected_flags |= FS_OPT_IJON; }
+      if (fsrv->use_value_profile) {
+
+        expected_flags |= FS_NEW_OPT_VALUE_PROFILE;
+
+      }
+
       if ((status2 & ~expected_flags) != keep) {
 
         FATAL("Error in forkserver communication (%08x=>%08x)", keep, status2);

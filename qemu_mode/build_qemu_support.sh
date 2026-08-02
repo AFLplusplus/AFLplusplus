@@ -108,6 +108,7 @@ cp "../../include/config.h" "./qemuafl/imported/" || exit 1
 cp "../../include/cmplog.h" "./qemuafl/imported/" || exit 1
 cp "../../include/snapshot-inl.h" "./qemuafl/imported/" || exit 1
 cp "../../include/types.h" "./qemuafl/imported/" || exit 1
+cp "../../include/cmp-attrs.h"  "./qemuafl/imported/" || exit 1
 
 if [ -n "$HOST" ]; then
   echo "[+] Configuring host architecture to $HOST..."

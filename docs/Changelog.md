@@ -4,6 +4,10 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.03a (dev)
+  ! Value Profile implementation for AFL++ by Khaled Yakdan (@kyakdan) that
+    is much more efficient and intelligent than the libfuzzer implementation.
+    Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for
+    afl-fuzz with `-r <seconds>` when to activate (default off)
   - afl-fuzz
     - big change: limits before switching modes is not time based but exec based now.
     - for more variability, a "starved" mode is implemented now. If for a longer
@@ -22,6 +26,8 @@
       rediscovered by an input that does calibrate.
     - fixed SAND and FrameShift issues
     - enhancements and fixes for cmplog and ijon
+    - due to a bug first introduced in v4.30c the cmplog target was used for
+      fuzzing if present - fixed
   - afl-cc
     - remove classic AFL instrumentation (colliding coverage), as `AFL_LLVM_PATH`
       and `AFL_LLVM_CALLER` replace these mostly and are overall much better
@@ -47,6 +53,8 @@
     - Futex implementation missed the clean-up of the shmem
     - Futex shmem now lives in general shared memory map as by default only
       32 such regions are supported in MacOS
+    - new runtime value-profiling guidance mode (`-r0`/`-rN`) for LLVM targets
+      compiled with `AFL_LLVM_VALUE_PROFILE=1`
   - afl-cc:
     - new C11 mode (`AFL_LLVM_C11` at compile time): afl-cc records each
       function's local variable count and afl-fuzz uses it as an extra queue

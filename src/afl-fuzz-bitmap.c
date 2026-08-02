@@ -86,6 +86,14 @@ static const u8 count_class_lookup8[256] = {
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
 
+/* new_bits layout used by save_if_interesting()/describe_op().
+   - low 2 bits: coverage novelty class from has_new_bits() (0,1,2)
+   - 3rd bit: value-profile-only queue save marker
+   - 8th bit: timeout marker */
+#define NEW_BITS_COVERAGE_MASK 0x03
+#define NEW_BITS_VP_MASK 0x04
+#define NEW_BITS_TIMEOUT_MASK 0x80
+
 /* Write bitmap to file. The bitmap is useful mostly for the secret
    -B option, to focus a separate fuzzing session on a particular
    interesting input without rediscovering all the others. */
@@ -410,16 +418,11 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 
 u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
-  u8 is_timeout = 0;
+  u8 is_timeout = (new_bits & NEW_BITS_TIMEOUT_MASK) ? 1 : 0;
+  u8 is_vp = (new_bits & NEW_BITS_VP_MASK) ? 1 : 0;
+  u8 cov_bits = new_bits & NEW_BITS_COVERAGE_MASK;
   u8 san_crash_only = (afl->san_case_status & SAN_CRASH_ONLY);
   u8 non_cov_incr = (afl->san_case_status & NON_COV_INCREASE_BUG);
-
-  if (new_bits & 0xf0) {
-
-    new_bits -= 0x80;
-    is_timeout = 1;
-
-  }
 
   size_t real_max_len =
       MIN(max_description_len, sizeof(afl->describe_op_buf_256));
@@ -461,7 +464,7 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
       ret[len_current++] = ',';
       ret[len_current] = '\0';
 
-      ssize_t size_left = real_max_len - len_current - strlen(",+cov") - 2;
+      ssize_t size_left = real_max_len - len_current - strlen(",+cov,+vp") - 2;
       if (is_timeout) { size_left -= strlen(",+tout"); }
       if (unlikely(size_left <= 0)) FATAL("filename got too long");
 
@@ -510,7 +513,9 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   if (is_timeout) { strcat(ret, ",+tout"); }
 
-  if (new_bits == 2) { strcat(ret, ",+cov"); }
+  if (cov_bits == 2) { strcat(ret, ",+cov"); }
+
+  if (is_vp) { strcat(ret, ",+vp"); }
 
   if (san_crash_only) { strcat(ret, ",+san"); }
 
@@ -930,8 +935,9 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  keeping = 0, res, is_timeout = 0;
+  u8  keeping = 0, res, is_timeout = 0, vp_entry = 0, vp_sample_ready = 0;
   u8  is_crash_save = 0;
+  u8  vp_restore_suppressed = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
   s32 fd;
   u32 cksum_simplified = 0, cksum_unique = 0;
@@ -1106,6 +1112,17 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       if (san_fault == FSRV_RUN_OK) {
 
+        /* Value profiling on non-coverage-producing executions.
+           VP-only admission is strict-distance-only by design. */
+        if (afl->shm.vp_map && afl->shm.vp_map->enabled &&
+            vp_frontier_would_improve(afl)) {
+
+          new_bits |= NEW_BITS_VP_MASK;
+          vp_entry = 1;
+          goto save_to_queue;
+
+        }
+
         if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
         return 0;
 
@@ -1128,7 +1145,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     calculate_cksum_if_necessary(afl, &cksum, &cksumed, &classified);
     calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
 
-    if (new_bits > 1) {
+    if ((new_bits & NEW_BITS_COVERAGE_MASK) == 2) {
 
       // do not set afl->last_find_time here
       afl->last_edge_time = get_cur_time();
@@ -1156,7 +1173,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       queue_fn = alloc_printf(
           "%s/queue/id:%06u,%s%s%s", afl->out_dir, afl->queued_items,
-          describe_op(afl, new_bits + is_timeout,
+          describe_op(afl, new_bits | is_timeout,
                       NAME_MAX - strlen("id:000000,")),
           afl->file_extension ? "." : "",
           afl->file_extension ? (const char *)afl->file_extension : "");
@@ -1187,10 +1204,31 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
+    /* add_to_queue() always advances the find clock and clears the
+       cycles-without-finds counter, but a value-profile-only entry is not a
+       coverage find. Snapshot both here and restore them below so
+       AFL_EXIT_ON_TIME, the explore/exploit switch and the havoc escalation
+       stay driven by coverage alone. */
+    u64 saved_find_time = afl->last_find_time;
+    u64 saved_find_execs = afl->last_find_execs;
+    u64 saved_longest_find = afl->longest_find_time;
+    u64 saved_cycles_wo_finds = afl->cycles_wo_finds;
+
     u8 file_modified = add_to_queue(afl, queue_fn, len, 0);
+    if (vp_entry) {
+
+      afl->last_find_time = saved_find_time;
+      afl->last_find_execs = saved_find_execs;
+      afl->longest_find_time = saved_longest_find;
+      afl->cycles_wo_finds = saved_cycles_wo_finds;
+      vp_mark_entry_vp_only(afl, afl->queue_top);
+      afl->queue_top->vp_last_ref_cycle = afl->queue_cycle;
+
+    }
 
     if (unlikely(afl->fuzz_mode) &&
-        likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode)) {
+        likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode &&
+               (new_bits & NEW_BITS_COVERAGE_MASK))) {
 
       if (afl->afl_env.afl_no_ui) {
 
@@ -1233,7 +1271,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     afl->queue_top->exec_cksum = cksum;
 
-    if (new_bits == 2) {
+    if ((new_bits & NEW_BITS_COVERAGE_MASK) == 2) {
 
       afl->queue_top->has_new_cov = 1;
       ++afl->queued_with_cov;
@@ -1245,6 +1283,15 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       afl->queue_top->n_fuzz_entry = cksum % N_FUZZ_SIZE;
       afl->n_fuzz[afl->queue_top->n_fuzz_entry] = 1;
+
+    }
+
+    if (unlikely(afl->value_profile_active)) {
+
+      /* Preserve runtime VP state from this execution across calibration
+         re-runs by temporarily disabling VP collection. */
+      afl->value_profile_suppressed = 1;
+      vp_restore_suppressed = 1;
 
     }
 
@@ -1272,6 +1319,13 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     res = calibrate_case(afl, afl->queue_top, use_mem, afl->queue_cycle - 1, 0);
 
+    if (vp_restore_suppressed) {
+
+      afl->value_profile_suppressed = 0;
+      vp_restore_suppressed = 0;
+
+    }
+
     if (unlikely(res == FSRV_RUN_ERROR)) {
 
       FATAL("Unable to execute target application");
@@ -1291,6 +1345,39 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     if (likely(afl->q_testcase_max_cache_size)) {
 
       queue_testcase_store_mem(afl, afl->queue_top, use_mem);
+
+    }
+
+    if (likely(!afl->queue_top->cal_failed)) {
+
+      if (unlikely(vp_entry)) {
+
+        vp_sample_ready =
+            vp_collect_signal_for_input(afl, use_mem, afl->queue_top->len);
+        if (vp_sample_ready) { vp_frontier_apply(afl, afl->queue_top); }
+        if (!vp_sample_ready) { vp_disable_unowned_entry(afl, afl->queue_top); }
+        if (!afl->queue_top->disabled && afl->queue_top->vp_ref_cnt) {
+
+          afl->value_profile_finds++;
+
+        }
+
+      } else if (afl->value_profile_active && afl->shm.vp_map) {
+
+        /* Coverage-producing input: also compute VP score so the scheduler
+           can see VP gradient on coverage entries too. Re-run after
+           calibration so apply never depends on stale runtime SHM state. */
+        if (vp_collect_signal_for_input(afl, use_mem, afl->queue_top->len)) {
+
+          vp_frontier_apply(afl, afl->queue_top);
+
+        }
+
+      }
+
+    } else if (unlikely(vp_entry)) {
+
+      vp_disable_unowned_entry(afl, afl->queue_top);
 
     }
 
@@ -1371,7 +1458,7 @@ may_save_fault:
 
       }
 
-      is_timeout = 0x80;
+      is_timeout = NEW_BITS_TIMEOUT_MASK;
 #ifdef INTROSPECTION
       if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 

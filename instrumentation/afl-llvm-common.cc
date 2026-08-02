@@ -38,6 +38,7 @@
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #define IS_EXTERN extern
 #include "afl-llvm-common.h"
@@ -75,6 +76,91 @@ static std::string stripRustHash(const std::string &name) {
   }
 
   return name;
+
+}
+
+/* Mark module as instrumented for a feature by emitting/retaining a tiny
+   global marker referenced from compiler.used. */
+void markInstrumentedMarker(Module &M, const char *marker_name) {
+
+  LLVMContext    *C = &(M.getContext());
+  GlobalVariable *Marker = M.getGlobalVariable(marker_name);
+
+  if (!Marker) {
+
+    Constant *Init = ConstantInt::get(Type::getInt8Ty(*C), 1);
+    Marker = new GlobalVariable(M, Init->getType(), true,
+                                GlobalValue::WeakODRLinkage, Init, marker_name);
+
+  } else if (Marker->isDeclaration()) {
+
+    Constant *Init = ConstantInt::get(Type::getInt8Ty(*C), 1);
+    Marker->setInitializer(Init);
+    Marker->setConstant(true);
+    Marker->setLinkage(GlobalValue::WeakODRLinkage);
+
+  }
+
+  Marker->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+  appendToCompilerUsed(M, {Marker});
+
+}
+
+/* Return an externally defined weak pointer global, creating it when absent.
+   Used by passes that optionally consume runtime map pointers. */
+GlobalVariable *getOrCreateExternalWeakPtrGlobal(Module &M, Type *ptr_ty,
+                                                 const char *name) {
+
+  GlobalVariable *G = M.getNamedGlobal(name);
+  if (!G) {
+
+    G = new GlobalVariable(M, ptr_ty, false, GlobalValue::ExternalWeakLinkage,
+                           0, name);
+
+  }
+
+  return G;
+
+}
+
+/* Return an externally defined pointer global that must be provided by the
+   linked runtime. Used when missing the runtime should fail at link time. */
+GlobalVariable *getOrCreateExternalPtrGlobal(Module &M, Type *ptr_ty,
+                                             const char *name) {
+
+  GlobalVariable *G = M.getNamedGlobal(name);
+  if (!G) {
+
+    G = new GlobalVariable(M, ptr_ty, false, GlobalValue::ExternalLinkage, 0,
+                           name);
+
+  }
+
+  return G;
+
+}
+
+/* Emit `load map_ptr != NULL` guard with nosanitize metadata for pass-inserted
+   runtime checks. */
+Value *createMapPtrNotNullGuard(IRBuilder<> &IRB, Module &M,
+                                GlobalVariable *map_ptr, Type *ptr_ty) {
+
+  Constant *Null = Constant::getNullValue(ptr_ty);
+  LoadInst *MapPtr = IRB.CreateLoad(ptr_ty, map_ptr);
+  MapPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_VERSION_MAJOR >= 20
+                      MDNode::get(M.getContext(), {}));
+#else
+                      MDNode::get(M.getContext(), None));
+#endif
+  return IRB.CreateICmpNE(MapPtr, Null);
+
+}
+
+CompareObserverMode getCompareObserverModeFromEnv() {
+
+  return getenv("AFL_LLVM_VALUE_PROFILE") ? CompareObserverMode::ValueProfile
+                                          : CompareObserverMode::CmpLog;
 
 }
 

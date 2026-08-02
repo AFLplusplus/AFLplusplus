@@ -42,7 +42,10 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #endif
 #include "config.h"
 #include "types.h"
+#include "hash.h"
+#include "bitops.h"
 #include "cmplog.h"
+#include "value-profile.h"
 #include "afl-ijon-min.h"
 
 /* For backtrace() support in ijon_hashstack */
@@ -70,6 +73,7 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <stddef.h>
 #include <limits.h>
 #include <errno.h>
+#include <math.h>
 
 #include <sys/mman.h>
 #ifdef __linux__
@@ -105,6 +109,10 @@ static inline void afl_sync_wake(void *uaddr) {
 
 #elif !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
+#endif
+#if !defined(__HAIKU__) && !defined(__OpenBSD__) && defined(SYS_writev)
+  #include <sys/uio.h>
+  #define AFL_HAVE_RAW_WRITEV 1
 #endif
 #ifndef USEMMAP
   #include <sys/shm.h>
@@ -505,6 +513,11 @@ __thread u32 __afl_prev_ctx;
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
 static u32      __afl_cmp_cursor[CMP_MAP_W];
+vp_map_t       *__afl_vp_map;
+vp_map_t       *__afl_vp_map_backup;
+u8              __afl_vp_enabled_fallback;
+u8             *__afl_vp_enabled_ptr = &__afl_vp_enabled_fallback;
+extern const u8 __afl_vp_instrumented __attribute__((weak));
 
 static u8 __afl_cmplog_max_len = 32;  // 16-32
 
@@ -519,6 +532,19 @@ static u8 is_persistent;
 
 /* Are we in sancov mode? */
 // static u8 _is_sancov;
+
+static inline void __afl_vp_refresh_enabled_ptr(void) {
+
+  __afl_vp_enabled_ptr =
+      __afl_vp_map ? (u8 *)&__afl_vp_map->enabled : &__afl_vp_enabled_fallback;
+
+}
+
+static inline u8 __afl_vp_target_supports_runtime(void) {
+
+  return (u8)((uintptr_t)&__afl_vp_instrumented != 0);
+
+}
 
 /* Debug? */
 
@@ -535,7 +561,7 @@ u32 __afl_already_initialized_init;
 
 /* Dummy pipe for area_is_valid() */
 
-static int __afl_dummy_fd[2] = {2, 2};
+static int __afl_dummy_fd[2] = {-1, -1};
 
 #ifdef __linux__
 static u8 addr_table_prepare(void);
@@ -791,6 +817,38 @@ static void __afl_bug_bind_map(void) {
 
 }
 
+/* Scratch descriptor for the operand-readability probes. /dev/null does not
+   work: the kernel never reads the source buffer, so the probe would report
+   unmapped memory as valid - which is also why there is no fallback to the
+   target's own stdout or stderr, whose sink the target does not control and
+   which afl-fuzz points at /dev/null. The pipe fallback is set non-blocking
+   because nothing ever drains it: once the 64K buffer is full the probes fail
+   closed and stop collecting instead of blocking the target forever. Runs at
+   most once - until it does, the descriptor stays -1 and the probes fail
+   closed. */
+static void __afl_open_dummy_fd(void) {
+
+  static u8 attempted = 0;
+
+  if (attempted) { return; }
+  attempted = 1;
+  if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
+
+    if (pipe(__afl_dummy_fd) < 0) {
+
+      __afl_dummy_fd[1] = -1;
+
+    } else {
+
+      int flags = fcntl(__afl_dummy_fd[1], F_GETFL, 0);
+      if (flags >= 0) { fcntl(__afl_dummy_fd[1], F_SETFL, flags | O_NONBLOCK); }
+
+    }
+
+  }
+
+}
+
 /* SHM setup. */
 
 static void __afl_map_shm(void) {
@@ -965,6 +1023,68 @@ static void __afl_map_shm(void) {
               __afl_area_ptr_dummy);
 
     }
+
+  }
+
+  char *vp_id_str = getenv(VP_SHM_ENV_VAR);
+
+  if (__afl_debug) {
+
+    fprintf(stderr, "DEBUG: vp id_str %s\n",
+            vp_id_str == NULL ? "<null>" : vp_id_str);
+
+  }
+
+  if (vp_id_str && __afl_vp_target_supports_runtime()) {
+
+    __afl_open_dummy_fd();
+
+#ifdef USEMMAP
+    const char *shm_file_path = vp_id_str;
+    int         shm_fd = -1;
+    vp_map_t   *shm_base = NULL;
+
+    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+    if (shm_fd == -1) {
+
+      perror("shm_open() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(1);
+
+    }
+
+    shm_base = mmap(0, sizeof(vp_map_t), PROT_READ | PROT_WRITE, MAP_SHARED,
+                    shm_fd, 0);
+    if (shm_base == MAP_FAILED) {
+
+      close(shm_fd);
+      shm_fd = -1;
+
+      fprintf(stderr, "mmap() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(2);
+
+    }
+
+    close(shm_fd);
+    shm_fd = -1;
+    __afl_vp_map = shm_base;
+#else
+    u32 shm_id = atoi(vp_id_str);
+
+    __afl_vp_map = (vp_map_t *)shmat(shm_id, NULL, 0);
+#endif
+
+    if (!__afl_vp_map || __afl_vp_map == (void *)-1) {
+
+      perror("shmat for value-profile");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
+
+    __afl_vp_map_backup = __afl_vp_map;
+    __afl_vp_refresh_enabled_ptr();
 
   }
 
@@ -1243,12 +1363,7 @@ static void __afl_map_shm(void) {
 
   if (id_str) {
 
-    // /dev/null doesn't work so we use /dev/urandom
-    if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
-
-      if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[1] = 1; }
-
-    }
+    __afl_open_dummy_fd();
 
 #ifdef USEMMAP
     const char     *shm_file_path = id_str;
@@ -1435,6 +1550,26 @@ static void __afl_unmap_shm(void) {
 
   }
 
+  id_str = getenv(VP_SHM_ENV_VAR);
+
+  if (id_str && __afl_vp_map) {
+
+#ifdef USEMMAP
+
+    munmap((void *)__afl_vp_map, sizeof(vp_map_t));
+
+#else
+
+    shmdt((void *)__afl_vp_map);
+
+#endif
+
+    __afl_vp_map = NULL;
+    __afl_vp_map_backup = NULL;
+    __afl_vp_refresh_enabled_ptr();
+
+  }
+
   __afl_already_initialized_shm = 0;
 
 }
@@ -1612,6 +1747,30 @@ static void __afl_start_forkserver(void) {
 
     }
 
+    if (__afl_vp_map && __afl_vp_target_supports_runtime()) {
+
+      status |= FS_NEW_OPT_VALUE_PROFILE;
+
+      /* Fault the whole VP map into the forkserver parent once, so forked
+         children inherit its page table entries instead of faulting each page
+         in per execution. The read-then-write matters: a pure read leaves the
+         shared pages mapped read-only and children still fault on first write.
+         The pointer must stay volatile or the self-assignment is elided. */
+      volatile u8 *vp_pages = (volatile u8 *)__afl_vp_map;
+      long         vp_page_size = sysconf(_SC_PAGE_SIZE);
+      if (vp_page_size > 0) {
+
+        for (size_t off = 0; off < sizeof(vp_map_t);
+             off += (size_t)vp_page_size) {
+
+          vp_pages[off] = vp_pages[off];
+
+        }
+
+      }
+
+    }
+
     if (__afl_dictionary_len && __afl_dictionary) {
 
       status |= FS_NEW_OPT_AUTODICT;
@@ -1652,6 +1811,10 @@ static void __afl_start_forkserver(void) {
     // FS_NEW_OPT_FUTEX - no data
 
     // FS_NEW_OPT_ALLOCSIZE_DERIVE - no data
+
+    // FS_NEW_OPT_BUG_MAP - no data
+
+    // FS_NEW_OPT_VALUE_PROFILE - no data
 
     // FS_NEW_OPT_AUTODICT - send autodictionary
     if (__afl_dictionary_len && __afl_dictionary) {
@@ -3105,6 +3268,768 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 #endif
 
+#ifdef WORD_SIZE_64
+/* Bit length for uint128_t (0 for input 0). */
+static inline u32 vp_bitlen_u128(uint128_t v) {
+
+  u64 hi = (u64)(v >> 64);
+  if (hi) return 64U + bit_length_u64(hi);
+  return bit_length_u64((u64)v);
+
+}
+
+/* Popcount for uint128_t. */
+static inline u32 vp_popcnt_u128(uint128_t v) {
+
+  return popcount_u64((u64)v) + popcount_u64((u64)(v >> 64));
+
+}
+
+/* Keep only the lowest `bits` bits from a 128-bit operand.
+   This aligns VP distance calculations with the real compare width. */
+static inline uint128_t vp_mask_u128(uint128_t v, u8 bits) {
+
+  if (bits >= 128) return v;
+  if (bits <= 64) {
+
+    if (!bits) return 0;
+    u64 mask = (bits == 64) ? ~(u64)0 : ((1ULL << bits) - 1ULL);
+    return (uint128_t)((u64)v & mask);
+
+  }
+
+  u8  hi_bits = bits - 64;
+  u64 lo = (u64)v;
+  u64 hi = (u64)(v >> 64);
+  if (hi_bits < 64) { hi &= ((1ULL << hi_bits) - 1ULL); }
+
+  return ((uint128_t)hi << 64) | lo;
+
+}
+
+static inline u16 vp_runtime_abs_dist_u128(uint128_t arg1, uint128_t arg2,
+                                           u8 bits, u8 attr) {
+
+  if (!bits) return 0;
+  arg1 = vp_mask_u128(arg1, bits);
+  arg2 = vp_mask_u128(arg2, bits);
+
+  if (attr >= CMP_ATTR_ICMP_SGT && attr <= CMP_ATTR_ICMP_SLE) {
+
+    /* Map two's-complement signed order to unsigned order before computing
+       the absolute bucket distance. */
+    uint128_t sign = ((uint128_t)1) << (bits - 1);
+    arg1 ^= sign;
+    arg2 ^= sign;
+
+  }
+
+  uint128_t diff = arg1 >= arg2 ? arg1 - arg2 : arg2 - arg1;
+  return (u16)vp_bitlen_u128(diff);
+
+}
+
+#endif
+
+/* Runtime predicate gate. Records all predicates today; this is the seam for
+   future filtering experiments, such as EQ/NE-only collection. */
+static inline u8 vp_runtime_allow_predicate(u8 attr) {
+
+  (void)attr;
+  return 1;
+
+}
+
+static inline u64 vp_runtime_site_token_pc(uintptr_t pc, u64 salt) {
+
+  return hash_fmix64((u64)pc ^ salt);
+
+}
+
+#define VP_RUNTIME_INS1_SALT 0x56505254494e5301ULL
+#define VP_RUNTIME_INS2_SALT 0x56505254494e5302ULL
+#define VP_RUNTIME_INS4_SALT 0x56505254494e5304ULL
+#define VP_RUNTIME_INS8_SALT 0x56505254494e5308ULL
+#define VP_RUNTIME_INS16_SALT 0x56505254494e5310ULL
+#define VP_RUNTIME_SWITCH_SALT 0x5650525453574954ULL
+#define VP_RUNTIME_RTN_SALT 0x5650525452544e00ULL
+
+/* Append a touched site to control[] for this execution; track drops when full.
+ */
+static inline void vp_runtime_append_control(vp_map_t *vp, u16 site_id) {
+
+  if (vp->control_len < VP_CONTROL_CAP) {
+
+    vp->control[vp->control_len++] = site_id;
+
+  }
+
+}
+
+/* Select a physical site and prepare its per-exec state. Strictly filtered
+   observation may only reuse assignments established by normal campaign
+   execution; the focus set still lets unseen sites claim a key. */
+static inline vp_site_t *vp_runtime_prepare_site(vp_map_t *vp, u64 site_token,
+                                                 u16 *site_id) {
+
+  u8  filter = vp->filter_mode;
+  u32 key = vp_map_select(vp, site_token, (u8)(filter != VP_FILTER_STRICT));
+  if (unlikely(key == VP_MAP_INVALID)) return NULL;
+  *site_id = (u16)key;
+
+  if (unlikely(filter) &&
+      !(vp->filter_bitmap[key >> 6] & (1ULL << (key & 63)))) {
+
+    return NULL;
+
+  }
+
+  vp_site_t *site = &vp->site[key];
+  if (unlikely(site->flags & VP_SITE_RETIRED)) return NULL;
+
+  if (unlikely(site->exec_seen != vp->exec_id)) {
+
+    /* Lazy per-site reset: only clear metadata for sites touched in this
+       execution, avoiding a full VP_MAP_W sweep every run. */
+    site->exec_seen = vp->exec_id;
+    site->hit_count = 0;
+    site->touched_mask = 0;
+
+  }
+
+  return site;
+
+}
+
+static inline void vp_runtime_store_dist_pair(vp_map_t *vp, u16 site_id,
+                                              vp_site_t *site, u16 slot_idx,
+                                              u16 dist0, u16 dist1) {
+
+  u16 touched = site->touched_mask;
+  if (touched != VP_SLOT_MASK) {
+
+    u16 pair_mask = (u16)(3U << slot_idx);
+    /* Adjacent metric slots are initialized as one pair. */
+    if (!(touched & pair_mask)) {
+
+      site->slots[slot_idx].best_dist = dist0;
+      site->slots[slot_idx + 1U].best_dist = dist1;
+      site->touched_mask = touched | pair_mask;
+      if (!touched) { vp_runtime_append_control(vp, site_id); }
+      return;
+
+    }
+
+  }
+
+  if (unlikely(dist0 < site->slots[slot_idx].best_dist)) {
+
+    site->slots[slot_idx].best_dist = dist0;
+
+  }
+
+  if (unlikely(dist1 < site->slots[slot_idx + 1U].best_dist)) {
+
+    site->slots[slot_idx + 1U].best_dist = dist1;
+
+  }
+
+}
+
+static inline u8 vp_runtime_u64_has_zero_byte(u64 v) {
+
+  return (u8)(((v - 0x0101010101010101ULL) & ~v & 0x8080808080808080ULL) != 0);
+
+}
+
+static inline u32 vp_runtime_hamming_sum_bytes(const u8 *ptr1, const u8 *ptr2,
+                                               u32 len) {
+
+  u32 total = 0;
+  while (len >= sizeof(u64)) {
+
+    u64 lhs = 0, rhs = 0;
+    memcpy((void *)&lhs, (const void *)ptr1, sizeof(lhs));
+    memcpy((void *)&rhs, (const void *)ptr2, sizeof(rhs));
+    total += popcount_u64(lhs ^ rhs);
+    ptr1 += sizeof(u64);
+    ptr2 += sizeof(u64);
+    len -= sizeof(u64);
+
+  }
+
+  while (len--) {
+
+    total += popcount_u8(*ptr1 ^ *ptr2);
+    ++ptr1;
+    ++ptr2;
+
+  }
+
+  return total;
+
+}
+
+static inline u32 vp_runtime_hamming_sum_bytes_stop_at_zero(const u8 *ptr1,
+                                                            const u8 *ptr2,
+                                                            u32       len) {
+
+  u32 total = 0;
+  while (len >= sizeof(u64)) {
+
+    u64 lhs = 0, rhs = 0;
+    memcpy((void *)&lhs, (const void *)ptr1, sizeof(lhs));
+    memcpy((void *)&rhs, (const void *)ptr2, sizeof(rhs));
+    if (vp_runtime_u64_has_zero_byte(lhs | rhs)) break;
+    total += popcount_u64(lhs ^ rhs);
+    ptr1 += sizeof(u64);
+    ptr2 += sizeof(u64);
+    len -= sizeof(u64);
+
+  }
+
+  while (len--) {
+
+    if (!*ptr1 && !*ptr2) break;
+    total += popcount_u8(*ptr1 ^ *ptr2);
+    ++ptr1;
+    ++ptr2;
+
+  }
+
+  return total;
+
+}
+
+static inline u64 vp_mask_u64_bits(u64 v, u8 bits) {
+
+  if (!bits) return 0;
+  if (bits >= 64) return v;
+  return v & ((1ULL << bits) - 1ULL);
+
+}
+
+static inline u16 vp_runtime_abs_dist_u64(u64 arg1, u64 arg2, u8 bits,
+                                          u8 attr) {
+
+  if (!bits) return 0;
+  arg1 = vp_mask_u64_bits(arg1, bits);
+  arg2 = vp_mask_u64_bits(arg2, bits);
+
+  if (attr >= CMP_ATTR_ICMP_SGT && attr <= CMP_ATTR_ICMP_SLE) {
+
+    /* Map two's-complement signed order to unsigned order before computing
+       the absolute bucket distance. */
+    u64 sign = 1ULL << (bits - 1);
+    arg1 ^= sign;
+    arg2 ^= sign;
+
+  }
+
+  u64 diff = arg1 >= arg2 ? arg1 - arg2 : arg2 - arg1;
+  return (u16)bit_length_u64(diff);
+
+}
+
+static inline u32 vp_runtime_float_order_key(u32 raw) {
+
+  /* IEEE-754 bit patterns are not ordered across the sign boundary. This
+     radix-sort key makes adjacent finite values adjacent in unsigned order. */
+  return (raw & 0x80000000U) ? ~raw : (raw ^ 0x80000000U);
+
+}
+
+static inline u64 vp_runtime_double_order_key(u64 raw) {
+
+  /* Same ordered-key transform as vp_runtime_float_order_key(), for doubles. */
+  return (raw & 0x8000000000000000ULL) ? ~raw : (raw ^ 0x8000000000000000ULL);
+
+}
+
+/* Each dynamic hit at a selected physical site owns one adjacent metric pair.
+   VP_SLOTS is an even power of two, so pair_count wraps cheaply via a mask.
+   The u16 hit ordinal wraps seamlessly because its 2^16 values are an exact
+   multiple of VP_PAIR_COUNT. */
+static inline u16 vp_runtime_scalar_pair_start_slot(u16 hit_ordinal) {
+
+#if VP_PAIR_COUNT <= 1U
+  (void)hit_ordinal;
+  return 0;
+#else
+  return (u16)((hit_ordinal & (VP_PAIR_COUNT - 1U)) << 1);
+#endif
+
+}
+
+/* Scalar compares benefit from keeping bitwise and numeric gradients
+   independent. This avoids low-hamming but numerically distant values
+   crowding out inputs that actually reduce the absolute difference. */
+static inline void vp_runtime_record_scalar_dists(u64 site_token,
+                                                  u16 hamming_dist,
+                                                  u16 abs_dist) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled)) return;
+
+  u16        site_id;
+  vp_site_t *site = vp_runtime_prepare_site(vp, site_token, &site_id);
+  if (unlikely(!site)) return;
+  u16 hit_ordinal = site->hit_count++;
+
+  u16 slot = vp_runtime_scalar_pair_start_slot(hit_ordinal);
+  vp_runtime_store_dist_pair(vp, site_id, site, slot, hamming_dist, abs_dist);
+
+}
+
+static inline void vp_runtime_record_switch_candidate(vp_map_t *vp, u16 site_id,
+                                                      vp_site_t *site,
+                                                      u64        val_masked,
+                                                      u64        case_val,
+                                                      u16 pseudo_hit_ordinal) {
+
+  u64 diff =
+      val_masked >= case_val ? val_masked - case_val : case_val - val_masked;
+  u16 hamming_dist = (u16)popcount_u64(val_masked ^ case_val);
+  u16 abs_dist = (u16)bit_length_u64(diff);
+  u16 slot = vp_runtime_scalar_pair_start_slot(pseudo_hit_ordinal);
+  vp_runtime_store_dist_pair(vp, site_id, site, slot, hamming_dist, abs_dist);
+
+}
+
+void __valueprofile_switch(uint64_t val, uint64_t *cases, uint64_t site_token) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled || !cases)) return;
+
+  u64 case_count = cases[0];
+  u64 bit_width = cases[1];
+  if (unlikely(!case_count || !bit_width || bit_width > 64)) return;
+
+  u16        site_id;
+  vp_site_t *site = vp_runtime_prepare_site(vp, site_token, &site_id);
+  if (unlikely(!site)) return;
+
+  u64 mask =
+      bit_width == 64 ? 0xffffffffffffffffULL : ((1ULL << bit_width) - 1ULL);
+  u64 val_masked = val & mask;
+  u64 smaller = 0;
+  u64 larger = 0;
+  u8  have_smaller = 0;
+  u8  have_larger = 0;
+  u8  exact_match = 0;
+
+  for (u64 i = 0; i < case_count; ++i) {
+
+    u64 case_val = cases[i + 2] & mask;
+    if (val_masked == case_val) {
+
+      smaller = case_val;
+      have_smaller = 1;
+      exact_match = 1;
+      break;
+
+    }
+
+    if (case_val < val_masked) {
+
+      if (!have_smaller || smaller < case_val) {
+
+        smaller = case_val;
+        have_smaller = 1;
+
+      }
+
+    } else if (!have_larger || case_val < larger) {
+
+      larger = case_val;
+      have_larger = 1;
+
+    }
+
+  }
+
+  u16 dynamic_hit = site->hit_count++;
+  u16 pseudo_hit = (u16)(dynamic_hit << 1);
+
+  if (have_smaller) {
+
+    vp_runtime_record_switch_candidate(vp, site_id, site, val_masked, smaller,
+                                       pseudo_hit++);
+
+  }
+
+  if (have_larger && !exact_match) {
+
+    vp_runtime_record_switch_candidate(vp, site_id, site, val_masked, larger,
+                                       pseudo_hit);
+
+  }
+
+}
+
+void __valueprofile_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr,
+                          uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = popcount_u8(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u64((u64)arg1, (u64)arg2, 8, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+void __valueprofile_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr,
+                          uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = popcount_u32((u32)(arg1 ^ arg2));
+    u16 abs_dist = vp_runtime_abs_dist_u64((u64)arg1, (u64)arg2, 16, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+void __valueprofile_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr,
+                          uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = popcount_u32(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u64((u64)arg1, (u64)arg2, 32, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+void __valueprofile_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr,
+                          uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = popcount_u64(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u64(arg1, arg2, 64, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+#ifdef WORD_SIZE_64
+void __valueprofile_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr,
+                           uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+
+  arg1 = vp_mask_u128(arg1, 128);
+  arg2 = vp_mask_u128(arg2, 128);
+
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = vp_popcnt_u128(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u128(arg1, arg2, 128, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+void __valueprofile_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
+                          uint8_t bits_minus_1, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  u32 bits_u32 = ((u32)bits_minus_1 + 1U) * 8U;
+  if (bits_u32 > 128U) bits_u32 = 128U;
+  u8 bits = (u8)bits_u32;
+
+  arg1 = vp_mask_u128(arg1, bits);
+  arg2 = vp_mask_u128(arg2, bits);
+
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = vp_popcnt_u128(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u128(arg1, arg2, bits, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+#endif
+
+void __valueprofile_hook_float(float arg1, float arg2, uint8_t attr,
+                               uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (isnan(arg1) || isnan(arg2)) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+    return;
+
+  }
+
+  u32 b0 = 0, b1 = 0;
+  memcpy((void *)&b0, (void *)&arg1, sizeof(b0));
+  memcpy((void *)&b1, (void *)&arg2, sizeof(b1));
+  u32 hamming = popcount_u32(b0 ^ b1);
+  u32 k0 = vp_runtime_float_order_key(b0);
+  u32 k1 = vp_runtime_float_order_key(b1);
+  u32 diff = k0 >= k1 ? k0 - k1 : k1 - k0;
+  u16 abs_dist = (u16)bit_length_u64((u64)diff);
+  vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+}
+
+void __valueprofile_hook_double(double arg1, double arg2, uint8_t attr,
+                                uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (isnan(arg1) || isnan(arg2)) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+    return;
+
+  }
+
+  u64 b0 = 0, b1 = 0;
+  memcpy((void *)&b0, (void *)&arg1, sizeof(b0));
+  memcpy((void *)&b1, (void *)&arg2, sizeof(b1));
+  u32 hamming = popcount_u64(b0 ^ b1);
+  u64 k0 = vp_runtime_double_order_key(b0);
+  u64 k1 = vp_runtime_double_order_key(b1);
+  u64 diff = k0 >= k1 ? k0 - k1 : k1 - k0;
+  u16 abs_dist = (u16)bit_length_u64(diff);
+  vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+}
+
+#define VP_RTN_STOP_AT_ZERO 1u
+#define VP_RTN_FOLD_CASE 2u
+
+static inline u8 vp_runtime_fold(u8 c) {
+
+  return (c >= 'A' && c <= 'Z') ? (u8)(c + 32) : c;
+
+}
+
+static inline u32 vp_runtime_hamming_sum_folded(const u8 *ptr1, const u8 *ptr2,
+                                                u32 len, u8 stop_at_zero) {
+
+  u32 total = 0;
+  while (len--) {
+
+    u8 a = vp_runtime_fold(*ptr1);
+    u8 b = vp_runtime_fold(*ptr2);
+    if (stop_at_zero && !a && !b) break;
+    total += popcount_u8(a ^ b);
+    ++ptr1;
+    ++ptr2;
+
+  }
+
+  return total;
+
+}
+
+/* Compute routine-compare distance (memcmp/strcmp-style) and record it
+   into runtime VP state. */
+static inline void vp_runtime_record_rtn(u64 site_token, u8 *ptr1, u8 *ptr2,
+                                         u32 max_len, u32 flags) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled)) return;
+  if (unlikely(!ptr1 || !ptr2 || max_len < 1)) return;
+  if (max_len > 32) max_len = 32;
+
+  u8 stop_at_zero = (flags & VP_RTN_STOP_AT_ZERO) != 0;
+  u8 fold = (flags & VP_RTN_FOLD_CASE) != 0;
+
+  u16        site;
+  vp_site_t *s = vp_runtime_prepare_site(vp, site_token, &site);
+  if (unlikely(!s)) return;
+
+  u32 prefix_len = 0;
+  u8  solved = 0;
+  while (prefix_len < max_len &&
+         (fold ? vp_runtime_fold(ptr1[prefix_len]) ==
+                     vp_runtime_fold(ptr2[prefix_len])
+               : ptr1[prefix_len] == ptr2[prefix_len])) {
+
+    if (stop_at_zero && ptr1[prefix_len] == 0) {
+
+      solved = 1;
+      break;
+
+    }
+
+    ++prefix_len;
+
+  }
+
+  if (prefix_len == max_len) solved = 1;
+
+  u16 prefix_dist;
+  u16 allbytes_dist;
+  if (solved) {
+
+    prefix_dist = 0;
+    allbytes_dist = 0;
+
+  } else {
+
+    /* Metric 1: prefix-based (sequential gradient). */
+    u32 rem = max_len - prefix_len;
+    u8  b1 = fold ? vp_runtime_fold(ptr1[prefix_len]) : ptr1[prefix_len];
+    u8  b2 = fold ? vp_runtime_fold(ptr2[prefix_len]) : ptr2[prefix_len];
+    u32 first_diff_hamming = popcount_u8(b1 ^ b2);
+    prefix_dist = (u16)(((rem - 1U) * 8U) + first_diff_hamming);
+
+    /* Metric 2: sum-of-hamming across ALL differing bytes.
+       Gives gradient for every byte, not just the first mismatch.
+       Range 1..256 for max_len up to 32 (32 * 8 = 256). */
+    u32 total_hamming =
+        fold ? vp_runtime_hamming_sum_folded(ptr1 + prefix_len,
+                                             ptr2 + prefix_len,
+                                             max_len - prefix_len, stop_at_zero)
+             : (stop_at_zero ? vp_runtime_hamming_sum_bytes_stop_at_zero(
+                                   ptr1 + prefix_len, ptr2 + prefix_len,
+                                   max_len - prefix_len)
+                             : vp_runtime_hamming_sum_bytes(
+                                   ptr1 + prefix_len, ptr2 + prefix_len,
+                                   max_len - prefix_len));
+
+    allbytes_dist = (u16)(total_hamming > 0 ? total_hamming : 1);
+
+  }
+
+  u16 hit_ordinal = s->hit_count++;
+
+  u16 slot = vp_runtime_scalar_pair_start_slot(hit_ordinal);
+  vp_runtime_store_dist_pair(vp, site, s, slot, prefix_dist, allbytes_dist);
+
+}
+
+/* Substring distance: the minimum of both metrics over every offset the needle
+   could sit at, so a haystack that actually contains the needle records zero
+   rather than the distance to offset 0. Callers pass the searchable haystack
+   length, already truncated at a terminating nul where their routine stops
+   there, so VP_RTN_STOP_AT_ZERO has no meaning here. */
+static inline void vp_runtime_record_sub(u64 site_token, u8 *hay, u32 hay_len,
+                                         u8 *needle, u32 needle_len,
+                                         u32 flags) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled)) return;
+  if (unlikely(!hay || !needle || needle_len < 1 || hay_len < needle_len))
+    return;
+
+  /* Claim the site before the O(hay_len * needle_len) scan so a full set
+     skips the work instead of discarding it afterwards. */
+  u16        site;
+  vp_site_t *s = vp_runtime_prepare_site(vp, site_token, &site);
+  if (unlikely(!s)) return;
+
+  u8  fold = (flags & VP_RTN_FOLD_CASE) != 0;
+  u32 best_prefix = 0xffffffffU;
+  u32 best_total = 0xffffffffU;
+  u32 last_off = hay_len - needle_len;
+
+  for (u32 off = 0; off <= last_off; ++off) {
+
+    u32 prefix = 0;
+    u32 total = 0;
+    while (prefix < needle_len) {
+
+      u8 a = fold ? vp_runtime_fold(hay[off + prefix]) : hay[off + prefix];
+      u8 b = fold ? vp_runtime_fold(needle[prefix]) : needle[prefix];
+      if (a != b) break;
+      ++prefix;
+
+    }
+
+    for (u32 i = prefix; i < needle_len; ++i) {
+
+      u8 a = fold ? vp_runtime_fold(hay[off + i]) : hay[off + i];
+      u8 b = fold ? vp_runtime_fold(needle[i]) : needle[i];
+      total += popcount_u8(a ^ b);
+
+    }
+
+    u32 prefix_dist;
+    if (prefix == needle_len) {
+
+      prefix_dist = 0;
+
+    } else {
+
+      u8 a = fold ? vp_runtime_fold(hay[off + prefix]) : hay[off + prefix];
+      u8 b = fold ? vp_runtime_fold(needle[prefix]) : needle[prefix];
+      prefix_dist =
+          (u16)(((needle_len - prefix - 1U) * 8U) + popcount_u8(a ^ b));
+
+    }
+
+    if (prefix_dist < best_prefix) { best_prefix = prefix_dist; }
+    if (total < best_total) { best_total = total; }
+    if (unlikely(!best_prefix && !best_total)) break;
+
+  }
+
+  u16 hit_ordinal = s->hit_count++;
+  u16 slot = vp_runtime_scalar_pair_start_slot(hit_ordinal);
+  vp_runtime_store_dist_pair(vp, site, s, slot, (u16)best_prefix,
+                             (u16)best_total);
+
+}
+
+static inline u8 __afl_vp_collection_enabled(void) {
+
+  return __afl_vp_map && __afl_vp_map->enabled;
+
+}
+
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
   (void)arg1;
@@ -3114,71 +4039,126 @@ void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  cmplog_ins1((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
-              CMP_ATTR_NONE);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook1(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS1_SALT));
+  else
+    cmplog_ins1(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  cmplog_ins2((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
-              CMP_ATTR_NONE);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook2(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS2_SALT));
+  else
+    cmplog_ins2(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  cmplog_ins2((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
-              CMP_ATTR_NONE);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook2(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS2_SALT));
+  else
+    cmplog_ins2(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  cmplog_ins4((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
-              CMP_ATTR_NONE);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook4(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS4_SALT));
+  else
+    cmplog_ins4(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  cmplog_ins4((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
-              CMP_ATTR_NONE);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook4(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS4_SALT));
+  else
+    cmplog_ins4(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  cmplog_ins8((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
-              CMP_ATTR_NONE);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook8(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS8_SALT));
+  else
+    cmplog_ins8(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  cmplog_ins8((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
-              CMP_ATTR_NONE);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook8(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS8_SALT));
+  else
+    cmplog_ins8(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 #ifdef WORD_SIZE_64
 void __sanitizer_cov_trace_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  cmplog_ins16((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
-               CMP_ATTR_NONE);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook16(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS16_SALT));
+  else
+    cmplog_ins16(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  cmplog_ins16((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2,
-               CMP_ATTR_NONE);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook16(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS16_SALT));
+  else
+    cmplog_ins16(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 #endif
 
 void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
+
+  if (unlikely(__afl_vp_collection_enabled())) {
+
+    uintptr_t pc = (uintptr_t)__builtin_return_address(0);
+    __valueprofile_switch(val, cases,
+                          vp_runtime_site_token_pc(pc, VP_RUNTIME_SWITCH_SALT));
+
+    return;
+
+  }
 
   if (likely(!__afl_cmp_map)) return;
 
@@ -3224,6 +4204,13 @@ static int area_is_valid(void *ptr, size_t len) {
 
   }
 
+  if (unlikely(__afl_dummy_fd[1] < 0)) {
+
+    __afl_open_dummy_fd();
+    if (__afl_dummy_fd[1] < 0) { return 0; }
+
+  }
+
 #ifdef __HAIKU__
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
 #elif defined(__OpenBSD__)
@@ -3242,6 +4229,56 @@ static int area_is_valid(void *ptr, size_t len) {
 
   if (r <= 0 || (size_t)r > len) return 0;
   return (int)r;
+
+}
+
+/* Return the common readable prefix of two operand ranges. Use one kernel
+   entry where raw writev is available and preserve the established checks
+   elsewhere. */
+static u32 area_pair_valid_len(void *ptr1, void *ptr2, size_t len) {
+
+#ifdef AFL_HAVE_RAW_WRITEV
+  if (unlikely(!ptr1 || !ptr2 || !len ||
+               (__asan_region_is_poisoned &&
+                (__asan_region_is_poisoned(ptr1, len) ||
+                 __asan_region_is_poisoned(ptr2, len))))) {
+
+    return 0;
+
+  }
+
+  if (unlikely(__afl_dummy_fd[1] < 0)) {
+
+    __afl_open_dummy_fd();
+    if (__afl_dummy_fd[1] < 0) { return 0; }
+
+  }
+
+  long page_size = sysconf(_SC_PAGE_SIZE);
+  if (unlikely(page_size <= 0)) return 0;
+
+  size_t page_mask = (size_t)page_size - 1U;
+  size_t len1 = MIN(len, (size_t)page_size - ((uintptr_t)ptr1 & page_mask));
+  size_t len2 = MIN(len, (size_t)page_size - ((uintptr_t)ptr2 & page_mask));
+  struct iovec iov[2] = {{ptr1, len1}, {ptr2, len2}};
+
+  #if defined(__APPLE__) && defined(__MACH__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  #endif
+  long r = syscall(SYS_writev, __afl_dummy_fd[1], iov, 2);
+  #if defined(__APPLE__) && defined(__MACH__)
+    #pragma GCC diagnostic pop
+  #endif
+
+  if (unlikely(r != (long)(len1 + len2))) return 0;
+  return (u32)MIN(len1, len2);
+#else
+  int len1 = area_is_valid(ptr1, len);
+  int len2 = area_is_valid(ptr2, len);
+  if (unlikely(len1 <= 0 || len2 <= 0)) return 0;
+  return (u32)MIN(len1, len2);
+#endif
 
 }
 
@@ -3861,6 +4898,194 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
 }
 
+void __valueprofile_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len,
+                                  uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 max_len = area_pair_valid_len(ptr1, ptr2, (size_t)MIN(len, 32ULL));
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, VP_RTN_STOP_AT_ZERO);
+
+}
+
+void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
+  if (cap < 2) return;
+  u32 n1 = (u32)strnlen((char *)ptr1, cap);
+  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, VP_RTN_STOP_AT_ZERO);
+
+}
+
+void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 max_len = area_pair_valid_len(ptr1, ptr2, 32);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, 0);
+
+}
+
+void __valueprofile_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len,
+                               uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 max_len = area_pair_valid_len(ptr1, ptr2, (size_t)MIN(len, 32ULL));
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, 0);
+
+}
+
+void __valueprofile_rtn_hook_str_ci(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
+  if (cap < 2) return;
+  u32 n1 = (u32)strnlen((char *)ptr1, cap);
+  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len,
+                        VP_RTN_STOP_AT_ZERO | VP_RTN_FOLD_CASE);
+
+}
+
+void __valueprofile_rtn_hook_strn_ci(u8 *ptr1, u8 *ptr2, u64 len,
+                                     uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 max_len = area_pair_valid_len(ptr1, ptr2, (size_t)MIN(len, 32ULL));
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len,
+                        VP_RTN_STOP_AT_ZERO | VP_RTN_FOLD_CASE);
+
+}
+
+void __valueprofile_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring,
+                                              uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (!area_pair_valid_len(stdstring, cstring, 32)) return;
+
+  __valueprofile_rtn_hook_str(get_gcc_stdstring(stdstring), cstring,
+                              site_token);
+
+}
+
+void __valueprofile_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2,
+                                                uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (!area_pair_valid_len(stdstring1, stdstring2, 32)) return;
+
+  __valueprofile_rtn_hook(get_gcc_stdstring(stdstring1),
+                          get_gcc_stdstring(stdstring2), site_token);
+
+}
+
+void __valueprofile_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring,
+                                               uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (!area_pair_valid_len(stdstring, cstring, 32)) return;
+
+  __valueprofile_rtn_hook_str(get_llvm_stdstring(stdstring), cstring,
+                              site_token);
+
+}
+
+void __valueprofile_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2,
+                                                 uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (!area_pair_valid_len(stdstring1, stdstring2, 32)) return;
+
+  __valueprofile_rtn_hook(get_llvm_stdstring(stdstring1),
+                          get_llvm_stdstring(stdstring2), site_token);
+
+}
+
+void __valueprofile_rtn_hook_sub(u8 *hay, u8 *needle, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(hay, needle, 32);
+  if (cap < 2) return;
+  u32 hay_len = (u32)strnlen((char *)hay, cap);
+  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  if (needle_len < 1 || hay_len < needle_len) return;
+  vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len, 0);
+
+}
+
+void __valueprofile_rtn_hook_sub_ci(u8 *hay, u8 *needle, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(hay, needle, 32);
+  if (cap < 2) return;
+  u32 hay_len = (u32)strnlen((char *)hay, cap);
+  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  if (needle_len < 1 || hay_len < needle_len) return;
+  vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len,
+                        VP_RTN_FOLD_CASE);
+
+}
+
+void __valueprofile_rtn_hook_sub_n(u8 *hay, u64 hay_len, u8 *needle,
+                                   u64 needle_len, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(hay, needle, (size_t)MIN(hay_len, 32ULL));
+  if (cap < 2) return;
+  u32 n_len = (u32)MIN(needle_len, 32ULL);
+  if (n_len < 1 || cap < n_len) return;
+  vp_runtime_record_sub(site_token, hay, cap, needle, n_len, 0);
+
+}
+
+static inline void vp_rtn_sub_hn(u8 *hay, u64 hay_len, u8 *needle,
+                                 uint64_t site_token, u32 flags) {
+
+  u32 cap = area_pair_valid_len(hay, needle, 32);
+  if (cap < 2) return;
+
+  /* A negative length is the "haystack is nul-terminated" convention used by
+     g_strstr_len(-1) and unbounded strnstr callers; derive the real length
+     instead of treating the whole validated window as content. Both routines
+     also stop at a nul inside a bounded haystack, so truncate there either
+     way - otherwise a match found past the nul reports a solved constraint
+     for a call that returns NULL. */
+  u32 hay_len_real = (u32)strnlen(
+      (char *)hay,
+      (s64)hay_len < 0 ? (size_t)cap : (size_t)MIN(hay_len, (u64)cap));
+  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  if (needle_len < 1 || hay_len_real < needle_len) return;
+  vp_runtime_record_sub(site_token, hay, hay_len_real, needle, needle_len,
+                        flags);
+
+}
+
+void __valueprofile_rtn_hook_sub_hn(u8 *hay, u64 hay_len, u8 *needle,
+                                    uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  vp_rtn_sub_hn(hay, hay_len, needle, site_token, 0);
+
+}
+
 /* llvm weak hooks */
 
 #if defined(__has_include)
@@ -3872,7 +5097,12 @@ void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
                                   size_t n, int result) {
 
-  cmplog_rtn_n((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_n(
+        (u8 *)s1, (u8 *)s2, (u64)n,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_n((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
@@ -3880,8 +5110,13 @@ void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_memmem(void *pc, const void *s1, size_t len1,
                                   const void *s2, size_t len2, void *result) {
 
-  cmplog_rtn_n((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2,
-               len1 < len2 ? (u64)len1 : (u64)len2);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_sub_n(
+        (u8 *)s1, (u64)len1, (u8 *)s2, (u64)len2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_n((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2,
+                 len1 < len2 ? (u64)len1 : (u64)len2);
   (void)result;
 
 }
@@ -3889,7 +5124,12 @@ void __sanitizer_weak_hook_memmem(void *pc, const void *s1, size_t len1,
 void __sanitizer_weak_hook_strncasecmp(void *pc, const char *s1, const char *s2,
                                        size_t n, int result) {
 
-  cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_strn_ci(
+        (u8 *)s1, (u8 *)s2, (u64)n,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
@@ -3897,7 +5137,12 @@ void __sanitizer_weak_hook_strncasecmp(void *pc, const char *s1, const char *s2,
 void __sanitizer_weak_hook_strncasestr(void *pc, const void *s1, const void *s2,
                                        size_t n, char *result) {
 
-  cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
+  if (unlikely(__afl_vp_collection_enabled()))
+    vp_rtn_sub_hn((u8 *)s1, (u64)n, (u8 *)s2,
+                  vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT),
+                  VP_RTN_FOLD_CASE);
+  else
+    cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
@@ -3905,7 +5150,12 @@ void __sanitizer_weak_hook_strncasestr(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_strncmp(void *pc, const char *s1, const char *s2,
                                    size_t n, int result) {
 
-  cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_strn(
+        (u8 *)s1, (u8 *)s2, (u64)n,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
@@ -3913,7 +5163,12 @@ void __sanitizer_weak_hook_strncmp(void *pc, const char *s1, const char *s2,
 void __sanitizer_weak_hook_strcasecmp(void *pc, const char *s1, const char *s2,
                                       int result) {
 
-  cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_str_ci(
+        (u8 *)s1, (u8 *)s2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
@@ -3921,7 +5176,12 @@ void __sanitizer_weak_hook_strcasecmp(void *pc, const char *s1, const char *s2,
 void __sanitizer_weak_hook_strcasestr(void *pc, const char *s1, const char *s2,
                                       char *result) {
 
-  cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_sub_ci(
+        (u8 *)s1, (u8 *)s2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
@@ -3929,7 +5189,12 @@ void __sanitizer_weak_hook_strcasestr(void *pc, const char *s1, const char *s2,
 void __sanitizer_weak_hook_strcmp(void *pc, const char *s1, const char *s2,
                                   int result) {
 
-  cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_str(
+        (u8 *)s1, (u8 *)s2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
@@ -3937,7 +5202,12 @@ void __sanitizer_weak_hook_strcmp(void *pc, const char *s1, const char *s2,
 void __sanitizer_weak_hook_strstr(void *pc, const char *s1, const char *s2,
                                   char *result) {
 
-  cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_sub(
+        (u8 *)s1, (u8 *)s2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
@@ -3956,6 +5226,8 @@ void __afl_coverage_off() {
 
     __afl_area_ptr = __afl_area_ptr_dummy;
     __afl_cmp_map = NULL;
+    __afl_vp_map = NULL;
+    __afl_vp_refresh_enabled_ptr();
 
   }
 
@@ -3968,6 +5240,8 @@ void __afl_coverage_on() {
 
     __afl_area_ptr = __afl_area_ptr_backup;
     if (__afl_cmp_map_backup) { __afl_cmp_map = __afl_cmp_map_backup; }
+    if (__afl_vp_map_backup) { __afl_vp_map = __afl_vp_map_backup; }
+    __afl_vp_refresh_enabled_ptr();
 
   }
 
@@ -3983,6 +5257,17 @@ void __afl_coverage_discard() {
 
     memset_noasan(__afl_cmp_map, 0, sizeof(struct cmp_map));
     memset_noasan(__afl_cmp_cursor, 0, sizeof(__afl_cmp_cursor));
+
+  }
+
+  if (__afl_vp_map) {
+
+    /* vp_runtime_prepare_site() resets per-exec fields only when
+       site->exec_seen != vp->exec_id, so bump the epoch to force lazy reset
+       without wiping persistent slot frontier state. */
+    ++__afl_vp_map->exec_id;
+    if (unlikely(!__afl_vp_map->exec_id)) { ++__afl_vp_map->exec_id; }
+    __afl_vp_map->control_len = 0;
 
   }
 

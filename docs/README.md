@@ -60,6 +60,8 @@ To learn about fuzzing other targets, see:
 
 ## Additional information
 
+* Value profiling:
+  [value_profiling.md](value_profiling.md)
 * Tools that help fuzzing with AFL++:
   [third_party_tools.md](third_party_tools.md)
 * Tutorials: [tutorials.md](tutorials.md)

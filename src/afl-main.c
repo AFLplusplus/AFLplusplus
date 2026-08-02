@@ -102,6 +102,8 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
   }
 
+  if (unlikely(afl->vp_focus_rebuild_pending)) { vp_focus_rotate(afl); }
+
   if (likely(!(!afl->old_seed_selection &&
                afl->runs_in_current_cycle > afl->queued_items) &&
              !(afl->old_seed_selection && !afl->queue_cur))) {
@@ -126,6 +128,15 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
   afl->runs_in_current_cycle = (u32)-1;
   afl->cur_skipped_items = 0;
+
+  if (unlikely(afl->vp_delayed_evictions_pending)) {
+
+    vp_apply_delayed_evictions(afl);
+    cull_queue(afl);
+
+  }
+
+  if (unlikely(afl->value_profile_active)) { vp_focus_rotate(afl); }
 
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
@@ -186,7 +197,9 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
   /* If we had a full queue cycle with no new finds, try
      recombination strategies next. */
 
-  if (unlikely(afl->queued_items == afl->prev_queued
+  /* Value-profile-only entries are not coverage finds, so they must not count
+     as progress here either. */
+  if (unlikely((u64)(afl->queued_items - afl->vp_only_items) == afl->prev_queued
                /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
                   3600 */
                )) {
@@ -267,7 +280,7 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
 #endif
 
-  afl->prev_queued = afl->queued_items;
+  afl->prev_queued = (u64)(afl->queued_items - afl->vp_only_items);
 
 }
 
@@ -343,6 +356,8 @@ static inline u8 afl_fuzz_queue(afl_state_t *afl) {
       }
 
     }
+
+    if (unlikely(afl->value_profile_mode == 2)) { vp_update_activation(afl); }
 
     afl->skipped_fuzz = fuzz_one(afl);
 #ifdef INTROSPECTION

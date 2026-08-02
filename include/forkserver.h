@@ -159,6 +159,7 @@ typedef struct afl_forkserver {
   u32  child_sync_offset;        /* byte offset of child_sync in trace_bits */
 
   bool use_ijon;                        /* use IJON tracking feature        */
+  bool use_value_profile;               /* target has L1 VP runtime support */
 
   bool use_fauxsrv;                     /* Fauxsrv for non-forking targets? */
 
