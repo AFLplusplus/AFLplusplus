@@ -601,7 +601,7 @@ static struct plugin_info afl_plugin = {
     .help = G_("AFL gcc plugin\n\
 \n\
 Set AFL_QUIET in the environment to silence it.\n\
-Set AFL_GCC_ONLY_FRSV in the environment to disable instrumentation.\n\
+Set AFL_GCC_ONLY_FSRV in the environment to disable instrumentation.\n\
 \n\
 Set AFL_INST_RATIO in the environment to a number from 0 to 100\n\
 to control how likely a block will be chosen for instrumentation.\n\
@@ -651,7 +651,8 @@ int plugin_init(struct plugin_name_args   *info,
      case it was specified in the command line's -frandom-seed for
      reproducible instrumentation.  */
   srandom(get_random_seed(false));
-  bool fsrv_only = !!getenv("AFL_GCC_ONLY_FRSV");
+  bool fsrv_only =
+      !!getenv("AFL_GCC_ONLY_FSRV") || !!getenv("AFL_GCC_ONLY_FRSV");
 
   const char *name = info->base_name;
   if (!fsrv_only) { register_callback(name, PLUGIN_INFO, NULL, &afl_plugin); }
@@ -679,7 +680,7 @@ int plugin_init(struct plugin_name_args   *info,
          aflp->out_of_line ? G_("Call-based") : G_("Inline"), inst_ratio,
          getenv("AFL_HARDEN") ? G_("hardened") : G_("non-hardened"));
   else if (fsrv_only)
-    ACTF("Instrumentation disabled due to AFL_GCC_ONLY_FRSV");
+    ACTF("Instrumentation disabled due to AFL_GCC_ONLY_FSRV");
 
   return 0;
 

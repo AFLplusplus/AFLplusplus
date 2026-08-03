@@ -2250,11 +2250,12 @@ void __afl_manual_init(void) {
 
   }
 
-  if (getenv("AFL_LLVM_ONLY_FSRV") || getenv("AFL_GCC_ONLY_FRSV")) {
+  if (getenv("AFL_LLVM_ONLY_FSRV") || getenv("AFL_GCC_ONLY_FSRV") ||
+      getenv("AFL_GCC_ONLY_FRSV")) {
 
     fprintf(stderr,
             "DEBUG: Overwrite area_ptr to dummy due to "
-            "AFL_LLVM_ONLY_FSRV/AFL_GCC_ONLY_FRSV\n");
+            "AFL_LLVM_ONLY_FSRV/AFL_GCC_ONLY_FSRV\n");
     __afl_area_ptr = __afl_area_ptr_dummy;
 
   }
