@@ -103,6 +103,30 @@ EOF
     fi
 }
 
+test_float_hook() {
+    local name="$1" type="$2" expected_hook="$3"
+    cat > "$TEMP_DIR/test.c" << EOF
+__attribute__((noinline,optnone)) int test($type a, $type b) {
+    return a == b;
+}
+
+int main(void) { return 0; }
+EOF
+
+    AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ./afl-clang-fast -O0 -S -emit-llvm \
+        -o "$TEMP_DIR/test.ll" "$TEMP_DIR/test.c" 2>/dev/null
+    local hook
+    hook=$(sed -n '/^define.*@test(/,/^}$/p' "$TEMP_DIR/test.ll" \
+        | grep -o '__cmplog_ins_hook[A-Za-z0-9]*' | head -1)
+    if [ "$hook" = "$expected_hook" ]; then
+        ((PASS++))
+    else
+        printf "$RED[-] %-16s hook=%-24s FAIL (expected %s)\n" \
+            "$name" "${hook:-none}" "$expected_hook"
+        ((FAIL++))
+    fi
+}
+
 test_attr() {
     local name="$1" type="$2" op="$3" expected="$4"
     cat > "$TEMP_DIR/test.c" << EOF
@@ -160,6 +184,8 @@ test_bitint "_BitInt(16)" 16 "__cmplog_ins_hook2"
 test_bitint "_BitInt(32)" 32 "__cmplog_ins_hook4"
 test_bitint "_BitInt(64)" 64 "__cmplog_ins_hook8"
 test_i8_policy
+test_float_hook "float hook" "float" "__cmplog_ins_hook4"
+test_float_hook "double hook" "double" "__cmplog_ins_hook8"
 test_attr "signed greater" "int" ">" 38
 test_attr "unsigned greater" "unsigned" ">" 34
 test_attr "signed lesser eq" "int" "<=" 41

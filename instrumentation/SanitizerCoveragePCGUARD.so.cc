@@ -1375,6 +1375,7 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
   if (BB->getFirstInsertionPt() == BB->end()) return false;
 
   if (&F.getEntryBlock() != BB && isFullyArtificialBlock(BB)) return false;
+  if (isAflSyntheticBlock(BB)) return false;
 
   if (Options.NoPrune || &F.getEntryBlock() == BB) return true;
 

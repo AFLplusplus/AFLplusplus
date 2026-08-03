@@ -45,6 +45,7 @@ mkdir -p libaflqemubridge/imported || exit 1
 cp -f ../include/config.h libaflqemubridge/imported/ || exit 1
 cp -f ../include/types.h libaflqemubridge/imported/ || exit 1
 cp -f ../include/cmplog.h libaflqemubridge/imported/ || exit 1
+cp -f ../include/cmp-attrs.h  libaflqemubridge/imported/ || exit 1
 cp -f ../include/snapshot-inl.h libaflqemubridge/imported/ || exit 1
 
 test "$CPU_TARGET" = "" && CPU_TARGET="$(uname -m)"

@@ -159,4 +159,10 @@ test/unittests/unit_sharedmem_mmap
 test/unittests/unit_skipdet
 test/unittests/unit_queue_score
 test/unittests/unit_testcache
+test/unittests/unit_value_profile
 **/*~
+test/ijon-maze
+t
+te
+empty
+test/empty

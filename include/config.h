@@ -177,6 +177,15 @@
 
 #define EXEC_TM_ROUND 20U
 
+/* Rate limit for every -t <n>+ timeout probe that may run for the full
+   ceiling (milliseconds). The effective interval is the larger of this and
+   100x the -t ceiling, which bounds the probe overhead at 1% of wall clock
+   time: */
+
+#ifndef TMOUT_PROBE_INTERVAL
+  #define TMOUT_PROBE_INTERVAL 60000U
+#endif
+
 /* 64bit arch MACRO */
 #if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__) ||    \
      (defined(__riscv) && __riscv_xlen == 64) || defined(__powerpc64le__) || \
@@ -472,6 +481,13 @@ We add 4 byte for one u32 length field. */
 
 #define CAL_CHANCES 3
 
+/* How often the coverage of an entry that failed calibration is handed back
+   to virgin_bits, counted per map byte. A path that can never be calibrated
+   would otherwise be rediscovered and requeued without bound, so beyond this
+   the claim stays in place: */
+
+#define CAL_RECLAIM_MAX 3
+
 /* Map size for the traced binary (2^MAP_SIZE_POW2). Must be greater than
    2; you probably want to keep it under 18 or so for performance reasons
    (adjusting AFL_INST_RATIO when compiling is probably a better way to solve
@@ -542,6 +558,13 @@ We add 4 byte for one u32 length field. */
 /* AFL RedQueen */
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
+#define VP_SHM_ENV_VAR "__AFL_VP_SHM_ID"
+
+#define VP_FOCUS_TARGET_SITES 4096U
+
+#define VP_IDLE_RETIRE_CYCLES 4U
+
+#define VP_FRONTIER_WEIGHT_MULT 16.0
 
 /* ASAN SHM ID */
 #define AFL_ASAN_FUZZ_SHM_ENV_VAR "__AFL_ASAN_SHM_ID"
