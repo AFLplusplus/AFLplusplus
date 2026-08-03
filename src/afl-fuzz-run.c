@@ -149,9 +149,9 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
   if (unlikely(afl->custom_mutators_count)) {
 
-    ssize_t new_size = len;
-    u8     *new_mem = *mem;
-    u8     *new_buf = NULL;
+    ssize_t                new_size = len;
+    u8                    *new_mem = *mem;
+    u8                    *new_buf = NULL;
     struct custom_mutator *staging_mutator = NULL;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
@@ -215,8 +215,8 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
       u8 **staging_buf_p = (original_mem == staging_mutator->post_process_buf)
                                ? &staging_mutator->post_process_buf_scratch
                                : &staging_mutator->post_process_buf;
-      u8 *staging_buf = *staging_buf_p;
-      u8  source_is_staging = new_mem == staging_buf;
+      u8  *staging_buf = *staging_buf_p;
+      u8   source_is_staging = new_mem == staging_buf;
 
       new_buf = afl_realloc((void **)staging_buf_p, new_size);
       if (unlikely(!new_buf)) { PFATAL("alloc"); }
@@ -1657,3 +1657,4 @@ u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
   return 0;
 
 }
+
