@@ -156,6 +156,13 @@ void destroy_custom_mutators(afl_state_t *afl) {
 
       }
 
+      if (el->post_process_buf_scratch) {
+
+        afl_free(el->post_process_buf_scratch);
+        el->post_process_buf_scratch = NULL;
+
+      }
+
       ck_free(el);
 
     });

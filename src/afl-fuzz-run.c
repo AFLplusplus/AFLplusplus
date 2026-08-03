@@ -152,8 +152,11 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
     ssize_t new_size = len;
     u8     *new_mem = *mem;
     u8     *new_buf = NULL;
+    struct custom_mutator *staging_mutator = NULL;
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      staging_mutator = el;
 
       if (el->afl_custom_post_process) {
 
@@ -183,6 +186,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
       if (fix) {
 
         new_size = len;
+        new_mem = *mem;
 
       } else {
 
@@ -193,6 +197,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
     }
 
     ssize_t valid_size = new_size;
+    u8     *original_mem = *mem;
 
     if (unlikely(new_size < afl->min_length && !fix)) {
 
@@ -207,27 +212,28 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
     if ((new_mem != *mem || new_size > valid_size) && new_mem != NULL &&
         new_size > 0) {
 
-      new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), new_size);
+      u8 **staging_buf_p = (original_mem == staging_mutator->post_process_buf)
+                               ? &staging_mutator->post_process_buf_scratch
+                               : &staging_mutator->post_process_buf;
+      u8 *staging_buf = *staging_buf_p;
+      u8  source_is_staging = new_mem == staging_buf;
+
+      new_buf = afl_realloc((void **)staging_buf_p, new_size);
       if (unlikely(!new_buf)) { PFATAL("alloc"); }
       ssize_t copy_size = new_size < valid_size ? new_size : valid_size;
-      if (copy_size > 0) { memcpy(new_buf, new_mem, copy_size); }
+      if (copy_size > 0 && !source_is_staging) {
+
+        memcpy(new_buf, new_mem, copy_size);
+
+      }
+
       if (new_size > copy_size) {
 
         memset(new_buf + copy_size, 0, new_size - copy_size);
 
       }
 
-      /* if AFL_POST_PROCESS_KEEP_ORIGINAL is set then save the original memory
-         prior post-processing in new_mem to restore it later */
-      if (unlikely(afl->afl_env.afl_post_process_keep_original)) {
-
-        new_mem = *mem;
-
-      }
-
       *mem = new_buf;
-      afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
-      did_swap = 1;
 
     }
 
@@ -263,12 +269,10 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
       len = new_size;
 
-    } else if (did_swap) {
+    } else {
 
-      /* restore the original memory which was saved in new_mem */
-      *mem = new_mem;
-      afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
-      did_swap = 0;
+      /* Restore the memory from before post-processing. */
+      *mem = original_mem;
 
     }
 
@@ -1653,4 +1657,3 @@ u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
   return 0;
 
 }
-
