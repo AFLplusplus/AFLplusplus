@@ -755,7 +755,8 @@ execute this script per server.
 
 For a deeper analysis than the `afl-whatsup` summary, use `afl-health`. Instead
 of just listing the numbers it diagnoses the campaign and emits a verdict
-(`healthy`, `degraded`, `stalled`, `misconfigured`, or `dead`), a within-run and
+(`healthy`, `degraded`, `stalled`, `misconfigured`, `dead`, or - if no
+`fuzzer_stats` was found at all - `no_instances`), a within-run and
 cross-run trend, and a ranked list of concrete, actionable recommendations (e.g.
 triage crashes, inject seeds, add a CMPLOG instance, investigate low stability).
 It is read-only - it never modifies the campaign it inspects - and understands

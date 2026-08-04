@@ -217,7 +217,7 @@ class ActionDirective:
 @dataclass
 class Report:
     snapshot: CampaignSnapshot
-    overall: str  # healthy | degraded | stalled | misconfigured | dead | collection_error
+    overall: str  # healthy | degraded | stalled | misconfigured | dead | no_instances | collection_error
     verdict_explainer: str
     findings: list[Finding] = field(default_factory=list)
     actions: list[ActionDirective] = field(default_factory=list)
@@ -697,6 +697,16 @@ def analyze(
         return Report(
             snap, "collection_error", snap.collection_error, notes=[f"collection failed: {snap.collection_error}"]
         )
+
+    if snap.instance_count == 0:
+        explainer = (
+            f"No fuzzer_stats found under {snap.output_dir} (searched 3 levels deep) — not an "
+            "AFL++/cargo-afl/ziggy output directory, a campaign that never got as far as writing stats, "
+            "or stats that this user may not read. Nothing was measured, so nothing is claimed about health."
+        )
+        if snap.honggfuzz_present:
+            explainer += " A ziggy honggfuzz instance is present but is not interpreted (out of scope)."
+        return Report(snap, "no_instances", explainer, notes=[explainer])
 
     findings: list[Finding] = []
     actions: list[ActionDirective] = []
@@ -1181,7 +1191,15 @@ EXIT = {
     "stalled": 1,
     "misconfigured": 2,
     "dead": 2,
+    "no_instances": 3,
     "collection_error": 3,
+}
+
+# Verdicts where no instance was read at all: every metric would be a fake zero, so
+# these report the reason instead of a header block, a table and a trend.
+NOTHING_MEASURED = {
+    "no_instances": "NO INSTANCES",
+    "collection_error": "COLLECTION ERROR",
 }
 
 
@@ -1289,8 +1307,8 @@ def _wrap_labels(labels: list[str], indent: str, width: int = 92) -> list[str]:
 
 def render_text(report: Report, summary: bool = False) -> str:
     s = report.snapshot
-    if report.overall == "collection_error":
-        return f"=== {s.campaign_id} ===\nCOLLECTION ERROR: {report.verdict_explainer}\n"
+    if report.overall in NOTHING_MEASURED:
+        return f"=== {s.campaign_id} ===\n{NOTHING_MEASURED[report.overall]}: {report.verdict_explainer}\n"
 
     hl = report.headline
     tc = _toolchain_label(s.toolchain)
@@ -1442,6 +1460,15 @@ class TrendStore:
     def save(self, report: Report) -> None:
         s = report.snapshot
         t = s.trend
+        if report.overall in NOTHING_MEASURED:
+            # No instance was read: store the verdict only, with NULL metrics, so the next
+            # run's cross-run delta is suppressed instead of computed against fake zeros.
+            self._conn.execute(
+                "INSERT INTO snapshots (campaign_id, generated_at, verdict, raw_json) VALUES (?,?,?,?)",
+                (s.campaign_id, s.generated_at, report.overall, json.dumps(report.to_dict())),
+            )
+            self._conn.commit()
+            return
         self._conn.execute(
             "INSERT INTO snapshots (campaign_id, generated_at, run_time_s, edges_found, "
             "eps_now, eps_peak, corpus_count, pending_favs, crashes, hangs, last_cov_age_s, "
@@ -1645,7 +1672,7 @@ def collect(target: Target, *, now_override: int | None = None, no_pids: bool = 
         stderr = proc.stderr.decode("utf-8", "replace").strip()
         return _err(target, stderr or f"collector exited {proc.returncode}", now_override)
     try:
-        raw = parse_dump(out, host=target.host)
+        raw = parse_dump(out, host=target.host, output_dir=target.output_dir)
     except DumpFormatError as e:
         return _err(target, f"malformed collector output: {e}", now_override)
     if now_override is not None:
@@ -1670,7 +1697,7 @@ def _opt_count(token: str) -> int:
         return 0
 
 
-def parse_dump(data: bytes, *, host: str) -> RawCampaign:
+def parse_dump(data: bytes, *, host: str, output_dir: str = "") -> RawCampaign:
     pos = 0
 
     def read_line() -> str:
@@ -1708,7 +1735,14 @@ def parse_dump(data: bytes, *, host: str) -> RawCampaign:
     first = read_line()
     if first.startswith("ERROR"):
         return RawCampaign(
-            f"{host}:?", host, "", 0, "flat", honggfuzz_present=False, collection_error=first, instances=[]
+            f"{host}:{output_dir or '?'}",
+            host,
+            output_dir,
+            0,
+            "flat",
+            honggfuzz_present=False,
+            collection_error=first,
+            instances=[],
         )
 
     meta = dict(tok.split("=", 1) for tok in first.split()[1:] if "=" in tok)
@@ -2041,6 +2075,10 @@ def _fleet_summary(reports: list[Report]) -> str:
     lines = [f"FLEET verdict: {fleet_verdict(reports).upper()}  ({len(reports)} campaigns)", ""]
     for r in reports:
         s = r.snapshot
+        if r.overall in NOTHING_MEASURED:
+            reason = r.verdict_explainer.split(" — ")[0].split("(")[0].strip()
+            lines.append(f"  {r.overall.upper():<14} {s.campaign_id}  (nothing measured: {reason})")
+            continue
         why = f", degraded: {degraded_tag(r.degraded_reasons)}" if r.degraded_reasons else ""
         lines.append(
             f"  {r.overall.upper():<14} {s.campaign_id}  "
