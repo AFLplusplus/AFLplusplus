@@ -591,6 +591,9 @@ checks or alter some of the more exotic semantics of the tool:
       - `-r 0`: enable runtime value profiling from startup.
       - `-r N`: enable runtime value profiling after `N` seconds without new
         edge coverage, then keep it enabled for the rest of the run.
+      - `-r -1`: enable runtime value profiling once the queue is starved and
+        no new edge coverage was found for a while, then keep it enabled for
+        the rest of the run.
     Value profiling may help when compare operands are transformed in ways
     that make direct solve attempts less effective.
     Notes:

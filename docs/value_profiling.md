@@ -19,6 +19,10 @@ fuzzing session.
 - `-r0`: enable value profiling from startup
 - `-rN`: enable value profiling after `N` seconds without new edge coverage,
   then keep it enabled for the rest of the run
+- `-r -1`: enable value profiling once the queue is starved and no new edge has
+  been found for `2 * STARVE_EDGE_EXECS` executions, then keep it enabled for
+  the rest of the run. With `AFL_STARVED_MINIMIZE_QUEUE` the threshold is
+  `3 * STARVE_EDGE_EXECS` so that the starved queue minimization runs first
 
 Without `-r`, value profiling stays disabled.
 
@@ -30,7 +34,10 @@ Runtime value profiling tracks eight runtime slots per assigned compare site.
 
 Stagnation mode is edge-coverage based: `-rN` activates after `N` seconds since
 the last new edge-coverage discovery. It is not based on total queue growth.
-When stagnation mode activates, AFL++ synchronously replays the existing queue
+Starve mode (`-r -1`) uses the same edge-coverage signal but counts executions
+instead of seconds, and additionally waits until the fuzzer has entered starve
+mode, meaning no unfuzzed queue entry is left.
+When either mode activates, AFL++ synchronously replays the existing queue
 once so the VP frontier also reflects already-discovered inputs. This replay
 processes enabled queue entries only. Inputs disabled before activation, such as
 coverage-duplicate seeds, are not reconsidered for VP.

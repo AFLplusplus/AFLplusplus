@@ -100,6 +100,15 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
     afl->prefer_unfuzzed = 0;
     if (!afl->pending_favored) { afl->smallest_favored = -1; }
 
+  } else if (unlikely(afl->value_profile_mode == 3) &&
+
+             unlikely(afl->starved && !afl->value_profile_active &&
+                      afl->fsrv.total_execs - afl->last_edge_execs >=
+                          (afl->afl_env.afl_starved_minimize_queue ? 3 : 2) *
+                              STARVE_EDGE_EXECS)) {
+
+    vp_force_activation(afl);
+
   }
 
   if (unlikely(afl->vp_focus_rebuild_pending)) { vp_focus_rotate(afl); }

@@ -1372,7 +1372,7 @@ void vp_restore_resume_state(afl_state_t *afl) {
 
   if (!afl->value_profile_mode) return;
 
-  if (afl->value_profile_mode == 2 && !afl->value_profile_active) {
+  if (afl->value_profile_mode > 1 && !afl->value_profile_active) {
 
     if (!afl->vp_start_time) return;
     afl->value_profile_active = 1;
@@ -1390,7 +1390,7 @@ void vp_restore_resume_state(afl_state_t *afl) {
 
 void vp_update_activation(afl_state_t *afl) {
 
-  if (afl->value_profile_mode != 2) return;
+  if (unlikely(afl->value_profile_mode != 2)) return;
 
   u64 cur = get_cur_time();
   /* Stagnation mode is edge-coverage based, not queue-growth based. */
@@ -1402,6 +1402,13 @@ void vp_update_activation(afl_state_t *afl) {
 
   if (should && !afl->value_profile_active) {
 
+    if (afl->afl_env.afl_no_ui) {
+
+      OKF("Stagnation (%llu s), enabling value profiling.",
+          (unsigned long long)(no_find_ms / 1000));
+
+    }
+
     afl->value_profile_active = 1;
     vp_note_activation(afl, cur);
     vp_clear_transient_state(afl);
@@ -1409,8 +1416,30 @@ void vp_update_activation(afl_state_t *afl) {
     vp_replay_queue(afl);
     vp_focus_rotate(afl);
     afl->score_changed = 1;
-    OKF("Stagnation (%llu s), enabling value profiling.",
-        (unsigned long long)(no_find_ms / 1000));
+
+  }
+
+}
+
+void vp_force_activation(afl_state_t *afl) {
+
+  if (unlikely(!afl || !afl->value_profile_mode)) return;
+
+  if (likely(!afl->value_profile_active)) {
+
+    if (afl->afl_env.afl_no_ui) {
+
+      OKF("Starvation, enabling value profiling.");
+
+    }
+
+    afl->value_profile_active = 1;
+    vp_note_activation(afl, get_cur_time());
+    vp_clear_transient_state(afl);
+    afl->value_profile_replay_idx = 0;
+    vp_replay_queue(afl);
+    vp_focus_rotate(afl);
+    afl->score_changed = 1;
 
   }
 

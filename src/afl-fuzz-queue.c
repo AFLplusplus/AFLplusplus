@@ -1489,7 +1489,11 @@ static void minimize_queue_disable(afl_state_t *afl) {
 
     struct queue_entry *q = afl->queue_buf[i];
 
-    if (q->disabled || unlikely(q->favored || !q->was_fuzzed || q->vp_only)) { continue; }
+    if (q->disabled || unlikely(q->favored || !q->was_fuzzed || q->vp_only)) {
+
+      continue;
+
+    }
 
     --afl->active_items;
     ++afl->disabled_items;

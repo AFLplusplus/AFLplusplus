@@ -932,7 +932,7 @@ typedef struct afl_state {
   struct cmp_map_snapshot *orig_cmp_map;
 
   /* Value profiling */
-  u8  value_profile_mode;              /* 0=off, 1=always, 2=stagnation     */
+  u8  value_profile_mode;              /* 0=off,1=always,2=stagn,3=starve */
   u32 value_profile_stagnation_secs;   /* Stagnation threshold (seconds)    */
   u8  value_profile_active;            /* Currently active?                 */
   u8  value_profile_suppressed;        /* Temporarily skip runtime collect  */
@@ -1471,6 +1471,7 @@ void afl_dump_module_map(afl_state_t *);
 void vp_note_activation(afl_state_t *, u64);
 void vp_restore_resume_state(afl_state_t *);
 void vp_update_activation(afl_state_t *);
+void vp_force_activation(afl_state_t *);
 void vp_frontier_apply(afl_state_t *, struct queue_entry *);
 u8   vp_frontier_would_improve(afl_state_t *);
 void vp_disable_unowned_entry(afl_state_t *, struct queue_entry *);

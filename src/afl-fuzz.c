@@ -341,7 +341,8 @@ static void usage(u8 *argv0, int more_help) {
       "-'.\n"
       "  -r seconds    - enable value profiling after the given period of\n"
       "                  edge-coverage stagnation; once enabled, it stays\n"
-      "                  active. Use -r0 for always-on VP\n"
+      "                  active. Use -r0 for always-on VP, -r -1 to enable\n"
+      "                  it when the queue starves\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2ATR\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
       "files,\n"
@@ -970,30 +971,40 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
 
         }
 
-        char         *endptr = NULL;
-        unsigned long stag_val;
-        errno = 0;
-        stag_val = strtoul(optarg, &endptr, 10);
-        if (errno == ERANGE || endptr == optarg || *endptr != '\0' ||
-            stag_val > UINT_MAX) {
+        if (strcmp(optarg, "-1") == 0) {
 
-          FATAL(
-              "Invalid -r value '%s'; expected 0 for always-on value "
-              "profiling or a positive number of stagnation seconds.",
-              optarg);
-
-        }
-
-        if (stag_val) {
-
-          afl->value_profile_mode = 2;
+          afl->value_profile_mode = 3;
           afl->value_profile_active = 0;
-          afl->value_profile_stagnation_secs = (u32)stag_val;
 
         } else {
 
-          afl->value_profile_mode = 1;
-          afl->value_profile_active = 1;
+          char         *endptr = NULL;
+          unsigned long stag_val;
+          errno = 0;
+          stag_val = strtoul(optarg, &endptr, 10);
+          if (errno == ERANGE || endptr == optarg || *endptr != '\0' ||
+              stag_val > UINT_MAX) {
+
+            FATAL(
+                "Invalid -r value '%s'; expected 0 for always-on value "
+                "profiling, -1 to enable it when starved, or a positive "
+                "number of stagnation seconds.",
+                optarg);
+
+          }
+
+          if (stag_val) {
+
+            afl->value_profile_mode = 2;
+            afl->value_profile_active = 0;
+            afl->value_profile_stagnation_secs = (u32)stag_val;
+
+          } else {
+
+            afl->value_profile_mode = 1;
+            afl->value_profile_active = 1;
+
+          }
 
         }
 
@@ -2008,7 +2019,9 @@ void afl_check_environment(afl_state_t *afl) {
 
     OKF("Value profiling: mode %u%s, slots %u, source=%s",
         afl->value_profile_mode,
-        afl->value_profile_mode == 1 ? " (always on)" : " (stagnation)",
+        afl->value_profile_mode == 1
+            ? " (always on)"
+            : (afl->value_profile_mode == 3 ? " (starved)" : " (stagnation)"),
         VP_SLOTS, "runtime-shm");
 
   }
