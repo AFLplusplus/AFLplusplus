@@ -1142,9 +1142,9 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
 
       }
 
-      if (!max_size || max_size < 8 ||
+      if (!max_size || max_size < 13 /*||
           (max_size == 8 && !isa<Constant>(op0_saved) &&
-           !isa<Constant>(op1_saved))) {
+           !isa<Constant>(op1_saved))*/) {
 
         // fprintf(stderr, "too small\n");
         continue;
@@ -1183,7 +1183,7 @@ bool CmpLogInstructions::hookInstrs(Module &M, LoopInfoCallback LICallback,
           cast_size = 64;
           break;
         default:
-          // 65-128 bit values are handled via 128-bit hooks.
+          // 9-15 + 65-128 bit values are handled via 128-bit hooks.
           cast_size = 128;
 
       }

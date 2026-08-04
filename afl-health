@@ -433,13 +433,19 @@ def classify_death(inst: Instance, raw: RawInstance, *, generation_start: int | 
                   afl-fuzz itself, a FATAL, or the machine going down.
     ``unknown``   no marker is available (AFL++ < 4.22a, or AFL_NO_FASTRESUME suppressed
                   it), so a clean exit cannot be ruled out either way.
+    ``unreadable``
+                  fuzzer_stats itself could not be read, so nothing about this instance,
+                  liveness included, can be determined.
 
     ``generation_start`` is the start_time of the earliest *freshly reporting* instance:
     liveness alone cannot define it, since an instance that was stopped moments ago still
     belongs to the generation its siblings are running in.
 
-    Only ``killed`` and ``unknown`` reflect badly on the campaign.
+    Only ``killed`` and ``unknown`` reflect badly on the campaign; ``unreadable`` reflects
+    on the collection, not on the campaign.
     """
+    if not raw.fuzzer_stats:
+        return "unreadable"
     if generation_start is not None and 0 < inst.start_time < generation_start and last_update < generation_start:
         return "leftover"
     if raw.fastresume_present:
@@ -506,7 +512,7 @@ def build_snapshot(raw: RawCampaign, *, no_pids: bool = False) -> CampaignSnapsh
 
         roles[role] = roles.get(role, 0) + 1
         variants[variant] = variants.get(variant, 0) + 1
-        absent = [f for f in _WATCHED_OPTIONAL if f not in kv]
+        absent = [f for f in _WATCHED_OPTIONAL if f not in kv] if kv else []
 
         instances.append(
             Instance(
@@ -646,6 +652,8 @@ DEATH_UNEXPECTED = ("killed", "unknown", "")
 DEATH_ORDER = ("killed", "unknown", "stopped", "leftover")
 
 DEATH_CAUSE = {
+    "unreadable": "fuzzer_stats could not be read: permissions (campaign owned by another user) "
+    "or the file went away mid-collection",
     "killed": "OOM-killed, SIGKILL, a crash of afl-fuzz itself, a FATAL, or the machine went down",
     "unknown": "no clean-exit marker available (AFL++ < 4.22a or AFL_NO_FASTRESUME) — cause undeterminable",
     "stopped": "shut down cleanly: stopped by the user, or a -V/-E limit was reached",
@@ -654,6 +662,7 @@ DEATH_CAUSE = {
 }
 
 DEATH_ISSUE = {
+    "unreadable": "fuzzer_stats unreadable; state undeterminable",
     "killed": "died unexpectedly (no clean-exit marker)",
     "unknown": "not running; clean exit could not be confirmed",
     "stopped": "stopped cleanly (user stop or -V/-E limit)",
@@ -699,7 +708,7 @@ def analyze(
     alive = [i for i in snap.instances if i.alive]
     dead = [i for i in snap.instances if not i.alive]
     died = [i for i in dead if i.death in DEATH_UNEXPECTED]
-    idle = [i for i in dead if i.death not in DEATH_UNEXPECTED]
+    idle = [i for i in dead if i.death not in DEATH_UNEXPECTED and i.death != "unreadable"]
     t = snap.trend
     pending_favs_total = snap.pending_favs_total()
     cycles_max = max((i.cycles_done for i in snap.instances), default=0)
@@ -809,7 +818,30 @@ def analyze(
         if not i.alive:
             status = i.death or "dead"
             issues.append(DEATH_ISSUE.get(i.death, "not running"))
-            if i.death in DEATH_UNEXPECTED:
+            if i.death == "unreadable":
+                findings.append(
+                    Finding(
+                        "medium",
+                        "instance",
+                        i.name,
+                        "fuzzer_stats could not be read",
+                        DEATH_CAUSE["unreadable"],
+                    )
+                )
+                actions.append(
+                    ActionDirective(
+                        "fix_stats_access",
+                        "medium",
+                        "instance",
+                        _target(snap, i.name),
+                        "fuzzer_stats is unreadable, so this instance cannot be assessed at all",
+                        {"death": i.death},
+                        suggested_command="check access to "
+                        f"{snap.output_dir}{'/afl' if snap.layout == 'ziggy-afl-subdir' else ''}"
+                        f"/{i.name}/fuzzer_stats",
+                    )
+                )
+            elif i.death in DEATH_UNEXPECTED:
                 findings.append(
                     Finding(
                         "medium" if alive else "high",
@@ -1452,7 +1484,9 @@ class TrendStore:
 # needs nothing beyond sh + coreutils; we never transfer corpora or core dumps —
 # only fuzzer_stats, a plot_data tail, the newest +cov mtime, and crash/hang/core
 # counts. The collector emits a length-prefixed, binary-safe dump that parse_dump
-# turns into a RawCampaign.
+# turns into a RawCampaign. Every blob length is measured from the same snapshot
+# that is written out, because afl-fuzz replaces fuzzer_stats by rename(): reading
+# the file twice can see two different inodes and would desync the stream.
 # ============================================================================
 
 # POSIX-sh collector. $1 = campaign output dir. Honours $AFL_HEALTH_NOW for tests.
@@ -1525,9 +1559,13 @@ printf '%s\n' "$stats" | while IFS= read -r f; do
   printf 'FASTRESUME %s\n' "$fr"
   printf 'MAINNODEFILE %s\n' "$mn"
   printf 'NOFASTRESUME %s\n' "$nf"
-  sn=$(wc -c < "$f" | tr -d ' ')
-  printf 'BLOB stats %s\n' "$sn"
-  cat "$f"
+  if st=$(cat "$f" 2>/dev/null); then
+    sn=$(printf '%s\n' "$st" | wc -c | tr -d ' ')
+    printf 'BLOB stats %s\n' "$sn"
+    printf '%s\n' "$st"
+  else
+    printf 'BLOB stats 0\n'
+  fi
   if [ -f "$d/plot_data" ]; then
     pt=$( { head -n1 "$d/plot_data"; tail -n 200 "$d/plot_data"; } )
     pn=$(printf '%s' "$pt" | wc -c | tr -d ' ')
@@ -1540,6 +1578,10 @@ printf '%s\n' "$stats" | while IFS= read -r f; do
 done
 printf 'END\n'
 """
+
+
+class DumpFormatError(Exception):
+    """The collector output did not follow the length-prefixed dump protocol."""
 
 
 @dataclass
@@ -1602,7 +1644,10 @@ def collect(target: Target, *, now_override: int | None = None, no_pids: bool = 
     if not out.startswith((b"CAMPAIGN", b"ERROR")):
         stderr = proc.stderr.decode("utf-8", "replace").strip()
         return _err(target, stderr or f"collector exited {proc.returncode}", now_override)
-    raw = parse_dump(out, host=target.host)
+    try:
+        raw = parse_dump(out, host=target.host)
+    except DumpFormatError as e:
+        return _err(target, f"malformed collector output: {e}", now_override)
     if now_override is not None:
         raw.now = now_override
     return raw
@@ -1615,6 +1660,14 @@ def _opt_mtime(token: str) -> float | None:
     except ValueError:
         return None
     return value if value > 0 else None
+
+
+def _opt_count(token: str) -> int:
+    """A count field from the collector; absent or non-numeric becomes 0."""
+    try:
+        return int(token.strip())
+    except ValueError:
+        return 0
 
 
 def parse_dump(data: bytes, *, host: str) -> RawCampaign:
@@ -1641,6 +1694,17 @@ def parse_dump(data: bytes, *, host: str) -> RawCampaign:
         parts = read_line().split(" ", 1)
         return parts[1] if len(parts) > 1 else ""
 
+    def read_blob(kind: str) -> str:
+        header = read_line()
+        parts = header.split()
+        if len(parts) != 3 or parts[0] != "BLOB" or parts[1] != kind or not parts[2].isdigit():
+            raise DumpFormatError(f"expected 'BLOB {kind} <len>', got {header[:60]!r}")
+        n = int(parts[2])
+        blob = read_bytes(n)
+        if len(blob) != n:
+            raise DumpFormatError(f"{kind} blob truncated: want {n} bytes, got {len(blob)}")
+        return blob.decode("utf-8", "replace")
+
     first = read_line()
     if first.startswith("ERROR"):
         return RawCampaign(
@@ -1665,18 +1729,17 @@ def parse_dump(data: bytes, *, host: str) -> RawCampaign:
         pid_alive = field_after_space() == "1"
         cov_mtime = _opt_mtime(field_after_space())
         queue_mtime = _opt_mtime(field_after_space())
-        crash_count = int(field_after_space() or 0)
-        hang_count = int(field_after_space() or 0)
-        core_bytes = int(field_after_space() or 0)
+        crash_count = _opt_count(field_after_space())
+        hang_count = _opt_count(field_after_space())
+        core_bytes = _opt_count(field_after_space())
         fastresume = field_after_space() == "1"
         main_node_file = field_after_space() == "1"
         no_fastresume_env = field_after_space() == "1"
-        b = read_line().split()  # BLOB stats N
-        stats = read_bytes(int(b[2])).decode("utf-8", "replace")
-        b = read_line().split()  # BLOB plot N
-        nplot = int(b[2])
-        plot = read_bytes(nplot).decode("utf-8", "replace") if nplot > 0 else None
-        read_line()  # ENDINSTANCE
+        stats = read_blob("stats")
+        plot = read_blob("plot") or None
+        end = read_line()
+        if end != "ENDINSTANCE":
+            raise DumpFormatError(f"expected 'ENDINSTANCE' after {name}, got {end[:60]!r}")
         instances.append(
             RawInstance(
                 name,
