@@ -637,6 +637,10 @@ during fuzzing) and their number, a value between 50-500MB is recommended. You
 can set the cache size (in MB) by setting the environment variable
 `AFL_TESTCACHE_SIZE`.
 
+The cache keeps the test cases with the highest selection probability per byte,
+recomputed whenever the queue changes, so raising the size keeps improving the
+hit rate instead of filling up with arbitrary entries.
+
 There should be one main fuzzer (`-M main-$HOSTNAME` option - set also
 `AFL_FINAL_SYNC=1`) and as many secondary fuzzers (e.g., `-S variant1`) as you
 have cores that you use. Every `-M`/`-S` entry needs a unique name (that can be

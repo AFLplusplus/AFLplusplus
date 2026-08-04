@@ -112,12 +112,195 @@ static void update_coe_fuzz_mu(afl_state_t *afl) {
 
 }
 
+static void load_testcase(struct queue_entry *q, u8 *buf, u32 len) {
+
+  int fd = open((char *)q->fname, O_RDONLY);
+
+  if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
+
+  ck_read(fd, buf, len, q->fname);
+  close(fd);
+
+}
+
+static void cache_resize(afl_state_t *afl, struct queue_entry *q, u32 len,
+                         u32 old_len) {
+
+  if (unlikely(len != old_len)) {
+
+    u8 *ptr = (u8 *)realloc(q->testcase_buf, len);
+
+    if (unlikely(!ptr)) {
+
+      PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
+
+    }
+
+    q->testcase_buf = ptr;
+    afl->q_testcase_cache_size += (u64)len - (u64)old_len;
+
+  }
+
+}
+
+#define CACHE_BUCKETS 2048
+
+static inline u32 cache_bucket_ratio(double num, u32 den) {
+
+  double dden = (double)den;
+  u64    bnum, bden;
+
+  memcpy(&bnum, &num, sizeof(bnum));
+  memcpy(&bden, &dden, sizeof(bden));
+
+  u32 enum_ = (u32)((bnum >> 52) & 0x7FF);
+
+  if (unlikely(!enum_)) { return 0; }
+
+  s32 r = (s32)enum_ - (s32)((bden >> 52) & 0x7FF) + 1023 -
+          ((bnum & 0xFFFFFFFFFFFFFULL) < (bden & 0xFFFFFFFFFFFFFULL));
+
+  return r <= 0 ? 0 : (u32)r;
+
+}
+
+static inline u8 cache_admit(afl_state_t *afl, struct queue_entry *q, u32 len) {
+
+  return len && q->cache_wanted &&
+         afl->q_testcase_cache_size + len <= afl->q_testcase_max_cache_size;
+
+}
+
+static void cache_evict(afl_state_t *afl, struct queue_entry *q) {
+
+  free(q->testcase_buf);
+  q->testcase_buf = NULL;
+  afl->q_testcase_cache_size -= q->len;
+  --afl->q_testcase_cache_count;
+  ++afl->q_testcase_evictions;
+
+}
+
+#ifdef DEBUG_BUILD
+static void cache_check_invariant(afl_state_t *afl) {
+
+  u64 sum = 0;
+  u32 count = 0, i;
+
+  for (i = 0; i < afl->queued_items; i++) {
+
+    if (afl->queue_buf[i]->testcase_buf) {
+
+      sum += afl->queue_buf[i]->len;
+      ++count;
+
+    }
+
+  }
+
+  if (sum != afl->q_testcase_cache_size ||
+      count != afl->q_testcase_cache_count) {
+
+    FATAL("testcache accounting drift: size %llu != %llu, count %u != %u", sum,
+          afl->q_testcase_cache_size, count, afl->q_testcase_cache_count);
+
+  }
+
+}
+
+#endif
+
+static inline void cache_apply_mark(afl_state_t *afl, struct queue_entry *q,
+                                    u8 want) {
+
+  if (q->cache_wanted != want) { q->cache_wanted = want; }
+
+  if (unlikely(!want && q->testcase_buf && q != afl->queue_cur)) {
+
+    cache_evict(afl, q);
+
+  }
+
+}
+
+static void mark_cache_wanted(afl_state_t *afl, double *P, u32 n,
+                              u64 total_len) {
+
+  if (unlikely(!afl->q_testcase_max_cache_size)) { return; }
+
+  u64 target = (afl->q_testcase_max_cache_size / 10) * 9;
+  u32 b = 0;
+  u32 i;
+
+  if (unlikely(total_len >= target)) {
+
+    u64 hist[CACHE_BUCKETS];
+    u64 acc = 0;
+
+    memset(hist, 0, sizeof(hist));
+
+    for (i = 0; i < n; i++) {
+
+      struct queue_entry *q = afl->queue_buf[i];
+
+      if (likely(P[i] > 0.0 && q->len)) {
+
+        hist[cache_bucket_ratio(P[i], q->len)] += q->len;
+
+      }
+
+    }
+
+    b = CACHE_BUCKETS;
+
+    while (b && acc < target) {
+
+      --b;
+      acc += hist[b];
+
+    }
+
+  }
+
+  afl->cache_bucket_min = b;
+
+  if (likely(!b)) {
+
+    for (i = 0; i < n; i++) {
+
+      struct queue_entry *q = afl->queue_buf[i];
+
+      cache_apply_mark(afl, q, P[i] > 0.0 && q->len);
+
+    }
+
+  } else {
+
+    for (i = 0; i < n; i++) {
+
+      struct queue_entry *q = afl->queue_buf[i];
+
+      cache_apply_mark(
+          afl, q,
+          P[i] > 0.0 && q->len && cache_bucket_ratio(P[i], q->len) >= b);
+
+    }
+
+  }
+
+#ifdef DEBUG_BUILD
+  cache_check_invariant(afl);
+#endif
+
+}
+
 /* create the alias table that allows weighted random selection - expensive */
 
 void create_alias_table(afl_state_t *afl) {
 
   u32    n = afl->queued_items, i = 0, nSmall = 0, nLarge = n - 1;
   double sum = 0;
+  u64    total_len = 0;
   u8     find_favored = (afl->smallest_favored == -1);
 
   if (likely(afl->alias_table)) {
@@ -181,6 +364,7 @@ void create_alias_table(afl_state_t *afl) {
         P[i] = log(q->bitmap_size);
         avg_bitmap_size += P[i];
         avg_len += q->len;
+        total_len += q->len;
         if (unlikely(q->c11)) {
 
           if (unlikely(q->c11 < c11_min)) c11_min = q->c11;
@@ -479,6 +663,7 @@ void create_alias_table(afl_state_t *afl) {
 
         q->perf_score = calculate_score(afl, q);
         sum += q->perf_score;
+        total_len += q->len;
 
         if (unlikely(find_favored)) {
 
@@ -513,6 +698,8 @@ void create_alias_table(afl_state_t *afl) {
   }
 
   // Done collecting weightings in P, now create the arrays.
+
+  mark_cache_wanted(afl, P, n, total_len);
 
   for (s32 j = (s32)(n - 1); j >= 0; j--) {
 
@@ -914,6 +1101,7 @@ u8 add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->passed_det = passed_det;
   q->mother = afl->is_doing_ijon ? NULL : afl->queue_cur;
   q->weight = 1.0;
+  q->cache_wanted = afl->q_testcase_max_cache_size != 0;
   q->perf_score = 100;
 
 #ifdef INTROSPECTION
@@ -1031,7 +1219,7 @@ void destroy_queue(afl_state_t *afl) {
   for (i = 0; i < afl->queued_items; i++) {
 
     q = afl->queue_buf[i];
-    ck_free(q->testcase_buf);
+    free(q->testcase_buf);
     ck_free(q->fname);
     ck_free(q->trace_mini);
     if (q->skipdet_e) {
@@ -1301,7 +1489,7 @@ static void minimize_queue_disable(afl_state_t *afl) {
 
     struct queue_entry *q = afl->queue_buf[i];
 
-    if (q->favored || q->disabled || !q->was_fuzzed) { continue; }
+    if (q->disabled || unlikely(q->favored || !q->was_fuzzed || q->vp_only)) { continue; }
 
     --afl->active_items;
     ++afl->disabled_items;
@@ -1796,36 +1984,9 @@ inline void queue_testcase_retake(afl_state_t *afl, struct queue_entry *q,
 
     u32 len = q->len;
 
-    // only realloc if necessary or useful
-    // (a custom trim can make the testcase larger)
-    if (unlikely(len > old_len || len + 4096 < old_len)) {
+    cache_resize(afl, q, len, old_len);
 
-      if (len >= old_len) {
-
-        afl->q_testcase_cache_size += len - old_len;
-
-      } else {
-
-        afl->q_testcase_cache_size -= old_len - len;
-
-      }
-
-      q->testcase_buf = (u8 *)realloc(q->testcase_buf, len);
-
-      if (unlikely(!q->testcase_buf)) {
-
-        PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
-
-      }
-
-    }
-
-    int fd = open((char *)q->fname, O_RDONLY);
-
-    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
-
-    ck_read(fd, q->testcase_buf, len, q->fname);
-    close(fd);
+    load_testcase(q, q->testcase_buf, len);
 
   }
 
@@ -1838,56 +1999,56 @@ inline void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q,
 
   if (likely(q->testcase_buf)) {
 
-    if (likely(in != q->testcase_buf)) {
+    u8 aliased = in == q->testcase_buf;
 
-      // only realloc if we save memory
-      if (unlikely(len + 4096 < old_len)) {
+    cache_resize(afl, q, len, old_len);
 
-        u8 *ptr = (u8 *)realloc(q->testcase_buf, len);
-
-        if (likely(ptr)) {
-
-          q->testcase_buf = ptr;
-          afl->q_testcase_cache_size -= old_len - len;
-
-        }
-
-      }
-
-      memcpy(q->testcase_buf, in, len);
-
-    }
+    if (likely(!aliased)) { memcpy(q->testcase_buf, in, len); }
 
   }
 
 }
 
 /* Returns the testcase buf from the file behind this queue entry.
-   Increases the refcount. */
+   Caches it if the entry is wanted and the cache has room. */
 
 inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
-  if (likely(q->testcase_buf)) { return q->testcase_buf; }
+  if (likely(q->testcase_buf)) {
 
-  u32    len = q->len;
-  double weight = q->weight;
+    ++afl->q_testcase_hits;
+#ifdef DEBUG_BUILD
+    {
 
-  // first handle if no testcase cache is configured, or if the
-  // weighting of the testcase is below average.
+      u8 *check = (u8 *)malloc(q->len);
 
-  if (unlikely(weight < 1.0 || !afl->q_testcase_max_cache_size)) {
+      if (unlikely(!check)) { PFATAL("alloc"); }
+      load_testcase(q, check, q->len);
 
-    u8 *buf;
+      if (memcmp(check, q->testcase_buf, q->len)) {
 
-    if (likely(q == afl->queue_cur)) {
+        FATAL("testcache buffer for '%s' does not match the file",
+              (char *)q->fname);
 
-      buf = (u8 *)afl_realloc((void **)&afl->testcase_buf, len);
+      }
 
-    } else {
-
-      buf = (u8 *)afl_realloc((void **)&afl->splicecase_buf, len);
+      free(check);
 
     }
+
+#endif
+    return q->testcase_buf;
+
+  }
+
+  ++afl->q_testcase_misses;
+
+  u32 len = q->len;
+  u8 *buf;
+
+  if (likely(cache_admit(afl, q, len))) {
+
+    buf = (u8 *)malloc(len);
 
     if (unlikely(!buf)) {
 
@@ -1895,191 +2056,34 @@ inline u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
 
     }
 
-    int fd = open((char *)q->fname, O_RDONLY);
+    load_testcase(q, buf, len);
+    q->testcase_buf = buf;
+    afl->q_testcase_cache_size += len;
+    ++afl->q_testcase_cache_count;
 
-    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
-
-    ck_read(fd, buf, len, q->fname);
-    close(fd);
     return buf;
 
   }
 
-  /* now handle the testcase cache and we know it is an interesting one */
+  if (likely(q == afl->queue_cur)) {
 
-  /* Buf not cached, let's load it */
-  u32        tid = afl->q_testcase_max_cache_count;
-  static u32 do_once = 0;  // because even threaded we would want this. WIP
+    buf = (u8 *)afl_realloc((void **)&afl->testcase_buf, len);
 
-  while (unlikely(
-      (afl->q_testcase_cache_size + len >= afl->q_testcase_max_cache_size &&
-       afl->q_testcase_cache_count > 1) ||
-      afl->q_testcase_cache_count >= afl->q_testcase_max_cache_entries - 1)) {
+  } else {
 
-    /* We want a max number of entries to the cache that we learn.
-       Very simple: once the cache is filled by size - that is the max. */
-
-    if (unlikely(
-            afl->q_testcase_cache_size + len >=
-                afl->q_testcase_max_cache_size &&
-            (afl->q_testcase_cache_count < afl->q_testcase_max_cache_entries &&
-             afl->q_testcase_max_cache_count <
-                 afl->q_testcase_max_cache_entries) &&
-            !do_once)) {
-
-      if (afl->q_testcase_max_cache_count > afl->q_testcase_cache_count) {
-
-        afl->q_testcase_max_cache_entries = afl->q_testcase_max_cache_count + 1;
-
-      } else {
-
-        afl->q_testcase_max_cache_entries = afl->q_testcase_cache_count + 1;
-
-      }
-
-      do_once = 1;
-      // release unneeded memory
-      afl->q_testcase_cache = (struct queue_entry **)ck_realloc(
-          afl->q_testcase_cache,
-          (afl->q_testcase_max_cache_entries + 1) * sizeof(size_t));
-
-    }
-
-    /* Cache full. We need to evict one or more to map one.
-       Get a random one which is not in use */
-
-    u32 evict_tries = 0;
-    do {
-
-      // if the cache (MB) is not enough for the queue then this gets
-      // undesirable because q_testcase_max_cache_count grows sometimes
-      // although the number of items in the cache will not change hence
-      // more and more loops
-      tid = rand_below(afl, afl->q_testcase_max_cache_count);
-      ++evict_tries;
-
-    } while ((afl->q_testcase_cache[tid] == NULL ||
-
-              afl->q_testcase_cache[tid] == afl->queue_cur) &&
-             evict_tries < afl->q_testcase_max_cache_count * 4);
-
-    /* If random search failed, scan linearly for any evictable slot */
-    if (afl->q_testcase_cache[tid] == NULL ||
-        afl->q_testcase_cache[tid] == afl->queue_cur) {
-
-      u32 k;
-      for (k = 0; k < afl->q_testcase_max_cache_count; ++k) {
-
-        if (afl->q_testcase_cache[k] != NULL &&
-            afl->q_testcase_cache[k] != afl->queue_cur) {
-
-          tid = k;
-          break;
-
-        }
-
-      }
-
-      if (k == afl->q_testcase_max_cache_count) {
-
-        // Only queue_cur is cached; nothing to evict.
-        // Proceed to cache without eviction.
-        break;
-
-      }
-
-    }
-
-    struct queue_entry *old_cached = afl->q_testcase_cache[tid];
-    free(old_cached->testcase_buf);
-    old_cached->testcase_buf = NULL;
-    afl->q_testcase_cache_size -= old_cached->len;
-    afl->q_testcase_cache[tid] = NULL;
-    --afl->q_testcase_cache_count;
-    ++afl->q_testcase_evictions;
-    if (tid < afl->q_testcase_smallest_free)
-      afl->q_testcase_smallest_free = tid;
+    buf = (u8 *)afl_realloc((void **)&afl->splicecase_buf, len);
 
   }
 
-  if (unlikely(tid >= afl->q_testcase_max_cache_entries)) {
-
-    // uh we were full, so now we have to search from start
-    tid = afl->q_testcase_smallest_free;
-
-  }
-
-  // we need this while loop in case there were ever previous evictions but
-  // not in this call.
-  while (unlikely(tid < afl->q_testcase_max_cache_entries &&
-                  afl->q_testcase_cache[tid] != NULL)) {
-
-    ++tid;
-
-  }
-
-  // something is wrong if this is true:
-  if (unlikely(tid >= afl->q_testcase_max_cache_entries)) {
-
-    u8 *buf;
-    if (likely(q == afl->queue_cur)) {
-
-      buf = (u8 *)afl_realloc((void **)&afl->testcase_buf, len);
-
-    } else {
-
-      buf = (u8 *)afl_realloc((void **)&afl->splicecase_buf, len);
-
-    }
-
-    if (unlikely(!buf)) {
-
-      PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
-
-    }
-
-    int fd = open((char *)q->fname, O_RDONLY);
-
-    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
-
-    ck_read(fd, buf, len, q->fname);
-    close(fd);
-    return buf;
-
-  }
-
-  /* Map the test case into memory. */
-
-  int fd = open((char *)q->fname, O_RDONLY);
-
-  if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
-
-  q->testcase_buf = (u8 *)malloc(len);
-
-  if (unlikely(!q->testcase_buf)) {
+  if (unlikely(!buf)) {
 
     PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
 
   }
 
-  ck_read(fd, q->testcase_buf, len, q->fname);
-  close(fd);
+  load_testcase(q, buf, len);
 
-  /* Register testcase as cached */
-  afl->q_testcase_cache[tid] = q;
-  afl->q_testcase_cache_size += len;
-  ++afl->q_testcase_cache_count;
-  if (likely(tid >= afl->q_testcase_max_cache_count)) {
-
-    afl->q_testcase_max_cache_count = tid + 1;
-
-  } else if (unlikely(tid == afl->q_testcase_smallest_free)) {
-
-    afl->q_testcase_smallest_free = tid + 1;
-
-  }
-
-  return q->testcase_buf;
+  return buf;
 
 }
 
@@ -2090,41 +2094,7 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
 
   u32 len = q->len;
 
-  if (unlikely(q->weight < 1.0 ||
-               afl->q_testcase_cache_size + len >=
-                   afl->q_testcase_max_cache_size ||
-               afl->q_testcase_cache_count >=
-                   afl->q_testcase_max_cache_entries - 1)) {
-
-    // no space or uninteresting? will be loaded regularly later.
-    return;
-
-  }
-
-  u32 tid;
-
-  if (unlikely(afl->q_testcase_max_cache_count >=
-               afl->q_testcase_max_cache_entries)) {
-
-    // uh we were full, so now we have to search from start
-    tid = afl->q_testcase_smallest_free;
-
-  } else {
-
-    tid = afl->q_testcase_max_cache_count;
-
-  }
-
-  while (unlikely(tid < afl->q_testcase_max_cache_entries &&
-                  afl->q_testcase_cache[tid] != NULL)) {
-
-    ++tid;
-
-  }
-
-  if (unlikely(tid >= afl->q_testcase_max_cache_entries)) { return; }
-
-  /* Map the test case into memory. */
+  if (unlikely(!cache_admit(afl, q, len))) { return; }
 
   q->testcase_buf = (u8 *)malloc(len);
 
@@ -2135,21 +2105,8 @@ inline void queue_testcase_store_mem(afl_state_t *afl, struct queue_entry *q,
   }
 
   memcpy(q->testcase_buf, mem, len);
-
-  /* Register testcase as cached */
-  afl->q_testcase_cache[tid] = q;
   afl->q_testcase_cache_size += len;
   ++afl->q_testcase_cache_count;
-
-  if (likely(tid >= afl->q_testcase_max_cache_count)) {
-
-    afl->q_testcase_max_cache_count = tid + 1;
-
-  } else if (unlikely(tid == afl->q_testcase_smallest_free)) {
-
-    afl->q_testcase_smallest_free = tid + 1;
-
-  }
 
 }
 

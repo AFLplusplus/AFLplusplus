@@ -513,6 +513,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "testcache_size    : %llu\n"
       "testcache_count   : %u\n"
       "testcache_evict   : %u\n"
+      "testcache_hits    : %llu\n"
+      "testcache_misses  : %llu\n"
       "afl_banner        : %s\n"
       "afl_version       : " VERSION
       "\n"
@@ -552,7 +554,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 #endif
       t_bytes, afl->fsrv.real_map_size, afl->var_byte_count, afl->expand_havoc,
       afl->a_extras_cnt, afl->q_testcase_cache_size,
-      afl->q_testcase_cache_count, afl->q_testcase_evictions, afl->use_banner,
+      afl->q_testcase_cache_count, afl->q_testcase_evictions,
+      afl->q_testcase_hits, afl->q_testcase_misses, afl->use_banner,
       afl->unicorn_mode ? "unicorn" : "", afl->fsrv.qemu_mode ? "qemu " : "",
       afl->fsrv.cs_mode ? "coresight" : "",
       afl->non_instrumented_mode ? " non_instrumented " : "",

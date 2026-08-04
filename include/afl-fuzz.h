@@ -293,8 +293,8 @@ struct queue_entry {
       fs_redundant,                     /* Marked as redundant in the fs?   */
       is_ascii,                         /* Is the input just ascii text?    */
       disabled,                         /* Is disabled from fuzz selection  */
-      tightness_novel;  /* New per-site min-slack on any
-                           inequality cmp; keep favoured.   */
+      cache_wanted,                     /* Wanted in the testcase cache?    */
+      tightness_novel;          /* min-slack on inequality cmp; keep fav'ed */
 
   u32 bitmap_size,                      /* Number of bits set in bitmap     */
 #ifdef INTROSPECTION
@@ -1060,27 +1060,20 @@ typedef struct afl_state {
   /* This is the user specified maximum size to use for the testcase cache */
   u64 q_testcase_max_cache_size;
 
-  /* This is the user specified maximum entries in the testcase cache */
-  u32 q_testcase_max_cache_entries;
-
   /* How much of the testcase cache is used so far */
   u64 q_testcase_cache_size;
-
-  /* highest cache count so far */
-  u32 q_testcase_max_cache_count;
 
   /* How many queue entries currently have cached testcases */
   u32 q_testcase_cache_count;
 
-  /* the smallest id currently known free entry */
-  u32 q_testcase_smallest_free;
-
   /* How often did we evict from the cache (for statistics only) */
   u32 q_testcase_evictions;
 
-  /* Refs to each queue entry with cached testcase (for eviction, if cache_count
-   * is too large) */
-  struct queue_entry **q_testcase_cache;
+  /* Lowest density bucket whose entries belong in the testcase cache */
+  u32 cache_bucket_min;
+
+  /* Testcase cache hits and misses (for statistics only) */
+  u64 q_testcase_hits, q_testcase_misses;
 
   /* Global Profile Data for deterministic/havoc-splice stage */
   struct havoc_profile *havoc_prof;
