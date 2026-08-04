@@ -620,7 +620,8 @@ typedef struct afl_env_vars {
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
-      *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
+      *afl_target_env, *afl_persistent_record, *afl_exit_on_time, *afl_elf_dict,
+      *afl_cmplog_binary_consts;
 
   s32 afl_pizza_mode, afl_ijon_history_limit;
 
@@ -918,6 +919,28 @@ typedef struct afl_state {
   u32 cmplog_max_filesize;
   u32 cmplog_lvl;
   u32 colorize_success;
+
+  /* The real fuzz target, captured before check_binary() gets called again for
+     the cmplog and SAND binaries and repoints fsrv.target_path at those. */
+  u8 *real_target_path;
+
+  /* AFL_CMPLOG_BINARY_CONSTS: sorted, deduplicated constants occurring in the
+     target binary. A cmplog comparison operand is only promoted to the auto
+     dictionary if it is in here, which separates constants the program really
+     embeds from values it computed at runtime (lengths, offsets, pointers).
+     Left NULL when the gate is off or the set could not be built, in which
+     case no gating happens at all. */
+  u32 *ro_consts32;
+  u32  ro_consts32_cnt;
+  u64 *ro_consts64;
+  u32  ro_consts64_cnt;
+
+  /* Self-supervision for the gate above: how many decisions it made, how many
+     it let through, and whether it concluded it was wrong about this target and
+     turned itself off. */
+  u64 const_gate_seen;
+  u64 const_gate_passed;
+  u8  const_gate_off;
   u8  cmplog_enable_arith, cmplog_enable_transform, cmplog_enable_scale,
       cmplog_enable_xtreme_transform, cmplog_random_colorization;
   u8 saved_cmplog_enable_arith;
@@ -1525,10 +1548,23 @@ void load_extras(afl_state_t *, u8 *);
 void dedup_extras(afl_state_t *);
 void deunicode_extras(afl_state_t *);
 void add_extra(afl_state_t *afl, u8 *mem, u32 len);
+void add_extra_nocheck(afl_state_t *, u8 *, u32);
+void sort_extras(afl_state_t *);
 void maybe_add_auto(afl_state_t *, u8 *, u32);
 void save_auto(afl_state_t *);
 void load_auto(afl_state_t *);
 void destroy_extras(afl_state_t *);
+
+/* ELF dictionary mining (AFL_ELF_DICT), src/afl-fuzz-elf.c */
+
+void load_extras_from_elf(afl_state_t *, u8 *);
+u8   elf_dict_in_extras(struct extra_data *, u32, u8 *, u32);
+
+/* AFL_CMPLOG_BINARY_CONSTS, src/afl-fuzz-elf.c */
+
+void collect_binary_consts(afl_state_t *, u8 *, u8);
+void destroy_binary_consts(afl_state_t *);
+u8   const_in_binary(afl_state_t *, u64, u8);
 
 /* Stats */
 

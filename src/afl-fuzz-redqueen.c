@@ -1988,6 +1988,13 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
   }
 
+  /* AFL_CMPLOG_BINARY_CONSTS: a comparison operand is only worth a dictionary
+     token if the program actually embeds it. Values it computed at runtime -
+     lengths, offsets, pointers - compare against nothing that appears in the
+     binary, and are noise here. No-op unless the constant set was built. */
+
+  if (unlikely(!const_in_binary(afl, v, shape))) { return; }
+
   maybe_add_auto(afl, (u8 *)&v, shape);
 
   u64 rev;

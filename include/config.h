@@ -605,5 +605,63 @@ We add 4 byte for one u32 length field. */
 
 #define AFL_TXT_MIN_PERCENT 99
 
+/* ELF dictionary mining (AFL_ELF_DICT), see src/afl-fuzz-elf.c */
+
+/* Total tokens mined from the target binary: */
+
+#define ELF_DICT_MAX_TOKENS 2048
+
+/* Per-class share of the budget above. Must sum to ELF_DICT_MAX_TOKENS.
+   Unused quota rolls over, so with AFL_ELF_DICT=1 the text quota is simply
+   redistributed to the data classes. */
+
+#define ELF_DICT_QUOTA_STRING 896
+#define ELF_DICT_QUOTA_32 448
+#define ELF_DICT_QUOTA_64 320
+#define ELF_DICT_QUOTA_128 128
+#define ELF_DICT_QUOTA_TEXT 256
+
+/* Upper bound on candidates collected per class before subsampling. Keeps
+   memory bounded on a pathologically large binary: */
+
+#define ELF_DICT_MAX_CANDIDATES 100000
+
+/* Length bounds for mined strings. 32 matches MAX_AUTO_EXTRA. */
+
+#define ELF_DICT_MIN_STRING 4
+#define ELF_DICT_MAX_STRING 32
+
+/* Maximum PT_LOAD ranges recorded for the 32-bit pointer filter: */
+
+#define ELF_DICT_MAX_LOAD 32
+
+/* AFL_CMPLOG_BINARY_CONSTS: upper bound on collected constants per width.
+   Beyond this the gate is disabled rather than applied to an incomplete set,
+   because a missing entry silently drops a real cmplog token.
+
+   The set costs about 12 bytes per byte of scanned section and is held for the
+   whole session, per fuzzer instance, so this bound is what keeps a default-on
+   feature from taking 100 MB on a large target: 2M entries is ~24 MB worst
+   case, reached at roughly 2 MB of code plus data. Larger targets fail open. */
+
+#define ELF_CONST_MAX_VALUES (2 * 1024 * 1024)
+
+/* The gate cannot see constants that live outside the scanned binary, which is
+   what happens when the instrumented code is in a shared library: it then
+   rejects nearly every operand and would silently disable cmplog's dictionary.
+   That is detectable - a healthy target accepts on the order of 20% - so the
+   gate reviews its own accept rate every this many decisions and switches
+   itself off if fewer than 1 in ELF_CONST_GATE_MIN_RATIO passed.
+
+   The review has to happen early and repeatedly, not once at a high count: a
+   target that makes only a few dozen comparison decisions per run would
+   otherwise never reach the checkpoint and the gate would starve cmplog for the
+   whole session. At the first checkpoint the ratio test demands literally zero
+   accepts, which a target accepting ~20% reaches with probability 0.8^64, about
+   1 in 70000; later checkpoints relax it to the proportional 0.5%. */
+
+#define ELF_CONST_GATE_SAMPLE 64
+#define ELF_CONST_GATE_MIN_RATIO 200
+
 #endif                                                  /* ! _HAVE_CONFIG_H */
 
