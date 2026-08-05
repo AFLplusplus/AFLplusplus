@@ -1115,6 +1115,7 @@ struct custom_mutator {
   char       *name_short;
   void       *dh;
   u8         *post_process_buf;
+  u8         *post_process_buf_scratch;
   u8          stacked_custom_prob, stacked_custom;
 
   void *data;                                    /* custom mutator data ptr */
