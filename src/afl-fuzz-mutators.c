@@ -136,6 +136,28 @@ void setup_custom_mutators(afl_state_t *afl) {
 
 #endif
 
+  if (unlikely(afl->afl_env.afl_post_process_keep_original &&
+               afl->custom_mutators_count)) {
+
+    u8 has_post_process = 0;
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_post_process) { has_post_process = 1; }
+
+    });
+
+    if (has_post_process) {
+
+      WARNF(
+          "AFL_POST_PROCESS_KEEP_ORIGINAL is set: the post-processed output "
+          "is executed against the target but never saved to the queue, "
+          "only the pre-post-process input is.");
+
+    }
+
+  }
+
 }
 
 void destroy_custom_mutators(afl_state_t *afl) {

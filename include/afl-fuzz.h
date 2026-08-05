@@ -1008,6 +1008,10 @@ typedef struct afl_state {
 
   u8 *out_scratch_buf;
 
+  u8 *post_process_orig_buf;
+
+  u8 *post_process_orig_buf_scratch;
+
   u8 *eff_buf;
 
   u8 *in_buf;

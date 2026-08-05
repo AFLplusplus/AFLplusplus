@@ -153,6 +153,18 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
     u8                    *new_mem = *mem;
     u8                    *new_buf = NULL;
     struct custom_mutator *staging_mutator = NULL;
+    u8                    *keep_orig_buf = NULL;
+
+    if (unlikely(afl->afl_env.afl_post_process_keep_original)) {
+
+      u8 **orig_buf_p = (*mem == afl->post_process_orig_buf)
+                            ? &afl->post_process_orig_buf_scratch
+                            : &afl->post_process_orig_buf;
+      keep_orig_buf = afl_realloc((void **)orig_buf_p, len ? len : 1);
+      if (unlikely(!keep_orig_buf)) { PFATAL("alloc"); }
+      if (len) { memcpy(keep_orig_buf, *mem, len); }
+
+    }
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
@@ -271,8 +283,8 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
     } else {
 
-      /* Restore the memory from before post-processing. */
-      *mem = original_mem;
+      /* Restore the bytes captured before post-processing ran. */
+      *mem = keep_orig_buf;
 
     }
 
