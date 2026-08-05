@@ -237,7 +237,7 @@ VP-only queue entries are counted in `value_profile_finds` and in
 `corpus_count`, but they deliberately do not update `last_find_time`. The
 "no new finds" clock that drives `AFL_EXIT_ON_TIME`, the explore/exploit
 switch and the `time_wo_finds` display stays coverage-based, matching the
-`last_cov_find_time` clock that `-rN` stagnation mode uses.
+`last_edge_find` clock that `-rN` stagnation mode uses.
 
 Note that `cycles_wo_finds`, and the havoc escalation gated on it, count
 queue growth rather than the find clock, so VP-only entries do still reset

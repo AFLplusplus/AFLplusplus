@@ -2,6 +2,7 @@
 
 ## Must
 
+ - kill -SIGUSR1 -> force sync
  - Review `mutation_array = ` in src/afl-fuzz-one.c
  - find a solution that SAYF now prints to stderr (help!)
  - afl_fsrv_deinit cmplog
@@ -10,7 +11,6 @@
  - cmplog max items env?
  - cmplog rtn sanity check on fixed length? currently we ignore the length
  - when trimming perform crash detection, new cov?
-
 
 ## Should
 

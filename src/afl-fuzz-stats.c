@@ -274,7 +274,7 @@ void load_stats_file(afl_state_t *afl) {
 
       }
 
-      if (key_matches("last_cov_find_time", keystring)) {
+      if (key_matches("last_edge_find", keystring)) {
 
         /* Restore the edge-coverage clock used for VP stagnation. */
         afl->last_edge_time = 1000 * strtoull(lptr, &nptr, 10);
@@ -501,6 +501,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "last_hang         : %llu\n"
       "execs_since_crash : %llu\n"
       "last_edge_execs   : %llu\n"
+      "last_edge_find    : %llu\n"
       "exec_timeout      : %u\n"
       "slowest_exec_ms   : %u\n"
       "peak_rss_mb       : %lu\n"
@@ -541,7 +542,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       afl->saved_crashes, afl->saved_hangs, afl->total_tmouts,
       afl->last_find_time / 1000, afl->last_crash_time / 1000,
       afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
-      afl->last_edge_execs, afl->fsrv.exec_tmout, afl->slowest_exec_ms,
+      afl->last_edge_execs, (unsigned long long)(afl->last_edge_time / 1000),
+      afl->fsrv.exec_tmout, afl->slowest_exec_ms,
 #ifndef __HAIKU__
       (unsigned long int)afl->peak_rss_mb,
 #else
@@ -625,8 +627,6 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
             (unsigned long long)afl->value_profile_finds);
     fprintf(f, "vp_start_time        : %llu\n",
             (unsigned long long)(afl->vp_start_time / 1000));
-    fprintf(f, "last_cov_find_time   : %llu\n",
-            (unsigned long long)(afl->last_edge_time / 1000));
 
   }
 
