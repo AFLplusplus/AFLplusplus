@@ -740,6 +740,13 @@ You can run this manually, per cron job - as you need it. There is a more
 complex and configurable script in
 [utils/distributed_fuzzing](../utils/distributed_fuzzing).
 
+An instance only picks up such freshly copied test cases with its next
+scheduled sync, which can be up to `AFL_SYNC_TIME` (20 minutes by default)
+away. To make it sync immediately, send it a `SIGUSR2`, e.g.
+`killall -USR2 afl-fuzz`. The sync - of the `-M`/`-S` sync directory as well as
+of all `-F` foreign directories - is performed as soon as the queue entry that
+is currently being fuzzed is done, so it does not throw away any work.
+
 ### e) The status of the fuzz campaign
 
 AFL++ comes with the `afl-whatsup` script to show the status of the fuzzing

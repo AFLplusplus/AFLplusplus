@@ -776,7 +776,8 @@ typedef struct afl_state {
   size_t san_dedup_entries;
 
   volatile u8 stop_soon,                /* Ctrl-C pressed?                  */
-      clear_screen;                     /* Window resized?                  */
+      clear_screen,                     /* Window resized?                  */
+      sync_requested;                   /* Sync request, via SIGUSR2        */
 
   u32 queued_items,                     /* Total number of queued testcases */
       queued_variable,                  /* Testcases with variable behavior */
@@ -1379,13 +1380,6 @@ struct custom_mutator {
 void afl_state_init(afl_state_t *, uint32_t map_size);
 void afl_state_deinit(afl_state_t *);
 void afl_resize_map_buffers(afl_state_t *, u32 old_size, u32 new_size);
-
-/* Set stop_soon flag on all children, kill all children */
-void afl_states_stop(void);
-/* Set clear_screen flag on all states */
-void afl_states_clear_screen(void);
-/* Sets the skip flag on all states */
-void afl_states_request_skip(void);
 
 /* Setup shmem for testcase delivery */
 void setup_testcase_shmem(afl_state_t *afl);

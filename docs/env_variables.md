@@ -897,7 +897,7 @@ checks or alter some of the more exotic semantics of the tool:
     note that time is halved for -M main nodes.
 
   - `AFL_NO_SYNC` disables any syncing whatsoever and takes priority on all
-    other syncing parameters.
+    other syncing parameters, including a sync forced with `SIGUSR2`.
 
   - Setting `AFL_TARGET_ENV` causes AFL++ to set extra environment variables for
     the target binary. Example: `AFL_TARGET_ENV="VAR1=1 VAR2='a b c'" afl-fuzz

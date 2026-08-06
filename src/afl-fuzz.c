@@ -661,14 +661,16 @@ void maybe_sync_fuzzers(afl_state_t *afl, u64 cur_time,
 
   u64 sync_time = afl->is_main_node ? afl->sync_time >> 1 : afl->sync_time;
 
-  if (unlikely(cur_time > sync_time + afl->last_sync_time)) {
+  if (unlikely(cur_time > sync_time + afl->last_sync_time ||
+               afl->sync_requested)) {
 
     u32 sync_interval = afl->is_main_node ? SYNC_INTERVAL / 3 : SYNC_INTERVAL;
 
-    if (NULL == sync_interval_cnt ||
+    if (afl->sync_requested || NULL == sync_interval_cnt ||
         !((*sync_interval_cnt)++ % sync_interval)) {
 
       sync_fuzzers(afl);
+      afl->sync_requested = 0;
 
     }
 

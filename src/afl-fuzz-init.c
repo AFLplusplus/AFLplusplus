@@ -32,6 +32,8 @@
 #include <sys/stat.h>
 #include "cmplog.h"
 
+static afl_state_t *local_afl;
+
 #ifdef HAVE_AFFINITY
 
   #if !defined(__APPLE__)
@@ -906,7 +908,7 @@ void read_testcases(afl_state_t *afl, u8 *directory) {
   u8             *fn1, *dir = directory;
   u8              val_buf[2][STRINGIFY_VAL_SIZE_MAX];
 
-  /* Auto-detect non-in-place resumption attempts. */
+  // Auto-detect non-in-place resumption attempts.
 
   if (dir == NULL) {
 
@@ -3294,13 +3296,16 @@ void fix_up_sync(afl_state_t *afl) {
 static void handle_resize(int sig) {
 
   (void)sig;
-  afl_states_clear_screen();
+  if (local_afl) { local_afl->clear_screen = 1; }
 
 }
 
 /* Check ASAN options. */
 
 void check_asan_opts(afl_state_t *afl) {
+
+  // This is always called before fuzzing, so let's plug it in here:
+  local_afl = afl;
 
   u8 *x = get_afl_env("ASAN_OPTIONS");
 
@@ -3363,7 +3368,22 @@ void check_asan_opts(afl_state_t *afl) {
 static void handle_stop_sig(int sig) {
 
   (void)sig;
-  afl_states_stop();
+  if (local_afl) {
+
+    local_afl->stop_soon = 1;
+
+    if (local_afl->fsrv.child_pid > 0)
+      kill(local_afl->fsrv.child_pid, local_afl->fsrv.child_kill_signal);
+    if (local_afl->fsrv.fsrv_pid > 0) {
+
+      kill(local_afl->fsrv.fsrv_pid, local_afl->fsrv.fsrv_kill_signal);
+      usleep(100);
+      // Make sure the forkserver does not end up as zombie.
+      waitpid(local_afl->fsrv.fsrv_pid, NULL, WNOHANG);
+
+    }
+
+  }
 
 }
 
@@ -3372,7 +3392,16 @@ static void handle_stop_sig(int sig) {
 static void handle_skipreq(int sig) {
 
   (void)sig;
-  afl_states_request_skip();
+  if (local_afl) { local_afl->skip_requested = 1; }
+
+}
+
+/* Handle sync request (SIGUSR2). */
+
+static void handle_syncreq(int sig) {
+
+  (void)sig;
+  if (local_afl) { local_afl->sync_requested = 1; }
 
 }
 
@@ -3804,6 +3833,11 @@ void setup_signal_handlers(void) {
 
   sa.sa_handler = handle_skipreq;
   sigaction(SIGUSR1, &sa, NULL);
+
+  /* SIGUSR2: force a sync */
+
+  sa.sa_handler = handle_syncreq;
+  sigaction(SIGUSR2, &sa, NULL);
 
   /* Things we don't care about. */
 
