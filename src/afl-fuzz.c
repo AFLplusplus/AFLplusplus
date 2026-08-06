@@ -1802,6 +1802,12 @@ void afl_check_environment(afl_state_t *afl) {
   #ifdef __linux__
   if (afl->fsrv.nyx_mode) {
 
+    if (afl->non_instrumented_mode) {
+
+      FATAL("-n is not supported in Nyx mode");
+
+    }
+
     if (afl->fsrv.nyx_standalone && strcmp(afl->sync_id, "default") != 0) {
 
       FATAL(
@@ -3666,7 +3672,7 @@ void stop_fuzzing(afl_state_t *afl) {
        time_spent_working / afl->fsrv.total_execs);
   #endif
 
-  if (afl->afl_env.afl_final_sync) {
+  if (afl->afl_env.afl_final_sync && afl->sync_id) {
 
     SAYF(cYEL "[!] " cRST
               "\nPerforming final sync, this make take some time ...\n");

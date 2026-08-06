@@ -2,9 +2,10 @@
 
 ## Must
 
+ - remove -n mode
+ - when trimming: perform crash detection, new cov?
  - find a solution that SAYF now prints to stderr (help!)
  - hardened_usercopy=0 page_alloc.shuffle=0
- - when trimming: perform crash detection, new cov?
 
 ## Should
 
