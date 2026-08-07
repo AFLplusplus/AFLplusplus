@@ -357,165 +357,6 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
 }
 
-/* The same, but with an adjustable gap. Used for trimming. */
-
-static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
-                           u32 skip_len) {
-
-  s32 fd = afl->fsrv.out_fd;
-  u32 tail_len = len - skip_at - skip_len;
-
-  /*
-  This memory is used to carry out the post_processing(if present) after copying
-  the testcase by removing the gaps. This can break though
-  */
-  u8 *mem_trimmed = afl_realloc(AFL_BUF_PARAM(out_scratch), len - skip_len + 1);
-  if (unlikely(!mem_trimmed)) { PFATAL("alloc"); }
-
-  ssize_t new_size = len - skip_len;
-  u8     *new_mem = mem;
-
-  bool post_process_skipped = true;
-
-  if (unlikely(afl->custom_mutators_count)) {
-
-    u8 *new_buf = NULL;
-    new_mem = mem_trimmed;
-
-    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-
-      if (el->afl_custom_post_process) {
-
-        // We copy into the mem_trimmed only if we actually have custom mutators
-        // *with* post_processing installed
-
-        if (post_process_skipped) {
-
-          if (skip_at) { memcpy(mem_trimmed, (u8 *)mem, skip_at); }
-
-          if (tail_len) {
-
-            memcpy(mem_trimmed + skip_at, (u8 *)mem + skip_at + skip_len,
-                   tail_len);
-
-          }
-
-          post_process_skipped = false;
-
-        }
-
-        new_size =
-            el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
-
-        if (unlikely(!new_buf || new_size <= 0)) {
-
-          new_size = 0;
-          new_buf = new_mem;
-          // FATAL("Custom_post_process failed (ret: %lu)", (long
-          // unsigned)new_size);
-
-        } else {
-
-          new_mem = new_buf;
-
-        }
-
-      }
-
-    });
-
-  }
-
-  if (likely(afl->fsrv.use_shmem_fuzz)) {
-
-    if (!post_process_skipped) {
-
-      // If we did post_processing, copy directly from the new_mem buffer
-
-      memcpy(afl->fsrv.shmem_fuzz, new_mem, new_size);
-
-    } else {
-
-      memcpy(afl->fsrv.shmem_fuzz, mem, skip_at);
-      memcpy(afl->fsrv.shmem_fuzz + skip_at, mem + skip_at + skip_len,
-             tail_len);
-
-    }
-
-    *afl->fsrv.shmem_fuzz_len = new_size;
-
-#ifdef _DEBUG
-    if (afl->debug) {
-
-      fprintf(
-          stderr, "FS crc: %16llx len: %u\n",
-          hash64(afl->fsrv.shmem_fuzz, *afl->fsrv.shmem_fuzz_len, HASH_CONST),
-          *afl->fsrv.shmem_fuzz_len);
-      fprintf(stderr, "SHM :");
-      for (u32 i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
-        fprintf(stderr, "%02x", afl->fsrv.shmem_fuzz[i]);
-      fprintf(stderr, "\nORIG:");
-      for (u32 i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
-        fprintf(stderr, "%02x", (u8)((u8 *)mem)[i]);
-      fprintf(stderr, "\n");
-
-    }
-
-#endif
-
-    return;
-
-  } else if (unlikely(!afl->fsrv.use_stdin)) {
-
-    if (unlikely(afl->no_unlink)) {
-
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
-
-    } else {
-
-      unlink(afl->fsrv.out_file);                         /* Ignore errors. */
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
-
-    }
-
-    if (fd < 0) { PFATAL("Unable to create '%s'", afl->fsrv.out_file); }
-
-    if (afl->chown_needed) {
-
-      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
-
-    }
-
-  } else {
-
-    lseek(fd, 0, SEEK_SET);
-
-  }
-
-  if (!post_process_skipped) {
-
-    ck_write(fd, new_mem, new_size, afl->fsrv.out_file);
-
-  } else {
-
-    ck_write(fd, mem, skip_at, afl->fsrv.out_file);
-    ck_write(fd, mem + skip_at + skip_len, tail_len, afl->fsrv.out_file);
-
-  }
-
-  if (afl->fsrv.use_stdin) {
-
-    if (ftruncate(fd, new_size)) { PFATAL("ftruncate() failed"); }
-    lseek(fd, 0, SEEK_SET);
-
-  } else {
-
-    close(fd);
-
-  }
-
-}
-
 /* Calibrate a new test case. This is done when processing the input directory
    to warn about flaky or otherwise problematic test cases early on; and when
    new paths are discovered to detect variable behavior and so on. */
@@ -1288,7 +1129,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
         u32 pre_len = q->len;
 
-        trimmed_case = trim_case_custom(afl, q, in_buf, el, &vp_hooks);
+        trimmed_case =
+            trim_case_custom(afl, q, in_buf, el, &vp_hooks, &trim_start_us);
         custom_trimmed = true;
 
         if (unlikely(q->len != pre_len)) {
@@ -1347,6 +1189,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   }
 
   afl->stage_name = afl->stage_name_buf;
+  afl->stage_short = "trim";
+  afl->stage_cur_byte = -1;
 
   /* Select initial chunk len, starting with large steps. */
 
@@ -1371,11 +1215,27 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     while (remove_pos < q->len) {
 
       u32 trim_avail = MIN(remove_len, q->len - remove_pos);
+      u32 trim_len = q->len - trim_avail;
+      u32 tail_len = q->len - remove_pos - trim_avail;
       u64 cksum;
+
+      u8 *trim_buf = afl_realloc(AFL_BUF_PARAM(trim_scratch), trim_len + 1);
+      if (unlikely(!trim_buf)) { PFATAL("alloc"); }
+
+      if (likely(remove_pos)) { memcpy(trim_buf, in_buf, remove_pos); }
+
+      if (likely(tail_len)) {
+
+        memcpy(trim_buf + remove_pos, in_buf + remove_pos + trim_avail,
+               tail_len);
+
+      }
+
+      u8 *send_buf = trim_buf;
 
       if (unlikely(vp_trim_guard)) { vp_trim_guard_before_exec(vp_trim_guard); }
 
-      write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
+      u32 send_len = write_to_testcase(afl, (void **)&send_buf, trim_len, 1);
 
       fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
@@ -1392,9 +1252,6 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
         goto abort_trimming;
 
       }
-
-      /* Note that we don't keep track of crashes or hangs here; maybe TODO?
-       */
 
       ++afl->trim_execs;
       classify_counts(&afl->fsrv);
@@ -1446,6 +1303,15 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       }
 
       if (unlikely(vp_trim_guard)) { vp_trim_guard_after_exec(vp_trim_guard); }
+
+      if (unlikely(fault != afl->crash_mode || cksum != q->exec_cksum)) {
+
+        update_trim_time(afl, &trim_start_us);
+        afl->queued_discovered +=
+            save_if_interesting(afl, send_buf, send_len, fault);
+        trim_start_us = get_cur_time_us();
+
+      }
 
       /* Since this can be slow, update the screen every now and then. */
       if (!(trim_exec++ % afl->stats_update_freq)) { show_stats(afl); }

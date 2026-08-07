@@ -922,6 +922,7 @@ void afl_state_deinit(afl_state_t *afl) {
   afl_free(afl->queue_buf);
   afl_free(afl->out_buf);
   afl_free(afl->out_scratch_buf);
+  afl_free(afl->trim_scratch_buf);
   afl_free(afl->post_process_orig_buf);
   afl_free(afl->post_process_orig_buf_scratch);
   afl_free(afl->eff_buf);

@@ -470,7 +470,8 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 }
 
 u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
-                    struct custom_mutator *mutator, vp_trim_hooks_t *vp_hooks) {
+                    struct custom_mutator *mutator, vp_trim_hooks_t *vp_hooks,
+                    u64 *trim_start_us) {
 
   vp_trim_guard_t *vp_guard = vp_hooks ? vp_hooks->guard : NULL;
 
@@ -483,6 +484,8 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
   u8 val_buf[STRINGIFY_VAL_SIZE_MAX];
 
   afl->stage_name = afl->stage_name_buf;
+  afl->stage_short = "ptrim";
+  afl->stage_cur_byte = -1;
 
   /* Initialize trimming in the custom mutator */
   afl->stage_cur = 0;
@@ -587,6 +590,17 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 
     if (unlikely(vp_guard && retlen)) { vp_hooks->after_exec(vp_guard); }
 
+    u8 *save_buf = NULL;
+
+    if (unlikely(retlen &&
+                 (fault != afl->crash_mode || cksum != q->exec_cksum))) {
+
+      save_buf = afl_realloc(AFL_BUF_PARAM(trim_scratch), retlen);
+      if (unlikely(!save_buf)) { PFATAL("alloc"); }
+      memcpy(save_buf, retbuf, retlen);
+
+    }
+
     if (likely(retlen && cksum == q->exec_cksum && vp_ok)) {
 
       /* Let's save a clean trace, which will be needed by
@@ -649,6 +663,15 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
                afl->stage_max);
 
       }
+
+    }
+
+    if (unlikely(save_buf)) {
+
+      update_trim_time(afl, trim_start_us);
+      afl->queued_discovered +=
+          save_if_interesting(afl, save_buf, retlen, fault);
+      *trim_start_us = get_cur_time_us();
 
     }
 
