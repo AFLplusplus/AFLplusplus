@@ -1413,7 +1413,7 @@ static u8 minimize_run_entry(afl_state_t *afl, struct queue_entry *q) {
 
 /* First phase of the starved queue minimization: discard the top_rated scores
    and rebuild them from the current traces of the enabled entries, so that the
-   favored set cull_queue() computes next is the minimal set of entries that
+   favored set cull_queue() then computes is the minimal set of entries that
    covers every edge the enabled queue reaches - the selection afl-cmin makes.
    The rebuild is necessary because top_rated is not repaired when an entry is
    disabled, and a fast resume does not restore it at all, so the favored set on
@@ -1566,6 +1566,13 @@ inline void cull_queue(afl_state_t *afl) {
 
   if (likely(!afl->score_changed || afl->non_instrumented_mode)) { return; }
 
+  if (unlikely(afl->starve_minimize == 1)) {
+
+    minimize_queue_rescore(afl);
+    if (unlikely(afl->starve_minimize != 2)) { return; }
+
+  }
+
   u32 len = (afl->fsrv.map_size >> 3);
   u32 i;
   u8 *temp_v = afl->map_tmp_buf;
@@ -1688,15 +1695,7 @@ inline void cull_queue(afl_state_t *afl) {
 
   }
 
-  if (unlikely(afl->starve_minimize == 1)) {
-
-    minimize_queue_rescore(afl);
-
-  } else if (unlikely(afl->starve_minimize == 2)) {
-
-    minimize_queue_disable(afl);
-
-  }
+  if (unlikely(afl->starve_minimize == 2)) { minimize_queue_disable(afl); }
 
   afl->reinit_table = 1;
 
