@@ -111,7 +111,10 @@ class HelpFormatter(argparse.HelpFormatter):
 def init_args():
     parser = argparse.ArgumentParser(formatter_class=HelpFormatter)
 
-    cpu_count = multiprocessing.cpu_count()
+    if hasattr(os, "sched_getaffinity"):
+        cpu_count = len(os.sched_getaffinity(0))
+    else:
+        cpu_count = multiprocessing.cpu_count()
     group = parser.add_argument_group("Required parameters")
     group.add_argument(
         "-i",

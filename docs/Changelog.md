@@ -43,6 +43,8 @@
     - afl-merge (symlink) - merge new files into an existing corpus (that is
       not minimized)
     - afl-cmin.c is now the default afl-cmin, but it needed a larger rewrite
+    - `-T all` (C and python variants) now counts the CPUs the process is
+      actually allowed to run on (like `nproc` does)
   - afl-health
     - more speed, more info, a few fixes
   - custom_mutators:

@@ -32,6 +32,7 @@
 #include <glob.h>
 #include <limits.h>
 #include <pthread.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,7 +87,7 @@ static u8  *progname;
 static u8 **target_args;               /* target arguments                  */
 
 static u32 in_dir_cnt,                 /* number of input directories       */
-    cpu_count,                         /* number of CPU cores               */
+    cpu_count,                         /* number of usable CPU cores        */
     exec_workers = 1,                  /* number of execution workers       */
     update_workers = 1,                /* number of update workers          */
     mem_limit_given,                   /* memory limit given?               */
@@ -3192,6 +3193,18 @@ int main(int argc, char **argv) {
   SAYF(cCYA "%s" VERSION cRST "\n", merge_mode ? "afl-merge" : "afl-cmin");
 
   cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
+
+#ifdef __linux__
+  cpu_set_t cpu_mask;
+
+  if (!sched_getaffinity(0, sizeof(cpu_mask), &cpu_mask)) {
+
+    int cpu_allowed = CPU_COUNT(&cpu_mask);
+    if (cpu_allowed > 0) { cpu_count = (u32)cpu_allowed; }
+
+  }
+
+#endif
 
   s32 sep = argc;
 
