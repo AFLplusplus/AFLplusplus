@@ -841,7 +841,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
 
   }
 
-  if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
+  if (unlikely(afl->schedule >= RARE)) {
 
     fav_factor = q->len << 2;
 
@@ -880,7 +880,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q,
 
           }
 
-          if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
+          if (unlikely(afl->schedule >= RARE)) {
 
             top_rated_fav_factor = afl->top_rated[i]->len << 2;
 
@@ -1126,7 +1126,7 @@ void update_bitmap_rescore(afl_state_t *afl, struct queue_entry *q, u32 index) {
 
   }
 
-  if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
+  if (unlikely(afl->schedule >= RARE)) {
 
     fav_factor = q->len << 2;
 
@@ -1157,7 +1157,7 @@ void update_bitmap_rescore(afl_state_t *afl, struct queue_entry *q, u32 index) {
 
     }
 
-    if (unlikely(afl->schedule >= RARE) || unlikely(afl->fixed_seed)) {
+    if (unlikely(afl->schedule >= RARE)) {
 
       top_rated_fav_factor = afl->top_rated[i]->len << 2;
 
@@ -1227,7 +1227,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   // Longer execution time means longer work on the input, the deeper in
   // coverage, the better the fuzzing, right? -mh
 
-  if (likely(afl->schedule < RARE) && likely(!afl->fixed_seed)) {
+  if (likely(afl->schedule < RARE)) {
 
     if (q->exec_us * 0.1 > avg_exec_us) {
 

@@ -664,17 +664,9 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
-  if (unlikely(afl->fixed_seed)) {
-
-    diff_us = (u64)(afl->fsrv.exec_tmout - 1) * (u64)afl->stage_max;
-
-  } else {
-
-    stop_us = get_cur_time_us();
-    diff_us = stop_us - start_us;
-    if (unlikely(!diff_us)) { ++diff_us; }
-
-  }
+  stop_us = get_cur_time_us();
+  diff_us = stop_us - start_us;
+  if (unlikely(!diff_us)) { ++diff_us; }
 
   afl->total_cal_us += diff_us;
   afl->total_cal_cycles += afl->stage_max;
