@@ -277,7 +277,7 @@ bool CmplogSwitches::hookInstrs(Module &M) {
       uint64_t      site_disambiguator = 0;
       uint64_t      case_index = 0;
 
-      if (!SI->getNumCases() || max_size < 8) {
+      if (!SI->getNumCases() || max_size < 13) {
 
         // if (!be_quiet) errs() << "skip trivial switch..\n";
         continue;
