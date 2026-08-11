@@ -30,6 +30,9 @@
       coverage it claimed is now handed back to `virgin_bits` and can be
       rediscovered by an input that does calibrate.
     - fixed SAND and FrameShift issues
+    - symlinked test cases and symlinked subdirectories in the `-i` input
+      directory are now followed
+    - foreign sync directories (`-F`) now import symlinked test cases too
     - enhancements and fixes for cmplog and ijon
     - due to a bug first introduced in v4.30c the cmplog target was used for
       fuzzing if present - fixed
@@ -45,6 +48,9 @@
     - afl-cmin.c is now the default afl-cmin, but it needed a larger rewrite
     - `-T all` (C and python variants) now counts the CPUs the process is
       actually allowed to run on (like `nproc` does)
+  - afl-showmap:
+    - `-i` now follows symlinked test cases and symlinked subdirectories,
+      like afl-fuzz and afl-cmin do
   - afl-health
     - more speed, more info, a few fixes
   - custom_mutators:
