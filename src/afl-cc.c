@@ -2597,7 +2597,7 @@ char *get_opt_level() {
     case 'g':
       return levels[7];
     default:
-      return levels[3];
+      return levels[2];
 
   }
 
