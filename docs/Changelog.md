@@ -40,6 +40,8 @@
     - remove classic AFL instrumentation (colliding coverage), as `AFL_LLVM_PATH`
       and `AFL_LLVM_CALLER` replace these mostly and are overall much better
     - removed the obsolete afl-as assembler wrapper and its remaining references
+    - more invisible decisions are instrumented now.
+    - new env var `AFL_LLVM_DENSE=1` to disable PCGUARD basic block pruning
   - afl-cmin:
     - (all variants: C, python, bash, awk): empty (0 byte) input files are now
       skipped, plus various other fixes and corner case handling
@@ -49,8 +51,7 @@
     - `-T all` (C and python variants) now counts the CPUs the process is
       actually allowed to run on (like `nproc` does)
   - afl-showmap:
-    - `-i` now follows symlinked test cases and symlinked subdirectories,
-      like afl-fuzz and afl-cmin do
+    - `-i` now follows symlinked test cases and symlinked subdirectories
   - afl-health
     - more speed, more info, a few fixes
   - custom_mutators:

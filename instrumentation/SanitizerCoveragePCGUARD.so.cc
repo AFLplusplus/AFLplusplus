@@ -120,6 +120,7 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
 
   Options.CoverageType = SanitizerCoverageOptions::SCK_Edge;
   Options.TracePCGuard = true;  // TracePCGuard is default.
+  if (getenv("AFL_LLVM_DENSE")) { Options.NoPrune = true; }
   return Options;
 
 }
@@ -733,6 +734,7 @@ void ModuleSanitizerCoverageAFL::updateCoverageBitmap(IRBuilder<> &IRB,
     if (skip_nozero == NULL) {
 
       Incr = IRB.CreateBinaryIntrinsic(Intrinsic::umax, Incr, One);
+      setNoInstrumentMetadata(Incr);
 
     }
 
@@ -1015,6 +1017,7 @@ void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
       if (skip_nozero == NULL) {
 
         Incr = IRB.CreateBinaryIntrinsic(Intrinsic::umax, Incr, One);
+        setNoInstrumentMetadata(Incr);
 
       }
 
@@ -1586,29 +1589,33 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       // Check for dlopen warnings
       if (auto *callInst = dyn_cast<CallInst>(&IN)) {
 
-        Function *Callee = callInst->getCalledFunction();
-        if (!Callee) continue;
-        if (Callee->isIntrinsic()) continue;
-        if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+        if (!isAflCovMinMaxIntrinsic(IN)) {
 
-        StringRef FuncName = Callee->getName();
-        if (!FuncName.compare(StringRef("dlopen")) ||
-            !FuncName.compare(StringRef("_dlopen"))) {
+          Function *Callee = callInst->getCalledFunction();
+          if (!Callee) continue;
+          if (Callee->isIntrinsic()) continue;
+          if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
 
-          WARNF(
-              "dlopen() detected. To have coverage for a library that your "
-              "target dlopen()'s this must either happen before __AFL_INIT() "
-              "or you must use AFL_PRELOAD to preload all dlopen()'ed "
-              "libraries!\n");
-          continue;
+          StringRef FuncName = Callee->getName();
+          if (!FuncName.compare(StringRef("dlopen")) ||
+              !FuncName.compare(StringRef("_dlopen"))) {
 
-        }
+            WARNF(
+                "dlopen() detected. To have coverage for a library that your "
+                "target dlopen()'s this must either happen before __AFL_INIT() "
+                "or you must use AFL_PRELOAD to preload all dlopen()'ed "
+                "libraries!\n");
+            continue;
 
-        if (!FuncName.compare(StringRef("__afl_coverage_interesting"))) {
+          }
 
-          cnt_cov++;
-          block_is_instrumented = true;
-          continue;
+          if (!FuncName.compare(StringRef("__afl_coverage_interesting"))) {
+
+            cnt_cov++;
+            block_is_instrumented = true;
+            continue;
+
+          }
 
         }
 
@@ -1674,6 +1681,21 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           block_is_instrumented = true;
           cnt_sel++;
           cnt_sel_inc += 2;
+
+        } else if (isAflCovMinMaxIntrinsic(IN)) {
+
+          Type *mmt = IN.getType();
+          if (mmt->isIntegerTy() || mmt->isFloatingPointTy()) {
+
+            block_is_instrumented = true;
+            cnt_sel++;
+            cnt_sel_inc += 2;
+
+          } else {
+
+            unhandled++;
+
+          }
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
@@ -1988,6 +2010,62 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           setNoInstrumentMetadata(result);
           // fprintf(stderr, "Rmw!\n");
+
+        } else if (isAflCovMinMaxIntrinsic(IN)) {
+
+          IntrinsicInst *mmi = cast<IntrinsicInst>(&IN);
+          Type          *mmt = mmi->getType();
+
+          if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy()) { continue; }
+
+          if (debug) printDebugInfo(IN);
+
+          Intrinsic::ID iid = mmi->getIntrinsicID();
+          Value        *lhs = mmi->getArgOperand(0);
+          Value        *rhs = iid == Intrinsic::abs
+                                  ? ConstantInt::get(mmt, 0)
+                                  : mmi->getArgOperand(1);
+          Value        *cmp = nullptr;
+
+          switch (iid) {
+
+            case Intrinsic::smin:
+            case Intrinsic::abs:
+              cmp = IRB.CreateICmpSLT(lhs, rhs);
+              break;
+            case Intrinsic::smax:
+              cmp = IRB.CreateICmpSGT(lhs, rhs);
+              break;
+            case Intrinsic::umin:
+              cmp = IRB.CreateICmpULT(lhs, rhs);
+              break;
+            case Intrinsic::umax:
+              cmp = IRB.CreateICmpUGT(lhs, rhs);
+              break;
+            case Intrinsic::minnum:
+            case Intrinsic::minimum:
+              cmp = IRB.CreateFCmpOLT(lhs, rhs);
+              break;
+            case Intrinsic::maxnum:
+            case Intrinsic::maximum:
+              cmp = IRB.CreateFCmpOGT(lhs, rhs);
+              break;
+            default:
+              continue;
+
+          }
+
+          setNoInstrumentMetadata(cmp);
+          Value *res = IRB.CreateFreeze(cmp);
+          setNoInstrumentMetadata(res);
+          Value *GuardPtr1 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
+          Value *GuardPtr2 =
+              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                          AllBlocks.size() - skip_blocks);
+          result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
+          setNoInstrumentMetadata(result);
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 

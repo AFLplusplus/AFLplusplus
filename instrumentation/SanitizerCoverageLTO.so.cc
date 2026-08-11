@@ -1874,7 +1874,8 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
           CallInst *callInst = nullptr;
 
-          if ((callInst = dyn_cast<CallInst>(&IN))) {
+          if ((callInst = dyn_cast<CallInst>(&IN)) &&
+              !isAflCovMinMaxIntrinsic(IN)) {
 
             Function *Callee = callInst->getCalledFunction();
             if (!Callee) continue;
@@ -1945,6 +1946,11 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
             if (Op == AtomicRMWInst::Min || Op == AtomicRMWInst::Max ||
                 Op == AtomicRMWInst::UMin || Op == AtomicRMWInst::UMax)
               inst += 2;
+
+          } else if (isAflCovMinMaxIntrinsic(IN)) {
+
+            Type *mmt = IN.getType();
+            if (mmt->isIntegerTy() || mmt->isFloatingPointTy()) inst += 2;
 
           }
 
@@ -2164,6 +2170,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
         if (skip_nozero == NULL) {
 
           Incr = IRB.CreateBinaryIntrinsic(Intrinsic::umax, Incr, One);
+          markAflSkip(Incr);
 
         }
 
@@ -2237,7 +2244,8 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
       if (IN.getMetadata("afl.skip")) continue;
 
-      if (auto *callInst = dyn_cast<CallInst>(&IN)) {
+      if (auto *callInst = dyn_cast<CallInst>(&IN);
+          callInst && !isAflCovMinMaxIntrinsic(IN)) {
 
         Function *Callee = callInst->getCalledFunction();
         if (!Callee) continue;
@@ -2479,6 +2487,59 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
           }
 
           Value *cmp = IRB.CreateICmp(Pred, NewVal, OldVal, "rmw.cov");
+          markAflSkip(cmp);
+          Value *res = IRB.CreateFreeze(cmp);
+          markAflSkip(res);
+          Value *val1 =
+              applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+          Value *val2 =
+              applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+          result = IRB.CreateSelect(res, val1, val2);
+          markAflSkip(result);
+          inst += 2;
+
+        } else if (isAflCovMinMaxIntrinsic(IN)) {
+
+          IntrinsicInst *mmi = cast<IntrinsicInst>(&IN);
+          Type          *mmt = mmi->getType();
+
+          if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy()) continue;
+
+          Intrinsic::ID iid = mmi->getIntrinsicID();
+          Value        *lhs = mmi->getArgOperand(0);
+          Value        *rhs = iid == Intrinsic::abs
+                                  ? ConstantInt::get(mmt, 0)
+                                  : mmi->getArgOperand(1);
+          Value        *cmp = nullptr;
+
+          switch (iid) {
+
+            case Intrinsic::smin:
+            case Intrinsic::abs:
+              cmp = IRB.CreateICmpSLT(lhs, rhs);
+              break;
+            case Intrinsic::smax:
+              cmp = IRB.CreateICmpSGT(lhs, rhs);
+              break;
+            case Intrinsic::umin:
+              cmp = IRB.CreateICmpULT(lhs, rhs);
+              break;
+            case Intrinsic::umax:
+              cmp = IRB.CreateICmpUGT(lhs, rhs);
+              break;
+            case Intrinsic::minnum:
+            case Intrinsic::minimum:
+              cmp = IRB.CreateFCmpOLT(lhs, rhs);
+              break;
+            case Intrinsic::maxnum:
+            case Intrinsic::maximum:
+              cmp = IRB.CreateFCmpOGT(lhs, rhs);
+              break;
+            default:
+              continue;
+
+          }
+
           markAflSkip(cmp);
           Value *res = IRB.CreateFreeze(cmp);
           markAflSkip(res);

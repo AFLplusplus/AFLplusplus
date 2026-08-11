@@ -32,6 +32,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Demangle/Demangle.h"
@@ -860,7 +861,11 @@ bool isDecisionUse(const Value *Cond) {
 
       } else if (const auto *BO = dyn_cast<BinaryOperator>(U)) {
 
-        if (BO->getType()->isIntegerTy(1)) Worklist.push_back(BO);
+        if (BO->getType()->isIntegerTy(1) &&
+            BO->getOpcode() == Instruction::Xor &&
+            (isa<Constant>(BO->getOperand(0)) ||
+             isa<Constant>(BO->getOperand(1))))
+          Worklist.push_back(BO);
 
       } else if (const auto *PN = dyn_cast<PHINode>(U)) {
 
@@ -886,7 +891,34 @@ bool isDecisionUse(const Value *Cond) {
 
 }
 
+bool isAflCovMinMaxIntrinsic(Instruction &I) {
+
+  const auto *II = dyn_cast<IntrinsicInst>(&I);
+  if (!II) return false;
+
+  switch (II->getIntrinsicID()) {
+
+    case Intrinsic::smin:
+    case Intrinsic::smax:
+    case Intrinsic::umin:
+    case Intrinsic::umax:
+    case Intrinsic::abs:
+    case Intrinsic::minnum:
+    case Intrinsic::maxnum:
+    case Intrinsic::minimum:
+    case Intrinsic::maximum:
+      return true;
+
+    default:
+      return false;
+
+  }
+
+}
+
 bool isAflCovInterestingInstruction(Instruction &I) {
+
+  if (I.getMetadata("afl.skip")) return false;
 
   switch (I.getOpcode()) {
 
@@ -932,6 +964,9 @@ bool isAflCovInterestingInstruction(Instruction &I) {
              Op == AtomicRMWInst::UMin || Op == AtomicRMWInst::UMax;
 
     }
+
+    case Instruction::Call:
+      return isAflCovMinMaxIntrinsic(I);
 
     default:
       return false;

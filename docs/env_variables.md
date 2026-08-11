@@ -485,6 +485,20 @@ for details.
     If the target performs only a few loops, then this will give a small
     performance boost.
 
+#### Dense instrumentation (LLVM PCGUARD mode)
+
+By default the PCGUARD instrumentation prunes basic blocks whose execution is
+already implied by an instrumented successor or predecessor (full dominators
+and full post-dominators). Setting `AFL_LLVM_DENSE=1` during compilation
+disables that pruning and instruments every basic block.
+
+This gives a finer partition at the cost of a much larger map - on libraw the
+map grows from 25462 to 38672 entries (+51.9%) for about 5% less throughput.
+Most of the added entries carry no independent signal, so this is a research
+knob: only useful if your target is far below the map size limit and you have
+measured that the extra granularity helps. In LTO mode the equivalent already
+exists as `-mllvm -lto-coverage-prune-blocks=0`.
+
 #### Thread safe instrumentation counters (in all modes)
 
 Setting `AFL_LLVM_THREADSAFE_INST` will inject code that implements thread safe
