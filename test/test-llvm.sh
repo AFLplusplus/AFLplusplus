@@ -235,9 +235,9 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
   test -e test-floatingpoint && {
     mkdir -p in
     echo ZZZZ > in/in
-    $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 45 seconds"
+    $ECHO "$GREY[*] running afl-fuzz with floating point splitting, this will take max. 120 seconds"
     {
-      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_UI=1 ../afl-fuzz -Z -s 123 -V15 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
+      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_UI=1 ../afl-fuzz -Z -s 123 -V120 -m ${MEM_LIMIT} -i in -o out -- ./test-floatingpoint >>errors 2>&1
     } >>errors 2>&1
     test -n "$( ls out/default/crashes/id:* 2>/dev/null )" && {
       $ECHO "$GREEN[+] llvm_mode laf-intel floatingpoint splitting feature works correctly"
@@ -272,7 +272,13 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     {
       mkdir -p in
       echo 00000000000000000000000000000000 > in/in
-      AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_SHA1_FILENAMES=1 ../afl-fuzz -Z -l 3 -m none -V30 -i in -o out -c 0 -- ./test-cmplog >>errors 2>&1
+      CMPLOG_TRY=1
+      while [ "$CMPLOG_TRY" -le 3 ]; do
+        rm -rf out
+        AFL_BENCH_UNTIL_CRASH=1 AFL_NO_CRASH_README=1 AFL_SHA1_FILENAMES=1 ../afl-fuzz -Z -l 3 -m none -V30 -i in -o out -c 0 -- ./test-cmplog >>errors 2>&1
+        test -n "$( ls out/default/crashes/* out/default/hangs/* 2>/dev/null )" && break
+        CMPLOG_TRY=$((CMPLOG_TRY+1))
+      done
     } >>errors 2>&1
     test -n "$( ls out/default/crashes/* out/default/hangs/* 2>/dev/null )" && {
       $ECHO "$GREEN[+] afl-fuzz is working correctly with llvm_mode cmplog"

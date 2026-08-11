@@ -1,7 +1,9 @@
 #!/bin/bash
 # Test compare-observer loop-control detection. VP suppresses canonical
 # IV-vs-bound loop control while preserving semantic and non-canonical
-# conditions; CmpLog retains its upstream loop filtering.
+# conditions; CmpLog retains its upstream loop filtering. Compares narrower
+# than 13 bits are never hooked, so a char compare only counts at -O0, where
+# the C integer promotion to int still stands.
 cd "$(dirname "$0")/.." || exit 1
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'; GREY="\033[1;90m"
@@ -58,7 +60,7 @@ test_loop_all_opts "semantic-header" 3 1 'extern void touch(int); __attribute__(
 
 test_loop_all_opts "nested-semantic" 3 1 'extern void touch(int); __attribute__((noinline)) int test(const int *buf, int n, int m) { int i=0; while(i<n && i<m && buf[i] != 58){ touch(i); i++; } return i; } int main(){ int buf[] = {1, 2, 58, 4}; return test(buf, 4, 5); }'
 
-test_loop_all_opts "semantic-first" 3 1 'extern void touch(int); __attribute__((noinline)) int test(const char *buf) { int i; for (i = 0; buf[i] == 67 && i < 100; i++) { touch(i); } return i; } int main(){ return test("CCCCCCCC"); }'
+test_loop_all_opts "semantic-first" 0 1 'extern void touch(int); __attribute__((noinline)) int test(const char *buf) { int i; for (i = 0; buf[i] == 67 && i < 100; i++) { touch(i); } return i; } int main(){ return test("CCCCCCCC"); }'
 
 test_loop_all_opts "semantic-first-int" 3 1 'extern void touch(int); __attribute__((noinline)) int test(const int *buf) { int i; for (i = 0; buf[i] == 67 && i < 100; i++) { touch(i); } return i; } int main(){ int buf[] = {67, 67, 0}; return test(buf); }'
 
@@ -66,7 +68,7 @@ test_loop_all_opts "or-fallback" 4 2 'extern void touch(int); __attribute__((noi
 
 test_loop_all_opts "body-break" 3 1 'extern void touch(int); __attribute__((noinline)) int test(const int *buf, int n) { int i=0; while(i<n){ if(buf[i] == 58) break; touch(i); i++; } return i; } int main(){ int buf[] = {1, 2, 58, 4}; return test(buf, 4); }'
 
-test_loop_all_opts "nested-body-break" 4 2 'extern void touch(int); __attribute__((noinline)) int test(const int *buf, int n, int magic) { int i=0; while(i<n){ if(buf[i] == 58 || i == magic) break; touch(i); i++; } return i; } int main(){ int buf[] = {1, 2, 58, 4}; return test(buf, 4, 7); }'
+test_loop_all_opts "nested-body-break" 2 2 'extern void touch(int); __attribute__((noinline)) int test(const int *buf, int n, int magic) { int i=0; while(i<n){ if(buf[i] == 58 || i == magic) break; touch(i); i++; } return i; } int main(){ int buf[] = {1, 2, 58, 4}; return test(buf, 4, 7); }'
 
 test_loop_all_opts "body-iv-break" 4 1 'extern void touch(int); __attribute__((noinline)) int test(int n, int magic) { int i=0; while(i<n){ if(i == magic) break; touch(i); i++; } return i; } int main(){ return test(10, 7); }'
 

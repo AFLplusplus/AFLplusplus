@@ -46,6 +46,7 @@ export AFL_PATH="$(pwd)/.."
 export AFL_NO_UI=1
 export AFL_NO_CRASH_README=1
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+export AFL_SKIP_CPUFREQ=1
 unset AFL_CMPLOG_ONLY_NEW
 
 vp_cc() {
@@ -56,20 +57,23 @@ vp_cc() {
 # Tests that need no afl-fuzz
 # ---------------------------------------------------------------------------
 
-# The byte-sized switch must reach the switch hook in VP mode and the 8 bit
+# Switch conditions narrower than 13 bits are left alone - a value that small
+# is found by random mutation before a compare observer pays off. Everything
+# from 13 bits up must reach the switch hook in VP mode and the matching
 # compare hook in CmpLog mode.
 vp_switch_pass() {
 
   local d="$WORK/switch-pass"
   mkdir -p "$d"
 
-  cat >"$d/switch-i8.ll" <<'EOF'
-define dso_local i32 @test(i8 %x) {
+  emit_switch() {
+    cat >"$2" <<EOF
+define dso_local i32 @test($1 %x) {
 entry:
-  switch i8 %x, label %default [
-    i8 17, label %case17
-    i8 -128, label %case128
-    i8 -1, label %case255
+  switch $1 %x, label %default [
+    $1 17, label %case17
+    $1 -128, label %case128
+    $1 -1, label %case255
   ]
 
 case17:
@@ -87,39 +91,57 @@ default:
 
 define dso_local i32 @main() {
 entry:
-  %result = call i32 @test(i8 1)
+  %result = call i32 @test($1 1)
   ret i32 %result
 }
 EOF
-
-  vp_cc -S -emit-llvm -o "$d/vp.ll" "$d/switch-i8.ll" 2>"$d/vp.err" || {
-    bad "switch pass: value-profile compilation failed"
-    cat "$d/vp.err"
-    return
-  }
-  grep -q 'call.*@__valueprofile_switch' "$d/vp.ll" || {
-    bad "switch pass: value-profile pass did not instrument switch i8"
-    return
   }
 
-  AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ../afl-clang-fast -S -emit-llvm \
-    -o "$d/cmplog.ll" "$d/switch-i8.ll" 2>"$d/cmplog.err" || {
-    bad "switch pass: cmplog compilation failed"
-    cat "$d/cmplog.err"
+  emit_switch i8 "$d/switch-i8.ll"
+  emit_switch i16 "$d/switch-i16.ll"
+
+  local width mode
+  for width in i8 i16; do
+    vp_cc -S -emit-llvm -o "$d/$width-vp.ll" "$d/switch-$width.ll" \
+      2>"$d/$width-vp.err" || {
+      bad "switch pass: value-profile compilation of $width failed"
+      cat "$d/$width-vp.err"
+      return
+    }
+    AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ../afl-clang-fast -S -emit-llvm \
+      -o "$d/$width-cmplog.ll" "$d/switch-$width.ll" \
+      2>"$d/$width-cmplog.err" || {
+      bad "switch pass: cmplog compilation of $width failed"
+      cat "$d/$width-cmplog.err"
+      return
+    }
+  done
+
+  for mode in vp cmplog; do
+    grep -q 'call.*@__valueprofile_switch\|call.*@__cmplog_ins_hook' \
+      "$d/i8-$mode.ll" && {
+      bad "switch pass: $mode pass instrumented the below-threshold switch i8"
+      return
+    }
+  done
+
+  grep -q 'call.*@__valueprofile_switch' "$d/i16-vp.ll" || {
+    bad "switch pass: value-profile pass did not instrument switch i16"
     return
   }
-  grep -q 'call.*@__cmplog_ins_hook1' "$d/cmplog.ll" || {
-    bad "switch pass: cmplog pass did not instrument switch i8"
+  grep -q 'call.*@__cmplog_ins_hook2' "$d/i16-cmplog.ll" || {
+    bad "switch pass: cmplog pass did not instrument switch i16"
     return
   }
 
-  ok "value-profile switch pass byte-sized switch test passed"
+  ok "value-profile switch pass width threshold test passed"
 
 }
 
 # Hook selection and signedness per compare width, and the wide-float encoding
 # path: half/bfloat widen into the float hook, x86_fp80 is scored on a
-# float-ordered key through hookN.
+# float-ordered key through hookN. Integer compares below 13 bits are dropped
+# regardless of whether an operand is constant.
 vp_distance_pass() {
 
   local d="$WORK/distance-pass" body
@@ -199,7 +221,8 @@ entry:
   %f = call i32 @unordered_float(float 1.0, float 2.0)
   %g = call i32 @half_equal(half 1.0, half 2.0)
   %h = call i32 @bfloat_equal(bfloat 1.0, bfloat 2.0)
-  %i = call i32 @long_double_equal(x86_fp80 1.0, x86_fp80 2.0)
+  %i = call i32 @long_double_equal(x86_fp80 0xK3FFF8000000000000000,
+                                   x86_fp80 0xK40008000000000000000)
   %ab = add i32 %a, %b
   %abc = add i32 %ab, %c
   %abcd = add i32 %abc, %d
@@ -265,12 +288,10 @@ EOF
   expect 'signed i70 compare did not preserve predicate and rounded byte width' \
     "$signed70" 'i8 40, i8 8'
 
-  expect 'constant-involving i8 compare did not use hook1' \
-    "$byte_constant" '@__valueprofile_hook1'
-  expect 'constant-involving i8 compare did not preserve ICMP_NE' \
-    "$byte_constant" 'i8 33'
-  reject 'variable-versus-variable i8 compare unexpectedly used hook1' \
-    "$byte_variable" '@__valueprofile_hook1'
+  reject 'constant-involving i8 compare was instrumented' \
+    "$byte_constant" '@__valueprofile_hook'
+  reject 'variable-versus-variable i8 compare was instrumented' \
+    "$byte_variable" '@__valueprofile_hook'
 
   expect 'float compare did not use the float value-profile hook' \
     "$unordered_float" '@__valueprofile_hook_float'

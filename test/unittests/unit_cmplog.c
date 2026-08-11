@@ -99,7 +99,8 @@ static int check_snapshot(void) {
   map->headers[key1].type = CMP_TYPE_RTN;
   cmp_map_set_attribute(map, key1, CMP_ATTR_NONE);
   map->log[key0][0].v0 = 0x1234;
-  ((struct cmpfn_operands *)map->log[key1])[0].v0[0] = 0x56;
+  struct cmpfn_operands *fn_log = (struct cmpfn_operands *)map->log[key1];
+  fn_log[0].v0[0] = 0x56;
 
   u32 needed = cmp_map_snapshot_collect(snapshot, map);
   if (needed != 2 || snapshot->dense) { return 2; }
@@ -113,12 +114,9 @@ static int check_snapshot(void) {
     return 5;
 
   }
-  if (((struct cmpfn_operands *)cmp_map_snapshot_log(snapshot, key1))[0]
-          .v0[0] != 0x56) {
-
-    return 6;
-
-  }
+  struct cmpfn_operands *fn_snapshot =
+      (struct cmpfn_operands *)cmp_map_snapshot_log(snapshot, key1);
+  if (fn_snapshot[0].v0[0] != 0x56) { return 6; }
 
   memset(map->headers, 0, sizeof(map->headers));
   memset(map->site_ids, 0, sizeof(map->site_ids));

@@ -2,10 +2,12 @@
 # Regression test for GitHub issue #2704:
 # cmplog-instructions-pass ICE with non-standard integer sizes (_BitInt).
 #
-# On 64-bit hosts every non-native width (including sizes <=64) uses
+# Compares narrower than 13 bits are not instrumented at all - such a value is
+# found by random mutation before a compare observer pays off. Above that, on
+# 64-bit hosts every non-native width (including sizes <=64) uses
 # __cmplog_ins_hookN, whose extra byte-width argument lets CmpLog/RedQueen
 # match the operand at its true field width. Only the native widths
-# (8/16/32/64/128) use the specialized hooks. On 32-bit hosts non-native
+# (16/32/64/128) use the specialized hooks. On 32-bit hosts non-native
 # sizes <=64 cast up to the next specialized native hook instead.
 
 cd "$(dirname "$0")/.." || exit 1
@@ -91,14 +93,47 @@ EOF
         -o "$TEMP_DIR/test.ll" "$TEMP_DIR/test-input.ll" 2>/dev/null
     local constant_hooks variable_hooks
     constant_hooks=$(sed -n '/^define.*@constant_cmp(/,/^}$/p' \
-        "$TEMP_DIR/test.ll" | grep -c '__cmplog_ins_hook1' || true)
+        "$TEMP_DIR/test.ll" | grep -c '__cmplog_ins_hook' || true)
     variable_hooks=$(sed -n '/^define.*@variable_cmp(/,/^}$/p' \
-        "$TEMP_DIR/test.ll" | grep -c '__cmplog_ins_hook1' || true)
-    if [ "$constant_hooks" -gt 0 ] && [ "$variable_hooks" -eq 0 ]; then
+        "$TEMP_DIR/test.ll" | grep -c '__cmplog_ins_hook' || true)
+    if [ "$constant_hooks" -eq 0 ] && [ "$variable_hooks" -eq 0 ]; then
         ((PASS++))
     else
         printf "$RED[-] %-16s FAIL (constant=%s variable=%s)\n" \
             "i8 policy" "$constant_hooks" "$variable_hooks"
+        ((FAIL++))
+    fi
+}
+
+test_bitint_skipped() {
+    local name="$1" bits="$2"
+
+    cat > "$TEMP_DIR/test.c" << EOF
+__attribute__((noinline)) int test(volatile _BitInt($bits) *a,
+                                   volatile _BitInt($bits) *b) {
+    return *a == *b;
+}
+
+int main(void) {
+    volatile _BitInt($bits) x = 1, y = 2;
+    return test(&x, &y);
+}
+EOF
+
+    if ! AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ./afl-clang-fast -S -emit-llvm \
+        -o "$TEMP_DIR/test.ll" "$TEMP_DIR/test.c" 2>/dev/null; then
+        printf "$RED[-] %-16s FAIL (compilation failed)\n" "$name"
+        ((FAIL++))
+        return
+    fi
+
+    local hook
+    hook=$(sed -n '/^define.*@test(/,/^}$/p' "$TEMP_DIR/test.ll" 2>/dev/null \
+        | grep -o '__cmplog_ins_hook[A-Za-z0-9]*' | head -1)
+    if [ -z "$hook" ]; then
+        ((PASS++))
+    else
+        printf "$RED[-] %-16s hook=%-24s FAIL (expected none)\n" "$name" "$hook"
         ((FAIL++))
     fi
 }
@@ -184,6 +219,8 @@ test_bitint "_BitInt(16)" 16 "__cmplog_ins_hook2"
 test_bitint "_BitInt(32)" 32 "__cmplog_ins_hook4"
 test_bitint "_BitInt(64)" 64 "__cmplog_ins_hook8"
 test_i8_policy
+test_bitint_skipped "_BitInt(12)" 12
+test_bitint "_BitInt(13)" 13 "__cmplog_ins_hook2"
 test_float_hook "float hook" "float" "__cmplog_ins_hook4"
 test_float_hook "double hook" "double" "__cmplog_ins_hook8"
 test_attr "signed greater" "int" ">" 38

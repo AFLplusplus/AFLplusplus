@@ -337,14 +337,38 @@ else
   bad "afl-cmin did not round AFL_MAPSIZE=65537 up to 65600 (exit $RC)"
 fi
 
-# an oversized worker plan is refused before anything is allocated
-rm -rf "$TMP/out_mem"
-AFL_MAP_SIZE=8388608 run "$CMIN" -T 1:64 -i "$TMP/in" -o "$TMP/out_mem" \
-    -- "$TARGET"
-if [ "$RC" != 0 ] && grep -aqE "are needed for|not representable" "$TMP/log"; then
-  ok "afl-cmin refuses a worker plan that does not fit into memory"
+# an oversized worker plan is refused before anything is allocated - a plan
+# costs map_size * 64 * workers bytes, so size it from the RAM of this host
+phys_bytes=
+if pages=$(getconf _PHYS_PAGES 2>/dev/null) &&
+   psize=$(getconf PAGE_SIZE 2>/dev/null) &&
+   [ "${pages:-0}" -gt 0 ] 2>/dev/null && [ "${psize:-0}" -gt 0 ] 2>/dev/null
+then
+  phys_bytes=$((pages * psize))
+elif memsize=$(sysctl -n hw.memsize 2>/dev/null) &&
+     [ "${memsize:-0}" -gt 0 ] 2>/dev/null
+then
+  phys_bytes=$memsize
+fi
+
+MEM_WORKERS=255
+if [ -z "$phys_bytes" ]; then
+  skip "cannot determine the physical memory size, skipping the worker plan test"
 else
-  bad "afl-cmin did not refuse 64 update workers at the maximum map size (exit $RC)"
+  mem_map_size=$((phys_bytes / (64 * MEM_WORKERS) + 1048576))
+  if [ "$mem_map_size" -ge 536870911 ]; then
+    skip "no legal map size overflows $((phys_bytes / 1024 / 1024)) MB of RAM, skipping the worker plan test"
+  else
+    rm -rf "$TMP/out_mem"
+    AFL_MAP_SIZE=$mem_map_size run "$CMIN" -T "1:$MEM_WORKERS" -i "$TMP/in" \
+        -o "$TMP/out_mem" -- "$TARGET"
+    if [ "$RC" != 0 ] &&
+       grep -aqE "are needed for|not representable" "$TMP/log"; then
+      ok "afl-cmin refuses a worker plan that does not fit into memory"
+    else
+      bad "afl-cmin did not refuse $MEM_WORKERS update workers at a map size of $mem_map_size (exit $RC)"
+    fi
+  fi
 fi
 
 # the same corpus has to minimize to the same files with several workers

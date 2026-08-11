@@ -63,9 +63,9 @@ static int test_guarded_operands(void) {
   memset(mapping, 'A', (size_t)page_size);
   if (mprotect(mapping + page_size, (size_t)page_size, PROT_NONE)) return 12;
 
-  uint8_t  valid[] = {'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'};
-  uint8_t *invalid = mapping + page_size;
-  uint8_t *crossing = invalid - 4;
+  VP_TEST_OPERAND uint8_t valid[] = {'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'};
+  uint8_t                *invalid = mapping + page_size;
+  uint8_t                *crossing = invalid - 4;
 
   begin_exec();
   __valueprofile_rtn_hook_n(valid, invalid, sizeof(valid), site_token);
@@ -82,7 +82,7 @@ static int test_guarded_operands(void) {
   crossing[0] = 'a';
   crossing[1] = 'b';
   crossing[2] = 0;
-  uint8_t valid_str[] = {'a', 'b', 0, 'Y', 0, 0, 0, 0};
+  VP_TEST_OPERAND uint8_t valid_str[] = {'a', 'b', 0, 'Y', 0, 0, 0, 0};
   begin_exec();
   __valueprofile_rtn_hook_strn(crossing, valid_str, sizeof(valid_str),
                                site_token);
@@ -97,10 +97,10 @@ static int test_guarded_operands(void) {
 
 int main(void) {
 
-  uint8_t lhs_memcmp[] = {'a', 'b', 'X', 'Y'};
-  uint8_t rhs_memcmp[] = {'a', 'b', 'C', 'D'};
-  uint8_t lhs_str[] = {'a', 'b', 0, 'Z', 0};
-  uint8_t rhs_str[] = {'a', 'b', 0, 'Y', 0};
+  VP_TEST_OPERAND uint8_t lhs_memcmp[] = {'a', 'b', 'X', 'Y'};
+  VP_TEST_OPERAND uint8_t rhs_memcmp[] = {'a', 'b', 'C', 'D'};
+  VP_TEST_OPERAND uint8_t lhs_str[] = {'a', 'b', 0, 'Z', 0};
+  VP_TEST_OPERAND uint8_t rhs_str[] = {'a', 'b', 0, 'Y', 0};
 
   memset(&vp_local, 0, sizeof(vp_local));
   if (vp_test_claim_site(&vp_local, site_token, site)) return 18;
@@ -132,8 +132,8 @@ int main(void) {
   if (guarded_result) return guarded_result;
 #endif
 
-  uint8_t lhs_ci[] = {'A', 'B', 'C', 0};
-  uint8_t rhs_ci[] = {'a', 'b', 'c', 0};
+  VP_TEST_OPERAND uint8_t lhs_ci[] = {'A', 'B', 'C', 0};
+  VP_TEST_OPERAND uint8_t rhs_ci[] = {'a', 'b', 'c', 0};
 
   begin_exec();
   __valueprofile_rtn_hook_str_ci(lhs_ci, rhs_ci, site_token);
@@ -142,8 +142,8 @@ int main(void) {
   if (site_state->slots[0].best_dist != 0) return 21;
   if (site_state->slots[1].best_dist != 0) return 22;
 
-  uint8_t lhs_cin[] = {'A', 'B', 'X', 0};
-  uint8_t rhs_cin[] = {'a', 'b', 'y', 0};
+  VP_TEST_OPERAND uint8_t lhs_cin[] = {'A', 'B', 'X', 0};
+  VP_TEST_OPERAND uint8_t rhs_cin[] = {'a', 'b', 'y', 0};
 
   begin_exec();
   __valueprofile_rtn_hook_strn_ci(lhs_cin, rhs_cin, 3, site_token);
@@ -151,8 +151,8 @@ int main(void) {
   if (vp_local.control_len != 1) return 23;
   if (site_state->slots[0].best_dist == 0) return 24;
 
-  uint8_t hay[] = {'x', 'x', 'n', 'e', 'e', 'd', 'l', 'e', 0};
-  uint8_t needle[] = {'n', 'e', 'e', 'd', 'l', 'e', 0};
+  VP_TEST_OPERAND uint8_t hay[] = {'x', 'x', 'n', 'e', 'e', 'd', 'l', 'e', 0};
+  VP_TEST_OPERAND uint8_t needle[] = {'n', 'e', 'e', 'd', 'l', 'e', 0};
 
   begin_exec();
   __valueprofile_rtn_hook_sub(hay, needle, site_token);
@@ -161,7 +161,8 @@ int main(void) {
   if (site_state->slots[0].best_dist != 0) return 26;
   if (site_state->slots[1].best_dist != 0) return 27;
 
-  uint8_t hay_miss[] = {'x', 'x', 'n', 'e', 'e', 'd', 'l', 'f', 0};
+  VP_TEST_OPERAND uint8_t hay_miss[] = {'x', 'x', 'n', 'e', 'e',
+                                        'd', 'l', 'f', 0};
 
   begin_exec();
   __valueprofile_rtn_hook_sub(hay_miss, needle, site_token);
@@ -188,7 +189,8 @@ int main(void) {
   __valueprofile_rtn_hook_sub_hn(hay, 5, needle, site_token);
   if (vp_local.control_len != 0) return 35;
 
-  uint8_t hay_nul[] = {'z', 'z', 0, 'n', 'e', 'e', 'd', 'l', 'e', 0};
+  VP_TEST_OPERAND uint8_t hay_nul[] = {'z', 'z', 0,   'n', 'e',
+                                       'e', 'd', 'l', 'e', 0};
 
   begin_exec();
   __valueprofile_rtn_hook_sub_hn(hay_nul, 9, needle, site_token);
@@ -197,7 +199,8 @@ int main(void) {
   /* The weak strncasestr hook folds case, so a match differing only in case
      is solved. Its site comes from the caller pc, so drop the site filter and
      read the touched site back. */
-  uint8_t hay_case[] = {'x', 'x', 'N', 'E', 'E', 'D', 'L', 'E', 0};
+  VP_TEST_OPERAND uint8_t hay_case[] = {'x', 'x', 'N', 'E', 'E',
+                                        'D', 'L', 'E', 0};
 
   begin_exec();
   vp_local.filter_mode = VP_FILTER_OFF;
@@ -211,8 +214,8 @@ int main(void) {
   /* A nul in only one operand is a mismatch like any other: the comparison
      ends only where both operands are nul, so neither metric may collapse
      towards zero for an input that shares just a one byte prefix. */
-  uint8_t lhs_nul[] = {'A', 0, 0, 0, 0, 0, 0, 0};
-  uint8_t rhs_nul[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+  VP_TEST_OPERAND uint8_t lhs_nul[] = {'A', 0, 0, 0, 0, 0, 0, 0};
+  VP_TEST_OPERAND uint8_t rhs_nul[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
 
   begin_exec();
   vp_local.filter_mode = VP_FILTER_STRICT;
@@ -223,8 +226,8 @@ int main(void) {
   if (site_state->slots[1].best_dist != 19) return 42;
 
   /* Same, across the word-at-a-time part of the hamming sum. */
-  uint8_t lhs_nul16[16] = {'A', 'A', 'A', 0};
-  uint8_t rhs_nul16[16];
+  VP_TEST_OPERAND uint8_t lhs_nul16[16] = {'A', 'A', 'A', 0};
+  VP_TEST_OPERAND uint8_t rhs_nul16[16];
   memset(rhs_nul16, 'A', sizeof(rhs_nul16));
 
   begin_exec();
@@ -236,8 +239,8 @@ int main(void) {
 
   /* strcmp sizes its window from the longer operand, so a short input is
      scored on the bytes it still has to grow. */
-  uint8_t lhs_short[] = {'A', 0, 0, 0, 0, 0, 0, 0};
-  uint8_t rhs_long[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 0};
+  VP_TEST_OPERAND uint8_t lhs_short[] = {'A', 0, 0, 0, 0, 0, 0, 0};
+  VP_TEST_OPERAND uint8_t rhs_long[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 0};
 
   begin_exec();
   __valueprofile_rtn_hook_str(lhs_short, rhs_long, site_token);
