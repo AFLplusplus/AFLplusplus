@@ -168,6 +168,7 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
   Options.TracePC |= ClTracePC;
   Options.TracePCGuard |= ClTracePCGuard;
   Options.NoPrune |= !ClPruneBlocks;
+  if (getenv("AFL_LLVM_DENSE")) { Options.NoPrune = true; }
   if (!Options.TracePCGuard && !Options.TracePC &&
       !Options.Inline8bitCounters && !Options.InlineBoolFlag)
     Options.TracePCGuard = true;  // TracePCGuard is default.
@@ -1949,8 +1950,26 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
           } else if (isAflCovMinMaxIntrinsic(IN)) {
 
-            Type *mmt = IN.getType();
-            if (mmt->isIntegerTy() || mmt->isFloatingPointTy()) inst += 2;
+            Type            *mmt = IN.getType();
+            FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
+
+            if (mmt->isIntegerTy() || mmt->isFloatingPointTy()) {
+
+              inst += 2;
+
+            } else if (isAflCovVectorEnabled()) {
+
+              if (mmv) {
+
+                inst += mmv->getElementCount().getKnownMinValue() * 2;
+
+              } else if (mmt->getTypeID() == llvm::Type::ScalableVectorTyID) {
+
+                inst += 2;
+
+              }
+
+            }
 
           }
 
@@ -2500,10 +2519,15 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
         } else if (isAflCovMinMaxIntrinsic(IN)) {
 
-          IntrinsicInst *mmi = cast<IntrinsicInst>(&IN);
-          Type          *mmt = mmi->getType();
+          IntrinsicInst   *mmi = cast<IntrinsicInst>(&IN);
+          Type            *mmt = mmi->getType();
+          FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
+          bool             mmscalable =
+              mmt->getTypeID() == llvm::Type::ScalableVectorTyID;
 
-          if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy()) continue;
+          if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy() &&
+              !((mmv || mmscalable) && isAflCovVectorEnabled()))
+            continue;
 
           Intrinsic::ID iid = mmi->getIntrinsicID();
           Value        *lhs = mmi->getArgOperand(0);
@@ -2543,13 +2567,58 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
           markAflSkip(cmp);
           Value *res = IRB.CreateFreeze(cmp);
           markAflSkip(res);
-          Value *val1 =
-              applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
-          Value *val2 =
-              applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
-          result = IRB.CreateSelect(res, val1, val2);
+
+          if (mmv) {
+
+            uint32_t elements = mmv->getElementCount().getFixedValue();
+            if (!elements) continue;
+            vector_cnt = elements;
+            inst += elements * 2;
+
+            FixedVectorType *GuardPtr1 =
+                FixedVectorType::get(Int32Ty, elements);
+            FixedVectorType *GuardPtr2 =
+                FixedVectorType::get(Int32Ty, elements);
+
+            Value *val1 =
+                applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+            Value *val2 =
+                applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+            Value *x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
+            Value *y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
+
+            for (uint64_t i = 1; i < elements; i++) {
+
+              val1 = applyCtxOffset(IRB,
+                                    ConstantInt::get(Int32Ty, ++afl_global_id));
+              val2 = applyCtxOffset(IRB,
+                                    ConstantInt::get(Int32Ty, ++afl_global_id));
+              x = IRB.CreateInsertElement(x, val1, i);
+              y = IRB.CreateInsertElement(y, val2, i);
+
+            }
+
+            result = IRB.CreateSelect(res, x, y);
+
+          } else {
+
+            if (mmscalable) {
+
+              res = IRB.CreateOrReduce(res);
+              markAflSkip(res);
+
+            }
+
+            Value *val1 =
+                applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+            Value *val2 =
+                applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+            result = IRB.CreateSelect(res, val1, val2);
+            inst += 2;
+
+          }
+
           markAflSkip(result);
-          inst += 2;
 
         }
 

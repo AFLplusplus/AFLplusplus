@@ -39,9 +39,14 @@
   - afl-cc
     - remove classic AFL instrumentation (colliding coverage), as `AFL_LLVM_PATH`
       and `AFL_LLVM_CALLER` replace these mostly and are overall much better
-    - removed the obsolete afl-as assembler wrapper and its remaining references
     - more invisible decisions are instrumented now.
     - new env var `AFL_LLVM_DENSE=1` to disable PCGUARD basic block pruning
+    - new env var `AFL_LLVM_MINMAX=1` scores min/max/abs intrinsics, i.e.
+      clamps that the optimizer made branchless. Default off: it adds 10% map
+      entries but costs 20% throughput
+    - new env var `AFL_LLVM_VECTORS=1` instruments vector selects and vector
+      min/max one guard pair per lane (default off, they are rarely worth it)
+    - removed the obsolete afl-as assembler wrapper and its remaining references
   - afl-cmin:
     - (all variants: C, python, bash, awk): empty (0 byte) input files are now
       skipped, plus various other fixes and corner case handling

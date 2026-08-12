@@ -54,6 +54,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->schedule = EXPLORE;              /* Power schedule (default: EXPLORE)*/
   afl->havoc_max_mult = HAVOC_MAX_MULT;
   afl->clear_screen = 1;                /* Window resized?                  */
+  //afl->primary_trace = 1;              /* trace_bits holds the coverage map */
   afl->havoc_div = 1;                   /* Cycle count divisor for havoc    */
   afl->stage_name = "init";             /* Name of the current fuzz stage   */
   afl->splicing_with = -1;              /* Splicing with which test case?   */

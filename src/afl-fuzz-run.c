@@ -72,7 +72,19 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
 
   }
 
-  vp_prepare_exec(afl, fsrv);
+  if (unlikely(afl->value_profile_mode)) { vp_prepare_exec(afl, fsrv); }
+
+  /* Every forkserver that shares the primary trace buffer overwrites the
+     coverage map with its own guard id space. Remember who wrote it last so
+     has_new_bits() can refuse to merge a secondary map into virgin_bits. */
+  /*
+  if (unlikely(fsrv->trace_bits == afl->fsrv.trace_bits)) {
+
+    afl->primary_trace = (fsrv == &afl->fsrv);
+
+  }
+  */
+
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
 #ifdef __AFL_CODE_COVERAGE

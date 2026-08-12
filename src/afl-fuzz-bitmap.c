@@ -241,6 +241,18 @@ void init_count_class16(void) {
 
 inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
+  /* edges_found is derived from virgin_bits, so a secondary channel - cmplog,
+     a sanitizer binary, anything with its own guard ids - must never be
+     accounted here. Mixing a second guard id space into the primary map is
+     what made 4.40 look 25% better than it was. */
+  /*
+  if (unlikely(virgin_map == afl->virgin_bits && !afl->primary_trace)) {
+
+    FATAL("coverage map of a secondary target merged into virgin_bits");
+
+  }
+  */
+
 #ifdef WORD_SIZE_64
 
   u64 *current = (u64 *)afl->fsrv.trace_bits;

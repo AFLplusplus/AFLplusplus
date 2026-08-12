@@ -1684,8 +1684,22 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         } else if (isAflCovMinMaxIntrinsic(IN)) {
 
-          Type *mmt = IN.getType();
+          Type            *mmt = IN.getType();
+          FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
           if (mmt->isIntegerTy() || mmt->isFloatingPointTy()) {
+
+            block_is_instrumented = true;
+            cnt_sel++;
+            cnt_sel_inc += 2;
+
+          } else if (mmv && isAflCovVectorEnabled()) {
+
+            block_is_instrumented = true;
+            cnt_sel++;
+            cnt_sel_inc += (mmv->getElementCount().getKnownMinValue() * 2);
+
+          } else if (mmt->getTypeID() == llvm::Type::ScalableVectorTyID &&
+                     isAflCovVectorEnabled()) {
 
             block_is_instrumented = true;
             cnt_sel++;
@@ -2013,10 +2027,18 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
         } else if (isAflCovMinMaxIntrinsic(IN)) {
 
-          IntrinsicInst *mmi = cast<IntrinsicInst>(&IN);
-          Type          *mmt = mmi->getType();
+          IntrinsicInst   *mmi = cast<IntrinsicInst>(&IN);
+          Type            *mmt = mmi->getType();
+          FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
+          bool             mmscalable =
+              mmt->getTypeID() == llvm::Type::ScalableVectorTyID;
 
-          if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy()) { continue; }
+          if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy() &&
+              !((mmv || mmscalable) && isAflCovVectorEnabled())) {
+
+            continue;
+
+          }
 
           if (debug) printDebugInfo(IN);
 
@@ -2056,16 +2078,39 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           }
 
           setNoInstrumentMetadata(cmp);
-          Value *res = IRB.CreateFreeze(cmp);
-          setNoInstrumentMetadata(res);
-          Value *GuardPtr1 =
-              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
-                                          AllBlocks.size() - skip_blocks);
-          Value *GuardPtr2 =
-              createGuardPointer(IRB, cnt_cov + special + local_selects++ +
-                                          AllBlocks.size() - skip_blocks);
-          result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
-          setNoInstrumentMetadata(result);
+
+          if (mmv) {
+
+            vector_cnt = mmv->getElementCount().getFixedValue();
+            FixedVectorType *ct = dyn_cast<FixedVectorType>(cmp->getType());
+            if (!ct) { continue; }
+            result = instrumentVectorSelect(IRB, cmp, ct, local_selects,
+                                            cnt_cov, skip_blocks, special,
+                                            AllBlocks);
+            setNoInstrumentMetadata(result);
+
+          } else {
+
+            Value *res = IRB.CreateFreeze(cmp);
+            setNoInstrumentMetadata(res);
+
+            if (mmscalable) {
+
+              res = IRB.CreateOrReduce(res);
+              setNoInstrumentMetadata(res);
+
+            }
+
+            Value *GuardPtr1 =
+                createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                            AllBlocks.size() - skip_blocks);
+            Value *GuardPtr2 =
+                createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                            AllBlocks.size() - skip_blocks);
+            result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
+            setNoInstrumentMetadata(result);
+
+          }
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 

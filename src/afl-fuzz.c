@@ -2758,6 +2758,21 @@ void afl_setup_environment(afl_state_t *afl) {
 
   }
 
+  if (afl->fsrv.target_path) {
+
+    if (afl->cmplog_binary) {
+
+      OKF("Coverage target: %s (CmpLog: %s)", afl->fsrv.target_path,
+          afl->cmplog_binary);
+
+    } else {
+
+      OKF("Coverage target: %s", afl->fsrv.target_path);
+
+    }
+
+  }
+
   #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(afl->fsrv.persistent_record)) {
 
@@ -3165,6 +3180,10 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
     }
 
     if (restore_ijon_env) { unsetenv("AFL_NO_IJON"); }
+
+    /* Starting the forkserver already ran the CmpLog binary once, so the
+       shared trace buffer no longer holds the coverage target's map. */
+    //afl->primary_trace = 0;
 
     OKF("CMPLOG forkserver successfully started");
 

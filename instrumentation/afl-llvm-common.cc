@@ -891,7 +891,23 @@ bool isDecisionUse(const Value *Cond) {
 
 }
 
+/* Clamps and min/max are opt-in: they add ~10% map entries, but 45% of the
+   sites land in per-pixel math, where they measured -21% throughput on libraw
+   while contributing the least discriminating signal. The parser side sites
+   are the valuable ones, so enable this per target after measuring. */
+bool isAflCovMinMaxEnabled(void) {
+
+  static int enabled = -1;
+
+  if (enabled < 0) { enabled = getenv("AFL_LLVM_MINMAX") != NULL; }
+
+  return enabled != 0;
+
+}
+
 bool isAflCovMinMaxIntrinsic(Instruction &I) {
+
+  if (!isAflCovMinMaxEnabled()) return false;
 
   const auto *II = dyn_cast<IntrinsicInst>(&I);
   if (!II) return false;
@@ -913,6 +929,19 @@ bool isAflCovMinMaxIntrinsic(Instruction &I) {
       return false;
 
   }
+
+}
+
+/* Per-lane instrumentation of vector decisions is opt-in: a vector compare in
+   an auto-vectorized pixel loop costs two guards per lane and is nearly always
+   true, so it is the least discriminating signal we can add. */
+bool isAflCovVectorEnabled(void) {
+
+  static int enabled = -1;
+
+  if (enabled < 0) { enabled = getenv("AFL_LLVM_VECTORS") != NULL; }
+
+  return enabled != 0;
 
 }
 
@@ -945,6 +974,13 @@ bool isAflCovInterestingInstruction(Instruction &I) {
       auto   t = condition->getType();
 
       if (t->getTypeID() == llvm::Type::IntegerTyID) return true;
+
+      if (t->getTypeID() == llvm::Type::FixedVectorTyID ||
+          t->getTypeID() == llvm::Type::ScalableVectorTyID) {
+
+        return isAflCovVectorEnabled();
+
+      }
 
       return false;
 

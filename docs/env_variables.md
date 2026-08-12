@@ -485,19 +485,51 @@ for details.
     If the target performs only a few loops, then this will give a small
     performance boost.
 
-#### Dense instrumentation (LLVM PCGUARD mode)
+#### Dense instrumentation (LLVM PCGUARD and LTO mode)
 
-By default the PCGUARD instrumentation prunes basic blocks whose execution is
+By default the coverage instrumentation prunes basic blocks whose execution is
 already implied by an instrumented successor or predecessor (full dominators
 and full post-dominators). Setting `AFL_LLVM_DENSE=1` during compilation
-disables that pruning and instruments every basic block.
+disables that pruning and instruments every basic block. In LTO mode the same
+thing can also be spelled `-mllvm -lto-coverage-prune-blocks=0`.
 
 This gives a finer partition at the cost of a much larger map - on libraw the
 map grows from 25462 to 38672 entries (+51.9%) for about 5% less throughput.
 Most of the added entries carry no independent signal, so this is a research
 knob: only useful if your target is far below the map size limit and you have
-measured that the extra granularity helps. In LTO mode the equivalent already
-exists as `-mllvm -lto-coverage-prune-blocks=0`.
+measured that the extra granularity helps.
+
+#### Clamp instrumentation (LLVM PCGUARD and LTO mode)
+
+At -O2 and above the optimizer turns `MIN()`, `MAX()`, `LIM()` and plain
+`if (x > n) x = n;` into `llvm.smin`/`smax`/`umin`/`umax`/`abs` intrinsics,
+which are branchless and therefore invisible to the edge map. Setting
+`AFL_LLVM_MINMAX=1` during compilation scores each of them like a compare.
+
+On libraw this adds 10.3% map entries, but 45% of the sites are in demosaic and
+postprocessing code that runs per pixel, and there it costs 21% throughput. The
+sites that pay off are the length, count and index guards in parsers, which are
+cold. So this is worth turning on for a parser, and worth measuring first for
+anything doing bulk pixel or signal math.
+
+Fused conditions - `if (a && b)` speculated into a single `and i1` - are a
+separate mechanism that is always on: it costs nothing measurable and its sites
+are in parser code.
+
+#### Vector decision instrumentation (LLVM PCGUARD and LTO mode)
+
+Scalar `select`s are instrumented by default and scalar min/max with
+`AFL_LLVM_MINMAX=1`, their vector counterparts are not instrumented at all.
+Setting `AFL_LLVM_VECTORS=1` during compilation instruments them one guard pair
+per lane, so a `<8 x i32>` compare costs 16 map entries instead of 0. Vector
+min/max additionally needs `AFL_LLVM_MINMAX=1`.
+
+Vector decisions come from auto-vectorized loops, where all lanes almost always
+agree and the value being clamped is a pixel rather than a length or an index.
+In PCGUARD mode they are additionally rare, because the pass runs before the
+vectorizer - on libraw there are none at all, and this knob changes nothing.
+LTO mode instruments fully optimized IR and does see them. Measure before you
+keep it on.
 
 #### Thread safe instrumentation counters (in all modes)
 

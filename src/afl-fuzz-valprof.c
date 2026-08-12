@@ -127,7 +127,7 @@ void vp_restore_queue_entry_state(afl_state_t *afl, struct queue_entry *q,
 /* Prepare per-execution runtime VP state before running the main target. */
 void vp_prepare_exec(afl_state_t *afl, afl_forkserver_t *fsrv) {
 
-  if (!afl->value_profile_mode) return;
+  if (likely(!afl->value_profile_mode)) return;
   if (fsrv != &afl->fsrv) return;
 
   if (unlikely(!fsrv->use_value_profile)) {
