@@ -753,7 +753,8 @@ typedef struct afl_state {
   u8 *virgin_reclaim;                  /* handbacks per byte, see rollback  */
   u8  virgin_undo_armed;                /* a discovery may still be undone  */
   u8  virgin_undo_valid;               /* virgin_undo holds a usable copy   */
-  //u8  primary_trace;                   /* trace_bits holds the coverage map */
+  // u8  primary_trace;                   /* trace_bits holds the coverage map
+  // */
 
   double *alias_probability;            /* alias weighted probabilities     */
   u32    *alias_table;                /* alias weighted random lookup table */

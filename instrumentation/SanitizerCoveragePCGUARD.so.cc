@@ -1699,6 +1699,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
             cnt_sel_inc += (mmv->getElementCount().getKnownMinValue() * 2);
 
           } else if (mmt->getTypeID() == llvm::Type::ScalableVectorTyID &&
+
                      isAflCovVectorEnabled()) {
 
             block_is_instrumented = true;
@@ -2030,8 +2031,7 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           IntrinsicInst   *mmi = cast<IntrinsicInst>(&IN);
           Type            *mmt = mmi->getType();
           FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
-          bool             mmscalable =
-              mmt->getTypeID() == llvm::Type::ScalableVectorTyID;
+          bool mmscalable = mmt->getTypeID() == llvm::Type::ScalableVectorTyID;
 
           if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy() &&
               !((mmv || mmscalable) && isAflCovVectorEnabled())) {
@@ -2044,9 +2044,8 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
 
           Intrinsic::ID iid = mmi->getIntrinsicID();
           Value        *lhs = mmi->getArgOperand(0);
-          Value        *rhs = iid == Intrinsic::abs
-                                  ? ConstantInt::get(mmt, 0)
-                                  : mmi->getArgOperand(1);
+          Value        *rhs = iid == Intrinsic::abs ? ConstantInt::get(mmt, 0)
+                                                    : mmi->getArgOperand(1);
           Value        *cmp = nullptr;
 
           switch (iid) {
@@ -2084,9 +2083,9 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
             vector_cnt = mmv->getElementCount().getFixedValue();
             FixedVectorType *ct = dyn_cast<FixedVectorType>(cmp->getType());
             if (!ct) { continue; }
-            result = instrumentVectorSelect(IRB, cmp, ct, local_selects,
-                                            cnt_cov, skip_blocks, special,
-                                            AllBlocks);
+            result =
+                instrumentVectorSelect(IRB, cmp, ct, local_selects, cnt_cov,
+                                       skip_blocks, special, AllBlocks);
             setNoInstrumentMetadata(result);
 
           } else {

@@ -251,6 +251,7 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
     FATAL("coverage map of a secondary target merged into virgin_bits");
 
   }
+
   */
 
 #ifdef WORD_SIZE_64

@@ -3183,7 +3183,7 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
     /* Starting the forkserver already ran the CmpLog binary once, so the
        shared trace buffer no longer holds the coverage target's map. */
-    //afl->primary_trace = 0;
+    // afl->primary_trace = 0;
 
     OKF("CMPLOG forkserver successfully started");
 

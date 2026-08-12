@@ -2522,8 +2522,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
           IntrinsicInst   *mmi = cast<IntrinsicInst>(&IN);
           Type            *mmt = mmi->getType();
           FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
-          bool             mmscalable =
-              mmt->getTypeID() == llvm::Type::ScalableVectorTyID;
+          bool mmscalable = mmt->getTypeID() == llvm::Type::ScalableVectorTyID;
 
           if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy() &&
               !((mmv || mmscalable) && isAflCovVectorEnabled()))
@@ -2531,9 +2530,8 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
           Intrinsic::ID iid = mmi->getIntrinsicID();
           Value        *lhs = mmi->getArgOperand(0);
-          Value        *rhs = iid == Intrinsic::abs
-                                  ? ConstantInt::get(mmt, 0)
-                                  : mmi->getArgOperand(1);
+          Value        *rhs = iid == Intrinsic::abs ? ConstantInt::get(mmt, 0)
+                                                    : mmi->getArgOperand(1);
           Value        *cmp = nullptr;
 
           switch (iid) {

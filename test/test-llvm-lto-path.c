@@ -193,8 +193,9 @@ __attribute__((noinline)) int deep_chain(unsigned int x) {
     CHAIN100(500)
     CHAIN100(600)
     CHAIN100(700)
-    CHAIN100(800) CHAIN100(900) CHAIN100(1000) CHAIN100(1100) CHAIN100(1200)
-        CHAIN100(1300) CHAIN100(1400) default : s += 9999;
+    CHAIN100(800)
+    CHAIN100(900) CHAIN100(1000) CHAIN100(1100) CHAIN100(1200) CHAIN100(1300)
+        CHAIN100(1400) default : s += 9999;
 
   }
 
