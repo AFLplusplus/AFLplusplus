@@ -20,18 +20,33 @@ fi
 
 DONE=
 PLATFORM=`uname -s`
+SYSCTL=sysctl
+command -v sysctl >/dev/null 2>&1 || SYSCTL=/sbin/sysctl
 
 set_sysctl() {
   SYSCTL_PROC="/proc/sys/$(echo "$1" | tr '.' '/')"
-  sysctl -w "$1=$2" >/dev/null 2>&1
-  test -r "$SYSCTL_PROC" && test "$(cat "$SYSCTL_PROC")" = "$2" && return 0
-  test -e "$SYSCTL_PROC" && { echo "$2" > "$SYSCTL_PROC"; } 2>/dev/null && return 0
+  if test -e "$SYSCTL_PROC" ; then
+    CURRENT=$(cat "$SYSCTL_PROC" 2>/dev/null)
+  else
+    test -d /proc/sys && return 0
+    CURRENT=$($SYSCTL -n "$1" 2>/dev/null) || return 0
+  fi
+  test "$CURRENT" = "$2" && return 0
+  $SYSCTL -w "$1=$2" >/dev/null 2>&1
+  test -e "$SYSCTL_PROC" && {
+    test "$(cat "$SYSCTL_PROC" 2>/dev/null)" = "$2" && return 0
+    { echo "$2" > "$SYSCTL_PROC"; } 2>/dev/null && return 0
+  }
+  test -e "$SYSCTL_PROC" || { test "$($SYSCTL -n "$1" 2>/dev/null)" = "$2" && return 0; }
   test -z "$3" && echo "Warning: failed to set $1 to \"$2\"" >&2
   return 1
 }
 
 set_file() {
-  test -e "$1" || return 1
+  test -e "$1" || return 0
+  CURRENT=$(cat "$1" 2>/dev/null)
+  test "$CURRENT" = "$2" && return 0
+  case "$CURRENT" in *"[$2]"*) return 0 ;; esac
   { echo "$2" > "$1"; } 2>/dev/null && return 0
   test -z "$3" && echo "Warning: failed to write \"$2\" to $1" >&2
   return 1
@@ -88,8 +103,8 @@ if [ "$PLATFORM" = "Linux" ] ; then
 fi
 if [ "$PLATFORM" = "FreeBSD" ] ; then
 {
-  sysctl kern.elf32.aslr.enable=0
-  sysctl kern.elf64.aslr.enable=0
+  set_sysctl kern.elf32.aslr.enable 0
+  set_sysctl kern.elf64.aslr.enable 0
 } > /dev/null
   echo Settings applied.
   echo
@@ -106,7 +121,7 @@ EOF
   DONE=1
 fi
 if [ "$PLATFORM" = "OpenBSD" ] ; then
-  doas sysctl vm.malloc_conf=
+  test -n "$($SYSCTL -n vm.malloc_conf 2>/dev/null)" && doas sysctl vm.malloc_conf=
   echo 'Freecheck on allocation in particular can be detrimental to performance.'
   echo 'Also we might not want necessarily to abort at any allocation failure.'
   echo 'System security features cannot be disabled on OpenBSD.'
@@ -127,17 +142,17 @@ EOF
 fi
 if [ "$PLATFORM" = "NetBSD" ] ; then
 {
-  /sbin/sysctl -w security.models.extensions.user_set_cpu_affinity=1
+  set_sysctl security.models.extensions.user_set_cpu_affinity 1
 } > /dev/null
   echo Settings applied.
   echo
   DONE=1
 fi
 if [ "$PLATFORM" = "Darwin" ] ; then
-  sysctl kern.sysv.shmmax=524288000
-  sysctl kern.sysv.shmmin=1
-  sysctl kern.sysv.shmseg=48
-  sysctl kern.sysv.shmall=131072000
+  set_sysctl kern.sysv.shmmax 524288000
+  set_sysctl kern.sysv.shmmin 1
+  set_sysctl kern.sysv.shmseg 48
+  set_sysctl kern.sysv.shmall 131072000
   echo Settings applied.
   echo
   if $(launchctl list 2>/dev/null | grep -q '\.ReportCrash\>') ; then

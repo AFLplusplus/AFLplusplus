@@ -3031,6 +3031,8 @@ static void maybe_usage(aflcc_state_t *aflcc, int argc, char **argv) {
 
             "  AFL_LLVM_DENSE: instrument every basic block, no pruning\n"
             "  AFL_LLVM_MINMAX: instrument min/max/abs intrinsics (clamps)\n"
+            "  AFL_LLVM_FUSED: instrument both halves of fused conditions "
+            "(a && b)\n"
             "  AFL_LLVM_VECTORS: instrument vector selects and vector min/max "
             "per lane\n"
             "  AFL_LLVM_DICT2FILE: generate an afl dictionary based on found "

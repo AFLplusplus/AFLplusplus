@@ -819,6 +819,16 @@ unsigned long long int calculateCollisions(uint32_t edges) {
 
 }
 
+bool isAflCovFusedEnabled(void) {
+
+  static int enabled = -1;
+
+  if (enabled < 0) { enabled = getenv("AFL_LLVM_FUSED") != NULL; }
+
+  return enabled != 0;
+
+}
+
 bool isDecisionUse(const Value *Cond) {
 
   SmallVector<const Value *, 8> Worklist;
@@ -862,9 +872,9 @@ bool isDecisionUse(const Value *Cond) {
       } else if (const auto *BO = dyn_cast<BinaryOperator>(U)) {
 
         if (BO->getType()->isIntegerTy(1) &&
-            BO->getOpcode() == Instruction::Xor &&
-            (isa<Constant>(BO->getOperand(0)) ||
-             isa<Constant>(BO->getOperand(1))))
+            (!isAflCovFusedEnabled() || (BO->getOpcode() == Instruction::Xor &&
+                                         (isa<Constant>(BO->getOperand(0)) ||
+                                          isa<Constant>(BO->getOperand(1))))))
           Worklist.push_back(BO);
 
       } else if (const auto *PN = dyn_cast<PHINode>(U)) {

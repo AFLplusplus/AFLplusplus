@@ -279,6 +279,7 @@ bool                   isAflCovInterestingInstruction(llvm::Instruction &I);
 bool                   isAflCovMinMaxIntrinsic(llvm::Instruction &I);
 bool                   isAflCovMinMaxEnabled(void);
 bool                   isAflCovVectorEnabled(void);
+bool                   isAflCovFusedEnabled(void);
 bool                   isDecisionUse(const llvm::Value *Cond);
 bool                   isExecCall(llvm::Instruction *IN);
 std::pair<bool, bool>  detectIJONUsage(llvm::Module &M);
@@ -412,8 +413,9 @@ inline bool isFullyArtificialBlock(const llvm::BasicBlock *BB) {
    sees or displaces this load.  The load is marked invariant because
    __afl_area_ptr is set once at process start and never changes.
 
-   Callers should collect BlocksToInstrument before calling this so the
-   preamble is excluded from instrumentation. */
+   The preamble is marked synthetic so shouldInstrumentBlock() skips it even
+   when block pruning is off - instrumenting it would insert a map access
+   ahead of the load it depends on. */
 inline llvm::Value *hoistMapPointerLoad(llvm::Function       &F,
                                         llvm::GlobalVariable *AFLMapPtr,
                                         llvm::Type           *PtrTy) {
@@ -438,6 +440,7 @@ inline llvm::Value *hoistMapPointerLoad(llvm::Function       &F,
   setNoSanitizeMetadata(Load);
   Load->setMetadata(LLVMContext::MD_invariant_load, MDNode::get(Ctx, {}));
   IRB.CreateBr(OldEntry);
+  markAflSyntheticBlock(Preamble);
 
   /* Move static allocas into the preamble so ASan keeps them function-wide. */
   for (auto *AI : StaticAllocas) {

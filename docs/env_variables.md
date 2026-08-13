@@ -512,9 +512,16 @@ sites that pay off are the length, count and index guards in parsers, which are
 cold. So this is worth turning on for a parser, and worth measuring first for
 anything doing bulk pixel or signal math.
 
-Fused conditions - `if (a && b)` speculated into a single `and i1` - are a
-separate mechanism that is always on: it costs nothing measurable and its sites
-are in parser code.
+#### Fused condition instrumentation (LLVM PCGUARD and LTO mode)
+
+`if (a && b)` with a cheap second operand is speculated by SimplifyCFG into a
+single `and i1` feeding one branch, so the map only records whether the compound
+condition held, never which half failed. Setting `AFL_LLVM_FUSED=1` during
+compilation scores each half separately, which gives the fuzzer a gradient for
+solving multi-clause conditions.
+
+On libraw this adds 7.5% map entries for no measurable throughput cost, and its
+sites are mostly in parser code, so it is the cheapest of these three knobs.
 
 #### Vector decision instrumentation (LLVM PCGUARD and LTO mode)
 
