@@ -28,6 +28,15 @@ OK=OK
 diff test.1 test.2 >/dev/null 2>&1 || OK=
 rm -f test.1 test.2
 test -z "$OK" && { echo Error: diff is not working ; exit 1 ; }
+# the tests must use the LLVM that afl-cc was built against, otherwise LTO
+# bitcode written by afl-clang-lto cannot be read back by the plain clang the
+# tests link with ("Invalid record")
+test -z "$LLVM_CONFIG" && {
+  AFL_CC_BINDIR=$(../afl-cc --version 2>/dev/null | \
+    sed -n 's/^InstalledDir: //p' | head -1)
+  test -n "$AFL_CC_BINDIR" -a -x "$AFL_CC_BINDIR/llvm-config" && \
+    LLVM_CONFIG="$AFL_CC_BINDIR/llvm-config"
+}
 test -z "$LLVM_CONFIG" && LLVM_CONFIG=llvm-config
 
 # check for '-a' option of grep

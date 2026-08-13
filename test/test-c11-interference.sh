@@ -31,9 +31,15 @@ if [ ! -x "./afl-clang-fast" ]; then
     exit 1
 fi
 
-OPT=$(command -v opt || true)
-OBJDUMP=$(command -v llvm-objdump || command -v objdump)
-LLVMDIS=$(command -v llvm-dis || true)
+# prefer the LLVM that afl-cc was built against: another opt cannot load our
+# pass plugins and another llvm-dis cannot read our LTO bitcode
+BINDIR=$(./afl-cc --version 2>/dev/null | sed -n 's/^InstalledDir: //p' | head -1)
+test -d "$BINDIR" || BINDIR=.
+
+OPT=$(command -v "$BINDIR/opt" || command -v opt || true)
+OBJDUMP=$(command -v "$BINDIR/llvm-objdump" || command -v llvm-objdump || \
+    command -v objdump)
+LLVMDIS=$(command -v "$BINDIR/llvm-dis" || command -v llvm-dis || true)
 
 SRC="$TEMP_DIR/c11test.c"
 cat > "$SRC" <<'EOF'
