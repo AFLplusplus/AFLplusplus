@@ -35,6 +35,33 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #undef strrchr
 #undef strstr
 
+/* How much of the FILE object fgets() checks. Erring low is deliberate: libc
+   allocates its streams through the malloc we replace, so a size larger than
+   the real object reaches into one of our redzones and reports an overflow
+   that never happened. A size that is too small only checks less of the
+   object, it still catches a freed or wild stream.
+
+   The Makefile asks the compiler whether this libc exposes the layout of FILE,
+   which is the only way to get the exact size without keeping a list of libcs,
+   and defines QASAN_FILE_IS_COMPLETE if it does (glibc, and every other libc
+   whose headers are equally forthcoming).
+
+   musl keeps FILE opaque, as the C standard allows, and deliberately defines no
+   macro identifying itself, so it is recognized here by the guard its
+   <stdio.h> leaves behind. Its struct _IO_FILE is 232 bytes on LP64 (its
+   fopen() requests sizeof(FILE) + UNGET + BUFSIZ = 1264) and around 150 on
+   ILP32, so 16 pointers stay comfortably inside it on both.
+
+   For a libc we can neither introspect nor identify, check a single pointer,
+   the largest prefix every FILE object is guaranteed to have. */
+#if defined(QASAN_FILE_IS_COMPLETE) || defined(__GLIBC__)
+  #define QASAN_FILE_CHECK_SIZE sizeof(FILE)
+#elif defined(__DEFINED_FILE)                                       /* musl */
+  #define QASAN_FILE_CHECK_SIZE (16 * sizeof(void *))
+#else
+  #define QASAN_FILE_CHECK_SIZE sizeof(void *)
+#endif
+
 char *(*__lq_libc_fgets)(char *, int, FILE *);
 int (*__lq_libc_atoi)(const char *);
 long (*__lq_libc_atol)(const char *);
@@ -210,7 +237,7 @@ char *fgets(char *s, int size, FILE *stream) {
   QASAN_DEBUG("%14p: fgets(%p, %d, %p)\n", rtv, s, size, stream);
   QASAN_STORE(s, size);
 #ifndef __ANDROID__
-  QASAN_LOAD(stream, sizeof(FILE));
+  QASAN_LOAD(stream, QASAN_FILE_CHECK_SIZE);
 #endif
   char *r = __lq_libc_fgets(s, size, stream);
   QASAN_DEBUG("\t\t = %p\n", r);

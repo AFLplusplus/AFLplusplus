@@ -173,6 +173,7 @@ void __libqasan_hotpatch(void) {
 #else
 
 static void *libc_start, *libc_end;
+static char  libc_path[512];
 int          libc_perms;
 
 static void find_libc(void) {
@@ -200,11 +201,16 @@ static void find_libc(void) {
 
     if ((fields < 10) || (fields > 11)) continue;
 
+    /* musl maps its libc as /lib/ld-musl-<arch>.so.1 (loader and libc are the
+       same file), Alpine additionally symlinks it as libc.musl-<arch>.so.1 */
     if (flag_x == 'x' && (__libqasan_strstr(path, "/libc.so") ||
-                          __libqasan_strstr(path, "/libc-"))) {
+                          __libqasan_strstr(path, "/libc-") ||
+                          __libqasan_strstr(path, "/ld-musl") ||
+                          __libqasan_strstr(path, "/libc.musl"))) {
 
       libc_start = (void *)min;
       libc_end = (void *)max;
+      __libqasan_memcpy(libc_path, path, __libqasan_strlen(path) + 1);
 
       libc_perms = PROT_EXEC;
       if (flag_w == 'w') libc_perms |= PROT_WRITE;
@@ -237,7 +243,24 @@ void __libqasan_hotpatch(void) {
                PROT_READ | PROT_WRITE | PROT_EXEC) < 0)
     return;
 
-  void *libc = dlopen("libc.so.6", RTLD_LAZY);
+  /* Prefer the very file that find_libc() located, its soname is not the same
+     on every libc (libc.so.6 on glibc, ld-musl-<arch>.so.1 on musl), and it is
+     the mapping we just made writable. Keep the old name as a fallback for the
+     cases where the path from the maps cannot be reopened, e.g. an upgraded
+     and thus deleted file. */
+  void *libc = NULL;
+  if (libc_path[0]) libc = dlopen(libc_path, RTLD_LAZY);
+  if (!libc) libc = dlopen("libc.so.6", RTLD_LAZY);
+
+  /* Never continue without a handle: NULL is RTLD_DEFAULT, so every dlsym()
+     below would resolve to our own preloaded symbols and patch them to jump to
+     themselves. */
+  if (!libc) {
+
+    mprotect(libc_start, libc_end - libc_start, libc_perms);
+    return;
+
+  }
 
   #define HOTPATCH(fn)                             \
     uint8_t *p_##fn = (uint8_t *)dlsym(libc, #fn); \

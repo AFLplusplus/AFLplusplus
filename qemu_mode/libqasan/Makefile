@@ -24,6 +24,16 @@ CFLAGS      += -I ../qemuafl/qemuafl/
 CFLAGS      += -Wno-int-to-void-pointer-cast -ggdb
 LDFLAGS     += -ldl -pthread
 
+# Does this libc expose the layout of FILE? glibc does, musl does not (the C
+# standard allows keeping it opaque), others vary, so ask the compiler instead
+# of maintaining a list of libcs. See QASAN_FILE_CHECK_SIZE in hooks.c.
+FILE_IS_COMPLETE := $(shell echo 'char probe[sizeof(FILE)];' | \
+                    $(CC) -include stdio.h -x c -c -o /dev/null - 2>/dev/null \
+                    && echo 1)
+ifeq "$(FILE_IS_COMPLETE)" "1"
+  CFLAGS += -DQASAN_FILE_IS_COMPLETE=1
+endif
+
 SRC := libqasan.c hooks.c malloc.c string.c uninstrument.c patch.c dlmalloc.c
 HDR := libqasan.h
 
