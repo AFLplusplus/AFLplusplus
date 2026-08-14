@@ -528,15 +528,19 @@ sites are mostly in parser code, so it is the cheapest of these three knobs.
 Scalar `select`s are instrumented by default and scalar min/max with
 `AFL_LLVM_MINMAX=1`, their vector counterparts are not instrumented at all.
 Setting `AFL_LLVM_VECTORS=1` during compilation instruments them one guard pair
-per lane, so a `<8 x i32>` compare costs 16 map entries instead of 0. Vector
-min/max additionally needs `AFL_LLVM_MINMAX=1`.
+per lane, so a `select` on a `<8 x i1>` condition costs 16 map entries instead
+of 0. Vector min/max additionally needs `AFL_LLVM_MINMAX=1`. A bare vector
+compare is never instrumented in either mode - only the `select` or min/max
+intrinsic it feeds is.
 
 Vector decisions come from auto-vectorized loops, where all lanes almost always
 agree and the value being clamped is a pixel rather than a length or an index.
-In PCGUARD mode they are additionally rare, because the pass runs before the
-vectorizer - on libraw there are none at all, and this knob changes nothing.
-LTO mode instruments fully optimized IR and does see them. Measure before you
-keep it on.
+In PCGUARD mode the pass runs at `OptimizerEarly`, before the loop and SLP
+vectorizers, so auto-vectorized loops hold no vector IR yet and this knob only
+reaches vectors that are explicit in the source (vector extensions, intrinsics,
+`__builtin_elementwise_*`). On libraw there are none at all and the map size is
+unchanged. LTO mode instruments fully optimized IR after the vectorizer and does
+see them. Measure before you keep it on.
 
 #### Thread safe instrumentation counters (in all modes)
 
