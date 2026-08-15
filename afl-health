@@ -1058,13 +1058,13 @@ def analyze(
         overall = "misconfigured"
     elif n > 0 and snap.alive_count == 0:
         overall = "dead"
-    elif degraded_reasons:
-        overall = "degraded"
     elif plateau:
         overall = "stalled"
+    elif degraded_reasons:
+        overall = "degraded"
     else:
         overall = "healthy"
-    if overall != "degraded":
+    if overall not in ("degraded", "stalled"):
         degraded_reasons = []
 
     headline = _headline(
@@ -1142,7 +1142,7 @@ def _headline(
 
 
 def degraded_tag(reasons: list[str]) -> str:
-    """The single-word reason tags of a degraded verdict, joined for one-line output."""
+    """The single-word degradation reason tags, joined for one-line output."""
     return "+".join(reasons)
 
 
@@ -1171,10 +1171,11 @@ def _explain(
         )
         return f"{alive}, but a subset is unwell ({why})."
     if overall == "stalled":
+        why = ", ".join(DEGRADED_REASON_TEXT.get(r, r) for r in degraded_reasons or [])
         return (
             f"{alive} and running, but coverage plateaued: edge slope "
             f"~{t.edges_slope_recent_per_min:.1f}/min, last +cov {t.last_cov_entry_age_s}s ago, "
-            f"favored queue drained."
+            f"favored queue drained." + (f" A subset is also unwell ({why})." if why else "")
         )
     tail = " Throughput-bound: still gaining coverage, just slowly (exec-speed limited)." if throughput_bound else ""
     return f"{alive}; coverage progressing and stability OK.{tail}"
@@ -1208,10 +1209,10 @@ def exit_code(reports: list[Report]) -> int:
 
 
 def fleet_verdict(reports: list[Report]) -> str:
-    """The worst verdict across the fleet (by exit-code rank)."""
+    """The worst verdict across the fleet (by exit-code rank; stalled wins its tie with degraded)."""
     if not reports:
         return "healthy"
-    return max(reports, key=lambda r: EXIT.get(r.overall, 0)).overall
+    return max(reports, key=lambda r: (EXIT.get(r.overall, 0), r.overall == "stalled")).overall
 
 
 def render_json(reports: list[Report], *, now: int, version: str) -> str:
@@ -2017,8 +2018,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--summary",
         action="store_true",
-        help="condensed one-line per campaign (fleet roll-up for many); a degraded campaign names "
-        "its reason(s): " + " / ".join(DEGRADED_REASON_TEXT),
+        help="condensed one-line per campaign (fleet roll-up for many); a degraded or stalled campaign "
+        "names its degradation reason(s): " + " / ".join(DEGRADED_REASON_TEXT),
     )
     g = p.add_mutually_exclusive_group()
     g.add_argument("-r", "--running", "-a", "--alive", action="store_true", help="show only running/alive campaigns (>=1 instance alive)")
