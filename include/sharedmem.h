@@ -34,6 +34,7 @@
 
 #include "types.h"
 #include "value-profile.h"
+#include "afl-state-map.h"
 
 typedef struct sharedmem {
 
@@ -47,6 +48,8 @@ typedef struct sharedmem {
   char   cmplog_g_shm_file_path[L_tmpnam];
   int    vp_g_shm_fd;
   char   vp_g_shm_file_path[L_tmpnam];
+  int    state_g_shm_fd;
+  char   state_g_shm_file_path[L_tmpnam];
   size_t map_alloc_size;
   size_t cmp_map_alloc_size;
 /* ========================================= */
@@ -54,6 +57,7 @@ typedef struct sharedmem {
   s32 shm_id;                          /* ID of the SHM region              */
   s32 cmplog_shm_id;
   s32 vp_shm_id;
+  s32 state_shm_id;
 #endif
 
   u8 *map;                                          /* shared memory region */
@@ -68,10 +72,12 @@ typedef struct sharedmem {
 
   int             cmplog_mode;
   int             vp_mode;
+  int             state_mode;
   int             sanfuzz_mode;
   int             shmemfuzz_mode;
   struct cmp_map *cmp_map;
   vp_map_t       *vp_map;
+  state_map_t    *state_map;
 
 } sharedmem_t;
 
@@ -81,6 +87,8 @@ void afl_shm_deinit(sharedmem_t *);
 void afl_shm_deinit_all(void);
 void afl_shm_vp_env_set(sharedmem_t *);
 void afl_shm_vp_env_unset(void);
+void afl_shm_state_env_set(sharedmem_t *);
+void afl_shm_state_env_unset(void);
 
 #endif
 

@@ -381,6 +381,16 @@ afl-fuzz /path/to/program
 See [example.c](../custom_mutators/examples/example.c) and
 [example.py](../custom_mutators/examples/example.py).
 
+For a stateful target, where an input is better understood as a list of
+operations than as a byte string, see
+[state_records](../custom_mutators/state_records/README.md). It ships a wire
+format, a mutator that works at record granularity, a record-granular trimmer
+via `afl_custom_trim`, splicing that only cuts between records, and a harness
+template. Its README also documents the two framing rules it exists to obey -
+never put a length or item count at the front of the input, and never let a
+bare length field be the only record separator - both of which are measured,
+not stylistic. See [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md).
+
 ## 5) Other Resources
 
 - AFL libprotobuf mutator

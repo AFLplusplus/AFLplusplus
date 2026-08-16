@@ -147,6 +147,8 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
   if (unlikely(afl->value_profile_active)) { vp_focus_rotate(afl); }
 
+  if (unlikely(afl->state_mode & STATE_MODE_SMAP)) { state_utility_test(afl); }
+
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
     afl->reinit_table = 1;  // periodically reinit table because of nfuzz

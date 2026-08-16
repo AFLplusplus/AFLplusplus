@@ -340,6 +340,21 @@ struct queue_entry {
      flag instead of letting the favoured set grow monotonically. */
   u32 tightness_novel_cycle;            /* cycle when tightness_novel set   */
 
+  /* State fuzzing mode (-J). var_edge_cnt and var_hit_cnt are this entry's
+     own variance, unlike afl->var_bytes which is cumulative over the corpus
+     and must stay that way. */
+  u32 var_edge_cnt,                     /* own edges that came and went     */
+      var_hit_cnt,                      /* own edges with wobbly hit count  */
+      state_id,                         /* state after the last calibration */
+      shelf_cell,                       /* deep-input shelf cell            */
+      hot_off,                          /* harness-declared hot region      */
+      hot_len;                          /* harness-declared hot region size */
+
+  u8 shelf_member;                      /* witness of its shelf cell?       */
+
+  double stability,                     /* this entry's own stability in %  */
+      info_score;                       /* sum of -log2 p over its edges    */
+
 };
 
 typedef struct {
@@ -611,7 +626,8 @@ typedef struct afl_env_vars {
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
       afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
       afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled,
-      afl_crash_traces, afl_starved_minimize_queue;
+      afl_crash_traces, afl_starved_minimize_queue, afl_time_accounting,
+      afl_no_state_map;
 
   u16 afl_forksrv_nb_supl_gids;
 
@@ -622,7 +638,8 @@ typedef struct afl_env_vars {
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
-  s32 afl_pizza_mode, afl_ijon_history_limit;
+  s32 afl_pizza_mode, afl_ijon_history_limit, afl_state_probe_runs,
+      afl_state_utility_threshold, afl_hot_bias, afl_watchdog_ms;
 
   uid_t afl_forksrv_uid;
 
@@ -1116,6 +1133,80 @@ typedef struct afl_state {
   s32 fr_fd;
 #endif
 
+  /* --- state fuzzing mode (-J), see docs/fuzzing_stateful_targets.md --- */
+
+#define STATE_MODE_GATE 0x0001U     /* g - double-run gate before saving    */
+#define STATE_MODE_PROBE 0x0002U    /* p - per-input stability, repeat probe*/
+#define STATE_MODE_RARE 0x0004U     /* r - rare-edge scoring                */
+#define STATE_MODE_DEEP 0x0008U     /* d - deep-input shelf                 */
+#define STATE_MODE_SMAP 0x0010U     /* s - state map from IJON annotations  */
+#define STATE_MODE_CONTRACT 0x0020U /* c - harness self-check at startup    */
+#define STATE_MODE_BENCH 0x0040U    /* b - one-shot cost benchmark          */
+#define STATE_MODE_HOT 0x0080U      /* h - aimed havoc                      */
+#define STATE_MODE_WATCHDOG 0x0100U /* w - target-side hang watchdog        */
+#ifdef AFL_TARGET_WATCHDOG
+  #define STATE_MODE_ALL 0x01ffU
+#else
+  #define STATE_MODE_ALL 0x00ffU
+#endif
+
+#define STATE_SHELF_DEPTH_BUCKETS 8U /* deep-input shelf geometry: input    */
+#define STATE_SHELF_COST_BUCKETS 8U  /* length x exec cost x state count,   */
+#define STATE_SHELF_STATE_BUCKETS 8U /* each entry competing only in its    */
+#define STATE_SHELF_CELLS                                 \
+  (STATE_SHELF_DEPTH_BUCKETS * STATE_SHELF_COST_BUCKETS * \
+   STATE_SHELF_STATE_BUCKETS)
+#define STATE_SHELF_WITNESSES 4U /* own cell, this many winners per cell    */
+
+#define STATE_UTILITY_MIN_ENTRIES 20U /* corpus size before the state       */
+#define STATE_UTILITY_MIN_PAIRS 8U    /* signal is tested, and the pair     */
+#define STATE_UTILITY_MAX_PAIRS 32U   /* sample size of one test, repeated  */
+#define STATE_UTILITY_CYCLES 8U       /* every this many queue cycles       */
+
+  u32 state_mode;                       /* STATE_MODE_* bitmask, 0 = off    */
+  u32 hot_bias;                         /* % of havoc aimed at the hot span */
+  u32 hot_off_cur, hot_len_cur;         /* hot span of afl->queue_cur       */
+
+  u8 time_accounting,                   /* measure target vs total time     */
+      state_signal_trusted,             /* state signal passed its test     */
+      ballast_valid,                    /* ballast_bits has a first sample  */
+      contract_checked,                 /* harness self-check has run       */
+      contract_failed,                  /* harness self-check found a diff  */
+      state_bench_done;                 /* cost benchmark has run           */
+
+  u8 *ballast_bits,                     /* edges hit by every input         */
+      *cal_var_map,                     /* per-entry calibration variance   */
+      *probe_union,                     /* repeat probe: union of edges     */
+      *probe_isect,                     /* repeat probe: edges in every run */
+      *virgin_state,                    /* unseen state transitions         */
+      *state_seen;                      /* transitions ever observed        */
+
+  u32 *edge_corpus_cnt;                 /* per-edge corpus frequency        */
+  u64  corpus_trace_cnt;                /* traces folded into the above     */
+
+  u64 target_exec_us,                   /* time spent inside the target     */
+      target_exec_cnt,                  /* executions it was measured over  */
+      gate_checked, gate_rejected, gate_partial,
+      slow_path_execs,                  /* executions spent off the hot loop*/
+      probe_last_ms,                    /* when the repeat probe last ran   */
+      setup_cost_us, fork_cost_us,      /* item 4 benchmark results         */
+      state_utility_pairs, state_utility_agree;
+
+  u32 contract_diff_edges,              /* edges differing in exec #1 vs #2 */
+      state_transitions_found,          /* distinct transitions seen        */
+      state_utility_cycle,              /* queue cycle of the last test     */
+      shelf_cells_used, shelf_members;
+
+  double ballast_pct,                   /* map share hit by every input     */
+      probe_pct,                        /* repeat probe: identical runs     */
+      probe_edge_pct,                   /* repeat probe: edge agreement     */
+      corpus_stability_avg, corpus_stability_min, info_score_avg,
+      state_utility_pct;
+
+  struct queue_entry **shelf;           /* STATE_SHELF_CELLS x WITNESSES    */
+  double              *shelf_avg_exec_us, *shelf_avg_len, *shelf_avg_info;
+  u32                 *shelf_count;
+
 } afl_state_t;
 
 struct custom_mutator {
@@ -1574,6 +1665,32 @@ fsrv_run_result_t fuzz_run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
 /* Fuzz one */
 
 u8 fuzz_one(afl_state_t *);
+
+/* State fuzzing (-J) */
+
+void state_alloc(afl_state_t *);
+void state_free(afl_state_t *);
+void state_startup_checks(afl_state_t *);
+void state_ballast_fold(afl_state_t *);
+void state_calibration_stats(afl_state_t *, struct queue_entry *);
+u32  state_shelf_cell(afl_state_t *, struct queue_entry *);
+u8   state_admission_gate(afl_state_t *, void *, u32);
+void state_repeat_probe(afl_state_t *, struct queue_entry *, u32);
+void state_cost_bench(afl_state_t *);
+void state_contract_check(afl_state_t *);
+void state_maybe_probe(afl_state_t *);
+void state_hot_from_taint(afl_state_t *, struct queue_entry *,
+                          struct tainted *);
+
+/* State map (-J s) */
+
+void state_map_setup(afl_state_t *);
+void state_map_reset(afl_state_t *);
+void state_map_observe(afl_state_t *);
+u8   state_map_has_new(afl_state_t *);
+void state_map_record(afl_state_t *, struct queue_entry *);
+void state_utility_test(afl_state_t *);
+u32  state_map_density(afl_state_t *);
 
 /* Init */
 

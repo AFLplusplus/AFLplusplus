@@ -4,6 +4,25 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.03a (dev)
+  ! State fuzzing mode, enabled with `-J`, for targets that remember what you
+    sent them before (protocols, databases, filesystems). Off by default and
+    inert without `-J`. See docs/fuzzing_stateful_targets.md. In short: a
+    double-run gate so a find has to reproduce before it is saved, a per-input
+    stability number and a repeat probe next to the old corpus-cumulative one,
+    rare-edge (`-log p`) scoring so ballast stops drowning the signal, a
+    deep-input shelf so long inputs are compared against other long inputs
+    instead of losing to `exec_us * len`, a separate (prev state, cur state,
+    action) map fed by IJON annotations plus the test that decides whether to
+    believe it, a harness self-check, an execution cost benchmark, aimed
+    havoc, and a target-side hang watchdog that turns a spinning target into a
+    reproducible crash (compiled out unless `AFL_TARGET_WATCHDOG` is enabled
+    in config.h, it costs a branch on the persistent-mode hot path). Time
+    accounting is not part of `-J` and is enabled with `AFL_TIME_ACCOUNTING`.
+    Also ships `custom_mutators/state_records/` (inputs as
+    operation programs, with record-granular trim and splice),
+    `utils/state_oracles/` (round-trip, allocation-failure injection,
+    uninitialised-memory probe, exact-size buffers, each with a self-test) and
+    `utils/state_fuzzing/` (the ablation experiment).
   ! Value Profile implementation for AFL++ by Khaled Yakdan (@kyakdan) that
     is much more efficient and intelligent than the libfuzzer implementation.
     Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for
@@ -50,6 +69,8 @@
       i.e. `if (a && b)` speculated into a single `and i1`
     - new env var `AFL_LLVM_VECTORS=1` instruments vector selects and vector
       min/max one guard pair per lane (default off, they are rarely worth it)
+    - `find_object()` now also looks in `$AFL_PATH/include` and in
+      `<dir of argv0>/include`.
     - removed the obsolete afl-as assembler wrapper and its remaining references
   - afl-cmin:
     - (all variants: C, python, bash, awk): empty (0 byte) input files are now

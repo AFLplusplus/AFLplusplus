@@ -540,6 +540,49 @@ Additional entries appear only in specific modes: `extra_binary` and
 giving each binary's path and its own execution count; `virgin_bytes` and
 `var_bytes` are emitted only when `AFL_DEBUG` is set (raw coverage dumps).
 
+`AFL_TIME_ACCOUNTING` adds these four:
+
+- `target_time_us`     - wall clock spent inside the target, microseconds
+- `target_time_pct`    - that as a share of the whole run
+- `us_per_exec_target` - average microseconds per execution, target only
+- `us_per_exec_total`  - average microseconds per execution, everything
+
+State fuzzing mode (`-J`, see
+[fuzzing_stateful_targets.md](fuzzing_stateful_targets.md)) adds these, each
+only when the part that produces it is enabled:
+
+- `state_mode`         - the active `-J` letters
+- `ballast_pct`        - share of discovered map bytes that every input hits
+- `slow_path_execs`    - executions spent on off-hot-loop state fuzzing work
+- `slow_path_pct`      - that as a share of all executions
+- `gate_checked`       - inputs put through the double-run admission gate
+- `gate_rejected`      - inputs the gate discarded (nothing reproduced)
+- `gate_partial`       - inputs kept after handing some ghost edges back
+- `probe_pct`          - repeat probe: runs whose whole trace matched run 1
+- `probe_edge_pct`     - repeat probe: edges in every run over edges in any
+- `probe_runs`         - repeat probe run count
+- `input_stab_avg`     - mean per-input stability over the corpus
+- `input_stab_min`     - worst per-input stability in the corpus
+- `info_score_avg`     - mean per-input information score (sum of -log2 p)
+- `shelf_cells_used`   - occupied deep-input shelf cells
+- `shelf_members`      - queue entries protected as shelf witnesses
+- `hot_region_hits`    - queue entries carrying a hot-region annotation
+- `contract_check`     - harness self-check: pass, fail or skipped
+- `contract_diff`      - edges differing between execution #1 and #2
+- `cost_fork_us`       - measured cost of fork + run, microseconds
+- `cost_setup_us`      - measured cost of a full process start, microseconds
+- `state_signal`       - unsupported, observing, or trusted
+- `state_transitions`  - distinct (prev, cur, action) transitions seen
+- `state_map_density`  - share of the state map ever hit
+- `state_utility_pct`  - same-state pairs that behaved the same
+- `state_util_pairs`   - pairs the utility test managed to form
+
+Note that `stability` keeps its original meaning — one minus the cumulative
+union of every map byte ever seen to vary, over the whole corpus. It is not
+comparable between runs with different corpus sizes. `input_stab_avg` and
+`input_stab_min` are the per-input numbers people usually mean when they read
+`stability`, and both are shown so the difference is visible.
+
 `last_edge_execs` backs the execution-count based strategy switches: once the
 favored/covering seed set is exhausted (`pending_favs` reaches 0), staying stuck
 for a flat number of executions with no new edge drives all three of them --

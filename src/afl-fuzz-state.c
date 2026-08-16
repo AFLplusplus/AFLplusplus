@@ -73,6 +73,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->max_length = MAX_FILE;
   afl->switch_fuzz_mode = STRATEGY_SWITCH_TIME * 1000;
   afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
+  afl->hot_bias = STATE_HOT_BIAS;
+  afl->corpus_stability_min = 100.0;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -817,6 +819,73 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             }
 
+          } else if (!strncmp(env, "AFL_TIME_ACCOUNTING",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_time_accounting =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_NO_STATE_MAP",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_no_state_map =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_STATE_PROBE_RUNS",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_state_probe_runs =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_env.afl_state_probe_runs < 2) {
+
+              WARNF("AFL_STATE_PROBE_RUNS below 2, using 2");
+              afl->afl_env.afl_state_probe_runs = 2;
+
+            }
+
+          } else if (!strncmp(env, "AFL_STATE_UTILITY_THRESHOLD",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_state_utility_threshold =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_env.afl_state_utility_threshold < 1 ||
+                afl->afl_env.afl_state_utility_threshold > 100) {
+
+              WARNF("AFL_STATE_UTILITY_THRESHOLD out of range, using %u",
+                    STATE_UTILITY_THRESHOLD);
+              afl->afl_env.afl_state_utility_threshold =
+                  STATE_UTILITY_THRESHOLD;
+
+            }
+
+          } else if (!strncmp(env, "AFL_HOT_BIAS",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_hot_bias =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_env.afl_hot_bias < 0 ||
+                afl->afl_env.afl_hot_bias > 100) {
+
+              WARNF("AFL_HOT_BIAS out of range, using %u", STATE_HOT_BIAS);
+              afl->afl_env.afl_hot_bias = STATE_HOT_BIAS;
+
+            }
+
+          } else if (!strncmp(env, "AFL_WATCHDOG_MS",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_watchdog_ms =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
           }
 
         } else {
@@ -942,6 +1011,8 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->virgin_bits);
   ck_free(afl->virgin_tmout);
   ck_free(afl->virgin_crash);
+  ck_free(afl->virgin_undo);
+  ck_free(afl->virgin_reclaim);
   ck_free(afl->var_bytes);
   ck_free(afl->top_rated);
   if (afl->vp_frontier) { ck_free(afl->vp_frontier); }
@@ -955,6 +1026,8 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->clean_trace_custom);
   ck_free(afl->first_trace);
   ck_free(afl->map_tmp_buf);
+
+  state_free(afl);
 
   /* Free IJON max tracking state */
   if (afl->ijon_state) {

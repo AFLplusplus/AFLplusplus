@@ -925,6 +925,22 @@ conditional with `#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION` (a flag also
 shared with libfuzzer and honggfuzz) or `#ifdef __AFL_COMPILER` (this one is
 just for AFL++).
 
+`utils/state_oracles/` ships ready-made versions of several of these - a
+round-trip checker, allocation-failure injection, an uninitialised-memory probe
+built on `MALLOC_PERTURB_`, and an exact-size buffer allocator that puts a guard
+page where a generous buffer would otherwise hide an overflow. Each one comes
+with a deliberately broken example it has to flag, because a detector you have
+never seen fire is not known to work.
+
+### j2) Targets that remember what you sent before
+
+If your target is a protocol implementation, a database, a filesystem or
+anything else where the current input only makes sense after the previous one,
+read [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md) and try
+`afl-fuzz -J`. It changes how finds are admitted, how stability is reported,
+how rare edges are scored, and how the queue prices long inputs - all of which
+are tuned for the forgetful case by default. It is off unless you ask for it.
+
 ### k) Known limitations & areas for improvement
 
 Here are some of the most important caveats for AFL++:

@@ -953,6 +953,50 @@ checks or alter some of the more exotic semantics of the tool:
     between fuzzing instances synchronization. Default sync time is 20 minutes,
     note that time is halved for -M main nodes.
 
+  - The following settings belong to state fuzzing mode, which is enabled with
+    `-J`. See [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md) for
+    the full picture; none of them do anything without `-J`, with the single
+    exception of `AFL_TIME_ACCOUNTING`.
+
+  - `AFL_TIME_ACCOUNTING` makes `afl-fuzz` measure how much of the wall clock
+    is spent inside the target and how much is spent everywhere else, and
+    report it as `target_time_pct` in `fuzzer_stats` and as `tgt/tot` in the
+    UI. Costs two clock reads per execution. It is independent of `-J`: set
+    this variable to get it, with or without state fuzzing mode.
+
+  - `AFL_STATE_PROBE_RUNS` sets how many times the repeat probe (`-Jp`) runs
+    one input from a clean start before reporting how often it reproduced.
+    Default is 100, minimum 2. An edge that fires in a fraction `p` of runs is
+    caught with probability `1 - p^N - (1-p)^N`, so 100 runs cover an edge that
+    flickers in 2% of runs, and 30 runs only reach that for 7%. The cost is one
+    burst of `N` executions per probe interval, so lower it for targets slower
+    than roughly 50 executions per second.
+
+  - `AFL_STATE_UTILITY_THRESHOLD` is the percentage of same-state input pairs
+    that must behave the same before the state signal (`-Js`) is allowed to
+    influence which inputs are saved. Default 80. Below the threshold the state
+    signal stays a metadata note, which is the intended safe behaviour.
+
+  - `AFL_HOT_BIAS` is the percentage of single-byte havoc mutations aimed at
+    the region a harness marked with `AFL_HOT_REGION()` (`-Jh`). Default 70.
+    The remaining share stays uniform on purpose: plain byte mutation still
+    finds parser and memory bugs, and the annotation can be wrong.
+
+  - `AFL_NO_STATE_MAP` is read by the *target*, not the fuzzer, and stops an
+    instrumented binary from attaching to the state-transition map.
+
+  - `AFL_WATCHDOG_MS` is read by the *target*. When set, the AFL++ runtime
+    arms a timer at the start of every execution and calls `abort()` if the
+    execution outlives it, so a spinning target becomes a crash that reproduces
+    standalone instead of a hang nobody notices. `-Jw` sets it to
+    `max(1000, 2 x exec timeout)` if you have not. Keep it above the fuzzer's
+    own timeout: below it, merely-slow executions turn into fabricated
+    crashes. The whole feature is compiled out by default because arming and
+    disarming the timer costs a branch on the persistent-mode hot path;
+    uncomment `AFL_TARGET_WATCHDOG` in `include/config.h` and rebuild both
+    `afl-fuzz` and the target to get it. Without that, `-Jw` warns and does
+    nothing.
+
   - `AFL_NO_SYNC` disables any syncing whatsoever and takes priority on all
     other syncing parameters, including a sync forced with `SIGUSR2`.
 

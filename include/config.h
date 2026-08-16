@@ -537,6 +537,47 @@ We add 4 byte for one u32 length field. */
    (see MAP_SIZE_ALLOCSHADOW_BYTES). */
 #define MAP_SIZE_ALLOCRECORDS 4096
 
+/* State fuzzing mode (-J). The state-transition map lives in its own shared
+   memory segment so the state signal stays separable from edge coverage.
+   Internal constants of the mode are in afl-fuzz.h; only the knobs worth
+   changing are here. Recompile the target after changing STATE_MAP_SIZE. */
+
+/* Environment variable carrying the state map's shared memory id */
+#define STATE_SHM_ENV_VAR "__AFL_STATE_SHM_ID"
+
+/* State map footprint in bytes, one hit counter per (prev, cur, action) */
+#define STATE_MAP_SIZE 65536U
+
+/* Executions of one input per repeat probe (-Jp). Detects an edge that fires
+   in a fraction p of runs with probability 1 - p^N - (1-p)^N: 100 runs cover
+   p >= 2% at 90%, 30 runs only p >= 7%. Cost is N executions per probe
+   interval, so lower it on targets slower than ~50 execs/s. */
+#define STATE_PROBE_RUNS 100U
+
+/* Minimum wall clock between two repeat probes, milliseconds */
+#define STATE_PROBE_INTERVAL_MS 60000U
+
+/* Executions sampled by the cost benchmark (-Jb) to time a full fork ... */
+#define STATE_BENCH_FORK_RUNS 200U
+
+/* ... and to time target setup alone */
+#define STATE_BENCH_SETUP_RUNS 20U
+
+/* Percent of same-state input pairs that must agree before the state signal
+   (-Js) may influence which inputs are saved */
+#define STATE_UTILITY_THRESHOLD 80U
+
+/* Percent of single-byte havoc mutations aimed at the harness hot region */
+#define STATE_HOT_BIAS 70U
+
+/* Target-side hang watchdog (-J w). Turns a target that hangs where the
+   fuzzer timeout never fires into a SIGABRT that reproduces standalone.
+   Off by default: arming and disarming the timer costs a branch on the
+   persistent-mode hot path even when the watchdog is never used. Enabling
+   this requires recompiling both afl-fuzz and the target. */
+
+// #define AFL_TARGET_WATCHDOG
+
 /* Maximum allocator request size (keep well under INT_MAX): */
 
 #define MAX_ALLOC 0x40000000

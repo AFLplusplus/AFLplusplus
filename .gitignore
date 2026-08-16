@@ -166,3 +166,6 @@ t
 te
 empty
 test/empty
+test/unittests/unit_elf_dict
+test/unittests/unit_state_records
+test/unittests/unit_statefuzz

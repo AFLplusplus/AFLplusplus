@@ -147,6 +147,10 @@ void ijon_inc(uint32_t addr, uint32_t val);
 void ijon_xor_state(uint32_t val);
 void ijon_reset_state(void);
 
+/* State fuzzing (-J s) annotations, see docs/fuzzing_stateful_targets.md */
+void afl_state_action(uint32_t a);
+void afl_state_hot(uint32_t off, uint32_t len);
+
 /* Supporting hash functions */
 uint64_t ijon_simple_hash(uint64_t x);
 uint32_t ijon_hashint(uint32_t old, uint32_t val);
@@ -226,6 +230,13 @@ uint32_t ijon_memdist(char *a, char *b, size_t len);
 // IJON state macro - changes global state that affects ALL subsequent edge
 // coverage
 #define IJON_STATE(n) ijon_xor_state(n)
+
+// Names the operation about to be performed, keying the state transition on
+// (previous state, current state, action)
+#define AFL_STATE_ACTION(a) afl_state_action((uint32_t)(a))
+
+// Declares the input span the harness considers interesting
+#define AFL_HOT_REGION(o, l) afl_state_hot((uint32_t)(o), (uint32_t)(l))
 
 // IJON context macro - temporary state change that reverses itself
 #define IJON_CTX(x)                                   \

@@ -76,6 +76,32 @@ Scoped state hashing: temporarily incorporates variable `x` into the state hash.
 Useful for distinguishing behavior based on execution context.  
 Example: `IJON_CTX(function_id)` makes AFL track the same code differently depending on the active function.
 
+#### `AFL_STATE_ACTION(a)`
+Name the operation the harness is about to perform. Only meaningful together
+with `afl-fuzz -Js`, which keys a separate state-transition map by
+`(previous state, current state, action)`. With no annotation the action is 0
+and the map degrades to `(previous, current)` pairs.
+Example: `AFL_STATE_ACTION(msg.type);` right before dispatching a message.
+
+#### `AFL_HOT_REGION(offset, length)`
+Tell the fuzzer which bytes of the current input actually matter, so havoc aims
+there instead of spreading uniformly. Only meaningful together with
+`afl-fuzz -Jh`. A region of *k* bytes in an *n*-byte input otherwise receives
+*k/n* of all mutations.
+Example: `AFL_HOT_REGION(hdr_off, hdr_len);` after locating the header.
+
+Both are no-ops unless the target is run under `afl-fuzz -Js` (or `-Jh`), so
+they are safe to leave in a harness permanently.
+
+### Relationship to state fuzzing mode
+
+`IJON_STATE()` mixes the state into the edge hash, which makes state and
+coverage one signal. `afl-fuzz -Js` additionally records every state
+transition in a **separate** map, in its own shared-memory segment, so the two
+can be told apart and measured independently. Existing `IJON_STATE()` harnesses
+get this with no source change. See
+[fuzzing_stateful_targets.md](fuzzing_stateful_targets.md).
+
 ### Distance and Comparison Macros
 
 #### `IJON_STRDIST(x, y)`

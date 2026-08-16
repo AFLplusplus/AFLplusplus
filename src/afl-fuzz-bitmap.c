@@ -959,8 +959,26 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   bool probed = false;
   u8   new_bits = 0;                       /* valid if bits_counted is true */
   u64  cksum = 0;                               /* valid if cksumed is true */
+  u8   state_new = 0;               /* a state transition never seen before */
 
   afl->san_case_status = 0;
+
+  /* The state map is consumed once per execution, before anything else can
+     clobber it. Reporting sees every execution; the map that admission is
+     decided against is only touched once the utility test says the state
+     definition is worth believing. */
+
+  if (unlikely(afl->state_mode & STATE_MODE_SMAP)) {
+
+    state_map_observe(afl);
+
+    if (unlikely(afl->state_signal_trusted)) {
+
+      state_new = state_map_has_new(afl);
+
+    }
+
+  }
 
   if (unlikely(afl->fsrv.c11)) {
 
@@ -1136,6 +1154,15 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
         }
 
+        /* A state transition nothing has reached before is a reason to keep
+           an input, but only once the utility test has shown that inputs the
+           state definition calls identical really do behave identically. */
+        if (unlikely(state_new && afl->state_signal_trusted)) {
+
+          goto save_to_queue;
+
+        }
+
         if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
         return 0;
 
@@ -1157,6 +1184,18 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
        goto */
     calculate_cksum_if_necessary(afl, &cksum, &cksumed, &classified);
     calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
+
+    if (unlikely((afl->state_mode & STATE_MODE_GATE) &&
+                 !afl->non_instrumented_mode)) {
+
+      if (unlikely(!state_admission_gate(afl, mem, len))) { return 0; }
+
+      /* The gate ran the input again, so trace_bits now holds the verifying
+         run. Re-derive the checksum from it, otherwise calibration would seed
+         first_trace from one run and exec_cksum from another. */
+      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+    }
 
     if ((new_bits & NEW_BITS_COVERAGE_MASK) == 2) {
 
@@ -1395,6 +1434,12 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     }
 
     if (unlikely(reloaded)) { ck_free(reloaded); }
+
+    if (unlikely(afl->state_mode & STATE_MODE_PROBE)) {
+
+      state_maybe_probe(afl);
+
+    }
 
     keeping = 1;
 
