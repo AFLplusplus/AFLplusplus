@@ -1982,7 +1982,7 @@ void pivot_inputs(afl_state_t *afl) {
     /* Make sure that the passed_det value carries over, too. */
 
     if (q->passed_det) { mark_as_det_done(afl, q); }
-    if (q->var_behavior) { mark_as_variable(afl, q); }
+    if (q->var_behavior) { mark_as_variable(afl, q, 1); }
 
     if (afl->custom_mutators_count) {
 

@@ -29,6 +29,8 @@
     - a queue entry that fails its calibration is never fuzzed, so the
       coverage it claimed is now handed back to `virgin_bits` and can be
       rediscovered by an input that does calibrate.
+    - the variable behavior flag of a queue entry is cleared now on slow
+      resumes, another afl vanilla legacy bug
     - fixed SAND and FrameShift issues
     - symlinked test cases and symlinked subdirectories in the `-i` input
       directory are now followed

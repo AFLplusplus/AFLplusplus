@@ -405,6 +405,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   u32 early_skip = afl->stage_max > 3 ? 3 : 2;
 
+  if (unlikely(from_queue && q->var_behavior)) { early_skip = afl->stage_max; }
+
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
@@ -646,9 +648,11 @@ abort_calibration:
 
     afl->var_byte_count = count_bytes(afl, afl->var_bytes);
 
-    if (!q->var_behavior) { ++afl->queued_variable; }
+    mark_as_variable(afl, q, 1);
 
-    mark_as_variable(afl, q);
+  } else if (unlikely(from_queue && q->var_behavior && !q->cal_failed)) {
+
+    if (likely(!afl->non_instrumented_mode)) { mark_as_variable(afl, q, 0); }
 
   }
 
