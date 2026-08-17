@@ -699,6 +699,31 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
     }
 
+    if (afl->plugin_state_described) {
+
+      u32 i, cnt = 0, ops_max = 0;
+      u64 ops_sum = 0;
+
+      for (i = 0; i < afl->queued_items; ++i) {
+
+        struct queue_entry *q = afl->queue_buf[i];
+
+        if (unlikely(!q) || q->disabled || !q->op_count) { continue; }
+        ops_sum += q->op_count;
+        if (q->op_count > ops_max) { ops_max = q->op_count; }
+        ++cnt;
+
+      }
+
+      fprintf(f,
+              "plugin_described  : %llu\n"
+              "plugin_ops_avg    : %0.02f\n"
+              "plugin_ops_max    : %u\n",
+              afl->plugin_state_described,
+              cnt ? (double)ops_sum / (double)cnt : 0.0, ops_max);
+
+    }
+
     if (afl->state_mode & STATE_MODE_SMAP) {
 
       fprintf(f,
@@ -706,13 +731,19 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
               "state_transitions : %u\n"
               "state_map_density : %0.02f%%\n"
               "state_utility_pct : %0.02f%%\n"
-              "state_util_pairs  : %llu\n",
+              "state_util_pairs  : %llu\n"
+              "state_only_saves  : %llu\n"
+              "state_only_paid   : %llu\n"
+              "state_admit_off   : %u\n"
+              "state_coarse_fold : %u\n",
               afl->shm.state_map
                   ? (afl->state_signal_trusted ? "trusted" : "observing")
                   : "unsupported",
               afl->state_transitions_found,
               (double)state_map_density(afl) / 100.0, afl->state_utility_pct,
-              afl->state_utility_pairs);
+              afl->state_utility_pairs, afl->state_only_admits,
+              afl->state_only_paid, afl->state_admit_off,
+              1U << afl->state_coarse_shift);
 
     }
 

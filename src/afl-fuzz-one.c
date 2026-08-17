@@ -606,6 +606,39 @@ u8 fuzz_one(afl_state_t *afl) {
 
     if (unlikely(afl->stop_soon) || res != afl->crash_mode) {
 
+      if (unlikely(!afl->stop_soon &&
+                   afl->queue_cur->cal_failed >= CAL_CHANCES &&
+                   !afl->queue_cur->disabled)) {
+
+        afl->queue_cur->disabled = 1;
+        afl->queue_cur->perf_score = 0;
+        ++afl->disabled_items;
+        afl->reinit_table = 1;
+
+        if (!afl->queue_cur->was_fuzzed) {
+
+          afl->queue_cur->was_fuzzed = 1;
+          --afl->pending_not_fuzzed;
+          --afl->active_items;
+
+        }
+
+        if (afl->queue_cur->favored) {
+
+          afl->queue_cur->favored = 0;
+          if (afl->queued_favored) { --afl->queued_favored; }
+          if (afl->pending_favored) { --afl->pending_favored; }
+
+        }
+
+        if (afl->smallest_favored == (s64)afl->queue_cur->id) {
+
+          afl->smallest_favored = -1;
+
+        }
+
+      }
+
       ++afl->cur_skipped_items;
       goto abandon_entry;
 

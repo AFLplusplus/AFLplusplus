@@ -346,11 +346,13 @@ struct queue_entry {
   u32 var_edge_cnt,                     /* own edges that came and went     */
       var_hit_cnt,                      /* own edges with wobbly hit count  */
       state_id,                         /* state after the last calibration */
+      op_count,                         /* operations performed, 0=unknown  */
       shelf_cell,                       /* deep-input shelf cell            */
       hot_off,                          /* harness-declared hot region      */
       hot_len;                          /* harness-declared hot region size */
 
   u8 shelf_member;                      /* witness of its shelf cell?       */
+  u8 state_only;                        /* saved for a new state alone      */
 
   double stability,                     /* this entry's own stability in %  */
       info_score;                       /* sum of -log2 p over its edges    */
@@ -639,7 +641,8 @@ typedef struct afl_env_vars {
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
   s32 afl_pizza_mode, afl_ijon_history_limit, afl_state_probe_runs,
-      afl_state_utility_threshold, afl_hot_bias, afl_watchdog_ms;
+      afl_state_utility_threshold, afl_hot_bias, afl_watchdog_ms,
+      afl_state_admit_pct, afl_state_coarse, afl_state_yield_pct;
 
   uid_t afl_forksrv_uid;
 
@@ -1181,6 +1184,14 @@ typedef struct afl_state {
       *virgin_state,                    /* unseen state transitions         */
       *state_seen;                      /* transitions ever observed        */
 
+  u64 plugin_state_described;           /* entries a mutator described      */
+  u8 *virgin_pstate;                    /* states a mutator reported        */
+  u8  plugin_state_admit;               /* may a mutator state save input?  */
+  u32 state_coarse_shift;               /* state map fold, 0 = finest       */
+  u64 state_only_admits;                /* entries saved for state alone    */
+  u64 state_admit_window;               /* the same, since the last fold    */
+  u8  state_admit_off;                  /* state may no longer save inputs  */
+  u64 state_only_paid;                  /* of those, ones that found edges  */
   u32 *edge_corpus_cnt;                 /* per-edge corpus frequency        */
   u64  corpus_trace_cnt;                /* traces folded into the above     */
 
@@ -1304,6 +1315,34 @@ struct custom_mutator {
    *         An empty or NULL return will result in a default description
    */
   const char *(*afl_custom_describe)(void *data, size_t max_description_len);
+
+  /**
+   * Describe the state an input reaches, for a harness that knows more about
+   * its own input than a byte string can express.
+   *
+   * Called once per queue entry, at calibration time, with the entry's bytes.
+   * The mutator reports how many operations the input performs and an id for
+   * the state it ends in. AFL++ uses the operation count where it would
+   * otherwise use the mutation depth, and the state id to keep inputs that
+   * reach different states from competing with each other.
+   *
+   * The id must be COARSE. It names a class of situations, not a path: a
+   * digest of the live object store, not a hash of the program. An id that
+   * changes on every input makes every input a find, and the queue explodes.
+   * AFL++ bounds the damage but cannot repair a signal that carries no
+   * information.
+   *
+   * (Optional)
+   *
+   * @param[in] data pointer returned in afl_custom_init by this custom mutator
+   * @param[in] buf Buffer containing the test case
+   * @param[in] buf_size Size of the test case
+   * @param[out] ops Number of operations the input performs, 0 if unknown
+   * @param[out] state_id Id of the state the input ends in, 0 if unknown
+   * @return 1 if the values were filled in, 0 to say nothing about this input
+   */
+  u8 (*afl_custom_describe_state)(void *data, const u8 *buf, size_t buf_size,
+                                  u32 *ops, u32 *state_id);
 
   /**
    * A post-processing function to use right before AFL writes the test case to
@@ -1489,6 +1528,8 @@ void destroy_custom_mutators(afl_state_t *);
 u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
                       struct custom_mutator *mutator, vp_trim_hooks_t *vp_hooks,
                       u64 *trim_start_us);
+void run_afl_custom_describe_state(afl_state_t *, struct queue_entry *, u8 *,
+                                   u32);
 u8   run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
                                     u8 *);
 
@@ -1689,6 +1730,8 @@ void state_map_reset(afl_state_t *);
 void state_map_observe(afl_state_t *);
 u8   state_map_has_new(afl_state_t *);
 void state_map_record(afl_state_t *, struct queue_entry *);
+void state_admit_bound(afl_state_t *);
+u8   plugin_state_new(afl_state_t *, u8 *, u32, u32 *);
 void state_utility_test(afl_state_t *);
 u32  state_map_density(afl_state_t *);
 

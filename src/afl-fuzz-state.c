@@ -74,6 +74,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->switch_fuzz_mode = STRATEGY_SWITCH_TIME * 1000;
   afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
   afl->hot_bias = STATE_HOT_BIAS;
+  afl->afl_env.afl_state_admit_pct = STATE_ADMIT_PCT;
+  afl->afl_env.afl_state_yield_pct = STATE_YIELD_PCT;
   afl->corpus_stability_min = 100.0;
 
 #ifdef HAVE_AFFINITY
@@ -863,6 +865,61 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                   STATE_UTILITY_THRESHOLD;
 
             }
+
+          } else if (!strncmp(env, "AFL_STATE_ADMIT_PCT",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_state_admit_pct =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_env.afl_state_admit_pct < 0 ||
+                afl->afl_env.afl_state_admit_pct > 100) {
+
+              WARNF("AFL_STATE_ADMIT_PCT out of range, using %u",
+                    STATE_ADMIT_PCT);
+              afl->afl_env.afl_state_admit_pct = STATE_ADMIT_PCT;
+
+            }
+
+          } else if (!strncmp(env, "AFL_STATE_YIELD_PCT",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_state_yield_pct =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_env.afl_state_yield_pct < 0 ||
+                afl->afl_env.afl_state_yield_pct > 100) {
+
+              WARNF("AFL_STATE_YIELD_PCT out of range, using %u",
+                    STATE_YIELD_PCT);
+              afl->afl_env.afl_state_yield_pct = STATE_YIELD_PCT;
+
+            }
+
+          } else if (!strncmp(env, "AFL_STATE_PLUGIN_ADMIT",
+
+                              afl_environment_variable_len)) {
+
+            afl->plugin_state_admit = 1;
+
+          } else if (!strncmp(env, "AFL_STATE_COARSE",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_state_coarse =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_env.afl_state_coarse < 0 ||
+                afl->afl_env.afl_state_coarse > (int)STATE_COARSE_MAX_SHIFT) {
+
+              WARNF("AFL_STATE_COARSE out of range, using 0");
+              afl->afl_env.afl_state_coarse = 0;
+
+            }
+
+            afl->state_coarse_shift = (u32)afl->afl_env.afl_state_coarse;
 
           } else if (!strncmp(env, "AFL_HOT_BIAS",
 

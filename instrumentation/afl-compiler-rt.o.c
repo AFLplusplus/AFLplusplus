@@ -571,7 +571,26 @@ static inline void __afl_state_map_reset(void) {
 
   if (likely(__afl_state_map == NULL)) { return; }
 
-  memset_noasan(__afl_state_map->map, 0, STATE_MAP_SIZE);
+  if (likely(!__afl_state_map->touched_ovf) &&
+      likely(__afl_state_map->touched_n <= STATE_TOUCHED_MAX)) {
+
+    uint32_t i;
+
+    for (i = 0; i < __afl_state_map->touched_n; ++i) {
+
+      __afl_state_map->map[__afl_state_map->touched[i]] = 0;
+
+    }
+
+  } else {
+
+    memset_noasan(__afl_state_map->map, 0, STATE_MAP_SIZE);
+
+  }
+
+  __afl_state_map->touched_n = 0;
+  __afl_state_map->touched_ovf = 0;
+  __afl_state_map->touched_ok = 1;
   __afl_state_map->cur_state = 0;
   __afl_state_map->prev_state = 0;
   __afl_state_map->action = 0;
@@ -5762,6 +5781,21 @@ void ijon_xor_state(uint32_t val) {
 
     uint32_t idx =
         state_transition_index(prev, __afl_ijon_state, __afl_state_action);
+
+    if (!__afl_state_map->map[idx]) {
+
+      if (likely(__afl_state_map->touched_n < STATE_TOUCHED_MAX)) {
+
+        __afl_state_map->touched[__afl_state_map->touched_n++] = idx;
+
+      } else {
+
+        __afl_state_map->touched_ovf = 1;
+
+      }
+
+    }
+
     if (__afl_state_map->map[idx] < 255) { __afl_state_map->map[idx]++; }
     __afl_state_map->prev_state = prev;
     __afl_state_map->cur_state = __afl_ijon_state;

@@ -34,6 +34,10 @@ REPS=3
 ARMS="A B C D E"
 MUTATOR=""
 PARALLEL=0
+COVBIN=""
+COVBIN_RECORDS=""
+COVSRC=""
+COVIGNORE=""
 
 usage() {
 
@@ -49,6 +53,10 @@ usage: $0 -t TARGET -i SEEDS [options] [-- target args]
   -a "A B ..."  arms to run (default: ${ARMS})
   -m SO         record mutator .so for arms C and E
                 (default: ${ROOT_DIR}/custom_mutators/state_records/state_records.so)
+  -c BIN        coverage build of the target, for the fair comparison
+  -C BIN        coverage build of the record target (arms C and E)
+  -s DIR        source directory of the code under test, for llvm-cov
+  -x RE         llvm-cov -ignore-filename-regex, e.g. to drop the harness
   -p            run arms in parallel
 
 Target arguments after -- are passed through; use @@ for a file argument.
@@ -61,13 +69,21 @@ Notes:
   Arms C and E need a target that speaks the record format. Point -T at the
   harness from custom_mutators/state_records/, or at your own.
 
+  Give -c and -s. Without them the only number available is edges_found, which
+  the fuzzer computes from its own coverage map, and that map is not the same
+  object in two different binaries: arms C and E run a different target, and a
+  state hash folded into the edge index changes what one edge means. Comparing
+  those numbers across arms is meaningless. With -c and -s every arm's final
+  corpus is replayed through one coverage build and compared on source lines
+  and regions, which is the same unit for everybody.
+
   Report three numbers, never one, and never report "states found" as success:
   a broken observer that hashes the clock finds millions.
 EOF
 
 }
 
-while getopts "t:T:i:o:V:n:a:m:ph" opt; do
+while getopts "t:T:i:o:V:n:a:m:c:C:s:x:ph" opt; do
 
   case "$opt" in
     t) TARGET="$OPTARG" ;;
@@ -78,6 +94,10 @@ while getopts "t:T:i:o:V:n:a:m:ph" opt; do
     n) REPS="$OPTARG" ;;
     a) ARMS="$OPTARG" ;;
     m) MUTATOR="$OPTARG" ;;
+    c) COVBIN="$OPTARG" ;;
+    C) COVBIN_RECORDS="$OPTARG" ;;
+    s) COVSRC="$OPTARG" ;;
+    x) COVIGNORE="$OPTARG" ;;
     p) PARALLEL=1 ;;
     h) usage; exit 0 ;;
     *) usage; exit 1 ;;
@@ -94,6 +114,21 @@ if [ ! -x "$TARGET" ]; then echo "[-] target $TARGET not executable"; exit 1; fi
 if [ ! -d "$SEEDS" ]; then echo "[-] seed dir $SEEDS not found"; exit 1; fi
 
 [ -z "$TARGET_RECORDS" ] && TARGET_RECORDS="$TARGET"
+[ -z "$COVBIN_RECORDS" ] && COVBIN_RECORDS="$COVBIN"
+
+if [ -n "$COVBIN" ] && [ -z "$COVSRC" ]; then
+
+  echo "[-] -c needs -s: llvm-cov must be told which sources to count"
+  exit 1
+
+fi
+
+if [ -z "$COVBIN" ]; then
+
+  echo "[!] no -c given: only edges_found is available, and it is NOT"
+  echo "    comparable between arms that run different binaries. See -h."
+
+fi
 [ -z "$MUTATOR" ] && \
   MUTATOR="${ROOT_DIR}/custom_mutators/state_records/state_records.so"
 
@@ -187,6 +222,27 @@ run_one() {
   if [ $rc -ne 0 ]; then
 
     echo "[!] arm $arm rep $rep exited $rc, see ${dir}/afl.log"
+
+  fi
+
+  # The fair comparison: this arm's corpus through one coverage build.
+  if [ -n "$COVBIN" ]; then
+
+    local covbin="$COVBIN"
+    if arm_uses_records "$arm"; then covbin="$COVBIN_RECORDS"; fi
+
+    if [ -x "$covbin" ]; then
+
+      IGNORE_RE="$COVIGNORE" "${SCRIPT_DIR}/replay_coverage.sh" \
+        "$covbin" "$COVSRC" "${dir}/cov" "${dir}/default/queue" \
+        > "${dir}/cov.log" 2>&1 ||
+        echo "[!] arm $arm rep $rep: coverage replay failed, see ${dir}/cov.log"
+
+    else
+
+      echo "[!] arm $arm rep $rep: coverage binary $covbin not executable"
+
+    fi
 
   fi
 

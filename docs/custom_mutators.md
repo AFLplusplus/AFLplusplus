@@ -51,6 +51,7 @@ unsigned int afl_custom_fuzz_count(void *data, const unsigned char *buf, size_t 
 void afl_custom_splice_optout(void *data);
 size_t afl_custom_fuzz(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, unsigned char *add_buf, size_t add_buf_size, size_t max_size);
 const char *afl_custom_describe(void *data, size_t max_description_len);
+unsigned char afl_custom_describe_state(void *data, const unsigned char *buf, size_t buf_size, unsigned int *ops, unsigned int *state_id);
 size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf);
 int afl_custom_init_trim(void *data, unsigned char *buf, size_t buf_size);
 size_t afl_custom_trim(void *data, unsigned char **out_buf);
@@ -219,6 +220,41 @@ def deinit():  # optional for Python
 - `deinit` (optional in Python):
 
     The last method to be called, deinitializing the state.
+
+- `describe_state` (optional):
+
+    Report what an input *does* and what state it leaves the target in. Called
+    once per queue entry, at calibration time, with the entry's bytes. Fill in
+    `ops` with the number of operations the input performs and `state_id` with
+    an id for the state it ends in; return 1 if you filled them in, 0 to say
+    nothing about this input. Only useful for a mutator that understands the
+    input format.
+
+    AFL++ uses `ops` wherever it would otherwise use the mutation depth - which
+    counts generations from a seed, not work done - so an input that performs
+    more operations is no longer judged as merely longer and slower. It uses
+    `state_id` to keep inputs that reach different states from competing with
+    each other for the same queue slot (see `-Jd` in
+    [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md)), and to group
+    inputs for the state utility test.
+
+    **The id must be coarse.** It names a class of situations, not a path: a
+    digest of the live object store - which handles are open, which flags are
+    set - and nothing that carries the order or the number of the operations
+    that got there. An id that changes on almost every input makes almost every
+    input a find; the queue then fills with everything and the search becomes
+    random. AFL++ bounds that damage (`AFL_STATE_ADMIT_PCT`) but it cannot
+    repair a signal that carries no information. If you are unsure, start with
+    a bitmap of "which slots are live" and nothing else.
+
+    `custom_mutators/state_records/state_records.c` implements this over its
+    record format, with `STATE_RECORDS_DIGEST` selecting how much is folded in,
+    so the effect of a finer digest can be measured rather than argued.
+
+    With `AFL_STATE_PLUGIN_ADMIT=1` a state class nothing has reached before
+    also becomes a reason to save an input, on the same footing as new
+    coverage. That is off by default: it is the setting that can hurt if the
+    digest is too fine.
 
 Note that there are also three functions for trimming as described in the next
 section.

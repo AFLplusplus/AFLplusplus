@@ -38,6 +38,16 @@ typedef struct state_map {
   uint32_t hot_off;                    /* harness-declared hot region start */
   uint32_t hot_len;                    /* harness-declared hot region size  */
 
+  /* Which slots this execution touched, so neither side has to walk 64KB for
+     the two or three states a real target visits. touched_ovf says the list
+     ran out and the whole map has to be handled after all. A target built
+     before these fields existed leaves them zero, and transitions != 0 with
+     touched_n == 0 is how that is recognised. */
+  uint32_t touched_n;                  /* distinct slots touched            */
+  uint8_t  touched_ovf;                /* list overflowed, walk the map     */
+  uint8_t  touched_ok;                 /* target maintains the list at all  */
+  uint32_t touched[STATE_TOUCHED_MAX]; /* the slots themselves              */
+
 } state_map_t;
 
 /* Index of the (previous state, current state, action) triple. Two steps of

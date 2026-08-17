@@ -481,6 +481,13 @@ We add 4 byte for one u32 length field. */
 
 #define CAL_CHANCES 3
 
+/* Upper bound on how many queue entries may be skipped in a row before the
+   queue driver returns to the main loop. Skipping is normal, but the main
+   loop is where the -V / -E limits, cull_queue() and the alias table live,
+   so it must always be reachable: */
+
+#define QUEUE_SKIP_STREAK_MAX 1024
+
 /* How often the coverage of an entry that failed calibration is handed back
    to virgin_bits, counted per map byte. A path that can never be calibrated
    would otherwise be rediscovered and requeued without bound, so beyond this
@@ -548,6 +555,12 @@ We add 4 byte for one u32 length field. */
 /* State map footprint in bytes, one hit counter per (prev, cur, action) */
 #define STATE_MAP_SIZE 65536U
 
+/* Distinct state slots one execution may touch before the map is handled the
+   slow way. The map is 64KB, so clearing and scanning all of it per execution
+   costs more than a fast target's whole execution; a target that visits a
+   handful of states should pay for a handful of slots, not for the map. */
+#define STATE_TOUCHED_MAX 512U
+
 /* Executions of one input per repeat probe (-Jp). Detects an edge that fires
    in a fraction p of runs with probability 1 - p^N - (1-p)^N: 100 runs cover
    p >= 2% at 90%, 30 runs only p >= 7%. Cost is N executions per probe
@@ -562,6 +575,31 @@ We add 4 byte for one u32 length field. */
 
 /* ... and to time target setup alone */
 #define STATE_BENCH_SETUP_RUNS 20U
+
+/* Percent of the queue the state signal (-Js) is allowed to have created on
+   its own. Past this the signal is resolving finer than it can pay for, and
+   the state map is folded one level coarser. The utility test bounds the other
+   end, so between the two the resolution settles where the target supports
+   it. */
+#define STATE_ADMIT_PCT 25U
+
+/* Queue entries needed before the share above means anything */
+#define STATE_ADMIT_MIN_ITEMS 200U
+
+/* Percent of state-only entries that must have gone on to mother a coverage
+   find for the resolution to be considered worth its cost. Above this the
+   ladder leaves the signal alone however much of the queue it owns: a channel
+   that is producing finds is not too fine, it is expensive and working. */
+#define STATE_YIELD_PCT 10U
+
+/* State-only entries needed before that share means anything */
+#define STATE_YIELD_MIN_SAMPLE 50U
+
+/* Largest hand-set fold of the state map index (AFL_STATE_COARSE). At 8 the
+   65536 slots collapse to 256 state classes. Folding is not done automatically:
+   measured against both alternatives it was the worst of the three, because a
+   half-resolution signal keeps its corpus cost and loses its benefit. */
+#define STATE_COARSE_MAX_SHIFT 8U
 
 /* Percent of same-state input pairs that must agree before the state signal
    (-Js) may influence which inputs are saved */

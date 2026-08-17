@@ -23,12 +23,44 @@ determinism, and a queue that stops punishing depth. If `D - B` is most of it,
 the state model is earning its keep. Either answer is useful. Not knowing is
 not.
 
+## What is compared, and why not `edges_found`
+
+The number a fuzzer reports about itself cannot be compared between these arms.
+`edges_found` counts bytes of a coverage map, and the map is not the same object
+in two different binaries: arms C and E run a different target, and folding a
+state hash into the edge index (which `IJON_STATE()` does) changes what one edge
+even means. Two arms measured that way have no common unit, and the error is not
+academic — on lwext4 the arm with *fewer* `edges_found` had *more* covered
+regions.
+
+So the comparison is source coverage: every arm's final corpus is replayed
+through one coverage build and scored on the lines and regions of the code under
+test. `replay_coverage.sh` does that step, and it is what `-c` and `-s` switch
+on. Two traps it handles, both of which cost real time to find: one input that
+kills the process discards the profile of every input in the same invocation, so
+a dying chunk is bisected and the offender is quarantined and printed rather
+than silently shrinking the corpus; and a corpus reliably contains inputs that
+never terminate under coverage instrumentation, which has no forkserver and no
+timeout of its own, so every invocation is wrapped in `timeout`.
+
+`analyze_ablation.py` refuses to compare arms whose coverage builds disagree on
+how much code exists, and falls back to `edges_found` with a loud warning when
+no coverage data is present.
+
 ## Running it
 
 ```bash
-./run_ablation.sh -t ./target -i ./seeds -o ./ablation -V 3600 -n 5 -- @@
+./run_ablation.sh -t ./target -i ./seeds -o ./ablation -V 3600 -n 5 \
+  -c ./target.cov -s ./src -- @@
 ./analyze_ablation.py ./ablation
 ```
+
+Build the coverage target with `-fprofile-instr-generate -fcoverage-mapping`
+and *without* afl-clang-fast, so `main()` takes input files from argv rather
+than entering the persistent loop. Point `-s` at the code under test, not at
+the harness; use `-x` to drop harness sources from the count when arms run
+different front ends over the same library, or the denominators differ and the
+comparison is void.
 
 Arms C and E need a target that speaks the record format; point `-T` at
 `custom_mutators/state_records/example_harness` or your own equivalent, and
@@ -53,7 +85,8 @@ look meaningful when it falls inside that spread.
 
 ## Reading the output
 
-Three numbers per arm, never one:
+The headline is covered regions, with covered lines next to it. Then three
+normalised numbers per arm, never one:
 
 * **per wall-clock second** — what you get for an hour of machine time. This is
   the number that matters to whoever is paying for the machine.

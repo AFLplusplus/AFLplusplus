@@ -832,6 +832,132 @@ s32 afl_custom_post_trim(state_mutator_t *data, u8 success) {
 
 }
 
+/* --- what state does this input reach? ---
+
+   The fuzzer can only schedule on a state signal that names a *class of
+   situations*. This walks the program the way the target does and reports a
+   digest of the live object store at the end of it - which slots are open, and
+   at the coarser levels nothing else. A digest that carried the order of the
+   operations would name a path, not a state, and then every input reaches a
+   new state and the queue fills with everything.
+
+   STATE_RECORDS_DIGEST selects how much is folded in, so the trade can be
+   measured rather than argued:
+
+     0  say nothing
+     1  which slots are open                          (up to 256 classes)
+     2  open slots, whether a commit landed, log2 of the bytes held
+     3  hash of the whole opcode sequence             (a path, not a state) */
+
+#define STATE_DIGEST_SLOTS 1
+#define STATE_DIGEST_STORE 2
+#define STATE_DIGEST_PATH 3
+
+static unsigned state_digest_level(void) {
+
+  static int cached = -1;
+
+  if (unlikely(cached < 0)) {
+
+    const char *e = getenv("STATE_RECORDS_DIGEST");
+
+    cached = e ? atoi(e) : STATE_DIGEST_SLOTS;
+    if (cached < 0 || cached > STATE_DIGEST_PATH) { cached = STATE_DIGEST_SLOTS; }
+
+  }
+
+  return (unsigned)cached;
+
+}
+
+static unsigned state_ilog2_u32(uint32_t v) {
+
+  unsigned r = 0;
+
+  while (v >>= 1) { ++r; }
+  return r;
+
+}
+
+u8 afl_custom_describe_state(state_mutator_t *data, const u8 *buf,
+                             size_t buf_size, u32 *ops, u32 *state_id) {
+
+  unsigned level = state_digest_level();
+  size_t   n, i;
+  uint32_t open_mask = 0, held = 0, path = 0;
+  unsigned commits = 0;
+
+  if (!level || !buf || !buf_size) { return 0; }
+
+  n = state_rec_decode(buf, buf_size, data->scratch, STATE_MAX_RECS);
+  *ops = (u32)n;
+
+  if (!n) {
+
+    *state_id = 0;
+    return 1;
+
+  }
+
+  /* The same walk the harness does, kept to what survives into the store. */
+
+  for (i = 0; i < n; ++i) {
+
+    uint8_t op = data->scratch[i].opcode % STATE_OP_COUNT;
+    uint8_t dst = STATE_REC_SLOT(data->scratch[i].dst);
+
+    switch (op) {
+
+      case STATE_OP_OPEN:
+      case STATE_OP_WRITE:
+      case STATE_OP_DUP:
+        open_mask |= 1u << dst;
+        held += data->scratch[i].len;
+        break;
+      case STATE_OP_CLOSE:
+        open_mask &= ~(1u << dst);
+        break;
+      case STATE_OP_RESET:
+        open_mask = 0;
+        held = 0;
+        break;
+      case STATE_OP_COMMIT:
+        ++commits;
+        break;
+      default:
+        break;
+
+    }
+
+    if (level >= STATE_DIGEST_PATH) {
+
+      path = path * 31u + op;
+
+    }
+
+  }
+
+  switch (level) {
+
+    case STATE_DIGEST_SLOTS:
+      *state_id = open_mask + 1u;
+      break;
+
+    case STATE_DIGEST_STORE:
+      *state_id = 1u + open_mask + ((commits ? 1u : 0u) << 8) +
+                  (state_ilog2_u32(held + 1) << 9);
+      break;
+
+    default:
+      *state_id = path | 1u;
+      break;
+
+  }
+
+  return 1;
+
+}
+
 void afl_custom_deinit(state_mutator_t *data) {
 
   if (!data) { return; }

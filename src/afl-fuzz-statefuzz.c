@@ -175,9 +175,16 @@ void state_ballast_fold(afl_state_t *afl) {
 
 u32 state_shelf_cell(afl_state_t *afl, struct queue_entry *q) {
 
-  u32 depth_b = MIN(7U, state_ilog2(q->depth + 1));
+  /* How much the input achieves. A mutator that speaks the input format
+     reports the operation count, which is the quantity depth was always a
+     proxy for; without one, fall back to the mutation generation. */
+
+  u32 achieved = q->op_count ? q->op_count : q->depth;
+  u32 depth_b = MIN(7U, state_ilog2(achieved + 1));
   u32 cost_b = MIN(7U, state_ilog2(1 + q->exec_us / 100));
-  u32 state_b = afl->state_signal_trusted ? (q->state_id & 7) : 0;
+  u32 state_b = (afl->state_signal_trusted || q->op_count)
+                    ? (q->state_id & 7)
+                    : 0;
 
   return (depth_b * STATE_SHELF_COST_BUCKETS + cost_b) *
              STATE_SHELF_STATE_BUCKETS +

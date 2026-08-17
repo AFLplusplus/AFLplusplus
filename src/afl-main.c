@@ -312,7 +312,11 @@ static inline u8 afl_fuzz_queue(afl_state_t *afl) {
 
   }
 
+  u32 skip_streak = 0;
+
   do {
+
+    if (unlikely(++skip_streak > QUEUE_SKIP_STREAK_MAX)) { break; }
 
     if (likely(!afl->old_seed_selection)) {
 

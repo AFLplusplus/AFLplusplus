@@ -43,6 +43,13 @@ u8 run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
 
 }
 
+void run_afl_custom_describe_state(afl_state_t *afl, struct queue_entry *q,
+                                   u8 *mem, u32 len) {
+
+  return;
+
+}
+
 #endif
 
 static inline u8 rand_schedule(afl_state_t *afl, u8 schedule) {

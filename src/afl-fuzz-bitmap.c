@@ -949,6 +949,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
   u8  keeping = 0, res, is_timeout = 0, vp_entry = 0, vp_sample_ready = 0;
+  u8  state_entry = 0;
   u8  is_crash_save = 0;
   u8  vp_restore_suppressed = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
@@ -1157,8 +1158,25 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
         /* A state transition nothing has reached before is a reason to keep
            an input, but only once the utility test has shown that inputs the
            state definition calls identical really do behave identically. */
-        if (unlikely(state_new && afl->state_signal_trusted)) {
+        if (unlikely(state_new && afl->state_signal_trusted) &&
+            likely(!afl->state_admit_off)) {
 
+          state_entry = 1;
+          goto save_to_queue;
+
+        }
+
+        /* The same, for a state a mutator reports instead of the
+           instrumentation. A mutator that speaks the input format is taken at
+           its word - that is the harness author saying what the state is - but
+           it is held to the same admission bound, because a digest that is too
+           fine is the failure mode either way. */
+
+        if (unlikely(afl->plugin_state_admit) &&
+            likely(!afl->state_admit_off) &&
+            unlikely(plugin_state_new(afl, mem, len, NULL))) {
+
+          state_entry = 1;
           goto save_to_queue;
 
         }
@@ -1275,6 +1293,24 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       afl->cycles_wo_finds = saved_cycles_wo_finds;
       vp_mark_entry_vp_only(afl, afl->queue_top);
       afl->queue_top->vp_last_ref_cycle = afl->queue_cycle;
+
+    }
+
+    if (unlikely(state_entry)) {
+
+      afl->queue_top->state_only = 1;
+      ++afl->state_only_admits;
+      state_admit_bound(afl);
+
+    } else if (unlikely(afl->queue_cur && afl->queue_cur->state_only)) {
+
+      /* Credit assignment for the state channel: an entry kept only because it
+         reached a new state has paid for itself the moment something mutated
+         from it is saved for a reason of its own. Counted here and not next to
+         q->mother, because a state-only child crediting its state-only parent
+         would let a runaway signal vouch for itself. */
+
+      ++afl->state_only_paid;
 
     }
 

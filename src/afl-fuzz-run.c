@@ -655,6 +655,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   ++afl->total_bitmap_entries;
 
   if (unlikely(afl->ballast_bits != NULL)) { state_ballast_fold(afl); }
+  run_afl_custom_describe_state(afl, q, use_mem, q->len);
   if (unlikely(afl->state_mode)) { state_calibration_stats(afl, q); }
 
   update_bitmap_score(afl, q, true);

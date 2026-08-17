@@ -75,10 +75,82 @@ void state_map_reset(afl_state_t *afl) {
 
 static u8 state_map_fold(afl_state_t *afl, u8 *map, u8 count) {
 
-  u64 *current = (u64 *)afl->shm.state_map->map;
-  u64 *virgin = (u64 *)map;
-  u32  i = STATE_MAP_SIZE >> 3;
-  u8   ret = 0;
+  state_map_t *sm = afl->shm.state_map;
+  u64         *current = (u64 *)sm->map;
+  u64         *virgin = (u64 *)map;
+  u32          i = STATE_MAP_SIZE >> 3;
+  u32          shift = afl->state_coarse_shift;
+  u8           ret = 0;
+
+  /* The common case: the target listed the handful of slots it touched, so
+     nothing has to walk the map. A target built before the list existed sets
+     transitions without it, and then the map is walked as before. */
+
+  if (likely(!sm->touched_ovf) && likely(sm->touched_n) &&
+      likely(sm->touched_n <= STATE_TOUCHED_MAX)) {
+
+    u32 t;
+
+    for (t = 0; t < sm->touched_n; ++t) {
+
+      u32 vi = sm->touched[t] >> shift;
+
+      if (map[vi] == 0xff) {
+
+        map[vi] = 0;
+        if (count) { ++afl->state_transitions_found; }
+        ret = 1;
+
+      }
+
+    }
+
+    return ret;
+
+  }
+
+  /* Nothing was touched, and the target is the kind that would have said so.
+     A target built before the list existed leaves touched_ok at 0 and gets the
+     full walk, which is also what the unit tests exercise. */
+
+  if (likely(sm->touched_ok) && likely(!sm->touched_ovf)) { return 0; }
+
+  /* Coarsened levels fold neighbouring slots together. The index is a hash,
+     so neighbours are unrelated triples and folding merges the state space at
+     random - the same trade AFL++ already makes with map collisions, and the
+     only one available without asking the target to recompute its digest. */
+
+  if (unlikely(afl->state_coarse_shift)) {
+
+    u32 w, k;
+
+    for (w = 0; w < (STATE_MAP_SIZE >> 3); ++w) {
+
+      if (likely(!current[w])) { continue; }
+
+      u8 *cur = (u8 *)&current[w];
+
+      for (k = 0; k < 8; ++k) {
+
+        if (likely(!cur[k])) { continue; }
+
+        u32 vi = ((w << 3) + k) >> shift;
+
+        if (map[vi] == 0xff) {
+
+          map[vi] = 0;
+          if (count) { ++afl->state_transitions_found; }
+          ret = 1;
+
+        }
+
+      }
+
+    }
+
+    return ret;
+
+  }
 
   while (i--) {
 
@@ -134,6 +206,112 @@ u8 state_map_has_new(afl_state_t *afl) {
   if (likely(!afl->shm.state_map || !afl->virgin_state)) { return 0; }
 
   return state_map_fold(afl, afl->virgin_state, 0);
+
+}
+
+/* The state channel may create only a bounded share of the corpus.
+
+   The utility test asks whether a state definition is *sound* - do inputs it
+   calls identical behave identically. It cannot ask whether the definition is
+   *affordable*, and a sound definition can still be far too fine: a digest
+   carrying any of the input's history makes almost every execution a new state,
+   almost every execution a find, and the search degenerates into keeping
+   everything. That failure is silent, because the utility test reports 100%
+   while it happens.
+
+   Past the share, the channel stops saving inputs. It does not first try a
+   coarser resolution, because that was measured and it is the worst of the
+   three options: on a target whose digest kept eight steps of history, folding
+   the map still admitted ~145 entries that never found anything and dropped the
+   share of the corpus reaching the target's deep states from 40% to 16% - worse
+   than never having enabled the signal. Fine-and-expensive and off are both
+   defensible; half-resolution is not. AFL_STATE_COARSE still folds the map by
+   hand for anyone measuring that themselves. */
+
+void state_admit_bound(afl_state_t *afl) {
+
+  u32 cap = (u32)afl->afl_env.afl_state_admit_pct;
+
+  if (!cap || afl->state_admit_off) { return; }
+  if (afl->queued_items < STATE_ADMIT_MIN_ITEMS) { return; }
+  if (afl->state_only_admits * 100 < (u64)afl->queued_items * cap) { return; }
+
+  /* Over budget. A signal that is demonstrably paying keeps its licence: an
+     entry kept only for its state has paid when something mutated from it was
+     saved for a reason of its own. */
+
+  if (afl->state_only_admits >= STATE_YIELD_MIN_SAMPLE) {
+
+    u32 yield = (u32)afl->afl_env.afl_state_yield_pct;
+
+    if (yield && afl->state_only_paid * 100 >= afl->state_only_admits * yield) {
+
+      return;
+
+    }
+
+  }
+
+  afl->state_admit_off = 1;
+
+  WARNF(
+      "state signal switched off for saving: it had created %u%% of the queue "
+      "and only\n    %llu of its %llu entries went on to find anything. "
+      "Transitions are still\n    recorded and reported, and still group "
+      "entries for -Jd. A digest that\n    carries input history cannot be "
+      "scheduled on; report a coarse summary of\n    the live object store "
+      "instead. See docs/fuzzing_stateful_targets.md.",
+      cap, afl->state_only_paid, afl->state_only_admits);
+
+}
+
+/* The same question for a state id a mutator reported rather than the
+   instrumentation: has anything reached this state class before?
+
+   The id is an arbitrary u32, so it is spread over the same number of slots the
+   transition map uses and folded by the same ladder. One virgin set, one bound,
+   one place where the resolution is decided. */
+
+u8 plugin_state_new(afl_state_t *afl, u8 *mem, u32 len, u32 *out_id) {
+
+  u32 ops = 0, id = 0, idx;
+
+  if (likely(!afl->custom_mutators_count)) { return 0; }
+  if (unlikely(!mem) || unlikely(!len)) { return 0; }
+
+  LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+    if (el->afl_custom_describe_state &&
+        el->afl_custom_describe_state(el->data, mem, (size_t)len, &ops, &id)) {
+
+      break;
+
+    }
+
+  });
+
+  if (!id) { return 0; }
+  if (out_id) { *out_id = id; }
+
+  if (unlikely(!afl->virgin_pstate)) {
+
+    afl->virgin_pstate = ck_alloc(STATE_MAP_SIZE);
+    memset(afl->virgin_pstate, 255, STATE_MAP_SIZE);
+
+  }
+
+  idx = (u32)(((u64)id * 0x9E3779B1ULL) >> 16) & (STATE_MAP_SIZE - 1);
+  idx >>= afl->state_coarse_shift;
+
+  if (afl->virgin_pstate[idx] == 0xff) {
+
+    afl->virgin_pstate[idx] = 0;
+    ++afl->state_transitions_found;
+    return 1;
+
+  }
+
+  return 0;
 
 }
 

@@ -977,6 +977,43 @@ checks or alter some of the more exotic semantics of the tool:
     influence which inputs are saved. Default 80. Below the threshold the state
     signal stays a metadata note, which is the intended safe behaviour.
 
+  - `AFL_STATE_ADMIT_PCT` is the largest share of the queue, in percent, that
+    the state signal may create on its own. Default 25, and 0 turns the bound
+    off. Past the share the signal stops saving inputs and goes back to being a
+    note; transitions are still recorded, still reported, and still group
+    entries for `-Jd`. The utility test asks whether a state definition is
+    *sound*; this asks whether it is *affordable*, which is a different question
+    and the one a digest carrying input history fails. Measured on a synthetic
+    target whose digest kept eight steps of history: 15,712 queue entries
+    without the bound against 317 with it, same target, same time.
+
+    Note what this does *not* do: it does not try a coarser resolution first.
+    That was measured and it was the worst of the three options - a folded map
+    still admitted entries that never found anything, and dropped the share of
+    the corpus reaching the target's deep states from 40% to 16%, i.e. below
+    never having enabled the signal at all. Fine-and-expensive and off are both
+    defensible; half-resolution is not.
+
+  - `AFL_STATE_YIELD_PCT` is the escape hatch from that bound: if at least this
+    percentage of the entries the state signal created went on to mother a find
+    of their own, the signal keeps saving inputs however much of the queue it
+    owns, because a channel that is producing finds is not too fine - it is
+    expensive and working. Default 10. `state_only_saves` and `state_only_paid`
+    in `fuzzer_stats` are the two numbers this compares, and they are worth
+    looking at directly: on the synthetic target above the ratio was 0.3%, which
+    is why the bound fires there.
+
+  - `AFL_STATE_COARSE` folds the state map index by hand: the number of bits
+    dropped, 0 (finest, 65536 classes) to 8 (256 classes). For measuring the
+    resolution trade yourself; it is not applied automatically for the reason
+    given above.
+
+  - `AFL_STATE_PLUGIN_ADMIT` lets a state id reported by a custom mutator
+    (`afl_custom_describe_state`) count as a reason to save an input, the same
+    way a new state transition does. Off by default. It is subject to
+    `AFL_STATE_ADMIT_PCT` as well, because a mutator's digest can be too fine
+    just as easily as a harness annotation can.
+
   - `AFL_HOT_BIAS` is the percentage of single-byte havoc mutations aimed at
     the region a harness marked with `AFL_HOT_REGION()` (`-Jh`). Default 70.
     The remaining share stays uniform on purpose: plain byte mutation still

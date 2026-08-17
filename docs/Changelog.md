@@ -22,7 +22,31 @@
     operation programs, with record-granular trim and splice),
     `utils/state_oracles/` (round-trip, allocation-failure injection,
     uninitialised-memory probe, exact-size buffers, each with a self-test) and
-    `utils/state_fuzzing/` (the ablation experiment).
+    `utils/state_fuzzing/` (the ablation experiment, which now replays each
+    arm's corpus through one coverage build with llvm-cov instead of comparing
+    `edges_found`, a number that is not the same unit in two binaries).
+    A state signal that is too fine is now bounded rather than trusted: a
+    digest that carries the input's history makes almost every execution a
+    find, so `AFL_STATE_ADMIT_PCT` caps the share of the queue the state
+    channel may create; past it the channel stops saving inputs unless its
+    entries are demonstrably mothering finds of their own
+    (`AFL_STATE_YIELD_PCT`, from the new `state_only_saves` /
+    `state_only_paid` stats). Measured on this repository's own end-to-end
+    target: 15,712 queue entries without the bound against 317 with it.
+    Coarsening the map instead was measured and rejected - it kept the corpus
+    cost and lost the benefit, ending below no state signal at all.
+    The state map also no longer costs a 64KB clear and a 64KB scan per
+    execution - the target reports which slots it touched - which took `-Js`
+    from roughly 15x slower to 5-15% on a fast target.
+  - custom mutators: new optional `afl_custom_describe_state()`, through which
+    a mutator that understands the input format reports how many operations an
+    input performs and an id for the state it reaches. The operation count
+    replaces the mutation depth in the `-Jd` shelf, and the state id lets
+    inputs in different states stop competing - a state signal with no
+    annotation, no instrumentation and no rebuild of the target, and without
+    `IJON_STATE()`'s side effect of folding state into the edge hash. With
+    `AFL_STATE_PLUGIN_ADMIT=1` a new state class also justifies saving an
+    input.
   ! Value Profile implementation for AFL++ by Khaled Yakdan (@kyakdan) that
     is much more efficient and intelligent than the libfuzzer implementation.
     Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for

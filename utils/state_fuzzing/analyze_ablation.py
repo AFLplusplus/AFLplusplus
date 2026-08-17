@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Summarise a state fuzzing ablation run produced by run_ablation.sh.
 
+The headline is source coverage, measured by replaying each arm's final corpus
+through one coverage build (run_ablation.sh -c/-s). That is the only unit the
+arms share. edges_found is what the fuzzer counted in its own coverage map, and
+that map is not the same object in two binaries: arms C and E run a different
+target, and folding a state hash into the edge index changes what one edge is.
+It is reported for context and flagged, never used for a contrast when coverage
+data is present.
+
 Reports three normalised numbers, not one:
 
   per wall-clock second   what you get for an hour of machine time
@@ -16,6 +24,7 @@ is reported as n/a when the harness does not cooperate.
 hashes the clock finds millions of them.
 """
 
+import json
 import os
 import statistics
 import sys
@@ -94,9 +103,20 @@ def find_runs(root, arm):
             stats = read_stats(cand)
             if stats:
                 stats["_ops"] = read_ops(os.path.join(rep_dir, "ops_count"))
+                stats["_cov"] = read_cov(rep_dir)
                 runs.append(stats)
                 break
     return runs
+
+
+def read_cov(rep_dir):
+    """Coverage summary written by replay_coverage.sh, or None."""
+    path = os.path.join(rep_dir, "cov", "summary.json")
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
 
 
 def read_ops(path):
@@ -113,23 +133,40 @@ def summarise(runs):
         return None
 
     edges, per_sec, per_exec, per_op = [], [], [], []
+    regions, lines, denoms = [], [], set()
 
     for st in runs:
         found = as_float(st, "edges_found")
         secs = max(as_float(st, "run_time"), 1.0)
         execs = max(as_float(st, "execs_done"), 1.0)
         edges.append(found)
-        per_sec.append(found / secs)
-        per_exec.append(found / execs * 1e6)
         ops = st.get("_ops")
+        cov = st.get("_cov")
+
+        # Normalise the fair metric when it exists, the fuzzer's own count when
+        # it does not - and say which, rather than silently mixing them.
+        primary = found
+        if cov:
+            primary = cov["regions_covered"]
+            regions.append(cov["regions_covered"])
+            lines.append(cov["lines_covered"])
+            denoms.add((cov["regions_total"], cov["lines_total"]))
+
+        per_sec.append(primary / secs)
+        per_exec.append(primary / execs * 1e6)
         if ops:
-            per_op.append(found / max(ops, 1.0) * 1e6)
+            per_op.append(primary / max(ops, 1.0) * 1e6)
 
     return {
         "n": len(runs),
         "edges": statistics.median(edges),
         "edges_min": min(edges),
         "edges_max": max(edges),
+        "regions": statistics.median(regions) if regions else None,
+        "regions_min": min(regions) if regions else None,
+        "regions_max": max(regions) if regions else None,
+        "lines": statistics.median(lines) if lines else None,
+        "denoms": denoms,
         "per_sec": statistics.median(per_sec),
         "per_exec": statistics.median(per_exec),
         "per_op": statistics.median(per_op) if per_op else None,
@@ -159,23 +196,58 @@ def main(argv):
         print(f"no completed runs found under {root}", file=sys.stderr)
         return 1
 
+    have_cov = all(r["regions"] is not None for r in results.values())
+    metric = "regions" if have_cov else "edges"
+
+    all_denoms = set()
+    for r in results.values():
+        all_denoms |= r["denoms"]
+    if len(all_denoms) > 1:
+        print()
+        print("!! the coverage builds do not agree on how much code there is:")
+        for d in sorted(all_denoms):
+            print(f"     regions_total={d[0]} lines_total={d[1]}")
+        print("   The arms are being scored against different denominators, so")
+        print("   the comparison is invalid. Use one -s for all arms, and give")
+        print("   -x to drop the harness sources that differ between them.")
+
     print()
     print("=== results ===")
     print()
+    if not have_cov:
+        print("!! no coverage replay data: falling back to edges_found, which is")
+        print("   NOT comparable across arms that run different binaries.")
+        print("   Re-run with -c and -s. Treat everything below as indicative.")
+        print()
+
+    label = "regions" if have_cov else "edges*"
     print(
-        f"{'arm':<4}{'n':>3}  {'edges':>10}{'  (min-max)':>16}"
+        f"{'arm':<4}{'n':>3}  {label:>10}{'  (min-max)':>16}{'lines':>9}"
         f"{'per sec':>12}{'per Mexec':>12}{'per Mop':>12}  description"
     )
     for arm in ARMS:
         r = results.get(arm)
         if not r:
             continue
-        rng = f"({r['edges_min']:.0f}-{r['edges_max']:.0f})"
+        if have_cov:
+            mid, lo, hi = r["regions"], r["regions_min"], r["regions_max"]
+        else:
+            mid, lo, hi = r["edges"], r["edges_min"], r["edges_max"]
+        rng = f"({lo:.0f}-{hi:.0f})"
         print(
-            f"{arm:<4}{r['n']:>3}  {fmt(r['edges'], 10, 0)}{rng:>16}"
+            f"{arm:<4}{r['n']:>3}  {fmt(mid, 10, 0)}{rng:>16}"
+            f"{fmt(r['lines'], 9, 0)}"
             f"{fmt(r['per_sec'], 12, 3)}{fmt(r['per_exec'], 12, 1)}"
             f"{fmt(r['per_op'], 12, 1)}  {ARM_DESC[arm]}"
         )
+    if have_cov:
+        print()
+        print("edges_found, for context only - not comparable across arms:")
+        for arm in ARMS:
+            r = results.get(arm)
+            if r:
+                print(f"  {arm}: {r['edges']:.0f} "
+                      f"({r['edges_min']:.0f}-{r['edges_max']:.0f})")
 
     print()
     print("=== contrasts ===")
@@ -186,14 +258,15 @@ def main(argv):
             continue
         any_contrast = True
         a, b = results[hi], results[lo]
-        delta = a["edges"] - b["edges"]
-        pct = (delta / b["edges"] * 100) if b["edges"] else 0.0
-        spread = max(a["edges_max"] - a["edges_min"],
-                     b["edges_max"] - b["edges_min"])
+        key = "regions" if have_cov else "edges"
+        delta = a[key] - b[key]
+        pct = (delta / b[key] * 100) if b[key] else 0.0
+        spread = max(a[key + "_max"] - a[key + "_min"],
+                     b[key + "_max"] - b[key + "_min"])
         note = ""
         if abs(delta) <= spread:
             note = "  <- within run-to-run spread, do not read anything into it"
-        print(f"{hi} - {lo}  {label:<26}{delta:>+10.0f} edges "
+        print(f"{hi} - {lo}  {label:<26}{delta:>+10.0f} {metric} "
               f"({pct:+.1f}%){note}")
 
     if not any_contrast:

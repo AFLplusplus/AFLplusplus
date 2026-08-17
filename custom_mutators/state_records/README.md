@@ -157,6 +157,35 @@ with `AFL_USE_ASAN=1` to see them:
 
 Neither is reachable by a single operation, which is the point.
 
+## Reporting state: `afl_custom_describe_state`
+
+The mutator also answers the question AFL++ cannot answer for itself: what does
+this input *do*, and where does it leave the target? It walks the program the
+way the harness does and reports two numbers per queue entry — the number of
+operations, and an id for the state the program ends in.
+
+The operation count is what `-Jd`'s depth bucket always wanted; AFL++'s own
+`depth` counts mutation generations from a seed, which is only a proxy for work
+done. The state id keeps inputs that end in different situations from competing
+for the same queue slot.
+
+`STATE_RECORDS_DIGEST` selects how much goes into the id, so the trade can be
+measured instead of argued:
+
+| value | id is | classes |
+|---|---|---|
+| `0` | nothing is reported | — |
+| `1` (default) | which slots are open | ≤ 256 |
+| `2` | open slots, whether a commit landed, log2 of the bytes held | ≤ 4608 |
+| `3` | a hash of the whole opcode sequence | unbounded |
+
+Level 3 exists to be wrong on purpose. It names a *path*, not a state, so
+almost every input reaches a state nothing reached before, and if state ids are
+allowed to save inputs (`AFL_STATE_PLUGIN_ADMIT=1`) the queue fills with
+everything. That is the failure mode every state signal has, and the reason
+level 1 is the default: a digest of the live object store, and nothing that
+remembers how it got there.
+
 ## Do not set `AFL_CUSTOM_MUTATOR_ONLY`
 
 Deliberately not recommended, and the recommendation is not a hedge.

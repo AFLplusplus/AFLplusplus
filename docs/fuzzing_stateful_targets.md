@@ -223,6 +223,35 @@ apart.
 compromise: `INIT→AUTH→READY` and `INIT→AUTH→ERROR→AUTH→READY` end in the same
 place but are different, while keeping full histories explodes the corpus.
 
+One thing to know before annotating anything: **the state map is only as good
+as how coarse the state is.** `IJON_STATE(n)` takes whatever number the harness
+hands it, and if that number carries any of the input's history — a rolling hash
+of the operations, a path digest — then almost every execution reaches a state
+nothing reached before, almost every execution is a find, and the queue fills
+with everything. Measured on this repository's own end-to-end target, whose
+`state_log` keeps eight steps of history: **14,280 queue entries in 45 seconds
+against 176 without the state map**, for 22% of the state map consumed and no
+more coverage.
+
+So report a *situation*, not a route: which handles are open, which flags are
+set, what phase the protocol is in. If two inputs would behave the same from
+here on, they are in the same state and must produce the same number.
+
+AFL++ bounds the damage rather than trusting the annotation. When the state
+signal has created more than `AFL_STATE_ADMIT_PCT` of the queue (default 25%)
+on its own, it stops saving inputs and goes back to being a note — unless its
+entries are demonstrably paying for themselves, which `AFL_STATE_YIELD_PCT`
+decides from `state_only_saves` and `state_only_paid`. On the same target the
+bound brought those 14,280 entries down to 317.
+
+What the bound deliberately does *not* do is try a coarser resolution first.
+Folding the map was measured against both alternatives and came last: it still
+admitted ~145 entries that never found anything, and it dropped the share of the
+corpus reaching the target's deep states from 40% to **16%** — worse than never
+enabling the signal. A fine, expensive signal and no signal are both defensible;
+half a signal is not. `AFL_STATE_COARSE` still folds by hand for anyone who
+wants to measure that themselves.
+
 Any existing `IJON_STATE()` harness gets this for free — no source change.
 Two optional annotations sharpen it:
 
@@ -234,7 +263,36 @@ AFL_HOT_REGION(offset, length);  /* mark the bytes that matter (-Jh)  */
 With no `AFL_STATE_ACTION`, the action is 0 and the map degrades to
 `(previous, current)` pairs — still strictly more than today.
 
-Stats: `state_transitions`, `state_map_density`, `state_signal`.
+Stats: `state_transitions`, `state_map_density`, `state_signal`,
+`state_only_saves`, `state_coarse_fold`, `state_coarse_steps`.
+
+### `s` — without touching the target at all
+
+A state number does not have to come from the target. A custom mutator that
+understands the input format already knows what a program does and where it
+ends up, and it can say so through `afl_custom_describe_state()` (see
+[custom_mutators.md](custom_mutators.md)). It reports two numbers per queue
+entry: how many operations the input performs, and an id for the state it ends
+in.
+
+This is the cheaper half of the state idea and worth trying first:
+
+* It needs no annotation, no instrumentation and no rebuild of the target.
+* It does not fold the state into the edge hash, so coverage stays coverage.
+  `IJON_STATE()` cannot avoid that — the same call that records a transition
+  also perturbs every later edge index — which is why a state-annotated build
+  reports a coverage map that is not comparable with a plain one.
+* The operation count is what the depth bucket of `-Jd` always wanted. `depth`
+  counts mutation generations from a seed, which is only a proxy for how much
+  work an input does; an operation count is the thing itself.
+
+By default the reported state only affects *scheduling* — which cell an entry
+competes in, and how inputs are grouped for the utility test — and can
+therefore not explode anything. `AFL_STATE_PLUGIN_ADMIT=1` additionally lets a
+new state class justify saving an input, under the same
+`AFL_STATE_ADMIT_PCT` bound.
+
+Stats: `plugin_described`, `plugin_ops_avg`, `plugin_ops_max`.
 
 ### `s` — and the test that decides whether to believe it
 
