@@ -359,11 +359,12 @@ static int state_id_cmp(const void *a, const void *b) {
 
 }
 
-/* Read a queue entry and append the probe action to it. Returns the buffer,
-   NULL when the entry could not be read. */
+/* Read a queue entry and place the probe action after it, or in front of it
+   when prepend is set. A probe_len of 0 returns the entry's own bytes.
+   Returns the buffer, NULL when the entry could not be read. */
 
 static u8 *state_probe_input(struct queue_entry *q, u8 *probe, u32 probe_len,
-                             u32 *len_out) {
+                             u32 *len_out, u8 prepend) {
 
   u32 base = MIN(q->len, (u32)MAX_FILE);
   s32 fd = open((char *)q->fname, O_RDONLY);
@@ -371,8 +372,9 @@ static u8 *state_probe_input(struct queue_entry *q, u8 *probe, u32 probe_len,
   if (fd < 0) { return NULL; }
 
   u8 *buf = ck_alloc(base + probe_len);
+  u8 *at = prepend ? buf + probe_len : buf;
 
-  if (base && read(fd, buf, base) != (ssize_t)base) {
+  if (base && read(fd, at, base) != (ssize_t)base) {
 
     close(fd);
     ck_free(buf);
@@ -381,10 +383,95 @@ static u8 *state_probe_input(struct queue_entry *q, u8 *probe, u32 probe_len,
   }
 
   close(fd);
-  memcpy(buf + base, probe, probe_len);
+
+  if (probe_len) { memcpy(prepend ? buf : buf + base, probe, probe_len); }
   *len_out = base + probe_len;
 
   return buf;
+
+}
+
+/* Build the one probe action of a run. A mutator that speaks the input format
+   is asked first: a format that frames its records with a separator parses a
+   raw byte string as more payload for the record it already has, which
+   performs no new action and drops the pair, so with raw bytes alone the gate
+   is unreachable for exactly the formats this mode is for.
+
+   Only mutators that opted into the state protocol are asked, and
+   afl_custom_state_probe before afl_custom_fuzz, because this runs outside the
+   mutation loop with no queue entry selected - which a mutator that never
+   agreed to answer here has no reason to expect. Random bytes stay the
+   fallback. Returns the probe length. */
+
+static u32 state_probe_build(afl_state_t *afl, u8 **probe_out,
+                             u8 *from_mutator) {
+
+  u32 i;
+
+  *from_mutator = 0;
+
+  if (unlikely(afl->custom_mutators_count)) {
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_state_probe) {
+
+        u8 *built = ck_alloc(STATE_PROBE_MAX_LEN);
+        u32 len = el->afl_custom_state_probe(el->data, built,
+                                             (u32)STATE_PROBE_MAX_LEN);
+
+        if (len && len <= STATE_PROBE_MAX_LEN) {
+
+          *probe_out = built;
+          *from_mutator = 1;
+          return len;
+
+        }
+
+        ck_free(built);
+
+      }
+
+    });
+
+    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      if (el->afl_custom_describe_state && el->afl_custom_fuzz) {
+
+        u8     seed = 0;
+        u8    *out = NULL;
+        size_t len = el->afl_custom_fuzz(el->data, &seed, 0, &out, NULL, 0,
+                                         (size_t)STATE_PROBE_MAX_LEN);
+
+        if (out && len && len <= (size_t)STATE_PROBE_MAX_LEN) {
+
+          u8 *built = ck_alloc((u32)len);
+
+          memcpy(built, out, len);
+          *probe_out = built;
+          *from_mutator = 1;
+          return (u32)len;
+
+        }
+
+      }
+
+    });
+
+  }
+
+  u32 probe_len = 1 + rand_below(afl, 32);
+  u8 *probe = ck_alloc(probe_len);
+
+  for (i = 0; i < probe_len; ++i) {
+
+    probe[i] = (u8)rand_below(afl, 256);
+
+  }
+
+  *probe_out = probe;
+
+  return probe_len;
 
 }
 
@@ -409,6 +496,7 @@ static u8 state_probe_run(afl_state_t *afl, u8 *buf, u32 len,
 
   fsrv_run_result_t fault =
       fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+  afl->trace_foreign = 1;
 
   ++afl->slow_path_execs;
 
@@ -428,10 +516,10 @@ static u8 state_probe_run(afl_state_t *afl, u8 *buf, u32 len,
 /* The hard gate of item 16: a state signal may only influence which inputs
    are saved once inputs that the state definition calls identical actually
    behave identically. Two entries from the same state get the same freshly
-   drawn action appended; the pair only counts when the appended bytes made
-   both targets walk further than they did without them, and it agrees when
-   both end in the same state, terminate the same way, and give the same
-   answer to "did new coverage appear". */
+   built action, behind their bytes or in front of them; the pair only counts
+   when the probe made both targets walk further than they did without it, and
+   it agrees when both end in the same state, terminate the same way, and give
+   the same answer to "did new coverage appear". */
 
 void state_utility_test(afl_state_t *afl) {
 
@@ -535,7 +623,9 @@ void state_utility_test(afl_state_t *afl) {
 
       WARNF(
           "state signal not testable yet: %u of %u entries carry a state id, "
-          "but only %u same-state pair(s) could be formed and %u are needed.\n    Either the state definition separates almost every input, or too few"
+          "but only %u same-state pair(s) could be formed and %u are needed.\n "
+          "   Either the state definition separates almost every input, or too "
+          "few"
           " entries report a non-zero state id - note that state id 0 is"
           " treated as 'no state'.",
           n, afl->queued_items, pairs, STATE_UTILITY_MIN_PAIRS);
@@ -550,80 +640,114 @@ void state_utility_test(afl_state_t *afl) {
 
   }
 
-  /* One probe action, drawn once and appended unchanged to both members of
+  /* One probe action, built once and used unchanged on both members of
      every pair, so every pair is asked about the same next action. */
 
-  u32 probe_len = 1 + rand_below(afl, 32);
-  u8 *probe = ck_alloc(probe_len);
-
-  for (i = 0; i < probe_len; ++i) {
-
-    probe[i] = (u8)rand_below(afl, 256);
-
-  }
+  u8  probe_from_mutator = 0;
+  u8 *probe = NULL;
+  u32 probe_len = state_probe_build(afl, &probe, &probe_from_mutator);
 
   u8 *virgin_scratch = ck_alloc(afl->fsrv.map_size);
-  u64 usable = 0, agree = 0, ignored = 0;
+  u64 usable = 0, agree = 0, ignored = 0, prepended = 0;
 
   for (i = 0; i < pairs && !afl->stop_soon; ++i) {
 
-    u32 len_a = 0, len_b = 0;
-    u8 *buf_a = state_probe_input(pair_a[i], probe, probe_len, &len_a);
-    u8 *buf_b = NULL;
+    u32 base_len_a = 0, base_len_b = 0;
+    u8 *base_buf_a = state_probe_input(pair_a[i], NULL, 0, &base_len_a, 0);
+    u8 *base_buf_b = NULL;
 
-    if (buf_a) {
+    if (base_buf_a) {
 
-      buf_b = state_probe_input(pair_b[i], probe, probe_len, &len_b);
+      base_buf_b = state_probe_input(pair_b[i], NULL, 0, &base_len_b, 0);
 
     }
 
-    if (!buf_a || !buf_b) {
+    if (!base_buf_a || !base_buf_b) {
 
-      if (buf_a) { ck_free(buf_a); }
-      if (buf_b) { ck_free(buf_b); }
+      if (base_buf_a) { ck_free(base_buf_a); }
+      if (base_buf_b) { ck_free(base_buf_b); }
       continue;
 
     }
 
-    u32 state_a = 0, state_b = 0, trans_a = 0, trans_b = 0;
     u32 base_a = 0, base_b = 0, base_state = 0;
-    u8  novel_a = 0, novel_b = 0, fault_a = 0, fault_b = 0;
     u8  base_novel = 0, base_fault = 0;
 
-    /* Each entry is run first without the probe. Only when the appended
-       bytes walk the target further than its own bytes did has an action
-       actually been performed - otherwise the pair proves nothing, because
-       two inputs that both ignore their suffix trivially agree. */
+    /* Each entry is run first without the probe. Only when the probe bytes
+       walk the target further than its own bytes did has an action actually
+       been performed - otherwise the pair proves nothing, because two inputs
+       that both ignore the probe trivially agree. */
 
-    if (state_probe_run(afl, buf_a, len_a - probe_len, virgin_scratch,
+    if (state_probe_run(afl, base_buf_a, base_len_a, virgin_scratch,
                         &base_state, &base_novel, &base_a, &base_fault) &&
-        state_probe_run(afl, buf_b, len_b - probe_len, virgin_scratch,
-                        &base_state, &base_novel, &base_b, &base_fault) &&
-        state_probe_run(afl, buf_a, len_a, virgin_scratch, &state_a, &novel_a,
-                        &trans_a, &fault_a) &&
-        state_probe_run(afl, buf_b, len_b, virgin_scratch, &state_b, &novel_b,
-                        &trans_b, &fault_b)) {
+        state_probe_run(afl, base_buf_b, base_len_b, virgin_scratch,
+                        &base_state, &base_novel, &base_b, &base_fault)) {
 
-      if (trans_a <= base_a || trans_b <= base_b) {
+      /* The probe goes behind the input first. A record format that ends its
+         last record at the end of the buffer takes trailing bytes as more
+         payload for that record and performs no new action, so the same
+         probe is tried in front of the input before the pair is given up
+         on. */
 
-        ++ignored;
+      u8 place;
 
-      } else {
+      for (place = 0; place < 2; ++place) {
 
-        ++usable;
+        u32 len_a = 0, len_b = 0;
+        u8 *buf_a =
+            state_probe_input(pair_a[i], probe, probe_len, &len_a, place);
+        u8 *buf_b = NULL;
 
-        if (state_a == state_b && novel_a == novel_b && fault_a == fault_b) {
+        if (buf_a) {
 
-          ++agree;
+          buf_b = state_probe_input(pair_b[i], probe, probe_len, &len_b, place);
 
         }
+
+        u32 state_a = 0, state_b = 0, trans_a = 0, trans_b = 0;
+        u8  novel_a = 0, novel_b = 0, fault_a = 0, fault_b = 0;
+        u8  settled = 1;
+
+        if (buf_a && buf_b &&
+            state_probe_run(afl, buf_a, len_a, virgin_scratch, &state_a,
+                            &novel_a, &trans_a, &fault_a) &&
+            state_probe_run(afl, buf_b, len_b, virgin_scratch, &state_b,
+                            &novel_b, &trans_b, &fault_b)) {
+
+          if (trans_a > base_a && trans_b > base_b) {
+
+            ++usable;
+            if (place) { ++prepended; }
+
+            if (state_a == state_b && novel_a == novel_b &&
+                fault_a == fault_b) {
+
+              ++agree;
+
+            }
+
+          } else if (place) {
+
+            ++ignored;
+
+          } else {
+
+            settled = 0;
+
+          }
+
+        }
+
+        if (buf_a) { ck_free(buf_a); }
+        if (buf_b) { ck_free(buf_b); }
+        if (settled) { break; }
 
       }
 
     }
 
-    ck_free(buf_a);
-    ck_free(buf_b);
+    ck_free(base_buf_a);
+    ck_free(base_buf_b);
 
   }
 
@@ -637,6 +761,7 @@ void state_utility_test(afl_state_t *afl) {
   if (unlikely(afl->stop_soon)) { return; }
 
   afl->state_utility_cycle = afl->queue_cycle;
+  afl->state_utility_ignored = ignored;
 
   if (usable < STATE_UTILITY_MIN_PAIRS) {
 
@@ -644,10 +769,16 @@ void state_utility_test(afl_state_t *afl) {
 
       WARNF(
           "state signal not testable: the probe action was ignored by %llu of "
-          "%llu pairs.\n    Appending bytes does not make this target take "
-          "another step, so\n    same-state inputs cannot be compared. State "
-          "transitions stay a metadata\n    note and do not influence saving.",
-          ignored, ignored + usable);
+          "%llu pairs,\n    behind the input and in front of it. The %s probe "
+          "does not make this\n    target take another step, so same-state "
+          "inputs cannot be compared. State\n    transitions stay a metadata "
+          "note and do not influence saving.%s",
+          ignored, ignored + usable,
+          probe_from_mutator ? "custom mutator's" : "random-byte",
+          probe_from_mutator
+              ? ""
+              : "\n    A custom mutator for this input format would be asked "
+                "for the probe instead.");
 
     }
 
@@ -658,6 +789,15 @@ void state_utility_test(afl_state_t *afl) {
   afl->state_utility_pairs = usable;
   afl->state_utility_agree = agree;
   afl->state_utility_pct = (100.0 * (double)agree) / (double)usable;
+
+  if (prepended) {
+
+    ACTF(
+        "state utility: %llu of %llu usable pairs performed an action only "
+        "with the probe in front of the input.",
+        prepended, usable);
+
+  }
 
   u32 threshold = afl->afl_env.afl_state_utility_threshold
                       ? (u32)afl->afl_env.afl_state_utility_threshold

@@ -733,6 +733,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
               "state_utility_pct : %0.02f%%\n"
               "state_util_pairs  : %llu\n"
               "state_util_runs   : %llu\n"
+              "state_util_ignored: %llu\n"
               "state_only_saves  : %llu\n"
               "state_only_paid   : %llu\n"
               "state_admit_off   : %u\n"
@@ -743,7 +744,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
               afl->state_transitions_found,
               (double)state_map_density(afl) / 100.0, afl->state_utility_pct,
               afl->state_utility_pairs, afl->state_utility_runs,
-              afl->state_only_admits,
+              afl->state_utility_ignored, afl->state_only_admits,
               afl->state_only_paid, afl->state_admit_off,
               1U << afl->state_coarse_shift);
 

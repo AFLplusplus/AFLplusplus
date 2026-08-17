@@ -1165,6 +1165,7 @@ typedef struct afl_state {
 #define STATE_UTILITY_MIN_PAIRS 8U    /* signal is tested, and the pair     */
 #define STATE_UTILITY_MAX_PAIRS 32U   /* sample size of one test, repeated  */
 #define STATE_UTILITY_CYCLES 8U       /* every this many queue cycles       */
+#define STATE_PROBE_MAX_LEN 512U      /* cap on a mutator-built probe       */
 
   u32 state_mode;                       /* STATE_MODE_* bitmask, 0 = off    */
   u32 hot_bias;                         /* % of havoc aimed at the hot span */
@@ -1184,13 +1185,17 @@ typedef struct afl_state {
       *virgin_state,                    /* unseen state transitions         */
       *state_seen;                      /* transitions ever observed        */
 
-  u64  plugin_state_described;          /* entries a mutator described      */
-  u8  *virgin_pstate;                   /* states a mutator reported        */
-  u8   plugin_state_admit;              /* may a mutator state save input?  */
-  u32  state_coarse_shift;              /* state map fold, 0 = finest       */
-  u64  state_only_admits;               /* entries saved for state alone    */
-  u64  state_admit_window;              /* the same, since the last fold    */
-  u8   state_admit_off;                 /* state may no longer save inputs  */
+  u64 plugin_state_described;           /* entries a mutator described      */
+  u8 *virgin_pstate;                    /* states a mutator reported        */
+  u8  plugin_state_admit;               /* may a mutator state save input?  */
+  u32 state_coarse_shift;               /* state map fold, 0 = finest       */
+  u64 state_only_admits;                /* entries saved for state alone    */
+  u64 state_admit_window;               /* the same, since the last fold    */
+  u8  state_admit_off;                  /* state may no longer save inputs  */
+  u8  trace_foreign;          /* trace_bits holds someone else's run
+                                 - set by every -J helper that
+                                 executes the target outside the
+                                 normal run-then-calibrate pairing  */
   u64  state_only_paid;                 /* of those, ones that found edges  */
   u32 *edge_corpus_cnt;                 /* per-edge corpus frequency        */
   u64  corpus_trace_cnt;                /* traces folded into the above     */
@@ -1202,7 +1207,8 @@ typedef struct afl_state {
       probe_last_ms,                    /* when the repeat probe last ran   */
       setup_cost_us, fork_cost_us,      /* item 4 benchmark results         */
       state_utility_pairs, state_utility_agree,
-      state_utility_runs;               /* times the utility test ran       */
+      state_utility_runs,               /* times the utility test ran       */
+      state_utility_ignored;            /* pairs that ignored the probe     */
 
   u32 contract_diff_edges,              /* edges differing in exec #1 vs #2 */
       state_transitions_found,          /* distinct transitions seen        */
@@ -1298,6 +1304,12 @@ struct custom_mutator {
    * @param[in] max_size Maximum size of the mutated output. The mutation must
    * not produce data larger than max_size.
    * @return Size of the mutated output.
+   *
+   * A mutator that implements afl_custom_describe_state but not
+   * afl_custom_state_probe is also called here with a buf_size of 0, to build
+   * the probe action of state fuzzing mode's utility test, so such a mutator
+   * must handle an empty input: generate from nothing, or return 0 to decline
+   * and let AFL++ fall back to random bytes.
    */
   size_t (*afl_custom_fuzz)(void *data, u8 *buf, size_t buf_size, u8 **out_buf,
                             u8 *add_buf, size_t add_buf_size, size_t max_size);
@@ -1344,6 +1356,31 @@ struct custom_mutator {
    */
   u8 (*afl_custom_describe_state)(void *data, const u8 *buf, size_t buf_size,
                                   u32 *ops, u32 *state_id);
+
+  /**
+   * Build one action in this input format, for the test that decides whether
+   * state fuzzing mode may trust its state signal.
+   *
+   * That test takes two inputs it believes are in the same state, gives both
+   * the same next action, and checks that they behave the same. The action has
+   * to be one the target actually performs: raw bytes are read as more payload
+   * for the record an input already ends with in every format that frames its
+   * records with a separator, no operation is added, and the pair is dropped.
+   * A mutator that knows the format can answer this properly.
+   *
+   * Called outside the mutation loop, at most once per test, with no queue
+   * entry selected. Write at most max_len bytes into out_buf and return how
+   * many were written; return 0 to decline, and AFL++ falls back to random
+   * bytes.
+   *
+   * (Optional)
+   *
+   * @param[in] data pointer returned in afl_custom_init by this custom mutator
+   * @param[out] out_buf Buffer to write the action into
+   * @param[in] max_len Size of out_buf
+   * @return Bytes written, 0 to decline
+   */
+  u32 (*afl_custom_state_probe)(void *data, u8 *out_buf, u32 max_len);
 
   /**
    * A post-processing function to use right before AFL writes the test case to

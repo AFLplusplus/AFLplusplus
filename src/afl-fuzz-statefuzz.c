@@ -133,6 +133,7 @@ static void state_exec_once(afl_state_t *afl, u8 *buf, u32 len) {
 
   (void)write_to_testcase(afl, &use_mem, len, 1);
   (void)fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+  afl->trace_foreign = 1;
   ++afl->slow_path_execs;
 
   classify_counts(&afl->fsrv);
@@ -319,7 +320,7 @@ void state_calibration_stats(afl_state_t *afl, struct queue_entry *q) {
   if (afl->cal_var_map || afl->edge_corpus_cnt) {
 
     double stab_sum = 0.0, stab_min = 100.0, info_sum = 0.0;
-    u32    cnt = 0;
+    u32    cnt = 0, scnt = 0;
 
     for (i = 0; i < afl->queued_items; ++i) {
 
@@ -327,18 +328,33 @@ void state_calibration_stats(afl_state_t *afl, struct queue_entry *q) {
 
       if (unlikely(!e) || e->disabled || !e->bitmap_size) { continue; }
 
-      stab_sum += e->stability;
       info_sum += e->info_score;
-      if (e->stability < stab_min) { stab_min = e->stability; }
       ++cnt;
+
+      /* q->stability is only set when an entry is calibrated with the var map,
+         and it is not persisted, so after a resume the queue is full of
+         entries that carry no measurement at all. Averaging those in as 0%
+         dragged input_stab_avg to a small number and pinned input_stab_min at
+         0.00%, which inverts the advice to trust these fields rather than the
+         corpus-cumulative stability. A genuinely 0%-stable entry always has a
+         non-zero var count, so the two cases are distinguishable. */
+      if (e->stability == 0.0 && !e->var_edge_cnt && !e->var_hit_cnt) {
+
+        continue;
+
+      }
+
+      stab_sum += e->stability;
+      if (e->stability < stab_min) { stab_min = e->stability; }
+      ++scnt;
 
     }
 
     if (likely(cnt)) {
 
-      if (afl->cal_var_map) {
+      if (afl->cal_var_map && scnt) {
 
-        afl->corpus_stability_avg = stab_sum / (double)cnt;
+        afl->corpus_stability_avg = stab_sum / (double)scnt;
         afl->corpus_stability_min = stab_min;
 
       }
@@ -380,6 +396,7 @@ u8 state_admission_gate(afl_state_t *afl, void *mem, u32 len) {
 
   (void)write_to_testcase(afl, &gate_mem, len, 1);
   (void)fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+  afl->trace_foreign = 1;
 
   ++afl->gate_checked;
   ++afl->slow_path_execs;
@@ -573,6 +590,7 @@ void state_cost_bench(afl_state_t *afl) {
 
     (void)write_to_testcase(afl, &use_mem, q->len, 1);
     (void)fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+    afl->trace_foreign = 1;
     ++afl->slow_path_execs;
 
     if (unlikely(afl->stop_soon)) { return; }

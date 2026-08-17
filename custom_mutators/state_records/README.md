@@ -14,6 +14,17 @@ The point of this directory is the wire format. A mutator that shuffles
 operations is easy; a format that survives being shuffled is not, and the two
 rules below are the whole reason this format looks the way it does.
 
+**Adopting that wire format is a precondition for everything here**, including
+`afl_custom_describe_state`. Every function is hard-wired to the `5a a5`
+marker, the 8-byte header and the `STATE_OP_*` opcode semantics below — it is
+not a generic record mutator with a pluggable format. Pointed at a harness with
+its own encoding it does not fail loudly: `afl_custom_describe_state` finds no
+records and reports `ops=0, state_id=0` for every entry, and `afl_custom_fuzz`
+emits *this* format, which that harness's parser reads as one opaque blob. If
+your target already has a record format, copy this mutator and change the
+codec in `state_records.h`, or make the harness read this format; do not expect
+the state hook to work across formats.
+
 ## Files
 
 | File | Contents |
@@ -178,6 +189,14 @@ measured instead of argued:
 | `1` (default) | which slots are open | ≤ 256 |
 | `2` | open slots, whether a commit landed, log2 of the bytes held | ≤ 4608 |
 | `3` | a hash of the whole opcode sequence | unbounded |
+
+Loading this mutator also makes `-Js`'s state utility test usable on this
+format. That test probes a pair of same-state inputs with one extra action, and
+`afl_custom_state_probe` here builds it out of one or two fresh records; raw
+random bytes would be swallowed by the trailing record and no pair would ever
+count. Measured on an `IJON_STATE`-annotated harness for this format: 32 of 32
+pairs usable with the mutator loaded, 31 of 32 dropped without it. See
+[fuzzing_stateful_targets.md](../../docs/fuzzing_stateful_targets.md).
 
 Level 3 exists to be wrong on purpose. It names a *path*, not a state, so
 almost every input reaches a state nothing reached before, and if state ids are

@@ -442,7 +442,7 @@ void create_alias_table(afl_state_t *afl) {
 
     if (unlikely(cell_score)) {
 
-      u32 c, used = 0;
+      u32 c;
 
       for (c = 0; c < STATE_SHELF_CELLS; c++) {
 
@@ -451,13 +451,10 @@ void create_alias_table(afl_state_t *afl) {
           afl->shelf_avg_exec_us[c] /= afl->shelf_count[c];
           afl->shelf_avg_len[c] /= afl->shelf_count[c];
           afl->shelf_avg_info[c] /= afl->shelf_count[c];
-          ++used;
 
         }
 
       }
-
-      afl->shelf_cells_used = used;
 
     }
 
@@ -1746,6 +1743,20 @@ static void state_shelf_rebuild(afl_state_t *afl) {
     if (!w[3] || q->bitmap_size > w[3]->bitmap_size) { w[3] = q; }
 
   }
+
+  /* Counted here rather than in create_alias_table(), which only reaches its
+     per-cell block for schedules below RARE - the count belongs with the
+     witnesses it is reported next to. */
+
+  u32 c, used = 0;
+
+  for (c = 0; c < STATE_SHELF_CELLS; c++) {
+
+    if (afl->shelf[c * STATE_SHELF_WITNESSES]) { ++used; }
+
+  }
+
+  afl->shelf_cells_used = used;
 
 }
 

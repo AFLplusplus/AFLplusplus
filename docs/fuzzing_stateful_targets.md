@@ -295,6 +295,20 @@ Three requirements, all of which are easy to miss:
 * `AFL_NO_STATE_MAP` switches it off from either side — the fuzzer will not
   create the segment, and an instrumented target will not attach to one.
 
+To tell an already-built binary apart from a plain one, do not grep it for
+`__AFL_STATE_SHM_ID` or `__afl_ijon`: both strings live in
+`afl-compiler-rt.o`, which every `afl-cc` target links, so they match
+everything. The one static difference is the symbol the IJON pass emits:
+
+```sh
+nm ./target | grep __afl_ijon_enabled     # "D" = annotated and instrumented,
+                                          # "V" = the runtime's weak default
+```
+
+That works only on an unstripped binary. The reliable check either way is the
+run: `afl-fuzz` prints `Using state map.` and `state_transitions` climbs above
+zero.
+
 One thing to know before annotating anything: **the state map is only as good
 as how coarse the state is.** `IJON_STATE(n)` takes whatever number the harness
 hands it, and if that number carries any of the input's history — a rolling hash
@@ -395,19 +409,46 @@ next action to both, and see whether they behave the same. If inputs the state
 definition calls identical keep behaving differently, the definition has
 merged two real states and needs one more field.
 
-The action is a short random byte string appended to both inputs, so every
-pair is first run without it. A pair only counts when the appended bytes made
-both targets walk *further* through the state machine than their own bytes
-did. Without that check the test would pass for free on any target that
-ignores trailing bytes — two inputs that both ignore their suffix agree
-trivially, and a vacuous 100% is exactly the false pass this gate exists to
-prevent. Pairs whose probe changed nothing are dropped, and if too few pairs
-survive AFL++ says so instead of reporting a verdict.
+The action is built once per test and used unchanged on both members of every
+pair, so every pair is asked about the same next action, and every pair is
+first run without it. A pair only counts when the probe made both targets walk
+*further* through the state machine than their own bytes did. Without that
+check the test would pass for free on any target that ignores the probe — two
+inputs that both ignore it agree trivially, and a vacuous 100% is exactly the
+false pass this gate exists to prevent. Pairs whose probe changed nothing are
+dropped, and if too few pairs survive AFL++ says so instead of reporting a
+verdict.
 
-Because the action is *appended bytes*, a target whose input is not a
-concatenation of operations — a fixed-size struct, a single length-prefixed
-frame — will ignore the suffix on every pair, and no verdict is ever reached.
-That is the intended outcome: the signal stays a note.
+Where the action comes from matters, because a probe the target does not act on
+makes the gate unreachable rather than merely strict:
+
+* **With a format-aware custom mutator loaded**, the mutator builds it, capped
+  at 512 bytes: `afl_custom_state_probe` if it has one, otherwise
+  `afl_custom_fuzz` called on an empty buffer, and only for a mutator that also
+  implements `afl_custom_describe_state` — a mutator that never opted into the
+  state protocol is not called outside the mutation loop. So a mutator that
+  speaks the input format hands over a well-formed operation, which is the case
+  this gate is aimed at.
+* **Without one**, the probe is 1–32 random bytes. That is a valid action only
+  for a format in which a bare byte string parses as a *new* operation. It is
+  not one for any encoding that frames records with a separator, or that ends
+  its last record at the end of the buffer: the bytes are read as more payload
+  for the record already there, no operation is added, and the pair is
+  dropped. Note that this includes the format
+  `custom_mutators/state_records/` recommends — with that mutator loaded the
+  probe is well-formed, without it the same corpus reaches no verdict at all.
+
+The probe is tried behind the input first and then in front of it, and the
+pair counts if either placement performed an action. A target whose input is
+not a concatenation of operations — a fixed-size struct, a single
+length-prefixed frame — ignores it in both positions and no verdict is ever
+reached. That is the intended outcome: the signal stays a note. `state_util_ignored`
+in `fuzzer_stats` counts the pairs that were dropped this way, so a
+`state_util_pairs : 0` can be read from the stats file alone.
+
+Only entries with a **non-zero** state id are paired up: id 0 means "no state"
+throughout, so a harness that encodes "nothing open yet" as `IJON_STATE(0)`
+loses those entries from the test. Give that situation an id of its own.
 
 Pairs are drawn from entries with the same state id, preferring partners whose
 coverage traces differ, because a pair of near-identical inputs proves nothing.
@@ -428,7 +469,8 @@ Reporting and admission use separate maps, so a transition first met during
 the observational phase can still justify saving an input once the signal
 becomes trusted.
 
-Stats: `state_utility_pct`, `state_util_pairs`.
+Stats: `state_utility_pct`, `state_util_pairs`, `state_util_runs`,
+`state_util_ignored`.
 
 The test samples at most 32 pairs, so on a target with few state groups the
 figure is noisy — this repository's own end-to-end target has been observed at
@@ -586,10 +628,19 @@ reads. Nothing else.
 | repeat probe | startup, then on a save, at most once a minute | 100 execs |
 | harness self-check | startup, once | 2 execs, up to 17 in persistent mode |
 | cost benchmark | startup, once | ~220 execs, plus up to one deadline |
-| state utility test | ≥20 state-carrying entries, then every 8 cycles | ≤128 execs |
+| state utility test | ≥20 state-carrying entries, then every 8 cycles | ≤192 execs |
 
 `slow_path_execs` and `slow_path_pct` report exactly how much of your budget
 this feature set consumed, so the overhead is visible rather than assumed.
+
+Read that table in *executions*, not in percent. The letters that re-run inputs
+— `g` (one extra run per saved input), `p` (100 runs per probe) and `c` — cost a
+fraction of your own cost-per-execution, so the same letters that measure
+`slow_path_pct 0.05%` on a microsecond-scale demo target measure a few percent
+on a target that spends milliseconds per execution. Budget them by
+cost-per-exec: on a 2.5 ms target, `-Jgprdcb` has been measured at
+`slow_path_pct 2.57%`. If throughput matters more than the observation, drop the
+re-running letters first and keep the ones that only read maps (`r`, `d`, `s`).
 
 Memory, on top of the usual maps: one map-sized array for ballast and one for
 calibration variance, two more with `p`, one `u32` per map byte with `r` (four
@@ -617,6 +668,16 @@ union of every map byte ever seen to vary, over the whole corpus. It is not
 comparable between runs with different corpus sizes. `input_stab_avg` and
 `input_stab_min` are the per-input numbers people usually mean when they read
 `stability`, and both are shown so the difference is visible.
+
+It is also **not comparable across an IJON boundary**. `IJON_STATE` mixes the
+situation into every later edge index, so the same harness annotated and
+unannotated produces different cumulative figures — annotated arms of one
+ablation read 83–93% where the plain arms read 99.4–99.8%, for harnesses whose
+per-input stability was indistinguishable. On top of that, the fuzzer's map in an
+IJON build includes the 64 KB `IJON_SET`/`IJON_INC` area, so `total_edges` and
+every percentage derived from it (`bitmap_cvg`, `stability`) are computed over a
+larger map than the coverage region alone. When comparing an annotated build
+against a plain one, compare `input_stab_avg` and `input_stab_min`.
 
 ---
 

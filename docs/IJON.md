@@ -239,6 +239,42 @@ echo test > test_input.txt && AFL_DUMP_MAP_SIZE=1 ./target
 AFL_IJON_HISTORY_LIMIT=1000 afl-fuzz -S worker -i input_dir -o output_dir -- ./target
 ```
 
+### Map layout and the three sizes that get reported
+
+An IJON build shares one region with the fuzzer, laid out as
+
+```
+[ coverage | IJON_MAP (64 KB) | IJON_BYTES (4 KB) ]
+   edges     IJON_SET/_INC      IJON_MAX/_MIN slots
+```
+
+`IJON_SET` and `IJON_INC` write into the 64 KB middle area, and the fuzzer
+deliberately treats that area as part of its bitmap — that is how a set bit
+becomes a new find. Only the trailing 4 KB of `IJON_MAX` slots is outside it.
+So three different numbers describe one map, and all three are correct:
+
+* `AFL_DUMP_MAP_SIZE` prints the **whole** region, IJON areas included. With
+  IJON compiled in, the breakdown also goes to **stderr**
+  (`148288 = coverage 78656 + ijon 65536 + ijon max 4096`) while stdout keeps
+  the single parsable number.
+* `afl-fuzz`'s `Target map size:` line is the same whole-region size as
+  reported by the forkserver, and its `IJON map: coverage bytes ...` line is
+  the coverage area alone.
+* `total_edges` in `fuzzer_stats` is coverage + the 64 KB IJON area, because
+  that is what the fuzzer tracks for novelty. It is therefore larger than the
+  coverage region, and `bitmap_cvg` is computed over it.
+
+Comparing an IJON build against a plain one by map size only works on the
+coverage figure, not on `AFL_DUMP_MAP_SIZE` or `total_edges`.
+
+To check statically whether a binary carries IJON instrumentation, look for the
+strong symbol the pass emits — `strings` cannot tell, because the runtime is
+linked into every `afl-cc` target:
+
+```sh
+nm ./target | grep __afl_ijon_enabled     # "D" = instrumented, "V" = weak default
+```
+
 ### Environment Variables
 
 - **`AFL_LLVM_IJON=1`**: Enables IJON instrumentation during compilation

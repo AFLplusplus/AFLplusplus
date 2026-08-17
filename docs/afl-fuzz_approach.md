@@ -578,6 +578,8 @@ queue entry, with or without `-J`.
 - `state_map_density`  - share of the state map ever hit
 - `state_utility_pct`  - same-state pairs that behaved the same
 - `state_util_pairs`   - pairs the utility test managed to form
+- `state_util_runs`    - times the utility test ran, so a 0 above is readable
+- `state_util_ignored` - pairs dropped because the probe performed no action
 - `state_only_saves`   - queue entries saved for a new state alone
 - `state_only_paid`    - of those, the ones that went on to find coverage
 - `state_admit_off`    - 1 once the state signal lost its licence to save

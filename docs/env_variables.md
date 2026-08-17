@@ -609,7 +609,10 @@ There are a few specific features that are only available in GCC_PLUGIN mode.
 The following environment variables are for a compiled AFL++ target.
 
   - Setting `AFL_DUMP_MAP_SIZE` when executing the target directly will
-    dump the map size of the target and exit.
+    dump the map size of the target and exit. On a target built with
+    `AFL_LLVM_IJON=1` that size includes the IJON areas, so the breakdown
+    (`total = coverage + ijon + ijon max`) is written to stderr as well while
+    stdout keeps the single number - see [IJON.md](IJON.md).
 
   - Setting `AFL_OLD_FORKSERVER` will use the old AFL vanilla forkserver.
     This makes only sense when you

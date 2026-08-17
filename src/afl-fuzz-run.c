@@ -488,6 +488,22 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   */
 
+  /* first_trace is seeded from the map on the assumption that trace_bits still
+     holds THIS entry's run - true when calibrate_case follows
+     save_if_interesting. The -J helpers (repeat probe, double-run gate,
+     self-check, utility test) execute the target outside that pairing, so the
+     map can belong to an unrelated input. Comparing against it marks the
+     symmetric difference of two traces as variable, which floods var_bytes,
+     clears those virgin_bits and drives q->stability to 0. Re-baseline instead.
+   */
+  if (unlikely(afl->trace_foreign)) {
+
+    afl->trace_foreign = 0;
+    q->exec_cksum = 0;
+    first_run = 1;
+
+  }
+
   if (q->exec_cksum) {
 
     memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);

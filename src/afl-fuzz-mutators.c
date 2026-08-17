@@ -500,6 +500,18 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   }
 
+  /* "afl_custom_state_probe", optional */
+  mutator->afl_custom_state_probe = dlsym(dh, "afl_custom_state_probe");
+  if (!mutator->afl_custom_state_probe) {
+
+    ACTF("optional symbol 'afl_custom_state_probe' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_state_probe'.");
+
+  }
+
   OKF("Custom mutator '%s' installed successfully.", fn);
 
   /* Initialize the custom mutator */

@@ -52,6 +52,7 @@ void afl_custom_splice_optout(void *data);
 size_t afl_custom_fuzz(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, unsigned char *add_buf, size_t add_buf_size, size_t max_size);
 const char *afl_custom_describe(void *data, size_t max_description_len);
 unsigned char afl_custom_describe_state(void *data, const unsigned char *buf, size_t buf_size, unsigned int *ops, unsigned int *state_id);
+unsigned int afl_custom_state_probe(void *data, unsigned char *out_buf, unsigned int max_len);
 size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf);
 int afl_custom_init_trim(void *data, unsigned char *buf, size_t buf_size);
 size_t afl_custom_trim(void *data, unsigned char **out_buf);
@@ -156,6 +157,11 @@ def deinit():  # optional for Python
     one mutation result.
     For non-Python: the returned output buffer is under **your** memory
     management!
+    If you implement `describe_state` but not `state_probe` (see below), `-Js`
+    also calls this method with a `buf_size` of 0 to build the probe action of
+    its state utility test, so handle an empty input gracefully - generating
+    from nothing, or returning 0 to decline, in which case AFL++ falls back to
+    random bytes.
 
 - `describe` (optional):
 
@@ -255,6 +261,26 @@ def deinit():  # optional for Python
     also becomes a reason to save an input, on the same footing as new
     coverage. That is off by default: it is the setting that can hurt if the
     digest is too fine.
+
+- `state_probe` (optional):
+
+    Build one action in your input format and write it into `out_buf`, at most
+    `max_len` bytes; return how many you wrote, or 0 to decline.
+
+    `afl-fuzz -Js` uses this for the test that decides whether it may trust its
+    state signal: it gives two inputs it believes are in the same state the same
+    next action and checks that they behave the same. Without a mutator the
+    action is random bytes, which is only a valid action for a format in which a
+    bare byte string parses as a *new* operation — in any format that frames
+    records with a separator the bytes are read as more payload for the record
+    already there, no operation happens, and the test can never reach a verdict.
+    Implementing this makes the test work on your format.
+
+    It is called outside the mutation loop, at most once per test, with no queue
+    entry selected, so do not rely on `queue_get` state. If it is absent but
+    `describe_state` is present, `fuzz` is called with a `buf_size` of 0
+    instead. `custom_mutators/state_records/state_records.c` implements it as
+    one or two freshly generated records.
 
 Note that there are also three functions for trimming as described in the next
 section.

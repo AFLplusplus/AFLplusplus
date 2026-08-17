@@ -1043,6 +1043,17 @@ static void __afl_map_shm(void) {
 
       printf("%u\n", __afl_map_size);
       fflush(stdout);
+      /* The dumped size covers the IJON regions too, which is not what a
+         reader comparing it against an uninstrumented build expects. The
+         breakdown goes to stderr so the number on stdout stays parsable. */
+      if (__afl_ijon_enabled) {
+
+        fprintf(stderr, "%u = coverage %u + ijon %u + ijon max %u\n",
+                __afl_map_size, __afl_cov_map_size, (u32)MAP_SIZE_IJON_MAP,
+                (u32)MAP_SIZE_IJON_BYTES);
+
+      }
+
       exit(-1);
 
     }
@@ -3308,6 +3319,11 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     __afl_map_size = __afl_final_loc + 1;
     __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
     __afl_bug_map_increased = 0;
+    /* The reset above dropped the IJON regions from __afl_map_size, so the
+       expansion has to run again - a second instrumented module (a shared
+       library plus the executable) reaches this after an earlier module
+       already expanded once. */
+    __afl_ijon_map_increased = 0;
 
     // IJON SUPPORT: Re-apply IJON expansion after reinit
     if (__afl_ijon_enabled && !__afl_ijon_map_increased) {
