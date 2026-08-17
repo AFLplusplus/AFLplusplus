@@ -2951,6 +2951,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
   }
 
+  #else
+  afl->state_mode &= ~STATE_MODE_WATCHDOG;
   #endif
 
   afl->fsrv.trace_bits =

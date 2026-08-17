@@ -1184,14 +1184,14 @@ typedef struct afl_state {
       *virgin_state,                    /* unseen state transitions         */
       *state_seen;                      /* transitions ever observed        */
 
-  u64 plugin_state_described;           /* entries a mutator described      */
-  u8 *virgin_pstate;                    /* states a mutator reported        */
-  u8  plugin_state_admit;               /* may a mutator state save input?  */
-  u32 state_coarse_shift;               /* state map fold, 0 = finest       */
-  u64 state_only_admits;                /* entries saved for state alone    */
-  u64 state_admit_window;               /* the same, since the last fold    */
-  u8  state_admit_off;                  /* state may no longer save inputs  */
-  u64 state_only_paid;                  /* of those, ones that found edges  */
+  u64  plugin_state_described;          /* entries a mutator described      */
+  u8  *virgin_pstate;                   /* states a mutator reported        */
+  u8   plugin_state_admit;              /* may a mutator state save input?  */
+  u32  state_coarse_shift;              /* state map fold, 0 = finest       */
+  u64  state_only_admits;               /* entries saved for state alone    */
+  u64  state_admit_window;              /* the same, since the last fold    */
+  u8   state_admit_off;                 /* state may no longer save inputs  */
+  u64  state_only_paid;                 /* of those, ones that found edges  */
   u32 *edge_corpus_cnt;                 /* per-edge corpus frequency        */
   u64  corpus_trace_cnt;                /* traces folded into the above     */
 

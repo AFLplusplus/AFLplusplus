@@ -862,7 +862,11 @@ static unsigned state_digest_level(void) {
     const char *e = getenv("STATE_RECORDS_DIGEST");
 
     cached = e ? atoi(e) : STATE_DIGEST_SLOTS;
-    if (cached < 0 || cached > STATE_DIGEST_PATH) { cached = STATE_DIGEST_SLOTS; }
+    if (cached < 0 || cached > STATE_DIGEST_PATH) {
+
+      cached = STATE_DIGEST_SLOTS;
+
+    }
 
   }
 
@@ -874,7 +878,12 @@ static unsigned state_ilog2_u32(uint32_t v) {
 
   unsigned r = 0;
 
-  while (v >>= 1) { ++r; }
+  while (v >>= 1) {
+
+    ++r;
+
+  }
+
   return r;
 
 }
@@ -929,11 +938,7 @@ u8 afl_custom_describe_state(state_mutator_t *data, const u8 *buf,
 
     }
 
-    if (level >= STATE_DIGEST_PATH) {
-
-      path = path * 31u + op;
-
-    }
+    if (level >= STATE_DIGEST_PATH) { path = path * 31u + op; }
 
   }
 
