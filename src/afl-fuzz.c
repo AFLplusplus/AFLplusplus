@@ -3042,8 +3042,12 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
     configure_ijon_runtime(afl);
 
+    /* map_size has already had MAP_SIZE_IJON_BYTES taken off it by
+       configure_ijon_runtime(), so it is the coverage region as the fuzzer
+       addresses it. Subtracting MAP_SIZE_IJON_MAP here as well under-reported
+       the coverage area by 64 KB. */
     OKF("IJON map: coverage bytes %u, ijon map bytes %u, ijon max size %u",
-        (u32)(afl->fsrv.map_size - MAP_SIZE_IJON_MAP), (u32)MAP_SIZE_IJON_MAP,
+        (u32)afl->fsrv.map_size, (u32)MAP_SIZE_IJON_MAP,
         (u32)MAP_SIZE_IJON_BYTES);
 
     char *max_dir = alloc_printf("%s/ijon_max", afl->out_dir);

@@ -1201,7 +1201,8 @@ typedef struct afl_state {
       slow_path_execs,                  /* executions spent off the hot loop*/
       probe_last_ms,                    /* when the repeat probe last ran   */
       setup_cost_us, fork_cost_us,      /* item 4 benchmark results         */
-      state_utility_pairs, state_utility_agree;
+      state_utility_pairs, state_utility_agree,
+      state_utility_runs;               /* times the utility test ran       */
 
   u32 contract_diff_edges,              /* edges differing in exec #1 vs #2 */
       state_transitions_found,          /* distinct transitions seen        */

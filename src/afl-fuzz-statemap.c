@@ -446,6 +446,8 @@ void state_utility_test(afl_state_t *afl) {
 
   }
 
+  ++afl->state_utility_runs;
+
   u32 i, cand_cnt = 0;
 
   for (i = 0; i < afl->queued_items; ++i) {
@@ -526,6 +528,19 @@ void state_utility_test(afl_state_t *afl) {
   }
 
   if (pairs < STATE_UTILITY_MIN_PAIRS) {
+
+    /* Silent here meant the user could not tell this apart from the test
+       having never run at all, since both leave state_util_pairs at 0. */
+    if (afl->state_utility_runs == 1) {
+
+      WARNF(
+          "state signal not testable yet: %u of %u entries carry a state id, "
+          "but only %u same-state pair(s) could be formed and %u are needed.\n    Either the state definition separates almost every input, or too few"
+          " entries report a non-zero state id - note that state id 0 is"
+          " treated as 'no state'.",
+          n, afl->queued_items, pairs, STATE_UTILITY_MIN_PAIRS);
+
+    }
 
     ck_free(used);
     ck_free(pair_b);
