@@ -46,6 +46,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 __version__ = "0.1"
@@ -137,6 +138,8 @@ class Trend:
     edges_slope_recent_per_min: float
     execs_per_sec_now: float
     execs_per_sec_peak: float
+    execs_per_sec_recent: float
+    execs_per_sec_baseline: float
     last_cov_entry_age_s: int | None
     last_find_age_s: int | None
     expected_eps: float | None = None
@@ -334,6 +337,9 @@ def _to_float(value: str) -> float:
         return 0.0
 
 
+EPS_MIN_SAMPLES = 10  # plot_data samples below which a self-relative rate judgment is not meaningful
+
+
 def parse_plot_data(text: str) -> dict[str, float | int]:
     """Header-indexed trend from ``plot_data``.
 
@@ -341,6 +347,14 @@ def parse_plot_data(text: str) -> dict[str, float | int]:
     ``execs_per_sec``, ``relative_time`` by *name*. Returns peak vs now for edges
     and execs/sec plus the edge slope (edges/min) over the last 25% of the run.
     ``rows == 0`` means no usable data (trend source ``none``).
+
+    The two execs/sec *judgment* values are medians, not extremes: ``recent`` over the
+    last 25% of the run and ``baseline`` over everything collected. plot_data's
+    execs_per_sec is a smoothed instantaneous rate, so single rows swing wide with the
+    input being fuzzed; and a campaign's rate legitimately decays as its seeds get
+    deeper, which makes the all-time peak an unreachable reference. Median vs median
+    compares the campaign against its own recent norm instead. ``baseline`` is 0.0
+    below ``EPS_MIN_SAMPLES`` usable rows — too little history to judge against.
     """
     cols: dict[str, int] = {}
     rows: list[list[str]] = []
@@ -362,6 +376,8 @@ def parse_plot_data(text: str) -> dict[str, float | int]:
         "edges_found_peak": 0,
         "execs_per_sec_now": 0.0,
         "execs_per_sec_peak": 0.0,
+        "execs_per_sec_recent": 0.0,
+        "execs_per_sec_baseline": 0.0,
         "edges_slope_recent_per_min": 0.0,
     }
     if not rows or not cols:
@@ -392,6 +408,11 @@ def parse_plot_data(text: str) -> dict[str, float | int]:
     dt = ts[-1] - ts[wi]
     de = efs[-1] - efs[wi]
     out["edges_slope_recent_per_min"] = (de / (dt / 60.0)) if dt > 0 else 0.0
+
+    live = [e for e in epss if e > 0]
+    recent = [e for e in epss[wi:] if e > 0]
+    out["execs_per_sec_recent"] = median(recent) if recent else 0.0
+    out["execs_per_sec_baseline"] = median(live) if len(live) >= EPS_MIN_SAMPLES else 0.0
     return out
 
 
@@ -600,6 +621,8 @@ def build_snapshot(raw: RawCampaign, *, no_pids: bool = False) -> CampaignSnapsh
         edges_slope_recent_per_min=float(pt["edges_slope_recent_per_min"]),
         execs_per_sec_now=float(pt["execs_per_sec_now"]),
         execs_per_sec_peak=float(pt["execs_per_sec_peak"]),
+        execs_per_sec_recent=float(pt["execs_per_sec_recent"]),
+        execs_per_sec_baseline=float(pt["execs_per_sec_baseline"]),
         last_cov_entry_age_s=last_cov_age,
         last_find_age_s=last_find_age,
     )
@@ -628,7 +651,7 @@ def build_snapshot(raw: RawCampaign, *, no_pids: bool = False) -> CampaignSnapsh
 # ============================================================================
 # analyze — snapshot (+ optional history) -> verdict, findings, directives.
 #
-# All rate/size judgments are self-relative (vs the campaign's own plot_data peak,
+# All rate/size judgments are self-relative (vs the campaign's own plot_data norm,
 # prior snapshots, or an optional expected eps). The only absolute judgments are
 # objective/degenerate (execs==0, edges==0, dead) and AFL-normalized (stability
 # bands, bitmap saturation). Read-only: directives are emitted, never executed.
@@ -640,7 +663,10 @@ FLAT_SLOPE = 0.5  # edges/min at/under which growth is too slow to rule out a pl
 SATURATION_CVG = 99.5
 CORE_BYTES_WARN = 2 * 1024**3  # 2 GB of .core dumps
 THROUGHPUT_RUNTIME = 6 * 3600  # only call a campaign "throughput-bound" after this long
-EPS_DROP_FRACTION = 0.5  # execs/sec below this fraction of its own peak = slowdown
+# A campaign's exec rate falls off naturally as its seeds reach deeper, so only a
+# sustained collapse below a quarter of its own recent norm (median vs median, see
+# parse_plot_data) counts as a slowdown - not the slow drift away from an early peak.
+EPS_DROP_FRACTION = 0.25
 
 DEGRADED_REASON_TEXT = {
     "dead-instances": "instance(s) died unexpectedly",
@@ -922,14 +948,17 @@ def analyze(
         i.status = status
         i.issues = issues
 
-    if t.execs_per_sec_peak > 0 and 0 < t.execs_per_sec_now < EPS_DROP_FRACTION * t.execs_per_sec_peak:
+    eps_reference = expected_eps or t.execs_per_sec_baseline
+    if eps_reference > 0 and 0 < t.execs_per_sec_recent < EPS_DROP_FRACTION * eps_reference:
         eps_drop = True
+        against = "the expected rate" if expected_eps else "its own recent norm"
         findings.append(
             Finding(
                 "medium",
                 "campaign",
                 None,
-                f"execs/sec {t.execs_per_sec_now:.0f} is far below its own peak {t.execs_per_sec_peak:.0f}",
+                f"execs/sec {t.execs_per_sec_recent:.0f} over the last 25% of the run is far "
+                f"below {against} ({eps_reference:.0f})",
                 "slow inputs accumulating, sync overhead, or a slow path",
             )
         )
@@ -939,8 +968,12 @@ def analyze(
                 "medium",
                 "campaign",
                 _target(snap),
-                "recent exec rate dropped well below the campaign's own peak",
-                {"eps_now": t.execs_per_sec_now, "eps_peak": t.execs_per_sec_peak},
+                f"recent exec rate dropped to under a quarter of {against}",
+                {
+                    "eps_recent": t.execs_per_sec_recent,
+                    "eps_reference": eps_reference,
+                    "eps_peak": t.execs_per_sec_peak,
+                },
                 suggested_command="verify persistent mode; afl-persistent-config + afl-system-config; raise AFL_TESTCACHE_SIZE",
             )
         )
@@ -1373,11 +1406,12 @@ def render_text(report: Report, summary: bool = False) -> str:
         if t.cross_run and t.cross_run.get("edges_delta") is not None:
             delta = f", Δ{t.cross_run['edges_delta']:+d} edges since last run"
         cov = "n/a" if t.last_cov_entry_age_s is None else _hm(t.last_cov_entry_age_s)
+        norm = f"{t.execs_per_sec_baseline:.1f}" if t.execs_per_sec_baseline > 0 else "n/a"
         total_edges = max((i.total_edges for i in s.instances), default=0)
         lines.append(
             f"Trend [source: {t.source}]: edges {t.edges_found_now}/{total_edges} (peak {t.edges_found_peak}, "
             f"{t.edges_slope_recent_per_min:+.1f}/min), +cov age {cov}, "
-            f"exec/s {t.execs_per_sec_now:.1f}/{t.execs_per_sec_peak:.1f}{delta}",
+            f"exec/s {t.execs_per_sec_recent:.1f} (norm {norm}, peak {t.execs_per_sec_peak:.1f}){delta}",
         )
         lines.append(
             f"Crashes: {s.crashes.total} ({s.crashes.hangs_total} hangs)"
