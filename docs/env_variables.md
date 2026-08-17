@@ -955,8 +955,10 @@ checks or alter some of the more exotic semantics of the tool:
 
   - The following settings belong to state fuzzing mode, which is enabled with
     `-J`. See [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md) for
-    the full picture; none of them do anything without `-J`, with the single
-    exception of `AFL_TIME_ACCOUNTING`.
+    the full picture. Two of them work without `-J`: `AFL_TIME_ACCOUNTING`,
+    which is independent of it by design, and `AFL_STATE_PLUGIN_ADMIT`, because
+    a custom mutator that implements `afl_custom_describe_state()` is asked
+    about every queue entry in any run.
 
   - `AFL_TIME_ACCOUNTING` makes `afl-fuzz` measure how much of the wall clock
     is spent inside the target and how much is spent everywhere else, and
@@ -1014,13 +1016,15 @@ checks or alter some of the more exotic semantics of the tool:
     `AFL_STATE_ADMIT_PCT` as well, because a mutator's digest can be too fine
     just as easily as a harness annotation can.
 
-  - `AFL_HOT_BIAS` is the percentage of single-byte havoc mutations aimed at
-    the region a harness marked with `AFL_HOT_REGION()` (`-Jh`). Default 70.
-    The remaining share stays uniform on purpose: plain byte mutation still
-    finds parser and memory bugs, and the annotation can be wrong.
+  - `AFL_HOT_BIAS` is the percentage of havoc offsets aimed at the region a
+    harness marked with `AFL_HOT_REGION()` (`-Jh`). Default 70. The remaining
+    share stays uniform on purpose: plain byte mutation still finds parser and
+    memory bugs, and the annotation can be wrong. Note that the annotation
+    travels through the state map's shared memory, so it needs `-Jhs` (or plain
+    `-J`); with `-Jh` alone only the CmpLog taint fallback supplies a region.
 
-  - `AFL_NO_STATE_MAP` is read by the *target*, not the fuzzer, and stops an
-    instrumented binary from attaching to the state-transition map.
+  - `AFL_NO_STATE_MAP` is honoured on both sides: the fuzzer will not create the
+    state-transition segment, and an instrumented target will not attach to one.
 
   - `AFL_WATCHDOG_MS` is read by the *target*. When set, the AFL++ runtime
     arms a timer at the start of every execution and calls `abort()` if the

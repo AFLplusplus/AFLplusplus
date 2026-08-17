@@ -549,7 +549,9 @@ giving each binary's path and its own execution count; `virgin_bytes` and
 
 State fuzzing mode (`-J`, see
 [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md)) adds these, each
-only when the part that produces it is enabled:
+only when the part that produces it is enabled. The three `plugin_*` fields are
+the exception: they appear whenever a custom mutator described at least one
+queue entry, with or without `-J`.
 
 - `state_mode`         - the active `-J` letters
 - `ballast_pct`        - share of discovered map bytes that every input hits
@@ -576,6 +578,13 @@ only when the part that produces it is enabled:
 - `state_map_density`  - share of the state map ever hit
 - `state_utility_pct`  - same-state pairs that behaved the same
 - `state_util_pairs`   - pairs the utility test managed to form
+- `state_only_saves`   - queue entries saved for a new state alone
+- `state_only_paid`    - of those, the ones that went on to find coverage
+- `state_admit_off`    - 1 once the state signal lost its licence to save
+- `state_coarse_fold`  - state classes folded into one (1 = no folding)
+- `plugin_described`   - queue entries a custom mutator described
+- `plugin_ops_avg`     - mean reported operation count over the corpus
+- `plugin_ops_max`     - largest reported operation count
 
 Note that `stability` keeps its original meaning — one minus the cumulative
 union of every map byte ever seen to vary, over the whole corpus. It is not

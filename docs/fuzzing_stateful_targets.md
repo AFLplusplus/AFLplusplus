@@ -33,9 +33,25 @@ afl-fuzz -Jgpr -i seeds -o out -- ./target @@
 | `h` | aimed havoc, from a harness annotation |
 | `w` | hang watchdog inside the target, needs a compile-time opt-in |
 
+The letters are case-insensitive and must be **attached** to `-J`: `-Jgpr`
+works, `-J gpr` does not, because `-J` takes an optional argument. Plain `-J`
+selects everything except `w`, which is not compiled in by default. A second
+`-J` on the same command line is an error.
+
 The ballast share is always on under `-J`. Time accounting is separate from
 `-J` entirely and is switched on with `AFL_TIME_ACCOUNTING=1`, with or without
 state fuzzing mode.
+
+Some parts need more than a letter:
+
+* `s` needs a target built with a matching `afl-clang-fast`/`afl-gcc-fast`
+  **and** at least one `IJON_STATE()` call in the harness — or a custom mutator
+  that describes state instead.
+* `h`'s `AFL_HOT_REGION()` annotation travels through the state map's shared
+  memory, so it needs `s` as well: use `-Jhs` or plain `-J`. `-Jh` on its own
+  only gets the CmpLog fallback.
+* `w` needs `AFL_TARGET_WATCHDOG` uncommented in `include/config.h` and both
+  `afl-fuzz` and the target rebuilt.
 
 ---
 
@@ -84,8 +100,16 @@ is handed back to the virgin map. If none reproduce, the input is discarded
 and never enters the queue. If some reproduce, the input is kept — it did
 prove those — and only the ghosts are returned.
 
+Two limits on handing coverage back: a position already known to wobble
+(`var_bytes`) is left alone, and a position can only be reclaimed
+`CAL_RECLAIM_MAX` times, so a byte cannot be handed back without bound.
+
 Cost: one extra execution per *saved* input, which is a tiny share of all
-executions.
+executions — unless the campaign is saving constantly, which is itself the
+symptom of a state signal that is too fine (see `s` below).
+
+What the gate checks is *reproducibility*, not *stability*: an edge that fires
+half the time passes half the time.
 
 A worked example of what it catches, from this repository's own end-to-end
 target: on a target whose `stability` reads 100.00%, the gate still rejected 4
@@ -128,10 +152,17 @@ count merely wobbled. `input_stab_avg` and `input_stab_min` report the corpus
 mean and worst case. The old cumulative `stability` line stays exactly where
 it was; the two numbers answer different questions and both are worth seeing.
 
-**The repeat probe.** One input, 100 runs from a clean start, reported as
+**The repeat probe.** One input, 100 back-to-back executions, reported as
 `probe_pct` (runs whose whole trace matched run 1) and `probe_edge_pct` (edges
 present in every run, over edges present in any run). It runs once at startup
 and at most once a minute thereafter, on a randomly chosen favored entry.
+
+Two things to know about when and what it measures. It only re-runs *when a new
+queue entry has just been saved*, so on a campaign that has plateaued the
+reading stops updating. And for a persistent-mode target the 100 runs are
+consecutive iterations of the same child, so what you get is
+iteration-to-iteration repeatability; for a non-persistent target they are 100
+fresh processes.
 
 The run count is the whole game, because an edge that fires in a fraction `p`
 of runs only shows up as varying if `N` runs catch it both ways, which happens
@@ -158,6 +189,9 @@ and raise it if you suspect flicker rarer than one run in fifty.
 independent flaky edges it collapses toward zero for any `N`, so read
 `probe_edge_pct` when you want a number that grades a target.
 
+Stats: `probe_pct`, `probe_edge_pct`, `probe_runs`, `input_stab_avg`,
+`input_stab_min`.
+
 ### `r` — rare edges score higher than common ones
 
 Each edge is weighted by `-log2 p(edge)` instead of counting as 1, where
@@ -175,6 +209,10 @@ which is what scheduling cares about — are recomputed when the queue is culled
 the rest keep their calibration value. In practice this is mild, because
 ballast edges are ballast from the first few inputs onward and rare edges stay
 rare, but it is a real approximation.
+
+A second, smaller one: the per-edge frequency is counted once per *calibration*,
+so an entry that is calibrated more than once inflates the frequency of its own
+edges.
 
 Stat: `info_score_avg`.
 
@@ -209,6 +247,18 @@ The per-edge winner selection (`fav_factor`) is deliberately left alone. It is
 a much larger blast radius than this needs, and the two changes above already
 let a deep input survive without beating a tiny fast one.
 
+Three things worth knowing about the buckets:
+
+* The "most reliable" witness needs per-input stability, so it only differs
+  from the "broadest coverage" one when `p` is enabled too. `-Jd` on its own
+  effectively keeps three witnesses per cell.
+* The state bucket is the low three bits of the state id, and it is only used
+  once the state signal is trusted (or a custom mutator supplied an operation
+  count). Without `s`, the shelf is `(depth, cost)` — 64 usable cells — which
+  is still the part that fixes the pricing problem.
+* When the utility test changes its verdict, every cell is re-keyed, because
+  leaving the old ones in place would mix two different partitions in one shelf.
+
 Stats: `shelf_cells_used`, `shelf_members`.
 
 ### `s` — the state map
@@ -222,6 +272,28 @@ apart.
 `(previous state, current state, action)`. Two steps of context is the
 compromise: `INIT→AUTH→READY` and `INIT→AUTH→ERROR→AUTH→READY` end in the same
 place but are different, while keeping full histories explodes the corpus.
+
+The map is 64 KB, one hit counter per hashed triple, so different triples can
+collide — the same trade AFL++ already makes with edge collisions.
+`state_map_density` is reported in hundredths of a percent, because a real
+target reaching 169 of 65536 slots would otherwise read 0%.
+
+It costs a handful of slots per execution, not 64 KB. The target keeps a list of
+the slots it actually touched, and both sides clear and scan only those; that is
+what took `-Js` from roughly 15× slower to 5–15% overhead on a fast target. A
+target that touches more than 512 distinct slots in one execution, or one built
+before the list existed, falls back to the full walk.
+
+Three requirements, all of which are easy to miss:
+
+* The map lives in the instrumentation runtime, so the target must be built with
+  a matching `afl-clang-fast` or `afl-gcc-fast`. Binary-only modes (QEMU, Frida,
+  Unicorn, Nyx) have no state map and `state_signal` reads `unsupported`.
+* **A harness with no `IJON_STATE()` calls produces no transitions at all.** The
+  segment is attached and stays empty. The custom mutator route below is the
+  alternative that needs no annotation.
+* `AFL_NO_STATE_MAP` switches it off from either side — the fuzzer will not
+  create the segment, and an instrumented target will not attach to one.
 
 One thing to know before annotating anything: **the state map is only as good
 as how coarse the state is.** `IJON_STATE(n)` takes whatever number the harness
@@ -237,12 +309,19 @@ So report a *situation*, not a route: which handles are open, which flags are
 set, what phase the protocol is in. If two inputs would behave the same from
 here on, they are in the same state and must produce the same number.
 
-AFL++ bounds the damage rather than trusting the annotation. When the state
-signal has created more than `AFL_STATE_ADMIT_PCT` of the queue (default 25%)
-on its own, it stops saving inputs and goes back to being a note — unless its
-entries are demonstrably paying for themselves, which `AFL_STATE_YIELD_PCT`
-decides from `state_only_saves` and `state_only_paid`. On the same target the
-bound brought those 14,280 entries down to 317.
+AFL++ bounds the damage rather than trusting the annotation. Once the queue
+holds at least 200 entries and the state signal has created more than
+`AFL_STATE_ADMIT_PCT` of them (default 25%) on its own, it stops saving inputs
+and goes back to being a note — unless its entries are demonstrably paying for
+themselves, which `AFL_STATE_YIELD_PCT` decides from `state_only_saves` and
+`state_only_paid` once there are at least 50 of them. An entry has paid when
+something mutated from it was saved for a reason of its own; a state-only child
+does not count for a state-only parent, so a runaway signal cannot vouch for
+itself. On the same target the bound brought those 14,280 entries down to 317.
+
+The switch-off is one-way for the rest of the run, and it covers both state
+channels — the instrumentation one and the custom mutator one below.
+`AFL_STATE_ADMIT_PCT=0` disables the bound entirely.
 
 What the bound deliberately does *not* do is try a coarser resolution first.
 Folding the map was measured against both alternatives and came last: it still
@@ -263,8 +342,10 @@ AFL_HOT_REGION(offset, length);  /* mark the bytes that matter (-Jh)  */
 With no `AFL_STATE_ACTION`, the action is 0 and the map degrades to
 `(previous, current)` pairs — still strictly more than today.
 
-Stats: `state_transitions`, `state_map_density`, `state_signal`,
-`state_only_saves`, `state_coarse_fold`, `state_coarse_steps`.
+Stats: `state_signal`, `state_transitions`, `state_map_density`,
+`state_only_saves`, `state_only_paid`, `state_admit_off`, `state_coarse_fold`.
+Note that `state_transitions` counts both instrumentation transitions and the
+mutator-reported state classes below, in one number.
 
 ### `s` — without touching the target at all
 
@@ -292,6 +373,15 @@ therefore not explode anything. `AFL_STATE_PLUGIN_ADMIT=1` additionally lets a
 new state class justify saving an input, under the same
 `AFL_STATE_ADMIT_PCT` bound.
 
+Note that this channel is not gated on `-J`: a mutator that implements the hook
+is asked about every queue entry in any run, and `AFL_STATE_PLUGIN_ADMIT=1`
+changes admission with or without `-J`. Only the scheduling effects need `-Jd`.
+
+`custom_mutators/state_records/` implements the hook, with
+`STATE_RECORDS_DIGEST` selecting how much goes into the id — from "which slots
+are open" (the default) up to "a hash of the whole opcode sequence", which
+exists to be wrong on purpose so the failure mode can be measured.
+
 Stats: `plugin_described`, `plugin_ops_avg`, `plugin_ops_max`.
 
 ### `s` — and the test that decides whether to believe it
@@ -314,6 +404,14 @@ trivially, and a vacuous 100% is exactly the false pass this gate exists to
 prevent. Pairs whose probe changed nothing are dropped, and if too few pairs
 survive AFL++ says so instead of reporting a verdict.
 
+Because the action is *appended bytes*, a target whose input is not a
+concatenation of operations — a fixed-size struct, a single length-prefixed
+frame — will ignore the suffix on every pair, and no verdict is ever reached.
+That is the intended outcome: the signal stays a note.
+
+Pairs are drawn from entries with the same state id, preferring partners whose
+coverage traces differ, because a pair of near-identical inputs proves nothing.
+
 Behaving the same means: ending in the same state, terminating the same way
 (both fine, both crashing, both timing out), and giving the same answer to
 "did this run reach coverage nobody had reached before".
@@ -322,7 +420,8 @@ Until the test passes, new state transitions are recorded, counted and
 reported, and change nothing about which inputs are saved. `state_signal` reads
 `observing`. Once agreement reaches the threshold (default 80%, set with
 `AFL_STATE_UTILITY_THRESHOLD`), it reads `trusted` and a new state transition
-becomes a reason to save an input on its own.
+becomes a reason to save an input on its own. A third value, `unsupported`,
+means the target has no state map at all — see the three requirements above.
 
 The transitions seen while the signal is still observational are *not* spent.
 Reporting and admission use separate maps, so a transition first met during
@@ -357,7 +456,16 @@ difference means something is not being reset between iterations — a static, a
 cached fd, a global parser context, a leaked allocation. It says so loudly,
 because the alternative is a week of confusion.
 
-Stats: `contract_check`, `contract_diff`.
+This is a **persistent-mode** check. For a target that forks fresh for every
+execution there is nothing to reset, and the check degenerates into a two-run
+determinism test — it will still flag general nondeterminism, but it cannot find
+the bug it is aimed at.
+
+It runs once, on the first fuzzable queue entry, with that one input. A fail is
+close to proof; a pass is not a clean bill of health, because a reset bug that
+first shows on the third iteration, or only for some inputs, is not covered.
+
+Stats: `contract_check` (`pass`, `fail` or `skipped`), `contract_diff`.
 
 ### `b` — the execution cost benchmark
 
@@ -371,7 +479,13 @@ outside the forkserver. Each of those runs has a deadline of ten times the
 larger of the execution and hang timeouts, and at least one second; a run that
 exceeds it is killed and the benchmark reports over the runs that finished. A
 target that only terminates under the forkserver therefore delays startup by
-one deadline instead of hanging the campaign.
+one deadline instead of hanging the campaign, and if no standalone run finishes
+at all the benchmark is skipped with a warning.
+
+It measures 200 forkserver runs and up to 20 process starts of **one** input,
+once, at startup. On a target whose cost depends strongly on the input, that is
+a number for that input. Read the ratio, not the two absolute timings — the
+standalone child does not get the exact environment the forkserver provides.
 
 Stats: `cost_fork_us`, `cost_setup_us`.
 
@@ -388,9 +502,12 @@ With `-Jh`, a harness can mark the region that matters:
 AFL_HOT_REGION(header_offset, header_len);
 ```
 
-70% of single-byte havoc mutations then land inside it (`AFL_HOT_BIAS`). The
-other 30% stay uniform on purpose — plain byte mutation still finds parser and
-memory bugs, and the annotation can be wrong.
+70% of havoc offsets then land inside it (`AFL_HOT_BIAS`). The other 30% stay
+uniform on purpose — plain byte mutation still finds parser and memory bugs, and
+the annotation can be wrong.
+
+**The annotation needs `-Js` as well as `-Jh`**, because it travels through the
+state map's shared memory. Use `-Jhs`, or plain `-J`.
 
 Harnesses without the annotation get a fallback: when CmpLog colorization
 finds taint ranges for an input, the largest range that is smaller than the
@@ -399,11 +516,19 @@ machine target, built *without* `AFL_HOT_REGION`, `afl-fuzz -Jh -c 0` gave 77
 of 80 queue entries a hot region; the same run without `-c` gave none. A
 harness annotation always wins over the CmpLog guess.
 
-Length-changing operators keep uniform offsets, and the splice stage is
-untouched.
+What gets aimed: the in-place edits (bit flip, interesting 8/16/32 values in
+both byte orders, every arithmetic variant, random byte, byte add and subtract,
+byte flip, ascii-number rewrite), both ends of the byte switch, the *destination*
+of the clone and insert operators, and the position of an inserted ascii number.
+
+What stays uniform: deletion, shuffle, block overwrite, the *source* offset of a
+clone, dictionary and auto-dictionary insert and overwrite, the in-havoc splice
+operators, and the separate splice stage.
 
 What matters here is *useful* mutations per second, not raw mutations per
 second.
+
+Stat: `hot_region_hits` — how many queue entries carry a region.
 
 ### `w` — the hang watchdog
 
@@ -432,8 +557,14 @@ standalone**: rerun the saved input with the same `AFL_WATCHDOG_MS`, outside
 `afl-fuzz`, under a debugger. Killing the child from the fuzzer could never
 give you that.
 
-Set `AFL_WATCHDOG_MS` yourself to override. Note that a target which installs
-its own `setitimer(ITIMER_REAL)` will clobber the watchdog.
+Set `AFL_WATCHDOG_MS` yourself to override; it is read by the *target*, so it
+has to be in the target's environment. The timer is armed at the start of every
+execution and disarmed at the top of the persistent loop.
+
+Two caveats. A target that installs its own `setitimer(ITIMER_REAL)` or its own
+`SIGALRM` handler clobbers the watchdog. And the limit is wall clock, not CPU
+time, so a target legitimately blocked on I/O for longer than the limit will
+abort.
 
 ---
 
@@ -442,8 +573,9 @@ its own `setitimer(ITIMER_REAL)` will clobber the watchdog.
 Rich observation is valuable and too slow to do a million times a second. So
 the work is split, and the split is enforced by where the code lives.
 
-**Every execution:** the coverage map, the state map, the exit status, and —
-only under time accounting — two clock reads. Nothing else.
+**Every execution:** the coverage map, the state map (only the slots the target
+says it touched), the exit status, and — only under time accounting — two clock
+reads. Nothing else.
 
 **Candidates and intervals only:**
 
@@ -451,13 +583,40 @@ only under time accounting — two clock reads. Nothing else.
 |---|---|---|
 | double-run gate | per input saved to the queue | 1 exec |
 | per-input stability, ballast, info score | per calibration | map scans on an already-running path |
-| repeat probe | startup, then at most once a minute | 100 execs |
-| harness self-check | startup, once | ~4 execs |
-| cost benchmark | startup, once | 220 execs |
+| repeat probe | startup, then on a save, at most once a minute | 100 execs |
+| harness self-check | startup, once | 2 execs, up to 17 in persistent mode |
+| cost benchmark | startup, once | ~220 execs, plus up to one deadline |
 | state utility test | ≥20 state-carrying entries, then every 8 cycles | ≤128 execs |
 
 `slow_path_execs` and `slow_path_pct` report exactly how much of your budget
 this feature set consumed, so the overhead is visible rather than assumed.
+
+Memory, on top of the usual maps: one map-sized array for ballast and one for
+calibration variance, two more with `p`, one `u32` per map byte with `r` (four
+times the map size, so 32 MB for the 8 MB default map), 64 KB each for the two
+state maps and the shared segment with `s`, and about 20 KB of shelf
+bookkeeping with `d`.
+
+---
+
+## Reading the numbers
+
+Every field this mode adds to `fuzzer_stats` is listed and explained in
+[afl-fuzz_approach.md](afl-fuzz_approach.md). A field appears only when the part
+that produces it is enabled.
+
+The UI adds two lines below the grid whenever `-J` or time accounting is active,
+which is why the minimum terminal height rises from 24 to 26 rows. The first
+line carries `tgt/tot`, `ballast`, `probe` and `in-stab`; the second carries
+`gate` (rejected/checked), `info`, `shelf` (cells/witnesses), `trans` with the
+signal verdict, and `slow`. Both are padded to a fixed width, so a value that
+shrinks leaves no leftover characters behind.
+
+`stability` is unchanged and still means what it always meant — the cumulative
+union of every map byte ever seen to vary, over the whole corpus. It is not
+comparable between runs with different corpus sizes. `input_stab_avg` and
+`input_stab_min` are the per-input numbers people usually mean when they read
+`stability`, and both are shown so the difference is visible.
 
 ---
 
@@ -527,10 +686,40 @@ E  improved executor + records + state
 Every existing published comparison changes the executor and the state model at
 the same time, so nobody can tell which one helped.
 
+**Do not compare `edges_found` between arms.** It counts bytes of a coverage
+map, and the map is not the same object in two binaries: arms C and E run a
+different target, and folding a state hash into the edge index — which
+`IJON_STATE()` does — changes what one edge even means. On lwext4 the arm with
+*fewer* `edges_found` had *more* covered regions. So `replay_coverage.sh`
+replays every arm's final corpus through **one** llvm-cov build and scores the
+lines and regions of the code under test, which is a common unit. It also
+handles two traps that cost real time to find: one input that kills the process
+discards the profile of every input in the same invocation (so a dying chunk is
+bisected and the offender quarantined and printed, never silently dropped), and
+a corpus reliably contains inputs that never terminate under coverage
+instrumentation, which has no forkserver of its own (so every invocation is
+wrapped in `timeout`).
+
 `analyze_ablation.py` reports **three** numbers, not one: results per
 wall-clock second, per execution, and per operation. Once one input byte can
 drive a thousand writes, executions per second is no longer comparable across
-arms.
+arms. It refuses to compare arms whose coverage builds disagree on how much code
+exists, prints the min–max spread next to every median, and refuses to let a
+contrast look meaningful when it falls inside that spread. Five repetitions per
+arm is the default because run-to-run variance routinely exceeds the effect
+sizes involved.
+
+---
+
+## Not built yet
+
+A **snapshot pool** — several parked children, each stopped after a different
+program prefix, so that "append one operation to this program" costs the one
+operation instead of the whole program. It is the only planned item still
+missing, and it is deliberately last: whether it pays is a per-target question
+with a measured spread of 30×, `-Jb` is the go/no-go measurement, and moving the
+snapshot point past the harness's own init means every child inherits whatever
+the parent holds. See `TODO.md`.
 
 ---
 
@@ -539,11 +728,19 @@ arms.
 | Variable | Effect |
 |---|---|
 | `AFL_TIME_ACCOUNTING` | time accounting, independent of `-J` |
-| `AFL_STATE_PROBE_RUNS` | repeat-probe run count (default 100) |
+| `AFL_STATE_PROBE_RUNS` | repeat-probe run count (default 100, minimum 2) |
 | `AFL_STATE_UTILITY_THRESHOLD` | percent agreement the state signal must reach (default 80) |
+| `AFL_STATE_ADMIT_PCT` | largest share of the queue the state signal may create (default 25, 0 = no bound) |
+| `AFL_STATE_YIELD_PCT` | percent of state-only entries that must have mothered a find to keep the licence (default 10) |
+| `AFL_STATE_COARSE` | fold the state index by N bits by hand, 0–8 (default 0) |
+| `AFL_STATE_PLUGIN_ADMIT` | let a mutator-reported state class justify saving an input |
 | `AFL_HOT_BIAS` | percent of havoc offsets aimed at the hot region (default 70) |
-| `AFL_NO_STATE_MAP` | target-side kill switch for the state map |
+| `AFL_NO_STATE_MAP` | kill switch for the state map, honoured by both fuzzer and target |
 | `AFL_WATCHDOG_MS` | target-side watchdog, `abort()` after N ms (needs `AFL_TARGET_WATCHDOG`) |
+
+`include/config.h` holds the compile-time defaults behind these, plus
+`STATE_MAP_SIZE`, `STATE_TOUCHED_MAX`, `STATE_PROBE_INTERVAL_MS`, the benchmark
+run counts, the admission minimums and `AFL_TARGET_WATCHDOG` itself.
 
 ---
 
@@ -558,6 +755,7 @@ nobody spends the effort again.
 | Keep state between executions to save time | Stability fell from 100% to **62%** at worst. Saved crashes stopped reproducing. |
 | Persistent mode with a small loop count as a compromise | At loop count 2, **half of all runs already start dirty**. Not tunable — structural. |
 | Pin a deep prefix into the snapshot | Worse on every axis: fewer edges, 7.4 points less stability. |
+| Fold the state map coarser when it turns out too fine | Kept the corpus cost, lost the benefit: deep-state share fell from 40% to **16%**, below no state signal at all. |
 | Raise the operation-depth limit | A 64× larger budget moved coverage by 1.2 points. The real limit is the queue, not the cap. |
 | Turn off trimming (`AFL_DISABLE_TRIM=1`) | No depth gain, slightly worse coverage. |
 | Use threads for the peer side of a protocol | Stability 71–81% falling to 59%, and 5.5× slower. Turn-taking beat it on every axis. |
@@ -569,4 +767,11 @@ nobody spends the effort again.
 
 * [IJON.md](IJON.md) — the state annotation API
 * [custom_mutators.md](custom_mutators.md) — the mutator API `state_records` uses
+* [afl-fuzz_approach.md](afl-fuzz_approach.md) — every `fuzzer_stats` field
 * [env_variables.md](env_variables.md) — every `AFL_*` variable
+* [../custom_mutators/state_records/README.md](../custom_mutators/state_records/README.md)
+  — the record format and its two framing rules
+* [../utils/state_oracles/README.md](../utils/state_oracles/README.md) — the bug
+  detectors and their self-tests
+* [../utils/state_fuzzing/README.md](../utils/state_fuzzing/README.md) — the
+  ablation experiment
