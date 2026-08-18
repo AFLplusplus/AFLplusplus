@@ -1935,8 +1935,18 @@ static void __afl_start_forkserver(void) {
   // return because possible non-forkserver usage
   if (write(FORKSRV_FD + 1, msg, 4) != 4) {
 
-    __afl_ijon_enabled = 0;
-    __afl_ijon_map_increased = 1;
+    /* No forkserver parent. A tool that attached a shared map still watches
+       this run - afl-showmap on a single input and afl-cmin.bash through it
+       execve the target directly - and that map was sized from what this
+       target reported, IJON areas included, so the IJON channels stay live
+       for it. Without a shared map there is nobody to read them. */
+    if (!getenv(SHM_ENV_VAR)) {
+
+      __afl_ijon_enabled = 0;
+      __afl_ijon_map_increased = 1;
+
+    }
+
     __afl_watchdog_arm();
     return;
 
@@ -3339,6 +3349,15 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     __afl_bug_configure_runtime();
     __afl_bug_append_map();
     __afl_bug_bind_map();
+
+    if (__afl_debug) {
+
+      fprintf(stderr,
+              "DEBUG: after guard init: __afl_map_size %u, __afl_cov_map_size "
+              "%u, __afl_set_map_size %u\n",
+              __afl_map_size, __afl_cov_map_size, __afl_set_map_size);
+
+    }
 
   }
 

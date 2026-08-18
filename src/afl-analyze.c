@@ -1068,6 +1068,8 @@ int main(int argc, char **argv_orig, char **envp) {
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
 
   afl_fsrv_start(&fsrv, use_argv, &stop_soon, false);
+  afl_fsrv_trim_extra_maps(&fsrv);
+  map_size = fsrv.map_size;
   analyze_run_target(in_data, in_len, 1);
 
   if (fsrv.last_run_timed_out) {
