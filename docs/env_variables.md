@@ -1029,6 +1029,35 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_NO_STATE_MAP` is honoured on both sides: the fuzzer will not create the
     state-transition segment, and an instrumented target will not attach to one.
 
+  - `AFL_IJON_ADMIT_PCT` is the same kind of bound for the *other* IJON channel,
+    and it is needed because `AFL_STATE_ADMIT_PCT` above cannot reach it:
+    `IJON_SET()` and `IJON_INC()` write into an area that sits inside the
+    coverage bitmap on purpose, so such a write is an ordinary coverage find on
+    the ordinary save path. Once the queue holds at least 200 entries and
+    novelty that is *only* such a write has created more than this percentage of
+    them, it stops saving inputs; the channel keeps writing into the map and
+    keeps being reported. Default 0, no bound - a coverage find that is dropped
+    is dropped for good, so this stays opt-in. `ijon_only_saves` and
+    `ijon_only_paid` in `fuzzer_stats` are the numbers to judge it by. There is
+    deliberately no yield licence like `AFL_STATE_YIELD_PCT` here.
+
+  - `AFL_IJON_REPLAY_INTERVAL` is how many scheduling turns pass between two
+    replays of the stored `IJON_MAX`/`IJON_MIN` inputs. Default 16, so the max
+    channel gets one turn in sixteen; 1 gives it every turn, 0 switches replay
+    off. Raise it when an `IJON_MAX` objective is not being pursued - measured on
+    a QUIC harness, arms *without* the annotation grew the annotated quantity 20
+    to 50 times better, because the queue growth from `IJON_SET` in the same
+    harness diluted every entry's energy. See [IJON.md](IJON.md).
+
+  - `AFL_IJON_HISTORY_LIMIT` sets the size of the rolling `finding_*.dat`
+    history in `<out>/ijon_max/`, which records every improvement of any IJON max
+    slot. Default 0, no history. It is a file budget only: it changes nothing
+    about what is saved, scheduled or replayed. A value below the number of live
+    IJON variables warns once and keeps running - the ring then wraps within one
+    round of variables, so one variable's newest finding can evict another's. The
+    count cannot be validated at startup because a slot only becomes live the
+    first time its `IJON_MAX` is reached, so it grows during the run.
+
   - `AFL_WATCHDOG_MS` is read by the *target*. When set, the AFL++ runtime
     arms a timer at the start of every execution and calls `abort()` if the
     execution outlives it, so a spinning target becomes a crash that reproduces

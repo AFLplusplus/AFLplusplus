@@ -15,7 +15,8 @@
    SPDX-License-Identifier: Apache-2.0
 
    State fuzzing mode (-J s): the separate (previous state, current state,
-   action) map fed by IJON_STATE annotations, and the test that decides
+   action) map fed by IJON_STATE annotations, the situations that map is built
+   from and how deep an execution goes through them, and the test that decides
    whether that state signal is allowed to influence which inputs are saved.
 
    Until the test passes, the signal is recorded and reported and changes
@@ -46,6 +47,14 @@ void state_map_setup(afl_state_t *afl) {
 
   }
 
+  if (!afl->situation_seen) {
+
+    afl->situation_seen = ck_alloc(STATE_MAP_SIZE);
+    memset(afl->situation_seen, 255, STATE_MAP_SIZE);
+    afl->situation_depth = ck_alloc(STATE_MAP_SIZE);
+
+  }
+
   afl_shm_state_env_set(&afl->shm);
 
 }
@@ -65,6 +74,7 @@ void state_map_reset(afl_state_t *afl) {
   afl->shm.state_map->transitions = 0;
   afl->shm.state_map->hot_off = 0;
   afl->shm.state_map->hot_len = 0;
+  afl->shm.state_map->sit_n = 0;
 
 }
 
@@ -184,6 +194,79 @@ static u8 state_map_fold(afl_state_t *afl, u8 *map, u8 count) {
 
 }
 
+static void state_situations_observe(afl_state_t *afl) {
+
+  state_map_t *sm = afl->shm.state_map;
+  u32          i, n, depth;
+
+  if (likely(!afl->situation_seen) || likely(!sm->sit_ok)) { return; }
+
+  n = sm->sit_n;
+  if (unlikely(n > STATE_TOUCHED_MAX)) { n = STATE_TOUCHED_MAX; }
+  if (likely(!n)) { return; }
+
+  depth = sm->transitions > n ? sm->transitions : n;
+
+  for (i = 0; i < n; ++i) {
+
+    u32 idx = sm->sit[i] & (STATE_MAP_SIZE - 1);
+
+    if (afl->situation_seen[idx] == 0xff) {
+
+      afl->situation_seen[idx] = 0;
+      afl->situation_depth[idx] = (u8)(i + 1 > 255 ? 255 : i + 1);
+      ++afl->situations_found;
+
+    }
+
+  }
+
+  afl->situation_depth_sum += depth;
+  ++afl->situation_depth_runs;
+  if (unlikely(depth > afl->situation_depth_max)) {
+
+    afl->situation_depth_max = depth;
+
+  }
+
+}
+
+u32 state_situation_hist(afl_state_t *afl, u8 *buf, u32 buf_len) {
+
+  u32 bucket[9] = {0}, i, b, n = 0;
+
+  if (!afl->situation_seen || !buf_len) { return 0; }
+
+  buf[0] = 0;
+
+  for (i = 0; i < STATE_MAP_SIZE; ++i) {
+
+    if (afl->situation_seen[i] == 0xff) { continue; }
+
+    u32 d = afl->situation_depth[i];
+
+    for (b = 0; b < 8 && (2U << b) <= d; ++b) {}
+
+    ++bucket[b];
+
+  }
+
+  for (b = 0; b < 9; ++b) {
+
+    if (!bucket[b]) { continue; }
+
+    int w = snprintf((char *)buf + n, buf_len - n, "%s%u:%u", n ? " " : "",
+                     1U << b, bucket[b]);
+
+    if (w < 0 || (u32)w >= buf_len - n) { break; }
+    n += (u32)w;
+
+  }
+
+  return n;
+
+}
+
 /* Record the transitions of the last execution for reporting. This runs for
    every execution, whether or not the state signal is trusted yet, and never
    touches the map that admission decisions are made against. */
@@ -193,6 +276,7 @@ void state_map_observe(afl_state_t *afl) {
   if (likely(!afl->shm.state_map || !afl->state_seen)) { return; }
 
   (void)state_map_fold(afl, afl->state_seen, 1);
+  state_situations_observe(afl);
 
 }
 

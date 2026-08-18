@@ -38,6 +38,31 @@
     The state map also no longer costs a 64KB clear and a 64KB scan per
     execution - the target reports which slots it touched - which took `-Js`
     from roughly 15x slower to 5-15% on a fast target.
+    `-Js` now also reports the objective IJON_STATE is actually for, which
+    coverage answers backwards: `state_situations` (distinct IJON_STATE values
+    ever reached), `state_depth_max`, `state_depth_avg` and
+    `state_depth_hist`. On a QUIC harness the annotated arms covered fewer
+    regions than the plain ones while reaching 3x the situations and twice the
+    depth per input, so judging the annotation by `edges_found` or a coverage
+    report gets the answer wrong.
+  - IJON: the three channels are now bounded and reported separately.
+    `IJON_SET`/`IJON_INC` write inside the coverage bitmap by design, so their
+    finds are ordinary coverage finds that no `AFL_STATE_*` knob could reach -
+    on an annotated harness they created 206 of 267 queue entries. New
+    `ijon_only_saves` / `ijon_only_paid` / `ijon_admit_off` stats make that
+    visible and `AFL_IJON_ADMIT_PCT` bounds it (off by default).
+    `AFL_IJON_REPLAY_INTERVAL` sets the share of scheduling turns the
+    `IJON_MAX` replay pool gets (default 16, as before), because an `IJON_MAX`
+    objective can otherwise lose to plain coverage feedback on its own
+    quantity. `ijon_max_vars` and `ijon_max_updates` report that pool.
+    `AFL_IJON_HISTORY_LIMIT` below the live variable count now warns once
+    instead of aborting the run: the count only becomes known as slots are
+    first reached, so no value could be validated up front and the knob was
+    unusable.
+  - the corpus-cumulative `stability` is no longer painted red once `-Jp` has
+    measured a per-input stability of 95% or better. `IJON_STATE()` perturbs
+    every later edge index, which degrades the cumulative figure for reasons
+    that say nothing about the harness.
   - custom mutators: new optional `afl_custom_describe_state()`, through which
     a mutator that understands the input format reports how many operations an
     input performs and an id for the state it reaches. The operation count

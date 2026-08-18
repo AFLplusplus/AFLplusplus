@@ -181,6 +181,26 @@ Stored maximum-reaching inputs are validated and loaded again when AFL++ starts.
 The scheduler replays them round-robin after every 15 normal scheduler turns,
 so IJON replay occupies at most one of every 16 scheduling opportunities. New
 coverage found during replay enters the queue as an independent root entry.
+`AFL_IJON_REPLAY_INTERVAL=N` changes that share: 4 replays every fourth turn, 1
+every turn, 0 switches replay off. `ijon_max_vars` and `ijon_max_updates` in
+`fuzzer_stats` say how many slots are live and how often one improved.
+
+### `IJON_MAX` does not always win its own objective
+
+Worth knowing before annotating a quantity: on a stateful QUIC server harness
+with one `IJON_MAX` over total bytes delivered — an explicit *more is better*
+objective — the arms **without** the annotation grew that quantity 20 to 50
+times better (mean 8.52 bytes per input and a maximum of 13,670 against 0.35 and
+207 for the annotated arms). Plain coverage feedback found the byte-moving code
+paths and the `IJON_MAX` arms did not.
+
+The mechanism is the queue, not the objective. `IJON_MAX` gets a fixed share of
+the scheduling turns and one stored input per slot, while `IJON_SET`/`IJON_INC`
+in the same harness create queue entries without any bound (below), so the
+corpus grows 15-fold with state churn and every entry's share of the energy —
+including the one holding the byte-moving path — shrinks with it. Two knobs
+address that from opposite ends: `AFL_IJON_REPLAY_INTERVAL` raises the max
+channel's share, `AFL_IJON_ADMIT_PCT` bounds the set channel's queue growth.
 
 ## Usage Instructions
 
@@ -267,6 +287,43 @@ So three different numbers describe one map, and all three are correct:
 Comparing an IJON build against a plain one by map size only works on the
 coverage figure, not on `AFL_DUMP_MAP_SIZE` or `total_edges`.
 
+### What bounds each IJON channel
+
+The three channels are saved and bounded in three different ways, and the
+natural assumption — that the state-fuzzing knobs cover all of them — is wrong:
+
+| Channel | Where it lands | What bounds it |
+|---|---|---|
+| `IJON_MAX` / `IJON_MIN` | 4 KB of `u64` slots outside the fuzzer's map, one stored input per slot in `<out>/ijon_max/` | one slot per variable, replayed every `AFL_IJON_REPLAY_INTERVAL` turns; `AFL_IJON_RETIRE_MAX` drops slots that reached an `IJON_MAX_UNTIL` limit |
+| `IJON_SET` / `IJON_INC` | inside the coverage bitmap, on purpose | nothing, by default — `AFL_IJON_ADMIT_PCT` |
+| `IJON_STATE` | the edge hash, plus the `-Js` transition map | `AFL_STATE_ADMIT_PCT` for the transition map only; the edge-hash effect is unbounded by design |
+
+A byte written by `IJON_SET` or `IJON_INC` **has** to register as new coverage —
+that is the whole mechanism — so such a find travels the ordinary save path and
+none of the `AFL_STATE_*` knobs, nor `AFL_IJON_RETIRE_MAX`, can slow it down. In
+an ablation on a stateful harness the annotated arms saved roughly 7.7 times as
+many queue entries per execution as the plain arms, and no user-facing knob
+changed that. On a small annotated target 206 of 267 entries came from this
+channel alone.
+
+`AFL_IJON_ADMIT_PCT=N` is the bound for it: once the queue holds at least 200
+entries and novelty that is *only* an `IJON_SET`/`IJON_INC` write has created
+more than N% of them, that novelty stops saving inputs for the rest of the run.
+The channel keeps writing into the map and keeps being reported; only saving
+stops. Unlike the state channel there is no yield licence that lifts the bound
+again — `ijon_only_paid` is reported so the share can be judged, not to reopen
+the gate — and the bound is off unless set, because a coverage find that is
+dropped is dropped for good.
+
+`fuzzer_stats` reports the channel whenever the target is an IJON build:
+
+- `ijon_max_vars` — `IJON_MAX`/`IJON_MIN` slots holding a stored input
+- `ijon_max_updates` — times a slot improved
+- `ijon_only_saves` — queue entries saved for an `IJON_SET`/`IJON_INC` write alone
+- `ijon_only_paid` — of those, the ones that went on to mother a find of its own
+- `ijon_admit_off` — 1 once the channel lost its licence to save
+- `ijon_replay_int` — the `IJON_MAX` replay interval in force
+
 ### The other tools
 
 `afl-showmap`, `afl-cmin`, `afl-tmin` and `afl-analyze` see the same map
@@ -293,8 +350,25 @@ nm ./target | grep __afl_ijon_enabled     # "D" = instrumented, "V" = weak defau
 ### Environment Variables
 
 - **`AFL_LLVM_IJON=1`**: Enables IJON instrumentation during compilation
-- **`AFL_IJON_HISTORY_LIMIT=N`**: Sets the maximum number of IJON max-value inputs stored on the host (default: 20)
 - **`AFL_IJON_RETIRE_MAX=1`**: Treats `UINT64_MAX` IJON max values as completed targets and stops scheduling their stored IJON input
+- **`AFL_IJON_ADMIT_PCT=N`**: Largest share of the queue, in percent, that `IJON_SET`/`IJON_INC` may create on its own (default 0, no bound) — see above
+- **`AFL_IJON_REPLAY_INTERVAL=N`**: Scheduling turns between two `IJON_MAX` replays (default 16, 0 switches replay off)
+- **`AFL_IJON_HISTORY_LIMIT=N`**: Size of the rolling `finding_*.dat` history in `<out>/ijon_max/` (default 0, history off)
+
+`AFL_IJON_HISTORY_LIMIT` is a **file budget, not a bound on anything the fuzzer
+saves**: every improvement of any `IJON_MAX`/`IJON_MIN` slot is also written to
+`finding_%0*d.dat` in the IJON max directory, as one global ring of N files that
+wraps. It does not change what enters the queue, how often IJON inputs are
+replayed, or how many slots are live.
+
+N below the number of live IJON variables is legal and only warns once. It
+cannot be validated up front, because the live variable count is not known up
+front: a slot counts as live the first time its `IJON_MAX` is reached, so a
+harness with five annotations can be at four variables in the first second and
+six a few minutes later. A limit under that count means the ring wraps within
+one round of variables, so one variable's newest finding can evict another's —
+the stored maximum-reaching inputs in `<out>/ijon_max/<slot>` are unaffected,
+only the history is. Leaving it unset writes no history at all.
 
 ## Performance (Super Mario Bros. Level 1.1, ijon_max(pos_y/16, world_pos))
 

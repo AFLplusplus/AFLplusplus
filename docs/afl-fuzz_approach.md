@@ -584,15 +584,33 @@ queue entry, with or without `-J`.
 - `state_only_paid`    - of those, the ones that went on to find coverage
 - `state_admit_off`    - 1 once the state signal lost its licence to save
 - `state_coarse_fold`  - state classes folded into one (1 = no folding)
+- `state_situations`   - distinct IJON_STATE values ever reached
+- `state_depth_max`    - longest situation chain one execution went through
+- `state_depth_avg`    - mean situation chain length over all executions
+- `state_depth_hist`   - distinct situations by first-reached depth, log2 buckets
 - `plugin_described`   - queue entries a custom mutator described
 - `plugin_ops_avg`     - mean reported operation count over the corpus
 - `plugin_ops_max`     - largest reported operation count
 
+The six `ijon_*` fields below appear whenever the target is an IJON build, with
+or without `-J`:
+
+- `ijon_max_vars`      - IJON_MAX/IJON_MIN slots holding a stored input
+- `ijon_max_updates`   - times such a slot improved
+- `ijon_only_saves`    - queue entries saved for an IJON_SET/IJON_INC write alone
+- `ijon_only_paid`     - of those, the ones that went on to find coverage
+- `ijon_admit_off`     - 1 once that channel lost its licence to save
+- `ijon_replay_int`    - scheduling turns between two IJON_MAX replays
+
 Note that `stability` keeps its original meaning — one minus the cumulative
 union of every map byte ever seen to vary, over the whole corpus. It is not
-comparable between runs with different corpus sizes. `input_stab_avg` and
-`input_stab_min` are the per-input numbers people usually mean when they read
-`stability`, and both are shown so the difference is visible.
+comparable between runs with different corpus sizes, and it is not comparable
+across an IJON boundary either, because `IJON_STATE()` mixes the situation into
+every later edge index. `input_stab_avg` and `input_stab_min` are the per-input
+numbers people usually mean when they read `stability`, and both are shown so
+the difference is visible. Under `-Jp`, once those measure 95% or better, the UI
+stops painting the cumulative figure red — see
+[fuzzing_stateful_targets.md](fuzzing_stateful_targets.md).
 
 `last_edge_execs` backs the execution-count based strategy switches: once the
 favored/covering seed set is exhausted (`pending_favs` reaches 0), staying stuck

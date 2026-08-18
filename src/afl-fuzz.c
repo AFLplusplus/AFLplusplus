@@ -268,7 +268,20 @@ static void configure_ijon_runtime(afl_state_t *afl) {
   save_ijon_state_for_fastresume(afl->fsrv.map_size, afl->fsrv.map_size,
                                  afl->fsrv.real_map_size, target_map_size);
 
+  afl->ijon_cov_bytes = afl->fsrv.real_map_size > MAP_SIZE_IJON_MAP
+                            ? afl->fsrv.real_map_size - MAP_SIZE_IJON_MAP
+                            : 0;
+
   afl_ijon_retire_max = getenv("AFL_IJON_RETIRE_MAX") != NULL;
+
+  if (getenv("AFL_IJON_REPLAY_INTERVAL")) {
+
+    int interval = atoi(getenv("AFL_IJON_REPLAY_INTERVAL"));
+
+    if (interval < 0) { interval = 0; }
+    afl_ijon_replay_interval = interval;
+
+  }
 
 }
 
@@ -3391,6 +3404,9 @@ void afl_load_seeds(afl_state_t *afl) {
         afl->fsrv.map_size = saved_ijon_state.map_size;
         afl->fsrv.real_map_size = saved_ijon_state.real_map_size;
         afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + afl->fsrv.map_size);
+        afl->ijon_cov_bytes = afl->fsrv.real_map_size > MAP_SIZE_IJON_MAP
+                                  ? afl->fsrv.real_map_size - MAP_SIZE_IJON_MAP
+                                  : 0;
 
         if (afl->ijon_shared_access) {
 

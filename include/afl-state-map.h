@@ -48,6 +48,19 @@ typedef struct state_map {
   uint8_t  touched_ok;                 /* target maintains the list at all  */
   uint32_t touched[STATE_TOUCHED_MAX]; /* the slots themselves              */
 
+  /* The situations themselves, in the order the execution went through them,
+     so the fuzzer can report how many distinct IJON_STATE values a campaign
+     ever reached and how deep into a chain each one first appeared. The
+     transition map cannot answer either question: its index is a hash of a
+     triple and does not carry the state value back. A chain longer than the
+     list keeps counting in transitions but stops being recorded here.
+     sit_ok distinguishes a target built before these fields existed from one
+     that took no transition. */
+
+  uint32_t sit_n;                     /* situations recorded this execution */
+  uint8_t  sit_ok;                    /* target maintains the list at all   */
+  uint32_t sit[STATE_TOUCHED_MAX];    /* the situation values in order      */
+
 } state_map_t;
 
 /* Index of the (previous state, current state, action) triple. Two steps of

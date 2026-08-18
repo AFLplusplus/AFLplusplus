@@ -353,6 +353,7 @@ struct queue_entry {
 
   u8 shelf_member;                      /* witness of its shelf cell?       */
   u8 state_only;                        /* saved for a new state alone      */
+  u8 ijon_only;                         /* saved for an IJON_SET/_INC alone */
 
   double stability,                     /* this entry's own stability in %  */
       info_score;                       /* sum of -log2 p over its edges    */
@@ -642,7 +643,8 @@ typedef struct afl_env_vars {
 
   s32 afl_pizza_mode, afl_ijon_history_limit, afl_state_probe_runs,
       afl_state_utility_threshold, afl_hot_bias, afl_watchdog_ms,
-      afl_state_admit_pct, afl_state_coarse, afl_state_yield_pct;
+      afl_state_admit_pct, afl_state_coarse, afl_state_yield_pct,
+      afl_ijon_admit_pct;
 
   uid_t afl_forksrv_uid;
 
@@ -1183,7 +1185,9 @@ typedef struct afl_state {
       *probe_union,                     /* repeat probe: union of edges     */
       *probe_isect,                     /* repeat probe: edges in every run */
       *virgin_state,                    /* unseen state transitions         */
-      *state_seen;                      /* transitions ever observed        */
+      *state_seen,                      /* transitions ever observed        */
+      *situation_seen,                  /* IJON_STATE values ever observed  */
+      *situation_depth;                 /* depth each was first reached at  */
 
   u64 plugin_state_described;           /* entries a mutator described      */
   u8 *virgin_pstate;                    /* states a mutator reported        */
@@ -1209,6 +1213,17 @@ typedef struct afl_state {
       state_utility_pairs, state_utility_agree,
       state_utility_runs,               /* times the utility test ran       */
       state_utility_ignored;            /* pairs that ignored the probe     */
+
+  u32 situations_found,                 /* distinct IJON_STATE values seen  */
+      situation_depth_max;              /* longest situation chain in a run */
+  u64 situation_depth_sum,              /* chain lengths summed over runs   */
+      situation_depth_runs;             /* runs that took a transition      */
+
+  u32 ijon_cov_bytes;                   /* coverage area of an IJON map     */
+  u8  ijon_only_new;                    /* last novelty was IJON_SET only   */
+  u8  ijon_admit_off;                   /* IJON_SET may no longer save      */
+  u64 ijon_only_admits,                 /* entries saved for IJON_SET alone */
+      ijon_only_paid;                   /* of those, ones that found edges  */
 
   u32 contract_diff_edges,              /* edges differing in exec #1 vs #2 */
       state_transitions_found,          /* distinct transitions seen        */
@@ -1769,9 +1784,11 @@ void state_map_observe(afl_state_t *);
 u8   state_map_has_new(afl_state_t *);
 void state_map_record(afl_state_t *, struct queue_entry *);
 void state_admit_bound(afl_state_t *);
+void ijon_admit_bound(afl_state_t *);
 u8   plugin_state_new(afl_state_t *, u8 *, u32, u32 *);
 void state_utility_test(afl_state_t *);
 u32  state_map_density(afl_state_t *);
+u32  state_situation_hist(afl_state_t *, u8 *, u32);
 
 /* Init */
 

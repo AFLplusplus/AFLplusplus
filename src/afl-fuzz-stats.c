@@ -748,7 +748,38 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
               afl->state_only_paid, afl->state_admit_off,
               1U << afl->state_coarse_shift);
 
+      u8 hist[256];
+
+      state_situation_hist(afl, hist, sizeof(hist));
+
+      fprintf(f,
+              "state_situations  : %u\n"
+              "state_depth_max   : %u\n"
+              "state_depth_avg   : %0.02f\n"
+              "state_depth_hist  : %s\n",
+              afl->situations_found, afl->situation_depth_max,
+              afl->situation_depth_runs ? (double)afl->situation_depth_sum /
+                                              (double)afl->situation_depth_runs
+                                        : 0.0,
+              hist);
+
     }
+
+  }
+
+  if (unlikely(afl->fsrv.use_ijon)) {
+
+    fprintf(f,
+            "ijon_max_vars     : %zu\n"
+            "ijon_max_updates  : %zu\n"
+            "ijon_only_saves   : %llu\n"
+            "ijon_only_paid    : %llu\n"
+            "ijon_admit_off    : %u\n"
+            "ijon_replay_int   : %d\n",
+            afl->ijon_state ? afl->ijon_state->num_entries : (size_t)0,
+            afl->ijon_state ? afl->ijon_state->num_updates : (size_t)0,
+            afl->ijon_only_admits, afl->ijon_only_paid, afl->ijon_admit_off,
+            afl_ijon_replay_interval);
 
   }
 
@@ -1055,6 +1086,12 @@ static void show_state_lines(afl_state_t *afl) {
                  afl->shm.state_map
                      ? (afl->state_signal_trusted ? "trusted" : "observing")
                      : "n/a");
+
+    STATE_APPEND(" | sit %u/d%0.1f", afl->situations_found,
+                 afl->situation_depth_runs
+                     ? (double)afl->situation_depth_sum /
+                           (double)afl->situation_depth_runs
+                     : 0.0);
 
   }
 
@@ -1739,7 +1776,9 @@ void show_stats_normal(afl_state_t *afl) {
   }
 
   SAYF(" stability : %s%-10s" bSTG bV "\n",
-       (stab_ratio < 85 && afl->var_byte_count > 40)
+       (stab_ratio < 85 && afl->var_byte_count > 40 &&
+        !((afl->state_mode & STATE_MODE_PROBE) &&
+          afl->corpus_stability_avg >= 95.0))
            ? cLRD
            : ((afl->queued_variable &&
                (!afl->persistent_mode || afl->var_byte_count > 20))
@@ -2588,7 +2627,9 @@ void show_stats_pizza(afl_state_t *afl) {
   }
 
   SAYF("                    oven flameout : %s%-10s          " bSTG bV "\n",
-       (stab_ratio < 85 && afl->var_byte_count > 40)
+       (stab_ratio < 85 && afl->var_byte_count > 40 &&
+        !((afl->state_mode & STATE_MODE_PROBE) &&
+          afl->corpus_stability_avg >= 95.0))
            ? cLRD
            : ((afl->queued_variable &&
                (!afl->persistent_mode || afl->var_byte_count > 20))

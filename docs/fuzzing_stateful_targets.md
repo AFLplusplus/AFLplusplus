@@ -42,6 +42,18 @@ The ballast share is always on under `-J`. Time accounting is separate from
 `-J` entirely and is switched on with `AFL_TIME_ACCOUNTING=1`, with or without
 state fuzzing mode.
 
+To find out whether the `afl-fuzz` at hand has this mode at all, capture the
+help screen first and search the capture. `-h` exits non-zero, so a pipeline
+that greps it directly fails under `set -o pipefail`:
+
+```sh
+help=$(afl-fuzz -h 2>&1 || true)
+case "$help" in *"state fuzzing mode"*) echo yes ;; *) echo no ;; esac
+```
+
+The version string is no help here: a build with `-J` and one without report
+the same version.
+
 Some parts need more than a letter:
 
 * `s` needs a target built with a matching `afl-clang-fast`/`afl-gcc-fast`
@@ -357,9 +369,20 @@ With no `AFL_STATE_ACTION`, the action is 0 and the map degrades to
 `(previous, current)` pairs — still strictly more than today.
 
 Stats: `state_signal`, `state_transitions`, `state_map_density`,
-`state_only_saves`, `state_only_paid`, `state_admit_off`, `state_coarse_fold`.
+`state_only_saves`, `state_only_paid`, `state_admit_off`, `state_coarse_fold`,
+`state_situations`, `state_depth_max`, `state_depth_avg`, `state_depth_hist`.
 Note that `state_transitions` counts both instrumentation transitions and the
 mutator-reported state classes below, in one number.
+
+The bound above governs the **state map**, and only the state map. `IJON_SET()`
+and `IJON_INC()` write into an area that deliberately sits inside the coverage
+bitmap, so a write there is an ordinary coverage find on the normal path:
+`AFL_STATE_ADMIT_PCT`, `AFL_STATE_YIELD_PCT` and `AFL_IJON_RETIRE_MAX` never
+see it, and none of them can slow down how fast an annotated build fills the
+queue. That channel has a bound of its own, `AFL_IJON_ADMIT_PCT`, off by
+default. `ijon_only_saves` in `fuzzer_stats` says how much of the queue it
+created; on a small annotated target 206 of 267 entries came from it. See
+[IJON.md](IJON.md).
 
 ### `s` — without touching the target at all
 
@@ -669,6 +692,12 @@ comparable between runs with different corpus sizes. `input_stab_avg` and
 `input_stab_min` are the per-input numbers people usually mean when they read
 `stability`, and both are shown so the difference is visible.
 
+`stability` also carries **no red flag under `-Jp`**: the cumulative figure
+degrades for reasons that say nothing about the harness (see the IJON note
+below), so once the repeat probe has measured a per-input stability of 95% or
+better, the field is no longer painted red. Judge the harness by `input_stab_*`
+and the alarm colour by nothing at all.
+
 It is also **not comparable across an IJON boundary**. `IJON_STATE` mixes the
 situation into every later edge index, so the same harness annotated and
 unannotated produces different cumulative figures — annotated arms of one
@@ -678,6 +707,42 @@ IJON build includes the 64 KB `IJON_SET`/`IJON_INC` area, so `total_edges` and
 every percentage derived from it (`bitmap_cvg`, `stability`) are computed over a
 larger map than the coverage region alone. When comparing an annotated build
 against a plain one, compare `input_stab_avg` and `input_stab_min`.
+
+### Judging `-Js` and IJON: not by coverage
+
+Coverage answers the wrong question here, and it answers it in the wrong
+direction. Measured on a stateful QUIC server harness, four arms replayed
+through one common `llvm-cov` build: the annotated arms covered *fewer* regions
+in the target subsystem than the plain ones (11,939 and 11,965 against 11,989
+and 12,038) with 15 times the corpus, and led in 0 of 41 files at equal N. A
+user who judges the annotation by `edges_found` or by a coverage report will
+conclude it hurt.
+
+On the objective the annotation is actually for, the same corpora invert the
+result — 3,086 and 3,044 distinct situations reached against 876 and 1,051, and
+a mean deepest situation per input of 12.0 against 7.0, from *shorter* inputs.
+Set difference over the whole corpora: 2,086 situations only the annotated arms
+reached, against 9 only the plain arms did.
+
+Four fields report that objective, all of them under `-Js` and all of them
+needing a target rebuilt with a runtime that maintains the situation list:
+
+* `state_situations` — distinct `IJON_STATE()` values the campaign ever
+  reached. This is the count to compare arms on. `state_transitions` is not:
+  it counts *(previous, current, action)* triples, so one situation reached from
+  four predecessors counts four times.
+* `state_depth_max` — the longest chain of situations one execution went
+  through.
+* `state_depth_avg` — the mean of that chain length over all executions, which
+  is the "how deep does a typical input get" number.
+* `state_depth_hist` — distinct situations by the depth they were first reached
+  at, in log2 buckets, as `1:8 2:16 4:120 8:1251`. A campaign whose situations
+  all sit in the low buckets is going wide, not deep.
+
+The UI carries the first and third as `sit <count>/d<avg>` on the second state
+line. `STATE_TOUCHED_MAX` in `include/config.h` caps how many situations of one
+execution are recorded by value, so past that the chain still counts towards the
+depth but stops contributing new distinct situations.
 
 ---
 
@@ -795,6 +860,8 @@ the parent holds. See `TODO.md`.
 | `AFL_STATE_YIELD_PCT` | percent of state-only entries that must have mothered a find to keep the licence (default 10) |
 | `AFL_STATE_COARSE` | fold the state index by N bits by hand, 0–8 (default 0) |
 | `AFL_STATE_PLUGIN_ADMIT` | let a mutator-reported state class justify saving an input |
+| `AFL_IJON_ADMIT_PCT` | largest share of the queue `IJON_SET`/`IJON_INC` may create (default 0 = no bound) |
+| `AFL_IJON_REPLAY_INTERVAL` | scheduling turns between two `IJON_MAX` replays (default 16, 0 = no replay) |
 | `AFL_HOT_BIAS` | percent of havoc offsets aimed at the hot region (default 70) |
 | `AFL_NO_STATE_MAP` | kill switch for the state map, honoured by both fuzzer and target |
 | `AFL_WATCHDOG_MS` | target-side watchdog, `abort()` after N ms (needs `AFL_TARGET_WATCHDOG`) |

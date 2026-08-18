@@ -239,39 +239,24 @@ void init_count_class16(void) {
    This function is called after every exec() on a fairly large buffer, so
    it needs to be fast. We do this in 32-bit and 64-bit flavors. */
 
-inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
-
-  /* edges_found is derived from virgin_bits, so a secondary channel - cmplog,
-     a sanitizer binary, anything with its own guard ids - must never be
-     accounted here. Mixing a second guard id space into the primary map is
-     what made 4.40 look 25% better than it was. */
-  /*
-  if (unlikely(virgin_map == afl->virgin_bits && !afl->primary_trace)) {
-
-    FATAL("coverage map of a secondary target merged into virgin_bits");
-
-  }
-
-  */
+static u8 has_new_bits_words(afl_state_t *afl, u8 *virgin_map, u32 from,
+                             u32 to) {
 
 #ifdef WORD_SIZE_64
 
-  u64 *current = (u64 *)afl->fsrv.trace_bits;
-  u64 *virgin = (u64 *)virgin_map;
-
-  u32 i = ((afl->fsrv.real_map_size + 7) >> 3);
+  u64 *current = ((u64 *)afl->fsrv.trace_bits) + from;
+  u64 *virgin = ((u64 *)virgin_map) + from;
 
 #else
 
-  u32 *current = (u32 *)afl->fsrv.trace_bits;
-  u32 *virgin = (u32 *)virgin_map;
-
-  u32 i = ((afl->fsrv.real_map_size + 3) >> 2);
+  u32 *current = ((u32 *)afl->fsrv.trace_bits) + from;
+  u32 *virgin = ((u32 *)virgin_map) + from;
 
 #endif                                                     /* ^WORD_SIZE_64 */
 
-  u8 ret = 0;
-  u8 undo = (u8)(afl->virgin_undo_armed && !afl->virgin_undo_valid &&
+  u32 i = to - from;
+  u8  ret = 0;
+  u8  undo = (u8)(afl->virgin_undo_armed && !afl->virgin_undo_valid &&
                  virgin_map == afl->virgin_bits);
 
   while (i--) {
@@ -291,6 +276,55 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
     current++;
     virgin++;
+
+  }
+
+  return ret;
+
+}
+
+inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
+
+  /* edges_found is derived from virgin_bits, so a secondary channel - cmplog,
+     a sanitizer binary, anything with its own guard ids - must never be
+     accounted here. Mixing a second guard id space into the primary map is
+     what made 4.40 look 25% better than it was. */
+  /*
+  if (unlikely(virgin_map == afl->virgin_bits && !afl->primary_trace)) {
+
+    FATAL("coverage map of a secondary target merged into virgin_bits");
+
+  }
+
+  */
+
+#ifdef WORD_SIZE_64
+
+  u32 words = ((afl->fsrv.real_map_size + 7) >> 3);
+  u32 cov_words = (afl->ijon_cov_bytes + 7) >> 3;
+
+#else
+
+  u32 words = ((afl->fsrv.real_map_size + 3) >> 2);
+  u32 cov_words = (afl->ijon_cov_bytes + 3) >> 2;
+
+#endif                                                     /* ^WORD_SIZE_64 */
+
+  u8 ret;
+
+  if (unlikely(afl->ijon_cov_bytes) && likely(cov_words < words) &&
+      likely(virgin_map == afl->virgin_bits)) {
+
+    u8 cov = has_new_bits_words(afl, virgin_map, 0, cov_words);
+    u8 ijon = has_new_bits_words(afl, virgin_map, cov_words, words);
+
+    afl->ijon_only_new = (u8)(!cov && ijon);
+    ret = MAX(cov, ijon);
+
+  } else {
+
+    afl->ijon_only_new = 0;
+    ret = has_new_bits_words(afl, virgin_map, 0, words);
 
   }
 
@@ -950,6 +984,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8 *queue_fn = "";
   u8  keeping = 0, res, is_timeout = 0, vp_entry = 0, vp_sample_ready = 0;
   u8  state_entry = 0;
+  u8  ijon_entry = 0;
   u8  is_crash_save = 0;
   u8  vp_restore_suppressed = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
@@ -1140,6 +1175,20 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
        future fuzzing, etc. */
     calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
 
+    if (unlikely(new_bits) && unlikely(afl->ijon_only_new)) {
+
+      if (unlikely(afl->ijon_admit_off)) {
+
+        new_bits = 0;
+
+      } else {
+
+        ijon_entry = 1;
+
+      }
+
+    }
+
     if (likely(!new_bits)) {
 
       if (san_fault == FSRV_RUN_OK) {
@@ -1311,6 +1360,18 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
          would let a runaway signal vouch for itself. */
 
       ++afl->state_only_paid;
+
+    }
+
+    if (unlikely(ijon_entry)) {
+
+      afl->queue_top->ijon_only = 1;
+      ++afl->ijon_only_admits;
+      ijon_admit_bound(afl);
+
+    } else if (unlikely(afl->queue_cur && afl->queue_cur->ijon_only)) {
+
+      ++afl->ijon_only_paid;
 
     }
 

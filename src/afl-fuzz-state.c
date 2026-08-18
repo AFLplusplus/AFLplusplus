@@ -882,6 +882,21 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             }
 
+          } else if (!strncmp(env, "AFL_IJON_ADMIT_PCT",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_ijon_admit_pct =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_env.afl_ijon_admit_pct < 0 ||
+                afl->afl_env.afl_ijon_admit_pct > 100) {
+
+              WARNF("AFL_IJON_ADMIT_PCT out of range, bound disabled");
+              afl->afl_env.afl_ijon_admit_pct = 0;
+
+            }
+
           } else if (!strncmp(env, "AFL_STATE_YIELD_PCT",
 
                               afl_environment_variable_len)) {

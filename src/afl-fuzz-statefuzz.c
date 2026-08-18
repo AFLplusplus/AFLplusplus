@@ -82,9 +82,13 @@ void state_free(afl_state_t *afl) {
   if (afl->shelf_count) { ck_free(afl->shelf_count); }
   if (afl->virgin_state) { ck_free(afl->virgin_state); }
   if (afl->state_seen) { ck_free(afl->state_seen); }
+  if (afl->situation_seen) { ck_free(afl->situation_seen); }
+  if (afl->situation_depth) { ck_free(afl->situation_depth); }
 
   afl->virgin_state = NULL;
   afl->state_seen = NULL;
+  afl->situation_seen = NULL;
+  afl->situation_depth = NULL;
   afl->ballast_bits = NULL;
   afl->cal_var_map = NULL;
   afl->probe_union = NULL;

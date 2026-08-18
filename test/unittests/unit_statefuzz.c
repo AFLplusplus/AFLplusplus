@@ -248,6 +248,62 @@ static void test_state_map_admission_consumes_once(void **unused) {
 
 }
 
+static void test_situations_counted_with_first_reach_depth(void **unused) {
+
+  (void)unused;
+  setup(STATE_MODE_SMAP);
+
+  state_map_t *map = state_map_setup_fixture();
+  u8           hist[256];
+
+  map->sit_ok = 1;
+  map->sit_n = 3;
+  map->transitions = 3;
+  map->sit[0] = 5;
+  map->sit[1] = 9;
+  map->sit[2] = 5;
+
+  state_map_observe(afl);
+
+  assert_int_equal(afl->situations_found, 2);
+  assert_int_equal(afl->situation_depth_max, 3);
+  assert_int_equal(afl->situation_depth_runs, 1);
+  assert_int_equal(afl->situation_depth_sum, 3);
+
+  state_situation_hist(afl, hist, sizeof(hist));
+  assert_string_equal((char *)hist, "1:1 2:1");
+
+  /* The same chain again reaches nothing new, but still counts as a run. */
+  state_map_observe(afl);
+
+  assert_int_equal(afl->situations_found, 2);
+  assert_int_equal(afl->situation_depth_runs, 2);
+
+  teardown();
+
+}
+
+static void test_situations_absent_without_target_support(void **unused) {
+
+  (void)unused;
+  setup(STATE_MODE_SMAP);
+
+  state_map_t *map = state_map_setup_fixture();
+
+  map->sit_n = 2;
+  map->transitions = 2;
+  map->sit[0] = 5;
+  map->sit[1] = 9;
+
+  state_map_observe(afl);
+
+  assert_int_equal(afl->situations_found, 0);
+  assert_int_equal(afl->situation_depth_runs, 0);
+
+  teardown();
+
+}
+
 static void test_state_map_density_counts_observations(void **unused) {
 
   (void)unused;
@@ -621,6 +677,8 @@ int main(void) {
       cmocka_unit_test(test_state_map_observing_keeps_admission_unspent),
       cmocka_unit_test(test_state_map_admission_consumes_once),
       cmocka_unit_test(test_state_map_density_counts_observations),
+      cmocka_unit_test(test_situations_counted_with_first_reach_depth),
+      cmocka_unit_test(test_situations_absent_without_target_support),
       cmocka_unit_test(test_shelf_cell_separates_depth),
       cmocka_unit_test(test_shelf_cell_separates_cost),
       cmocka_unit_test(test_shelf_cell_ignores_state_until_trusted),

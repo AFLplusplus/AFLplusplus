@@ -84,6 +84,9 @@ typedef struct {
 /* ijon global state variable*/
 extern int afl_ijon_retire_max;
 
+/* Scheduling turns between two IJON max replays, AFL_IJON_REPLAY_INTERVAL */
+extern int afl_ijon_replay_interval;
+
 /* Function prototypes */
 ijon_min_state  *new_ijon_min_state(char *max_dir);
 ijon_min_state  *new_ijon_min_state_with_limit(char *max_dir,
