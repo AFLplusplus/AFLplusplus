@@ -798,6 +798,13 @@ from the `fastresume.bin` file, which afl-fuzz writes only on a clean shutdown
 (so it needs AFL++ >= 4.22a and no `AFL_NO_FASTRESUME`; otherwise the cause is
 reported as `unknown` and does count).
 
+If you script your launches, do not treat the existence of `fuzzer_stats` as
+proof that an instance is alive. On resume afl-fuzz rewrites it with the
+previous run's values before it does anything else, so a check of the form
+`[ -f out/$n/fuzzer_stats ]` passes for an instance that aborted seconds
+earlier. Use `afl-whatsup` or `afl-health`, which both treat a stale file as
+stale, or compare `last_update` in the file against the current time.
+
 Another tool to inspect the current state and history of a specific instance is
 afl-plot, which generates an index.html file and graphs that show how the
 fuzzing instance is performing. The syntax is `afl-plot instance_dir web_dir`,

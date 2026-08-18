@@ -866,6 +866,23 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             }
 
+          } else if (!strncmp(env, "AFL_STATE_UTILITY_RETRY",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_state_utility_retry =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+            if (afl->afl_env.afl_state_utility_retry < 1 ||
+                afl->afl_env.afl_state_utility_retry > 3600) {
+
+              WARNF("AFL_STATE_UTILITY_RETRY out of range, using %u",
+                    STATE_UTILITY_RETRY_MS / 1000);
+              afl->afl_env.afl_state_utility_retry =
+                  STATE_UTILITY_RETRY_MS / 1000;
+
+            }
+
           } else if (!strncmp(env, "AFL_STATE_ADMIT_PCT",
 
                               afl_environment_variable_len)) {

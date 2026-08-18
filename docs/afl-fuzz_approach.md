@@ -573,17 +573,20 @@ queue entry, with or without `-J`.
 - `contract_diff`      - edges differing between execution #1 and #2
 - `cost_fork_us`       - measured cost of fork + run, microseconds
 - `cost_setup_us`      - measured cost of a full process start, microseconds
-- `state_signal`       - unsupported, observing, or trusted
+- `state_signal`       - unsupported, observing, unmeasurable, or trusted
 - `state_transitions`  - distinct (prev, cur, action) transitions seen
 - `state_map_density`  - share of the state map ever hit
 - `state_utility_pct`  - same-state pairs that behaved the same
 - `state_util_pairs`   - pairs the utility test managed to form
 - `state_util_runs`    - times the utility test ran, so a 0 above is readable
 - `state_util_ignored` - pairs dropped because the probe performed no action
+- `state_util_cands`   - entries carrying a state id at the last attempt
+- `state_util_status`  - why there is no verdict, or that one was reached
 - `state_only_saves`   - queue entries saved for a new state alone
 - `state_only_paid`    - of those, the ones that went on to find coverage
 - `state_admit_off`    - 1 once the state signal lost its licence to save
 - `state_coarse_fold`  - state classes folded into one (1 = no folding)
+- `state_sit_report`   - whether the target keeps a situation list at all
 - `state_situations`   - distinct IJON_STATE values ever reached
 - `state_depth_max`    - longest situation chain one execution went through
 - `state_depth_avg`    - mean situation chain length over all executions

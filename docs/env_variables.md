@@ -982,6 +982,13 @@ checks or alter some of the more exotic semantics of the tool:
     influence which inputs are saved. Default 80. Below the threshold the state
     signal stays a metadata note, which is the intended safe behaviour.
 
+  - `AFL_STATE_UTILITY_RETRY` is the shortest time in seconds between two runs
+    of that test. Default 60, range 1 to 3600. The test also needs 4,096
+    executions and new material before it repeats - another queue entry
+    carrying a state id, 20 more of them once a verdict has been reached, or a
+    queue cycled 8 times - so lowering this does not by itself make it run more
+    often.
+
   - `AFL_STATE_ADMIT_PCT` is the largest share of the queue, in percent, that
     the state signal may create on its own. Default 25, and 0 turns the bound
     off. Past the share the signal stops saving inputs and goes back to being a

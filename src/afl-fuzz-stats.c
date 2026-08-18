@@ -734,17 +734,17 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
               "state_util_pairs  : %llu\n"
               "state_util_runs   : %llu\n"
               "state_util_ignored: %llu\n"
+              "state_util_cands  : %u\n"
+              "state_util_status : %s\n"
               "state_only_saves  : %llu\n"
               "state_only_paid   : %llu\n"
               "state_admit_off   : %u\n"
               "state_coarse_fold : %u\n",
-              afl->shm.state_map
-                  ? (afl->state_signal_trusted ? "trusted" : "observing")
-                  : "unsupported",
-              afl->state_transitions_found,
+              state_signal_str(afl), afl->state_transitions_found,
               (double)state_map_density(afl) / 100.0, afl->state_utility_pct,
               afl->state_utility_pairs, afl->state_utility_runs,
-              afl->state_utility_ignored, afl->state_only_admits,
+              afl->state_utility_ignored, afl->state_utility_cands,
+              state_utility_status_str(afl), afl->state_only_admits,
               afl->state_only_paid, afl->state_admit_off,
               1U << afl->state_coarse_shift);
 
@@ -753,11 +753,13 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       state_situation_hist(afl, hist, sizeof(hist));
 
       fprintf(f,
+              "state_sit_report  : %s\n"
               "state_situations  : %u\n"
               "state_depth_max   : %u\n"
               "state_depth_avg   : %0.02f\n"
               "state_depth_hist  : %s\n",
-              afl->situations_found, afl->situation_depth_max,
+              afl->sit_unsupported ? "no" : "yes", afl->situations_found,
+              afl->situation_depth_max,
               afl->situation_depth_runs ? (double)afl->situation_depth_sum /
                                               (double)afl->situation_depth_runs
                                         : 0.0,
@@ -1083,9 +1085,7 @@ static void show_state_lines(afl_state_t *afl) {
   if (afl->state_mode & STATE_MODE_SMAP) {
 
     STATE_APPEND("%strans %u %s", n ? " | " : "", afl->state_transitions_found,
-                 afl->shm.state_map
-                     ? (afl->state_signal_trusted ? "trusted" : "observing")
-                     : "n/a");
+                 afl->shm.state_map ? state_signal_str(afl) : "n/a");
 
     STATE_APPEND(" | sit %u/d%0.1f", afl->situations_found,
                  afl->situation_depth_runs

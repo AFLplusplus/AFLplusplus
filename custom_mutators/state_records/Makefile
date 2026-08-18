@@ -10,14 +10,21 @@
 # It is built at -O0 because the deliberate bugs in it are memory errors
 # that an optimising compiler is free to make unobservable.
 #
+# The mutator itself keeps its own compiler, SO_CC, so that overriding CC -
+# on the command line or from an exported CC in the shell - cannot leave it
+# instrumented. afl-fuzz dlopens mutators with RTLD_NOW, and an instrumented
+# .so needs __afl_area_ptr from the target, so it would abort every instance
+# at startup.
+#
 
 CFLAGS ?= -Wall -Wextra
+SO_CC ?= cc
 HARNESS_CFLAGS = -Wall -Wextra -O0 -g
 
 all: state_records.so example_harness
 
 state_records.so: state_records.c state_records.h
-	$(CC) $(CFLAGS) -D_FORTIFY_SOURCE=2 -O3 -fPIC -shared -g -I ../../include -I . state_records.c -o state_records.so
+	$(SO_CC) $(CFLAGS) -D_FORTIFY_SOURCE=2 -O3 -fPIC -shared -g -I ../../include -I . state_records.c -o state_records.so
 
 example_harness: example_harness.c state_records.h
 	$(CC) $(HARNESS_CFLAGS) -I . example_harness.c -o example_harness

@@ -642,9 +642,9 @@ typedef struct afl_env_vars {
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
   s32 afl_pizza_mode, afl_ijon_history_limit, afl_state_probe_runs,
-      afl_state_utility_threshold, afl_hot_bias, afl_watchdog_ms,
-      afl_state_admit_pct, afl_state_coarse, afl_state_yield_pct,
-      afl_ijon_admit_pct;
+      afl_state_utility_threshold, afl_state_utility_retry, afl_hot_bias,
+      afl_watchdog_ms, afl_state_admit_pct, afl_state_coarse,
+      afl_state_yield_pct, afl_ijon_admit_pct;
 
   uid_t afl_forksrv_uid;
 
@@ -1166,8 +1166,23 @@ typedef struct afl_state {
 #define STATE_UTILITY_MIN_ENTRIES 20U /* corpus size before the state       */
 #define STATE_UTILITY_MIN_PAIRS 8U    /* signal is tested, and the pair     */
 #define STATE_UTILITY_MAX_PAIRS 32U   /* sample size of one test, repeated  */
-#define STATE_UTILITY_CYCLES 8U       /* every this many queue cycles       */
+#define STATE_UTILITY_CYCLES 8U       /* every this many queue cycles or    */
+#define STATE_UTILITY_RETRY_MS 60000U /* this often once there is more to   */
+#define STATE_UTILITY_MIN_EXECS 4096U /* test, and never before this many   */
+                                      /* more executions: one test costs at */
+                                      /* most 6 runs per pair, so it stays  */
+                                      /* under 5% of them                   */
 #define STATE_PROBE_MAX_LEN 512U      /* cap on a mutator-built probe       */
+
+  /* Why the state signal has no verdict, so that a state_util_pairs of 0 names
+     its own cause: a probe the target ignores is a format problem, too few
+     same-state entries is a timing one. */
+
+#define STATE_UTIL_UNTESTED 0      /* the test has not run yet              */
+#define STATE_UTIL_FEW_ENTRIES 1   /* too few entries carry a state id      */
+#define STATE_UTIL_FEW_PAIRS 2     /* too few same-state pairs formed       */
+#define STATE_UTIL_IGNORED 3       /* pairs formed, the probe did nothing   */
+#define STATE_UTIL_TESTED 4        /* a verdict was reached                 */
 
   u32 state_mode;                       /* STATE_MODE_* bitmask, 0 = off    */
   u32 hot_bias;                         /* % of havoc aimed at the hot span */
@@ -1178,7 +1193,9 @@ typedef struct afl_state {
       ballast_valid,                    /* ballast_bits has a first sample  */
       contract_checked,                 /* harness self-check has run       */
       contract_failed,                  /* harness self-check found a diff  */
-      state_bench_done;                 /* cost benchmark has run           */
+      state_bench_done,                 /* cost benchmark has run           */
+      state_utility_status,             /* STATE_UTIL_*, why no verdict     */
+      sit_unsupported;                  /* target keeps no situation list   */
 
   u8 *ballast_bits,                     /* edges hit by every input         */
       *cal_var_map,                     /* per-entry calibration variance   */
@@ -1212,7 +1229,9 @@ typedef struct afl_state {
       setup_cost_us, fork_cost_us,      /* item 4 benchmark results         */
       state_utility_pairs, state_utility_agree,
       state_utility_runs,               /* times the utility test ran       */
-      state_utility_ignored;            /* pairs that ignored the probe     */
+      state_utility_ignored,            /* pairs that ignored the probe     */
+      state_utility_last_ms,            /* when the test last ran           */
+      state_utility_execs;              /* total_execs it last ran at       */
 
   u32 situations_found,                 /* distinct IJON_STATE values seen  */
       situation_depth_max;              /* longest situation chain in a run */
@@ -1228,6 +1247,7 @@ typedef struct afl_state {
   u32 contract_diff_edges,              /* edges differing in exec #1 vs #2 */
       state_transitions_found,          /* distinct transitions seen        */
       state_utility_cycle,              /* queue cycle of the last test     */
+      state_utility_cands,              /* entries with a state id then     */
       shelf_cells_used, shelf_members;
 
   double ballast_pct,                   /* map share hit by every input     */
@@ -1778,17 +1798,19 @@ void state_hot_from_taint(afl_state_t *, struct queue_entry *,
 
 /* State map (-J s) */
 
-void state_map_setup(afl_state_t *);
-void state_map_reset(afl_state_t *);
-void state_map_observe(afl_state_t *);
-u8   state_map_has_new(afl_state_t *);
-void state_map_record(afl_state_t *, struct queue_entry *);
-void state_admit_bound(afl_state_t *);
-void ijon_admit_bound(afl_state_t *);
-u8   plugin_state_new(afl_state_t *, u8 *, u32, u32 *);
-void state_utility_test(afl_state_t *);
-u32  state_map_density(afl_state_t *);
-u32  state_situation_hist(afl_state_t *, u8 *, u32);
+void        state_map_setup(afl_state_t *);
+void        state_map_reset(afl_state_t *);
+void        state_map_observe(afl_state_t *);
+u8          state_map_has_new(afl_state_t *);
+void        state_map_record(afl_state_t *, struct queue_entry *);
+void        state_admit_bound(afl_state_t *);
+void        ijon_admit_bound(afl_state_t *);
+u8          plugin_state_new(afl_state_t *, u8 *, u32, u32 *);
+void        state_utility_test(afl_state_t *);
+const char *state_utility_status_str(afl_state_t *);
+const char *state_signal_str(afl_state_t *);
+u32         state_map_density(afl_state_t *);
+u32         state_situation_hist(afl_state_t *, u8 *, u32);
 
 /* Init */
 

@@ -199,7 +199,28 @@ static void state_situations_observe(afl_state_t *afl) {
   state_map_t *sm = afl->shm.state_map;
   u32          i, n, depth;
 
-  if (likely(!afl->situation_seen) || likely(!sm->sit_ok)) { return; }
+  if (likely(!afl->situation_seen)) { return; }
+
+  /* A target whose runtime predates the situation list counts transitions
+     without keeping one, and then every depth field reads as "no situation
+     reached" rather than "cannot be reported". */
+
+  if (unlikely(!sm->sit_ok)) {
+
+    if (unlikely(sm->transitions && !afl->sit_unsupported)) {
+
+      afl->sit_unsupported = 1;
+      WARNF(
+          "this target keeps no situation list: it reports state transitions, "
+          "but\n    state_situations and state_depth_* stay 0 because its "
+          "runtime predates the\n    list. Rebuild the target with this "
+          "afl-cc to get them.");
+
+    }
+
+    return;
+
+  }
 
   n = sm->sit_n;
   if (unlikely(n > STATE_TOUCHED_MAX)) { n = STATE_TOUCHED_MAX; }
@@ -597,6 +618,138 @@ static u8 state_probe_run(afl_state_t *afl, u8 *buf, u32 len,
 
 }
 
+/* What the state signal is worth right now: no map at all, a verdict that it
+   can be believed, a cause that cannot be measured on this target, or nothing
+   measured yet. */
+
+const char *state_signal_str(afl_state_t *afl) {
+
+  if (!afl->shm.state_map) { return "unsupported"; }
+  if (afl->state_signal_trusted) { return "trusted"; }
+  if (afl->state_utility_status == STATE_UTIL_IGNORED) {
+
+    return "unmeasurable";
+
+  }
+
+  return "observing";
+
+}
+
+/* The name of the current no-verdict cause, for fuzzer_stats. */
+
+const char *state_utility_status_str(afl_state_t *afl) {
+
+  switch (afl->state_utility_status) {
+
+    case STATE_UTIL_FEW_ENTRIES:
+      return "too few state entries";
+    case STATE_UTIL_FEW_PAIRS:
+      return "too few same-state pairs";
+    case STATE_UTIL_IGNORED:
+      return "probe ignored";
+    case STATE_UTIL_TESTED:
+      return "verdict reached";
+    default:
+      return "untested";
+
+  }
+
+}
+
+/* Say why there is no verdict, but only when that reason changes: the test
+   repeats for as long as the corpus grows, and a line per attempt would be
+   noise. A verdict already reached is never downgraded, so that the reason and
+   the figures next to it in fuzzer_stats always describe the same attempt. */
+
+static void state_utility_status(afl_state_t *afl, u8 status) {
+
+  if (afl->state_utility_status == STATE_UTIL_TESTED) { return; }
+
+  u8 changed = afl->state_utility_status != status;
+
+  afl->state_utility_status = status;
+
+  if (!changed) { return; }
+
+  switch (status) {
+
+    case STATE_UTIL_FEW_ENTRIES:
+      WARNF(
+          "state signal not testable yet: %u of %u queue entries carry a "
+          "state id,\n    %u are needed. Note that state id 0 is treated as "
+          "'no state', so a\n    harness that encodes 'nothing open yet' as "
+          "IJON_STATE(0) loses those\n    entries from the test. The test "
+          "repeats as the corpus grows.",
+          afl->state_utility_cands, afl->queued_items,
+          STATE_UTILITY_MIN_ENTRIES);
+      break;
+
+    case STATE_UTIL_FEW_PAIRS:
+      WARNF(
+          "state signal not testable yet: %u entries carry a state id, but "
+          "fewer\n    than %u same-state pairs could be tested. Either the "
+          "state definition\n    separates almost every input, or too few "
+          "entries share a state. The test\n    repeats as the corpus grows.",
+          afl->state_utility_cands, STATE_UTILITY_MIN_PAIRS);
+      break;
+
+  }
+
+}
+
+/* Shortest time between two attempts, AFL_STATE_UTILITY_RETRY in seconds. */
+
+static u64 state_utility_retry_ms(afl_state_t *afl) {
+
+  if (afl->afl_env.afl_state_utility_retry) {
+
+    return (u64)afl->afl_env.afl_state_utility_retry * 1000;
+
+  }
+
+  return STATE_UTILITY_RETRY_MS;
+
+}
+
+/* Is another attempt due? The queue cycle alone is the wrong clock, because a
+   corpus that grows faster than it is fuzzed never finishes one, and the first
+   cycle ends while the queue is still far too small to hold two entries
+   sharing a state id. An attempt is due once there is new material - more
+   entries carrying a state id, and a test's worth more of them once a verdict
+   already exists - or once the queue has been cycled. Never before the retry
+   interval has passed and enough executions have run to keep the cost of the
+   test itself negligible. */
+
+static u8 state_utility_due(afl_state_t *afl, u32 cands) {
+
+  if (!afl->state_utility_last_ms) { return 1; }
+
+  if (get_cur_time() - afl->state_utility_last_ms <
+      state_utility_retry_ms(afl)) {
+
+    return 0;
+
+  }
+
+  if (afl->fsrv.total_execs - afl->state_utility_execs <
+      STATE_UTILITY_MIN_EXECS) {
+
+    return 0;
+
+  }
+
+  u32 grown = afl->state_utility_status == STATE_UTIL_TESTED
+                  ? STATE_UTILITY_MIN_ENTRIES
+                  : 1;
+
+  if (cands >= afl->state_utility_cands + grown) { return 1; }
+
+  return afl->state_utility_cycle &&
+         afl->queue_cycle - afl->state_utility_cycle >= STATE_UTILITY_CYCLES;
+
+}
+
 /* The hard gate of item 16: a state signal may only influence which inputs
    are saved once inputs that the state definition calls identical actually
    behave identically. Two entries from the same state get the same freshly
@@ -611,14 +764,13 @@ void state_utility_test(afl_state_t *afl) {
   if (!afl->shm.state_map || !afl->virgin_state) { return; }
   if (!afl->fsrv.fsrv_pid || afl->stop_soon) { return; }
 
-  if (afl->state_utility_cycle &&
-      afl->queue_cycle - afl->state_utility_cycle < STATE_UTILITY_CYCLES) {
+  if (afl->state_utility_last_ms &&
+      get_cur_time() - afl->state_utility_last_ms <
+          state_utility_retry_ms(afl)) {
 
     return;
 
   }
-
-  ++afl->state_utility_runs;
 
   u32 i, cand_cnt = 0;
 
@@ -629,7 +781,19 @@ void state_utility_test(afl_state_t *afl) {
 
   }
 
-  if (cand_cnt < STATE_UTILITY_MIN_ENTRIES) { return; }
+  if (!state_utility_due(afl, cand_cnt)) { return; }
+
+  afl->state_utility_last_ms = get_cur_time();
+  afl->state_utility_execs = afl->fsrv.total_execs;
+  afl->state_utility_cands = cand_cnt;
+  ++afl->state_utility_runs;
+
+  if (cand_cnt < STATE_UTILITY_MIN_ENTRIES) {
+
+    state_utility_status(afl, STATE_UTIL_FEW_ENTRIES);
+    return;
+
+  }
 
   struct queue_entry **cand = ck_alloc(cand_cnt * sizeof(struct queue_entry *));
   u32                  n = 0;
@@ -701,20 +865,7 @@ void state_utility_test(afl_state_t *afl) {
 
   if (pairs < STATE_UTILITY_MIN_PAIRS) {
 
-    /* Silent here meant the user could not tell this apart from the test
-       having never run at all, since both leave state_util_pairs at 0. */
-    if (afl->state_utility_runs == 1) {
-
-      WARNF(
-          "state signal not testable yet: %u of %u entries carry a state id, "
-          "but only %u same-state pair(s) could be formed and %u are needed.\n "
-          "   Either the state definition separates almost every input, or too "
-          "few"
-          " entries report a non-zero state id - note that state id 0 is"
-          " treated as 'no state'.",
-          n, afl->queued_items, pairs, STATE_UTILITY_MIN_PAIRS);
-
-    }
+    state_utility_status(afl, STATE_UTIL_FEW_PAIRS);
 
     ck_free(used);
     ck_free(pair_b);
@@ -851,18 +1002,36 @@ void state_utility_test(afl_state_t *afl) {
 
     if (ignored) {
 
-      WARNF(
-          "state signal not testable: the probe action was ignored by %llu of "
-          "%llu pairs,\n    behind the input and in front of it. The %s probe "
-          "does not make this\n    target take another step, so same-state "
-          "inputs cannot be compared. State\n    transitions stay a metadata "
-          "note and do not influence saving.%s",
-          ignored, ignored + usable,
-          probe_from_mutator ? "custom mutator's" : "random-byte",
-          probe_from_mutator
-              ? ""
-              : "\n    A custom mutator for this input format would be asked "
-                "for the probe instead.");
+      u8 changed = afl->state_utility_status != STATE_UTIL_IGNORED &&
+                   afl->state_utility_status != STATE_UTIL_TESTED;
+
+      state_utility_status(afl, STATE_UTIL_IGNORED);
+
+      if (changed) {
+
+        WARNF(
+            "state signal cannot be measured: the probe action was ignored by "
+            "%llu of %llu\n    pairs, behind the input and in front of it. The "
+            "%s probe does not make\n    this target take another step, so "
+            "same-state inputs cannot be compared.\n    State transitions stay "
+            "a metadata note and do not influence saving\n    for the rest of "
+            "this run.%s",
+            ignored, ignored + usable,
+            probe_from_mutator ? "custom mutator's" : "random-byte",
+            probe_from_mutator
+                ? ""
+                : "\n    A custom mutator implementing "
+                  "afl_custom_state_probe would be asked to\n    build the "
+                  "probe instead - see custom_mutators/state_records/ for one "
+                  "that\n    does. With raw bytes, a record format reads the "
+                  "probe as more payload for\n    the record already there and "
+                  "performs no new action.");
+
+      }
+
+    } else {
+
+      state_utility_status(afl, STATE_UTIL_FEW_PAIRS);
 
     }
 
@@ -870,11 +1039,17 @@ void state_utility_test(afl_state_t *afl) {
 
   }
 
+  /* A test that repeats while the corpus grows must not repeat its verdict
+     line every time - only a first verdict or a changed one is news. */
+
+  u8 first_verdict = afl->state_utility_status != STATE_UTIL_TESTED;
+
   afl->state_utility_pairs = usable;
   afl->state_utility_agree = agree;
   afl->state_utility_pct = (100.0 * (double)agree) / (double)usable;
+  afl->state_utility_status = STATE_UTIL_TESTED;
 
-  if (prepended) {
+  if (prepended && first_verdict) {
 
     ACTF(
         "state utility: %llu of %llu usable pairs performed an action only "
@@ -892,21 +1067,31 @@ void state_utility_test(afl_state_t *afl) {
   if (afl->state_utility_pct >= (double)threshold) {
 
     afl->state_signal_trusted = 1;
-    OKF("state signal validated: %llu/%llu same-state pairs behaved the same "
-        "(%u%%).\n    New state transitions now count as a reason to save an "
-        "input.",
-        agree, usable, (u32)afl->state_utility_pct);
+
+    if (first_verdict || !was_trusted) {
+
+      OKF("state signal validated: %llu/%llu same-state pairs behaved the same "
+          "(%u%%).\n    New state transitions now count as a reason to save an "
+          "input.",
+          agree, usable, (u32)afl->state_utility_pct);
+
+    }
 
   } else {
 
     afl->state_signal_trusted = 0;
-    WARNF(
-        "state signal NOT validated: %llu/%llu same-state pairs behaved the "
-        "same (%u%%).\n    Inputs the state definition calls identical keep "
-        "behaving differently, so\n    the definition is merging real states "
-        "and needs one more field.\n    State transitions stay a metadata "
-        "note and do not influence saving.",
-        agree, usable, (u32)afl->state_utility_pct);
+
+    if (first_verdict || was_trusted) {
+
+      WARNF(
+          "state signal NOT validated: %llu/%llu same-state pairs behaved the "
+          "same (%u%%).\n    Inputs the state definition calls identical keep "
+          "behaving differently, so\n    the definition is merging real states "
+          "and needs one more field.\n    State transitions stay a metadata "
+          "note and do not influence saving.",
+          agree, usable, (u32)afl->state_utility_pct);
+
+    }
 
   }
 

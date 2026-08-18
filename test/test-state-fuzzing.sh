@@ -243,7 +243,8 @@ for key in state_mode ballast_pct slow_path_execs slow_path_pct \
            input_stab_min info_score_avg shelf_cells_used shelf_members \
            contract_check contract_diff cost_fork_us cost_setup_us \
            hot_region_hits state_signal state_transitions state_map_density \
-           state_utility_pct state_util_pairs; do
+           state_utility_pct state_util_pairs state_util_runs \
+           state_util_cands state_util_status state_sit_report; do
 
   if ! has_key "${key}" "${STATE}"; then MISSING="${MISSING} ${key}"; fi
 
@@ -331,6 +332,68 @@ if [ -n "${GP}" ]; then
     ok "-Jgp reports no stats for parts it did not enable"
 
   fi
+
+fi
+
+# state_signal must name what it knows, so that "cannot be measured on this
+# target" is not read as "still deciding".
+SIGNAL="$(echo "${STATE}" | grep -E '^state_signal *:' | sed 's/.*: *//')"
+case "${SIGNAL}" in
+
+  unsupported | observing | unmeasurable | trusted)
+    ok "state_signal reports a known value (${SIGNAL})"
+    ;;
+  *)
+    fail "state_signal reported '${SIGNAL}'"
+    ;;
+
+esac
+
+# The state utility test has to keep trying. It used to run only at a queue
+# cycle boundary, so a corpus that grows faster than it is fuzzed got the one
+# attempt made at startup - with the queue too small to hold two entries in the
+# same state - and never another one for the rest of the run.
+mkdir -p "${WORKDIR}/in_many"
+i=0
+while [ ${i} -lt 40 ]; do
+
+  printf 'SESS%060d' "${i}" > "${WORKDIR}/in_many/seed${i}"
+  printf '\x10\x00\x00\x20\xa7\x00\x30\x00\x04AAAA\x60\x00\x00' \
+    >> "${WORKDIR}/in_many/seed${i}"
+  i=$((i + 1))
+
+done
+
+AFL_STATE_UTILITY_RETRY=1 AFL_NO_UI=1 AFL_NO_AFFINITY=1 \
+  timeout -s INT 40 "${AFL_FUZZ}" -Js -V 15 \
+    -i "${WORKDIR}/in_many" -o "${WORKDIR}/out_retry" -- "${BIN}" @@ \
+    > "${WORKDIR}/out_retry.log" 2>&1
+
+RETRY="$(stats_of "${WORKDIR}/out_retry")"
+RUNS="$(echo "${RETRY}" | grep -E '^state_util_runs *:' | sed 's/.*: *//')"
+
+if [ -n "${RUNS}" ] && [ "${RUNS}" -gt 1 ]; then
+
+  ok "the state utility test repeats (${RUNS} runs in 15s)"
+
+else
+
+  fail "the state utility test ran ${RUNS:-no} time(s), it must repeat"
+  grep -E '^state_util' "${WORKDIR}/out_retry/default/fuzzer_stats" 2>/dev/null
+
+fi
+
+# A repeated test must not repeat its verdict line, or a long run drowns in it.
+VERDICTS="$(grep -c "state signal \(NOT \)\?validated" \
+              "${WORKDIR}/out_retry.log" 2>/dev/null)"
+
+if [ "${VERDICTS:-0}" -le 2 ]; then
+
+  ok "repeated tests do not repeat their verdict (${VERDICTS:-0} line(s))"
+
+else
+
+  fail "the verdict was printed ${VERDICTS} times over ${RUNS} runs"
 
 fi
 

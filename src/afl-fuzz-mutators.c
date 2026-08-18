@@ -250,7 +250,33 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);
-  if (!dh) FATAL("%s", dlerror());
+
+  if (!dh) {
+
+    u8 *err = (u8 *)dlerror();
+
+    /* A mutator built with an instrumenting compiler needs symbols that live
+       in the target, not in afl-fuzz, and the bare symbol name does not say
+       so. Building targets and mutators in one shell with an exported CC is
+       all it takes. */
+
+    if (err && (strstr((char *)err, "__afl_") ||
+                strstr((char *)err, "__sanitizer_cov"))) {
+
+      WARNF(
+          "this library looks AFL-instrumented: the missing symbol lives in an "
+          "instrumented\n    target, not in afl-fuzz. Build the mutator with a "
+          "plain compiler (cc/clang),\n    not with afl-clang-fast or "
+          "afl-gcc-fast, and check with\n    'nm -D --undefined-only %s | grep "
+          "-E \"__afl_|__sanitizer_\"' that nothing is left.",
+          fn);
+
+    }
+
+    FATAL("%s", err ? (char *)err : "dlopen failed");
+
+  }
+
   mutator->dh = dh;
 
   /* Mutator */
@@ -500,11 +526,28 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
 
   }
 
-  /* "afl_custom_state_probe", optional */
+  /* "afl_custom_state_probe", optional - but with a state map attached a
+     missing hook is very unlikely to be intentional, and an info line is too
+     easy to miss in a launch log. */
   mutator->afl_custom_state_probe = dlsym(dh, "afl_custom_state_probe");
   if (!mutator->afl_custom_state_probe) {
 
-    ACTF("optional symbol 'afl_custom_state_probe' not found.");
+    if (afl->state_mode & STATE_MODE_SMAP) {
+
+      WARNF(
+          "optional symbol 'afl_custom_state_probe' not found in %s, while -Js "
+          "asks\n    for a state signal. Its utility test falls back to random "
+          "bytes, which a\n    record format reads as more payload for the "
+          "record already there - no\n    action is performed and the test "
+          "reaches no verdict. If this mutator does\n    implement the hook, "
+          "the .so is stale: rebuild it.",
+          fn);
+
+    } else {
+
+      ACTF("optional symbol 'afl_custom_state_probe' not found.");
+
+    }
 
   } else {
 

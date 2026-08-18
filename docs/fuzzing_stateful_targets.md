@@ -370,9 +370,11 @@ With no `AFL_STATE_ACTION`, the action is 0 and the map degrades to
 
 Stats: `state_signal`, `state_transitions`, `state_map_density`,
 `state_only_saves`, `state_only_paid`, `state_admit_off`, `state_coarse_fold`,
-`state_situations`, `state_depth_max`, `state_depth_avg`, `state_depth_hist`.
+`state_sit_report`, `state_situations`, `state_depth_max`, `state_depth_avg`,
+`state_depth_hist`.
 Note that `state_transitions` counts both instrumentation transitions and the
-mutator-reported state classes below, in one number.
+mutator-reported state classes below, in one number, while the four situation
+fields count only what `IJON_STATE()` reported from inside the target.
 
 The bound above governs the **state map**, and only the state map. `IJON_SET()`
 and `IJON_INC()` write into an area that deliberately sits inside the coverage
@@ -469,6 +471,19 @@ reached. That is the intended outcome: the signal stays a note. `state_util_igno
 in `fuzzer_stats` counts the pairs that were dropped this way, so a
 `state_util_pairs : 0` can be read from the stats file alone.
 
+`state_util_pairs : 0` has three different causes and `state_util_status` names
+the one in force, because they call for different answers:
+
+| `state_util_status` | meaning | what to do |
+|---|---|---|
+| `untested` | the gate has not run yet | nothing, wait |
+| `too few state entries` | fewer than 20 queue entries carry a non-zero state id | give "nothing open yet" an id of its own, or wait for the corpus to grow |
+| `too few same-state pairs` | entries have state ids but almost none share one | the state definition separates every input; drop a field from it |
+| `probe ignored` | pairs formed, the probe performed no action | a format problem — load a format-aware mutator, see above |
+| `verdict reached` | `state_utility_pct` is meaningful | read the verdict |
+
+The first two also print a warning, once, when they first become the reason.
+
 Only entries with a **non-zero** state id are paired up: id 0 means "no state"
 throughout, so a harness that encodes "nothing open yet" as `IJON_STATE(0)`
 loses those entries from the test. Give that situation an id of its own.
@@ -484,8 +499,11 @@ Until the test passes, new state transitions are recorded, counted and
 reported, and change nothing about which inputs are saved. `state_signal` reads
 `observing`. Once agreement reaches the threshold (default 80%, set with
 `AFL_STATE_UTILITY_THRESHOLD`), it reads `trusted` and a new state transition
-becomes a reason to save an input on its own. A third value, `unsupported`,
-means the target has no state map at all — see the three requirements above.
+becomes a reason to save an input on its own. `unsupported` means the target has
+no state map at all — see the three requirements above. `unmeasurable` means the
+probe was ignored: the signal cannot be measured on this target as it is being
+fuzzed, which is a different thing from "not yet measured" and is the value to
+watch for, because nothing later in the run will change it.
 
 The transitions seen while the signal is still observational are *not* spent.
 Reporting and admission use separate maps, so a transition first met during
@@ -493,15 +511,27 @@ the observational phase can still justify saving an input once the signal
 becomes trusted.
 
 Stats: `state_utility_pct`, `state_util_pairs`, `state_util_runs`,
-`state_util_ignored`.
+`state_util_ignored`, `state_util_cands`, `state_util_status`.
 
 The test samples at most 32 pairs, so on a target with few state groups the
 figure is noisy — this repository's own end-to-end target has been observed at
 53% on one run and 100% on another. The gate is one-sided on purpose: a noisy
 estimate errs toward *not* trusting the signal, which costs nothing but a
 missed opportunity, whereas trusting a bad state definition corrupts every
-decision downstream. Re-checking every 8 queue cycles means a signal that is
-genuinely good gets more chances as the corpus grows.
+decision downstream. The test therefore repeats, so that a signal that is
+genuinely good gets more chances as the corpus grows: at most once a minute
+(`AFL_STATE_UTILITY_RETRY`) and never within 4,096 executions of the last
+attempt, so that the test — at most 6 runs per pair — cannot cost more than
+about 5% of the fuzzing. Beyond that it needs new material: one more entry
+carrying a state id while there is no verdict yet, 20 more once there is one,
+or a queue cycled 8 times. The queue cycle alone is not enough of a clock, because a
+corpus that grows faster than it is fuzzed never finishes its first cycle, and
+that cycle ends while the queue is still too small to hold two entries in the
+same state.
+`state_util_runs` in `fuzzer_stats` counts the attempts and `state_util_cands`
+reports how many entries the last one had to draw from. Repeated attempts stay
+quiet: a verdict is printed when it is first reached and when it changes, and
+a no-verdict cause when it changes.
 
 Adding `AFL_STATE_ACTION()` to a harness usually moves this number a long way,
 because most of the disagreement comes from the state definition merging
@@ -724,8 +754,13 @@ a mean deepest situation per input of 12.0 against 7.0, from *shorter* inputs.
 Set difference over the whole corpora: 2,086 situations only the annotated arms
 reached, against 9 only the plain arms did.
 
-Four fields report that objective, all of them under `-Js` and all of them
-needing a target rebuilt with a runtime that maintains the situation list:
+Four fields report that objective, all of them under `-Js` and all of them fed
+by `IJON_STATE()` calls **in the target**: a state a custom mutator reports
+through `afl_custom_describe_state` groups queue entries but does not enter the
+situation list, so a run can show a rising `state_transitions` with all four
+fields at zero. They also need a target rebuilt with a runtime that maintains
+the list; `state_sit_report` says whether the target at hand does, and a target
+that counts transitions without one is warned about once.
 
 * `state_situations` — distinct `IJON_STATE()` values the campaign ever
   reached. This is the count to compare arms on. `state_transitions` is not:
@@ -856,6 +891,7 @@ the parent holds. See `TODO.md`.
 | `AFL_TIME_ACCOUNTING` | time accounting, independent of `-J` |
 | `AFL_STATE_PROBE_RUNS` | repeat-probe run count (default 100, minimum 2) |
 | `AFL_STATE_UTILITY_THRESHOLD` | percent agreement the state signal must reach (default 80) |
+| `AFL_STATE_UTILITY_RETRY` | seconds between two runs of the state utility test (default 60) |
 | `AFL_STATE_ADMIT_PCT` | largest share of the queue the state signal may create (default 25, 0 = no bound) |
 | `AFL_STATE_YIELD_PCT` | percent of state-only entries that must have mothered a find to keep the licence (default 10) |
 | `AFL_STATE_COARSE` | fold the state index by N bits by hand, 0–8 (default 0) |

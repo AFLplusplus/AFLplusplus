@@ -141,12 +141,20 @@ operator is earning its keep.
 
 ## Running it
 
+The top level `make` builds `state_records.so`, and rebuilds it whenever
+`state_records.c` changes. To build it alone:
+
 ```sh
 make -C custom_mutators/state_records
 
 AFL_CUSTOM_MUTATOR_LIBRARY=custom_mutators/state_records/state_records.so \
   afl-fuzz -i in -o out -- ./your_target @@
 ```
+
+A stale `.so` is easy to mistake for a format problem: `afl-fuzz` says which
+optional hooks it did not find, and under `-Js` a missing
+`afl_custom_state_probe` is a warning, because without it the state utility
+test falls back to random bytes and reaches no verdict on this format.
 
 To run it against the example target:
 

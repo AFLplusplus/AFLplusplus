@@ -147,8 +147,6 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
   if (unlikely(afl->value_profile_active)) { vp_focus_rotate(afl); }
 
-  if (unlikely(afl->state_mode & STATE_MODE_SMAP)) { state_utility_test(afl); }
-
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
     afl->reinit_table = 1;  // periodically reinit table because of nfuzz
@@ -562,6 +560,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
     cull_queue(afl);               // update favored entries
     afl_advance_queue_cycle(afl);  // start a new cycle when queue is exhausted
+    if (unlikely(afl->state_mode & STATE_MODE_SMAP)) {
+
+      state_utility_test(afl);  // retest the state signal as the corpus grows
+
+    }
+
     if (afl_fuzz_queue(afl)) { ++afl->runs_in_current_cycle; }
     afl_maybe_switch_mode(afl);  // switch to exploitation if no new edges
     afl_maybe_sync(afl);         // periodically import other fuzzers' finds
