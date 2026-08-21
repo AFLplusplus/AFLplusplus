@@ -863,7 +863,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   }
 
-  if (afl->value_profile_mode) {
+  if (unlikely(afl->value_profile_mode)) {
 
     fprintf(f, "value_profile_finds  : %llu\n",
             (unsigned long long)afl->value_profile_finds);
@@ -975,7 +975,7 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
 void plot_profile_data(afl_state_t *afl, struct queue_entry *q) {
 
-  if (afl->skip_deterministic) { return; }
+  if (unlikely(afl->skip_deterministic)) { return; }
 
   u64 current_ms = get_cur_time() - afl->start_time;
 
@@ -1145,7 +1145,7 @@ static void show_state_lines(afl_state_t *afl) {
 
 void show_stats(afl_state_t *afl) {
 
-  if (afl->pizza_is_served) {
+  if (unlikely(afl->pizza_is_served)) {
 
     show_stats_pizza(afl);
 
@@ -1358,7 +1358,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   /* If we're not on TTY, bail out. */
 
-  if (afl->not_on_tty) { return; }
+  if (likely(afl->not_on_tty)) { return; }
 
   /* If we haven't started doing things, bail out. */
 
@@ -1366,7 +1366,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   /* Now, for the visuals... */
 
-  if (afl->clear_screen) {
+  if (unlikely(afl->clear_screen)) {
 
     SAYF(TERM_CLEAR CURSOR_HIDE);
     afl->clear_screen = 0;
@@ -1397,12 +1397,12 @@ void show_stats_normal(afl_state_t *afl) {
     char *si = "";
     char *fuzzer_name;
 
-    if (afl->sync_id) { si = afl->sync_id; }
+    if (likely(afl->sync_id)) { si = afl->sync_id; }
     memset(banner, 0, sizeof(banner));
 
     banner_len = strlen(VERSION) + strlen(si) + strlen(afl->power_name) + 4 + 6;
 
-    if (afl->crash_mode) {
+    if (unlikely(afl->crash_mode)) {
 
       fuzzer_name = "peruvian were-rabbit";
 
@@ -1431,7 +1431,7 @@ void show_stats_normal(afl_state_t *afl) {
     memset(banner, ' ', banner_pad);
 
 #ifdef __linux__
-    if (afl->fsrv.nyx_mode) {
+    if (unlikely(afl->fsrv.nyx_mode)) {
 
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
                "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN
@@ -1486,7 +1486,7 @@ void show_stats_normal(afl_state_t *afl) {
        " process timing " bSTG bH30 bH5 bH bHB bH bSTOP cCYA
        " overall results " bSTG bH2               bH2 bRT "\n");
 
-  if (afl->non_instrumented_mode) {
+  if (unlikely(afl->non_instrumented_mode)) {
 
     strcpy(tmp, cRST);
 
@@ -1541,7 +1541,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   } else {
 
-    if (afl->non_instrumented_mode) {
+    if (unlikely(afl->non_instrumented_mode)) {
 
       SAYF(bV bSTOP "   last new find : " cPIN "n/a" cRST
                     " (non-instrumented mode)       ");
@@ -1646,7 +1646,7 @@ void show_stats_normal(afl_state_t *afl) {
           u_stringify_int(IB(1), afl->saved_crashes),
           (afl->saved_crashes >= KEEP_UNIQUE_CRASH) ? "+" : "");
 
-  if (afl->crash_mode) {
+  if (unlikely(afl->crash_mode)) {
 
     SAYF(bV bSTOP " total execs : " cRST "%-22s " bSTG bV bSTOP
                   "   new crashes : %s%-20s" bSTG bV "\n",
@@ -1922,7 +1922,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   /* Provide some CPU utilization stats. */
 
-  if (afl->cpu_core_count) {
+  if (likely(afl->cpu_core_count)) {
 
     char  *spacing = SP10;
     double cur_runnable = get_runnable_processes();
@@ -2191,7 +2191,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   /* If we're not on TTY, bail out. */
 
-  if (afl->not_on_tty) { return; }
+  if (likely(afl->not_on_tty)) { return; }
 
   /* If we haven't started doing things, bail out. */
 
@@ -2199,7 +2199,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   /* Now, for the visuals... */
 
-  if (afl->clear_screen) {
+  if (unlikely(afl->clear_screen)) {
 
     SAYF(TERM_CLEAR CURSOR_HIDE);
     afl->clear_screen = 0;
@@ -2229,7 +2229,7 @@ void show_stats_pizza(afl_state_t *afl) {
   if (unlikely(!banner[0])) {
 
     char *si = "";
-    if (afl->sync_id) { si = afl->sync_id; }
+    if (likely(afl->sync_id)) { si = afl->sync_id; }
     memset(banner, 0, sizeof(banner));
     banner_len = (afl->crash_mode ? 20 : 18) + strlen(VERSION) + strlen(si) +
                  strlen(afl->power_name) + 4 + 6;
@@ -2246,7 +2246,7 @@ void show_stats_pizza(afl_state_t *afl) {
     memset(banner, ' ', banner_pad);
 
 #ifdef __linux__
-    if (afl->fsrv.nyx_mode) {
+    if (unlikely(afl->fsrv.nyx_mode)) {
 
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
                "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
@@ -2300,7 +2300,7 @@ void show_stats_pizza(afl_state_t *afl) {
        " Mozzarbella has been proudly serving pizzas since " bSTG bH20 bH bH bH
            bHB bH bSTOP cCYA " In this time, we served " bSTG bH30 bRT "\n");
 
-  if (afl->non_instrumented_mode) {
+  if (unlikely(afl->non_instrumented_mode)) {
 
     strcpy(tmp, cRST);
 
@@ -2357,7 +2357,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   } else {
 
-    if (afl->non_instrumented_mode) {
+    if (unlikely(afl->non_instrumented_mode)) {
 
       SAYF(bV bSTOP "                  last pizza baked : " cPIN "n/a" cRST
                     " (non-instrumented mode)           ");
@@ -2476,7 +2476,7 @@ void show_stats_pizza(afl_state_t *afl) {
           u_stringify_int(IB(1), afl->saved_crashes),
           (afl->saved_crashes >= KEEP_UNIQUE_CRASH) ? "+" : "");
 
-  if (afl->crash_mode) {
+  if (unlikely(afl->crash_mode)) {
 
     SAYF(bV bSTOP "                      total pizzas : " cRST
                   "%-22s                " bSTG bV bSTOP
@@ -2771,7 +2771,7 @@ void show_stats_pizza(afl_state_t *afl) {
 
   /* Provide some CPU utilization stats. */
 
-  if (afl->cpu_core_count) {
+  if (likely(afl->cpu_core_count)) {
 
     char  *spacing = SP10;
     double cur_runnable = get_runnable_processes();

@@ -442,6 +442,17 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
 
     ck_free(tmp);
 
+    /* In a source checkout the headers live in include/, so without this an
+       in-tree build silently prefers an older installed copy. */
+
+    tmp = alloc_printf("%s/include/%s", afl_path, obj);
+
+    if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+    if (!access(tmp, R_OK)) { return tmp; }
+
+    ck_free(tmp);
+
   }
 
   if (argv0) {
@@ -456,6 +467,18 @@ u8 *find_object(aflcc_state_t *aflcc, u8 *obj) {
       *slash = 0;
 
       tmp = alloc_printf("%s/%s", dir, obj);
+
+      if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
+
+      if (!access(tmp, R_OK)) {
+
+        ck_free(dir);
+        return tmp;
+
+      }
+
+      ck_free(tmp);
+      tmp = alloc_printf("%s/include/%s", dir, obj);
 
       if (aflcc->debug) DEBUGF("Trying %s\n", tmp);
 

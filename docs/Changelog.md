@@ -106,6 +106,14 @@
     - enhancements and fixes for cmplog and ijon
     - due to a bug first introduced in v4.30c the cmplog target was used for
       fuzzing if present - fixed
+    - an unreadable foreign sync (`-F`) directory is reported now, once per
+      directory, and the directories are listed at startup - a mistyped path
+      was silently ignored for the whole run before
+    - the queue driver always returns to the main loop now, even when every
+      entry it looks at is skipped
+    - a custom mutator that fails to load because it was built with an
+      instrumenting compiler is named as such instead of just showing the
+      missing `__afl_*` symbol
   - afl-cc
     - remove classic AFL instrumentation (colliding coverage), as `AFL_LLVM_PATH`
       and `AFL_LLVM_CALLER` replace these mostly and are overall much better
@@ -119,6 +127,14 @@
     - new env var `AFL_LLVM_VECTORS=1` instruments vector selects and vector
       min/max one guard pair per lane (default off, they are rarely worth it)
     - removed the obsolete afl-as assembler wrapper and its remaining references
+    - headers shipped in a source checkout are found in `include/` now, an
+      in-tree build silently preferred an older installed copy before
+    - IJON: the map expansion is re-applied after a guard-init reset, so a
+      target whose coverage is split over several instrumented modules gets
+      the full map; the IJON channels also stay live under a tool that
+      attached a map without being a forkserver parent (`afl-showmap` on a
+      single input, `afl-cmin.bash`); `AFL_DUMP_MAP_SIZE` prints the
+      coverage/IJON breakdown to stderr
   - afl-cmin:
     - (all variants: C, python, bash, awk): empty (0 byte) input files are now
       skipped, plus various other fixes and corner case handling
@@ -129,6 +145,14 @@
       actually allowed to run on (like `nproc` does)
   - afl-showmap:
     - `-i` now follows symlinked test cases and symlinked subdirectories
+    - a child killed by a signal no longer reports a garbage exit code in
+      streaming mode (`-S`)
+    - the target's instrumentation is checked in `-I` and `-S` mode too, not
+      only with `-i`
+  - afl-showmap, afl-cmin, afl-tmin, afl-analyze:
+    - the IJON max-value slots and a bug-pass map are no longer counted as
+      coverage: they hold wide values, not hit counts, and were reported as
+      tuples, minimised against and bucket-classified in place
   - afl-health
     - more speed, more info, a few fixes
   - custom_mutators:
