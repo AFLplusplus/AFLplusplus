@@ -582,9 +582,7 @@ static void streaming_loop(void) {
     } else {
 
       /* Encode exit code in bits 8-15 */
-      u8 exitcode =
-          WIFEXITED(fsrv->child_status) ? WEXITSTATUS(fsrv->child_status) : 0;
-      status = STREAMING_STATUS_EXITED | (exitcode << 8);
+      status = STREAMING_STATUS_EXITED | (WEXITSTATUS(fsrv->child_status) << 8);
 
     }
 
@@ -1797,19 +1795,14 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
 #ifdef __linux__
-  if (!fsrv->nyx_mode && (in_dir || in_filelist || streaming_mode)) {
+  if (!fsrv->nyx_mode && (in_dir || in_filelist)) {
 
     (void)check_binary_signatures(fsrv->target_path);
 
   }
 
 #else
-  if (in_dir || in_filelist || streaming_mode) {
-
-    (void)check_binary_signatures(fsrv->target_path);
-
-  }
-
+  if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
 #endif
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));

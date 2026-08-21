@@ -481,13 +481,6 @@ We add 4 byte for one u32 length field. */
 
 #define CAL_CHANCES 3
 
-/* Upper bound on how many queue entries may be skipped in a row before the
-   queue driver returns to the main loop. Skipping is normal, but the main
-   loop is where the -V / -E limits, cull_queue() and the alias table live,
-   so it must always be reachable: */
-
-#define QUEUE_SKIP_STREAK_MAX 1024
-
 /* How often the coverage of an entry that failed calibration is handed back
    to virgin_bits, counted per map byte. A path that can never be calibrated
    would otherwise be rediscovered and requeued without bound, so beyond this

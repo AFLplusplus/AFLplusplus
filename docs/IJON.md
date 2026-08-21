@@ -324,21 +324,6 @@ dropped is dropped for good.
 - `ijon_admit_off` — 1 once the channel lost its licence to save
 - `ijon_replay_int` — the `IJON_MAX` replay interval in force
 
-### The other tools
-
-`afl-showmap`, `afl-cmin`, `afl-tmin` and `afl-analyze` see the same map
-afl-fuzz does: coverage plus the 64 KB `IJON_SET`/`IJON_INC` area, with the
-4 KB of `IJON_MAX` slots (and a bug-pass map, if the target has one) excluded,
-because those hold wide values rather than hit counts and would otherwise be
-reported as tuples, minimised against, or bucket-classified in place. So an
-`afl-showmap` dump of an IJON target lists tuples above the coverage size, and
-two inputs that differ only in an `IJON_SET` value are two different traces —
-which is what makes `afl-cmin` keep both, exactly as afl-fuzz would.
-
-The IJON channels need a map to write into: a bare `./target` run leaves them
-alone, while a run under any of these tools has one. Nothing has to be passed
-for that.
-
 To check statically whether a binary carries IJON instrumentation, look for the
 strong symbol the pass emits — `strings` cannot tell, because the runtime is
 linked into every `afl-cc` target:

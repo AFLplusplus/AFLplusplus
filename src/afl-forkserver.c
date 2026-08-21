@@ -2347,47 +2347,6 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
 }
 
-/* An IJON build and a bug-pass build append areas to trace_bits that are not
-   coverage, the whole region being [cov | IJON_MAP | IJON_BYTES | BUG].
-   afl-fuzz consumes those channels and takes the tails off its own view (see
-   configure_ijon_runtime and configure_bug_runtime); every other tool has no
-   use for them and would otherwise count them as edges, minimise against them
-   or write them out as coverage. The IJON set/inc area stays inside the map on
-   purpose, because afl-fuzz counts it as coverage - dropping it here would make
-   afl-cmin disagree with the fuzzer about what a new tuple is. The shared
-   segment keeps its full size, only the coverage view shrinks. Call this after
-   the handshake that set the size, and only once per handshake. */
-
-void afl_fsrv_trim_extra_maps(afl_forkserver_t *fsrv) {
-
-  u32 tail = 0;
-
-  if (fsrv->use_bug_map) { tail += MAP_SIZE_BUG_BYTES; }
-  if (fsrv->use_ijon) { tail += MAP_SIZE_IJON_BYTES; }
-
-  if (!tail) { return; }
-
-  if (fsrv->map_size <= tail + 4 || fsrv->real_map_size <= tail + 4) {
-
-    FATAL(
-        "target reports a map of %u bytes, too small to hold the IJON and "
-        "bug-pass areas it announced - BUG!",
-        fsrv->map_size);
-
-  }
-
-  fsrv->map_size -= tail;
-  fsrv->real_map_size -= tail;
-
-  if (!be_quiet) {
-
-    ACTF("Coverage map is %u bytes, %u bytes of IJON/bug-pass areas excluded.",
-         fsrv->map_size, tail);
-
-  }
-
-}
-
 /* Get mapsize from fsrv and resize if larger than DEFAULT_SHMEM_SIZE */
 
 void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
@@ -2467,8 +2426,6 @@ void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
                        : 0);
 
   }
-
-  afl_fsrv_trim_extra_maps(fsrv);
 
 }
 

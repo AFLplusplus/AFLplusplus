@@ -766,23 +766,16 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
 
       if (!fdir) {
 
-        /* read_foreign_testcases() is only ever called with first == 0 (the
-           first == 1 call site is disabled), so gating this on first hid a
-           mistyped -F path forever. Report it once per directory instead. */
-        if (first || !afl->foreign_syncs[iter].warned) {
+        if (first) {
 
-          afl->foreign_syncs[iter].warned = 1;
-          WARNF("Unable to open -F directory '%s'",
-                afl->foreign_syncs[iter].dir);
-          if (first) { sleep(1); }
+          WARNF("Unable to open directory '%s'", afl->foreign_syncs[iter].dir);
+          sleep(1);
 
         }
 
         continue;
 
       }
-
-      afl->foreign_syncs[iter].warned = 0;
 
       /* Show stats */
 
@@ -874,16 +867,7 @@ void read_foreign_testcases(afl_state_t *afl, int first) {
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
         afl->syncing_party = foreign_name;
         afl->foreign_file = fn->d_name;
-        u32 was_imported = afl->queued_imported;
         afl->queued_imported += save_if_interesting(afl, mem, len, fault);
-        if (afl->queued_imported > was_imported &&
-            !afl->foreign_syncs[iter].announced) {
-
-          afl->foreign_syncs[iter].announced = 1;
-          OKF("Foreign sync '%s' is live: first import from '%s'", foreign_name,
-              afl->foreign_syncs[iter].dir);
-
-        }
 
         munmap(orig_mem, st.st_size);
         close(fd);

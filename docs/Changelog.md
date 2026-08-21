@@ -118,8 +118,6 @@
       i.e. `if (a && b)` speculated into a single `and i1`
     - new env var `AFL_LLVM_VECTORS=1` instruments vector selects and vector
       min/max one guard pair per lane (default off, they are rarely worth it)
-    - `find_object()` now also looks in `$AFL_PATH/include` and in
-      `<dir of argv0>/include`.
     - removed the obsolete afl-as assembler wrapper and its remaining references
   - afl-cmin:
     - (all variants: C, python, bash, awk): empty (0 byte) input files are now

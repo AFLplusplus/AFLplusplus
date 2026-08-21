@@ -1565,11 +1565,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   be_quiet = save_be_quiet;
 
-  /* The handshake, and the IJON/bug-pass trim that follows it, are what
-     establish the real coverage size. Everything below walks the map with the
-     local copy. */
-  map_size = fsrv->map_size;
-
   if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
     shm_fuzz = deinit_shmem(fsrv, shm_fuzz);
 

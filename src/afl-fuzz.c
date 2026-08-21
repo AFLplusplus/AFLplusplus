@@ -2818,22 +2818,6 @@ void afl_setup_environment(afl_state_t *afl) {
   }
 
   // read_foreign_testcases(afl, 1); for the moment dont do this
-  /* That call is disabled, so nothing else ever announces -F. List the
-     directories here: a typo in a foreign sync path is otherwise invisible
-     for the whole run. */
-  if (afl->foreign_sync_cnt) {
-
-    u32 fs_i;
-    for (fs_i = 0; fs_i < afl->foreign_sync_cnt; fs_i++) {
-
-      ACTF("Foreign sync %u: '%s'%s", fs_i, afl->foreign_syncs[fs_i].dir,
-           access(afl->foreign_syncs[fs_i].dir, R_OK) ? " (NOT READABLE YET)"
-                                                      : "");
-
-    }
-
-  }
-
   OKF("Loaded a total of %u seeds.", afl->queued_items);
 
   /* If we don't have a file name chosen yet, use a safe default. */
