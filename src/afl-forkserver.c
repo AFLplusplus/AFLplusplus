@@ -340,7 +340,7 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
                                  volatile u8 *stop_soon_p) {
 
   #ifdef __linux__
-  /* Absolute deadline on CLOCK_MONOTONIC. Not affected by NTP changes. */
+  // Absolute deadline on CLOCK_MONOTONIC. Not affected by NTP changes.
   struct timespec deadline;
   clock_gettime(CLOCK_MONOTONIC, &deadline);
 
@@ -354,7 +354,7 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
   }
 
   #else
-  /* Absolute deadline in mach-absolute-time units. */
+  // Absolute deadline in mach-absolute-time units.
   static mach_timebase_info_data_t tb = {0, 0};
   if (tb.denom == 0) { mach_timebase_info(&tb); }
   uint64_t deadline =
@@ -367,7 +367,7 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
     u32 fval = __atomic_load_n(fsrv->child_sync, __ATOMIC_ACQUIRE);
     if (fval == AFL_CHILD_DONE || fval == AFL_CHILD_EXITED) { return fval; }
 
-    /* Fast path: check timeout & stop before sleeping */
+    // Fast path: check timeout & stop before sleeping
     if (fsrv->last_run_timed_out || unlikely(*stop_soon_p)) {
 
       if (fsrv->child_pid > 0) {
@@ -386,7 +386,7 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
 
     }
 
-    /* Wait until the absolute deadline. */
+    // Wait until the absolute deadline
   #ifdef __linux__
     int r = sys_futex(fsrv->child_sync, FUTEX_WAIT_BITSET, fval, &deadline,
                       NULL, FUTEX_BITSET_MATCH_ANY);
@@ -396,7 +396,7 @@ static inline u32 afl_futex_wait(afl_forkserver_t *fsrv, u32 timeout_ms,
         OS_SYNC_WAIT_ON_ADDRESS_SHARED, OS_CLOCK_MACH_ABSOLUTE_TIME, deadline);
   #endif
 
-    /* If we timed out, mark it and loop once to take the kill/return path. */
+    // If we timed out, mark it and loop once to take the kill/return path
     if (r == -1 && errno == ETIMEDOUT) { fsrv->last_run_timed_out = 1; }
 
     /* Otherwise: value changed, spurious wake, or EINTR => loop and re-check.
@@ -461,11 +461,12 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->out_fd = -1;
   fsrv->out_dir_fd = -1;
   fsrv->dev_null_fd = -1;
+  fsrv->crash_trace_fd = -1;
   fsrv->dev_urandom_fd = -1;
   fsrv->fsrv_ctl_fd = -1;
   fsrv->fsrv_st_fd = -1;
 
-  /* Settings */
+  // Settings
   fsrv->use_stdin = true;
   fsrv->no_unlink = false;
   fsrv->exec_tmout = EXEC_TIMEOUT;
@@ -475,7 +476,12 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->child_kill_signal = SIGKILL;
   fsrv->max_length = MAX_FILE;
 
-  fsrv->allow_cores = getenv("AFL_ALLOW_CORES") != NULL ? true : false;
+  u8 *crash_traces_env = (u8 *)getenv("AFL_CRASH_TRACES");
+  fsrv->allow_cores =
+      (getenv("AFL_ALLOW_CORES") != NULL ||
+       (crash_traces_env != NULL && atoi((char *)crash_traces_env) > 0))
+          ? true
+          : false;
 
   if (getenv("AFL_PRELOAD_DISCRIMINATE_FORKSERVER_PARENT") != NULL) {
 
@@ -487,14 +493,16 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
 
   }
 
-  /* exec related stuff */
+  // exec related stuff
   fsrv->child_pid = -1;
+  fsrv->last_child_pid = -1;
   fsrv->map_size = get_map_size();
 
   /* IJON space allocation is handled by normal resize logic based on target's
    * reported size */
   fsrv->real_map_size = fsrv->map_size;
   fsrv->use_fauxsrv = false;
+  fsrv->use_value_profile = false;
   fsrv->last_run_timed_out = false;
   fsrv->debug = false;
   fsrv->uses_crash_exitcode = false;
@@ -547,6 +555,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
   fsrv_to->use_stdin = from->use_stdin;
   fsrv_to->dev_null_fd = from->dev_null_fd;
+  fsrv_to->crash_trace_fd = -1;  // only the main forkserver captures traces
   fsrv_to->exec_tmout = from->exec_tmout;
   fsrv_to->init_tmout = from->init_tmout;
   fsrv_to->mem_limit = from->mem_limit;
@@ -600,7 +609,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
 
 void afl_fsrv_setup_preload(afl_forkserver_t *fsrv, char *argv0) {
 
-  /* afl-qemu-trace takes care of converting AFL_PRELOAD. */
+  // afl-qemu-trace takes care of converting AFL_PRELOAD
   if (fsrv->qemu_mode) return;
 
   u8 *afl_preload = getenv("AFL_PRELOAD");
@@ -648,7 +657,7 @@ static u32 __attribute__((hot)) read_s32_timed(s32 fd, s32 *buf, u32 timeout_ms,
   fds[0].fd = fd;
   fds[0].events = POLLIN;
 
-  /* set exceptfds as well to return when a child exited/closed the pipe. */
+  // set exceptfds as well to return when a child exited/closed the pipe
 restart_poll:
   pret = poll(fds, nfds, timeout_ms);
   if (likely(pret > 0)) {
@@ -765,17 +774,17 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
     uint32_t was_killed;
     u32      status;
 
-    /* Wait for parent by reading from the pipe. Exit if read fails. */
+    // Wait for parent by reading from the pipe. Exit if read fails
 
     if (read(FORKSRV_FD, &was_killed, 4) != 4) { exit(0); }
 
-    /* Create a clone of our process. */
+    // Create a clone of our process
 
     child_pid = fork();
 
     if (child_pid < 0) { PFATAL("Fork failed"); }
 
-    /* In child process: close fds, resume execution. */
+    // In child process: close fds, resume execution
 
     if (!child_pid) {  // New child
 
@@ -840,12 +849,11 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     }
 
-    /* In parent process: write PID to AFL. */
+    // In parent process: write PID to AFL
 
     if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) { exit(0); }
 
-    /* after child exited, get and relay exit status to parent through waitpid.
-     */
+    // after child exited, get and relay exit status to parent through waitpid
 
     if (waitpid(child_pid, &status, 0) < 0) {
 
@@ -854,7 +862,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     }
 
-    /* Relay wait status to AFL pipe, then loop back. */
+    // Relay wait status to AFL pipe, then loop back
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) { exit(1); }
 
@@ -960,7 +968,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    /* libnyx expects an absolute path */
+    // libnyx expects an absolute path
     char *outdir_path_absolute = realpath(fsrv->out_dir_path, NULL);
     if (outdir_path_absolute == NULL) {
 
@@ -1117,7 +1125,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     fsrv->nyx_aux_string = malloc(fsrv->nyx_aux_string_len);
     memset(fsrv->nyx_aux_string, 0, fsrv->nyx_aux_string_len);
 
-    /* dry run */
+    // dry run
     fsrv->nyx_handlers->nyx_set_afl_input(fsrv->nyx_runner, "INIT", 4);
     switch (fsrv->nyx_handlers->nyx_exec(fsrv->nyx_runner)) {
 
@@ -1135,7 +1143,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    /* autodict in Nyx mode */
+    // autodict in Nyx mode
     if (!ignore_autodict && fsrv->add_extra_func) {
 
       char *x =
@@ -1231,7 +1239,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (fsrv->use_fauxsrv) {
 
-    /* TODO: Come up with some nice way to initialize this all */
+    // TODO: Come up with some nice way to initialize this all
 
     if (fsrv->init_child_func == afl_fauxsrv_execv) {
 
@@ -1269,7 +1277,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   if (!fsrv->fsrv_pid) {
 
-    /* CHILD PROCESS */
+    // CHILD PROCESS
 
 #ifdef __linux__
     prctl(PR_SET_PDEATHSIG, SIGKILL);
@@ -1296,7 +1304,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     if (!getrlimit(RLIMIT_NOFILE, &r) && r.rlim_cur < FORKSRV_FD + 2) {
 
       r.rlim_cur = FORKSRV_FD + 2;
-      setrlimit(RLIMIT_NOFILE, &r);                        /* Ignore errors */
+      setrlimit(RLIMIT_NOFILE, &r);  // Ignore errors
 
     }
 
@@ -1305,13 +1313,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       r.rlim_max = r.rlim_cur = ((rlim_t)fsrv->mem_limit) << 20;
 
 #ifdef RLIMIT_AS
-      setrlimit(RLIMIT_AS, &r);                            /* Ignore errors */
+      setrlimit(RLIMIT_AS, &r);  // Ignore errors
 #else
       /* This takes care of OpenBSD, which doesn't have RLIMIT_AS, but
          according to reliable sources, RLIMIT_DATA covers anonymous
          maps - so we should be getting good protection against OOM bugs. */
 
-      setrlimit(RLIMIT_DATA, &r);                          /* Ignore errors */
+      setrlimit(RLIMIT_DATA, &r);  // Ignore errors
 #endif                                                        /* ^RLIMIT_AS */
 
     }
@@ -1322,14 +1330,14 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
     if (!fsrv->debug && !fsrv->allow_cores) {
 
       r.rlim_max = r.rlim_cur = 0;
-      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
+      setrlimit(RLIMIT_CORE, &r);  // Ignore errors
 
     }
 
     if (fsrv->allow_cores) {
 
       r.rlim_max = r.rlim_cur = INT_MAX;
-      setrlimit(RLIMIT_CORE, &r);                          /* Ignore errors */
+      setrlimit(RLIMIT_CORE, &r);  // Ignore errors
 
     }
 
@@ -1340,8 +1348,20 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (!(debug_child_output)) {
 
-      dup2(fsrv->dev_null_fd, 1);
-      dup2(fsrv->dev_null_fd, 2);
+      if (fsrv->crash_trace_fd >= 0) {
+
+        /* AFL_CRASH_TRACES: capture the target's stdout/stderr so a crashing
+           run's sanitizer report / stack trace can be saved beside the crash.
+         */
+        dup2(fsrv->crash_trace_fd, 1);
+        dup2(fsrv->crash_trace_fd, 2);
+
+      } else {
+
+        dup2(fsrv->dev_null_fd, 1);
+        dup2(fsrv->dev_null_fd, 2);
+
+      }
 
     }
 
@@ -1356,7 +1376,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
-    /* Set up control and status pipes, close the unneeded original fds. */
+    // Set up control and status pipes, close the unneeded original fds
 
     if (dup2(ctl_pipe[0], FORKSRV_FD) < 0) { PFATAL("dup2() failed"); }
     if (dup2(st_pipe[1], FORKSRV_FD + 1) < 0) { PFATAL("dup2() failed"); }
@@ -1368,6 +1388,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     if (fsrv->out_dir_fd >= 0) close(fsrv->out_dir_fd);
     if (fsrv->dev_null_fd >= 0) close(fsrv->dev_null_fd);
+    if (fsrv->crash_trace_fd >= 0) close(fsrv->crash_trace_fd);
     if (fsrv->dev_urandom_fd >= 0) close(fsrv->dev_urandom_fd);
 
     if (fsrv->plot_file != NULL) {
@@ -1396,7 +1417,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
 #endif
 
-    /* Set sane defaults for sanitizers */
+    // Set sane defaults for sanitizers
     set_sanitizer_defaults();
 
     fsrv->init_child_func(fsrv, argv);
@@ -1409,7 +1430,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   }
 
-  /* PARENT PROCESS */
+  // PARENT PROCESS
 
   char pid_buf[16];
   sprintf(pid_buf, "%d", fsrv->fsrv_pid);
@@ -1418,7 +1439,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   else
     setenv("__AFL_TARGET_PID1", pid_buf, 1);
 
-  /* Close the unneeded endpoints. */
+  // Close the unneeded endpoints
 
   close(ctl_pipe[0]);
   close(st_pipe[1]);
@@ -1426,7 +1447,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   fsrv->fsrv_ctl_fd = ctl_pipe[1];
   fsrv->fsrv_st_fd = st_pipe[0];
 
-  /* Wait for the fork server to come up, but don't wait too long. */
+  // Wait for the fork server to come up, but don't wait too long
 
   rlen = 0;
   if (fsrv->init_tmout) {
@@ -1640,6 +1661,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+      if (status & FS_NEW_OPT_VALUE_PROFILE) {
+
+        fsrv->use_value_profile = 1;
+        if (!be_quiet) { ACTF("Using VALUE PROFILE feature."); }
+
+      }
+
       if (status & FS_NEW_OPT_AUTODICT) {
 
         // even if we do not need the dictionary we have to read it
@@ -1715,6 +1743,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       // Mask out expected capability flags when comparing handshake status
       u32 expected_flags = 0;
       if (fsrv->use_ijon) { expected_flags |= FS_OPT_IJON; }
+      if (fsrv->use_value_profile) {
+
+        expected_flags |= FS_NEW_OPT_VALUE_PROFILE;
+
+      }
+
       if ((status2 & ~expected_flags) != keep) {
 
         FATAL("Error in forkserver communication (%08x=>%08x)", keep, status2);
@@ -2304,6 +2338,47 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 
 }
 
+/* An IJON build and a bug-pass build append areas to trace_bits that are not
+   coverage, the whole region being [cov | IJON_MAP | IJON_BYTES | BUG].
+   afl-fuzz consumes those channels and takes the tails off its own view (see
+   configure_ijon_runtime and configure_bug_runtime); every other tool has no
+   use for them and would otherwise count them as edges, minimise against them
+   or write them out as coverage. The IJON set/inc area stays inside the map on
+   purpose, because afl-fuzz counts it as coverage - dropping it here would make
+   afl-cmin disagree with the fuzzer about what a new tuple is. The shared
+   segment keeps its full size, only the coverage view shrinks. Call this after
+   the handshake that set the size, and only once per handshake. */
+
+void afl_fsrv_trim_extra_maps(afl_forkserver_t *fsrv) {
+
+  u32 tail = 0;
+
+  if (fsrv->use_bug_map) { tail += MAP_SIZE_BUG_BYTES; }
+  if (fsrv->use_ijon) { tail += MAP_SIZE_IJON_BYTES; }
+
+  if (!tail) { return; }
+
+  if (fsrv->map_size <= tail + 4 || fsrv->real_map_size <= tail + 4) {
+
+    FATAL(
+        "target reports a map of %u bytes, too small to hold the IJON and "
+        "bug-pass areas it announced - BUG!",
+        fsrv->map_size);
+
+  }
+
+  fsrv->map_size -= tail;
+  fsrv->real_map_size -= tail;
+
+  if (!be_quiet) {
+
+    ACTF("Coverage map is %u bytes, %u bytes of IJON/bug-pass areas excluded.",
+         fsrv->map_size, tail);
+
+  }
+
+}
+
 /* Get mapsize from fsrv and resize if larger than DEFAULT_SHMEM_SIZE */
 
 void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
@@ -2344,7 +2419,7 @@ void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
           ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
 
 #ifdef __linux__
-        /* no need to terminate the nyx runner */
+        // no need to terminate the nyx runner
         if (!fsrv->nyx_mode) {
 
 #endif
@@ -2383,6 +2458,8 @@ void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
                        : 0);
 
   }
+
+  afl_fsrv_trim_extra_maps(fsrv);
 
 }
 
@@ -2463,18 +2540,18 @@ void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
 
       } else {
 
-        unlink(fsrv->out_file);                           /* Ignore errors. */
+        unlink(fsrv->out_file);  // Ignore errors
         fd = open(fsrv->out_file, O_WRONLY | O_CREAT | O_EXCL, fsrv->perm);
 
       }
+
+      if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
 
       if (fsrv->chown_needed) {
 
         if (fchown(fd, -1, fsrv->gid) == -1) { PFATAL("fchown() failed"); }
 
       }
-
-      if (fd < 0) { PFATAL("Unable to create '%s'", fsrv->out_file); }
 
     } else if (unlikely(fd <= 0)) {
 
@@ -2564,6 +2641,20 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   u32 exec_ms;
   u32 write_value = fsrv->last_run_timed_out;
 
+  /* AFL_CRASH_TRACES: clear the capture buffer before each run so a crash's
+     trace file holds only the crashing run's own stdout/stderr, not output
+     accumulated from previous runs. Only the main forkserver sets
+     crash_trace_fd (>= 0), and only when the feature is enabled, so this is a
+     single no-op branch otherwise. */
+
+  if (unlikely(fsrv->crash_trace_fd >= 0)) {
+
+    if (ftruncate(fsrv->crash_trace_fd, 0) != 0) {             /* non-fatal */
+
+    }
+
+  }
+
 #ifdef AFL_PERSISTENT_RECORD
   fsrv_run_result_t retval = FSRV_RUN_OK;
   char             *persistent_out_fmt;
@@ -2600,7 +2691,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
       case InvalidWriteToPayload:
         if (!!getenv("AFL_NYX_HANDLE_INVALID_WRITE")) { return FSRV_RUN_CRASH; }
 
-        /* ??? */
+        // ???
         FATAL("FixMe: Nyx InvalidWriteToPayload handler is missing");
         break;
       case Abort:
@@ -2645,7 +2736,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     }
 
 #else
-    /* Clear shared memory for clean execution */
+    // Clear shared memory for clean execution
     memset(fsrv->trace_bits, 0, fsrv->map_size);
     MEM_BARRIER();
 #endif
@@ -2658,7 +2749,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 #if defined(__linux__) || defined(__APPLE__)
   if (likely(fsrv->use_futex && fsrv->child_pid > 0)) {
 
-    /* Futex protocol: see afl_child_state_t in types.h */
+    // Futex protocol: see afl_child_state_t in types.h
 
     /* Check if the forkserver already signaled that the child exited
        (e.g. crash/exit between iterations while we were processing the
@@ -2668,7 +2759,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     u32 cur = __atomic_load_n(fsrv->child_sync, __ATOMIC_ACQUIRE);
     if (unlikely(cur == AFL_CHILD_EXITED)) { goto futex_read_status; }
 
-    /* HOT PATH: persistent child is alive, signal it to run. */
+    // HOT PATH: persistent child is alive, signal it to run
     __atomic_store_n(fsrv->child_sync, AFL_CHILD_RUN, __ATOMIC_RELEASE);
     afl_sync_wake(fsrv->child_sync);
 
@@ -2683,7 +2774,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
     if (fres == AFL_CHILD_DONE) {
 
-      /* DONE: child completed this iteration successfully. */
+      // DONE: child completed this iteration successfully
       fsrv->total_execs++;
       MEM_BARRIER();
 
@@ -2697,7 +2788,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
     }
 
-    /* EXITED or timeout/stop: read child status from forkserver pipe. */
+    // EXITED or timeout/stop: read child status from forkserver pipe
   futex_read_status:
     if (!read_status_or_escalate(fsrv, stop_soon_p)) { return 0; }
 
@@ -2723,6 +2814,8 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
+
+  if (likely(fsrv->child_pid > 0)) { fsrv->last_child_pid = fsrv->child_pid; }
 
   // GUI Mode
 #ifdef __linux__
@@ -2776,7 +2869,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
     if (fres == AFL_CHILD_DONE) {
 
-      /* DONE: child completed this iteration successfully. */
+      // DONE: child completed this iteration successfully
       fsrv->total_execs++;
       MEM_BARRIER();
 
@@ -2790,7 +2883,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
     }
 
-    /* EXITED or timeout/stop: read child status from forkserver pipe. */
+    // EXITED or timeout/stop: read child status from forkserver pipe
     if (!read_status_or_escalate(fsrv, stop_soon_p)) { return 0; }
 
     fsrv->child_pid = -1;
@@ -2863,16 +2956,16 @@ classify_result:
 
   MEM_BARRIER();
 
-  /* Report outcome to caller. */
+  // Report outcome to caller
 
-  /* Was the run unsuccessful? */
+  // Was the run unsuccessful?
   if (unlikely(*(u32 *)fsrv->trace_bits == EXEC_FAIL_SIG)) {
 
     return FSRV_RUN_ERROR;
 
   }
 
-  /* Did we timeout? */
+  // Did we timeout?
   if (unlikely(fsrv->last_run_timed_out)) {
 
     fsrv->last_kill_signal = fsrv->child_kill_signal;
@@ -2899,7 +2992,7 @@ classify_result:
   Handle all four cases here. */
 
   if (unlikely(
-          /* A normal crash/abort */
+          // A normal crash/abort
           (WIFSIGNALED(fsrv->child_status)
   /* Explicitly ignore SIGINT/SIGTERM as a crash, since we use them to terminate
    * the GUI's*/
@@ -2908,21 +3001,21 @@ classify_result:
                                    WTERMSIG(fsrv->child_status) != SIGTERM))
 #endif
                ) ||
-          /* special handling for msan */
+          // special handling for msan
           ((fsrv->uses_asan & 4) &&
            WEXITSTATUS(fsrv->child_status) == MSAN_ERROR) ||
-          /* special handling for lsan */
+          // special handling for lsan
           ((fsrv->uses_asan & 2) &&
            WEXITSTATUS(fsrv->child_status) == LSAN_ERROR) ||
-          /* the custom crash_exitcode was returned by the target */
+          // the custom crash_exitcode was returned by the target
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
-    /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
+    // For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0
     fsrv->last_kill_signal =
         WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
 
-    /* For a special exit code, set last_exit_code to non-zero */
+    // For a special exit code, set last_exit_code to non-zero
     fsrv->last_exit_code =
         WIFSIGNALED(fsrv->child_status) ? 0 : WEXITSTATUS(fsrv->child_status);
 
@@ -2941,7 +3034,7 @@ classify_result:
 
   }
 
-  /* success :) */
+  // success :)
   return FSRV_RUN_OK;
 
 #ifdef AFL_PERSISTENT_RECORD

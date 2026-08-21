@@ -13,10 +13,15 @@
 
 #include "afl-fuzz.h"
 
-void flip_range(u8 *input, u32 pos, u32 size) {
+void flip_range(u8 *input, u32 pos, u32 size, u8 pattern) {
 
-  for (u32 i = 0; i < size; i++)
-    input[pos + i] ^= 0xFF;
+  for (u32 i = 0; i < size; i++) {
+
+    u8 delta = pattern ? (u8)((pos + i) * 157U + 113U) : 0xff;
+    if (!delta) delta = 0x3d;
+    input[pos + i] ^= delta;
+
+  }
 
   return;
 
@@ -24,17 +29,45 @@ void flip_range(u8 *input, u32 pos, u32 size) {
 
 #define MAX_EFF_TIMEOUT (10 * 60 * 1000)
 #define MAX_DET_TIMEOUT (15 * 60 * 1000)
-u8 is_det_timeout(u64 cur_ms, u8 is_flip) {
 
-  if (is_flip) {
+static void skipdet_store_trace(afl_state_t *afl) {
 
-    if (unlikely(get_cur_time() - cur_ms > MAX_EFF_TIMEOUT)) return 1;
+  if (!afl->map_tmp_buf) afl->map_tmp_buf = ck_alloc(afl->fsrv.map_size);
+  memcpy(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size);
 
-  } else {
+}
 
-    if (unlikely(get_cur_time() - cur_ms > MAX_DET_TIMEOUT)) return 1;
+static u8 skipdet_trace_changed(afl_state_t *afl) {
+
+  if (!afl->var_bytes) {
+
+    return memcmp(afl->map_tmp_buf, afl->fsrv.trace_bits, afl->fsrv.map_size) !=
+           0;
 
   }
+
+  for (u32 i = 0; i < afl->fsrv.map_size; ++i) {
+
+    if (!afl->var_bytes[i] && afl->map_tmp_buf[i] != afl->fsrv.trace_bits[i])
+      return 1;
+
+  }
+
+  return 0;
+
+}
+
+u8 is_det_timeout(afl_state_t *afl, u8 is_flip) {
+
+  u64 exec_delta = afl->fsrv.total_execs - afl->det_start_execs;
+  u64 time_delta = get_cur_time() - afl->det_start_time;
+  u64 exec_cap = is_flip ? MAX_EFF_EXECS : MAX_DET_EXECS;
+  u64 time_cap = is_flip ? MAX_EFF_TIMEOUT : MAX_DET_TIMEOUT;
+  u8  time_hit = (time_delta > time_cap);
+  u8  exec_hit = (exec_delta > exec_cap);
+
+  if (unlikely(time_hit)) { return 1; }
+  if (unlikely(exec_hit)) { return 1; }
 
   return 0;
 
@@ -54,15 +87,21 @@ u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
   if (likely(!q->favored || q->passed_det)) return 0;
   if (unlikely(!q->trace_mini)) return 0;
 
-  if (!afl->skipdet_g->last_cov_undet)
-    afl->skipdet_g->last_cov_undet = get_cur_time();
+  if (!afl->skipdet_g->last_cov_undet_execs) {
 
-  if (get_cur_time() - afl->skipdet_g->last_cov_undet >= THRESHOLD_DEC_TIME) {
+    afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
+    afl->skipdet_g->last_cov_undet_time = get_cur_time();
+
+  }
+
+  if (afl->fsrv.total_execs - afl->skipdet_g->last_cov_undet_execs >=
+      SKIPDET_DECAY_EXECS) {
 
     if (afl->skipdet_g->undet_bits_threshold >= 2) {
 
       afl->skipdet_g->undet_bits_threshold *= 0.75;
-      afl->skipdet_g->last_cov_undet = get_cur_time();
+      afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
+      afl->skipdet_g->last_cov_undet_time = get_cur_time();
 
     }
 
@@ -80,12 +119,16 @@ u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
+  if (!new_det_bits) return 0;
+
   if (!afl->skipdet_g->undet_bits_threshold)
-    afl->skipdet_g->undet_bits_threshold = new_det_bits * 0.05;
+    afl->skipdet_g->undet_bits_threshold =
+        new_det_bits / 20 + !!(new_det_bits % 20);
 
   if (new_det_bits >= afl->skipdet_g->undet_bits_threshold) {
 
-    afl->skipdet_g->last_cov_undet = get_cur_time();
+    afl->skipdet_g->last_cov_undet_execs = afl->fsrv.total_execs;
+    afl->skipdet_g->last_cov_undet_time = get_cur_time();
     q->skipdet_e->undet_bits = new_det_bits;
 
     for (u32 i = 0; i < afl->fsrv.map_size; i++) {
@@ -113,13 +156,15 @@ u8 should_det_fuzz(afl_state_t *afl, struct queue_entry *q) {
 */
 
 u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
-                            u32 len, u64 before_det_time) {
+                            u32 len) {
 
   u64 orig_hit_cnt, new_hit_cnt;
 
   if (afl->queue_cur->skipdet_e->done_eff) return 1;
 
-  if (!should_det_fuzz(afl, afl->queue_cur)) return 1;
+  if (!afl->queue_cur->skipdet_e->continue_inf &&
+      !should_det_fuzz(afl, afl->queue_cur))
+    return 1;
 
   /* Add check to make sure that for seeds without too much undet bits,
      we ignore them */
@@ -139,8 +184,7 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
   if (common_fuzz_stuff(afl, orig_buf, len)) { return 0; }
 
-  u64 prev_cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-  u64 _prev_cksum = prev_cksum;
+  skipdet_store_trace(afl);
 
   if (MINIMAL_BLOCK_SIZE * 8 < len) {
 
@@ -161,22 +205,33 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
         u32 flip_block_size =
             (cur_block_size + pos < len) ? cur_block_size : len - 1 - pos;
 
-        afl->stage_cur += 1;
+        u8 trace_changed = 0;
 
-        flip_range(out_buf, pos, flip_block_size);
+        for (u8 pattern = 0; pattern < 2; ++pattern) {
 
-        if (common_fuzz_stuff(afl, out_buf, len)) { return 0; }
+          afl->stage_cur += 1;
+          flip_range(out_buf, pos, flip_block_size, pattern);
 
-        flip_range(out_buf, pos, flip_block_size);
+          if (common_fuzz_stuff(afl, out_buf, len)) {
 
-        u64 cksum =
-            hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+            flip_range(out_buf, pos, flip_block_size, pattern);
+            return 0;
 
-        // printf("Now trying range %d with %d, %s.\n", pos, cur_block_size,
-        //     (cksum == prev_cksum) ? (u8*)"Yes" : (u8*) "Not");
+          }
+
+          flip_range(out_buf, pos, flip_block_size, pattern);
+
+          if (skipdet_trace_changed(afl)) {
+
+            trace_changed = 1;
+            break;
+
+          }
+
+        }
 
         /* continue until we fail or exceed length */
-        if (cksum == _prev_cksum) {
+        if (!trace_changed) {
 
           cur_block_size *= 2;
 
@@ -240,9 +295,6 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
-  u32 before_skip_inf = afl->queued_items;
-
-  /* clean all the eff bytes, since previous eff bytes are already fuzzed */
   u8 *skip_eff_map = afl->queue_cur->skipdet_e->skip_eff_map,
      *done_inf_map = afl->queue_cur->skipdet_e->done_inf_map;
 
@@ -251,44 +303,31 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
     skip_eff_map = (u8 *)ck_alloc(sizeof(u8) * (len + 7) / 8);
     afl->queue_cur->skipdet_e->skip_eff_map = skip_eff_map;
 
-  } else {
-
-    memset(skip_eff_map, 0, sizeof(u8) * (len + 7) / 8);
-
   }
 
-  /* restore the starting point */
+  /* done_inf_map records which bytes were already tested */
   if (!done_inf_map) {
 
     done_inf_map = (u8 *)ck_alloc(sizeof(u8) * (len + 7) / 8);
     afl->queue_cur->skipdet_e->done_inf_map = done_inf_map;
-
-  } else {
-
-    for (afl->stage_cur = 0; afl->stage_cur < len; afl->stage_cur++) {
-
-      if (bitmap_read(done_inf_map, afl->stage_cur) == 0) break;
-
-    }
 
   }
 
   /* depending on the seed's performance, we could search eff bytes
      for multiple rounds */
 
-  u8 eff_round_continue = 1, eff_round_done = 0, done_eff = 0, repeat_eff = 0,
-     fuzz_nearby = 0, *non_eff_bytes = 0;
+  u8 done_eff = 0, fuzz_nearby = 0, *non_eff_bytes = 0;
+  u8 probe_limit = getenv("REPEAT_EFF") ? 8 : 2;
 
   u64 before_eff_execs = afl->fsrv.total_execs;
 
-  if (getenv("REPEAT_EFF")) repeat_eff = 1;
   if (getenv("FUZZ_NEARBY")) fuzz_nearby = 1;
 
   if (fuzz_nearby) {
 
     non_eff_bytes = (u8 *)ck_alloc(sizeof(u8) * len);
 
-    // clean exec cksum
+    // clean exec baseline
     if (common_fuzz_stuff(afl, out_buf, len)) {
 
       ck_free(non_eff_bytes);
@@ -296,87 +335,92 @@ u8 skip_deterministic_stage(afl_state_t *afl, u8 *orig_buf, u8 *out_buf,
 
     }
 
-    prev_cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+    skipdet_store_trace(afl);
 
   }
 
-  do {
+  u32 eff_pos = afl->queue_cur->skipdet_e->eff_cursor;
+  u8  eff_probe = afl->queue_cur->skipdet_e->eff_probe;
 
-    eff_round_continue = 0;
-    afl->stage_max = 32 * 1024;
+  while (eff_pos < len) {
 
-    for (; afl->stage_cur < afl->stage_max && afl->stage_cur < len;
-         ++afl->stage_cur) {
+    afl->stage_cur_byte = eff_pos;
 
-      afl->stage_cur_byte = afl->stage_cur;
+    if (!inf_eff_map[eff_pos] || bitmap_read(skip_eff_map, eff_pos)) {
 
-      if (!inf_eff_map[afl->stage_cur_byte] ||
-          bitmap_read(skip_eff_map, afl->stage_cur_byte))
-        continue;
+      eff_probe = 0;
+      ++eff_pos;
+      continue;
 
-      if (is_det_timeout(before_det_time, 1)) { goto cleanup_skipdet; }
+    }
 
-      u8 orig = out_buf[afl->stage_cur_byte], replace = rand_below(afl, 256);
+    while (eff_probe < probe_limit) {
 
-      while (replace == orig) {
+      if (is_det_timeout(afl, 1)) { goto cleanup_skipdet; }
 
-        replace = rand_below(afl, 256);
+      if (afl->stage_cur >= afl->stage_max) { goto cleanup_skipdet; }
 
-      }
+      u8 orig = out_buf[eff_pos];
+      u8 delta = eff_probe ? (u8)(eff_probe * 71U) : 0xff;
+      u8 replace = orig ^ delta;
 
-      out_buf[afl->stage_cur_byte] = replace;
+      out_buf[eff_pos] = replace;
 
-      before_skip_inf = afl->queued_items;
+      u64 before_skip_inf = afl->queued_items + afl->saved_crashes;
 
       if (common_fuzz_stuff(afl, out_buf, len)) {
 
+        out_buf[eff_pos] = orig;
+        afl->queue_cur->skipdet_e->eff_cursor = eff_pos;
+        afl->queue_cur->skipdet_e->eff_probe = eff_probe;
         ck_free(non_eff_bytes);
         return 0;
 
       }
 
-      out_buf[afl->stage_cur_byte] = orig;
+      out_buf[eff_pos] = orig;
+      ++afl->stage_cur;
 
-      if (fuzz_nearby) {
+      if (afl->queued_items + afl->saved_crashes != before_skip_inf) {
 
-        if (prev_cksum ==
-            hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST)) {
-
-          non_eff_bytes[afl->stage_cur_byte] = 1;
-
-        }
-
-      }
-
-      if (afl->queued_items != before_skip_inf) {
-
-        bitmap_set(skip_eff_map, afl->stage_cur_byte);
+        bitmap_set(skip_eff_map, eff_pos);
         afl->queue_cur->skipdet_e->quick_eff_bytes += 1;
 
         if (afl->stage_max < MAXIMUM_QUICK_EFF_EXECS) { afl->stage_max *= 2; }
 
-        if (afl->stage_max == MAXIMUM_QUICK_EFF_EXECS && repeat_eff)
-          eff_round_continue = 1;
+        eff_probe = probe_limit;
+        break;
 
       }
 
-      bitmap_set(done_inf_map, afl->stage_cur_byte);
+      ++eff_probe;
 
     }
 
-    afl->stage_cur = 0;
-    done_eff = 1;
+    if (eff_probe >= probe_limit) {
 
-    if (++eff_round_done >= 8) break;
+      if (fuzz_nearby && !bitmap_read(skip_eff_map, eff_pos)) {
 
-  } while (eff_round_continue);
+        non_eff_bytes[eff_pos] = 1;
+
+      }
+
+      bitmap_set(done_inf_map, eff_pos);
+      eff_probe = 0;
+      ++eff_pos;
+
+    }
+
+  }
+
+  done_eff = 1;
+
+cleanup_skipdet:
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
   afl->stage_finds[STAGE_QUICK] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_QUICK] += (afl->fsrv.total_execs - before_eff_execs);
-
-cleanup_skipdet:
 
   if (fuzz_nearby) {
 
@@ -413,10 +457,14 @@ cleanup_skipdet:
 
     afl->queue_cur->skipdet_e->continue_inf = 0;
     afl->queue_cur->skipdet_e->done_eff = 1;
+    afl->queue_cur->skipdet_e->eff_cursor = 0;
+    afl->queue_cur->skipdet_e->eff_probe = 0;
 
   } else {
 
     afl->queue_cur->skipdet_e->continue_inf = 1;
+    afl->queue_cur->skipdet_e->eff_cursor = eff_pos;
+    afl->queue_cur->skipdet_e->eff_probe = eff_probe;
 
   }
 

@@ -32,8 +32,14 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Demangle/Demangle.h"
+#include "llvm/Support/JSON.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #define IS_EXTERN extern
 #include "afl-llvm-common.h"
@@ -71,6 +77,91 @@ static std::string stripRustHash(const std::string &name) {
   }
 
   return name;
+
+}
+
+/* Mark module as instrumented for a feature by emitting/retaining a tiny
+   global marker referenced from compiler.used. */
+void markInstrumentedMarker(Module &M, const char *marker_name) {
+
+  LLVMContext    *C = &(M.getContext());
+  GlobalVariable *Marker = M.getGlobalVariable(marker_name);
+
+  if (!Marker) {
+
+    Constant *Init = ConstantInt::get(Type::getInt8Ty(*C), 1);
+    Marker = new GlobalVariable(M, Init->getType(), true,
+                                GlobalValue::WeakODRLinkage, Init, marker_name);
+
+  } else if (Marker->isDeclaration()) {
+
+    Constant *Init = ConstantInt::get(Type::getInt8Ty(*C), 1);
+    Marker->setInitializer(Init);
+    Marker->setConstant(true);
+    Marker->setLinkage(GlobalValue::WeakODRLinkage);
+
+  }
+
+  Marker->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+  appendToCompilerUsed(M, {Marker});
+
+}
+
+/* Return an externally defined weak pointer global, creating it when absent.
+   Used by passes that optionally consume runtime map pointers. */
+GlobalVariable *getOrCreateExternalWeakPtrGlobal(Module &M, Type *ptr_ty,
+                                                 const char *name) {
+
+  GlobalVariable *G = M.getNamedGlobal(name);
+  if (!G) {
+
+    G = new GlobalVariable(M, ptr_ty, false, GlobalValue::ExternalWeakLinkage,
+                           0, name);
+
+  }
+
+  return G;
+
+}
+
+/* Return an externally defined pointer global that must be provided by the
+   linked runtime. Used when missing the runtime should fail at link time. */
+GlobalVariable *getOrCreateExternalPtrGlobal(Module &M, Type *ptr_ty,
+                                             const char *name) {
+
+  GlobalVariable *G = M.getNamedGlobal(name);
+  if (!G) {
+
+    G = new GlobalVariable(M, ptr_ty, false, GlobalValue::ExternalLinkage, 0,
+                           name);
+
+  }
+
+  return G;
+
+}
+
+/* Emit `load map_ptr != NULL` guard with nosanitize metadata for pass-inserted
+   runtime checks. */
+Value *createMapPtrNotNullGuard(IRBuilder<> &IRB, Module &M,
+                                GlobalVariable *map_ptr, Type *ptr_ty) {
+
+  Constant *Null = Constant::getNullValue(ptr_ty);
+  LoadInst *MapPtr = IRB.CreateLoad(ptr_ty, map_ptr);
+  MapPtr->setMetadata(M.getMDKindID("nosanitize"),
+#if LLVM_VERSION_MAJOR >= 20
+                      MDNode::get(M.getContext(), {}));
+#else
+                      MDNode::get(M.getContext(), None));
+#endif
+  return IRB.CreateICmpNE(MapPtr, Null);
+
+}
+
+CompareObserverMode getCompareObserverModeFromEnv() {
+
+  return getenv("AFL_LLVM_VALUE_PROFILE") ? CompareObserverMode::ValueProfile
+                                          : CompareObserverMode::CmpLog;
 
 }
 
@@ -728,6 +819,16 @@ unsigned long long int calculateCollisions(uint32_t edges) {
 
 }
 
+bool isAflCovFusedEnabled(void) {
+
+  static int enabled = -1;
+
+  if (enabled < 0) { enabled = getenv("AFL_LLVM_FUSED") != NULL; }
+
+  return enabled != 0;
+
+}
+
 bool isDecisionUse(const Value *Cond) {
 
   SmallVector<const Value *, 8> Worklist;
@@ -770,7 +871,11 @@ bool isDecisionUse(const Value *Cond) {
 
       } else if (const auto *BO = dyn_cast<BinaryOperator>(U)) {
 
-        if (BO->getType()->isIntegerTy(1)) Worklist.push_back(BO);
+        if (BO->getType()->isIntegerTy(1) &&
+            (!isAflCovFusedEnabled() || (BO->getOpcode() == Instruction::Xor &&
+                                         (isa<Constant>(BO->getOperand(0)) ||
+                                          isa<Constant>(BO->getOperand(1))))))
+          Worklist.push_back(BO);
 
       } else if (const auto *PN = dyn_cast<PHINode>(U)) {
 
@@ -796,7 +901,63 @@ bool isDecisionUse(const Value *Cond) {
 
 }
 
+/* Clamps and min/max are opt-in: they add ~10% map entries, but 45% of the
+   sites land in per-pixel math, where they measured -21% throughput on libraw
+   while contributing the least discriminating signal. The parser side sites
+   are the valuable ones, so enable this per target after measuring. */
+bool isAflCovMinMaxEnabled(void) {
+
+  static int enabled = -1;
+
+  if (enabled < 0) { enabled = getenv("AFL_LLVM_MINMAX") != NULL; }
+
+  return enabled != 0;
+
+}
+
+bool isAflCovMinMaxIntrinsic(Instruction &I) {
+
+  if (!isAflCovMinMaxEnabled()) return false;
+
+  const auto *II = dyn_cast<IntrinsicInst>(&I);
+  if (!II) return false;
+
+  switch (II->getIntrinsicID()) {
+
+    case Intrinsic::smin:
+    case Intrinsic::smax:
+    case Intrinsic::umin:
+    case Intrinsic::umax:
+    case Intrinsic::abs:
+    case Intrinsic::minnum:
+    case Intrinsic::maxnum:
+    case Intrinsic::minimum:
+    case Intrinsic::maximum:
+      return true;
+
+    default:
+      return false;
+
+  }
+
+}
+
+/* Per-lane instrumentation of vector decisions is opt-in: a vector compare in
+   an auto-vectorized pixel loop costs two guards per lane and is nearly always
+   true, so it is the least discriminating signal we can add. */
+bool isAflCovVectorEnabled(void) {
+
+  static int enabled = -1;
+
+  if (enabled < 0) { enabled = getenv("AFL_LLVM_VECTORS") != NULL; }
+
+  return enabled != 0;
+
+}
+
 bool isAflCovInterestingInstruction(Instruction &I) {
+
+  if (I.getMetadata("afl.skip")) return false;
 
   switch (I.getOpcode()) {
 
@@ -824,6 +985,13 @@ bool isAflCovInterestingInstruction(Instruction &I) {
 
       if (t->getTypeID() == llvm::Type::IntegerTyID) return true;
 
+      if (t->getTypeID() == llvm::Type::FixedVectorTyID ||
+          t->getTypeID() == llvm::Type::ScalableVectorTyID) {
+
+        return isAflCovVectorEnabled();
+
+      }
+
       return false;
 
     }
@@ -842,6 +1010,9 @@ bool isAflCovInterestingInstruction(Instruction &I) {
              Op == AtomicRMWInst::UMin || Op == AtomicRMWInst::UMax;
 
     }
+
+    case Instruction::Call:
+      return isAflCovMinMaxIntrinsic(I);
 
     default:
       return false;
@@ -980,6 +1151,173 @@ void createC11EnabledGlobal(Module &M, Type *Int32Ty) {
   auto *GV = new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
                                 One32, "__afl_c11_enabled");
   GV->setComdat(M.getOrInsertComdat("__afl_c11_enabled"));
+
+}
+
+// llvm::json accessors return llvm::Optional before LLVM 16 and std::optional
+// from LLVM 16 on; llvm::Optional only gained value_or in LLVM 15. This helper
+// works with either optional type across all supported LLVM versions.
+template <typename OptTy, typename T>
+static inline T jsonOptOr(const OptTy &opt, T def) {
+
+  return opt ? static_cast<T>(*opt) : def;
+
+}
+
+bool setupReachability(StringMap<uint32_t> &values, const char *passName) {
+
+  const char *reachability_file = getenv("AFL_LLVM_REACHABILITY");
+  if (!reachability_file) return false;
+
+  if (getenv("AFL_LLVM_C11")) {
+
+    FATAL(
+        "AFL_LLVM_C11 and AFL_LLVM_REACHABILITY are mutually exclusive - "
+        "they write to the same map slot. Set only one of them.");
+
+  }
+
+  if (!be_quiet) {
+
+    SAYF(cCYA "%s" VERSION cRST " (REACHABILITY mode: %s)\n", passName,
+         reachability_file);
+
+  }
+
+  auto BufOrErr = MemoryBuffer::getFile(reachability_file);
+  if (!BufOrErr) {
+
+    FATAL("AFL_LLVM_REACHABILITY: cannot read json file '%s': %s",
+          reachability_file, BufOrErr.getError().message().c_str());
+
+  }
+
+  Expected<json::Value> Parsed = json::parse((*BufOrErr)->getBuffer());
+  json::Object         *Root = Parsed ? Parsed->getAsObject() : nullptr;
+  json::Array *Reachable = Root ? Root->getArray("reachable") : nullptr;
+
+  if (!Parsed) {
+
+    WARNF("AFL_LLVM_REACHABILITY: ignoring json file '%s', cannot parse: %s",
+          reachability_file, toString(Parsed.takeError()).c_str());
+
+  } else if (!Reachable) {
+
+    WARNF(
+        "AFL_LLVM_REACHABILITY: ignoring json file '%s', no \"reachable\" "
+        "array.",
+        reachability_file);
+
+  }
+
+  if (Reachable) {
+
+    for (json::Value &Item : *Reachable) {
+
+      json::Object *Obj = Item.getAsObject();
+      if (!Obj) continue;
+      auto Mangled = Obj->getString("mangled");
+      if (!Mangled) continue;
+
+      bool    interesting = jsonOptOr(Obj->getBoolean("interesting"), false);
+      bool    bottleneck = jsonOptOr(Obj->getBoolean("bottleneck"), false);
+      bool    dead_end = jsonOptOr(Obj->getBoolean("dead_end"), false);
+      int64_t depth = jsonOptOr(Obj->getInteger("depth"), (int64_t)0);
+
+      uint32_t value;
+      if (!interesting || dead_end) {
+
+        value = 0;
+
+      } else if (bottleneck) {
+
+        value = (uint32_t)(depth + 4);
+
+      } else {
+
+        value = (uint32_t)depth;
+
+      }
+
+      values[*Mangled] = value;
+
+    }
+
+  }
+
+  return true;
+
+}
+
+uint32_t getReachabilityValue(const StringMap<uint32_t> &values,
+                              const Function            &F) {
+
+  auto it = values.find(F.getName());
+  if (it == values.end()) return 0;
+  return it->second;
+
+}
+
+static void reachSetNoInstrument(Value *V) {
+
+  if (auto *I = dyn_cast<Instruction>(V)) {
+
+    I->setMetadata("afl.skip", MDNode::get(I->getContext(), {}));
+    setNoSanitizeMetadata(I);
+
+  }
+
+}
+
+void instrumentReachability(Function &F, uint32_t value) {
+
+  if (value < 4) return;
+
+  Module      &M = *F.getParent();
+  LLVMContext &Ctx = M.getContext();
+  Type        *I8Ty = Type::getInt8Ty(Ctx);
+  Type        *I32Ty = Type::getInt32Ty(Ctx);
+
+#if LLVM_VERSION_MAJOR >= 20
+  Type *PtrTy = PointerType::getUnqual(Ctx);
+  Type *I32PtrTy = PtrTy;
+#else
+  Type *PtrTy = PointerType::get(I8Ty, 0);
+  Type *I32PtrTy = PointerType::get(I32Ty, 0);
+#endif
+
+  GlobalVariable *Map = M.getGlobalVariable("__afl_area_ptr");
+  if (!Map)
+    Map = new GlobalVariable(M, PtrTy, false, GlobalValue::ExternalLinkage, 0,
+                             "__afl_area_ptr");
+
+  BasicBlock  &Entry = F.getEntryBlock();
+  Instruction *InsertPt = &*Entry.getFirstInsertionPt();
+  IRBuilder<>  IRB(InsertPt);
+
+  ConstantInt *Val = IRB.getInt32(value);
+
+  LoadInst *Base = IRB.CreateLoad(PtrTy, Map, "reach_base");
+  reachSetNoInstrument(Base);
+  Value *P = IRB.CreateGEP(I8Ty, Base, IRB.getInt64(1), "reach_slot");
+  reachSetNoInstrument(P);
+  Value *P32 = IRB.CreateBitCast(P, I32PtrTy);
+  reachSetNoInstrument(P32);
+
+  LoadInst *Cur = IRB.CreateAlignedLoad(I32Ty, P32, Align(1), "reach_cur");
+  reachSetNoInstrument(Cur);
+
+  Value *Cond = IRB.CreateICmpUGT(Val, Cur, "reach_gt");
+  reachSetNoInstrument(Cond);
+  MDNode      *Unlikely = MDBuilder(Ctx).createBranchWeights(1, 1u << 20);
+  Instruction *Then = SplitBlockAndInsertIfThen(
+      Cond, InsertPt, /*Unreachable=*/false, Unlikely);
+
+  IRB.SetInsertPoint(Then);
+  StoreInst *St = IRB.CreateAlignedStore(Val, P32, Align(1));
+  reachSetNoInstrument(St);
+
+  createC11EnabledGlobal(M, I32Ty);
 
 }
 

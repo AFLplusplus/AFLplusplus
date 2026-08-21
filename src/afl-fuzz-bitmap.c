@@ -86,6 +86,14 @@ static const u8 count_class_lookup8[256] = {
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
 
+/* new_bits layout used by save_if_interesting()/describe_op().
+   - low 2 bits: coverage novelty class from has_new_bits() (0,1,2)
+   - 3rd bit: value-profile-only queue save marker
+   - 8th bit: timeout marker */
+#define NEW_BITS_COVERAGE_MASK 0x03
+#define NEW_BITS_VP_MASK 0x04
+#define NEW_BITS_TIMEOUT_MASK 0x80
+
 /* Write bitmap to file. The bitmap is useful mostly for the secret
    -B option, to focus a separate fuzzing session on a particular
    interesting input without rediscovering all the others. */
@@ -233,6 +241,19 @@ void init_count_class16(void) {
 
 inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
+  /* edges_found is derived from virgin_bits, so a secondary channel - cmplog,
+     a sanitizer binary, anything with its own guard ids - must never be
+     accounted here. Mixing a second guard id space into the primary map is
+     what made 4.40 look 25% better than it was. */
+  /*
+  if (unlikely(virgin_map == afl->virgin_bits && !afl->primary_trace)) {
+
+    FATAL("coverage map of a secondary target merged into virgin_bits");
+
+  }
+
+  */
+
 #ifdef WORD_SIZE_64
 
   u64 *current = (u64 *)afl->fsrv.trace_bits;
@@ -250,9 +271,23 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 #endif                                                     /* ^WORD_SIZE_64 */
 
   u8 ret = 0;
+  u8 undo = (u8)(afl->virgin_undo_armed && !afl->virgin_undo_valid &&
+                 virgin_map == afl->virgin_bits);
+
   while (i--) {
 
-    if (unlikely(*current)) discover_word(&ret, current, virgin);
+    if (unlikely(*current)) {
+
+      if (unlikely(undo && (*current & *virgin))) {
+
+        virgin_undo_save(afl);
+        undo = 0;
+
+      }
+
+      discover_word(&ret, current, virgin);
+
+    }
 
     current++;
     virgin++;
@@ -263,6 +298,79 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
     afl->bitmap_changed = 1;
 
   return ret;
+
+}
+
+/* An entry that fails calibration is never fuzzed, so the coverage it claimed
+   is reached by nothing reproducible and has to become discoverable again.
+   virgin_bits is therefore copied aside right before a discovery clears the
+   first bit in it, and put back if the calibration that follows fails. The
+   copy is lazy so that the hot path, where nothing is discovered, pays only
+   for the two tests above. */
+
+void virgin_undo_arm(afl_state_t *afl) {
+
+  afl->virgin_undo_armed = 1;
+  afl->virgin_undo_valid = 0;
+
+}
+
+void virgin_undo_save(afl_state_t *afl) {
+
+  if (likely(!afl->virgin_undo_armed || afl->virgin_undo_valid)) { return; }
+
+  memcpy(afl->virgin_undo, afl->virgin_bits, afl->fsrv.map_size);
+  afl->virgin_undo_valid = 1;
+
+}
+
+void virgin_undo_commit(afl_state_t *afl) {
+
+  afl->virgin_undo_armed = 0;
+  afl->virgin_undo_valid = 0;
+
+}
+
+void virgin_undo_rollback(afl_state_t *afl, struct queue_entry *q) {
+
+  u32 i, restored = 0;
+
+  if (likely(!afl->virgin_undo_valid)) {
+
+    virgin_undo_commit(afl);
+    return;
+
+  }
+
+  for (i = 0; i < afl->fsrv.map_size; i++) {
+
+    if (likely(afl->virgin_bits[i] == afl->virgin_undo[i])) { continue; }
+
+    if (unlikely(afl->virgin_reclaim[i] >= CAL_RECLAIM_MAX)) { continue; }
+
+    ++afl->virgin_reclaim[i];
+
+    /* var_bytes is not restored, so keep the edges it already retired. */
+
+    if (likely(!afl->var_bytes[i])) {
+
+      afl->virgin_bits[i] = afl->virgin_undo[i];
+      ++restored;
+
+    }
+
+  }
+
+  if (q && q->has_new_cov) {
+
+    q->has_new_cov = 0;
+    if (likely(afl->queued_with_cov)) { --afl->queued_with_cov; }
+
+  }
+
+  if (restored) { afl->bitmap_changed = 1; }
+
+  virgin_undo_commit(afl);
 
 }
 
@@ -323,16 +431,11 @@ void minimize_bits(afl_state_t *afl, u8 *dst, u8 *src) {
 
 u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
-  u8 is_timeout = 0;
+  u8 is_timeout = (new_bits & NEW_BITS_TIMEOUT_MASK) ? 1 : 0;
+  u8 is_vp = (new_bits & NEW_BITS_VP_MASK) ? 1 : 0;
+  u8 cov_bits = new_bits & NEW_BITS_COVERAGE_MASK;
   u8 san_crash_only = (afl->san_case_status & SAN_CRASH_ONLY);
   u8 non_cov_incr = (afl->san_case_status & NON_COV_INCREASE_BUG);
-
-  if (new_bits & 0xf0) {
-
-    new_bits -= 0x80;
-    is_timeout = 1;
-
-  }
 
   size_t real_max_len =
       MIN(max_description_len, sizeof(afl->describe_op_buf_256));
@@ -374,7 +477,7 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
       ret[len_current++] = ',';
       ret[len_current] = '\0';
 
-      ssize_t size_left = real_max_len - len_current - strlen(",+cov") - 2;
+      ssize_t size_left = real_max_len - len_current - strlen(",+cov,+vp") - 2;
       if (is_timeout) { size_left -= strlen(",+tout"); }
       if (unlikely(size_left <= 0)) FATAL("filename got too long");
 
@@ -423,7 +526,9 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   if (is_timeout) { strcat(ret, ",+tout"); }
 
-  if (new_bits == 2) { strcat(ret, ",+cov"); }
+  if (cov_bits == 2) { strcat(ret, ",+cov"); }
+
+  if (is_vp) { strcat(ret, ",+vp"); }
 
   if (san_crash_only) { strcat(ret, ",+san"); }
 
@@ -507,6 +612,16 @@ static inline void classify_if_necessary(afl_state_t *afl, bool *classified) {
 
 }
 
+static inline u8 san_dedup_seen(u64 *cache, size_t entries, u32 hash) {
+
+  u64  value = (u64)hash + 1;
+  u64 *slot = &cache[hash % entries];
+  if (*slot == value) { return 1; }
+  *slot = value;
+  return 0;
+
+}
+
 static inline void calculate_cksum_if_necessary(afl_state_t *afl, u64 *cksum,
                                                 bool *cksumed,
                                                 bool *classified) {
@@ -525,6 +640,8 @@ static inline void calculate_new_bits_if_necessary(afl_state_t *afl,
 
   if (*bits_counted) return;
 
+  virgin_undo_arm(afl);
+
   if (*classified) {
 
     *new_bits = has_new_bits(afl, afl->virgin_bits);
@@ -539,9 +656,273 @@ static inline void calculate_new_bits_if_necessary(afl_state_t *afl,
 
 }
 
+static void raise_exec_tmout(afl_state_t *afl, u64 observed_us) {
+
+  u32 want = (u32)(observed_us * 12 / 10 / 1000);
+
+  want = (want + EXEC_TM_ROUND) / EXEC_TM_ROUND * EXEC_TM_ROUND;
+
+  if (want > afl->exec_tmout_ceil) { want = afl->exec_tmout_ceil; }
+
+  if (want > afl->fsrv.exec_tmout) { afl->fsrv.exec_tmout = want; }
+
+}
+
+static u8 probe_at_raised_tmout(afl_state_t *afl, void **mem, u32 *len,
+                                u32 tmout, u64 *elapsed_us) {
+
+  u32 tmp_len = write_to_testcase(afl, mem, *len, 0);
+
+  if (likely(tmp_len)) {
+
+    *len = tmp_len;
+
+  } else {
+
+    *len = write_to_testcase(afl, mem, *len, 1);
+
+  }
+
+  u64 start_us = get_cur_time_us();
+  u8  fault = fuzz_run_target(afl, &afl->fsrv, tmout);
+
+  *elapsed_us = get_cur_time_us() - start_us;
+
+  return fault;
+
+}
+
+static u8 tmout_probe_allowed(afl_state_t *afl) {
+
+  u64 now = get_cur_time();
+  u64 wait = MAX((u64)TMOUT_PROBE_INTERVAL, (u64)afl->exec_tmout_ceil * 100);
+
+  if (now - afl->last_tmout_probe < wait) { return 0; }
+
+  afl->last_tmout_probe = now;
+  return 1;
+
+}
+
+enum {
+
+  PROBE_IS_HANG = 0,
+  PROBE_KEEP_IN_QUEUE,
+  PROBE_KEEP_AS_CRASH,
+  PROBE_DISCARD,
+  PROBE_FAILED
+
+};
+
+static u8 classify_tmout_probe(afl_state_t *afl, u8 new_fault, u64 probe_us,
+                               u8 *new_bits, bool *bits_counted,
+                               bool *classified) {
+
+  if (unlikely(new_fault == FSRV_RUN_ERROR)) { return PROBE_FAILED; }
+
+  if (unlikely(afl->stop_soon)) { return PROBE_DISCARD; }
+
+  if (new_fault == FSRV_RUN_TMOUT) { return PROBE_IS_HANG; }
+
+  if (new_fault == afl->crash_mode &&
+      probe_us <= (u64)afl->exec_tmout_ceil * 1000) {
+
+    calculate_new_bits_if_necessary(afl, new_bits, bits_counted, classified);
+
+    if (*new_bits) {
+
+      raise_exec_tmout(afl, probe_us);
+      return PROBE_KEEP_IN_QUEUE;
+
+    }
+
+  }
+
+  /* A corner case that one user reported bumping into: increasing the
+     timeout actually uncovers a crash. Make sure we don't discard it if so. */
+
+  if (new_fault == FSRV_RUN_CRASH) { return PROBE_KEEP_AS_CRASH; }
+
+  return PROBE_DISCARD;
+
+}
+
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
+
+/* AFL_CRASH_TRACES: copy the crashing run's captured stdout/stderr (collected
+   live into fsrv->crash_trace_fd) into "<crash_fn>.txt". The capture buffer is
+   cleared before every run in afl_fsrv_run_target(), so it holds exactly the
+   crashing execution's output (the ACTUAL crash, so non-reproducing crashes are
+   captured correctly) and is copied in full. Off the hot path (saved crashes
+   only). Every failure here is non-fatal. */
+
+static void save_crash_trace(afl_state_t *afl, u8 *crash_fn) {
+
+  s32         cfd = afl->fsrv.crash_trace_fd;
+  struct stat st;
+  off_t       size = 0;
+  u8          trace_fn[PATH_MAX];
+  u8          hdr[PATH_MAX + 160];
+  s32         ofd;
+
+  if (cfd < 0) { return; }
+
+  if (fstat(cfd, &st) == 0 && st.st_size > 0) { size = st.st_size; }
+
+  (void)snprintf((char *)trace_fn, sizeof(trace_fn), "%s.txt",
+                 (char *)crash_fn);
+
+  ofd = open((char *)trace_fn, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
+  if (unlikely(ofd < 0)) {
+
+    WARNF("AFL_CRASH_TRACES: unable to create '%s'", trace_fn);
+    return;
+
+  }
+
+  if (afl->chown_needed) {
+
+    if (fchown(ofd, -1, afl->fsrv.gid) == -1) {
+
+      WARNF("AFL_CRASH_TRACES: fchown('%s') failed", trace_fn);
+
+    }
+
+  }
+
+  (void)snprintf((char *)hdr, sizeof(hdr),
+                 "=== AFL++ crash trace ===\n"
+                 "crash file : %s\n"
+                 "signal     : %u\n"
+                 "total execs: %llu\n"
+                 "captured   : %lld bytes\n"
+                 "=========================\n\n",
+                 (char *)crash_fn, afl->fsrv.last_kill_signal,
+                 afl->fsrv.total_execs, (long long)size);
+  {
+
+    ssize_t w = write(ofd, hdr, strlen((char *)hdr));
+    (void)w;
+
+  }
+
+  if (size <= 0) {
+
+    const char *none =
+        "[no target output was captured for this crash]\n"
+        "(e.g. a bare SIGSEGV without a sanitizer report; sanitizer signal\n"
+        " handling is left at its fuzzing default)\n";
+    ssize_t w = write(ofd, none, strlen(none));
+    (void)w;
+
+  } else {
+
+    off_t off = 0;
+    u8    buf[16384];
+
+    while (off < size) {
+
+      off_t   left = size - off;
+      size_t  want = left < (off_t)sizeof(buf) ? (size_t)left : sizeof(buf);
+      ssize_t r = pread(cfd, buf, want, off);
+      if (r <= 0) { break; }
+      ssize_t w = write(ofd, buf, r);
+      (void)w;
+      off += r;
+
+    }
+
+  }
+
+  close(ofd);
+
+}
+
+#ifdef __linux__
+
+static void save_crash_core(afl_state_t *afl, u8 *crash_fn) {
+
+  s32 pid = afl->fsrv.last_child_pid;
+
+  if (pid <= 0) { return; }
+
+  u8 src[PATH_MAX];
+  u8 dst[PATH_MAX];
+
+  (void)snprintf((char *)dst, sizeof(dst), "%s.core", (char *)crash_fn);
+
+  (void)snprintf((char *)src, sizeof(src), "core.%d", pid);
+  if (access((char *)src, F_OK) != 0) {
+
+    (void)snprintf((char *)src, sizeof(src), "core");
+    if (access((char *)src, F_OK) != 0) {
+
+      static u8 warned = 0;
+      if (!warned) {
+
+        warned = 1;
+        WARNF(
+            "AFL_CRASH_TRACES: no core file found for a crash (RLIMIT_CORE, "
+            "core_pattern, or a sanitizer exiting without dumping?)");
+
+      }
+
+      return;
+
+    }
+
+  }
+
+  if (rename((char *)src, (char *)dst) != 0) {
+
+    s32 ifd = open((char *)src, O_RDONLY);
+    if (ifd < 0) { return; }
+    s32 ofd = open((char *)dst, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
+    if (ofd < 0) {
+
+      close(ifd);
+      return;
+
+    }
+
+    u8      buf[65536];
+    ssize_t r;
+    while ((r = read(ifd, buf, sizeof(buf))) > 0) {
+
+      ssize_t off = 0;
+      while (off < r) {
+
+        ssize_t w = write(ofd, buf + off, r - off);
+        if (w <= 0) { break; }
+        off += w;
+
+      }
+
+    }
+
+    close(ifd);
+    close(ofd);
+    unlink((char *)src);
+
+  }
+
+  (void)chmod((char *)dst, afl->perm);
+
+  if (afl->chown_needed) {
+
+    if (chown((char *)dst, -1, afl->fsrv.gid) == -1) {
+
+      WARNF("AFL_CRASH_TRACES: chown('%s') failed", dst);
+
+    }
+
+  }
+
+}
+
+#endif
 
 u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
                                             u32 len, u8 fault) {
@@ -567,12 +948,15 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
-  u8  keeping = 0, res, is_timeout = 0;
+  u8  keeping = 0, res, is_timeout = 0, vp_entry = 0, vp_sample_ready = 0;
+  u8  is_crash_save = 0;
+  u8  vp_restore_suppressed = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
   s32 fd;
   u32 cksum_simplified = 0, cksum_unique = 0;
 
   bool classified = false, bits_counted = false, cksumed = false;
+  bool probed = false;
   u8   new_bits = 0;                       /* valid if bits_counted is true */
   u64  cksum = 0;                               /* valid if cksumed is true */
 
@@ -618,10 +1002,10 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       cksum_simplified =
           hash32(afl->san_fsrvs[0].trace_bits, afl->fsrv.map_size, HASH_CONST);
 
-      if (unlikely(!bitmap_read(afl->simplified_n_fuzz, cksum_simplified))) {
+      if (unlikely(!san_dedup_seen(afl->simplified_n_fuzz,
+                                   afl->san_dedup_entries, cksum_simplified))) {
 
         feed_san = 1;
-        bitmap_set(afl->simplified_n_fuzz, cksum_simplified);
 
       }
 
@@ -647,11 +1031,11 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       cksum_unique =
           hash32(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-      if (unlikely(!bitmap_read(afl->n_fuzz_dup, cksum_unique) &&
-                   fault == afl->crash_mode)) {
+      if (unlikely(fault == afl->crash_mode &&
+                   !san_dedup_seen(afl->n_fuzz_dup, afl->san_dedup_entries,
+                                   cksum_unique))) {
 
         feed_san = 1;
-        bitmap_set(afl->n_fuzz_dup, cksum_unique);
 
       }
 
@@ -741,6 +1125,17 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
       if (san_fault == FSRV_RUN_OK) {
 
+        /* Value profiling on non-coverage-producing executions.
+           VP-only admission is strict-distance-only by design. */
+        if (afl->shm.vp_map && afl->shm.vp_map->enabled &&
+            vp_frontier_would_improve(afl)) {
+
+          new_bits |= NEW_BITS_VP_MASK;
+          vp_entry = 1;
+          goto save_to_queue;
+
+        }
+
         if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
         return 0;
 
@@ -763,13 +1158,35 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     calculate_cksum_if_necessary(afl, &cksum, &cksumed, &classified);
     calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
 
+    if ((new_bits & NEW_BITS_COVERAGE_MASK) == 2) {
+
+      // do not set afl->last_find_time here
+      afl->last_edge_time = get_cur_time();
+      afl->last_edge_execs = afl->fsrv.total_execs;
+
+      if (unlikely(afl->starved)) {
+
+        afl->starved = 0;
+        afl->starve_minimize = 0;
+        afl->reinit_table = 1;
+        afl->cmplog_enable_arith = afl->saved_cmplog_enable_arith;
+        afl->input_mode = afl->saved_input_mode;
+        afl->schedule = afl->saved_schedule;
+        afl->use_splicing = afl->saved_use_splicing;
+
+        if (afl->afl_env.afl_no_ui) { ACTF("Leaving starve mode"); }
+
+      }
+
+    }
+
 #ifndef SIMPLE_FILES
 
     if (!afl->afl_env.afl_sha1_filenames) {
 
       queue_fn = alloc_printf(
           "%s/queue/id:%06u,%s%s%s", afl->out_dir, afl->queued_items,
-          describe_op(afl, new_bits + is_timeout,
+          describe_op(afl, new_bits | is_timeout,
                       NAME_MAX - strlen("id:000000,")),
           afl->file_extension ? "." : "",
           afl->file_extension ? (const char *)afl->file_extension : "");
@@ -800,10 +1217,31 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
-    add_to_queue(afl, queue_fn, len, 0);
+    /* add_to_queue() always advances the find clock and clears the
+       cycles-without-finds counter, but a value-profile-only entry is not a
+       coverage find. Snapshot both here and restore them below so
+       AFL_EXIT_ON_TIME, the explore/exploit switch and the havoc escalation
+       stay driven by coverage alone. */
+    u64 saved_find_time = afl->last_find_time;
+    u64 saved_find_execs = afl->last_find_execs;
+    u64 saved_longest_find = afl->longest_find_time;
+    u64 saved_cycles_wo_finds = afl->cycles_wo_finds;
+
+    u8 file_modified = add_to_queue(afl, queue_fn, len, 0);
+    if (vp_entry) {
+
+      afl->last_find_time = saved_find_time;
+      afl->last_find_execs = saved_find_execs;
+      afl->longest_find_time = saved_longest_find;
+      afl->cycles_wo_finds = saved_cycles_wo_finds;
+      vp_mark_entry_vp_only(afl, afl->queue_top);
+      afl->queue_top->vp_last_ref_cycle = afl->queue_cycle;
+
+    }
 
     if (unlikely(afl->fuzz_mode) &&
-        likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode)) {
+        likely(afl->switch_fuzz_mode && !afl->non_instrumented_mode &&
+               (new_bits & NEW_BITS_COVERAGE_MASK))) {
 
       if (afl->afl_env.afl_no_ui) {
 
@@ -846,7 +1284,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     afl->queue_top->exec_cksum = cksum;
 
-    if (new_bits == 2) {
+    if ((new_bits & NEW_BITS_COVERAGE_MASK) == 2) {
 
       afl->queue_top->has_new_cov = 1;
       ++afl->queued_with_cov;
@@ -861,9 +1299,45 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
+    if (unlikely(afl->value_profile_active)) {
+
+      /* Preserve runtime VP state from this execution across calibration
+         re-runs by temporarily disabling VP collection. */
+      afl->value_profile_suppressed = 1;
+      vp_restore_suppressed = 1;
+
+    }
+
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
-    res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
+    u8 *use_mem = mem;
+    u8 *reloaded = NULL;
+
+    if (unlikely(file_modified)) {
+
+      s32 rfd = open((char *)afl->queue_top->fname, O_RDONLY);
+      if (unlikely(rfd < 0)) {
+
+        PFATAL("Unable to open '%s'", (char *)afl->queue_top->fname);
+
+      }
+
+      reloaded = ck_alloc(afl->queue_top->len);
+      ck_read(rfd, reloaded, afl->queue_top->len, afl->queue_top->fname);
+      close(rfd);
+      use_mem = reloaded;
+      afl->queue_top->exec_cksum = 0;
+
+    }
+
+    res = calibrate_case(afl, afl->queue_top, use_mem, afl->queue_cycle - 1, 0);
+
+    if (vp_restore_suppressed) {
+
+      afl->value_profile_suppressed = 0;
+      vp_restore_suppressed = 0;
+
+    }
 
     if (unlikely(res == FSRV_RUN_ERROR)) {
 
@@ -871,11 +1345,56 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
-    if (likely(afl->q_testcase_max_cache_size)) {
+    if (unlikely(afl->queue_top->cal_failed) && likely(!afl->stop_soon)) {
 
-      queue_testcase_store_mem(afl, afl->queue_top, mem);
+      virgin_undo_rollback(afl, afl->queue_top);
+
+    } else {
+
+      virgin_undo_commit(afl);
 
     }
+
+    if (likely(afl->q_testcase_max_cache_size)) {
+
+      queue_testcase_store_mem(afl, afl->queue_top, use_mem);
+
+    }
+
+    if (likely(!afl->queue_top->cal_failed)) {
+
+      if (unlikely(vp_entry)) {
+
+        vp_sample_ready =
+            vp_collect_signal_for_input(afl, use_mem, afl->queue_top->len);
+        if (vp_sample_ready) { vp_frontier_apply(afl, afl->queue_top); }
+        if (!vp_sample_ready) { vp_disable_unowned_entry(afl, afl->queue_top); }
+        if (!afl->queue_top->disabled && afl->queue_top->vp_ref_cnt) {
+
+          afl->value_profile_finds++;
+
+        }
+
+      } else if (afl->value_profile_active && afl->shm.vp_map) {
+
+        /* Coverage-producing input: also compute VP score so the scheduler
+           can see VP gradient on coverage entries too. Re-run after
+           calibration so apply never depends on stale runtime SHM state. */
+        if (vp_collect_signal_for_input(afl, use_mem, afl->queue_top->len)) {
+
+          vp_frontier_apply(afl, afl->queue_top);
+
+        }
+
+      }
+
+    } else if (unlikely(vp_entry)) {
+
+      vp_disable_unowned_entry(afl, afl->queue_top);
+
+    }
+
+    if (unlikely(reloaded)) { ck_free(reloaded); }
 
     keeping = 1;
 
@@ -893,6 +1412,55 @@ may_save_fault:
 
       ++afl->total_tmouts;
 
+      if (unlikely(afl->exec_tmout_ceil &&
+                   afl->fsrv.exec_tmout < afl->exec_tmout_ceil && !probed)) {
+
+        if (tmout_probe_allowed(afl)) {
+
+          u8  new_fault;
+          u64 probe_us = 0;
+
+          probed = true;
+          new_fault = probe_at_raised_tmout(
+              afl, &mem, &len, MAX(afl->hang_tmout, afl->exec_tmout_ceil),
+              &probe_us);
+          classified = false;
+          bits_counted = false;
+          cksumed = false;
+
+          switch (classify_tmout_probe(afl, new_fault, probe_us, &new_bits,
+                                       &bits_counted, &classified)) {
+
+            case PROBE_KEEP_IN_QUEUE:
+              is_timeout = 0;
+              fault = afl->crash_mode;
+              goto save_to_queue;
+
+            case PROBE_KEEP_AS_CRASH:
+              goto keep_as_crash;
+
+            case PROBE_FAILED:
+              return keeping;
+
+            case PROBE_DISCARD:
+              if (afl->afl_env.afl_keep_timeouts) {
+
+                ++afl->saved_tmouts;
+                goto save_to_queue;
+
+              }
+
+              return keeping;
+
+            default:
+              break;
+
+          }
+
+        }
+
+      }
+
       if (afl->saved_hangs >= KEEP_UNIQUE_HANG) { return keeping; }
 
       if (likely(!afl->non_instrumented_mode)) {
@@ -903,7 +1471,7 @@ may_save_fault:
 
       }
 
-      is_timeout = 0x80;
+      is_timeout = NEW_BITS_TIMEOUT_MASK;
 #ifdef INTROSPECTION
       if (afl->custom_mutators_count && afl->current_custom_fuzz) {
 
@@ -935,48 +1503,62 @@ may_save_fault:
 
       /* Before saving, we make sure that it's a genuine hang by re-running
          the target with a more generous timeout (unless the default timeout
-         is already generous). */
+         is already generous). With -t <n>+ the re-run also tells us whether
+         the input was merely slow, which raises the timeout towards <n>.
+         Stretching the re-run past hang_tmout to reach the ceiling costs real
+         wall clock time, so it draws from the same budget as the backstop
+         probe; without a free slot the confirmation stays at hang_tmout. */
 
-      if (afl->fsrv.exec_tmout < afl->hang_tmout) {
+      if (!probed &&
+          afl->fsrv.exec_tmout < MAX(afl->hang_tmout, afl->exec_tmout_ceil)) {
 
         u8  new_fault;
-        u32 tmp_len = write_to_testcase(afl, &mem, len, 0);
+        u64 probe_us = 0;
+        u32 probe_tmout = afl->hang_tmout;
 
-        if (likely(tmp_len)) {
+        if (afl->exec_tmout_ceil > probe_tmout &&
+            afl->fsrv.exec_tmout < afl->exec_tmout_ceil &&
+            tmout_probe_allowed(afl)) {
 
-          len = tmp_len;
-
-        } else {
-
-          len = write_to_testcase(afl, &mem, len, 1);
-
-        }
-
-        new_fault = fuzz_run_target(afl, &afl->fsrv, afl->hang_tmout);
-        classified = false;
-        bits_counted = false;
-        cksumed = false;
-
-        /* A corner case that one user reported bumping into: increasing the
-           timeout actually uncovers a crash. Make sure we don't discard it if
-           so. */
-
-        if (!afl->stop_soon && new_fault == FSRV_RUN_CRASH) {
-
-          goto keep_as_crash;
+          probe_tmout = afl->exec_tmout_ceil;
 
         }
 
-        if (afl->stop_soon || new_fault != FSRV_RUN_TMOUT) {
+        if (afl->fsrv.exec_tmout < probe_tmout) {
 
-          if (afl->afl_env.afl_keep_timeouts) {
+          probed = true;
+          new_fault =
+              probe_at_raised_tmout(afl, &mem, &len, probe_tmout, &probe_us);
+          classified = false;
+          bits_counted = false;
+          cksumed = false;
 
-            ++afl->saved_tmouts;
-            goto save_to_queue;
+          switch (classify_tmout_probe(afl, new_fault, probe_us, &new_bits,
+                                       &bits_counted, &classified)) {
 
-          } else {
+            case PROBE_KEEP_IN_QUEUE:
+              is_timeout = 0;
+              fault = afl->crash_mode;
+              goto save_to_queue;
 
-            return keeping;
+            case PROBE_KEEP_AS_CRASH:
+              goto keep_as_crash;
+
+            case PROBE_FAILED:
+              return keeping;
+
+            case PROBE_DISCARD:
+              if (afl->afl_env.afl_keep_timeouts) {
+
+                ++afl->saved_tmouts;
+                goto save_to_queue;
+
+              }
+
+              return keeping;
+
+            default:
+              break;
 
           }
 
@@ -1025,6 +1607,8 @@ may_save_fault:
       /* This is handled in a manner roughly similar to timeouts,
          except for slightly different limits and no need to re-run test
          cases. */
+
+      is_crash_save = 1;
 
       ++afl->total_crashes;
 
@@ -1124,6 +1708,16 @@ may_save_fault:
 
     ck_write(fd, mem, len, fn);
     close(fd);
+
+  }
+
+  if (unlikely(afl->afl_env.afl_crash_traces) && is_crash_save) {
+
+    save_crash_trace(afl, fn);
+
+#ifdef __linux__
+    if (afl->fsrv.last_kill_signal) { save_crash_core(afl, fn); }
+#endif
 
   }
 

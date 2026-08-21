@@ -100,7 +100,8 @@ function getopt(argc, argv, options,    thisopt, i)
     return thisopt
 }
 
-function usage() {
+function usage(status) {
+   if (status == "") status = 1
    print \
 "afl-cmin [ options ] -- /path/to/target_app [ ... ]\n" \
 "\n" \
@@ -141,7 +142,7 @@ function usage() {
 "AFL_SKIP_BIN_CHECK: skip afl instrumentation checks for target binary\n" \
 "AFL_CUSTOM_MUTATOR_LIBRARY: custom mutator library (post_process and send)\n" \
 "AFL_PYTHON_MODULE: custom mutator library (post_process and send)\n"
-   exit 1
+   exit status
 }
 
 function exists_and_is_executable(binarypath) {
@@ -167,38 +168,38 @@ BEGIN {
   Optind = 1    # skip ARGV[0]
   while ((_go_c = getopt(ARGC, ARGV, "hi:o:f:m:t:eACOQUXYT:?")) != -1) {
     if (_go_c == "i") {
-      if (!Optarg) usage()
+      if (!Optarg) usage(1)
       if (in_dir) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       in_dir = Optarg
       continue
     } else 
     if (_go_c == "T") {
-      if (!Optarg) usage()
+      if (!Optarg) usage(1)
       if (threads) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       threads = Optarg
       continue
     } else 
     if (_go_c == "o") {
-      if (!Optarg) usage()
+      if (!Optarg) usage(1)
       if (out_dir) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       out_dir = Optarg
       continue
     } else 
     if (_go_c == "f") {
-      if (!Optarg) usage()
+      if (!Optarg) usage(1)
       if (stdin_file) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       stdin_file = Optarg
       continue
     } else 
     if (_go_c == "m") {
-      if (!Optarg) usage()
+      if (!Optarg) usage(1)
       if (mem_limit) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       mem_limit = Optarg
       mem_limit_given = 1
       continue
     } else 
     if (_go_c == "t") {
-      if (!Optarg) usage()
+      if (!Optarg) usage(1)
       if (timeout) { print "Option "_go_c" is only allowed once" > "/dev/stderr"}
       timeout = Optarg
       continue
@@ -239,10 +240,13 @@ BEGIN {
       nyx_mode = 1
       continue
     } else 
+    if (_go_c == "h") {
+      usage(0)
+    } else 
     if (_go_c == "?") {
       exit 1
     } else 
-      usage()
+      usage(1)
   } # while options
 
   if (!mem_limit) mem_limit = "none"
@@ -258,7 +262,7 @@ BEGIN {
   }
 
   # sanity checks
-  if (!prog_args[0] || !in_dir || !out_dir) usage()
+  if (!prog_args[0] || !in_dir || !out_dir) usage(1)
 
   target_bin = prog_args[0] 
 
@@ -450,6 +454,12 @@ BEGIN {
     infilesSmallToBigFull[i] = $0
     sub(/.*\//, "", $0)
     infilesSmallToBig[i] = $0
+    # traces and output are keyed by the file name alone, so two inputs of the
+    # same name in different subdirectories would silently replace each other
+    if (infilesSmallToBig[i] in infilesSmallToBigMap) {
+      print "[-] Error: '"infilesSmallToBig[i]"' exists more than once in '"in_dir"', this version cannot handle that - please use afl-cmin (the C version)." > "/dev/stderr"
+      exit 1
+    }
     infilesSmallToBigMap[infilesSmallToBig[i]] = infilesSmallToBigFull[i]
     infilesSmallToBigFullMap[infilesSmallToBigFull[i]] = infilesSmallToBig[i]
     i++
@@ -691,6 +701,16 @@ BEGIN {
 
   if (!ENVIRON["AFL_KEEP_TRACES"]) {
     system("rm -rf "trace_dir" 2>/dev/null")
+  }
+
+  # an empty result must not look like a success
+  if (out_count == 0) {
+    if (AFL_CMIN_CRASHES_ONLY) {
+      print "[-] Error: no input crashed the target, so -C selected nothing." > "/dev/stderr"
+    } else {
+      print "[-] Error: no input file was usable: check the target, the timeout and -A/-C." > "/dev/stderr"
+    }
+    exit 1
   }
 
   exit 0

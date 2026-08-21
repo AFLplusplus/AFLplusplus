@@ -23,6 +23,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/Constant.h"
@@ -119,6 +120,7 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
 
   Options.CoverageType = SanitizerCoverageOptions::SCK_Edge;
   Options.TracePCGuard = true;  // TracePCGuard is default.
+  if (getenv("AFL_LLVM_DENSE")) { Options.NoPrune = true; }
   return Options;
 
 }
@@ -198,15 +200,17 @@ class ModuleSanitizerCoverageAFL
   SanitizerCoverageOptions Options;
 
   uint32_t instr = 0, selects = 0, unhandled = 0, skippedbb = 0, dump_cc = 0;
-  GlobalVariable *AFLMapPtr = NULL;
-  GlobalVariable *AFLCovMapSize = NULL;
-  GlobalVariable *AFLIJONState = NULL;
-  Value          *HoistedMapPtr = NULL;
-  ConstantInt    *One = NULL;
-  ConstantInt    *Zero = NULL;
-  bool            deny_exec = false;
-  bool            abort_list = false;
-  uint32_t        first = 1;
+  GlobalVariable     *AFLMapPtr = NULL;
+  GlobalVariable     *AFLCovMapSize = NULL;
+  GlobalVariable     *AFLIJONState = NULL;
+  Value              *HoistedMapPtr = NULL;
+  ConstantInt        *One = NULL;
+  ConstantInt        *Zero = NULL;
+  bool                deny_exec = false;
+  bool                abort_list = false;
+  uint32_t            first = 1;
+  bool                reachability_mode = false;
+  StringMap<uint32_t> reachabilityValues;
 
   /* Functions that run automatically outside the fuzzing entry point and must
      never receive AFL_LLVM_ABORTLIST instrumentation: global constructors and
@@ -507,6 +511,9 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
 
   }
 
+  reachability_mode =
+      setupReachability(reachabilityValues, "SanitizerCoveragePCGUARD");
+
 }
 
 Value *ModuleSanitizerCoverageAFL::createGuardPointer(IRBuilder<> &IRB,
@@ -727,6 +734,7 @@ void ModuleSanitizerCoverageAFL::updateCoverageBitmap(IRBuilder<> &IRB,
     if (skip_nozero == NULL) {
 
       Incr = IRB.CreateBinaryIntrinsic(Intrinsic::umax, Incr, One);
+      setNoInstrumentMetadata(Incr);
 
     }
 
@@ -1009,6 +1017,7 @@ void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
       if (skip_nozero == NULL) {
 
         Incr = IRB.CreateBinaryIntrinsic(Intrinsic::umax, Incr, One);
+        setNoInstrumentMetadata(Incr);
 
       }
 
@@ -1329,8 +1338,13 @@ static void markPersistentLoopEdges(Function &F) {
 
       if (succ->getSinglePredecessor() != &BB) continue;
       Instruction *term = succ->getTerminator();
-      BranchInst  *br = dyn_cast<BranchInst>(term);
+#if LLVM_MAJOR >= 23
+      UncondBrInst *br = dyn_cast<UncondBrInst>(term);
+      if (!br) continue;
+#else
+      BranchInst *br = dyn_cast<BranchInst>(term);
       if (!br || !br->isUnconditional()) continue;
+#endif
       if (&*succ->getFirstNonPHIOrDbg() != term) continue;
       edges.push_back(succ);
 
@@ -1364,6 +1378,7 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
   if (BB->getFirstInsertionPt() == BB->end()) return false;
 
   if (&F.getEntryBlock() != BB && isFullyArtificialBlock(BB)) return false;
+  if (isAflSyntheticBlock(BB)) return false;
 
   if (Options.NoPrune || &F.getEntryBlock() == BB) return true;
 
@@ -1429,6 +1444,12 @@ void ModuleSanitizerCoverageAFL::instrumentFunction(
 #if LLVM_MAJOR >= 19
   if (F.hasFnAttribute(Attribute::DisableSanitizerInstrumentation)) return;
 #endif
+  if (reachability_mode) {
+
+    instrumentReachability(F, getReachabilityValue(reachabilityValues, F));
+
+  }
+
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
     SplitAllCriticalEdges(
         F, CriticalEdgeSplittingOptions().setIgnoreUnreachableDests());
@@ -1568,29 +1589,33 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
       // Check for dlopen warnings
       if (auto *callInst = dyn_cast<CallInst>(&IN)) {
 
-        Function *Callee = callInst->getCalledFunction();
-        if (!Callee) continue;
-        if (Callee->isIntrinsic()) continue;
-        if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
+        if (!isAflCovMinMaxIntrinsic(IN)) {
 
-        StringRef FuncName = Callee->getName();
-        if (!FuncName.compare(StringRef("dlopen")) ||
-            !FuncName.compare(StringRef("_dlopen"))) {
+          Function *Callee = callInst->getCalledFunction();
+          if (!Callee) continue;
+          if (Callee->isIntrinsic()) continue;
+          if (callInst->getCallingConv() != llvm::CallingConv::C) continue;
 
-          WARNF(
-              "dlopen() detected. To have coverage for a library that your "
-              "target dlopen()'s this must either happen before __AFL_INIT() "
-              "or you must use AFL_PRELOAD to preload all dlopen()'ed "
-              "libraries!\n");
-          continue;
+          StringRef FuncName = Callee->getName();
+          if (!FuncName.compare(StringRef("dlopen")) ||
+              !FuncName.compare(StringRef("_dlopen"))) {
 
-        }
+            WARNF(
+                "dlopen() detected. To have coverage for a library that your "
+                "target dlopen()'s this must either happen before __AFL_INIT() "
+                "or you must use AFL_PRELOAD to preload all dlopen()'ed "
+                "libraries!\n");
+            continue;
 
-        if (!FuncName.compare(StringRef("__afl_coverage_interesting"))) {
+          }
 
-          cnt_cov++;
-          block_is_instrumented = true;
-          continue;
+          if (!FuncName.compare(StringRef("__afl_coverage_interesting"))) {
+
+            cnt_cov++;
+            block_is_instrumented = true;
+            continue;
+
+          }
 
         }
 
@@ -1656,6 +1681,36 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           block_is_instrumented = true;
           cnt_sel++;
           cnt_sel_inc += 2;
+
+        } else if (isAflCovMinMaxIntrinsic(IN)) {
+
+          Type            *mmt = IN.getType();
+          FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
+          if (mmt->isIntegerTy() || mmt->isFloatingPointTy()) {
+
+            block_is_instrumented = true;
+            cnt_sel++;
+            cnt_sel_inc += 2;
+
+          } else if (mmv && isAflCovVectorEnabled()) {
+
+            block_is_instrumented = true;
+            cnt_sel++;
+            cnt_sel_inc += (mmv->getElementCount().getKnownMinValue() * 2);
+
+          } else if (mmt->getTypeID() == llvm::Type::ScalableVectorTyID &&
+
+                     isAflCovVectorEnabled()) {
+
+            block_is_instrumented = true;
+            cnt_sel++;
+            cnt_sel_inc += 2;
+
+          } else {
+
+            unhandled++;
+
+          }
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 
@@ -1970,6 +2025,91 @@ bool ModuleSanitizerCoverageAFL::InjectCoverage(
           result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
           setNoInstrumentMetadata(result);
           // fprintf(stderr, "Rmw!\n");
+
+        } else if (isAflCovMinMaxIntrinsic(IN)) {
+
+          IntrinsicInst   *mmi = cast<IntrinsicInst>(&IN);
+          Type            *mmt = mmi->getType();
+          FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
+          bool mmscalable = mmt->getTypeID() == llvm::Type::ScalableVectorTyID;
+
+          if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy() &&
+              !((mmv || mmscalable) && isAflCovVectorEnabled())) {
+
+            continue;
+
+          }
+
+          if (debug) printDebugInfo(IN);
+
+          Intrinsic::ID iid = mmi->getIntrinsicID();
+          Value        *lhs = mmi->getArgOperand(0);
+          Value        *rhs = iid == Intrinsic::abs ? ConstantInt::get(mmt, 0)
+                                                    : mmi->getArgOperand(1);
+          Value        *cmp = nullptr;
+
+          switch (iid) {
+
+            case Intrinsic::smin:
+            case Intrinsic::abs:
+              cmp = IRB.CreateICmpSLT(lhs, rhs);
+              break;
+            case Intrinsic::smax:
+              cmp = IRB.CreateICmpSGT(lhs, rhs);
+              break;
+            case Intrinsic::umin:
+              cmp = IRB.CreateICmpULT(lhs, rhs);
+              break;
+            case Intrinsic::umax:
+              cmp = IRB.CreateICmpUGT(lhs, rhs);
+              break;
+            case Intrinsic::minnum:
+            case Intrinsic::minimum:
+              cmp = IRB.CreateFCmpOLT(lhs, rhs);
+              break;
+            case Intrinsic::maxnum:
+            case Intrinsic::maximum:
+              cmp = IRB.CreateFCmpOGT(lhs, rhs);
+              break;
+            default:
+              continue;
+
+          }
+
+          setNoInstrumentMetadata(cmp);
+
+          if (mmv) {
+
+            vector_cnt = mmv->getElementCount().getFixedValue();
+            FixedVectorType *ct = dyn_cast<FixedVectorType>(cmp->getType());
+            if (!ct) { continue; }
+            result =
+                instrumentVectorSelect(IRB, cmp, ct, local_selects, cnt_cov,
+                                       skip_blocks, special, AllBlocks);
+            setNoInstrumentMetadata(result);
+
+          } else {
+
+            Value *res = IRB.CreateFreeze(cmp);
+            setNoInstrumentMetadata(res);
+
+            if (mmscalable) {
+
+              res = IRB.CreateOrReduce(res);
+              setNoInstrumentMetadata(res);
+
+            }
+
+            Value *GuardPtr1 =
+                createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                            AllBlocks.size() - skip_blocks);
+            Value *GuardPtr2 =
+                createGuardPointer(IRB, cnt_cov + special + local_selects++ +
+                                            AllBlocks.size() - skip_blocks);
+            result = IRB.CreateSelect(res, GuardPtr1, GuardPtr2);
+            setNoInstrumentMetadata(result);
+
+          }
 
         } else if ((selectInst = dyn_cast<SelectInst>(&IN))) {
 

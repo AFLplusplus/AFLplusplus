@@ -151,6 +151,11 @@ The fuzzer keeps guiding `x` upward while `x < limit`. When `x >= limit`, the
 slot writes the terminal value `UINT64_MAX`. If `AFL_IJON_RETIRE_MAX` is set
 during fuzzing, AFL++ removes that IJON max input from the IJON scheduling pool.
 
+Stored maximum-reaching inputs are validated and loaded again when AFL++ starts.
+The scheduler replays them round-robin after every 15 normal scheduler turns,
+so IJON replay occupies at most one of every 16 scheduling opportunities. New
+coverage found during replay enters the queue as an independent root entry.
+
 ## Usage Instructions
 
 ### Building AFL++ with IJON
@@ -302,3 +307,17 @@ Base Address    ┌────────────────────�
 - **Consistent Layout**: Same memory organization regardless of target size
 - **Fastresume Support**: IJON offsets preserved across fuzzing sessions
 
+### The other tools
+
+`afl-showmap`, `afl-cmin`, `afl-tmin` and `afl-analyze` see the same map
+afl-fuzz does: coverage plus the 64 KB `IJON_SET`/`IJON_INC` area, with the
+4 KB of `IJON_MAX` slots (and a bug-pass map, if the target has one) excluded,
+because those hold wide values rather than hit counts and would otherwise be
+reported as tuples, minimised against, or bucket-classified in place. So an
+`afl-showmap` dump of an IJON target lists tuples above the coverage size, and
+two inputs that differ only in an `IJON_SET` value are two different traces —
+which is what makes `afl-cmin` keep both, exactly as afl-fuzz would.
+
+The IJON channels need a map to write into: a bare `./target` run leaves them
+alone, while a run under any of these tools has one. Nothing has to be passed
+for that.

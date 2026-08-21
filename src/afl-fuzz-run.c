@@ -72,6 +72,20 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
 
   }
 
+  if (unlikely(afl->value_profile_mode)) { vp_prepare_exec(afl, fsrv); }
+
+  /* Every forkserver that shares the primary trace buffer overwrites the
+     coverage map with its own guard id space. Remember who wrote it last so
+     has_new_bits() can refuse to merge a secondary map into virgin_bits. */
+  /*
+  if (unlikely(fsrv->trace_bits == afl->fsrv.trace_bits)) {
+
+    afl->primary_trace = (fsrv == &afl->fsrv);
+
+  }
+
+  */
+
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
 #ifdef __AFL_CODE_COVERAGE
@@ -144,14 +158,30 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
                                            u32 len, u32 fix) {
 
   u8 sent = 0;
+  u8 did_swap = 0;
 
   if (unlikely(afl->custom_mutators_count)) {
 
-    ssize_t new_size = len;
-    u8     *new_mem = *mem;
-    u8     *new_buf = NULL;
+    ssize_t                new_size = len;
+    u8                    *new_mem = *mem;
+    u8                    *new_buf = NULL;
+    struct custom_mutator *staging_mutator = NULL;
+    u8                    *keep_orig_buf = NULL;
+
+    if (unlikely(afl->afl_env.afl_post_process_keep_original)) {
+
+      u8 **orig_buf_p = (*mem == afl->post_process_orig_buf)
+                            ? &afl->post_process_orig_buf_scratch
+                            : &afl->post_process_orig_buf;
+      keep_orig_buf = afl_realloc((void **)orig_buf_p, len ? len : 1);
+      if (unlikely(!keep_orig_buf)) { PFATAL("alloc"); }
+      if (len) { memcpy(keep_orig_buf, *mem, len); }
+
+    }
 
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+      staging_mutator = el;
 
       if (el->afl_custom_post_process) {
 
@@ -181,6 +211,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
       if (fix) {
 
         new_size = len;
+        new_mem = *mem;
 
       } else {
 
@@ -191,7 +222,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
     }
 
     ssize_t valid_size = new_size;
-    u8      did_swap = 0;
+    u8     *original_mem = *mem;
 
     if (unlikely(new_size < afl->min_length && !fix)) {
 
@@ -206,27 +237,28 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
     if ((new_mem != *mem || new_size > valid_size) && new_mem != NULL &&
         new_size > 0) {
 
-      new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), new_size);
+      u8 **staging_buf_p = (original_mem == staging_mutator->post_process_buf)
+                               ? &staging_mutator->post_process_buf_scratch
+                               : &staging_mutator->post_process_buf;
+      u8  *staging_buf = *staging_buf_p;
+      u8   source_is_staging = new_mem == staging_buf;
+
+      new_buf = afl_realloc((void **)staging_buf_p, new_size);
       if (unlikely(!new_buf)) { PFATAL("alloc"); }
       ssize_t copy_size = new_size < valid_size ? new_size : valid_size;
-      if (copy_size > 0) { memcpy(new_buf, new_mem, copy_size); }
+      if (copy_size > 0 && !source_is_staging) {
+
+        memcpy(new_buf, new_mem, copy_size);
+
+      }
+
       if (new_size > copy_size) {
 
         memset(new_buf + copy_size, 0, new_size - copy_size);
 
       }
 
-      /* if AFL_POST_PROCESS_KEEP_ORIGINAL is set then save the original memory
-         prior post-processing in new_mem to restore it later */
-      if (unlikely(afl->afl_env.afl_post_process_keep_original)) {
-
-        new_mem = *mem;
-
-      }
-
       *mem = new_buf;
-      afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
-      did_swap = 1;
 
     }
 
@@ -262,11 +294,10 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
       len = new_size;
 
-    } else if (did_swap) {
+    } else {
 
-      /* restore the original memory which was saved in new_mem */
-      *mem = new_mem;
-      afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+      /* Restore the bytes captured before post-processing ran. */
+      *mem = keep_orig_buf;
 
     }
 
@@ -280,6 +311,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
       memset(padded + len, 0, afl->min_length - len);
       *mem = padded;
       afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+      did_swap = 1;
       len = afl->min_length;
 
     } else if (unlikely(len > afl->max_length)) {
@@ -328,166 +360,13 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 
 #endif
 
+  if (unlikely(did_swap)) {
+
+    afl_swap_bufs(AFL_BUF_PARAM(out), AFL_BUF_PARAM(out_scratch));
+
+  }
+
   return len;
-
-}
-
-/* The same, but with an adjustable gap. Used for trimming. */
-
-static void write_with_gap(afl_state_t *afl, u8 *mem, u32 len, u32 skip_at,
-                           u32 skip_len) {
-
-  s32 fd = afl->fsrv.out_fd;
-  u32 tail_len = len - skip_at - skip_len;
-
-  /*
-  This memory is used to carry out the post_processing(if present) after copying
-  the testcase by removing the gaps. This can break though
-  */
-  u8 *mem_trimmed = afl_realloc(AFL_BUF_PARAM(out_scratch), len - skip_len + 1);
-  if (unlikely(!mem_trimmed)) { PFATAL("alloc"); }
-
-  ssize_t new_size = len - skip_len;
-  u8     *new_mem = mem;
-
-  bool post_process_skipped = true;
-
-  if (unlikely(afl->custom_mutators_count)) {
-
-    u8 *new_buf = NULL;
-    new_mem = mem_trimmed;
-
-    LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
-
-      if (el->afl_custom_post_process) {
-
-        // We copy into the mem_trimmed only if we actually have custom mutators
-        // *with* post_processing installed
-
-        if (post_process_skipped) {
-
-          if (skip_at) { memcpy(mem_trimmed, (u8 *)mem, skip_at); }
-
-          if (tail_len) {
-
-            memcpy(mem_trimmed + skip_at, (u8 *)mem + skip_at + skip_len,
-                   tail_len);
-
-          }
-
-          post_process_skipped = false;
-
-        }
-
-        new_size =
-            el->afl_custom_post_process(el->data, new_mem, new_size, &new_buf);
-
-        if (unlikely(!new_buf || new_size <= 0)) {
-
-          new_size = 0;
-          new_buf = new_mem;
-          // FATAL("Custom_post_process failed (ret: %lu)", (long
-          // unsigned)new_size);
-
-        } else {
-
-          new_mem = new_buf;
-
-        }
-
-      }
-
-    });
-
-  }
-
-  if (likely(afl->fsrv.use_shmem_fuzz)) {
-
-    if (!post_process_skipped) {
-
-      // If we did post_processing, copy directly from the new_mem buffer
-
-      memcpy(afl->fsrv.shmem_fuzz, new_mem, new_size);
-
-    } else {
-
-      memcpy(afl->fsrv.shmem_fuzz, mem, skip_at);
-      memcpy(afl->fsrv.shmem_fuzz + skip_at, mem + skip_at + skip_len,
-             tail_len);
-
-    }
-
-    *afl->fsrv.shmem_fuzz_len = new_size;
-
-#ifdef _DEBUG
-    if (afl->debug) {
-
-      fprintf(
-          stderr, "FS crc: %16llx len: %u\n",
-          hash64(afl->fsrv.shmem_fuzz, *afl->fsrv.shmem_fuzz_len, HASH_CONST),
-          *afl->fsrv.shmem_fuzz_len);
-      fprintf(stderr, "SHM :");
-      for (u32 i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
-        fprintf(stderr, "%02x", afl->fsrv.shmem_fuzz[i]);
-      fprintf(stderr, "\nORIG:");
-      for (u32 i = 0; i < *afl->fsrv.shmem_fuzz_len; i++)
-        fprintf(stderr, "%02x", (u8)((u8 *)mem)[i]);
-      fprintf(stderr, "\n");
-
-    }
-
-#endif
-
-    return;
-
-  } else if (unlikely(!afl->fsrv.use_stdin)) {
-
-    if (unlikely(afl->no_unlink)) {
-
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
-
-    } else {
-
-      unlink(afl->fsrv.out_file);                         /* Ignore errors. */
-      fd = open(afl->fsrv.out_file, O_WRONLY | O_CREAT | O_EXCL, afl->perm);
-
-    }
-
-    if (fd < 0) { PFATAL("Unable to create '%s'", afl->fsrv.out_file); }
-
-    if (afl->chown_needed) {
-
-      if (fchown(fd, -1, afl->fsrv.gid) == -1) { PFATAL("fchown() failed"); }
-
-    }
-
-  } else {
-
-    lseek(fd, 0, SEEK_SET);
-
-  }
-
-  if (!post_process_skipped) {
-
-    ck_write(fd, new_mem, new_size, afl->fsrv.out_file);
-
-  } else {
-
-    ck_write(fd, mem, skip_at, afl->fsrv.out_file);
-    ck_write(fd, mem + skip_at + skip_len, tail_len, afl->fsrv.out_file);
-
-  }
-
-  if (afl->fsrv.use_stdin) {
-
-    if (ftruncate(fd, new_size)) { PFATAL("ftruncate() failed"); }
-    lseek(fd, 0, SEEK_SET);
-
-  } else {
-
-    close(fd);
-
-  }
 
 }
 
@@ -526,6 +405,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   u32 early_skip = afl->stage_max > 3 ? 3 : 2;
 
+  if (unlikely(from_queue && q->var_behavior)) { early_skip = afl->stage_max; }
+
   /* Make sure the forkserver is up before we do anything, and let's not
      count its spin-up time toward binary calibration. */
 
@@ -538,8 +419,10 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     }
 
+    u8 vp_env_armed = vp_env_arm(afl);
     afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
                    afl->afl_env.afl_debug_child);
+    if (vp_env_armed) { vp_env_disarm(); }
 
     if (afl->fsrv.support_shmem_fuzz && !afl->fsrv.use_shmem_fuzz) {
 
@@ -651,6 +534,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
           if (unlikely(!afl->var_bytes[i]) &&
               unlikely(afl->first_trace[i] != afl->fsrv.trace_bits[i])) {
 
+            virgin_undo_save(afl);
             afl->var_bytes[i] = 1;
             // ignore the variable edge by setting it to fully discovered
             afl->virgin_bits[i] = 0;
@@ -699,17 +583,10 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
-  if (unlikely(afl->fixed_seed)) {
+  stop_us = get_cur_time_us();
+  diff_us = stop_us - start_us;
 
-    diff_us = (u64)(afl->fsrv.exec_tmout - 1) * (u64)afl->stage_cur;
-
-  } else {
-
-    stop_us = get_cur_time_us();
-    diff_us = stop_us - start_us;
-    if (unlikely(!diff_us)) { ++diff_us; }
-
-  }
+  if (unlikely(!diff_us)) { ++diff_us; }
 
   afl->total_cal_us += diff_us;
   afl->total_cal_cycles += afl->stage_cur;
@@ -771,9 +648,11 @@ abort_calibration:
 
     afl->var_byte_count = count_bytes(afl, afl->var_bytes);
 
-    if (!q->var_behavior) { ++afl->queued_variable; }
+    mark_as_variable(afl, q, 1);
 
-    mark_as_variable(afl, q);
+  } else if (unlikely(from_queue && q->var_behavior && !q->cal_failed)) {
+
+    if (likely(!afl->non_instrumented_mode)) { mark_as_variable(afl, q, 0); }
 
   }
 
@@ -916,6 +795,28 @@ void check_sync_fuzzers(afl_state_t *afl) {
 
 }
 
+static struct sync_peer_state *get_sync_peer(afl_state_t *afl, u8 *name) {
+
+  for (u32 i = 0; i < afl->sync_states_cnt; ++i) {
+
+    if (!strcmp((char *)afl->sync_states[i].name, (char *)name)) {
+
+      return &afl->sync_states[i];
+
+    }
+
+  }
+
+  afl->sync_states =
+      ck_realloc(afl->sync_states,
+                 (afl->sync_states_cnt + 1) * sizeof(struct sync_peer_state));
+  struct sync_peer_state *sp = &afl->sync_states[afl->sync_states_cnt++];
+  memset(sp, 0, sizeof(*sp));
+  sp->name = ck_strdup(name);
+  return sp;
+
+}
+
 /* Grab interesting test cases from other fuzzers. */
 
 void sync_fuzzers(afl_state_t *afl) {
@@ -986,17 +887,9 @@ void sync_fuzzers(afl_state_t *afl) {
 
     sprintf(qd_path, "%s/%s/queue", afl->sync_dir, sd_ent->d_name);
 
-    struct dirent **namelist = NULL;
-    int             m = 0, n, o;
+    DIR *qd = opendir(qd_path);
 
-    n = scandir(qd_path, &namelist, NULL, alphasort);
-
-    if (n < 1) {
-
-      if (namelist) free(namelist);
-      continue;
-
-    }
+    if (!qd) { continue; }
 
     // Retrieve the ID of the last seen test case.
 
@@ -1012,25 +905,45 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
-    if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
+    struct sync_peer_state *sp = get_sync_peer(afl, sd_ent->d_name);
 
-      next_min_accept = min_accept;
-      lseek(id_fd, 0, SEEK_SET);
+    if (!sp->loaded) {
+
+      if (read(id_fd, &min_accept, sizeof(u32)) == sizeof(u32)) {
+
+        sp->cursor = min_accept;
+        lseek(id_fd, 0, SEEK_SET);
+
+      }
+
+      // check if there is a file documenting the maximum id seen on startup
+      sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir,
+              sd_ent->d_name);
+      s32 max_fd = open(qd_synced_maxid, O_RDONLY, DEFAULT_PERMISSION);
+
+      if (max_fd >= 0) {
+
+        if (read(max_fd, &sp->max_start_id, sizeof(u32)) == sizeof(u32)) {
+
+          sp->have_max = 1;
+
+        }
+
+        close(max_fd);
+
+      }
+
+      sp->loaded = 1;
 
     }
 
-    // now document the attempt to sync to this instance
-    sprintf(qd_synced_path, "%s/.synced/%s.last", afl->out_dir, sd_ent->d_name);
-    int id_fd2 =
-        open(qd_synced_path, O_RDWR | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
-    if (id_fd2 >= 0) close(id_fd2);
+    min_accept = next_min_accept = sp->cursor;
+    max_start_id = sp->have_max ? sp->max_start_id : 0;
 
     // It could be that the target syncing instance was restarted, check!
-    time_t      last_mtime = 0;
+    time_t      last_mtime = (time_t)(get_cur_time() / 1000);
     char        id0[PATH_MAX];
     struct stat st;
-
-    if (stat(qd_synced_path, &st) == 0) { last_mtime = st.st_mtime; }
 
     snprintf(id0, sizeof(id0), "%s/%s/cmdline", afl->sync_dir, sd_ent->d_name);
 
@@ -1038,11 +951,11 @@ void sync_fuzzers(afl_state_t *afl) {
 
       if (unlikely(last_mtime && last_mtime <= st.st_mtime)) {
 
-        // the first entry is newer than when we synced last - instance was
-        // restarted - we have to reset our counter and will skip this instance
-        // this time. It could also be this was trimmed later, or restated with
-        // resume-in-place though but better be safe.
+        // the syncing instance was restarted since our last attempt - reset our
+        // counter and skip it this time. It could also be this was trimmed
+        // later, or restarted with resume-in-place though but better be safe.
         min_accept = 0;
+        sp->cursor = 0;
         ck_write(id_fd, &min_accept, sizeof(u32), qd_synced_path);
         goto close_sync;
 
@@ -1050,21 +963,12 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }  // else { This is likely a non-AFL++ but compliant instance, e.g. SymCC }
 
-    // check if there is a file documented the maximum id seen on startup
-    sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir, sd_ent->d_name);
-    s32 max_fd = open(qd_synced_maxid, O_RDONLY, DEFAULT_PERMISSION);
+    if (sp->have_max && sp->max_start_id < next_min_accept) {
 
-    if (likely(max_fd >= 0)) {
-
-      if (unlikely(read(max_fd, &max_start_id, sizeof(u32)) != sizeof(u32))) {
-
-        /* Use default value on read failure */
-        max_start_id = 0;
-
-      }
-
-      close(max_fd);
-      if (max_start_id < next_min_accept) { unlink(qd_synced_maxid); }
+      sprintf(qd_synced_maxid, "%s/.synced/%s.max", afl->out_dir,
+              sd_ent->d_name);
+      unlink(qd_synced_maxid);
+      sp->have_max = 0;
 
     }
 
@@ -1079,35 +983,29 @@ void sync_fuzzers(afl_state_t *afl) {
     show_stats(afl);
 
     /* For every file queued by this fuzzer, parse ID and see if we have
-       looked at it before; exec a test case if not. */
+       looked at it before; exec a test case if not. Ordering is not required:
+       already-synced IDs are skipped and the cursor advances to the highest ID
+       seen, so holes are tolerated. */
 
-    u8 entry[12];
-    sprintf(entry, "id:%06u", next_min_accept);
+    struct dirent *qd_ent;
+    u32            highest_seen = 0;
+    u8             saw_any = 0;
 
-    while (m < n) {
+    while ((qd_ent = readdir(qd))) {
 
-      if (strncmp(namelist[m]->d_name, entry, 9)) {
+      if (strncmp(qd_ent->d_name, "id:", 3)) { continue; }
 
-        m++;
+      u32 cur_id = (u32)strtoul(qd_ent->d_name + 3, NULL, 10);
+      if (cur_id < next_min_accept) { continue; }
 
-      } else {
-
-        break;
-
-      }
-
-    }
-
-    if (m >= n) { goto close_sync; }  // nothing new
-
-    for (o = m; o < n; o++) {
+      if (cur_id > highest_seen) { highest_seen = cur_id; }
+      saw_any = 1;
 
       s32         fd;
       struct stat st;
 
-      snprintf(path, sizeof(path), "%s/%s", qd_path, namelist[o]->d_name);
-      afl->syncing_case = next_min_accept;
-      next_min_accept++;
+      snprintf(path, sizeof(path), "%s/%s", qd_path, qd_ent->d_name);
+      afl->syncing_case = cur_id;
 
       /* Allow this to fail in case the other fuzzer is resuming or so... */
 
@@ -1121,8 +1019,8 @@ void sync_fuzzers(afl_state_t *afl) {
 
       if (st.st_size && st.st_size <= MAX_FILE) {
 
-        if (likely(next_min_accept < max_start_id ||
-                   !is_known_case(afl, namelist[o]->d_name))) {
+        if (likely(cur_id < max_start_id ||
+                   !is_known_case(afl, qd_ent->d_name))) {
 
           /* See what happens. We rely on save_if_interesting() to catch major
              errors and save the test case. */
@@ -1159,14 +1057,17 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
-    ck_write(id_fd, &next_min_accept, sizeof(u32), qd_synced_path);
+    if (saw_any) {
+
+      next_min_accept = highest_seen + 1;
+      sp->cursor = next_min_accept;
+      ck_write(id_fd, &next_min_accept, sizeof(u32), qd_synced_path);
+
+    }
 
   close_sync:
     close(id_fd);
-    if (n > 0)
-      for (m = 0; m < n; m++)
-        free(namelist[m]);
-    free(namelist);
+    closedir(qd);
 
   }
 
@@ -1204,10 +1105,30 @@ void sync_fuzzers(afl_state_t *afl) {
 
 u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
-  u8  needs_write = 0, fault = 0;
-  u32 orig_len = q->len;
-  u64 trim_start_us = get_cur_time_us();
+  u8               needs_write = 0, fault = 0;
+  u32              orig_len = q->len;
+  u64              trim_start_us = get_cur_time_us();
+  u8               needs_vp_guard = 0;
+  vp_trim_guard_t *vp_trim_guard = NULL;
   afl->bytes_trim_in += orig_len;
+
+  if (unlikely(afl->value_profile_active && q->vp_ref_cnt)) {
+
+    needs_vp_guard = 1;
+
+  }
+
+  if (unlikely(needs_vp_guard)) {
+
+    vp_trim_guard = vp_trim_guard_init(afl, q);
+    if (unlikely(!vp_trim_guard)) {
+
+      fault = 0;
+      goto abort_trimming;
+
+    }
+
+  }
 
   /* Custom mutator trimmer */
   if (afl->custom_mutators_count) {
@@ -1215,12 +1136,26 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     u8   trimmed_case = 0;
     bool custom_trimmed = false;
 
+    vp_trim_hooks_t vp_hooks = {vp_trim_guard, vp_trim_guard_before_exec,
+                                vp_trim_guard_preserved,
+                                vp_trim_guard_after_exec};
+
     LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
 
       if (el->afl_custom_trim) {
 
-        trimmed_case = trim_case_custom(afl, q, in_buf, el);
+        u32 pre_len = q->len;
+
+        trimmed_case =
+            trim_case_custom(afl, q, in_buf, el, &vp_hooks, &trim_start_us);
         custom_trimmed = true;
+
+        if (unlikely(q->len != pre_len)) {
+
+          queue_testcase_retake(afl, q, pre_len);
+          in_buf = queue_testcase_get(afl, q);
+
+        }
 
       }
 
@@ -1228,11 +1163,23 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     if (orig_len != q->len || custom_trimmed) {
 
-      queue_testcase_retake(afl, q, orig_len);
+      queue_testcase_retake(afl, q, q->len);
 
     }
 
     if (custom_trimmed) {
+
+      u8 had_vp_ref = q->vp_ref_cnt;
+      if (unlikely(afl->value_profile_active && had_vp_ref)) {
+
+        u8 *custom_buf = queue_testcase_get(afl, q);
+        if (vp_collect_signal_for_input(afl, custom_buf, q->len)) {
+
+          vp_frontier_apply(afl, q);
+
+        }
+
+      }
 
       fault = trimmed_case;
       goto abort_trimming;
@@ -1259,6 +1206,8 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
   }
 
   afl->stage_name = afl->stage_name_buf;
+  afl->stage_short = "trim";
+  afl->stage_cur_byte = -1;
 
   /* Select initial chunk len, starting with large steps. */
 
@@ -1283,18 +1232,43 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
     while (remove_pos < q->len) {
 
       u32 trim_avail = MIN(remove_len, q->len - remove_pos);
+      u32 trim_len = q->len - trim_avail;
+      u32 tail_len = q->len - remove_pos - trim_avail;
       u64 cksum;
 
-      write_with_gap(afl, in_buf, q->len, remove_pos, trim_avail);
+      u8 *trim_buf = afl_realloc(AFL_BUF_PARAM(trim_scratch), trim_len + 1);
+      if (unlikely(!trim_buf)) { PFATAL("alloc"); }
+
+      if (likely(remove_pos)) { memcpy(trim_buf, in_buf, remove_pos); }
+
+      if (likely(tail_len)) {
+
+        memcpy(trim_buf + remove_pos, in_buf + remove_pos + trim_avail,
+               tail_len);
+
+      }
+
+      u8 *send_buf = trim_buf;
+
+      if (unlikely(vp_trim_guard)) { vp_trim_guard_before_exec(vp_trim_guard); }
+
+      u32 send_len = write_to_testcase(afl, (void **)&send_buf, trim_len, 1);
 
       fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
       update_trim_time(afl, &trim_start_us);
 
-      if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
+      if (afl->stop_soon || fault == FSRV_RUN_ERROR) {
 
-      /* Note that we don't keep track of crashes or hangs here; maybe TODO?
-       */
+        if (unlikely(vp_trim_guard)) {
+
+          vp_trim_guard_after_exec(vp_trim_guard);
+
+        }
+
+        goto abort_trimming;
+
+      }
 
       ++afl->trim_execs;
       classify_counts(&afl->fsrv);
@@ -1307,26 +1281,52 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       if (cksum == q->exec_cksum) {
 
-        u32 move_tail = q->len - remove_pos - trim_avail;
+        u8 vp_ok = 1;
+        if (unlikely(vp_trim_guard)) {
 
-        q->len -= trim_avail;
-        len_p2 = next_pow2(q->len);
+          vp_ok = vp_trim_guard_preserved(vp_trim_guard);
 
-        memmove(in_buf + remove_pos, in_buf + remove_pos + trim_avail,
-                move_tail);
+        }
 
-        /* Let's save a clean trace, which will be needed by
-           update_bitmap_score once we're done with the trimming stuff. */
-        if (!needs_write) {
+        if (likely(vp_ok)) {
 
-          needs_write = 1;
-          memcpy(afl->clean_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
+          u32 move_tail = q->len - remove_pos - trim_avail;
+
+          q->len -= trim_avail;
+          len_p2 = next_pow2(q->len);
+
+          memmove(in_buf + remove_pos, in_buf + remove_pos + trim_avail,
+                  move_tail);
+
+          /* Let's save a clean trace, which will be needed by
+             update_bitmap_score once we're done with the trimming stuff. */
+          if (!needs_write) {
+
+            needs_write = 1;
+            memcpy(afl->clean_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
+
+          }
+
+        } else {
+
+          remove_pos += remove_len;
 
         }
 
       } else {
 
         remove_pos += remove_len;
+
+      }
+
+      if (unlikely(vp_trim_guard)) { vp_trim_guard_after_exec(vp_trim_guard); }
+
+      if (unlikely(fault != afl->crash_mode || cksum != q->exec_cksum)) {
+
+        update_trim_time(afl, &trim_start_us);
+        afl->queued_discovered +=
+            save_if_interesting(afl, send_buf, send_len, fault);
+        trim_start_us = get_cur_time_us();
 
       }
 
@@ -1390,6 +1390,12 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
       } else if (unlikely(new_size > afl->max_length)) {
 
         new_size = afl->max_length;
+
+      }
+
+      if (unlikely(new_mem == in_buf && new_size > orig_len)) {
+
+        new_size = orig_len;
 
       }
 
@@ -1457,10 +1463,21 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
     memcpy(afl->fsrv.trace_bits, afl->clean_trace, afl->fsrv.map_size);
     update_bitmap_score(afl, q, true);
+    u8 had_vp_ref = q->vp_ref_cnt;
+    if (unlikely(afl->value_profile_active && had_vp_ref)) {
+
+      if (vp_collect_signal_for_input(afl, in_buf, q->len)) {
+
+        vp_frontier_apply(afl, q);
+
+      }
+
+    }
 
   }
 
 abort_trimming:
+  if (unlikely(vp_trim_guard)) { vp_trim_guard_destroy(vp_trim_guard); }
   afl->bytes_trim_out += q->len;
   update_trim_time(afl, &trim_start_us);
 

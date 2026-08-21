@@ -144,17 +144,10 @@ Step-by-step quick start:
 
 Questions? Concerns? Bug reports?
 
-* The contributors can be reached via (e.g., by creating an issue):
+* The contributors can be reached via (e.g., by creating an issue - but only for AFL++ defects!):
   [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
-* Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important
-  question missing, submit it via
-  [https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
-* Best: join the [Fuzzing Zulip server](https://fuzz.zulipchat.com/).
-* There is a (not really used) mailing list for the AFL/AFL++ project
-  ([browse archive](https://groups.google.com/group/afl-users)). To compare
-  notes with other users or to get notified about major new features, send an
-  email to <afl-users+subscribe@googlegroups.com>, but note that this is not
-  managed by us.
+* Take a look at our [FAQ](docs/FAQ.md) and [Best Practices](docs/best_practices.md).
+* **Best: join the [Fuzzing Zulip server](https://fuzz.zulipchat.com/)!**
 
 ## Branches
 
@@ -281,11 +274,11 @@ presented at WOOT'20:
 AFL++ is licensed under the **GNU AGPL-3.0-or-later**. In short, you can use
 AFL++ three ways:
 
-1. **Free, under the AGPL-3.0-or-later** — the default. Use, modify, and share
+1. **Free, under the AGPL-3.0-or-later**: the default. Use, modify, and share
    AFL++; if you run a modified version as a network service, the AGPL requires
    you to offer your users the corresponding source. Full text: [LICENSE](LICENSE).
 
-2. **Per file, under the license in its header** — the project contains files
+2. **Per file, under the license in its header**: the project contains files
    under both `SPDX-License-Identifier: AGPL-3.0-or-later` and
    `SPDX-License-Identifier: Apache-2.0`. Always check the header of the file you
    use and adhere to the license stated there; files marked Apache-2.0 may be
@@ -296,7 +289,7 @@ AFL++ three ways:
    that the combined `afl-fuzz` binary includes AGPL files, so the program as a
    whole is AGPL.
 
-3. **Commercial license** — optional, for organizations that cannot or do not
+3. **Commercial license**: *optional*, for organizations that cannot or do not
    want to comply with the AGPL. **The project receives no money.** Instead you
    donate **EUR 20,000** (€20,000) to **either the
    [EFF](https://www.eff.org/) or the [CCC](https://www.ccc.de/)** and email

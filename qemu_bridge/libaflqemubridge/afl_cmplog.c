@@ -25,15 +25,6 @@ struct cmp_map *__afl_cmp_map = NULL;
 #define AFL_RTN_SUPPORTED 0
 #endif
 
-static uint64_t afl_cmplog_hash(uint64_t v)
-{
-    v ^= ((v << 49) | (v >> 15)) ^ ((v << 24) | (v >> 40));
-    v *= 0x9FB21C651E98DF25ULL;
-    v ^= (v >> 35) + 8;
-    v *= 0x9FB21C651E98DF25ULL;
-    return v ^ (v >> 28);
-}
-
 static uint64_t afl_cmplog_gen(uint64_t data, vaddr pc, size_t size)
 {
     (void)data;
@@ -41,15 +32,23 @@ static uint64_t afl_cmplog_gen(uint64_t data, vaddr pc, size_t size)
     if (!afl_range_is_instrumented(pc)) {
         return (uint64_t)-1;
     }
-    return (uint64_t)(afl_cmplog_hash((uint64_t)pc) & (CMP_MAP_W - 1));
+    return (uint64_t)pc;
 }
+
+static uint32_t __afl_cmp_cursor[CMP_MAP_W];
 
 static inline void afl_cmplog_ins(uint64_t id, uint8_t shape, uint64_t v0,
                                   uint64_t v1)
 {
-    uintptr_t k = (uintptr_t)id;
-    uint32_t hits = 0;
+    uint32_t k = cmp_map_select(__afl_cmp_map, id);
+    if (k == CMP_MAP_W) {
+        return;
+    }
 
+    if (__afl_cmp_map->headers[k].hits &&
+        __afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
+        return;
+    }
     if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
         __afl_cmp_map->headers[k].hits = 0;
     }
@@ -57,15 +56,16 @@ static inline void afl_cmplog_ins(uint64_t id, uint8_t shape, uint64_t v0,
     if (__afl_cmp_map->headers[k].hits == 0) {
         __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
         __afl_cmp_map->headers[k].shape = shape;
-    } else {
-        hits = __afl_cmp_map->headers[k].hits;
+        cmp_map_set_attribute(__afl_cmp_map, k, CMP_ATTR_NONE);
     }
 
-    __afl_cmp_map->headers[k].hits = hits + 1;
-
-    hits &= CMP_MAP_H - 1;
+    uint32_t occurrence;
+    uint32_t hits =
+        cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
+                        CMP_MAP_H, &occurrence);
     __afl_cmp_map->log[k][hits].v0 = v0;
     __afl_cmp_map->log[k][hits].v1 = v1;
+    __afl_cmp_map->log[k][hits].occurrence = occurrence;
 }
 
 static void afl_cmplog_exec1(uint64_t data, uint64_t id, uint8_t v0,
@@ -132,7 +132,6 @@ static int afl_rtn_ptr_ok(uint64_t addr)
 static void afl_cmplog_rtn_exec(uint64_t data, uint64_t id)
 {
     (void)data;
-    (void)id;
     CPUState *cpu = libafl_qemu_current_cpu();
     if (!cpu) {
         return;
@@ -152,32 +151,34 @@ static void afl_cmplog_rtn_exec(uint64_t data, uint64_t id)
     void *ptr1 = g2h(cpu, arg1);
     void *ptr2 = g2h(cpu, arg2);
 
-    uint8_t pcbuf[32] = {0};
-    uint64_t pcval = 0;
-    int n = libafl_qemu_read_reg(cpu, 16, pcbuf);
-    if (n > 0) {
-        memcpy(&pcval, pcbuf, n > 8 ? 8 : n);
+    uint32_t k = cmp_map_select(__afl_cmp_map, id);
+    if (k == CMP_MAP_W) {
+        return;
     }
 
-    uintptr_t k = (uintptr_t)(afl_cmplog_hash(pcval) & (CMP_MAP_W - 1));
-
-    uint32_t hits = 0;
-
+    if (__afl_cmp_map->headers[k].hits &&
+        __afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
+        return;
+    }
     if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
         __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
         __afl_cmp_map->headers[k].hits = 0;
         __afl_cmp_map->headers[k].shape = 30;
-    } else {
-        hits = __afl_cmp_map->headers[k].hits;
+        cmp_map_set_attribute(__afl_cmp_map, k, CMP_ATTR_NONE);
     }
 
-    __afl_cmp_map->headers[k].hits = hits + 1;
-
-    hits &= CMP_MAP_RTN_H - 1;
-    ((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0_len = 31;
-    ((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1_len = 31;
-    memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v0, ptr1, 31);
-    memcpy(((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits].v1, ptr2, 31);
+    uint32_t occurrence;
+    uint32_t hits =
+        cmp_map_reserve(&__afl_cmp_map->headers[k], &__afl_cmp_cursor[k],
+                        CMP_MAP_RTN_H, &occurrence);
+    struct cmpfn_operands *op =
+        &((struct cmpfn_operands *)__afl_cmp_map->log[k])[hits];
+    memset(op, 0, sizeof(*op));
+    op->v0_len = 31;
+    op->v1_len = 31;
+    op->occurrence = occurrence;
+    memcpy(op->v0, ptr1, 31);
+    memcpy(op->v1, ptr2, 31);
 }
 
 static uint64_t afl_cmplog_rtn_gen(uint64_t data, vaddr pc)
@@ -193,6 +194,14 @@ static uint64_t afl_cmplog_rtn_gen(uint64_t data, vaddr pc)
 int afl_cmplog_is_active(void)
 {
     return __afl_cmp_map != NULL;
+}
+
+void afl_cmplog_reset_cursor(void)
+{
+    if (__afl_cmp_map == NULL) {
+        return;
+    }
+    memset(__afl_cmp_cursor, 0, sizeof(__afl_cmp_cursor));
 }
 
 void afl_cmplog_init(void)

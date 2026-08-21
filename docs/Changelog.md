@@ -4,15 +4,89 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.03a (dev)
-  - afl-cc
-    - remove classic AFL instrumentation (colliding coverage), as AFL_LLVM_PATH
-      and AFL_LLVM_CALLER replace these mostly and are overall much better
+  ! Value Profile implementation for AFL++ by Khaled Yakdan (@kyakdan) that
+    is much more efficient and intelligent than the libfuzzer implementation.
+    Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for
+    afl-fuzz with `-r <seconds>` when to activate (default off)
   - afl-fuzz
+    - big change: limits before switching modes is not time based but exec based now.
+    - for more variability, a "starved" mode is implemented now. If for a longer
+      time no finds are found, then more seed and mutation variability is
+      introduced incl. splicing phase enabled. This is visible in the UI.
+    - env `AFL_STARVED_MINIMIZE_QUEUE`: if starve mode does not help either,
+      minimize the the queue like afl-cmin does and make the coverage of the
+      removed entries rediscoverable. Inspired by `Novelty Not Found: Adaptive
+      Fuzzer Restarts to Improve Input Space Coverage`
+    - sending `SIGUSR2` forces a sync (AFL internal sync and foreign `-F` ) as
+      soon as the current queue entry has been fuzzed
+    - the trimming stage no longer throws away what it produces: crashes,
+      hangs and new coverage found while shortening a queue entry are now
+      saved (visible as `op:trim`/`op:ptrim` in the file names)
+    - `-s fixed_seed` now only sets a fixed seed and does not ignore timings
+      anymore (required for proper benchmarking in containers without urandom)
+    - `-t xxx+` fix so dummy seeds do not kill a start-up. rechecks now over
+      time
+    - a queue entry that fails its calibration is never fuzzed, so the
+      coverage it claimed is now handed back to `virgin_bits` and can be
+      rediscovered by an input that does calibrate.
+    - the variable behavior flag of a queue entry is cleared now on slow
+      resumes, another afl vanilla legacy bug
     - fixed SAND and FrameShift issues
-  - afl-cmin (all variants: C, python, bash, awk): empty (0 byte) input files
-    are now skipped
+    - symlinked test cases and symlinked subdirectories in the `-i` input
+      directory are now followed
+    - foreign sync directories (`-F`) now import symlinked test cases too
+    - enhancements and fixes for cmplog and ijon
+    - due to a bug first introduced in v4.30c the cmplog target was used for
+      fuzzing if present - fixed
+    - an unreadable foreign sync (`-F`) directory is reported now, once per
+      directory, and the directories are listed at startup - a mistyped path
+      was silently ignored for the whole run before
+    - the queue driver always returns to the main loop now, even when every
+      entry it looks at is skipped
+    - a custom mutator that fails to load because it was built with an
+      instrumenting compiler is named as such instead of just showing the
+      missing `__afl_*` symbol
+  - afl-cc
+    - remove classic AFL instrumentation (colliding coverage), as `AFL_LLVM_PATH`
+      and `AFL_LLVM_CALLER` replace these mostly and are overall much better
+    - more invisible decisions can be instrumented now, all optional
+    - new env var `AFL_LLVM_DENSE=1` to disable PCGUARD basic block pruning
+    - new env var `AFL_LLVM_MINMAX=1` scores min/max/abs intrinsics, i.e.
+      clamps that the optimizer made branchless. Default off: it adds 10% map
+      entries but costs 20% throughput
+    - new env var `AFL_LLVM_FUSED=1` scores both halves of a fused condition,
+      i.e. `if (a && b)` speculated into a single `and i1`
+    - new env var `AFL_LLVM_VECTORS=1` instruments vector selects and vector
+      min/max one guard pair per lane (default off, they are rarely worth it)
+    - removed the obsolete afl-as assembler wrapper and its remaining references
+    - headers shipped in a source checkout are found in `include/` now, an
+      in-tree build silently preferred an older installed copy before
+    - IJON: the map expansion is re-applied after a guard-init reset, so a
+      target whose coverage is split over several instrumented modules gets
+      the full map; the IJON channels also stay live under a tool that
+      attached a map without being a forkserver parent (`afl-showmap` on a
+      single input, `afl-cmin.bash`); `AFL_DUMP_MAP_SIZE` prints the
+      coverage/IJON breakdown to stderr
+  - afl-cmin:
+    - (all variants: C, python, bash, awk): empty (0 byte) input files are now
+      skipped, plus various other fixes and corner case handling
+    - afl-merge (symlink) - merge new files into an existing corpus (that is
+      not minimized)
+    - afl-cmin.c is now the default afl-cmin, but it needed a larger rewrite
+    - `-T all` (C and python variants) now counts the CPUs the process is
+      actually allowed to run on (like `nproc` does)
+  - afl-showmap:
+    - `-i` now follows symlinked test cases and symlinked subdirectories
+    - a child killed by a signal no longer reports a garbage exit code in
+      streaming mode (`-S`)
+    - the target's instrumentation is checked in `-I` and `-S` mode too, not
+      only with `-i`
+  - afl-showmap, afl-cmin, afl-tmin, afl-analyze:
+    - the IJON max-value slots and a bug-pass map are no longer counted as
+      coverage: they hold wide values, not hit counts, and were reported as
+      tuples, minimised against and bucket-classified in place
   - afl-health
-    - more speed, more info
+    - more speed, more info, a few fixes
   - custom_mutators:
     - removed outdated and pointless radamsa
 
@@ -26,6 +100,8 @@
     - Futex implementation missed the clean-up of the shmem
     - Futex shmem now lives in general shared memory map as by default only
       32 such regions are supported in MacOS
+    - new runtime value-profiling guidance mode (`-r0`/`-rN`) for LLVM targets
+      compiled with `AFL_LLVM_VALUE_PROFILE=1`
   - afl-cc:
     - new C11 mode (`AFL_LLVM_C11` at compile time): afl-cc records each
       function's local variable count and afl-fuzz uses it as an extra queue
@@ -204,7 +280,7 @@
     - multiple AFL++ out directories now supported, thanks to @Jay-1409 !
 
 
-### Version ++4.35a (release)
+### Version ++4.35c (release)
   - GUIFuzz++ merged: Unleashing Grey-box Fuzzing on Desktop Graphical User
                       Interfacing Applications
     https://futures.cs.utah.edu/papers/25ASE.pdf

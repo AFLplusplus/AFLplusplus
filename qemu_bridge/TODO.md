@@ -21,12 +21,12 @@ runtime-tested) · ⚠️ partial/degraded · ❌ not implemented.
 | CmpLog (INS / operands) | ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | 🟡 |
 | CmpLog (RTN / call args) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Persistent mode + futex sync | ✅ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| QASan — overflow detection | ✅ | 🟡 | 🟡 | 🟡 | ⚠️ | ⚠️ | ⚠️ |
-| QASan — report context (pc/bp/sp, backtrace) | ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ |
+| QASan — overflow detection | ✅ | 🟡 | 🟡 | 🟡 | ⚠️ | ⚠️ | ✅ |
+| QASan — report context (pc/bp/sp, backtrace) | ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ✅ |
 
 Notes:
-- "Runtime-verified" today = **x86_64** (all features) and **arm32 edge coverage**
-  (the only non-x86 guest with a cross-compiler available during development).
+- "Runtime-verified" today = **x86_64** (all features), **arm32 edge coverage**,
+  and **riscv QASan overflow detection/report context**.
   Everything marked 🟡 is implemented in code and build-verified but has not yet
   been exercised at runtime — see "Runtime verification gaps" below.
 - riscv is not a requested target but is instrumented by the bridge, so it inherits
@@ -126,9 +126,9 @@ per-arch loop-back exists.
 
 ### 4. QASan report context on mips / ppc — AFL-layer gap (cosmetic)
 `libaflqemubridge/afl_qasan.c:21-37` defines `QASAN_PC/BP/SP_GET` for x86/i386, aarch64,
-arm; mips/ppc fall to the `0` fallback. Overflow **detection still works** (the shadow
-check rides the arch-generic read/write hooks in `tcg/tcg-op-ldst.c`); only the
-printed pc/bp/sp and the alloc/free backtraces are empty.
+arm, and riscv; mips/ppc fall to the `0` fallback. Overflow **detection still works**
+(the shadow check rides the arch-generic read/write hooks in `tcg/tcg-op-ldst.c`);
+only the printed pc/bp/sp and the alloc/free backtraces are empty.
 
 ### 5. Deferred from the migration (all arches) — see also `docs/qemu_bridge_migration.md`
 - **Persistent-hook ABI** + `utils/aflpp_driver/aflpp_qemu_driver_hook.c`: not ported.
@@ -150,9 +150,8 @@ printed pc/bp/sp and the alloc/free backtraces are empty.
   (correct, not dirty-page-optimized) — a perf TODO.
 
 ### 6. Runtime verification gaps
-Only x86_64 (all features) and arm32 (edge) have been runtime-tested. aarch64, mips,
-ppc, i386, and riscv are build-verified only — no cross-toolchains were available
-during development for runtime self-tests. The CI workflow
+Only x86_64 (all features), arm32 (edge), and riscv (overflow/report-context) have been
+runtime-tested. aarch64, mips, ppc, and the i386 are build-verified only. The CI workflow
 (`.github/workflows/qemu_bridge.yml`) is set up to run the per-arch matrix once
 cross-toolchains/runners are present.
 

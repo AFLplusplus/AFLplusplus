@@ -45,11 +45,20 @@
    Default: 8MB (defined in bytes) */
 #define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
 
+#define SAN_DEDUP_DEFAULT_MB 8
+#define SAN_DEDUP_MAX_MB 4096
+
 /* Default time until when no more coverage finds are happening afl-fuzz
    switches to exploitation mode. It automatically switches back when new
    coverage is found.
-   Default: 300 (seconds) */
+   Default: 1000 (seconds) */
 #define STRATEGY_SWITCH_TIME 1000
+#define STARVE_EDGE_EXECS (5000000ULL)
+#define SWITCH_EXECS (6000000ULL)
+#define CMPLOG_I2S_EXECS (2000000ULL)
+#define SKIPDET_DECAY_EXECS (9000000ULL)
+#define MAX_EFF_EXECS (5500000ULL)
+#define MAX_DET_EXECS (8000000ULL)
 
 /* Default file permission umode when creating directories */
 #define DEFAULT_DIRS_PERMISSION 0700
@@ -72,14 +81,7 @@
 /* SkipDet's global configuration */
 
 #define MINIMAL_BLOCK_SIZE 64
-#define SMALL_DET_TIME (60 * 1000 * 1000U)
-#define MAXIMUM_INF_EXECS (16 * 1024U)
 #define MAXIMUM_QUICK_EFF_EXECS (64 * 1024U)
-#define THRESHOLD_DEC_TIME (20 * 60 * 1000U)
-
-/* Set the Prob of selecting eff_bytes 3 times more than original,
-   Now disabled */
-#define EFF_HAVOC_RATE 3
 
 /* CMPLOG/REDQUEEN TUNING
  *
@@ -174,6 +176,15 @@
 /* Timeout rounding factor when auto-scaling (milliseconds): */
 
 #define EXEC_TM_ROUND 20U
+
+/* Rate limit for every -t <n>+ timeout probe that may run for the full
+   ceiling (milliseconds). The effective interval is the larger of this and
+   100x the -t ceiling, which bounds the probe overhead at 1% of wall clock
+   time: */
+
+#ifndef TMOUT_PROBE_INTERVAL
+  #define TMOUT_PROBE_INTERVAL 60000U
+#endif
 
 /* 64bit arch MACRO */
 #if (defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__) ||    \
@@ -314,21 +325,6 @@
 #define USE_AUTO_EXTRAS 4096
 #define MAX_AUTO_EXTRAS (USE_AUTO_EXTRAS * 8)
 
-/* Scaling factor for the effector map used to skip some of the more
-   expensive deterministic steps. The actual divisor is set to
-   2^EFF_MAP_SCALE2 bytes: */
-
-#define EFF_MAP_SCALE2 3
-
-/* Minimum input file length at which the effector logic kicks in: */
-
-#define EFF_MIN_LEN 128
-
-/* Maximum effector density past which everything is just fuzzed
-   unconditionally (%): */
-
-#define EFF_MAX_PERC 90
-
 /* UI refresh frequency (Hz): */
 
 #define UI_TARGET_HZ 5
@@ -444,8 +440,6 @@ We add 4 byte for one u32 length field. */
 
 /* Other less interesting, internal-only variables. */
 
-#define CLANG_ENV_VAR "__AFL_CLANG_MODE"
-#define AS_LOOP_ENV_VAR "__AFL_AS_LOOPCHECK"
 #define PERSIST_ENV_VAR "__AFL_PERSISTENT"
 #define DEFER_ENV_VAR "__AFL_DEFER_FORKSRV"
 
@@ -486,6 +480,13 @@ We add 4 byte for one u32 length field. */
 /* Number of chances to calibrate a case before giving up: */
 
 #define CAL_CHANCES 3
+
+/* How often the coverage of an entry that failed calibration is handed back
+   to virgin_bits, counted per map byte. A path that can never be calibrated
+   would otherwise be rediscovered and requeued without bound, so beyond this
+   the claim stays in place: */
+
+#define CAL_RECLAIM_MAX 3
 
 /* Map size for the traced binary (2^MAP_SIZE_POW2). Must be greater than
    2; you probably want to keep it under 18 or so for performance reasons
@@ -557,6 +558,13 @@ We add 4 byte for one u32 length field. */
 /* AFL RedQueen */
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
+#define VP_SHM_ENV_VAR "__AFL_VP_SHM_ID"
+
+#define VP_FOCUS_TARGET_SITES 4096U
+
+#define VP_IDLE_RETIRE_CYCLES 4U
+
+#define VP_FRONTIER_WEIGHT_MULT 16.0
 
 /* ASAN SHM ID */
 #define AFL_ASAN_FUZZ_SHM_ENV_VAR "__AFL_ASAN_SHM_ID"
@@ -596,18 +604,6 @@ We add 4 byte for one u32 length field. */
    as "is_ascii"? */
 
 #define AFL_TXT_MIN_PERCENT 99
-
-/* How often to perform ASCII mutations 0 = disable, 1-8 are good values */
-
-#define AFL_TXT_BIAS 6
-
-/* Maximum length of a string to tamper with */
-
-#define AFL_TXT_STRING_MAX_LEN 1024
-
-/* Maximum mutations on a string */
-
-#define AFL_TXT_STRING_MAX_MUTATIONS 6
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

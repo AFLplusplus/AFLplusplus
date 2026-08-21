@@ -28,16 +28,12 @@
 #include <signal.h>
 #include <limits.h>
 #include "afl-fuzz.h"
+#include "cmplog.h"
 #include "envs.h"
 
 char *power_names[POWER_SCHEDULES_NUM] = {"explore", "mmopt", "exploit",
                                           "fast",    "coe",   "lin",
                                           "quad",    "rare",  "seek"};
-
-/* A global pointer to all instances is needed (for now) for signals to arrive
- */
-
-static list_t afl_states = {.element_prealloc_count = 0};
 
 /* Initializes an afl_state_t. */
 
@@ -58,6 +54,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->schedule = EXPLORE;              /* Power schedule (default: EXPLORE)*/
   afl->havoc_max_mult = HAVOC_MAX_MULT;
   afl->clear_screen = 1;                /* Window resized?                  */
+  // afl->primary_trace = 1;              /* trace_bits holds the coverage map
+  // */
   afl->havoc_div = 1;                   /* Cycle count divisor for havoc    */
   afl->stage_name = "init";             /* Name of the current fuzz stage   */
   afl->splicing_with = -1;              /* Splicing with which test case?   */
@@ -75,8 +73,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->max_length = MAX_FILE;
   afl->switch_fuzz_mode = STRATEGY_SWITCH_TIME * 1000;
   afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
-  afl->q_testcase_max_cache_entries = 64 * 1024;
-  afl->last_scored_idx = -1;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -85,6 +81,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->virgin_bits = ck_alloc(map_size);
   afl->virgin_tmout = ck_alloc(map_size);
   afl->virgin_crash = ck_alloc(map_size);
+  afl->virgin_undo = ck_alloc(map_size);
+  afl->virgin_reclaim = ck_alloc(map_size);
   afl->var_bytes = ck_alloc(map_size);
   afl->top_rated = ck_alloc(map_size * sizeof(void *));
   afl->clean_trace = ck_alloc(map_size);
@@ -126,8 +124,6 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   /* 10% FrameShift overhead default */
   afl->afl_env.afl_frameshift_max_overhead = 0.10;
 
-  list_append(&afl_states, afl);
-
 }
 
 void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
@@ -135,14 +131,11 @@ void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
   afl->virgin_bits = ck_realloc(afl->virgin_bits, new_size);
   afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_size);
   afl->virgin_crash = ck_realloc(afl->virgin_crash, new_size);
+  afl->virgin_undo = ck_realloc(afl->virgin_undo, new_size);
+  afl->virgin_reclaim = ck_realloc(afl->virgin_reclaim, new_size);
+  afl->virgin_undo_valid = 0;
   afl->var_bytes = ck_realloc(afl->var_bytes, new_size);
   afl->top_rated = ck_realloc(afl->top_rated, new_size * sizeof(void *));
-  if (afl->cycle_schedules && afl->top_rated_candidates) {
-
-    afl->top_rated_candidates =
-        ck_realloc(afl->top_rated_candidates, new_size * sizeof(u32 *));
-
-  }
 
   afl->clean_trace = ck_realloc(afl->clean_trace, new_size);
   afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, new_size);
@@ -154,13 +147,8 @@ void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {
     u32 size_diff = new_size - old_size;
 
     memset(afl->var_bytes + old_size, 0, size_diff);
+    memset(afl->virgin_reclaim + old_size, 0, size_diff);
     memset(afl->top_rated + old_size, 0, size_diff * sizeof(void *));
-    if (afl->cycle_schedules && afl->top_rated_candidates) {
-
-      memset(afl->top_rated_candidates + old_size, 0,
-             size_diff * sizeof(u32 *));
-
-    }
 
     memset(afl->clean_trace + old_size, 0, size_diff);
     memset(afl->clean_trace_custom + old_size, 0, size_diff);
@@ -191,6 +179,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
           "Potentially mistyped AFL environment variable: %s, did you mean "
           "AFL_%s?",
           env, env);
+      issue_detected = 1;
+
+    } else if (!strncmp(env, "AFL_CYCLE_SCHEDULES=",
+
+                        sizeof("AFL_CYCLE_SCHEDULES=") - 1)) {
+
+      WARNF("AFL_CYCLE_SCHEDULES was removed and is ignored.");
       issue_detected = 1;
 
     } else if (strncmp(env, "AFL_", 4) == 0) {
@@ -352,6 +347,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_disable_redundant =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_STARVED_MINIMIZE_QUEUE",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_starved_minimize_queue =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_NO_STARTUP_CALIBRATION",
 
                               afl_environment_variable_len)) {
@@ -435,13 +437,6 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_persistent_record =
                 get_afl_env(afl_environment_variables[i]);
-
-          } else if (!strncmp(env, "AFL_CYCLE_SCHEDULES",
-
-                              afl_environment_variable_len)) {
-
-            afl->cycle_schedules = afl->afl_env.afl_cycle_schedules =
-                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_EXIT_ON_SEED_ISSUES",
 
@@ -643,6 +638,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_pizza_mode =
+                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
+
+          } else if (!strncmp(env, "AFL_CRASH_TRACES",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_crash_traces =
                 atoi((u8 *)get_afl_env(afl_environment_variables[i]));
 
           } else if (!strncmp(env, "AFL_NO_CRASH_README",
@@ -897,27 +899,34 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->in_place_resume) { ck_free(afl->in_dir); }
   if (afl->sync_id) { ck_free(afl->out_dir); }
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
-  if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
+  if (afl->min_slack) { ck_free(afl->min_slack); }
+  if (afl->min_slack_ids) { ck_free(afl->min_slack_ids); }
+  if (afl->orig_cmp_map) {
+
+    afl_free(afl->orig_cmp_map->log);
+    ck_free(afl->orig_cmp_map);
+
+  }
+
   if (afl->cmplog_binary) { ck_free(afl->cmplog_binary); }
-  if (afl->cycle_schedules) {
+  if (afl->sync_states) {
 
-    for (u32 i = 0; i < afl->fsrv.map_size; i++) {
+    for (u32 i = 0; i < afl->sync_states_cnt; ++i) {
 
-      if (afl->top_rated_candidates[i]) {
-
-        ck_free(afl->top_rated_candidates[i]);
-
-      }
+      ck_free(afl->sync_states[i].name);
 
     }
 
-    ck_free(afl->top_rated_candidates);
+    ck_free(afl->sync_states);
 
   }
 
   afl_free(afl->queue_buf);
   afl_free(afl->out_buf);
   afl_free(afl->out_scratch_buf);
+  afl_free(afl->trim_scratch_buf);
+  afl_free(afl->post_process_orig_buf);
+  afl_free(afl->post_process_orig_buf_scratch);
   afl_free(afl->eff_buf);
   afl_free(afl->in_buf);
   afl_free(afl->in_scratch_buf);
@@ -935,6 +944,13 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->virgin_crash);
   ck_free(afl->var_bytes);
   ck_free(afl->top_rated);
+  if (afl->vp_frontier) { ck_free(afl->vp_frontier); }
+  if (afl->vp_focus_bitmap) { ck_free(afl->vp_focus_bitmap); }
+  if (afl->vp_focus_prev) { ck_free(afl->vp_focus_prev); }
+  if (afl->vp_focus_relevant) { ck_free(afl->vp_focus_relevant); }
+  if (afl->vp_site_idle) { ck_free(afl->vp_site_idle); }
+  if (afl->vp_site_owned) { ck_free(afl->vp_site_owned); }
+
   ck_free(afl->clean_trace);
   ck_free(afl->clean_trace_custom);
   ck_free(afl->first_trace);
@@ -964,49 +980,6 @@ void afl_state_deinit(afl_state_t *afl) {
   ck_free(afl->havoc_prof);
 
   ck_free(afl->afl_env.afl_forksrv_supl_gids);
-
-  list_remove(&afl_states, afl);
-
-}
-
-void afl_states_stop(void) {
-
-  /* We may be inside a signal handler.
-   Set flags first, send kill signals to child processes later. */
-  LIST_FOREACH(&afl_states, afl_state_t, {
-
-    el->stop_soon = 1;
-
-  });
-
-  LIST_FOREACH(&afl_states, afl_state_t, {
-
-    /* NOTE: We need to make sure that the parent (the forkserver) reap the
-     * child (see below). */
-    if (el->fsrv.child_pid > 0)
-      kill(el->fsrv.child_pid, el->fsrv.child_kill_signal);
-    if (el->fsrv.fsrv_pid > 0) {
-
-      kill(el->fsrv.fsrv_pid, el->fsrv.fsrv_kill_signal);
-      usleep(100);
-      /* Make sure the forkserver does not end up as zombie. */
-      waitpid(el->fsrv.fsrv_pid, NULL, WNOHANG);
-
-    }
-
-  });
-
-}
-
-void afl_states_clear_screen(void) {
-
-  LIST_FOREACH(&afl_states, afl_state_t, { el->clear_screen = 1; });
-
-}
-
-void afl_states_request_skip(void) {
-
-  LIST_FOREACH(&afl_states, afl_state_t, { el->skip_requested = 1; });
 
 }
 

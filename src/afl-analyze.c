@@ -603,6 +603,8 @@ static void analyze() {
   OKF("Analysis complete. Interesting bits: %0.02f%% of the input file.",
       100.0 - ((double)boring_len * 100) / in_len);
 
+  OKF("Performed %u total execs.", total_execs);
+
   if (exec_hangs) {
 
     WARNF(cLRD "Encountered %u timeouts - results may be skewed." cRST,
@@ -1066,6 +1068,8 @@ int main(int argc, char **argv_orig, char **envp) {
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");
 
   afl_fsrv_start(&fsrv, use_argv, &stop_soon, false);
+  afl_fsrv_trim_extra_maps(&fsrv);
+  map_size = fsrv.map_size;
   analyze_run_target(in_data, in_len, 1);
 
   if (fsrv.last_run_timed_out) {

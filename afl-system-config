@@ -20,6 +20,38 @@ fi
 
 DONE=
 PLATFORM=`uname -s`
+SYSCTL=sysctl
+command -v sysctl >/dev/null 2>&1 || SYSCTL=/sbin/sysctl
+
+set_sysctl() {
+  SYSCTL_PROC="/proc/sys/$(echo "$1" | tr '.' '/')"
+  if test -e "$SYSCTL_PROC" ; then
+    CURRENT=$(cat "$SYSCTL_PROC" 2>/dev/null)
+  else
+    test -d /proc/sys && return 0
+    CURRENT=$($SYSCTL -n "$1" 2>/dev/null) || return 0
+  fi
+  test "$CURRENT" = "$2" && return 0
+  $SYSCTL -w "$1=$2" >/dev/null 2>&1
+  test -e "$SYSCTL_PROC" && {
+    test "$(cat "$SYSCTL_PROC" 2>/dev/null)" = "$2" && return 0
+    { echo "$2" > "$SYSCTL_PROC"; } 2>/dev/null && return 0
+  }
+  test -e "$SYSCTL_PROC" || { test "$($SYSCTL -n "$1" 2>/dev/null)" = "$2" && return 0; }
+  test -z "$3" && echo "Warning: failed to set $1 to \"$2\"" >&2
+  return 1
+}
+
+set_file() {
+  test -e "$1" || return 0
+  CURRENT=$(cat "$1" 2>/dev/null)
+  test "$CURRENT" = "$2" && return 0
+  case "$CURRENT" in *"[$2]"*) return 0 ;; esac
+  { echo "$2" > "$1"; } 2>/dev/null && return 0
+  test -z "$3" && echo "Warning: failed to write \"$2\" to $1" >&2
+  return 1
+}
+
 echo This reconfigures the system to have a better fuzzing performance.
 echo "WARNING: this reduces the security of the system!"
 echo
@@ -32,23 +64,30 @@ fi
 sleep 1
 if [ "$PLATFORM" = "Linux" ] ; then
 {
-  sysctl -w kernel.core_uses_pid=0
+  set_sysctl kernel.core_uses_pid 0
   # Arch Linux requires core_pattern to be empty :(
-  test -e /etc/arch-release && sysctl -w kernel.core_pattern=
-  test -e /etc/arch-release || sysctl -w kernel.core_pattern=core
-  sysctl -w kernel.randomize_va_space=0
-  sysctl -w kernel.sched_child_runs_first=1
-  sysctl -w kernel.sched_autogroup_enabled=1
-  sysctl -w kernel.sched_migration_cost_ns=50000000 2>/dev/null
-  sysctl -w kernel.sched_latency_ns=250000000 2>/dev/null
-  sysctl -w vm.swappiness=10 2>/dev/null
-  echo never > /sys/kernel/mm/transparent_hugepage/enabled
-  test -e /sys/devices/system/cpu/cpufreq/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/scaling_governor
-  test -e /sys/devices/system/cpu/cpufreq/policy0/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpufreq/policy*/scaling_governor
-  test -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor && echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
-  test -e /sys/devices/system/cpu/intel_pstate/no_turbo && echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo
-  test -e /sys/devices/system/cpu/cpufreq/boost && echo 1 > /sys/devices/system/cpu/cpufreq/boost
-  test -e /sys/devices/system/cpu/intel_pstate/max_perf_pct && echo 100 > /sys/devices/system/cpu/intel_pstate/max_perf_pct
+  test -e /etc/arch-release && set_sysctl kernel.core_pattern ""
+  test -e /etc/arch-release || set_sysctl kernel.core_pattern core
+  set_sysctl kernel.randomize_va_space 0
+  set_sysctl kernel.sched_child_runs_first 1
+  set_sysctl kernel.sched_autogroup_enabled 1
+  set_sysctl kernel.sched_migration_cost_ns 50000000 optional
+  set_sysctl kernel.sched_latency_ns 250000000 optional
+  set_sysctl vm.swappiness 10 optional
+  set_file /sys/kernel/mm/transparent_hugepage/enabled never
+  GOVERNORS_FOUND=0
+  GOVERNORS_FAILED=0
+  for GOVERNOR in /sys/devices/system/cpu/cpufreq/scaling_governor \
+                  /sys/devices/system/cpu/cpufreq/policy*/scaling_governor \
+                  /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor ; do
+    test -e "$GOVERNOR" || continue
+    GOVERNORS_FOUND=$((GOVERNORS_FOUND + 1))
+    set_file "$GOVERNOR" performance optional || GOVERNORS_FAILED=$((GOVERNORS_FAILED + 1))
+  done
+  test "$GOVERNORS_FAILED" -gt 0 && echo "Warning: failed to set the cpu scaling governor to performance ($GOVERNORS_FAILED of $GOVERNORS_FOUND cpufreq entries failed)" >&2
+  set_file /sys/devices/system/cpu/intel_pstate/no_turbo 0
+  set_file /sys/devices/system/cpu/cpufreq/boost 1
+  set_file /sys/devices/system/cpu/intel_pstate/max_perf_pct 100
   test -n "$(which auditctl)" && auditctl -a never,task >/dev/null 2>&1
 } > /dev/null
   echo Settings applied.
@@ -64,8 +103,8 @@ if [ "$PLATFORM" = "Linux" ] ; then
 fi
 if [ "$PLATFORM" = "FreeBSD" ] ; then
 {
-  sysctl kern.elf32.aslr.enable=0
-  sysctl kern.elf64.aslr.enable=0
+  set_sysctl kern.elf32.aslr.enable 0
+  set_sysctl kern.elf64.aslr.enable 0
 } > /dev/null
   echo Settings applied.
   echo
@@ -82,7 +121,7 @@ EOF
   DONE=1
 fi
 if [ "$PLATFORM" = "OpenBSD" ] ; then
-  doas sysctl vm.malloc_conf=
+  test -n "$($SYSCTL -n vm.malloc_conf 2>/dev/null)" && doas sysctl vm.malloc_conf=
   echo 'Freecheck on allocation in particular can be detrimental to performance.'
   echo 'Also we might not want necessarily to abort at any allocation failure.'
   echo 'System security features cannot be disabled on OpenBSD.'
@@ -103,17 +142,17 @@ EOF
 fi
 if [ "$PLATFORM" = "NetBSD" ] ; then
 {
-  /sbin/sysctl -w security.models.extensions.user_set_cpu_affinity=1
+  set_sysctl security.models.extensions.user_set_cpu_affinity 1
 } > /dev/null
   echo Settings applied.
   echo
   DONE=1
 fi
 if [ "$PLATFORM" = "Darwin" ] ; then
-  sysctl kern.sysv.shmmax=524288000
-  sysctl kern.sysv.shmmin=1
-  sysctl kern.sysv.shmseg=48
-  sysctl kern.sysv.shmall=131072000
+  set_sysctl kern.sysv.shmmax 524288000
+  set_sysctl kern.sysv.shmmin 1
+  set_sysctl kern.sysv.shmseg 48
+  set_sysctl kern.sysv.shmall 131072000
   echo Settings applied.
   echo
   if $(launchctl list 2>/dev/null | grep -q '\.ReportCrash\>') ; then

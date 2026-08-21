@@ -120,7 +120,7 @@ echo "[*] Checking libnyx ..."
 (cd libnyx/libnyx && cargo build --release)
 
 echo "[*] Checking QEMU-Nyx ..."
-(cd QEMU-Nyx && ./compile_qemu_nyx.sh static )
+(cd QEMU-Nyx && NO_LTO=1 ./compile_qemu_nyx.sh static )
 
 echo "[*] Checking libnyx.so ..."
 cp libnyx/libnyx/target/release/liblibnyx.so ../libnyx.so

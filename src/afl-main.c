@@ -37,6 +37,82 @@ static void afl_import_first(afl_state_t *afl) {
 
 static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
+  // Once the favored set is exhausted and no new edge has been found for
+  // STARVE_EDGE_EXECS executions, prefer any still-unfuzzed queue entries by
+  // pointing smallest_favored at the smallest such entry. Only when no unfuzzed
+  // entries remain do we temporarily enter starve mode.
+  if (unlikely(afl->fsrv.total_execs - afl->last_edge_execs >=
+               STARVE_EDGE_EXECS) &&
+      likely(!afl->pending_favored && !afl->starved &&
+             afl->runs_in_current_cycle)) {
+
+    s64 unfuzzed = -1;
+
+    if (afl->pending_not_fuzzed) {
+
+      // was_fuzzed and disabled are monotonic within a run and no unfuzzed
+      // entry is favored while pending_favored is 0, so every entry below the
+      // cursor stays a non-candidate and the scan can resume from there.
+      for (u32 i = afl->unfuzzed_cursor; i < afl->queued_items; ++i) {
+
+        struct queue_entry *q = afl->queue_buf[i];
+        if (!q->was_fuzzed && !q->favored && !q->disabled) {
+
+          unfuzzed = (s64)i;
+          afl->unfuzzed_cursor = i;
+          break;
+
+        }
+
+      }
+
+    }
+
+    if (unfuzzed >= 0) {
+
+      afl->smallest_favored = unfuzzed;
+      afl->prefer_unfuzzed = 1;
+
+    } else {
+
+      afl->prefer_unfuzzed = 0;
+      afl->starved = 1;
+      ++afl->starved_count;
+      afl->reinit_table = 1;
+      afl->use_splicing = 1;
+      afl->cmplog_enable_arith = 1;
+
+      if (afl->afl_env.afl_no_ui) { ACTF("Entering starve mode"); }
+
+    }
+
+  } else if (unlikely(afl->starved && !afl->starve_minimize &&
+
+                      afl->afl_env.afl_starved_minimize_queue &&
+                      afl->fsrv.total_execs - afl->last_edge_execs >=
+                          2 * STARVE_EDGE_EXECS)) {
+
+    afl->starve_minimize = 1;
+    afl->score_changed = 1;
+
+  } else if (unlikely(afl->prefer_unfuzzed)) {
+
+    afl->prefer_unfuzzed = 0;
+    if (!afl->pending_favored) { afl->smallest_favored = -1; }
+
+  } else if (unlikely(afl->value_profile_mode == 3) &&
+
+             unlikely(afl->starved && !afl->value_profile_active &&
+                      afl->fsrv.total_execs - afl->last_edge_execs >=
+                          (afl->afl_env.afl_starved_minimize_queue ? 3 : 2) *
+                              STARVE_EDGE_EXECS)) {
+
+    vp_force_activation(afl);
+
+  }
+
+  if (unlikely(afl->vp_focus_rebuild_pending)) { vp_focus_rotate(afl); }
+
   if (likely(!(!afl->old_seed_selection &&
                afl->runs_in_current_cycle > afl->queued_items) &&
              !(afl->old_seed_selection && !afl->queue_cur))) {
@@ -61,6 +137,15 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
   afl->runs_in_current_cycle = (u32)-1;
   afl->cur_skipped_items = 0;
+
+  if (unlikely(afl->vp_delayed_evictions_pending)) {
+
+    vp_apply_delayed_evictions(afl);
+    cull_queue(afl);
+
+  }
+
+  if (unlikely(afl->value_profile_active)) { vp_focus_rotate(afl); }
 
   if (unlikely(afl->schedule >= FAST && afl->schedule < RARE)) {
 
@@ -121,7 +206,9 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
   /* If we had a full queue cycle with no new finds, try
      recombination strategies next. */
 
-  if (unlikely(afl->queued_items == afl->prev_queued
+  /* Value-profile-only entries are not coverage finds, so they must not count
+     as progress here either. */
+  if (unlikely((u64)(afl->queued_items - afl->vp_only_items) == afl->prev_queued
                /* FIXME TODO BUG: && (get_cur_time() - afl->start_time) >=
                   3600 */
                )) {
@@ -202,58 +289,37 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
 
 #endif
 
-  if (afl->cycle_schedules) {
-
-    /* we cannot mix non-AFLfast schedules with others */
-
-    switch (afl->schedule) {
-
-      case EXPLORE:
-        afl->schedule = EXPLOIT;
-        break;
-      case EXPLOIT:
-        afl->schedule = MMOPT;
-        break;
-      case MMOPT:
-        afl->schedule = SEEK;
-        break;
-      case SEEK:
-        afl->schedule = EXPLORE;
-        break;
-      case FAST:
-        afl->schedule = COE;
-        break;
-      case COE:
-        afl->schedule = LIN;
-        break;
-      case LIN:
-        afl->schedule = QUAD;
-        break;
-      case QUAD:
-        afl->schedule = RARE;
-        break;
-      case RARE:
-        afl->schedule = FAST;
-        break;
-
-    }
-
-    // we must recalculate the scores of all queue entries
-    recalculate_all_scores(afl);
-
-  }
-
-  afl->prev_queued = afl->queued_items;
+  afl->prev_queued = (u64)(afl->queued_items - afl->vp_only_items);
 
 }
 
-static inline void afl_fuzz_queue(afl_state_t *afl) {
+static inline u8 afl_fuzz_queue(afl_state_t *afl) {
+
+  if (unlikely(afl->queue_cur && afl->fsrv.use_ijon && afl->ijon_state &&
+               ijon_should_schedule(afl->ijon_state))) {
+
+    ijon_input_info *info = ijon_get_input(afl->ijon_state);
+    if (info && ijon_read_input(afl->ijon_state, info, &afl->ijon_input_data,
+                                &afl->ijon_input_len)) {
+
+      afl->is_doing_ijon = 1;
+      afl->skipped_fuzz = fuzz_one(afl);
+      return 0;
+
+    }
+
+  }
+
+  u32 skip_streak = 0;
 
   do {
 
+    if (unlikely(++skip_streak > QUEUE_SKIP_STREAK_MAX)) { break; }
+
     if (likely(!afl->old_seed_selection)) {
 
-      if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
+      if (likely((afl->pending_favored || afl->prefer_unfuzzed) &&
+                 afl->smallest_favored >= 0)) {
 
         afl->current_entry = afl->smallest_favored;
 
@@ -286,7 +352,9 @@ static inline void afl_fuzz_queue(afl_state_t *afl) {
           // we have new queue entries since the last run, recreate alias
           // table
           afl->prev_queued_items = afl->queued_items;
+          u64 table_start_us = get_cur_time_us();
           create_alias_table(afl);
+          update_table_time(afl, &table_start_us);
 
         }
 
@@ -301,6 +369,8 @@ static inline void afl_fuzz_queue(afl_state_t *afl) {
       }
 
     }
+
+    if (unlikely(afl->value_profile_mode == 2)) { vp_update_activation(afl); }
 
     afl->skipped_fuzz = fuzz_one(afl);
 #ifdef INTROSPECTION
@@ -362,27 +432,37 @@ static inline void afl_fuzz_queue(afl_state_t *afl) {
 
   } while (afl->skipped_fuzz && afl->queue_cur && !afl->stop_soon);
 
+  return 1;
+
 }
 
 static inline void afl_maybe_switch_mode(afl_state_t *afl) {
 
   u64 cur_time = get_cur_time();
   if (likely(afl->switch_fuzz_mode && afl->fuzz_mode == 0 &&
-             !afl->non_instrumented_mode) &&
-      unlikely(cur_time > (likely(afl->last_find_time) ? afl->last_find_time
-                                                       : afl->start_time) +
-                              afl->switch_fuzz_mode)) {
+             !afl->non_instrumented_mode)) {
 
-    if (afl->afl_env.afl_no_ui) {
+    u64 time_base =
+        likely(afl->last_find_time) ? afl->last_find_time : afl->start_time;
 
-      ACTF(
-          "No new coverage found for %llu seconds, switching to exploitation "
-          "strategy.",
-          afl->switch_fuzz_mode / 1000);
+    if (unlikely(
+            (!afl->pending_favored &&
+             afl->fsrv.total_execs - afl->last_edge_execs >= SWITCH_EXECS) ||
+            cur_time >= time_base + afl->switch_fuzz_mode)) {
+
+      if (afl->afl_env.afl_no_ui) {
+
+        ACTF(
+            "No new coverage (%llu execs / %llu s), switching to exploitation "
+            "strategy.",
+            afl->fsrv.total_execs - afl->last_edge_execs,
+            (cur_time - time_base) / 1000);
+
+      }
+
+      afl->fuzz_mode = 1;
 
     }
-
-    afl->fuzz_mode = 1;
 
   }
 
@@ -480,9 +560,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
     cull_queue(afl);               // update favored entries
     afl_advance_queue_cycle(afl);  // start a new cycle when queue is exhausted
-    ++afl->runs_in_current_cycle;
-    afl_fuzz_queue(afl);         // pick and fuzz one queue entry
-    afl_maybe_switch_mode(afl);  // switch to exploitation if no new finds
+    if (afl_fuzz_queue(afl)) { ++afl->runs_in_current_cycle; }
+    afl_maybe_switch_mode(afl);  // switch to exploitation if no new edges
     afl_maybe_sync(afl);         // periodically import other fuzzers' finds
 
   }

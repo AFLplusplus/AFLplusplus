@@ -119,6 +119,7 @@ typedef struct afl_forkserver {
       dev_urandom_fd,                   /* Persistent fd for /dev/urandom   */
 
       dev_null_fd,                      /* Persistent fd for /dev/null      */
+      crash_trace_fd,                   /* AFL_CRASH_TRACES capture fd (-1) */
       fsrv_ctl_fd,                      /* Fork server control pipe (write) */
       fsrv_st_fd;                       /* Fork server status pipe (read)   */
 
@@ -146,6 +147,8 @@ typedef struct afl_forkserver {
 
   bool allow_cores;                   /* allow core files on target crashes */
 
+  s32 last_child_pid;
+
   bool use_shmem_fuzz;                  /* use shared mem for test cases    */
 
   bool support_shmem_fuzz;              /* set by afl-fuzz                  */
@@ -156,6 +159,7 @@ typedef struct afl_forkserver {
   u32  child_sync_offset;        /* byte offset of child_sync in trace_bits */
 
   bool use_ijon;                        /* use IJON tracking feature        */
+  bool use_value_profile;               /* target has L1 VP runtime support */
 
   bool use_fauxsrv;                     /* Fauxsrv for non-forking targets? */
 
@@ -293,6 +297,7 @@ void              afl_fsrv_kill(afl_forkserver_t *fsrv);
 void              afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
                                           char **use_argv, u32 map_size,
                                           volatile u8 *stop_soon, bool unicorn_mode);
+void              afl_fsrv_trim_extra_maps(afl_forkserver_t *fsrv);
 
 #ifdef __linux__
 void nyx_load_target_hash(afl_forkserver_t *fsrv);

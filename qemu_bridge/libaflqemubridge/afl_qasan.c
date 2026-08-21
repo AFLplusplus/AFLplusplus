@@ -30,6 +30,10 @@
 #define QASAN_PC_GET(env) ((env)->regs[15])
 #define QASAN_BP_GET(env) ((env)->regs[11])
 #define QASAN_SP_GET(env) ((env)->regs[13])
+#elif defined(TARGET_RISCV)
+#define QASAN_PC_GET(env) ((env)->pc)
+#define QASAN_BP_GET(env) ((env)->gpr[8])
+#define QASAN_SP_GET(env) ((env)->gpr[2])
 #else
 #define QASAN_PC_GET(env) (0)
 #define QASAN_BP_GET(env) (0)

@@ -199,6 +199,23 @@ fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
 
 }
 
+u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
+
+  (void)afl;
+  (void)mem;
+  (void)len;
+  (void)fault;
+  return 0;
+
+}
+
+void update_trim_time(afl_state_t *afl, u64 *time) {
+
+  (void)afl;
+  (void)time;
+
+}
+
 void classify_counts(afl_forkserver_t *fsrv) {
 
   u8       *mem = fsrv->trace_bits;
@@ -565,7 +582,9 @@ static void streaming_loop(void) {
     } else {
 
       /* Encode exit code in bits 8-15 */
-      status = STREAMING_STATUS_EXITED | (WEXITSTATUS(fsrv->child_status) << 8);
+      u8 exitcode =
+          WIFEXITED(fsrv->child_status) ? WEXITSTATUS(fsrv->child_status) : 0;
+      status = STREAMING_STATUS_EXITED | (exitcode << 8);
 
     }
 
@@ -959,12 +978,52 @@ static void setup_signal_handlers(void) {
 
 }
 
+static struct {
+
+  dev_t dev;
+  ino_t ino;
+
+} *seen_dirs;
+
+static u32 seen_dirs_cnt, seen_dirs_cap;
+
+static u8 dir_already_seen(u8 *dir) {
+
+  struct stat st;
+  if (stat((char *)dir, &st)) { return 0; }
+
+  for (u32 i = 0; i < seen_dirs_cnt; i++) {
+
+    if (seen_dirs[i].dev == st.st_dev && seen_dirs[i].ino == st.st_ino) {
+
+      return 1;
+
+    }
+
+  }
+
+  if (seen_dirs_cnt >= seen_dirs_cap) {
+
+    seen_dirs_cap = seen_dirs_cap ? seen_dirs_cap * 2 : 64;
+    seen_dirs = ck_realloc(seen_dirs, seen_dirs_cap * sizeof(*seen_dirs));
+
+  }
+
+  seen_dirs[seen_dirs_cnt].dev = st.st_dev;
+  seen_dirs[seen_dirs_cnt].ino = st.st_ino;
+  seen_dirs_cnt++;
+  return 0;
+
+}
+
 u32 execute_testcases(u8 *dir) {
 
   struct dirent **nl;
   s32             nl_cnt, subdirs = 1;
   u32             i, done = 0;
   u8              val_buf[2][STRINGIFY_VAL_SIZE_MAX];
+
+  if (dir_already_seen(dir)) { return 0; }
 
   if (!be_quiet) { ACTF("Scanning '%s'...", dir); }
 
@@ -982,7 +1041,7 @@ u32 execute_testcases(u8 *dir) {
 
     u8 *fn2 = alloc_printf("%s/%s", dir, nl[i]->d_name);
 
-    if (lstat(fn2, &st) || access(fn2, R_OK)) {
+    if (stat(fn2, &st) || access(fn2, R_OK)) {
 
       PFATAL("Unable to access '%s'", fn2);
 
@@ -990,7 +1049,8 @@ u32 execute_testcases(u8 *dir) {
 
     /* obviously we want to skip "descending" into . and .. directories,
        however it is a good idea to skip also directories that start with
-       a dot */
+       a dot. symlinked directories are descended into as well, the cycle
+       check in execute_testcases() stops loops */
     if (subdirs && S_ISDIR(st.st_mode) && nl[i]->d_name[0] != '.') {
 
       free(nl[i]);                                           /* not tracked */
@@ -1085,7 +1145,7 @@ u32 execute_testcases_filelist(u8 *fn) {
 
     if (!*fn2) { continue; }
 
-    if (lstat(fn2, &st) || access(fn2, R_OK)) {
+    if (stat(fn2, &st) || access(fn2, R_OK)) {
 
       WARNF("Unable to access '%s'", fn2);
       continue;
@@ -1737,14 +1797,19 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
 #ifdef __linux__
-  if (!fsrv->nyx_mode && (in_dir || in_filelist)) {
+  if (!fsrv->nyx_mode && (in_dir || in_filelist || streaming_mode)) {
 
     (void)check_binary_signatures(fsrv->target_path);
 
   }
 
 #else
-  if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
+  if (in_dir || in_filelist || streaming_mode) {
+
+    (void)check_binary_signatures(fsrv->target_path);
+
+  }
+
 #endif
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
@@ -1924,6 +1989,8 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
   } else {
+
+    map_size = fsrv->map_size;
 
     if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz) {
 

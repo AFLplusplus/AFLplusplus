@@ -196,6 +196,23 @@ fsrv_run_result_t fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv,
 
 }
 
+u8 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
+
+  (void)afl;
+  (void)mem;
+  (void)len;
+  (void)fault;
+  return 0;
+
+}
+
+void update_trim_time(afl_state_t *afl, u64 *time) {
+
+  (void)afl;
+  (void)time;
+
+}
+
 #ifndef USE_PYTHON
 struct custom_mutator *load_custom_mutator_py(afl_state_t *afl, char *module) {
 
@@ -1547,6 +1564,11 @@ int main(int argc, char **argv_orig, char **envp) {
                           unicorn_mode);
 
   be_quiet = save_be_quiet;
+
+  /* The handshake, and the IJON/bug-pass trim that follows it, are what
+     establish the real coverage size. Everything below walks the map with the
+     local copy. */
+  map_size = fsrv->map_size;
 
   if (fsrv->support_shmem_fuzz && !fsrv->use_shmem_fuzz)
     shm_fuzz = deinit_shmem(fsrv, shm_fuzz);

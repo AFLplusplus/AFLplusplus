@@ -122,6 +122,95 @@ static void test_policy_prefers_higher_finds_per_sec(void **state) {
 
 }
 
+static void test_commit_credits_uses_and_finds(void **state) {
+
+  (void)state;
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+  assert_non_null(afl);
+  afl->mopt_adaptive.enabled = 1;
+  afl->mopt_adaptive.cur_ctx = 0;
+
+  mopt_record_use(afl, OP_A);
+  mopt_record_use(afl, OP_A);
+  mopt_record_use(afl, OP_B);
+  assert_int_equal(afl->mopt_adaptive.round_cnt, 3);
+
+  mopt_commit_round(afl, 1);
+
+  struct mopt_ctx *c = &afl->mopt_adaptive.ctx[0];
+  assert_int_equal(c->op_uses[OP_A], 2);
+  assert_int_equal(c->op_uses[OP_B], 1);
+  assert_int_equal(c->op_finds[OP_A], MOPT_FIND_SCALE * 2 / 3);
+  assert_int_equal(c->op_finds[OP_B], MOPT_FIND_SCALE / 3);
+  assert_int_equal(afl->mopt_adaptive.round_cnt, 0);
+
+  free(afl);
+
+}
+
+static void test_commit_found_zero_no_finds(void **state) {
+
+  (void)state;
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+  assert_non_null(afl);
+  afl->mopt_adaptive.enabled = 1;
+
+  mopt_record_use(afl, OP_A);
+  mopt_record_use(afl, OP_B);
+  mopt_commit_round(afl, 0);
+
+  struct mopt_ctx *c = &afl->mopt_adaptive.ctx[0];
+  assert_int_equal(c->op_uses[OP_A], 1);
+  assert_int_equal(c->op_uses[OP_B], 1);
+  assert_int_equal(c->op_finds[OP_A], 0);
+  assert_int_equal(c->op_finds[OP_B], 0);
+
+  free(afl);
+
+}
+
+static void test_round_reset_discards_uses(void **state) {
+
+  (void)state;
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+  assert_non_null(afl);
+  afl->mopt_adaptive.enabled = 1;
+
+  mopt_record_use(afl, OP_A);
+  mopt_record_use(afl, OP_A);
+  mopt_record_use(afl, OP_B);
+  assert_int_equal(afl->mopt_adaptive.round_cnt, 3);
+
+  mopt_round_reset(afl);
+  assert_int_equal(afl->mopt_adaptive.round_cnt, 0);
+
+  mopt_commit_round(afl, 1);
+
+  struct mopt_ctx *c = &afl->mopt_adaptive.ctx[0];
+  assert_int_equal(c->op_uses[OP_A], 0);
+  assert_int_equal(c->op_uses[OP_B], 0);
+  assert_int_equal(c->op_finds[OP_A], 0);
+  assert_int_equal(c->op_finds[OP_B], 0);
+
+  free(afl);
+
+}
+
+static void test_record_use_ignored_when_disabled(void **state) {
+
+  (void)state;
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+  assert_non_null(afl);
+  afl->mopt_adaptive.enabled = 0;
+
+  mopt_record_use(afl, OP_A);
+  mopt_record_use(afl, OP_B);
+  assert_int_equal(afl->mopt_adaptive.round_cnt, 0);
+
+  free(afl);
+
+}
+
 int main(void) {
 
   const struct CMUnitTest tests[] = {
@@ -132,6 +221,10 @@ int main(void) {
       cmocka_unit_test(test_learned_signal_shifts_weight),
       cmocka_unit_test(test_decay_reduces_tallies),
       cmocka_unit_test(test_policy_prefers_higher_finds_per_sec),
+      cmocka_unit_test(test_commit_credits_uses_and_finds),
+      cmocka_unit_test(test_commit_found_zero_no_finds),
+      cmocka_unit_test(test_round_reset_discards_uses),
+      cmocka_unit_test(test_record_use_ignored_when_disabled),
 
   };
 

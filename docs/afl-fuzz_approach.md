@@ -484,8 +484,18 @@ directory. This includes:
 - `cycles_done`       - queue cycles completed so far
 - `cycles_wo_finds`   - number of cycles without any new paths found
 - `time_wo_finds`     - longest time in seconds no new path was found
+- `fuzz_time`         - time in seconds spent actually fuzzing (run_time minus calibration, cmplog, sync, trim and table-building overhead)
+- `calibration_time`  - cumulative time in seconds spent calibrating test cases
+- `cmplog_time`       - cumulative time in seconds spent in the cmplog/redqueen stage
+- `cmplog_tightness`  - non-zero if cmplog tightness scheduling is enabled (`-l` with `M`)
+- `cmplog_tight_new`  - number of queue entries that produced a new cmplog tightness result
+- `cmplog_size_derive`- non-zero if cmplog operand size-derivation is enabled (`-l` with `Z`)
+- `sync_time`         - cumulative time in seconds spent syncing with other fuzzer instances
+- `trim_time`         - cumulative time in seconds spent trimming test cases
+- `table_time`        - cumulative time in seconds spent building the alias scheduling table
 - `execs_done`        - number of execve() calls attempted
 - `execs_per_sec`     - overall number of execs per second
+- `execs_ps_last_min` - number of execs per second, averaged over the last minute
 - `corpus_count`      - total number of entries in the queue
 - `corpus_favored`    - number of queue entries that are favored
 - `corpus_found`      - number of entries discovered through local fuzzing
@@ -499,19 +509,44 @@ directory. This includes:
 - `bitmap_cvg`        - percentage of edge coverage found in the map so far
 - `saved_crashes`     - number of unique crashes recorded
 - `saved_hangs`       - number of unique hangs encountered
+- `total_tmout`       - total number of test cases that timed out
 - `last_find`         - seconds since the last find was found
 - `last_crash`        - seconds since the last crash was found
 - `last_hang`         - seconds since the last hang was found
 - `execs_since_crash` - execs since the last crash was found
+- `last_edge_execs`   - number of total executions performed when the last new edge was found
+- `last_edge_find`    - seconds since the last edge was found
 - `exec_timeout`      - the -t command line value
 - `slowest_exec_ms`   - exec time of the slowest test case, measured during calibration, in ms
 - `peak_rss_mb`       - max rss usage reached during fuzzing in MB
+- `cpu_affinity`      - CPU core the fuzzer is bound to, or -1 if not bound
 - `edges_found`       - how many edges have been found
+- `total_edges`       - total number of edges in the coverage map
 - `var_byte_count`    - how many edges are non-deterministic
+- `havoc_expansion`   - current havoc expansion level (raised while no new coverage is found)
+- `auto_dict_entries` - number of auto-generated dictionary entries
+- `testcache_size`    - test case cache size in bytes
+- `testcache_count`   - number of test cases currently held in the cache
+- `testcache_evict`   - number of test case cache evictions so far
+- `testcache_hits`    - test case cache hits (buffer was already resident)
+- `testcache_misses`  - test case cache misses (buffer had to be read)
 - `afl_banner`        - banner text (e.g., the target name)
 - `afl_version`       - the version of AFL++ used
 - `target_mode`       - default, persistent, qemu, unicorn, non-instrumented
 - `command_line`      - full command line used for the fuzzing session
+
+Additional entries appear only in specific modes: `extra_binary` and
+`total_execs` are emitted once per extra sanitizer binary (`-b` / `AFL_SAN_*`),
+giving each binary's path and its own execution count; `virgin_bytes` and
+`var_bytes` are emitted only when `AFL_DEBUG` is set (raw coverage dumps).
+
+`last_edge_execs` backs the execution-count based strategy switches: once the
+favored/covering seed set is exhausted (`pending_favs` reaches 0), staying stuck
+for a flat number of executions with no new edge drives all three of them --
+forcing the CmpLog input-to-state stage first, then starve mode, then the
+explore -> exploit switch (`-P`), at increasing execution thresholds. The
+explore -> exploit switch also fires after the `-P` time if one was given,
+whichever comes first.
 
 Most of these map directly to the UI elements discussed earlier on.
 

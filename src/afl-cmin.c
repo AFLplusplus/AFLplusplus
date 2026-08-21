@@ -32,11 +32,11 @@
 #include <glob.h>
 #include <limits.h>
 #include <pthread.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -50,7 +50,6 @@
 #include "config.h"
 #include "debug.h"
 #include "forkserver.h"
-#include "hash.h"
 #include "hash.h"
 #include "sharedmem.h"
 #include "types.h"
@@ -78,14 +77,17 @@ static u8 **in_dir;                    /* one or more input dirs            */
 static u32  in_dir_cap;                /* capacity of in_dir                */
 static u8  *out_dir,                   /* output directory                  */
     *crash_dir,                        /* crash directory                   */
+    *tmp_dir,                          /* private work directory            */
     *target_bin,                       /* target binary                     */
     *stdin_file;                       /* stdin file                        */
+
+static pid_t tmp_dir_pid;              /* owner of tmp_dir                  */
 
 static u8  *progname;
 static u8 **target_args;               /* target arguments                  */
 
 static u32 in_dir_cnt,                 /* number of input directories       */
-    cpu_count,                         /* number of CPU cores               */
+    cpu_count,                         /* number of usable CPU cores        */
     exec_workers = 1,                  /* number of execution workers       */
     update_workers = 1,                /* number of update workers          */
     mem_limit_given,                   /* memory limit given?               */
@@ -104,11 +106,12 @@ static u8 debug_mode,                  /* debug mode                        */
     qemu_mode,                         /* QEMU mode                         */
     unicorn_mode,                      /* Unicorn mode                      */
     nyx_mode,                          /* Nyx mode                          */
-    wine_mode;                         /* Wine mode                         */
+    merge_mode, wine_mode;             /* Wine mode                         */
 
 static cmin_file_t **files;
 static u32           items;
 static u32           files_capacity;
+static u8           *crashing_files; /* marked by exec workers, --crash-dir */
 
 /* Parallel collection structures */
 static pthread_mutex_t files_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -127,12 +130,61 @@ static dir_queue_item_t *queue_tail;
 static u32               busy_collectors;
 static volatile u8       collection_done;
 
+/* Remember which directories were handed out already. Input dirs may be
+   given twice and symlinks can form cycles, both of which would otherwise
+   make the scan loop forever. Called with queue_mutex held. */
+
+static struct {
+
+  dev_t dev;
+  ino_t ino;
+
+} *seen_dirs;
+
+static u32 seen_dirs_cnt, seen_dirs_cap;
+
+static u8 dir_already_seen(u8 *dir) {
+
+  struct stat st;
+  if (stat((char *)dir, &st)) return 0;
+
+  for (u32 i = 0; i < seen_dirs_cnt; i++) {
+
+    if (seen_dirs[i].dev == st.st_dev && seen_dirs[i].ino == st.st_ino)
+      return 1;
+
+  }
+
+  if (seen_dirs_cnt >= seen_dirs_cap) {
+
+    seen_dirs_cap = seen_dirs_cap ? seen_dirs_cap * 2 : 256;
+    seen_dirs = ck_realloc(seen_dirs, seen_dirs_cap * sizeof(*seen_dirs));
+
+  }
+
+  seen_dirs[seen_dirs_cnt].dev = st.st_dev;
+  seen_dirs[seen_dirs_cnt].ino = st.st_ino;
+  seen_dirs_cnt++;
+  return 0;
+
+}
+
 static void queue_add(u8 *dir) {
 
   dir_queue_item_t *item = ck_alloc(sizeof(dir_queue_item_t));
   item->dir = strdup(dir);
 
   pthread_mutex_lock(&queue_mutex);
+
+  if (dir_already_seen(dir)) {
+
+    pthread_mutex_unlock(&queue_mutex);
+    ck_free(item->dir);
+    ck_free(item);
+    return;
+
+  }
+
   if (!queue_head) {
 
     queue_head = item;
@@ -209,11 +261,13 @@ typedef struct {
 
 static cmin_queue_t *queue;
 
-static void queue_init(u32 capacity) {
+static void queue_init(u64 capacity) {
+
+  if (capacity > 0xF0000000ULL) FATAL("Requested queue size is too large");
 
   // Align to page size? sharedmem_t usually handles this but we need a custom
   // structure We use mmap anon shared
-  u32 total_size = sizeof(cmin_queue_t) + capacity;
+  size_t total_size = sizeof(cmin_queue_t) + capacity;
   queue = mmap(NULL, total_size, PROT_READ | PROT_WRITE,
                MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   if (queue == MAP_FAILED) PFATAL("mmap queue");
@@ -256,9 +310,36 @@ static void queue_write(const void *src, u32 len, u32 *tail) {
 
 }
 
-static u8 *unique_out_name(const u8 *name) {
+/* Strict unsigned parser: no signs, no empty strings, no trailing garbage and
+   no out-of-range values - atoi()/sscanf() silently accept all of those. */
 
-  u8 *candidate = alloc_printf("%s/%s", out_dir, name);
+static u64 parse_u64_strict(const char *val, const char *what, u64 min,
+                            u64 max) {
+
+  if (!val || !*val) FATAL("Empty value given for %s", what);
+
+  for (const char *p = val; *p; p++) {
+
+    if (*p < '0' || *p > '9') FATAL("Bad syntax used for %s: '%s'", what, val);
+
+  }
+
+  errno = 0;
+  char *end = NULL;
+  u64   res = strtoull(val, &end, 10);
+
+  if (errno || !end || *end) FATAL("Bad syntax used for %s: '%s'", what, val);
+  if (res < min || res > max)
+    FATAL("Value of %s must be between %llu and %llu, got '%s'", what, min, max,
+          val);
+
+  return res;
+
+}
+
+static u8 *unique_name_in(const u8 *dir, const u8 *name) {
+
+  u8 *candidate = alloc_printf("%s/%s", dir, name);
   if (access(candidate, F_OK) != 0) { return candidate; }
 
   ck_free(candidate);
@@ -266,13 +347,114 @@ static u8 *unique_out_name(const u8 *name) {
   for (u32 i = 0; i < 10000; i++) {
 
     u32 prefix = (AFL_R(0x10000) << 16) | AFL_R(0x10000);
-    candidate = alloc_printf("%s/%08x_%s", out_dir, prefix, name);
+    candidate = alloc_printf("%s/%08x_%s", dir, prefix, name);
     if (access(candidate, F_OK) != 0) { return candidate; }
     ck_free(candidate);
 
   }
 
-  FATAL("Unable to find unique output name for '%s'", name);
+  FATAL("Unable to find unique name for '%s' in '%s'", name, dir);
+
+}
+
+static u8 *unique_out_name(const u8 *name) {
+
+  return unique_name_in(out_dir, name);
+
+}
+
+/* An existing destination is never replaced, and a partially written one is
+   removed again. */
+
+static u8 copy_file(u8 *src_path, u8 *dst_path) {
+
+  int src = open(src_path, O_RDONLY);
+  if (src < 0) return 1;
+
+  int dst = open(dst_path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
+                 DEFAULT_PERMISSION);
+  if (dst < 0) {
+
+    close(src);
+    return 1;
+
+  }
+
+  u8      buf[4096];
+  ssize_t n;
+  u8      ret = 0;
+
+  while ((n = read(src, buf, sizeof(buf))) > 0) {
+
+    if (write(dst, buf, n) != n) {
+
+      ret = 1;
+      break;
+
+    }
+
+  }
+
+  if (n < 0) ret = 1;
+
+  close(src);
+  if (close(dst)) ret = 1;
+
+  if (ret) unlink(dst_path);
+
+  return ret;
+
+}
+
+/* Decide whether an occupied destination already holds this very input. */
+
+static u8 same_file_content(u8 *path_a, u8 *path_b) {
+
+  struct stat sa, sb;
+  u8          buf_a[4096], buf_b[4096];
+  u8          ret = 0;
+
+  int fa = open(path_a, O_RDONLY);
+  if (fa < 0) return 0;
+  int fb = open(path_b, O_RDONLY | O_NOFOLLOW);
+  if (fb < 0) {
+
+    close(fa);
+    return 0;
+
+  }
+
+  if (fstat(fa, &sa) || fstat(fb, &sb) || !S_ISREG(sb.st_mode) ||
+      sa.st_size != sb.st_size) {
+
+    goto done;
+
+  }
+
+  if (sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino) {
+
+    ret = 1;
+    goto done;
+
+  }
+
+  while (1) {
+
+    ssize_t na = read(fa, buf_a, sizeof(buf_a));
+    ssize_t nb = read(fb, buf_b, sizeof(buf_b));
+
+    if (na < 0 || nb < 0 || na != nb) goto done;
+    if (!na) break;
+    if (memcmp(buf_a, buf_b, na)) goto done;
+
+  }
+
+  ret = 1;
+
+done:
+  close(fa);
+  close(fb);
+  return ret;
 
 }
 
@@ -355,7 +537,9 @@ static u32 queue_pop(u32 *type, void *buf, u32 max_len) {
   packet_len = sizeof(u32) * 2 + len;
   queue->size -= packet_len;
 
-  pthread_cond_signal(&queue->cond_write);  // Notify writer space available
+  /* Broadcast: writers wait for different amounts of room, so waking just
+     one of them can leave a writer that would fit asleep indefinitely. */
+  pthread_cond_broadcast(&queue->cond_write);
   pthread_mutex_unlock(&queue->mutex);
 
   return len;
@@ -399,7 +583,9 @@ void get_binary_hash_local(cmin_file_t *f, int dirfd) {
 
   if (fd < 0) {
 
-    WARNF("Unable to open '%s/'%s'", f->dir, f->name);
+    WARNF("Unable to open '%s/%s'", f->dir, f->name);
+    f->size = 0;
+    memset(f->sha1, 0, SHA1_SIZE);
     return;
 
   }
@@ -433,6 +619,7 @@ void get_binary_hash_local(cmin_file_t *f, int dirfd) {
 
     WARNF("Unable to fstat '%s/%s'", f->dir, f->name);
     close(fd);
+    f->size = 0;
     memset(f->sha1, 0, SHA1_SIZE);
     return;
 
@@ -513,7 +700,12 @@ static int compare_hashes(const void *a, const void *b) {
   cmin_file_t *fa = *(cmin_file_t **)a;
   cmin_file_t *fb = *(cmin_file_t **)b;
 
-  return memcmp(fa->sha1, fb->sha1, SHA1_SIZE);
+  int d = memcmp(fa->sha1, fb->sha1, SHA1_SIZE);
+  if (d) return d;
+  if (fa->size != fb->size) return fa->size < fb->size ? -1 : 1;
+  d = strcmp(fa->dir, fb->dir);
+  if (d) return d;
+  return strcmp(fa->name, fb->name);
 
 }
 
@@ -527,7 +719,8 @@ static void dedup_files(void) {
 
   for (u32 i = 0; i < update_workers; i++) {
 
-    pthread_create(&t[i], NULL, dedup_worker, (void *)(size_t)i);
+    if (pthread_create(&t[i], NULL, dedup_worker, (void *)(size_t)i))
+      PFATAL("pthread_create failed");
 
   }
 
@@ -600,32 +793,33 @@ static void dedup_files(void) {
 
   OKF("Remain %u files after dedup", unique);
   items = unique;
-  files_capacity = items;
-  if (items > unique) {
-
-    files = ck_realloc(files, files_capacity * sizeof(cmin_file_t *));
-
-  }
 
 }
 
-static u32  map_size = MAP_SIZE;
-static u32 *best_files;
+static u32 map_size = MAP_SIZE;
+static u8 *baseline_covered;
 
 typedef struct {
 
   u32 tuple;
   u32 count;
+  u32 best;
 
 } tuple_info_t;
+
+/* Rarest tuple first; among equally rare ones start with those whose
+   representative is the largest file (files[] is sorted by size), so that its
+   coverage can absorb the cheaper tuples still to come. */
 
 static int compare_tuple_counts(const void *a, const void *b) {
 
   const tuple_info_t *ta = (const tuple_info_t *)a;
   const tuple_info_t *tb = (const tuple_info_t *)b;
 
-  if (ta->count != tb->count) return ta->count - tb->count;  // ascending
-  return ta->tuple - tb->tuple;
+  if (ta->count != tb->count) return ta->count < tb->count ? -1 : 1;
+  if (ta->best != tb->best) return ta->best > tb->best ? -1 : 1;
+  if (ta->tuple == tb->tuple) return 0;
+  return ta->tuple > tb->tuple ? -1 : 1;
 
 }
 
@@ -741,6 +935,18 @@ static u32 collect_coverage_counts(u8 *trace, u32 map_size, u32 *tuples) {
 
     }
 
+    /* Coverage in a map whose size is not a multiple of the stride would
+       otherwise be lost */
+    for (u32 k = map_size64 * 8; k < map_size; k++) {
+
+      if (trace[k]) {
+
+        tuples[t_len++] = k * 8 + (count_class_human[trace[k]] - 1);
+
+      }
+
+    }
+
 #endif
 
   }
@@ -756,8 +962,12 @@ static fsrv_run_result_t run_target_file(afl_forkserver_t *fsrv, cmin_file_t *f,
   u8 *buf = NULL;
   u8 *file_data = NULL;
   u8  is_mmap = 0;
-  u32 len = f->size;
   int fd;
+
+  /* Only MAX_FILE bytes ever reach the target - shared-memory delivery
+     truncates there anyway, so all transports have to agree on it,
+     otherwise coverage would depend on the negotiated transport. */
+  u32 len = f->size > MAX_FILE ? MAX_FILE : f->size;
 
   if (dirfd >= 0) {
 
@@ -838,6 +1048,11 @@ static void cleanup_fsrv_allocs(afl_forkserver_t *fsrv, char **argv) {
 
   if (fsrv->out_file) {
 
+    /* Our own delivery files live in tmp_dir and are recreated exclusively by
+       the next fork server, so they must not survive this one. A -f file
+       belongs to the user. */
+    if (!stdin_file) unlink(fsrv->out_file);
+
     ck_free(fsrv->out_file);
     fsrv->out_file = NULL;
 
@@ -879,7 +1094,7 @@ static void cleanup_fsrv_allocs(afl_forkserver_t *fsrv, char **argv) {
 }
 
 static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
-                           u32 use_map_size, u32 id, u8 *out_file_pattern) {
+                           u32 use_map_size, u32 id) {
 
   // Init fsrv
   afl_fsrv_init(fsrv);
@@ -906,7 +1121,6 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
   fsrv->map_size = use_map_size;
   fsrv->mem_limit = mem_limit;
   fsrv->exec_tmout = time_limit;
-  if (!fsrv->exec_tmout) fsrv->exec_tmout = 120 * 1000;
 
   if (nyx_mode) {
 
@@ -970,12 +1184,12 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
     if (id == (u32)-1) {
 
       // test mode
-      fsrv->out_file = alloc_printf("%s/.afl-cmin.test_input", out_dir);
+      fsrv->out_file = alloc_printf("%s/test_input", tmp_dir);
 
     } else {
 
       // worker mode
-      fsrv->out_file = alloc_printf(out_file_pattern, out_dir, id);
+      fsrv->out_file = alloc_printf("%s/cur_input_%u", tmp_dir, id);
 
     }
 
@@ -1003,9 +1217,11 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
 
   if (fsrv->use_stdin && fsrv->out_fd < 0) {
 
-    fsrv->out_fd =
-        open(fsrv->out_file, O_RDWR | O_CREAT | O_TRUNC, DEFAULT_PERMISSION);
-    if (fsrv->out_fd < 0) FATAL("Unable to open '%s'", fsrv->out_file);
+    /* O_EXCL|O_NOFOLLOW: the file lives in our own private directory, so
+       anything already occupying the name is not ours to truncate. */
+    fsrv->out_fd = open(fsrv->out_file, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW,
+                        DEFAULT_PERMISSION);
+    if (fsrv->out_fd < 0) PFATAL("Unable to create '%s'", fsrv->out_file);
 
   }
 
@@ -1028,12 +1244,26 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
 
 }
 
+/* Per-status result accounting, shared with the execution workers. */
+
+typedef struct {
+
+  u32 ok;
+  u32 crash;
+  u32 tmout;
+  u32 error;
+  u32 accepted;
+
+} cmin_run_stats_t;
+
+static cmin_run_stats_t *run_stats;
+static u32               crashes_saved;
+
 static void exec_worker(worker_data_t *data, u32 *shared_cmin_idx) {
 
   afl_forkserver_t *fsrv = &data->fsrv;
 
-  char **argv =
-      prepare_fsrv(fsrv, &data->shm, map_size, data->id, "%s/.cur_input_%u");
+  char **argv = prepare_fsrv(fsrv, &data->shm, map_size, data->id);
 
   u8 stop_soon = 0;
 
@@ -1097,26 +1327,37 @@ static void exec_worker(worker_data_t *data, u32 *shared_cmin_idx) {
     fsrv_run_result_t ret =
         run_target_file(fsrv, files[i], last_exec_dirfd, &stop_soon);
 
-    if (ret == FSRV_RUN_ERROR) continue;
+    if (ret == FSRV_RUN_ERROR) {
+
+      __sync_fetch_and_add(&run_stats->error, 1);
+      continue;
+
+    }
 
     if (ret == FSRV_RUN_CRASH) {
 
-      // files[i]->is_crash = 1;
-      if (!crashes_only && !allow_any) continue;
+      __sync_fetch_and_add(&run_stats->crash, 1);
+      if (crashing_files) crashing_files[i] = 1;
+      if (crash_dir || (!crashes_only && !allow_any)) continue;
 
     } else if (ret == FSRV_RUN_TMOUT) {
 
+      __sync_fetch_and_add(&run_stats->tmout, 1);
       if (!allow_any) continue;
 
     } else if (ret != FSRV_RUN_OK) {
 
+      __sync_fetch_and_add(&run_stats->error, 1);
       continue;
 
     } else {
 
+      __sync_fetch_and_add(&run_stats->ok, 1);
       if (crashes_only) continue;
 
     }
+
+    __sync_fetch_and_add(&run_stats->accepted, 1);
 
     u8 *trace = fsrv->trace_bits;
     u32 t_len = collect_coverage_counts(trace, map_size, tuples);
@@ -1151,17 +1392,21 @@ static void process_update_message(worker_data_t *data, u32 *unpack_buf) {
   u32  i = unpack_buf[0];
   u32  t_len = unpack_buf[1];
   u32 *tuples = &unpack_buf[2];
+  u32  size = files[i]->size;
+
+  /* Track the smallest size seen per tuple and keep the trace of every file
+     that reaches it. Which of the equally small files ends up representing a
+     tuple can only be decided once all hit counts are in, so the choice is
+     deferred to select_representatives() in the parent. */
 
   u8 better = 0;
   for (u32 j = 0; j < t_len; j++) {
 
     u32 tuple = tuples[j];
 
-    // Given files[cmin_sentinel_idx]->size == max, we don't need to
-    // check if data->local_best[tuple] == cmin_sentinel_idx.
-    if (files[i]->size < files[data->local_best[tuple]]->size) {
+    if (size <= data->local_best[tuple]) {
 
-      data->local_best[tuple] = i;
+      data->local_best[tuple] = size;
       better = 1;
 
     }
@@ -1210,19 +1455,33 @@ static void update_worker(worker_data_t *data) {
 
 }
 
-static u32   effective_map_size;
-static u32  *global_best_maps;
-static u32  *global_counts_maps;
-static u32  *shared_cmin_idx;
-static pid_t worker_pids[MAX_WORKERS];
+static u32    effective_map_size;
+static size_t worker_map_bytes;
+static u32   *global_best_maps;
+static u32   *global_counts_maps;
+static u32   *shared_cmin_idx;
+static pid_t  worker_pids[MAX_WORKERS];
+
+static u8 *trace_log_name(u32 worker) {
+
+  return alloc_printf("%s/worker_%u.dat", tmp_dir, worker);
+
+}
 
 static void cmin_detect_map_size(void) {
 
   // Get map size
   u8 *env_map_size = getenv("AFL_MAP_SIZE");
+  if (!env_map_size) env_map_size = getenv("AFL_MAPSIZE");
+
   if (env_map_size) {
 
-    map_size = atoi(env_map_size);
+    /* Same validation and rounding as get_map_size() in afl-common.c, so
+       that an explicit map size behaves identically everywhere. */
+    map_size = validate_map_size((u32)parse_u64_strict(
+        (char *)env_map_size, "AFL_MAP_SIZE", 1, (1U << 29) - 1));
+
+    if (map_size % 64) { map_size = (((map_size >> 6) + 1) << 6); }
 
   } else if (nyx_mode) {
 
@@ -1300,6 +1559,11 @@ static void cmin_detect_map_size(void) {
 
   if (map_size < MAP_SIZE) map_size = MAP_SIZE;
 
+  /* The children have to agree with the size we ended up using */
+  u8 *final_size = alloc_printf("%u", map_size);
+  setenv("AFL_MAP_SIZE", final_size, 1);
+  ck_free(final_size);
+
   OKF("Map size: %u", map_size);
 
 }
@@ -1326,13 +1590,15 @@ static void cmin_worker_entry(u32 i, worker_role_t role) {
 
   if (role == WORKER_UPDATE) {
 
-    data.local_best = global_best_maps + (i * effective_map_size);
-    data.local_counts = global_counts_maps + (i * effective_map_size);
+    data.local_best = global_best_maps + ((size_t)i * effective_map_size);
+    data.local_counts = global_counts_maps + ((size_t)i * effective_map_size);
 
     // Build trace log path
-    u8 *trace_fn = alloc_printf("%s/.traces/worker_%u.dat", out_dir, i);
-    data.trace_log = fopen(trace_fn, "w+b");
-    if (!data.trace_log) PFATAL("Unable to open info info file %s", trace_fn);
+    u8 *trace_fn = trace_log_name(i);
+    int trace_fd = open(trace_fn, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+    if (trace_fd < 0) PFATAL("Unable to create trace file %s", trace_fn);
+    data.trace_log = fdopen(trace_fd, "w+b");
+    if (!data.trace_log) PFATAL("Unable to open trace file %s", trace_fn);
     ck_free(trace_fn);
 
     update_worker(&data);
@@ -1358,21 +1624,33 @@ static void cmin_run_workers(void) {
   // Shared memory for results
   // We allocate best maps for UPDATE workers only (since they maintain local
   // bests)
-  global_best_maps =
-      mmap(NULL, update_workers * effective_map_size * sizeof(u32),
-           PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  global_best_maps = mmap(NULL, worker_map_bytes, PROT_READ | PROT_WRITE,
+                          MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   if (global_best_maps == MAP_FAILED) PFATAL("mmap global_best_maps failed");
 
-  for (u32 i = 0; i < update_workers * effective_map_size; i++)
-    global_best_maps[i] = cmin_sentinel_idx;
+  for (size_t i = 0; i < worker_map_bytes / sizeof(u32); i++)
+    global_best_maps[i] = 0xFFFFFFFF;
 
-  global_counts_maps =
-      mmap(NULL, update_workers * effective_map_size * sizeof(u32),
-           PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  global_counts_maps = mmap(NULL, worker_map_bytes, PROT_READ | PROT_WRITE,
+                            MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   if (global_counts_maps == MAP_FAILED)
     PFATAL("mmap global_counts_maps failed");
-  memset(global_counts_maps, 0,
-         update_workers * effective_map_size * sizeof(u32));
+  memset(global_counts_maps, 0, worker_map_bytes);
+
+  // Crash markers, set by the exec workers for --crash-dir
+  if (crash_dir) {
+
+    crashing_files = mmap(NULL, items, PROT_READ | PROT_WRITE,
+                          MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (crashing_files == MAP_FAILED) PFATAL("mmap crashing_files failed");
+
+  }
+
+  // Per-status result counters, written by the exec workers
+  run_stats = mmap(NULL, sizeof(cmin_run_stats_t), PROT_READ | PROT_WRITE,
+                   MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  if (run_stats == MAP_FAILED) PFATAL("mmap run_stats failed");
+  memset(run_stats, 0, sizeof(cmin_run_stats_t));
 
   // Shared counter for coordination (Exec workers)
   shared_cmin_idx = mmap(NULL, sizeof(u32), PROT_READ | PROT_WRITE,
@@ -1380,8 +1658,12 @@ static void cmin_run_workers(void) {
   if (shared_cmin_idx == MAP_FAILED) PFATAL("mmap");
   *shared_cmin_idx = 0;
 
-  // Init Queue (64MB)
-  queue_init(QUEUE_CAPACITY);
+  /* The ring has to hold at least one full trace message, otherwise
+     queue_push() would reject it outright on targets with a large map. */
+  u64 msg_max = ((u64)map_size + 2) * sizeof(u32);
+  u64 cap = QUEUE_CAPACITY;
+  if (cap < msg_max * 2) { cap = msg_max * 2; }
+  queue_init(cap);
 
   // Fork all workers (Exec: 0..exec_workers-1, Update:
   // exec_workers..total-1)
@@ -1465,7 +1747,16 @@ static void cmin_run_workers(void) {
   // Wait for all EXEC workers
   for (u32 i = 0; i < exec_workers; i++) {
 
-    waitpid(worker_pids[i], NULL, 0);
+    int   status;
+    pid_t pid = worker_pids[i];
+
+    /* Forget the pid right away, the number can be reused by an unrelated
+       process that cleanup_tmp_files() would then signal. */
+    worker_pids[i] = 0;
+
+    if (waitpid(pid, &status, 0) > 0 &&
+        (!WIFEXITED(status) || WEXITSTATUS(status)))
+      FATAL("Execution worker %d died unexpectedly (status %d)", pid, status);
 
   }
 
@@ -1475,40 +1766,102 @@ static void cmin_run_workers(void) {
     queue_push(QUEUE_MSG_STOP, NULL, 0);
 
   // Wait for Update Workers
-  for (u32 i = 0; i < update_workers; i++)
-    waitpid(worker_pids[exec_workers + i], NULL, 0);
+  for (u32 i = 0; i < update_workers; i++) {
+
+    int   status;
+    pid_t pid = worker_pids[exec_workers + i];
+
+    worker_pids[exec_workers + i] = 0;
+
+    if (waitpid(pid, &status, 0) > 0 &&
+        (!WIFEXITED(status) || WEXITSTATUS(status)))
+      FATAL("Update worker %d died unexpectedly (status %d)", pid, status);
+
+  }
 
   munmap(shared_cmin_idx, sizeof(u32));
   munmap(queue, sizeof(cmin_queue_t) + queue->capacity);
 
 }
 
-static void merge_results(u32 *final_best, u32 *tuple_counts) {
+static void merge_results(u32 *min_size, u32 *tuple_counts) {
 
   u32 *global_map = global_best_maps;
   u32 *global_cnt = global_counts_maps;
 
   for (u32 w = 0; w < update_workers; w++) {
 
-    u32 *worker_map = global_map + (w * effective_map_size);
-    u32 *worker_cnt = global_cnt + (w * effective_map_size);
+    u32 *worker_map = global_map + ((size_t)w * effective_map_size);
+    u32 *worker_cnt = global_cnt + ((size_t)w * effective_map_size);
 
     for (u32 i = 0; i < effective_map_size; i++) {
 
       tuple_counts[i] += worker_cnt[i];
+      if (worker_map[i] < min_size[i]) { min_size[i] = worker_map[i]; }
 
-      u32 idx = worker_map[i];
-      if (idx == cmin_sentinel_idx) continue;
+    }
 
-      if (final_best[i] == cmin_sentinel_idx) {
+  }
 
-        final_best[i] = idx;
+}
 
-      } else {
+/* Second look at the traces on disk: now that all hit counts are known, elect
+   the representative of every tuple among the smallest inputs covering it.
+   Rarity decides - a file scores the sum of 1/count over its own tuples, so
+   the input carrying the most hard-to-find coverage wins and the set cover
+   below needs fewer files. */
 
-        if (files[idx]->size < files[final_best[i]]->size) {
+static void select_representatives(u32 *final_best, u32 *tuple_counts,
+                                   u32 *min_size) {
 
-          final_best[i] = idx;
+  double *best_score = ck_alloc(effective_map_size * sizeof(double));
+  u32    *buf = ck_alloc(map_size * sizeof(u32));
+
+  for (u32 w = 0; w < update_workers; w++) {
+
+    u8   *trace_fn = trace_log_name(w);
+    FILE *f = fopen(trace_fn, "rb");
+    if (!f) {
+
+      ck_free(trace_fn);
+      continue;
+
+    }
+
+    u32 idx, len;
+
+    while (fread(&idx, sizeof(u32), 1, f) == 1) {
+
+      if (fread(&len, sizeof(u32), 1, f) != 1)
+        FATAL("Truncated trace log '%s'", trace_fn);
+
+      if (idx >= items || len > map_size)
+        FATAL("Corrupt trace log '%s'", trace_fn);
+
+      if (len && fread(buf, sizeof(u32), len, f) != len)
+        FATAL("Truncated trace log '%s'", trace_fn);
+
+      u32 size = files[idx]->size;
+
+      double score = 0.0;
+      for (u32 j = 0; j < len; j++) {
+
+        u32 cnt = tuple_counts[buf[j]];
+        if (cnt) { score += 1.0 / (double)cnt; }
+
+      }
+
+      for (u32 j = 0; j < len; j++) {
+
+        u32 tuple = buf[j];
+        if (size != min_size[tuple]) continue;
+
+        if (final_best[tuple] == cmin_sentinel_idx ||
+            score > best_score[tuple] ||
+            (score == best_score[tuple] && idx < final_best[tuple])) {
+
+          final_best[tuple] = idx;
+          best_score[tuple] = score;
 
         }
 
@@ -1516,7 +1869,13 @@ static void merge_results(u32 *final_best, u32 *tuple_counts) {
 
     }
 
+    fclose(f);
+    ck_free(trace_fn);
+
   }
+
+  ck_free(buf);
+  ck_free(best_score);
 
 }
 
@@ -1552,7 +1911,7 @@ static void load_traces(u8 *is_candidate, trace_t *candidate_traces) {
 
   for (u32 w = 0; w < update_workers; w++) {
 
-    u8   *trace_fn = alloc_printf("%s/.traces/worker_%u.dat", out_dir, w);
+    u8   *trace_fn = trace_log_name(w);
     FILE *f = fopen(trace_fn, "rb");
     if (f) {
 
@@ -1560,22 +1919,28 @@ static void load_traces(u8 *is_candidate, trace_t *candidate_traces) {
 
         u32 idx, len;
         if (fread(&idx, sizeof(u32), 1, f) != 1) break;
-        if (fread(&len, sizeof(u32), 1, f) != 1) break;
+        if (fread(&len, sizeof(u32), 1, f) != 1)
+          FATAL("Truncated trace log '%s'", trace_fn);
+
+        if (idx >= items || len > map_size)
+          FATAL("Corrupt trace log '%s'", trace_fn);
 
         if (is_candidate[idx] && !candidate_traces[idx].tuples) {
 
-          candidate_traces[idx].len = len;
           candidate_traces[idx].tuples = ck_alloc(len * sizeof(u32));
           if (len > 0) {
 
             if (fread(candidate_traces[idx].tuples, sizeof(u32), len, f) != len)
-              WARNF("Short read trace");
+              FATAL("Truncated trace log '%s'", trace_fn);
 
           }
 
+          candidate_traces[idx].len = len;
+
         } else {
 
-          fseek(f, len * sizeof(u32), SEEK_CUR);
+          if (fseeko(f, (off_t)len * sizeof(u32), SEEK_CUR))
+            PFATAL("Unable to seek in trace log '%s'", trace_fn);
 
         }
 
@@ -1598,6 +1963,14 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
   u8 *covered = ck_alloc(effective_map_size);  // 0 or 1
   u32 covered_cnt = 0;
   u32 written_cnt = 0;
+  u32 existing_cnt = 0;
+  u32 selected_cnt = 0;
+
+  if (merge_mode && baseline_covered) {
+
+    memcpy(covered, baseline_covered, effective_map_size);
+
+  }
 
   u64 start_ms = get_cur_time();
 
@@ -1610,7 +1983,12 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
 
       sorted_tuples[st_idx].tuple = i;
       sorted_tuples[st_idx].count = tuple_counts[i];
+      sorted_tuples[st_idx].best = final_best[i];
       st_idx++;
+
+      /* Tuples the baseline corpus already covers are covered for real, so
+         they belong in the progress numbers too */
+      if (covered[i]) covered_cnt++;
 
     }
 
@@ -1631,7 +2009,7 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
       continue;  // Should have covered this tuple if written?
 
     written_files[best_idx] = 1;
-    written_cnt++;
+    selected_cnt++;
 
     // Mark all tuples covered by this file
     trace_t *t = &candidate_traces[best_idx];
@@ -1649,73 +2027,85 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
 
     // Link/Copy file
     cmin_file_t *f = files[best_idx];
-    u8          *out_name;
-    u8           use_orig_name = 0;
+    u8          *out_base;
+    u8           hash[SHA1_SIZE * 2 + 1];
 
-    if (no_dedup || !sha1fn) {
+    /* Without the dedup pass the hashes were never computed, so do it now */
+    if (sha1fn && no_dedup) { get_binary_hash_local(f, -1); }
 
-      if (as_queue)
-        out_name = alloc_printf("%s/id:%06u,orig:%s", out_dir, written_cnt - 1,
-                                f->name);
-      else {
+    if (sha1fn) {
 
-        out_name = unique_out_name(f->name);
-        use_orig_name = 1;
-
-      }
-
-    } else {
-
-      u8 hash[SHA1_SIZE * 2 + 1];
       for (int x = 0; x < SHA1_SIZE; x++)
         sprintf((char *)hash + x * 2, "%02x", f->sha1[x]);
       hash[SHA1_SIZE * 2] = 0;
-      if (as_queue)
-        out_name =
-            alloc_printf("%s/id:%06u,hash:%s", out_dir, written_cnt - 1, hash);
-      else
-        out_name = alloc_printf("%s/%s", out_dir, hash);
 
     }
 
-    u8 *src_path = alloc_printf("%s/%s", f->dir, f->name);
-    while (link(src_path, out_name) < 0) {
+    if (!sha1fn) {
 
-      if (errno == EEXIST && use_orig_name) {
+      if (as_queue)
+        out_base = alloc_printf("id:%06u,orig:%s", selected_cnt - 1, f->name);
+      else
+        out_base = alloc_printf("%s", f->name);
+
+    } else {
+
+      if (as_queue)
+        out_base = alloc_printf("id:%06u,hash:%s", selected_cnt - 1, hash);
+      else
+        out_base = alloc_printf("%s", hash);
+
+    }
+
+    /* An occupied destination is either this very input - then there is
+       nothing to do - or an unrelated file that must not be touched. */
+
+    u8 *out_name = alloc_printf("%s/%s", out_dir, out_base);
+    u8 *src_path = alloc_printf("%s/%s", f->dir, f->name);
+    u8  is_new = 0;
+
+    while (1) {
+
+      if (!link(src_path, out_name)) {
+
+        is_new = 1;
+        break;
+
+      }
+
+      if (errno == EEXIST) {
+
+        if (same_file_content(src_path, out_name)) {
+
+          existing_cnt++;
+          break;
+
+        }
 
         ck_free(out_name);
-        out_name = unique_out_name(f->name);
+        out_name = unique_out_name(out_base);
         continue;
 
       }
 
-      if (errno == EEXIST) unlink(out_name);
-      if (link(src_path, out_name) < 0) {
+      if (copy_file(src_path, out_name)) {
 
-        int src = open(src_path, O_RDONLY);
-        if (src < 0) PFATAL("Unable to open '%s'", src_path);
-
-        int dst = open(out_name, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-        if (dst < 0) PFATAL("Unable to open '%s'", out_name);
-
-        char    buf[4096];
-        ssize_t n;
-        while ((n = read(src, buf, sizeof(buf))) > 0)
-          if (write(dst, buf, n) != n) PFATAL("Short write to %s", out_name);
-
-        close(src);
-        close(dst);
+        PFATAL("Unable to copy '%s' to '%s'", src_path, out_name);
 
       }
 
+      is_new = 1;
       break;
 
     }
 
+    if (is_new) written_cnt++;
+
+    ck_free(out_base);
     ck_free(out_name);
     ck_free(src_path);
 
-    if (written_cnt % 1000 == 0) {
+    if (selected_cnt % 1000 == 0) {
 
       u64 t = (get_cur_time() - start_ms) / 1000;
 
@@ -1736,45 +2126,145 @@ static void execute_set_cover(u32 *final_best, u32 *tuple_counts,
   u64    cur_ms = get_cur_time();
   u64    t = (cur_ms - start_ms) / 1000;
   double speed =
-      (cur_ms > start_ms) ? (written_cnt * 1000.0 / (cur_ms - start_ms)) : 0.0;
+      (cur_ms > start_ms) ? (selected_cnt * 1000.0 / (cur_ms - start_ms)) : 0.0;
 
   SAYF(cGRA
        "\r    Written %u files, covered %u/%u tuples (%.2f/sec) [elapsed "
        "%llus]\n" cRST,
        written_cnt, covered_cnt, total_tuples, speed, t);
-  OKF("Wrote %u files.", written_cnt);
+
+  if (existing_cnt) {
+
+    OKF("Wrote %u files, %u were already present in '%s'.", written_cnt,
+        existing_cnt, out_dir);
+
+  } else {
+
+    OKF("Wrote %u files.", written_cnt);
+
+  }
 
 }
 
-/*
 static void write_crash_files(void) {
 
-  u32 count = 0;
+  u32 count = 0, dup_cnt = 0, existing_cnt = 0, fail_cnt = 0;
+
+  /* The crash set is always content-deduplicated, independently of
+     --no-dedup, which only governs the corpus. */
+
+  u32 crash_cnt = 0;
+  for (u32 i = 0; i < items; i++)
+    if (crashing_files[i]) crash_cnt++;
+
+  if (!crash_cnt) {
+
+    OKF("No crashing inputs to save in '%s'.", crash_dir);
+    return;
+
+  }
+
+  cmin_file_t **crashes = ck_alloc(crash_cnt * sizeof(cmin_file_t *));
+  u32           n = 0;
+
   for (u32 i = 0; i < items; i++) {
 
-    if (!files[i]->is_crash) continue;
+    if (!crashing_files[i]) continue;
+    if (no_dedup) get_binary_hash_local(files[i], -1);
+    crashes[n++] = files[i];
 
-    u8 *name = files[i]->name;
-    u8 *out_name = unique_out_name(name);
+  }
 
-    u8 *src_path = alloc_printf("%s/%s", files[i]->dir, files[i]->name);
-    if (link(src_path, out_name) != 0) {
+  qsort(crashes, crash_cnt, sizeof(cmin_file_t *), compare_hashes);
 
-      WARNF("Cannot add %s to minimization", src_path);
+  cmin_file_t *prev = NULL;
+
+  for (u32 i = 0; i < crash_cnt; i++) {
+
+    cmin_file_t *f = crashes[i];
+
+    if (prev && f->size == prev->size &&
+        !memcmp(f->sha1, prev->sha1, SHA1_SIZE)) {
+
+      dup_cnt++;
+      continue;
+
+    }
+
+    prev = f;
+
+    u8 *out_base;
+
+    if (sha1fn) {
+
+      u8 hash[SHA1_SIZE * 2 + 1];
+      for (int x = 0; x < SHA1_SIZE; x++)
+        sprintf((char *)hash + x * 2, "%02x", f->sha1[x]);
+      hash[SHA1_SIZE * 2] = 0;
+      out_base = alloc_printf("%s", hash);
+
+    } else {
+
+      out_base = alloc_printf("%s", f->name);
+
+    }
+
+    u8 *out_name = alloc_printf("%s/%s", crash_dir, out_base);
+    u8 *src_path = alloc_printf("%s/%s", f->dir, f->name);
+
+    while (1) {
+
+      if (!link(src_path, out_name)) {
+
+        count++;
+        break;
+
+      }
+
+      if (errno == EEXIST) {
+
+        if (same_file_content(src_path, out_name)) {
+
+          existing_cnt++;
+          break;
+
+        }
+
+        ck_free(out_name);
+        out_name = unique_name_in(crash_dir, out_base);
+        continue;
+
+      }
+
+      if (copy_file(src_path, out_name)) {
+
+        WARNF("Cannot save crash '%s' to '%s'", src_path, out_name);
+        fail_cnt++;
+
+      } else {
+
+        count++;
+
+      }
+
+      break;
 
     }
 
     ck_free(src_path);
     ck_free(out_name);
-    count++;
+    ck_free(out_base);
 
   }
 
-  OKF("Wrote %u crashing files.", count);
+  ck_free(crashes);
+  crashes_saved = count + existing_cnt;
+
+  OKF("Saved %u crashing files in '%s' (%u duplicates, %u already present, %u "
+      "failed).",
+      count, crash_dir, dup_cnt, existing_cnt, fail_cnt);
 
 }
-
-*/
 
 static void cmin_process_results(void) {
 
@@ -1783,19 +2273,24 @@ static void cmin_process_results(void) {
 
   OKF("Merging traces and computing candidates...");
 
-  // Step 1: Merge global best maps and counts
+  // Step 1: Merge the per-tuple minimum sizes and the hit counts
   u32 *final_best = ck_alloc(effective_map_size * sizeof(u32));
   u32 *tuple_counts = ck_alloc(effective_map_size * sizeof(u32));
+  u32 *min_size = ck_alloc(effective_map_size * sizeof(u32));
   for (u32 i = 0; i < effective_map_size; i++) {
 
     final_best[i] = cmin_sentinel_idx;
     tuple_counts[i] = 0;
+    min_size[i] = 0xFFFFFFFF;
 
   }
 
-  merge_results(final_best, tuple_counts);
+  merge_results(min_size, tuple_counts);
 
-  // Step 2: Identify candidates (files that are best for at least one tuple)
+  // Step 2: Elect a representative per tuple, then identify candidates
+  select_representatives(final_best, tuple_counts, min_size);
+  ck_free(min_size);
+
   u8 *is_candidate = ck_alloc(items);  // bool
   u32 candidates_cnt = 0;
   u32 total_tuples = 0;
@@ -1814,9 +2309,7 @@ static void cmin_process_results(void) {
   execute_set_cover(final_best, tuple_counts, candidate_traces, total_tuples);
 
   ck_free(tuple_counts);
-  if (global_counts_maps)
-    munmap(global_counts_maps,
-           update_workers * effective_map_size * sizeof(u32));
+  if (global_counts_maps) munmap(global_counts_maps, worker_map_bytes);
 
   for (u32 i = 0; i < items; i++) {
 
@@ -1828,14 +2321,15 @@ static void cmin_process_results(void) {
   ck_free(final_best);
   ck_free(is_candidate);
 
-  if (global_best_maps)
-    munmap(global_best_maps, update_workers * effective_map_size * sizeof(u32));
+  if (global_best_maps) munmap(global_best_maps, worker_map_bytes);
 
-  //} else {
+  if (crashing_files) {
 
-  //  write_crash_files();
+    write_crash_files();
+    munmap(crashing_files, items);
+    crashing_files = NULL;
 
-  //}
+  }
 
 }
 
@@ -1850,10 +2344,10 @@ static void test_target_binary(void) {
 
 #ifdef __linux__
   if (nyx_mode)
-    argv = prepare_fsrv(&fsrv, &shm, map_size, 0, "%s/.cur_input_%u");
+    argv = prepare_fsrv(&fsrv, &shm, map_size, 0);
   else
 #endif
-    argv = prepare_fsrv(&fsrv, &shm, map_size, (u32)-1, NULL);
+    argv = prepare_fsrv(&fsrv, &shm, map_size, (u32)-1);
 
   /* Set up shared-memory test-case delivery; the fork server negotiates
      shmem-fuzz support during the handshake (needed for Frida/QEMU). */
@@ -1944,33 +2438,385 @@ static void test_target_binary(void) {
 
 }
 
+static void seed_baseline(void) {
+
+  DIR *d = opendir(out_dir);
+  if (!d) return;
+
+  cmin_file_t  **bfiles = NULL;
+  u32            bcnt = 0, bcap = 0;
+  struct dirent *de;
+
+  while ((de = readdir(d))) {
+
+    if (de->d_name[0] == '.') continue;
+
+    u8         *fn = alloc_printf("%s/%s", out_dir, de->d_name);
+    struct stat st;
+    if (stat(fn, &st) || !S_ISREG(st.st_mode) || !st.st_size) {
+
+      ck_free(fn);
+      continue;
+
+    }
+
+    ck_free(fn);
+
+    if (bcnt >= bcap) {
+
+      bcap = bcap ? bcap * 2 : 256;
+      bfiles = ck_realloc(bfiles, bcap * sizeof(cmin_file_t *));
+
+    }
+
+    cmin_file_t *f = ck_alloc(sizeof(cmin_file_t));
+    f->dir = out_dir;
+    f->name = strdup(de->d_name);
+    f->size = st.st_size;
+    bfiles[bcnt++] = f;
+
+  }
+
+  closedir(d);
+
+  if (!bcnt) {
+
+    if (bfiles) ck_free(bfiles);
+    return;
+
+  }
+
+  OKF("Seeding coverage baseline from %u existing files in '%s'...", bcnt,
+      out_dir);
+
+  afl_forkserver_t fsrv = {0};
+  sharedmem_t      shm = {0};
+  u8               stop_soon = 0;
+  char           **argv;
+
+#ifdef __linux__
+  if (nyx_mode)
+    argv = prepare_fsrv(&fsrv, &shm, map_size, 0);
+  else
+#endif
+    argv = prepare_fsrv(&fsrv, &shm, map_size, (u32)-1);
+
+  sharedmem_t shm_fuzz = {0};
+  u8         *fuzz_map =
+      afl_shm_init(&shm_fuzz, MAX_FILE + sizeof(u32), 1, DEFAULT_PERMISSION, 0);
+
+  if (fuzz_map) {
+
+    shm_fuzz.shmemfuzz_mode = 1;
+    fsrv.support_shmem_fuzz = 1;
+    fsrv.shmem_fuzz_len = (u32 *)fuzz_map;
+    fsrv.shmem_fuzz = fuzz_map + sizeof(u32);
+
+    u8 *shm_fuzz_map_size_str = alloc_printf("%lu", MAX_FILE + sizeof(u32));
+    setenv(SHM_FUZZ_MAP_SIZE_ENV_VAR, shm_fuzz_map_size_str, 1);
+    ck_free(shm_fuzz_map_size_str);
+
+  }
+
+  afl_fsrv_start(&fsrv, (char **)argv, &stop_soon, debug_mode ? 1 : 0);
+
+  if (fsrv.support_shmem_fuzz && !fsrv.use_shmem_fuzz) {
+
+    afl_shm_deinit(&shm_fuzz);
+    fsrv.support_shmem_fuzz = 0;
+    fsrv.shmem_fuzz_len = NULL;
+    fsrv.shmem_fuzz = NULL;
+
+  }
+
+  int  dirfd = open(out_dir, O_RDONLY | O_DIRECTORY);
+  u32 *tuples = ck_alloc(map_size * sizeof(u32));
+
+  for (u32 i = 0; i < bcnt; i++) {
+
+    fsrv_run_result_t ret =
+        run_target_file(&fsrv, bfiles[i], dirfd, &stop_soon);
+    if (ret == FSRV_RUN_ERROR) continue;
+
+    u32 t_len = collect_coverage_counts(fsrv.trace_bits, map_size, tuples);
+    for (u32 j = 0; j < t_len; j++)
+      baseline_covered[tuples[j]] = 1;
+
+    if (stop_soon) break;
+
+  }
+
+  ck_free(tuples);
+  if (dirfd >= 0) close(dirfd);
+
+  afl_fsrv_deinit(&fsrv);
+  afl_shm_deinit(&shm);
+  if (fsrv.use_shmem_fuzz) afl_shm_deinit(&shm_fuzz);
+  cleanup_fsrv_allocs(&fsrv, argv);
+
+  for (u32 i = 0; i < bcnt; i++) {
+
+    ck_free(bfiles[i]->name);
+    ck_free(bfiles[i]);
+
+  }
+
+  ck_free(bfiles);
+
+  OKF("Coverage baseline established.");
+
+}
+
+/* Every name afl-cmin can create in tmp_dir, precomputed so that removing
+   them needs no allocation and stays usable from a signal handler. */
+
+static u8 **tmp_files;
+static u32  tmp_files_cnt;
+
+static void remove_tmp_files(void) {
+
+  for (u32 i = 0; i < tmp_files_cnt; i++)
+    unlink(tmp_files[i]);
+
+  rmdir(tmp_dir);
+
+}
+
+static void kill_workers(void) {
+
+  for (u32 i = 0; i < exec_workers + update_workers; i++) {
+
+    if (worker_pids[i] > 0) kill(worker_pids[i], SIGKILL);
+
+  }
+
+}
+
+/* Registered with atexit(), so a failing run does not leave state behind that
+   blocks the next attempt. Only the process that created the directory may
+   delete it. */
+
+static void cleanup_tmp_files(void) {
+
+  if (!tmp_dir || tmp_dir_pid != getpid()) return;
+
+  kill_workers();
+  remove_tmp_files();
+
+}
+
+static void cleanup_signal(int sig) {
+
+  if (tmp_dir && tmp_dir_pid == getpid()) {
+
+    kill_workers();
+    remove_tmp_files();
+
+  }
+
+  _exit(128 + sig);
+
+}
+
+/* A fresh, unpredictable and exclusively created directory. Everything that
+   afl-cmin writes for its own use goes in here, so no pre-existing name in
+   out_dir can be followed or overwritten. */
+
+static void create_tmp_dir(void) {
+
+  u8 *template = alloc_printf("%s/.afl-cmin-XXXXXX", out_dir);
+
+  if (!mkdtemp((char *)template))
+    PFATAL("Unable to create a work directory in '%s'", out_dir);
+
+  tmp_dir = template;
+
+  tmp_files = ck_alloc((1 + exec_workers + update_workers) * sizeof(u8 *));
+  tmp_files[tmp_files_cnt++] = alloc_printf("%s/test_input", tmp_dir);
+  for (u32 i = 0; i < exec_workers; i++)
+    tmp_files[tmp_files_cnt++] = alloc_printf("%s/cur_input_%u", tmp_dir, i);
+  for (u32 i = 0; i < update_workers; i++)
+    tmp_files[tmp_files_cnt++] = trace_log_name(i);
+
+  tmp_dir_pid = getpid();
+
+  atexit(cleanup_tmp_files);
+
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = cleanup_signal;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+  sigaction(SIGHUP, &sa, NULL);
+
+}
+
+/* All map allocations in one place, so their size is computed - and
+   bounds-checked - exactly once. */
+
+static void plan_memory(void) {
+
+  u64 eff = map_size;
+  if (!edges_only) eff *= 8;
+
+  if (eff > UINT32_MAX)
+    FATAL("Map size %u is too large for hit count mode, use -e", map_size);
+
+  effective_map_size = (u32)eff;
+  OKF("Effective map size: %u", effective_map_size);
+
+  u64 per_worker = (u64)effective_map_size * sizeof(u32);
+  u64 total = per_worker * update_workers * 2;
+
+  if (per_worker > SIZE_MAX / update_workers || total > SIZE_MAX)
+    FATAL("Memory required for %u update workers is not representable",
+          update_workers);
+
+#ifdef _SC_PHYS_PAGES
+  s64 pages = sysconf(_SC_PHYS_PAGES);
+  s64 psize = sysconf(_SC_PAGESIZE);
+
+  if (pages > 0 && psize > 0) {
+
+    u64 phys = (u64)pages * (u64)psize;
+
+    if (total > phys)
+      FATAL(
+          "%llu MB are needed for %u update workers at a map size of %u, but "
+          "only %llu MB exist - lower -T, or use -e",
+          total / (1024 * 1024), update_workers, map_size,
+          phys / (1024 * 1024));
+
+    if (total > phys / 2)
+      WARNF("%llu MB of %llu MB will be used for the coverage maps",
+            total / (1024 * 1024), phys / (1024 * 1024));
+
+  }
+
+#endif
+
+  worker_map_bytes = (size_t)(per_worker * update_workers);
+
+}
+
 static void execute_cmin(void) {
+
+  create_tmp_dir();
 
   cmin_detect_map_size();
   test_target_binary();
 
-  effective_map_size = map_size;
-  if (!edges_only) effective_map_size *= 8;
-  OKF("Effective map size: %u", effective_map_size);
+  plan_memory();
 
-  best_files = ck_alloc((effective_map_size) * sizeof(u32));  // Global best
-  for (u32 i = 0; i < effective_map_size; i++)
-    best_files[i] = cmin_sentinel_idx;
+  if (merge_mode) {
 
-  // Create .traces directory
-  u8 *trace_dir = alloc_printf("%s/.traces", out_dir);
-  if (mkdir(trace_dir, 0700) && errno != EEXIST)
-    PFATAL("Unable to create '%s'", trace_dir);
-  ck_free(trace_dir);
+    baseline_covered = ck_alloc(effective_map_size);
+    seed_baseline();
+
+  }
 
   cmin_run_workers();
   cmin_process_results();
 
-  ck_free(best_files);
+  if (baseline_covered) {
+
+    ck_free(baseline_covered);
+    baseline_covered = NULL;
+
+  }
+
+  /* Nothing was retained anywhere: the target, the timeout or the options are
+     wrong, and an empty result must not look like a success. */
+
+  OKF("Execution results: %u ok, %u crashed, %u timed out, %u failed to run; "
+      "%u inputs matched the requested policy",
+      run_stats->ok, run_stats->crash, run_stats->tmout, run_stats->error,
+      run_stats->accepted);
+
+  u8 nothing_accepted = !run_stats->accepted;
+  munmap(run_stats, sizeof(cmin_run_stats_t));
+  run_stats = NULL;
+
+  cleanup_tmp_files();
+
+  if (nothing_accepted && !crashes_saved) {
+
+    if (crashes_only)
+      FATAL("No input crashed the target, so -C selected nothing");
+    else if (crash_dir)
+      FATAL("No input could be used and no crash was saved");
+    else
+      FATAL(
+          "No input file was usable: check the target, the timeout and -A/-C");
+
+  }
 
 }
 
-static void usage(u8 *argv0) {
+static void usage(u8 *argv0, int status) {
+
+  if (merge_mode) {
+
+    SAYF(
+        "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
+
+        "Merge inputs that add new coverage into an output corpus, similar to\n"
+        "libFuzzer's -merge=1. Only inputs whose coverage is not already "
+        "present\n"
+        "in the output corpus are added; existing output files are never "
+        "changed\n"
+        "or removed.\n\n"
+
+        "Usage (any of):\n"
+        "  %s -o out_dir -i in_dir [-i in_dir ...] -- /path/to/target [ ... ]\n"
+        "  %s -o out_dir in_dir [in_dir ...]       -- /path/to/target [ ... ]\n"
+        "  %s out_dir in_dir [in_dir ...]          -- /path/to/target [ ... ]\n"
+        "\n"
+        "In the last form the first directory is the output corpus and -i must "
+        "not\n"
+        "be used. -o may be given at the beginning or the end.\n\n"
+
+        "Execution control settings:\n"
+        "  -f file     - location read by the fuzzed program (stdin)\n"
+        "  -m megs     - memory limit for child process (default: none)\n"
+        "  -t msec     - timeout for each run (default: 5000ms)\n"
+        "  -O          - use binary-only instrumentation (FRIDA mode)\n"
+        "  -Q          - use binary-only instrumentation (QEMU mode)\n"
+        "  -W          - use binary-only instrumentation (WINE mode)\n"
+        "  -U          - use unicorn-based instrumentation (Unicorn mode)\n"
+        "  -X          - use Nyx mode\n\n"
+
+        "Input selection settings:\n"
+        "  --crash-dir=dir - move crashes to a separate dir, always "
+        "deduplicated\n"
+        "  -A          - allow crashes and timeouts (not recommended)\n"
+        "  -C          - only add crashing inputs, reject everything else\n"
+        "  -e          - solve for edge coverage only, ignore hit counts\n"
+        "  --no-dedup  - skip deduplication step for the input files\n\n"
+
+        "Misc:\n"
+        "  -T workers  - number of execution and of update workers, or\n"
+        "                exec:update for both counts separately, or 'all'\n"
+        "                (default: 1)\n"
+        "  --as_queue  - name added files \"id:000000,orig:filename\", or\n"
+        "                \"id:000000,hash:sha1\" with AFL_SHA1_FILENAMES; the\n"
+        "                numbering restarts with every run\n"
+        "  --debug     - debug mode\n\n"
+
+        "Only the first %ld bytes of an input are given to the target.\n"
+        "The exit status is 0 on success and 1 on any error, including a run\n"
+        "in which no input matched the requested crash/timeout policy.\n\n"
+
+        "afl-merge honors 'AFL_MAP_SIZE' and 'AFL_SHA1_FILENAMES'.\n\n"
+
+        "For additional help, consult %s/README.md.\n\n",
+
+        argv0, argv0, argv0, argv0, MAX_FILE, DOC_PATH);
+
+    exit(status);
+
+  }
 
   SAYF(
       "\n%s [ options ] -- /path/to/target_app [ ... ]\n\n"
@@ -1998,18 +2844,29 @@ static void usage(u8 *argv0) {
       "  -e          - solve for edge coverage only, ignore hit counts\n\n"
 
       "Misc:\n"
-      "  -T workers  - number of concurrent workers (default: 1)\n"
-      "  --as_queue  - output file name like \"id:000000,hash:filename\"\n"
+      "  -T workers  - number of execution and of update workers, or\n"
+      "                exec:update for both counts separately, or 'all'\n"
+      "                (default: 1)\n"
+      "  --as_queue  - name output files \"id:000000,orig:filename\", or\n"
+      "                \"id:000000,hash:sha1\" with AFL_SHA1_FILENAMES\n"
       "  --no-dedup  - skip deduplication step for corpus files\n"
       "  --debug     - debug mode\n\n"
 
-      "afl-cmin honors the 'AFL_SHA1_FILENAMES' environment variable.\n\n"
+      "Metadata of an afl-fuzz output directory (fuzzer_stats, plot_data, "
+      "...)\n"
+      "is never used as an input, its queue/, crashes/ and hangs/ are.\n"
+      "Only the first %ld bytes of an input are given to the target.\n"
+      "The exit status is 0 on success and 1 on any error, including a run in\n"
+      "which no input matched the requested crash/timeout policy.\n\n"
+
+      "afl-cmin honors the 'AFL_MAP_SIZE' and 'AFL_SHA1_FILENAMES' "
+      "environment variables.\n\n"
 
       "For additional help, consult %s/README.md.\n\n",
 
-      argv0, DOC_PATH);
+      argv0, MAX_FILE, DOC_PATH);
 
-  exit(0);
+  exit(status);
 
 }
 
@@ -2029,6 +2886,27 @@ static void check_binary(u8 *fname) {
     return;
 
   check_binary_signatures(target_bin);
+
+}
+
+static u8 has_entry(u8 *dir, const char *name, u8 want_dir) {
+
+  struct stat st;
+  u8         *fn = alloc_printf("%s/%s", dir, name);
+  u8          ok = !stat((char *)fn, &st) &&
+          (want_dir ? S_ISDIR(st.st_mode) : S_ISREG(st.st_mode));
+  ck_free(fn);
+  return ok;
+
+}
+
+/* Recognize an afl-fuzz output directory, also when it is incomplete - an
+   archived or interrupted run may be missing hangs/ or crashes/. */
+
+static u8 is_afl_dir(u8 *dir) {
+
+  return has_entry(dir, "queue", 1) && (has_entry(dir, "fuzzer_setup", 0) ||
+                                        has_entry(dir, "fuzzer_stats", 0));
 
 }
 
@@ -2108,6 +2986,11 @@ static void *collect_worker(void *arg) {
 
     } else {
 
+      /* An afl-fuzz output directory holds metadata files (fuzzer_stats,
+         plot_data, cmdline, ...) next to the queue/crashes/hangs subdirs.
+         Descend into the subdirs but never treat the metadata as inputs. */
+      u8 skip_files = is_afl_dir(dir);
+
       struct dirent *entry;
       while ((entry = readdir(d))) {
 
@@ -2121,11 +3004,14 @@ static void *collect_worker(void *arg) {
           is_dir = 1;
         else if (entry->d_type == DT_REG)
           is_reg = 1;
-        else if (entry->d_type == DT_UNKNOWN) {
+        else if (entry->d_type == DT_UNKNOWN || entry->d_type == DT_LNK) {
+
+          /* Follow symlinks like afl-cmin.py does, cycles are caught by
+             dir_already_seen() */
 
           struct stat st;
           u8         *fn = alloc_printf("%s/%s", dir, entry->d_name);
-          if (!lstat(fn, &st)) {
+          if (!stat(fn, &st)) {
 
             if (S_ISDIR(st.st_mode))
               is_dir = 1;
@@ -2149,6 +3035,8 @@ static void *collect_worker(void *arg) {
 
         if (is_reg) {
 
+          if (skip_files) continue;
+
           u8         *fn = alloc_printf("%s/%s", dir, entry->d_name);
           struct stat st;
           if (stat(fn, &st)) {
@@ -2158,9 +3046,29 @@ static void *collect_worker(void *arg) {
 
           }
 
-          ck_free(fn);
+          if (!st.st_size) {
 
-          if (!st.st_size) continue;
+            ck_free(fn);
+            continue;
+
+          }
+
+          if ((u64)st.st_size >= UINT32_MAX) {
+
+            WARNF("Skipping '%s', it is too large", fn);
+            ck_free(fn);
+            continue;
+
+          }
+
+          if (st.st_size > MAX_FILE) {
+
+            WARNF("Input file '%s' is too large, only using %ld bytes", fn,
+                  MAX_FILE);
+
+          }
+
+          ck_free(fn);
 
           cmin_file_t *f = ck_alloc(sizeof(cmin_file_t));
           f->dir = dir;  // Shared string
@@ -2220,10 +3128,46 @@ static int compare_files(const void *a, const void *b) {
   cmin_file_t *fa = *(cmin_file_t **)a;
   cmin_file_t *fb = *(cmin_file_t **)b;
 
-  if (fa->size != fb->size) return fa->size - fb->size;
+  if (fa->size != fb->size) return fa->size < fb->size ? -1 : 1;
   int d = strcmp(fa->dir, fb->dir);
   if (d) return d;
   return strcmp(fa->name, fb->name);
+
+}
+
+static void add_input_dir(u8 *pattern) {
+
+  glob_t g;
+  int    ret = glob((char *)pattern, GLOB_NOCHECK | GLOB_TILDE, NULL, &g);
+  size_t pathc = (ret == 0) ? g.gl_pathc : 1;
+
+  if (!in_dir) {
+
+    in_dir_cap = pathc + 64;
+    in_dir = ck_alloc(in_dir_cap * sizeof(u8 *));
+
+  } else if (in_dir_cnt + pathc >= in_dir_cap) {
+
+    in_dir_cap = ((in_dir_cnt + pathc) * 2) + 64;
+    in_dir = ck_realloc(in_dir, in_dir_cap * sizeof(u8 *));
+
+  }
+
+  if (ret == 0) {
+
+    for (size_t k = 0; k < g.gl_pathc; k++) {
+
+      in_dir[in_dir_cnt++] = strdup(g.gl_pathv[k]);
+
+    }
+
+    globfree(&g);
+
+  } else {
+
+    in_dir[in_dir_cnt++] = strdup((char *)pattern);
+
+  }
 
 }
 
@@ -2231,6 +3175,10 @@ int main(int argc, char **argv) {
 
   progname = argv[0];
   SR(getpid() ^ (u32)time(NULL));
+
+  u8 *cname = (u8 *)strrchr(argv[0], '/');
+  cname = cname ? cname + 1 : (u8 *)argv[0];
+  if (!strcmp((char *)cname, "afl-merge")) merge_mode = 1;
 
   s32 opt;
   int option_index = 0;
@@ -2242,12 +3190,61 @@ int main(int argc, char **argv) {
                                          {"debug", no_argument, 0, 0},
                                          {0, 0, 0, 0}};
 
-  SAYF(cCYA "afl-cmin" VERSION cRST "\n");
+  SAYF(cCYA "%s" VERSION cRST "\n", merge_mode ? "afl-merge" : "afl-cmin");
 
   cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
 
-  while ((opt = getopt_long(argc, argv, "+i:o:f:m:t:T:OQUWXACeh", long_options,
-                            &option_index)) != -1) {
+#ifdef __linux__
+  cpu_set_t cpu_mask;
+
+  if (!sched_getaffinity(0, sizeof(cpu_mask), &cpu_mask)) {
+
+    int cpu_allowed = CPU_COUNT(&cpu_mask);
+    if (cpu_allowed > 0) { cpu_count = (u32)cpu_allowed; }
+
+  }
+
+#endif
+
+  s32 sep = argc;
+
+  if (merge_mode) {
+
+    for (s32 i = 1; i < argc; i++) {
+
+      if (!strcmp(argv[i], "--")) {
+
+        sep = i;
+        break;
+
+      }
+
+    }
+
+    if (sep == argc) {
+
+      /* No -- at all: an explicit help request still succeeds, anything else
+         is a usage error. */
+      for (s32 i = 1; i < argc; i++) {
+
+        if (argv[i][0] == '-' && argv[i][1] == 'h') usage(argv[0], 0);
+        if (!strcmp(argv[i], "--help")) usage(argv[0], 0);
+
+      }
+
+      SAYF("\n%s: no target binary given, use -- /path/to/target\n", argv[0]);
+      usage(argv[0], 1);
+
+    }
+
+    argv[sep] = NULL;
+
+  }
+
+  while ((opt = getopt_long(
+              merge_mode ? sep : argc, argv,
+              merge_mode ? "i:o:f:m:t:T:OQUWXACeh" : "+i:o:f:m:t:T:OQUWXACeh",
+              long_options, &option_index)) != -1) {
 
     if (opt == 0) {
 
@@ -2275,41 +3272,9 @@ int main(int argc, char **argv) {
 
     switch (opt) {
 
-      case 'i': {
-
-        glob_t g;
-        int    ret = glob(optarg, GLOB_NOCHECK | GLOB_TILDE, NULL, &g);
-        size_t pathc = (ret == 0) ? g.gl_pathc : 1;
-
-        if (!in_dir) {
-
-          in_dir_cap = pathc + 64;
-          in_dir = ck_alloc(in_dir_cap * sizeof(u8 *));
-
-        } else if (in_dir_cnt + pathc >= in_dir_cap) {
-
-          in_dir_cap = ((in_dir_cnt + pathc) * 2) + 64;
-          in_dir = ck_realloc(in_dir, in_dir_cap * sizeof(u8 *));
-
-        }
-
-        if (ret == 0) {
-
-          for (size_t k = 0; k < g.gl_pathc; k++) {
-
-            in_dir[in_dir_cnt++] = strdup(g.gl_pathv[k]);
-
-          }
-
-          globfree(&g);
-
-        } else {
-
-          in_dir[in_dir_cnt++] = strdup(optarg);
-
-        }
-
-      } break;
+      case 'i':
+        add_input_dir((u8 *)optarg);
+        break;
 
       case 'o':
         if (out_dir) FATAL("Multiple -o options not supported");
@@ -2330,19 +3295,30 @@ int main(int argc, char **argv) {
 
         } else {
 
-          u8 suffix = 'M';
-          if (sscanf(optarg, "%u%c", &mem_limit, &suffix) < 1)
-            FATAL("Bad syntax used for -m");
+          u8     suffix = 'M';
+          size_t len = strlen(optarg);
+          u8    *digits = (u8 *)strdup(optarg);
+
+          if (len && !isdigit((int)optarg[len - 1])) {
+
+            suffix = optarg[len - 1];
+            digits[len - 1] = 0;
+
+          }
+
+          u64 val = parse_u64_strict((char *)digits, "-m", 1, UINT32_MAX);
+          ck_free(digits);
+
           switch (suffix) {
 
             case 'T':
-              mem_limit *= 1024 * 1024;
+              val *= 1024 * 1024;
               break;
             case 'G':
-              mem_limit *= 1024;
+              val *= 1024;
               break;
             case 'k':
-              mem_limit /= 1024;
+              val /= 1024;
               break;
             case 'M':
               break;
@@ -2351,7 +3327,10 @@ int main(int argc, char **argv) {
 
           }
 
-          if (mem_limit < 5) FATAL("Dangerously low value of -m");
+          if (val > UINT32_MAX) FATAL("Value of -m is too large");
+          if (val < 5) FATAL("Dangerously low value of -m");
+
+          mem_limit = (u32)val;
 
         }
 
@@ -2362,12 +3341,16 @@ int main(int argc, char **argv) {
         timeout_given = 1;
         if (!strcmp(optarg, "none")) {
 
-          time_limit = 0;
+          /* The forkserver has no way to run without a timeout, so use a very
+             long one instead - same as afl-showmap does. */
+          WARNF(
+              "Setting an execution timeout of 120 seconds ('none' is not "
+              "allowed).");
+          time_limit = 120 * 1000;
 
         } else {
 
-          time_limit = atoi(optarg);
-          if (time_limit < 10) FATAL("Dangerously low timeout");
+          time_limit = (u32)parse_u64_strict(optarg, "-t", 10, INT32_MAX);
 
         }
 
@@ -2376,8 +3359,9 @@ int main(int argc, char **argv) {
       case 'T':
         if (!strcmp(optarg, "all")) {
 
-          exec_workers = cpu_count;
-          update_workers = cpu_count;
+          u32 max_each = (MAX_WORKERS - 1) / 2;
+          exec_workers = cpu_count > max_each ? max_each : cpu_count;
+          update_workers = exec_workers;
 
         } else {
 
@@ -2385,12 +3369,15 @@ int main(int argc, char **argv) {
           if (colon) {
 
             *colon = 0;
-            exec_workers = atoi(optarg);
-            update_workers = atoi(colon + 1);
+            exec_workers =
+                (u32)parse_u64_strict(optarg, "-T", 1, MAX_WORKERS - 1);
+            update_workers =
+                (u32)parse_u64_strict(colon + 1, "-T", 1, MAX_WORKERS - 1);
 
           } else {
 
-            exec_workers = atoi(optarg);
+            exec_workers =
+                (u32)parse_u64_strict(optarg, "-T", 1, (MAX_WORKERS - 1) / 2);
             update_workers = exec_workers;
 
           }
@@ -2399,7 +3386,7 @@ int main(int argc, char **argv) {
 
         if (exec_workers < 1 || update_workers < 1)
           FATAL("Number of workers must be at least 1");
-        if (exec_workers + update_workers > MAX_WORKERS)
+        if ((u64)exec_workers + update_workers > MAX_WORKERS)
           FATAL("Total number of workers exceeds %d", MAX_WORKERS);
         break;
 
@@ -2438,35 +3425,68 @@ int main(int argc, char **argv) {
         break;
 
       case 'h':
-        usage(argv[0]);
+        usage(argv[0], 0);
         break;
 
       default:
-        usage(argv[0]);
+        usage(argv[0], 1);
 
     }
 
   }
 
-  if (optind == argc || !out_dir || !in_dir_cnt) usage(argv[0]);
+  s32 tgt_idx;
 
-  target_bin = argv[optind];
-  target_args = (u8 **)(argv + optind);
+  if (merge_mode) {
+
+    s32 first_pos = optind;
+
+    if (!out_dir) {
+
+      if (in_dir_cnt)
+        FATAL(
+            "In merge mode without -o do not use -i; pass the output corpus as "
+            "the first directory");
+      if (first_pos >= sep) FATAL("No output directory specified");
+      out_dir = argv[first_pos];
+      first_pos++;
+
+    }
+
+    for (s32 i = first_pos; i < sep; i++)
+      add_input_dir((u8 *)argv[i]);
+
+    if (!in_dir_cnt) FATAL("No input directories specified");
+    if (sep + 1 >= argc) FATAL("No target binary specified after --");
+    tgt_idx = sep + 1;
+
+  } else {
+
+    if (optind == argc || !out_dir || !in_dir_cnt) usage(argv[0], 1);
+    tgt_idx = optind;
+
+  }
+
+  target_bin = argv[tgt_idx];
+  target_args = (u8 **)(argv + tgt_idx);
   if (qemu_mode) {
 
     if (wine_mode) {
 
-      target_args = (u8 **)get_wine_argv(argv[0], &target_bin, argc - optind,
-                                         argv + optind);
+      target_args = (u8 **)get_wine_argv(argv[0], &target_bin, argc - tgt_idx,
+                                         argv + tgt_idx);
 
     } else {
 
-      target_args = (u8 **)get_qemu_argv(argv[0], &target_bin, argc - optind,
-                                         argv + optind);
+      target_args = (u8 **)get_qemu_argv(argv[0], &target_bin, argc - tgt_idx,
+                                         argv + tgt_idx);
 
     }
 
   }
+
+  if (crash_dir && crashes_only)
+    FATAL("-C and --crash-dir are mutually exclusive");
 
   if (stdin_file && exec_workers > 1) {
 
@@ -2484,18 +3504,22 @@ int main(int argc, char **argv) {
     if (errno != EEXIST)
       FATAL("Unable to create output directory '%s'", out_dir);
 
-    DIR *d = opendir(out_dir);
-    if (!d) FATAL("Unable to open output directory '%s'", out_dir);
+    if (!merge_mode) {
 
-    struct dirent *de;
-    while ((de = readdir(d))) {
+      DIR *d = opendir(out_dir);
+      if (!d) FATAL("Unable to open output directory '%s'", out_dir);
 
-      if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
-      FATAL("Output directory '%s' is not empty", out_dir);
+      struct dirent *de;
+      while ((de = readdir(d))) {
+
+        if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
+        FATAL("Output directory '%s' is not empty", out_dir);
+
+      }
+
+      closedir(d);
 
     }
-
-    closedir(d);
 
   }
 
@@ -2517,7 +3541,8 @@ int main(int argc, char **argv) {
   pthread_t *threads = ck_alloc(sizeof(pthread_t) * update_workers);
   for (u32 i = 0; i < update_workers; i++) {
 
-    pthread_create(&threads[i], NULL, collect_worker, NULL);
+    if (pthread_create(&threads[i], NULL, collect_worker, NULL))
+      PFATAL("pthread_create failed");
 
   }
 
@@ -2566,6 +3591,8 @@ int main(int argc, char **argv) {
   OKF("Found %u input files", items);
 
   if (!no_dedup) { dedup_files(); }
+
+  if (!items) FATAL("No usable input files left");
 
   qsort(files, items, sizeof(cmin_file_t *), compare_files);
 

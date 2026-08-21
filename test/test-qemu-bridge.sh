@@ -62,17 +62,9 @@ echo "[*] AFL++ QEMU bridge acceptance harness"
 echo "[*] root=$ROOT arch=$SYS work=$WORK"
 
 if [ ! -x "$BRIDGE" ]; then
-  if [ -s "$BRIDGE_DIR/qemu-libafl-bridge/configure" ]; then
-    echo "[*] $BRIDGE missing, building backend ..."
-    if [ ! -x "$BRIDGE_DIR/build_qemu_bridge_support.sh" ]; then
-      echo "[-] build script not found at $BRIDGE_DIR/build_qemu_bridge_support.sh"
-      exit 1
-    fi
-    ( cd "$BRIDGE_DIR" && NO_CHECKOUT=1 ./build_qemu_bridge_support.sh ) || { echo "[-] backend build failed"; exit 1; }
-  else
-    echo '[-] qemu_bridge is not checked out, cannot test'
-    exit 0
-  fi
+  $ECHO "$YELLOW[-] qemu_bridge not compiled, cannot test"
+  INCOMPLETE=1
+  exit 0
 fi
 
 for b in "$BRIDGE" "$SHOWMAP" "$FUZZ"; do
@@ -235,9 +227,9 @@ else
   else
     mkdir -p "$WORK/pin"
     printf 'hello' > "$WORK/pin/seed"
-    timeout 30 "$FUZZ" -Q -m none -i "$WORK/pin" -o "$WORK/np" -- "$WORK/pers" >/dev/null 2>&1
+    timeout 15 "$FUZZ" -Q -m none -i "$WORK/pin" -o "$WORK/np" -- "$WORK/pers" >/dev/null 2>&1
     NP=$(stat_field "$WORK/np" execs_per_sec)
-    AFL_QEMU_PERSISTENT_ADDR="$PADDR" AFL_QEMU_PERSISTENT_GPR=1 timeout 30 "$FUZZ" -Q -m none -i "$WORK/pin" -o "$WORK/p" -- "$WORK/pers" >/dev/null 2>&1
+    AFL_QEMU_PERSISTENT_ADDR="$PADDR" AFL_QEMU_PERSISTENT_GPR=1 timeout 15 "$FUZZ" -Q -m none -i "$WORK/pin" -o "$WORK/p" -- "$WORK/pers" >/dev/null 2>&1
     PS=$(stat_field "$WORK/p" execs_per_sec)
     STAB=$(stat_field "$WORK/p" stability)
     NPI=$(printf '%.0f' "${NP:-0}" 2>/dev/null); NPI=${NPI:-0}
@@ -287,7 +279,7 @@ if [ ! -x "$WORK/cmplog" ]; then
 else
   mkdir -p "$WORK/clin"
   printf 'AAAA' > "$WORK/clin/seed"
-  timeout 30 "$FUZZ" -Q -c 0 -m none -i "$WORK/clin" -o "$WORK/clout" -- "$WORK/cmplog" > "$WORK/cllog" 2>&1
+  timeout 15 "$FUZZ" -Q -c 0 -m none -i "$WORK/clin" -o "$WORK/clout" -- "$WORK/cmplog" > "$WORK/cllog" 2>&1
   if grep -qi "CMPLOG forkserver successfully started" "$WORK/cllog" && grep -qi "All set and ready to roll\|forkserver successfully started" "$WORK/cllog" && ! grep -qi "OLD_CMPLOG\|cmplog.*error\|failed to start" "$WORK/cllog"; then
     record PASS "cmplog" "both forkservers started, no OLD_CMPLOG error"
   else

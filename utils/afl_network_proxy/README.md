@@ -18,11 +18,17 @@ Note that the impact on fuzzing speed will be huge, expect a loss of 90%.
 Just type `make` and let the autodetection do everything for you.
 
 Note that you will get a 40-50% performance increase if you have libdeflate-dev
-installed. The GNUmakefile will autodetect it if present.
+installed. The GNUmakefile will autodetect it if present. Compression is
+negotiated at connect time, so a client and a server that were built with
+different libdeflate availability still work together.
 
 If your target has large test cases (10+kb) that are ascii only or large chunks
 of zero blocks then set `CFLAGS=-DCOMPRESS_TESTCASES=1` to compress them.
 For most targets this hurts performance though so it is disabled by default.
+
+Both sides speak a versioned protocol and refuse to run if they do not match,
+so always deploy `afl-network-client` and `afl-network-server` from the same
+AFL++ version.
 
 ### on the target
 
@@ -33,6 +39,12 @@ e.g.:
 ```
 afl-network-server -i 1111 -m 25M -t 1000 -- /bin/target -f @@
 ```
+
+Persistent mode (`__AFL_LOOP()`) and shared memory test cases
+(`__AFL_FUZZ_TESTCASE_BUF`) are supported and are detected automatically, they
+give a large speed increase over the network too.
+
+The server serves exactly one client and exits when that client disconnects.
 
 ### on the (afl-fuzz) main node
 
@@ -47,6 +59,18 @@ afl-fuzz -i in -o out -t 2000+ -- afl-network-client TARGET-IP 1111
 Note the '+' on the -t parameter value. The afl-network-server will take care of
 proper timeouts hence afl-fuzz should not. The '+' increases the timeout and the
 value itself should be 500-1000 higher than the one on afl-network-server.
+
+Because afl-network-server enforces the timeout by killing the target, a target
+run that hits the timeout arrives at afl-fuzz as a killed process and therefore
+ends up in `crashes/` and not in `hangs/`.
+
+### map size
+
+The coverage map size of the remote target is determined by
+`afl-network-server` and transmitted to `afl-network-client`, which reports it
+to afl-fuzz. `AFL_MAP_SIZE` therefore only ever has to be set on the
+afl-network-server side, and only if the target needs a map larger than the
+default.
 
 ### networking
 

@@ -25,7 +25,7 @@ ifeq "$(shell echo '$(HASH)include <libdeflate.h>@int main() { struct libdeflate
  LDFLAGS += -ldeflate 
  $(info libdeflate-dev was detected, using compression)
 else
- $(warn did not find libdeflate-dev, cannot use compression)
+ $(warning did not find libdeflate-dev, cannot use compression)
 endif
 
 all:	$(PROGRAMS)
@@ -35,10 +35,10 @@ help:
 	@echo STATIC - build as static binaries
 	@echo COMPRESS_TESTCASES - compress test cases
 
-afl-network-client:	afl-network-client.c
+afl-network-client:	afl-network-client.c afl-network-proxy.h
 	$(CC) $(CFLAGS) -I../../include -o afl-network-client afl-network-client.c $(LDFLAGS)
 
-afl-network-server:	afl-network-server.c
+afl-network-server:	afl-network-server.c afl-network-proxy.h
 	$(CC) $(CFLAGS) -I../../include -o afl-network-server afl-network-server.c ../../src/afl-forkserver.c ../../src/afl-sharedmem.c ../../src/afl-common.c -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" $(LDFLAGS)
 
 clean:

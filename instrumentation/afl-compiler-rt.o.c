@@ -19,6 +19,7 @@
   #ifndef _GNU_SOURCE
     #define _GNU_SOURCE
   #endif
+  #include <dlfcn.h>
   #include <link.h>
 #endif
 
@@ -41,7 +42,10 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #endif
 #include "config.h"
 #include "types.h"
+#include "hash.h"
+#include "bitops.h"
 #include "cmplog.h"
+#include "value-profile.h"
 #include "afl-ijon-min.h"
 
 /* For backtrace() support in ijon_hashstack */
@@ -69,6 +73,7 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include <stddef.h>
 #include <limits.h>
 #include <errno.h>
+#include <math.h>
 
 #include <sys/mman.h>
 #ifdef __linux__
@@ -104,6 +109,10 @@ static inline void afl_sync_wake(void *uaddr) {
 
 #elif !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
+#endif
+#if !defined(__HAIKU__) && !defined(__OpenBSD__) && defined(SYS_writev)
+  #include <sys/uio.h>
+  #define AFL_HAVE_RAW_WRITEV 1
 #endif
 #ifndef USEMMAP
   #include <sys/shm.h>
@@ -145,6 +154,12 @@ static inline void afl_sync_wake(void *uaddr) {
 
 #include <sys/mman.h>
 #include <fcntl.h>
+
+#if defined(__has_include)
+  #if __has_include(<sanitizer/common_interface_defs.h>)
+    #include <sanitizer/common_interface_defs.h>
+  #endif
+#endif
 
 #ifdef AFL_PERSISTENT_RECORD
   #include "afl-persistent-replay.h"
@@ -497,6 +512,12 @@ __thread u32 __afl_prev_ctx;
 
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
+static u32      __afl_cmp_cursor[CMP_MAP_W];
+vp_map_t       *__afl_vp_map;
+vp_map_t       *__afl_vp_map_backup;
+u8              __afl_vp_enabled_fallback;
+u8             *__afl_vp_enabled_ptr = &__afl_vp_enabled_fallback;
+extern const u8 __afl_vp_instrumented __attribute__((weak));
 
 static u8 __afl_cmplog_max_len = 32;  // 16-32
 
@@ -511,6 +532,19 @@ static u8 is_persistent;
 
 /* Are we in sancov mode? */
 // static u8 _is_sancov;
+
+static inline void __afl_vp_refresh_enabled_ptr(void) {
+
+  __afl_vp_enabled_ptr =
+      __afl_vp_map ? (u8 *)&__afl_vp_map->enabled : &__afl_vp_enabled_fallback;
+
+}
+
+static inline u8 __afl_vp_target_supports_runtime(void) {
+
+  return (u8)((uintptr_t)&__afl_vp_instrumented != 0);
+
+}
 
 /* Debug? */
 
@@ -527,7 +561,11 @@ u32 __afl_already_initialized_init;
 
 /* Dummy pipe for area_is_valid() */
 
-static int __afl_dummy_fd[2] = {2, 2};
+static int __afl_dummy_fd[2] = {-1, -1};
+
+#ifdef __linux__
+static u8 addr_table_prepare(void);
+#endif
 
 /* ensure we kill the child on termination */
 
@@ -632,6 +670,7 @@ static void __afl_map_shm_fuzz() {
     }
 
     map = (u8 *)mmap(0, shm_fuzz_map_size, PROT_READ, MAP_SHARED, shm_fd, 0);
+    close(shm_fd);
 
 #else
     u32 shm_id = atoi(id_str);
@@ -720,7 +759,7 @@ static void __afl_bug_configure_runtime(void) {
     if (!__afl_bug_map) {
 
       __afl_bug_map = __afl_bug_map_local;
-      memset(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
+      memset_noasan(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
 
     }
 
@@ -774,7 +813,39 @@ static void __afl_bug_bind_map(void) {
   /* Bug map is the trailing region of trace_bits. */
   __afl_bug_map =
       (u32 *)(void *)(__afl_area_ptr + __afl_map_size - MAP_SIZE_BUG_BYTES);
-  memset(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
+  memset_noasan(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
+
+}
+
+/* Scratch descriptor for the operand-readability probes. /dev/null does not
+   work: the kernel never reads the source buffer, so the probe would report
+   unmapped memory as valid - which is also why there is no fallback to the
+   target's own stdout or stderr, whose sink the target does not control and
+   which afl-fuzz points at /dev/null. The pipe fallback is set non-blocking
+   because nothing ever drains it: once the 64K buffer is full the probes fail
+   closed and stop collecting instead of blocking the target forever. Runs at
+   most once - until it does, the descriptor stays -1 and the probes fail
+   closed. */
+static void __afl_open_dummy_fd(void) {
+
+  static u8 attempted = 0;
+
+  if (attempted) { return; }
+  attempted = 1;
+  if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
+
+    if (pipe(__afl_dummy_fd) < 0) {
+
+      __afl_dummy_fd[1] = -1;
+
+    } else {
+
+      int flags = fcntl(__afl_dummy_fd[1], F_GETFL, 0);
+      if (flags >= 0) { fcntl(__afl_dummy_fd[1], F_SETFL, flags | O_NONBLOCK); }
+
+    }
+
+  }
 
 }
 
@@ -839,6 +910,17 @@ static void __afl_map_shm(void) {
 
       printf("%u\n", __afl_map_size);
       fflush(stdout);
+      /* The dumped size covers the IJON regions too, which is not what a
+         reader comparing it against an uninstrumented build expects. The
+         breakdown goes to stderr so the number on stdout stays parsable. */
+      if (__afl_ijon_enabled) {
+
+        fprintf(stderr, "%u = coverage %u + ijon %u + ijon max %u\n",
+                __afl_map_size, __afl_cov_map_size, (u32)MAP_SIZE_IJON_MAP,
+                (u32)MAP_SIZE_IJON_BYTES);
+
+      }
+
       exit(-1);
 
     }
@@ -955,6 +1037,68 @@ static void __afl_map_shm(void) {
 
   }
 
+  char *vp_id_str = getenv(VP_SHM_ENV_VAR);
+
+  if (__afl_debug) {
+
+    fprintf(stderr, "DEBUG: vp id_str %s\n",
+            vp_id_str == NULL ? "<null>" : vp_id_str);
+
+  }
+
+  if (vp_id_str && __afl_vp_target_supports_runtime()) {
+
+    __afl_open_dummy_fd();
+
+#ifdef USEMMAP
+    const char *shm_file_path = vp_id_str;
+    int         shm_fd = -1;
+    vp_map_t   *shm_base = NULL;
+
+    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+    if (shm_fd == -1) {
+
+      perror("shm_open() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(1);
+
+    }
+
+    shm_base = mmap(0, sizeof(vp_map_t), PROT_READ | PROT_WRITE, MAP_SHARED,
+                    shm_fd, 0);
+    if (shm_base == MAP_FAILED) {
+
+      close(shm_fd);
+      shm_fd = -1;
+
+      fprintf(stderr, "mmap() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(2);
+
+    }
+
+    close(shm_fd);
+    shm_fd = -1;
+    __afl_vp_map = shm_base;
+#else
+    u32 shm_id = atoi(vp_id_str);
+
+    __afl_vp_map = (vp_map_t *)shmat(shm_id, NULL, 0);
+#endif
+
+    if (!__afl_vp_map || __afl_vp_map == (void *)-1) {
+
+      perror("shmat for value-profile");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
+
+    __afl_vp_map_backup = __afl_vp_map;
+    __afl_vp_refresh_enabled_ptr();
+
+  }
+
   /* If we're running under AFL, attach to the appropriate region, replacing the
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
@@ -1050,6 +1194,9 @@ static void __afl_map_shm(void) {
       exit(2);
 
     }
+
+    close(shm_fd);
+    shm_fd = -1;
 
     __afl_area_ptr = shm_base;
     /* DEFERRED IJON SETUP: Initialize on first use when actual map size is
@@ -1227,12 +1374,7 @@ static void __afl_map_shm(void) {
 
   if (id_str) {
 
-    // /dev/null doesn't work so we use /dev/urandom
-    if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
-
-      if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[1] = 1; }
-
-    }
+    __afl_open_dummy_fd();
 
 #ifdef USEMMAP
     const char     *shm_file_path = id_str;
@@ -1263,14 +1405,14 @@ static void __afl_map_shm(void) {
 
     }
 
+    close(shm_fd);
+    shm_fd = -1;
     __afl_cmp_map = shm_base;
 #else
     u32 shm_id = atoi(id_str);
 
     __afl_cmp_map = (struct cmp_map *)shmat(shm_id, NULL, 0);
 #endif
-
-    __afl_cmp_map_backup = __afl_cmp_map;
 
     if (!__afl_cmp_map || __afl_cmp_map == (void *)-1) {
 
@@ -1279,6 +1421,8 @@ static void __afl_map_shm(void) {
       _exit(1);
 
     }
+
+    __afl_cmp_map_backup = __afl_cmp_map;
 
   }
 
@@ -1290,7 +1434,8 @@ static void __afl_map_shm(void) {
     __afl_pcmap_size = __afl_map_size * sizeof(void *);
     u32 shm_id = atoi(pcmap_id_str);
 
-    __afl_pcmap_ptr = (uintptr_t *)shmat(shm_id, NULL, 0);
+    void *pcmap = shmat(shm_id, NULL, 0);
+    __afl_pcmap_ptr = pcmap == (void *)-1 ? NULL : (uintptr_t *)pcmap;
 
     if (__afl_debug) {
 
@@ -1309,7 +1454,8 @@ static void __afl_map_shm(void) {
     __afl_modmap_size = MAX_AFL_MODULES;
     u32 shm_id = atoi(modmap_id_str);
 
-    __afl_modmap_ptr = (module_entry_t *)shmat(shm_id, NULL, 0);
+    void *modmap = shmat(shm_id, NULL, 0);
+    __afl_modmap_ptr = modmap == (void *)-1 ? NULL : (module_entry_t *)modmap;
 
     if (__afl_debug) {
 
@@ -1324,7 +1470,7 @@ static void __afl_map_shm(void) {
 
   if (!__afl_cmp_map && getenv("AFL_CMPLOG_DEBUG")) {
 
-    __afl_cmp_map_backup = __afl_cmp_map = malloc(sizeof(struct cmp_map));
+    __afl_cmp_map_backup = __afl_cmp_map = calloc(1, sizeof(struct cmp_map));
 
   }
 
@@ -1415,6 +1561,26 @@ static void __afl_unmap_shm(void) {
 
   }
 
+  id_str = getenv(VP_SHM_ENV_VAR);
+
+  if (id_str && __afl_vp_map) {
+
+#ifdef USEMMAP
+
+    munmap((void *)__afl_vp_map, sizeof(vp_map_t));
+
+#else
+
+    shmdt((void *)__afl_vp_map);
+
+#endif
+
+    __afl_vp_map = NULL;
+    __afl_vp_map_backup = NULL;
+    __afl_vp_refresh_enabled_ptr();
+
+  }
+
   __afl_already_initialized_shm = 0;
 
 }
@@ -1453,6 +1619,10 @@ static void __afl_start_forkserver(void) {
 
   if (__afl_already_initialized_forkserver) return;
   __afl_already_initialized_forkserver = 1;
+
+#ifdef __linux__
+  if (__afl_cmp_map) { addr_table_prepare(); }
+#endif
 
   struct sigaction orig_action;
   sigaction(SIGTERM, NULL, &orig_action);
@@ -1550,8 +1720,18 @@ static void __afl_start_forkserver(void) {
   // return because possible non-forkserver usage
   if (write(FORKSRV_FD + 1, msg, 4) != 4) {
 
-    __afl_ijon_enabled = 0;
-    __afl_ijon_map_increased = 1;
+    /* No forkserver parent. A tool that attached a shared map still watches
+       this run - afl-showmap on a single input and afl-cmin.bash through it
+       execve the target directly - and that map was sized from what this
+       target reported, IJON areas included, so the IJON channels stay live
+       for it. Without a shared map there is nobody to read them. */
+    if (!getenv(SHM_ENV_VAR)) {
+
+      __afl_ijon_enabled = 0;
+      __afl_ijon_map_increased = 1;
+
+    }
+
     return;
 
   }
@@ -1585,6 +1765,30 @@ static void __afl_start_forkserver(void) {
     if (__afl_bug_mode & AFL_BUG_MODE_DERIVE) {
 
       status |= FS_NEW_OPT_ALLOCSIZE_DERIVE;
+
+    }
+
+    if (__afl_vp_map && __afl_vp_target_supports_runtime()) {
+
+      status |= FS_NEW_OPT_VALUE_PROFILE;
+
+      /* Fault the whole VP map into the forkserver parent once, so forked
+         children inherit its page table entries instead of faulting each page
+         in per execution. The read-then-write matters: a pure read leaves the
+         shared pages mapped read-only and children still fault on first write.
+         The pointer must stay volatile or the self-assignment is elided. */
+      volatile u8 *vp_pages = (volatile u8 *)__afl_vp_map;
+      long         vp_page_size = sysconf(_SC_PAGE_SIZE);
+      if (vp_page_size > 0) {
+
+        for (size_t off = 0; off < sizeof(vp_map_t);
+             off += (size_t)vp_page_size) {
+
+          vp_pages[off] = vp_pages[off];
+
+        }
+
+      }
 
     }
 
@@ -1628,6 +1832,10 @@ static void __afl_start_forkserver(void) {
     // FS_NEW_OPT_FUTEX - no data
 
     // FS_NEW_OPT_ALLOCSIZE_DERIVE - no data
+
+    // FS_NEW_OPT_BUG_MAP - no data
+
+    // FS_NEW_OPT_VALUE_PROFILE - no data
 
     // FS_NEW_OPT_AUTODICT - send autodictionary
     if (__afl_dictionary_len && __afl_dictionary) {
@@ -1876,9 +2084,15 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     memset_noasan(__afl_area_ptr, 0, __afl_set_map_size);
     /* Bug map lives past __afl_set_map_size (trailing tail of trace_bits);
        it needs an explicit zero or stale MAX-channel values persist. */
-    if (__afl_bug_map_active && __afl_bug_map &&
-        __afl_bug_map ==
-            (u32 *)(__afl_area_ptr + __afl_map_size - MAP_SIZE_BUG_BYTES)) {
+    if (unlikely(__afl_cmp_map)) {
+
+      memset_noasan(__afl_cmp_cursor, 0, sizeof(__afl_cmp_cursor));
+
+    }
+
+    if (unlikely(__afl_bug_map_active && __afl_bug_map &&
+                 __afl_bug_map == (u32 *)(__afl_area_ptr + __afl_map_size -
+                                          MAP_SIZE_BUG_BYTES))) {
 
       memset_noasan(__afl_bug_map, 0, MAP_SIZE_BUG_BYTES);
 
@@ -2057,11 +2271,12 @@ void __afl_manual_init(void) {
 
   }
 
-  if (getenv("AFL_LLVM_ONLY_FSRV") || getenv("AFL_GCC_ONLY_FRSV")) {
+  if (getenv("AFL_LLVM_ONLY_FSRV") || getenv("AFL_GCC_ONLY_FSRV") ||
+      getenv("AFL_GCC_ONLY_FRSV")) {
 
     fprintf(stderr,
             "DEBUG: Overwrite area_ptr to dummy due to "
-            "AFL_LLVM_ONLY_FSRV/AFL_GCC_ONLY_FRSV\n");
+            "AFL_LLVM_ONLY_FSRV/AFL_GCC_ONLY_FSRV\n");
     __afl_area_ptr = __afl_area_ptr_dummy;
 
   }
@@ -2148,9 +2363,6 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 
     __afl_first_final_loc = __afl_final_loc + 1;
 
-    if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial)
-      free(__afl_area_ptr);
-
     if (__afl_map_addr)
       ptr = (u8 *)mmap((void *)__afl_map_addr, __afl_first_final_loc,
                        PROT_READ | PROT_WRITE,
@@ -2160,9 +2372,12 @@ __attribute__((constructor(1))) void __afl_auto_second(void) {
 
     if (ptr && (ssize_t)ptr != -1) {
 
+      u8 *old_area = __afl_area_ptr;
       __afl_area_ptr = ptr;
       __afl_area_ptr_dummy = __afl_area_ptr;
       __afl_area_ptr_backup = __afl_area_ptr;
+
+      if (old_area && old_area != __afl_area_initial) free(old_area);
 
     }
 
@@ -2259,6 +2474,7 @@ void afl_read_pc_filter_file(const char *filter_file) {
   __afl_filter_pcs = malloc(__afl_filter_pcs_size * sizeof(FilterPCEntry));
   if (!__afl_filter_pcs) {
 
+    fclose(file);
     perror("Error allocating PC array");
     return;
 
@@ -2663,11 +2879,11 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
         "DEBUG: Running __sanitizer_cov_trace_pc_guard_init: %p-%p (%lu edges) "
         "after_fs=%u *start=%u\n",
         start, stop, (unsigned long)(stop - start),
-        __afl_already_initialized_forkserver, *start);
+        __afl_already_initialized_forkserver, start ? *start : 0);
 
   }
 
-  if (start == stop || *start) { return; }
+  if (!start || start == stop || *start) { return; }
 
 #ifdef __AFL_CODE_COVERAGE
   u32               *orig_start = start;
@@ -2882,6 +3098,11 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     __afl_map_size = __afl_final_loc + 1;
     __afl_set_map_size = __afl_cov_map_size = __afl_map_size;
     __afl_bug_map_increased = 0;
+    /* The reset above dropped the IJON regions from __afl_map_size, so the
+       expansion has to run again - a second instrumented module (a shared
+       library plus the executable) reaches this after an earlier module
+       already expanded once. */
+    __afl_ijon_map_increased = 0;
 
     // IJON SUPPORT: Re-apply IJON expansion after reinit
     if (__afl_ijon_enabled && !__afl_ijon_map_increased) {
@@ -2898,163 +3119,130 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     __afl_bug_append_map();
     __afl_bug_bind_map();
 
+    if (__afl_debug) {
+
+      fprintf(stderr,
+              "DEBUG: after guard init: __afl_map_size %u, __afl_cov_map_size "
+              "%u, __afl_set_map_size %u\n",
+              __afl_map_size, __afl_cov_map_size, __afl_set_map_size);
+
+    }
+
   }
 
 }
 
 ///// CmpLog instrumentation
 
-void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
+static inline u32 cmplog_reserve(u64 site, u8 type, u8 shape, u8 attr,
+                                 u32 capacity, u32 *slot, u32 *occurrence) {
 
-  // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
-  //         (u8) arg1, (u8) arg2, attr);
+  u32 key = cmp_map_select(__afl_cmp_map, site);
+  if (unlikely(key == CMP_MAP_W)) { return key; }
 
-  return;
+  struct cmp_header *header = &__afl_cmp_map->headers[key];
+  if (unlikely(header->hits &&
+               (header->type != type ||
+                cmp_map_attribute(__afl_cmp_map, key) != attr))) {
 
-  /*
-
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    hits = 0;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = 0;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
+    return CMP_MAP_W;
 
   }
 
-  __afl_cmp_map->headers[k].attribute = attr;
+  if (!header->hits) {
 
-  hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = arg1;
-  __afl_cmp_map->log[k][hits].v1 = arg2;
+    header->type = type;
+    header->shape = shape;
+    cmp_map_set_attribute(__afl_cmp_map, key, attr);
 
-  */
+  } else if (header->shape < shape) {
+
+    header->shape = shape;
+
+  }
+
+  *slot = cmp_map_reserve(header, &__afl_cmp_cursor[key], capacity, occurrence);
+  return key;
+
+}
+
+static inline void cmplog_ins1(u64 site, uint8_t arg1, uint8_t arg2,
+                               uint8_t attr) {
+
+  if (likely(!__afl_cmp_map) || unlikely(arg1 == arg2)) return;
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_INS, 0, attr, CMP_MAP_H, &slot,
+                           &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+  __afl_cmp_map->log[key][slot].v0 = arg1;
+  __afl_cmp_map->log[key][slot].v1 = arg2;
+  __afl_cmp_map->log[key][slot].occurrence = occurrence;
+
+}
+
+static inline void cmplog_ins2(u64 site, uint16_t arg1, uint16_t arg2,
+                               uint8_t attr) {
+
+  if (likely(!__afl_cmp_map) || unlikely(arg1 == arg2)) return;
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_INS, 1, attr, CMP_MAP_H, &slot,
+                           &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+  __afl_cmp_map->log[key][slot].v0 = arg1;
+  __afl_cmp_map->log[key][slot].v1 = arg2;
+  __afl_cmp_map->log[key][slot].occurrence = occurrence;
+
+}
+
+static inline void cmplog_ins4(u64 site, uint32_t arg1, uint32_t arg2,
+                               uint8_t attr) {
+
+  if (likely(!__afl_cmp_map) || unlikely(arg1 == arg2)) return;
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_INS, 3, attr, CMP_MAP_H, &slot,
+                           &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+  __afl_cmp_map->log[key][slot].v0 = arg1;
+  __afl_cmp_map->log[key][slot].v1 = arg2;
+  __afl_cmp_map->log[key][slot].occurrence = occurrence;
+
+}
+
+static inline void cmplog_ins8(u64 site, uint64_t arg1, uint64_t arg2,
+                               uint8_t attr) {
+
+  if (likely(!__afl_cmp_map) || unlikely(arg1 == arg2)) return;
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_INS, 7, attr, CMP_MAP_H, &slot,
+                           &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+  __afl_cmp_map->log[key][slot].v0 = arg1;
+  __afl_cmp_map->log[key][slot].v1 = arg2;
+  __afl_cmp_map->log[key][slot].occurrence = occurrence;
+
+}
+
+void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
+
+  cmplog_ins1((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
 void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
 
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(arg1 == arg2)) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    hits = 0;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = 1;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (!__afl_cmp_map->headers[k].shape) {
-
-      __afl_cmp_map->headers[k].shape = 1;
-
-    }
-
-  }
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = arg1;
-  __afl_cmp_map->log[k][hits].v1 = arg2;
+  cmplog_ins2((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
 void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
-  // fprintf(stderr, "hook4 arg0=%x arg1=%x attr=%u\n", arg1, arg2, attr);
-
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(arg1 == arg2)) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    hits = 0;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = 3;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (__afl_cmp_map->headers[k].shape < 3) {
-
-      __afl_cmp_map->headers[k].shape = 3;
-
-    }
-
-  }
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = arg1;
-  __afl_cmp_map->log[k][hits].v1 = arg2;
+  cmplog_ins4((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
 void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
-  // fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
-
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(arg1 == arg2)) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    hits = 0;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = 7;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (__afl_cmp_map->headers[k].shape < 7) {
-
-      __afl_cmp_map->headers[k].shape = 7;
-
-    }
-
-  }
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = arg1;
-  __afl_cmp_map->log[k][hits].v1 = arg2;
+  cmplog_ins8((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
@@ -3070,144 +3258,927 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
   if (likely(!__afl_cmp_map)) return;
   if (unlikely(arg1 == arg2 || size > __afl_cmplog_max_len)) return;
 
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+  u32 slot, occurrence;
+  u32 k =
+      cmplog_reserve((u64)(uintptr_t)__builtin_return_address(0), CMP_TYPE_INS,
+                     size, attr, CMP_MAP_H, &slot, &occurrence);
+  if (unlikely(k == CMP_MAP_W)) { return; }
 
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    hits = 0;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = size;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (__afl_cmp_map->headers[k].shape < size) {
-
-      __afl_cmp_map->headers[k].shape = size;
-
-    }
-
-  }
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = (u64)arg1;
-  __afl_cmp_map->log[k][hits].v1 = (u64)arg2;
+  __afl_cmp_map->log[k][slot].v0 = (u64)arg1;
+  __afl_cmp_map->log[k][slot].v1 = (u64)arg2;
+  __afl_cmp_map->log[k][slot].occurrence = occurrence;
 
   if (size > 7) {
 
-    __afl_cmp_map->log[k][hits].v0_128 = (u64)(arg1 >> 64);
-    __afl_cmp_map->log[k][hits].v1_128 = (u64)(arg2 >> 64);
+    __afl_cmp_map->log[k][slot].v0_128 = (u64)(arg1 >> 64);
+    __afl_cmp_map->log[k][slot].v1_128 = (u64)(arg2 >> 64);
 
   }
+
+}
+
+static inline void cmplog_ins16(u64 site, uint128_t arg1, uint128_t arg2,
+                                uint8_t attr) {
+
+  if (likely(!__afl_cmp_map)) return;
+  if (16 > __afl_cmplog_max_len || unlikely(arg1 == arg2)) return;
+
+  u32 slot, occurrence;
+  u32 k = cmplog_reserve(site, CMP_TYPE_INS, 15, attr, CMP_MAP_H, &slot,
+                         &occurrence);
+  if (unlikely(k == CMP_MAP_W)) { return; }
+
+  __afl_cmp_map->log[k][slot].v0 = (u64)arg1;
+  __afl_cmp_map->log[k][slot].v1 = (u64)arg2;
+  __afl_cmp_map->log[k][slot].v0_128 = (u64)(arg1 >> 64);
+  __afl_cmp_map->log[k][slot].v1_128 = (u64)(arg2 >> 64);
+  __afl_cmp_map->log[k][slot].occurrence = occurrence;
 
 }
 
 void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
-  if (likely(!__afl_cmp_map)) return;
-  if (16 > __afl_cmplog_max_len) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-    hits = 0;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = 15;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (__afl_cmp_map->headers[k].shape < 15) {
-
-      __afl_cmp_map->headers[k].shape = 15;
-
-    }
-
-  }
-
-  __afl_cmp_map->headers[k].attribute = attr;
-
-  hits &= CMP_MAP_H - 1;
-  __afl_cmp_map->log[k][hits].v0 = (u64)arg1;
-  __afl_cmp_map->log[k][hits].v1 = (u64)arg2;
-  __afl_cmp_map->log[k][hits].v0_128 = (u64)(arg1 >> 64);
-  __afl_cmp_map->log[k][hits].v1_128 = (u64)(arg2 >> 64);
+  cmplog_ins16((u64)(uintptr_t)__builtin_return_address(0), arg1, arg2, attr);
 
 }
 
 #endif
 
+#ifdef WORD_SIZE_64
+/* Bit length for uint128_t (0 for input 0). */
+static inline u32 vp_bitlen_u128(uint128_t v) {
+
+  u64 hi = (u64)(v >> 64);
+  if (hi) return 64U + bit_length_u64(hi);
+  return bit_length_u64((u64)v);
+
+}
+
+/* Popcount for uint128_t. */
+static inline u32 vp_popcnt_u128(uint128_t v) {
+
+  return popcount_u64((u64)v) + popcount_u64((u64)(v >> 64));
+
+}
+
+/* Keep only the lowest `bits` bits from a 128-bit operand.
+   This aligns VP distance calculations with the real compare width. */
+static inline uint128_t vp_mask_u128(uint128_t v, u8 bits) {
+
+  if (bits >= 128) return v;
+  if (bits <= 64) {
+
+    if (!bits) return 0;
+    u64 mask = (bits == 64) ? ~(u64)0 : ((1ULL << bits) - 1ULL);
+    return (uint128_t)((u64)v & mask);
+
+  }
+
+  u8  hi_bits = bits - 64;
+  u64 lo = (u64)v;
+  u64 hi = (u64)(v >> 64);
+  if (hi_bits < 64) { hi &= ((1ULL << hi_bits) - 1ULL); }
+
+  return ((uint128_t)hi << 64) | lo;
+
+}
+
+static inline u16 vp_runtime_abs_dist_u128(uint128_t arg1, uint128_t arg2,
+                                           u8 bits, u8 attr) {
+
+  if (!bits) return 0;
+  arg1 = vp_mask_u128(arg1, bits);
+  arg2 = vp_mask_u128(arg2, bits);
+
+  if (attr >= CMP_ATTR_ICMP_SGT && attr <= CMP_ATTR_ICMP_SLE) {
+
+    /* Map two's-complement signed order to unsigned order before computing
+       the absolute bucket distance. */
+    uint128_t sign = ((uint128_t)1) << (bits - 1);
+    arg1 ^= sign;
+    arg2 ^= sign;
+
+  }
+
+  uint128_t diff = arg1 >= arg2 ? arg1 - arg2 : arg2 - arg1;
+  return (u16)vp_bitlen_u128(diff);
+
+}
+
+#endif
+
+/* Runtime predicate gate. Records all predicates today; this is the seam for
+   future filtering experiments, such as EQ/NE-only collection. */
+static inline u8 vp_runtime_allow_predicate(u8 attr) {
+
+  (void)attr;
+  return 1;
+
+}
+
+static inline u64 vp_runtime_site_token_pc(uintptr_t pc, u64 salt) {
+
+  return hash_fmix64((u64)pc ^ salt);
+
+}
+
+#define VP_RUNTIME_INS1_SALT 0x56505254494e5301ULL
+#define VP_RUNTIME_INS2_SALT 0x56505254494e5302ULL
+#define VP_RUNTIME_INS4_SALT 0x56505254494e5304ULL
+#define VP_RUNTIME_INS8_SALT 0x56505254494e5308ULL
+#define VP_RUNTIME_INS16_SALT 0x56505254494e5310ULL
+#define VP_RUNTIME_SWITCH_SALT 0x5650525453574954ULL
+#define VP_RUNTIME_RTN_SALT 0x5650525452544e00ULL
+
+/* Append a touched site to control[] for this execution; track drops when full.
+ */
+static inline void vp_runtime_append_control(vp_map_t *vp, u16 site_id) {
+
+  if (vp->control_len < VP_CONTROL_CAP) {
+
+    vp->control[vp->control_len++] = site_id;
+
+  }
+
+}
+
+/* Select a physical site and prepare its per-exec state. Strictly filtered
+   observation may only reuse assignments established by normal campaign
+   execution; the focus set still lets unseen sites claim a key. */
+static inline vp_site_t *vp_runtime_prepare_site(vp_map_t *vp, u64 site_token,
+                                                 u16 *site_id) {
+
+  u8  filter = vp->filter_mode;
+  u32 key = vp_map_select(vp, site_token, (u8)(filter != VP_FILTER_STRICT));
+  if (unlikely(key == VP_MAP_INVALID)) return NULL;
+  *site_id = (u16)key;
+
+  if (unlikely(filter) &&
+      !(vp->filter_bitmap[key >> 6] & (1ULL << (key & 63)))) {
+
+    return NULL;
+
+  }
+
+  vp_site_t *site = &vp->site[key];
+  if (unlikely(site->flags & VP_SITE_RETIRED)) return NULL;
+
+  if (unlikely(site->exec_seen != vp->exec_id)) {
+
+    /* Lazy per-site reset: only clear metadata for sites touched in this
+       execution, avoiding a full VP_MAP_W sweep every run. */
+    site->exec_seen = vp->exec_id;
+    site->hit_count = 0;
+    site->touched_mask = 0;
+
+  }
+
+  return site;
+
+}
+
+static inline void vp_runtime_store_dist_pair(vp_map_t *vp, u16 site_id,
+                                              vp_site_t *site, u16 slot_idx,
+                                              u16 dist0, u16 dist1) {
+
+  u16 touched = site->touched_mask;
+  if (touched != VP_SLOT_MASK) {
+
+    u16 pair_mask = (u16)(3U << slot_idx);
+    /* Adjacent metric slots are initialized as one pair. */
+    if (!(touched & pair_mask)) {
+
+      site->slots[slot_idx].best_dist = dist0;
+      site->slots[slot_idx + 1U].best_dist = dist1;
+      site->touched_mask = touched | pair_mask;
+      if (!touched) { vp_runtime_append_control(vp, site_id); }
+      return;
+
+    }
+
+  }
+
+  if (unlikely(dist0 < site->slots[slot_idx].best_dist)) {
+
+    site->slots[slot_idx].best_dist = dist0;
+
+  }
+
+  if (unlikely(dist1 < site->slots[slot_idx + 1U].best_dist)) {
+
+    site->slots[slot_idx + 1U].best_dist = dist1;
+
+  }
+
+}
+
+static inline u8 vp_runtime_u64_has_zero_byte(u64 v) {
+
+  return (u8)(((v - 0x0101010101010101ULL) & ~v & 0x8080808080808080ULL) != 0);
+
+}
+
+static inline u32 vp_runtime_hamming_sum_bytes(const u8 *ptr1, const u8 *ptr2,
+                                               u32 len) {
+
+  u32 total = 0;
+  while (len >= sizeof(u64)) {
+
+    u64 lhs = 0, rhs = 0;
+    memcpy((void *)&lhs, (const void *)ptr1, sizeof(lhs));
+    memcpy((void *)&rhs, (const void *)ptr2, sizeof(rhs));
+    total += popcount_u64(lhs ^ rhs);
+    ptr1 += sizeof(u64);
+    ptr2 += sizeof(u64);
+    len -= sizeof(u64);
+
+  }
+
+  while (len--) {
+
+    total += popcount_u8(*ptr1 ^ *ptr2);
+    ++ptr1;
+    ++ptr2;
+
+  }
+
+  return total;
+
+}
+
+static inline u32 vp_runtime_hamming_sum_bytes_stop_at_zero(const u8 *ptr1,
+                                                            const u8 *ptr2,
+                                                            u32       len) {
+
+  u32 total = 0;
+  while (len >= sizeof(u64)) {
+
+    u64 lhs = 0, rhs = 0;
+    memcpy((void *)&lhs, (const void *)ptr1, sizeof(lhs));
+    memcpy((void *)&rhs, (const void *)ptr2, sizeof(rhs));
+    if (vp_runtime_u64_has_zero_byte(lhs | rhs)) break;
+    total += popcount_u64(lhs ^ rhs);
+    ptr1 += sizeof(u64);
+    ptr2 += sizeof(u64);
+    len -= sizeof(u64);
+
+  }
+
+  while (len--) {
+
+    if (!*ptr1 && !*ptr2) break;
+    total += popcount_u8(*ptr1 ^ *ptr2);
+    ++ptr1;
+    ++ptr2;
+
+  }
+
+  return total;
+
+}
+
+static inline u64 vp_mask_u64_bits(u64 v, u8 bits) {
+
+  if (!bits) return 0;
+  if (bits >= 64) return v;
+  return v & ((1ULL << bits) - 1ULL);
+
+}
+
+static inline u16 vp_runtime_abs_dist_u64(u64 arg1, u64 arg2, u8 bits,
+                                          u8 attr) {
+
+  if (!bits) return 0;
+  arg1 = vp_mask_u64_bits(arg1, bits);
+  arg2 = vp_mask_u64_bits(arg2, bits);
+
+  if (attr >= CMP_ATTR_ICMP_SGT && attr <= CMP_ATTR_ICMP_SLE) {
+
+    /* Map two's-complement signed order to unsigned order before computing
+       the absolute bucket distance. */
+    u64 sign = 1ULL << (bits - 1);
+    arg1 ^= sign;
+    arg2 ^= sign;
+
+  }
+
+  u64 diff = arg1 >= arg2 ? arg1 - arg2 : arg2 - arg1;
+  return (u16)bit_length_u64(diff);
+
+}
+
+static inline u32 vp_runtime_float_order_key(u32 raw) {
+
+  /* IEEE-754 bit patterns are not ordered across the sign boundary. This
+     radix-sort key makes adjacent finite values adjacent in unsigned order. */
+  return (raw & 0x80000000U) ? ~raw : (raw ^ 0x80000000U);
+
+}
+
+static inline u64 vp_runtime_double_order_key(u64 raw) {
+
+  /* Same ordered-key transform as vp_runtime_float_order_key(), for doubles. */
+  return (raw & 0x8000000000000000ULL) ? ~raw : (raw ^ 0x8000000000000000ULL);
+
+}
+
+/* Each dynamic hit at a selected physical site owns one adjacent metric pair.
+   VP_SLOTS is an even power of two, so pair_count wraps cheaply via a mask.
+   The u16 hit ordinal wraps seamlessly because its 2^16 values are an exact
+   multiple of VP_PAIR_COUNT. */
+static inline u16 vp_runtime_scalar_pair_start_slot(u16 hit_ordinal) {
+
+#if VP_PAIR_COUNT <= 1U
+  (void)hit_ordinal;
+  return 0;
+#else
+  return (u16)((hit_ordinal & (VP_PAIR_COUNT - 1U)) << 1);
+#endif
+
+}
+
+/* Scalar compares benefit from keeping bitwise and numeric gradients
+   independent. This avoids low-hamming but numerically distant values
+   crowding out inputs that actually reduce the absolute difference. */
+static inline void vp_runtime_record_scalar_dists(u64 site_token,
+                                                  u16 hamming_dist,
+                                                  u16 abs_dist) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled)) return;
+
+  u16        site_id;
+  vp_site_t *site = vp_runtime_prepare_site(vp, site_token, &site_id);
+  if (unlikely(!site)) return;
+  u16 hit_ordinal = site->hit_count++;
+
+  u16 slot = vp_runtime_scalar_pair_start_slot(hit_ordinal);
+  vp_runtime_store_dist_pair(vp, site_id, site, slot, hamming_dist, abs_dist);
+
+}
+
+static inline void vp_runtime_record_switch_candidate(vp_map_t *vp, u16 site_id,
+                                                      vp_site_t *site,
+                                                      u64        val_masked,
+                                                      u64        case_val,
+                                                      u16 pseudo_hit_ordinal) {
+
+  u64 diff =
+      val_masked >= case_val ? val_masked - case_val : case_val - val_masked;
+  u16 hamming_dist = (u16)popcount_u64(val_masked ^ case_val);
+  u16 abs_dist = (u16)bit_length_u64(diff);
+  u16 slot = vp_runtime_scalar_pair_start_slot(pseudo_hit_ordinal);
+  vp_runtime_store_dist_pair(vp, site_id, site, slot, hamming_dist, abs_dist);
+
+}
+
+void __valueprofile_switch(uint64_t val, uint64_t *cases, uint64_t site_token) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled || !cases)) return;
+
+  u64 case_count = cases[0];
+  u64 bit_width = cases[1];
+  if (unlikely(!case_count || !bit_width || bit_width > 64)) return;
+
+  u16        site_id;
+  vp_site_t *site = vp_runtime_prepare_site(vp, site_token, &site_id);
+  if (unlikely(!site)) return;
+
+  u64 mask =
+      bit_width == 64 ? 0xffffffffffffffffULL : ((1ULL << bit_width) - 1ULL);
+  u64 val_masked = val & mask;
+  u64 smaller = 0;
+  u64 larger = 0;
+  u8  have_smaller = 0;
+  u8  have_larger = 0;
+  u8  exact_match = 0;
+
+  for (u64 i = 0; i < case_count; ++i) {
+
+    u64 case_val = cases[i + 2] & mask;
+    if (val_masked == case_val) {
+
+      smaller = case_val;
+      have_smaller = 1;
+      exact_match = 1;
+      break;
+
+    }
+
+    if (case_val < val_masked) {
+
+      if (!have_smaller || smaller < case_val) {
+
+        smaller = case_val;
+        have_smaller = 1;
+
+      }
+
+    } else if (!have_larger || case_val < larger) {
+
+      larger = case_val;
+      have_larger = 1;
+
+    }
+
+  }
+
+  u16 dynamic_hit = site->hit_count++;
+  u16 pseudo_hit = (u16)(dynamic_hit << 1);
+
+  if (have_smaller) {
+
+    vp_runtime_record_switch_candidate(vp, site_id, site, val_masked, smaller,
+                                       pseudo_hit++);
+
+  }
+
+  if (have_larger && !exact_match) {
+
+    vp_runtime_record_switch_candidate(vp, site_id, site, val_masked, larger,
+                                       pseudo_hit);
+
+  }
+
+}
+
+void __valueprofile_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr,
+                          uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = popcount_u8(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u64((u64)arg1, (u64)arg2, 8, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+void __valueprofile_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr,
+                          uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = popcount_u32((u32)(arg1 ^ arg2));
+    u16 abs_dist = vp_runtime_abs_dist_u64((u64)arg1, (u64)arg2, 16, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+void __valueprofile_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr,
+                          uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = popcount_u32(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u64((u64)arg1, (u64)arg2, 32, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+void __valueprofile_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr,
+                          uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = popcount_u64(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u64(arg1, arg2, 64, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+#ifdef WORD_SIZE_64
+void __valueprofile_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr,
+                           uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+
+  arg1 = vp_mask_u128(arg1, 128);
+  arg2 = vp_mask_u128(arg2, 128);
+
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = vp_popcnt_u128(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u128(arg1, arg2, 128, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+void __valueprofile_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
+                          uint8_t bits_minus_1, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  u32 bits_u32 = ((u32)bits_minus_1 + 1U) * 8U;
+  if (bits_u32 > 128U) bits_u32 = 128U;
+  u8 bits = (u8)bits_u32;
+
+  arg1 = vp_mask_u128(arg1, bits);
+  arg2 = vp_mask_u128(arg2, bits);
+
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+
+  } else {
+
+    u32 hamming = vp_popcnt_u128(arg1 ^ arg2);
+    u16 abs_dist = vp_runtime_abs_dist_u128(arg1, arg2, bits, attr);
+    vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+  }
+
+}
+
+#endif
+
+void __valueprofile_hook_float(float arg1, float arg2, uint8_t attr,
+                               uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (isnan(arg1) || isnan(arg2)) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+    return;
+
+  }
+
+  u32 b0 = 0, b1 = 0;
+  memcpy((void *)&b0, (void *)&arg1, sizeof(b0));
+  memcpy((void *)&b1, (void *)&arg2, sizeof(b1));
+  u32 hamming = popcount_u32(b0 ^ b1);
+  u32 k0 = vp_runtime_float_order_key(b0);
+  u32 k1 = vp_runtime_float_order_key(b1);
+  u32 diff = k0 >= k1 ? k0 - k1 : k1 - k0;
+  u16 abs_dist = (u16)bit_length_u64((u64)diff);
+  vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+}
+
+void __valueprofile_hook_double(double arg1, double arg2, uint8_t attr,
+                                uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (unlikely(!vp_runtime_allow_predicate(attr))) return;
+  if (isnan(arg1) || isnan(arg2)) return;
+  if (arg1 == arg2) {
+
+    vp_runtime_record_scalar_dists(site_token, 0, 0);
+    return;
+
+  }
+
+  u64 b0 = 0, b1 = 0;
+  memcpy((void *)&b0, (void *)&arg1, sizeof(b0));
+  memcpy((void *)&b1, (void *)&arg2, sizeof(b1));
+  u32 hamming = popcount_u64(b0 ^ b1);
+  u64 k0 = vp_runtime_double_order_key(b0);
+  u64 k1 = vp_runtime_double_order_key(b1);
+  u64 diff = k0 >= k1 ? k0 - k1 : k1 - k0;
+  u16 abs_dist = (u16)bit_length_u64(diff);
+  vp_runtime_record_scalar_dists(site_token, (u16)hamming, abs_dist);
+
+}
+
+#define VP_RTN_STOP_AT_ZERO 1u
+#define VP_RTN_FOLD_CASE 2u
+
+static inline u8 vp_runtime_fold(u8 c) {
+
+  return (c >= 'A' && c <= 'Z') ? (u8)(c + 32) : c;
+
+}
+
+static inline u32 vp_runtime_hamming_sum_folded(const u8 *ptr1, const u8 *ptr2,
+                                                u32 len, u8 stop_at_zero) {
+
+  u32 total = 0;
+  while (len--) {
+
+    u8 a = vp_runtime_fold(*ptr1);
+    u8 b = vp_runtime_fold(*ptr2);
+    if (stop_at_zero && !a && !b) break;
+    total += popcount_u8(a ^ b);
+    ++ptr1;
+    ++ptr2;
+
+  }
+
+  return total;
+
+}
+
+/* Compute routine-compare distance (memcmp/strcmp-style) and record it
+   into runtime VP state. */
+static inline void vp_runtime_record_rtn(u64 site_token, u8 *ptr1, u8 *ptr2,
+                                         u32 max_len, u32 flags) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled)) return;
+  if (unlikely(!ptr1 || !ptr2 || max_len < 1)) return;
+  if (max_len > 32) max_len = 32;
+
+  u8 stop_at_zero = (flags & VP_RTN_STOP_AT_ZERO) != 0;
+  u8 fold = (flags & VP_RTN_FOLD_CASE) != 0;
+
+  u16        site;
+  vp_site_t *s = vp_runtime_prepare_site(vp, site_token, &site);
+  if (unlikely(!s)) return;
+
+  u32 prefix_len = 0;
+  u8  solved = 0;
+  while (prefix_len < max_len &&
+         (fold ? vp_runtime_fold(ptr1[prefix_len]) ==
+                     vp_runtime_fold(ptr2[prefix_len])
+               : ptr1[prefix_len] == ptr2[prefix_len])) {
+
+    if (stop_at_zero && ptr1[prefix_len] == 0) {
+
+      solved = 1;
+      break;
+
+    }
+
+    ++prefix_len;
+
+  }
+
+  if (prefix_len == max_len) solved = 1;
+
+  u16 prefix_dist;
+  u16 allbytes_dist;
+  if (solved) {
+
+    prefix_dist = 0;
+    allbytes_dist = 0;
+
+  } else {
+
+    /* Metric 1: prefix-based (sequential gradient). */
+    u32 rem = max_len - prefix_len;
+    u8  b1 = fold ? vp_runtime_fold(ptr1[prefix_len]) : ptr1[prefix_len];
+    u8  b2 = fold ? vp_runtime_fold(ptr2[prefix_len]) : ptr2[prefix_len];
+    u32 first_diff_hamming = popcount_u8(b1 ^ b2);
+    prefix_dist = (u16)(((rem - 1U) * 8U) + first_diff_hamming);
+
+    /* Metric 2: sum-of-hamming across ALL differing bytes.
+       Gives gradient for every byte, not just the first mismatch.
+       Range 1..256 for max_len up to 32 (32 * 8 = 256). */
+    u32 total_hamming =
+        fold ? vp_runtime_hamming_sum_folded(ptr1 + prefix_len,
+                                             ptr2 + prefix_len,
+                                             max_len - prefix_len, stop_at_zero)
+             : (stop_at_zero ? vp_runtime_hamming_sum_bytes_stop_at_zero(
+                                   ptr1 + prefix_len, ptr2 + prefix_len,
+                                   max_len - prefix_len)
+                             : vp_runtime_hamming_sum_bytes(
+                                   ptr1 + prefix_len, ptr2 + prefix_len,
+                                   max_len - prefix_len));
+
+    allbytes_dist = (u16)(total_hamming > 0 ? total_hamming : 1);
+
+  }
+
+  u16 hit_ordinal = s->hit_count++;
+
+  u16 slot = vp_runtime_scalar_pair_start_slot(hit_ordinal);
+  vp_runtime_store_dist_pair(vp, site, s, slot, prefix_dist, allbytes_dist);
+
+}
+
+/* Substring distance: the minimum of both metrics over every offset the needle
+   could sit at, so a haystack that actually contains the needle records zero
+   rather than the distance to offset 0. Callers pass the searchable haystack
+   length, already truncated at a terminating nul where their routine stops
+   there, so VP_RTN_STOP_AT_ZERO has no meaning here. */
+static inline void vp_runtime_record_sub(u64 site_token, u8 *hay, u32 hay_len,
+                                         u8 *needle, u32 needle_len,
+                                         u32 flags) {
+
+  vp_map_t *vp = __afl_vp_map;
+  if (likely(!vp || !vp->enabled)) return;
+  if (unlikely(!hay || !needle || needle_len < 1 || hay_len < needle_len))
+    return;
+
+  /* Claim the site before the O(hay_len * needle_len) scan so a full set
+     skips the work instead of discarding it afterwards. */
+  u16        site;
+  vp_site_t *s = vp_runtime_prepare_site(vp, site_token, &site);
+  if (unlikely(!s)) return;
+
+  u8  fold = (flags & VP_RTN_FOLD_CASE) != 0;
+  u32 best_prefix = 0xffffffffU;
+  u32 best_total = 0xffffffffU;
+  u32 last_off = hay_len - needle_len;
+
+  for (u32 off = 0; off <= last_off; ++off) {
+
+    u32 prefix = 0;
+    u32 total = 0;
+    while (prefix < needle_len) {
+
+      u8 a = fold ? vp_runtime_fold(hay[off + prefix]) : hay[off + prefix];
+      u8 b = fold ? vp_runtime_fold(needle[prefix]) : needle[prefix];
+      if (a != b) break;
+      ++prefix;
+
+    }
+
+    for (u32 i = prefix; i < needle_len; ++i) {
+
+      u8 a = fold ? vp_runtime_fold(hay[off + i]) : hay[off + i];
+      u8 b = fold ? vp_runtime_fold(needle[i]) : needle[i];
+      total += popcount_u8(a ^ b);
+
+    }
+
+    u32 prefix_dist;
+    if (prefix == needle_len) {
+
+      prefix_dist = 0;
+
+    } else {
+
+      u8 a = fold ? vp_runtime_fold(hay[off + prefix]) : hay[off + prefix];
+      u8 b = fold ? vp_runtime_fold(needle[prefix]) : needle[prefix];
+      prefix_dist =
+          (u16)(((needle_len - prefix - 1U) * 8U) + popcount_u8(a ^ b));
+
+    }
+
+    if (prefix_dist < best_prefix) { best_prefix = prefix_dist; }
+    if (total < best_total) { best_total = total; }
+    if (unlikely(!best_prefix && !best_total)) break;
+
+  }
+
+  u16 hit_ordinal = s->hit_count++;
+  u16 slot = vp_runtime_scalar_pair_start_slot(hit_ordinal);
+  vp_runtime_store_dist_pair(vp, site, s, slot, (u16)best_prefix,
+                             (u16)best_total);
+
+}
+
+static inline u8 __afl_vp_collection_enabled(void) {
+
+  return __afl_vp_map && __afl_vp_map->enabled;
+
+}
+
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  //__cmplog_ins_hook1(arg1, arg2, 0);
+  (void)arg1;
+  (void)arg2;
 
 }
 
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  //__cmplog_ins_hook1(arg1, arg2, 0);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook1(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS1_SALT));
+  else
+    cmplog_ins1(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  __cmplog_ins_hook2(arg1, arg2, 0);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook2(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS2_SALT));
+  else
+    cmplog_ins2(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2) {
 
-  __cmplog_ins_hook2(arg1, arg2, 0);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook2(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS2_SALT));
+  else
+    cmplog_ins2(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  __cmplog_ins_hook4(arg1, arg2, 0);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook4(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS4_SALT));
+  else
+    cmplog_ins4(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2) {
 
-  __cmplog_ins_hook4(arg1, arg2, 0);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook4(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS4_SALT));
+  else
+    cmplog_ins4(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  __cmplog_ins_hook8(arg1, arg2, 0);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook8(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS8_SALT));
+  else
+    cmplog_ins8(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2) {
 
-  __cmplog_ins_hook8(arg1, arg2, 0);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook8(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS8_SALT));
+  else
+    cmplog_ins8(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 #ifdef WORD_SIZE_64
 void __sanitizer_cov_trace_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  __cmplog_ins_hook16(arg1, arg2, 0);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook16(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS16_SALT));
+  else
+    cmplog_ins16(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
 void __sanitizer_cov_trace_const_cmp16(uint128_t arg1, uint128_t arg2) {
 
-  __cmplog_ins_hook16(arg1, arg2, 0);
+  u64 site = (u64)(uintptr_t)__builtin_return_address(0);
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_hook16(
+        arg1, arg2, CMP_ATTR_NONE,
+        vp_runtime_site_token_pc((uintptr_t)site, VP_RUNTIME_INS16_SALT));
+  else
+    cmplog_ins16(site, arg1, arg2, CMP_ATTR_NONE);
 
 }
 
@@ -3215,40 +4186,36 @@ void __sanitizer_cov_trace_const_cmp16(uint128_t arg1, uint128_t arg2) {
 
 void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
+  if (unlikely(__afl_vp_collection_enabled())) {
+
+    uintptr_t pc = (uintptr_t)__builtin_return_address(0);
+    __valueprofile_switch(val, cases,
+                          vp_runtime_site_token_pc(pc, VP_RUNTIME_SWITCH_SALT));
+
+    return;
+
+  }
+
   if (likely(!__afl_cmp_map)) return;
 
   for (uint64_t i = 0; i < cases[0]; i++) {
 
-    uintptr_t k = (uintptr_t)__builtin_return_address(0) + i;
-    k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) &
-                    (CMP_MAP_W - 1));
+    u64 site = (u64)(uintptr_t)__builtin_return_address(0) + i;
+    switch (cases[1]) {
 
-    u32 hits;
-
-    if (__afl_cmp_map->headers[k].type != CMP_TYPE_INS) {
-
-      __afl_cmp_map->headers[k].type = CMP_TYPE_INS;
-      hits = 0;
-      __afl_cmp_map->headers[k].hits = 1;
-      __afl_cmp_map->headers[k].shape = 7;
-
-    } else {
-
-      hits = __afl_cmp_map->headers[k].hits++;
-
-      if (__afl_cmp_map->headers[k].shape < 7) {
-
-        __afl_cmp_map->headers[k].shape = 7;
-
-      }
+      case 8:
+        cmplog_ins1(site, (u8)val, (u8)cases[i + 2], CMP_ATTR_ICMP_EQ);
+        break;
+      case 16:
+        cmplog_ins2(site, (u16)val, (u16)cases[i + 2], CMP_ATTR_ICMP_EQ);
+        break;
+      case 32:
+        cmplog_ins4(site, (u32)val, (u32)cases[i + 2], CMP_ATTR_ICMP_EQ);
+        break;
+      default:
+        cmplog_ins8(site, val, cases[i + 2], CMP_ATTR_ICMP_EQ);
 
     }
-
-    __afl_cmp_map->headers[k].attribute = 1;
-
-    hits &= CMP_MAP_H - 1;
-    __afl_cmp_map->log[k][hits].v0 = val;
-    __afl_cmp_map->log[k][hits].v1 = cases[i + 2];
 
   }
 
@@ -3273,6 +4240,13 @@ static int area_is_valid(void *ptr, size_t len) {
 
   }
 
+  if (unlikely(__afl_dummy_fd[1] < 0)) {
+
+    __afl_open_dummy_fd();
+    if (__afl_dummy_fd[1] < 0) { return 0; }
+
+  }
+
 #ifdef __HAIKU__
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
 #elif defined(__OpenBSD__)
@@ -3289,28 +4263,58 @@ static int area_is_valid(void *ptr, size_t len) {
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
 #endif  // HAIKU, OPENBSD, APPLE
 
-  if (r <= 0 || r > len) return 0;
+  if (r <= 0 || (size_t)r > len) return 0;
+  return (int)r;
 
-  // even if the write succeed this can be a false positive if we cross
-  // a page boundary. who knows why.
+}
 
-  char *p = (char *)ptr;
-  long  page_size = sysconf(_SC_PAGE_SIZE);
-  char *page = (char *)((uintptr_t)p & ~(page_size - 1)) + page_size;
+/* Return the common readable prefix of two operand ranges. Use one kernel
+   entry where raw writev is available and preserve the established checks
+   elsewhere. */
+static u32 area_pair_valid_len(void *ptr1, void *ptr2, size_t len) {
 
-  if (page > p + len) {
+#ifdef AFL_HAVE_RAW_WRITEV
+  if (unlikely(!ptr1 || !ptr2 || !len ||
+               (__asan_region_is_poisoned &&
+                (__asan_region_is_poisoned(ptr1, len) ||
+                 __asan_region_is_poisoned(ptr2, len))))) {
 
-    // no, not crossing a page boundary
-    return (int)r;
-
-  } else {
-
-    // yes it crosses a boundary, hence we can only return the length of
-    // rest of the first page, we cannot detect if the next page is valid
-    // or not, neither by SYS_write nor msync() :-(
-    return (int)(page - p);
+    return 0;
 
   }
+
+  if (unlikely(__afl_dummy_fd[1] < 0)) {
+
+    __afl_open_dummy_fd();
+    if (__afl_dummy_fd[1] < 0) { return 0; }
+
+  }
+
+  long page_size = sysconf(_SC_PAGE_SIZE);
+  if (unlikely(page_size <= 0)) return 0;
+
+  size_t page_mask = (size_t)page_size - 1U;
+  size_t len1 = MIN(len, (size_t)page_size - ((uintptr_t)ptr1 & page_mask));
+  size_t len2 = MIN(len, (size_t)page_size - ((uintptr_t)ptr2 & page_mask));
+  struct iovec iov[2] = {{ptr1, len1}, {ptr2, len2}};
+
+  #if defined(__APPLE__) && defined(__MACH__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  #endif
+  long r = syscall(SYS_writev, __afl_dummy_fd[1], iov, 2);
+  #if defined(__APPLE__) && defined(__MACH__)
+    #pragma GCC diagnostic pop
+  #endif
+
+  if (unlikely(r != (long)(len1 + len2))) return 0;
+  return (u32)MIN(len1, len2);
+#else
+  int len1 = area_is_valid(ptr1, len);
+  int len2 = area_is_valid(ptr2, len);
+  if (unlikely(len1 <= 0 || len2 <= 0)) return 0;
+  return (u32)MIN(len1, len2);
+#endif
 
 }
 
@@ -3352,9 +4356,203 @@ static int addr_static_cb(struct dl_phdr_info *info, size_t size, void *data) {
 
 }
 
-static u8 get_prog_addr_attr(const void *addr) {
+  // Immutable interval table of program-image segments, published after one
+  // build. Non-image address chunks use a bounded negative cache to avoid
+  // repeated loader queries.
+  #define AFL_ADDR_TABLE_MAX 4096
+  #define AFL_ADDR_NEGATIVE_CACHE_SIZE 256
 
-  return dl_iterate_phdr(addr_static_cb, (void *)addr);
+typedef struct {
+
+  uintptr_t start;
+  uintptr_t end;
+  u8        attr;
+  u8        readable;
+  u8        stable;
+
+} afl_addr_interval_t;
+
+static afl_addr_interval_t afl_addr_table[AFL_ADDR_TABLE_MAX];
+static u32                 afl_addr_table_count;
+static u8 afl_addr_table_state;  // 0=unbuilt 1=building 2=ready 3=fallback
+static u8 afl_addr_build_overflow;
+static uintptr_t afl_addr_negative_cache[AFL_ADDR_NEGATIVE_CACHE_SIZE];
+
+static int addr_table_build_cb(struct dl_phdr_info *info, size_t size,
+                               void *data) {
+
+  (void)size;
+  (void)data;
+
+  for (size_t i = 0; i < info->dlpi_phnum; i++) {
+
+    if (info->dlpi_phdr[i].p_type != PT_LOAD) { continue; }
+
+    if (afl_addr_table_count >= AFL_ADDR_TABLE_MAX) {
+
+      afl_addr_build_overflow = 1;
+      return 1;
+
+    }
+
+    uintptr_t addr_start = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
+    uintptr_t addr_end = addr_start + MIN(info->dlpi_phdr[i].p_memsz,
+                                          info->dlpi_phdr[i].p_filesz);
+    afl_addr_table[afl_addr_table_count].start = addr_start;
+    afl_addr_table[afl_addr_table_count].end = addr_end;
+    afl_addr_table[afl_addr_table_count].attr =
+        (info->dlpi_phdr[i].p_flags & PF_W) ? ADDR_ATTR_RW : ADDR_ATTR_RO;
+    afl_addr_table[afl_addr_table_count].readable =
+        (info->dlpi_phdr[i].p_flags & PF_R) != 0;
+    afl_addr_table[afl_addr_table_count].stable =
+        !info->dlpi_name || !info->dlpi_name[0];
+    afl_addr_table_count++;
+
+  }
+
+  return 0;
+
+}
+
+static int addr_interval_cmp(const void *a, const void *b) {
+
+  uintptr_t sa = ((const afl_addr_interval_t *)a)->start;
+  uintptr_t sb = ((const afl_addr_interval_t *)b)->start;
+  if (sa < sb) { return -1; }
+  if (sa > sb) { return 1; }
+  return 0;
+
+}
+
+static void addr_table_build(void) {
+
+  afl_addr_table_count = 0;
+  afl_addr_build_overflow = 0;
+  dl_iterate_phdr(addr_table_build_cb, NULL);
+  if (unlikely(afl_addr_build_overflow)) {
+
+    __atomic_store_n(&afl_addr_table_state, 3, __ATOMIC_RELEASE);
+    return;
+
+  }
+
+  qsort(afl_addr_table, afl_addr_table_count, sizeof(afl_addr_interval_t),
+        addr_interval_cmp);
+  __atomic_store_n(&afl_addr_table_state, 2, __ATOMIC_RELEASE);
+
+}
+
+static const afl_addr_interval_t *addr_table_lookup(const void *addr) {
+
+  uintptr_t a = (uintptr_t)addr;
+  u32       lo = 0;
+  u32       hi = afl_addr_table_count;
+  while (lo < hi) {
+
+    u32 mid = lo + (hi - lo) / 2;
+    if (a < afl_addr_table[mid].start) {
+
+      hi = mid;
+
+    } else if (a >= afl_addr_table[mid].end) {
+
+      lo = mid + 1;
+
+    } else {
+
+      return &afl_addr_table[mid];
+
+    }
+
+  }
+
+  return NULL;
+
+}
+
+static u8 addr_negative_cache_lookup(const void *addr) {
+
+  uintptr_t tag = ((uintptr_t)addr >> 12) + 1;
+  return __atomic_load_n(
+             &afl_addr_negative_cache[tag & (AFL_ADDR_NEGATIVE_CACHE_SIZE - 1)],
+             __ATOMIC_RELAXED) == tag;
+
+}
+
+static void addr_negative_cache_store(const void *addr) {
+
+  uintptr_t tag = ((uintptr_t)addr >> 12) + 1;
+  __atomic_store_n(
+      &afl_addr_negative_cache[tag & (AFL_ADDR_NEGATIVE_CACHE_SIZE - 1)], tag,
+      __ATOMIC_RELAXED);
+
+}
+
+static u8 get_prog_addr_attr_slow(const void *addr) {
+
+  if (addr_negative_cache_lookup(addr)) { return ADDR_ATTR_NOTFOUND; }
+
+  Dl_info info;
+  if (!dladdr(addr, &info) || !info.dli_fbase) {
+
+    addr_negative_cache_store(addr);
+    return ADDR_ATTR_NOTFOUND;
+
+  }
+
+  u8 attr = dl_iterate_phdr(addr_static_cb, (void *)addr);
+  if (attr == ADDR_ATTR_NOTFOUND) { addr_negative_cache_store(addr); }
+  return attr;
+
+}
+
+static u8 addr_table_prepare(void) {
+
+  u8 state = __atomic_load_n(&afl_addr_table_state, __ATOMIC_ACQUIRE);
+  if (unlikely(!state)) {
+
+    u8 expected = 0;
+    if (__atomic_compare_exchange_n(&afl_addr_table_state, &expected, 1, 0,
+                                    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+
+      addr_table_build();
+      state = __atomic_load_n(&afl_addr_table_state, __ATOMIC_ACQUIRE);
+
+    } else {
+
+      state = expected;
+
+    }
+
+  }
+
+  return state;
+
+}
+
+static size_t get_prog_addr_info(const void *addr, size_t len, u8 *attr) {
+
+  u8 state = addr_table_prepare();
+  if (unlikely(state != 2)) {
+
+    *attr = get_prog_addr_attr_slow(addr);
+    return 0;
+
+  }
+
+  const afl_addr_interval_t *interval = addr_table_lookup(addr);
+  if (unlikely(!interval)) {
+
+    *attr = get_prog_addr_attr_slow(addr);
+    return 0;
+
+  }
+
+  *attr = interval->attr;
+  if (!interval->readable || !interval->stable) { return 0; }
+
+  size_t available = interval->end - (uintptr_t)addr;
+  return MIN(available, len);
 
 }
 
@@ -3452,280 +4650,196 @@ static u8 get_prog_addr_attr(const void *addr) {
 
 #endif
 
+static inline int cmplog_area_is_valid(void *ptr, size_t len, u8 *attr) {
+
+  *attr = ADDR_ATTR_NOTFOUND;
+  if (unlikely(!ptr)) { return 0; }
+
+  if (__afl_fuzz_ptr) {
+
+    uintptr_t base = (uintptr_t)__afl_fuzz_ptr;
+    uintptr_t addr = (uintptr_t)ptr;
+    size_t    fuzz_len = *__afl_fuzz_len;
+    if (addr >= base && addr - base <= fuzz_len) {
+
+      size_t offset = addr - base;
+      if (len > fuzz_len - offset) { return 0; }
+      if (unlikely(__asan_region_is_poisoned &&
+                   __asan_region_is_poisoned(ptr, len))) {
+
+        return 0;
+
+      }
+
+      return (int)len;
+
+    }
+
+  }
+
+#ifdef AFL_HAVE_ADDR_ATTR
+  #ifdef __linux__
+  size_t valid_len = get_prog_addr_info(ptr, len, attr);
+  if (valid_len == len) {
+
+    if (unlikely(__asan_region_is_poisoned &&
+                 __asan_region_is_poisoned(ptr, len))) {
+
+      return 0;
+
+    }
+
+    return (int)valid_len;
+
+  }
+
+  #else
+  *attr = get_prog_addr_attr(ptr);
+  #endif
+#endif
+
+  return area_is_valid(ptr, len);
+
+}
+
 static inline u32 cmplog_string_len_with_nul(u32 len, u32 cap) {
 
   return len < cap ? len + 1U : cap;
 
 }
 
-/* hook for string with length functions, eg. strncmp, strncasecmp etc. */
-void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
+static inline u32 cmplog_string_len(u8 *ptr, u32 cap, u8 *attr) {
 
-  // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(!ptr1 || !ptr2)) return;
-  if (unlikely(!len)) return;
+  if (unlikely(!ptr || !cap)) { return 0; }
 
-  /* `len` is the strncmp()-type `n`, the maximum length
-     of an input token). Do NOT use it to bound how much of the operands we
-     capture: when the input token is shorter than the constant operand it
-     would truncate the constant (e.g. learn "f" instead of "fac"), and AFL
-     could then never recover the full keyword. The comparison semantics use
-     `n`; for dictionary/redqueen purposes we want each operand up to its own
-     NUL, bounded only by mapping validity and the cmplog buffer size. */
-  u32 cap = (u32)__afl_cmplog_max_len;
-  int l1 = area_is_valid(ptr1, cap);
-  int l2 = area_is_valid(ptr2, cap);
-  if (l1 <= 0 || l2 <= 0) return;
+  if (__afl_fuzz_ptr) {
 
-  cap = (u32)MIN(l1, l2);
+    uintptr_t base = (uintptr_t)__afl_fuzz_ptr;
+    uintptr_t addr = (uintptr_t)ptr;
+    size_t    fuzz_len = *__afl_fuzz_len;
+    if (addr >= base && addr - base <= fuzz_len) {
 
-  u32 len1 = (u32)strnlen((char *)ptr1, cap);
-  u32 len2 = (u32)strnlen((char *)ptr2, cap);
-
-  u32 wn1 = cmplog_string_len_with_nul(len1, cap);
-  u32 wn2 = cmplog_string_len_with_nul(len2, cap);
-  u32 l = MAX(wn1, wn2);
-
-  if (l < 2) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = l - 1;
-    hits = 0;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (__afl_cmp_map->headers[k].shape < l) {
-
-      __afl_cmp_map->headers[k].shape = l - 1;
+      cap = (u32)MIN((size_t)cap, fuzz_len - (addr - base));
 
     }
 
   }
 
-  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
-  hits &= CMP_MAP_RTN_H - 1;
+  if (__asan_region_is_poisoned) {
 
-  /* Record each operand's own length (like __cmplog_rtn_hook_str does for
-     strcmp). The previous code stored MAX(len0,len1) for both, which recorded
-     a short constant such as "fac" with the (longer) input token's length and
-     made redqueen copy trailing rodata bytes instead of just the keyword. */
-  cmpfn[hits].v0_len = 0x80 + wn1;
-  cmpfn[hits].v1_len = 0x80 + wn2;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
-// fprintf(stderr, "RTN3\n");
-#ifdef AFL_HAVE_ADDR_ATTR
-  u8 attr1 = get_prog_addr_attr(ptr1);
-  u8 attr2 = get_prog_addr_attr(ptr2);
-  cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
-#endif
+    u8 *poisoned = __asan_region_is_poisoned(ptr, cap);
+    if (poisoned) { cap = (u32)(poisoned - ptr); }
+
+  }
+
+  if (!cap) { return 0; }
+  int valid = cmplog_area_is_valid(ptr, cap, attr);
+  if (valid <= 0) { return 0; }
+  cap = (u32)valid;
+  return cmplog_string_len_with_nul((u32)strnlen((char *)ptr, cap), cap);
+
+}
+
+static inline void cmplog_rtn_store(u64 site, u8 *ptr1, u32 len1, u8 *ptr2,
+                                    u32 len2, u8 semantic_len, u8 attr1,
+                                    u8 attr2, u8 string) {
+
+  u32 shape = MAX(len1, len2);
+  if (unlikely(!shape)) { return; }
+
+  u32 slot, occurrence;
+  u32 key = cmplog_reserve(site, CMP_TYPE_RTN, shape - 1, CMP_ATTR_NONE,
+                           CMP_MAP_RTN_H, &slot, &occurrence);
+  if (unlikely(key == CMP_MAP_W)) { return; }
+
+  struct cmpfn_operands *cmpfn =
+      (struct cmpfn_operands *)__afl_cmp_map->log[key];
+  memset_noasan(&cmpfn[slot], 0, sizeof(cmpfn[slot]));
+  cmpfn[slot].v0_len = len1 + (string ? 0x80 : 0);
+  cmpfn[slot].v1_len = len2 + (string ? 0x80 : 0);
+  cmpfn[slot].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
+  cmpfn[slot].occurrence = occurrence;
+  cmpfn[slot].unused = semantic_len;
+  __builtin_memcpy(cmpfn[slot].v0, ptr1, len1);
+  __builtin_memcpy(cmpfn[slot].v1, ptr2, len2);
+
+}
+
+static inline void cmplog_rtn_strn(u64 site, u8 *ptr1, u8 *ptr2, u64 len) {
+
+  if (likely(!__afl_cmp_map) || unlikely(!len)) return;
+  u32 cap = (u32)__afl_cmplog_max_len;
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  u32 len1 = cmplog_string_len(ptr1, cap, &attr1);
+  u32 len2 = cmplog_string_len(ptr2, cap, &attr2);
+  if (!len1 || !len2) { return; }
+  cmplog_rtn_store(site, ptr1, len1, ptr2, len2, (u8)MIN((u64)cap, len), attr1,
+                   attr2, 1);
+
+}
+
+static inline void cmplog_rtn_str(u64 site, u8 *ptr1, u8 *ptr2) {
+
+  if (likely(!__afl_cmp_map)) return;
+  u32 cap = (u32)__afl_cmplog_max_len;
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  u32 len1 = cmplog_string_len(ptr1, cap, &attr1);
+  u32 len2 = cmplog_string_len(ptr2, cap, &attr2);
+  if (!len1 || !len2) { return; }
+  cmplog_rtn_store(site, ptr1, len1, ptr2, len2, 0, attr1, attr2, 1);
+
+}
+
+static inline void cmplog_rtn(u64 site, u8 *ptr1, u8 *ptr2) {
+
+  if (likely(!__afl_cmp_map)) return;
+  u32 cap = (u32)__afl_cmplog_max_len;
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  int len1 = cmplog_area_is_valid(ptr1, cap, &attr1);
+  int len2 = cmplog_area_is_valid(ptr2, cap, &attr2);
+  if (len1 <= 0 || len2 <= 0) { return; }
+  u32 len = MIN((u32)len1, (u32)len2);
+  cmplog_rtn_store(site, ptr1, len, ptr2, len, (u8)len, attr1, attr2, 0);
+
+}
+
+static inline void cmplog_rtn_n(u64 site, u8 *ptr1, u8 *ptr2, u64 len) {
+
+  if (likely(!__afl_cmp_map) || unlikely(!len)) return;
+  u32 cap = (u32)MIN((u64)__afl_cmplog_max_len, len);
+  u8  attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  int len1 = cmplog_area_is_valid(ptr1, cap, &attr1);
+  int len2 = cmplog_area_is_valid(ptr2, cap, &attr2);
+  if (len1 != (int)cap || len2 != (int)cap) { return; }
+  cmplog_rtn_store(site, ptr1, cap, ptr2, cap, (u8)cap, attr1, attr2, 0);
+
+}
+
+/* hook for string with length functions, eg. strncmp, strncasecmp etc. */
+void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
+
+  cmplog_rtn_strn((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2, len);
 
 }
 
 /* hook for string functions, eg. strcmp, strcasecmp etc. */
 void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
 
-  // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
-  if (likely(!__afl_cmp_map)) return;
-  if (unlikely(!ptr1 || !ptr2)) return;
-
-  int l1 = area_is_valid(ptr1, 32);
-  int l2 = area_is_valid(ptr2, 32);
-  if (l1 <= 0 || l2 <= 0) return;
-
-  u32 cap = (u32)MIN(l1, l2);
-  u32 len1 = cmplog_string_len_with_nul((u32)strnlen((char *)ptr1, cap), cap);
-  u32 len2 = cmplog_string_len_with_nul((u32)strnlen((char *)ptr2, cap), cap);
-  u32 l = MAX(len1, len2);
-
-  if (l < 2) return;
-
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = l - 1;
-    hits = 0;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (__afl_cmp_map->headers[k].shape < l) {
-
-      __afl_cmp_map->headers[k].shape = l - 1;
-
-    }
-
-  }
-
-  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
-  hits &= CMP_MAP_RTN_H - 1;
-
-  cmpfn[hits].v0_len = 0x80 + len1;
-  cmpfn[hits].v1_len = 0x80 + len2;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, l);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, l);
-// fprintf(stderr, "RTN3\n");
-#ifdef AFL_HAVE_ADDR_ATTR
-  u8 attr1 = get_prog_addr_attr(ptr1);
-  u8 attr2 = get_prog_addr_attr(ptr2);
-  cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
-#endif
+  cmplog_rtn_str((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2);
 
 }
 
 /* hook function for all other func(ptr, ptr, ...) variants */
 void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
 
-  /*
-    u32 i;
-    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
-    fprintf(stderr, "rtn arg0=");
-    for (i = 0; i < 32; i++)
-      fprintf(stderr, "%02x", ptr1[i]);
-    fprintf(stderr, " arg1=");
-    for (i = 0; i < 32; i++)
-      fprintf(stderr, "%02x", ptr2[i]);
-    fprintf(stderr, "\n");
-  */
-
-  // fprintf(stderr, "RTN1 %p %p\n", ptr1, ptr2);
-  if (likely(!__afl_cmp_map)) return;
-  int l1, l2;
-  if ((l1 = area_is_valid(ptr1, 32)) <= 0 ||
-      (l2 = area_is_valid(ptr2, 32)) <= 0)
-    return;
-  int len = MIN(__afl_cmplog_max_len, MIN(l1, l2));
-
-  // fprintf(stderr, "RTN2 %u\n", len);
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = len - 1;
-    hits = 0;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (__afl_cmp_map->headers[k].shape < len) {
-
-      __afl_cmp_map->headers[k].shape = len - 1;
-
-    }
-
-  }
-
-  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
-  hits &= CMP_MAP_RTN_H - 1;
-
-  cmpfn[hits].v0_len = len;
-  cmpfn[hits].v1_len = len;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
-// fprintf(stderr, "RTN3\n");
-#ifdef AFL_HAVE_ADDR_ATTR
-  u8 attr1 = get_prog_addr_attr(ptr1);
-  u8 attr2 = get_prog_addr_attr(ptr2);
-  cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
-#endif
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2);
 
 }
 
-/* hook for func(ptr, ptr, len, ...) looking functions.
-   Note that for the time being we ignore len as this could be wrong
-   information and pass it on to the standard binary rtn hook */
+/* hook for func(ptr, ptr, len, ...) looking functions. */
 void __cmplog_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len) {
 
-  (void)(len);
-  __cmplog_rtn_hook(ptr1, ptr2);
-
-#if 0
-  /*
-    u32 i;
-    if (area_is_valid(ptr1, 32) <= 0 || area_is_valid(ptr2, 32) <= 0) return;
-    fprintf(stderr, "rtn_n len=%u arg0=", len);
-    for (i = 0; i < len; i++)
-      fprintf(stderr, "%02x", ptr1[i]);
-    fprintf(stderr, " arg1=");
-    for (i = 0; i < len; i++)
-      fprintf(stderr, "%02x", ptr2[i]);
-    fprintf(stderr, "\n");
-  */
-
-  // fprintf(stderr, "RTN1 %p %p %u\n", ptr1, ptr2, len);
-  if (likely(!__afl_cmp_map)) return;
-  if (!len) return;
-  int l = MIN(32, len), l1, l2;
-
-  if ((l1 = area_is_valid(ptr1, l)) <= 0 || (l2 = area_is_valid(ptr2, l)) <= 0)
-    return;
-
-  len = MIN(MIN(l,__afl_cmplog_max_len), MIN(l1, l2));
-
-  // fprintf(stderr, "RTN2 %u\n", l);
-  uintptr_t k = (uintptr_t)__builtin_return_address(0);
-  k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
-
-  u32 hits;
-
-  if (__afl_cmp_map->headers[k].type != CMP_TYPE_RTN) {
-
-    __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
-    __afl_cmp_map->headers[k].hits = 1;
-    __afl_cmp_map->headers[k].shape = len - 1;
-    hits = 0;
-
-  } else {
-
-    hits = __afl_cmp_map->headers[k].hits++;
-
-    if (__afl_cmp_map->headers[k].shape < l) {
-
-      __afl_cmp_map->headers[k].shape = len - 1;
-
-    }
-
-  }
-
-  struct cmpfn_operands *cmpfn = (struct cmpfn_operands *)__afl_cmp_map->log[k];
-  hits &= CMP_MAP_RTN_H - 1;
-
-  cmpfn[hits].v0_len = len;
-  cmpfn[hits].v1_len = len;
-  __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
-  __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
-  // fprintf(stderr, "RTN3\n");
-  #ifdef AFL_HAVE_ADDR_ATTR
-  u8 attr1 = get_prog_addr_attr(ptr1);
-  u8 attr2 = get_prog_addr_attr(ptr2);
-  cmpfn[hits].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
-  #endif
-
-#endif
+  cmplog_rtn_n((u64)(uintptr_t)__builtin_return_address(0), ptr1, ptr2, len);
 
 }
 
@@ -3771,52 +4885,260 @@ static u8 *get_llvm_stdstring(u8 *string) {
 void __cmplog_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (likely(!__afl_cmp_map)) return;
-  if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
+  u8 attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  if (cmplog_area_is_valid(stdstring, 32, &attr1) <= 0 ||
+      cmplog_area_is_valid(cstring, 32, &attr2) <= 0)
     return;
 
-  __cmplog_rtn_hook(get_gcc_stdstring(stdstring), cstring);
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0),
+             get_gcc_stdstring(stdstring), cstring);
 
 }
 
 void __cmplog_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
   if (likely(!__afl_cmp_map)) return;
-  if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
+  u8 attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  if (cmplog_area_is_valid(stdstring1, 32, &attr1) <= 0 ||
+      cmplog_area_is_valid(stdstring2, 32, &attr2) <= 0)
     return;
 
-  __cmplog_rtn_hook(get_gcc_stdstring(stdstring1),
-                    get_gcc_stdstring(stdstring2));
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0),
+             get_gcc_stdstring(stdstring1), get_gcc_stdstring(stdstring2));
 
 }
 
 void __cmplog_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring) {
 
   if (likely(!__afl_cmp_map)) return;
-  if (area_is_valid(stdstring, 32) <= 0 || area_is_valid(cstring, 32) <= 0)
+  u8 attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  if (cmplog_area_is_valid(stdstring, 32, &attr1) <= 0 ||
+      cmplog_area_is_valid(cstring, 32, &attr2) <= 0)
     return;
 
-  __cmplog_rtn_hook(get_llvm_stdstring(stdstring), cstring);
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0),
+             get_llvm_stdstring(stdstring), cstring);
 
 }
 
 void __cmplog_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2) {
 
   if (likely(!__afl_cmp_map)) return;
-  if (area_is_valid(stdstring1, 32) <= 0 || area_is_valid(stdstring2, 32) <= 0)
+  u8 attr1 = ADDR_ATTR_NOTFOUND, attr2 = ADDR_ATTR_NOTFOUND;
+  if (cmplog_area_is_valid(stdstring1, 32, &attr1) <= 0 ||
+      cmplog_area_is_valid(stdstring2, 32, &attr2) <= 0)
     return;
 
-  __cmplog_rtn_hook(get_llvm_stdstring(stdstring1),
-                    get_llvm_stdstring(stdstring2));
+  cmplog_rtn((u64)(uintptr_t)__builtin_return_address(0),
+             get_llvm_stdstring(stdstring1), get_llvm_stdstring(stdstring2));
+
+}
+
+void __valueprofile_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len,
+                                  uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 max_len = area_pair_valid_len(ptr1, ptr2, (size_t)MIN(len, 32ULL));
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, VP_RTN_STOP_AT_ZERO);
+
+}
+
+void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
+  if (cap < 2) return;
+  u32 n1 = (u32)strnlen((char *)ptr1, cap);
+  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, VP_RTN_STOP_AT_ZERO);
+
+}
+
+void __valueprofile_rtn_hook(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 max_len = area_pair_valid_len(ptr1, ptr2, 32);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, 0);
+
+}
+
+void __valueprofile_rtn_hook_n(u8 *ptr1, u8 *ptr2, u64 len,
+                               uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 max_len = area_pair_valid_len(ptr1, ptr2, (size_t)MIN(len, 32ULL));
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, 0);
+
+}
+
+void __valueprofile_rtn_hook_str_ci(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
+  if (cap < 2) return;
+  u32 n1 = (u32)strnlen((char *)ptr1, cap);
+  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len,
+                        VP_RTN_STOP_AT_ZERO | VP_RTN_FOLD_CASE);
+
+}
+
+void __valueprofile_rtn_hook_strn_ci(u8 *ptr1, u8 *ptr2, u64 len,
+                                     uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 max_len = area_pair_valid_len(ptr1, ptr2, (size_t)MIN(len, 32ULL));
+  if (max_len < 2) return;
+  vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len,
+                        VP_RTN_STOP_AT_ZERO | VP_RTN_FOLD_CASE);
+
+}
+
+void __valueprofile_rtn_gcc_stdstring_cstring(u8 *stdstring, u8 *cstring,
+                                              uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (!area_pair_valid_len(stdstring, cstring, 32)) return;
+
+  __valueprofile_rtn_hook_str(get_gcc_stdstring(stdstring), cstring,
+                              site_token);
+
+}
+
+void __valueprofile_rtn_gcc_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2,
+                                                uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (!area_pair_valid_len(stdstring1, stdstring2, 32)) return;
+
+  __valueprofile_rtn_hook(get_gcc_stdstring(stdstring1),
+                          get_gcc_stdstring(stdstring2), site_token);
+
+}
+
+void __valueprofile_rtn_llvm_stdstring_cstring(u8 *stdstring, u8 *cstring,
+                                               uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (!area_pair_valid_len(stdstring, cstring, 32)) return;
+
+  __valueprofile_rtn_hook_str(get_llvm_stdstring(stdstring), cstring,
+                              site_token);
+
+}
+
+void __valueprofile_rtn_llvm_stdstring_stdstring(u8 *stdstring1, u8 *stdstring2,
+                                                 uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+  if (!area_pair_valid_len(stdstring1, stdstring2, 32)) return;
+
+  __valueprofile_rtn_hook(get_llvm_stdstring(stdstring1),
+                          get_llvm_stdstring(stdstring2), site_token);
+
+}
+
+void __valueprofile_rtn_hook_sub(u8 *hay, u8 *needle, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(hay, needle, 32);
+  if (cap < 2) return;
+  u32 hay_len = (u32)strnlen((char *)hay, cap);
+  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  if (needle_len < 1 || hay_len < needle_len) return;
+  vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len, 0);
+
+}
+
+void __valueprofile_rtn_hook_sub_ci(u8 *hay, u8 *needle, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(hay, needle, 32);
+  if (cap < 2) return;
+  u32 hay_len = (u32)strnlen((char *)hay, cap);
+  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  if (needle_len < 1 || hay_len < needle_len) return;
+  vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len,
+                        VP_RTN_FOLD_CASE);
+
+}
+
+void __valueprofile_rtn_hook_sub_n(u8 *hay, u64 hay_len, u8 *needle,
+                                   u64 needle_len, uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  u32 cap = area_pair_valid_len(hay, needle, (size_t)MIN(hay_len, 32ULL));
+  if (cap < 2) return;
+  u32 n_len = (u32)MIN(needle_len, 32ULL);
+  if (n_len < 1 || cap < n_len) return;
+  vp_runtime_record_sub(site_token, hay, cap, needle, n_len, 0);
+
+}
+
+static inline void vp_rtn_sub_hn(u8 *hay, u64 hay_len, u8 *needle,
+                                 uint64_t site_token, u32 flags) {
+
+  u32 cap = area_pair_valid_len(hay, needle, 32);
+  if (cap < 2) return;
+
+  /* A negative length is the "haystack is nul-terminated" convention used by
+     g_strstr_len(-1) and unbounded strnstr callers; derive the real length
+     instead of treating the whole validated window as content. Both routines
+     also stop at a nul inside a bounded haystack, so truncate there either
+     way - otherwise a match found past the nul reports a solved constraint
+     for a call that returns NULL. */
+  u32 hay_len_real = (u32)strnlen(
+      (char *)hay,
+      (s64)hay_len < 0 ? (size_t)cap : (size_t)MIN(hay_len, (u64)cap));
+  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  if (needle_len < 1 || hay_len_real < needle_len) return;
+  vp_runtime_record_sub(site_token, hay, hay_len_real, needle, needle_len,
+                        flags);
+
+}
+
+void __valueprofile_rtn_hook_sub_hn(u8 *hay, u64 hay_len, u8 *needle,
+                                    uint64_t site_token) {
+
+  if (likely(!__afl_vp_map || !__afl_vp_map->enabled)) return;
+
+  vp_rtn_sub_hn(hay, hay_len, needle, site_token, 0);
 
 }
 
 /* llvm weak hooks */
 
+#if defined(__has_include)
+  #if __has_include(<sanitizer/common_interface_defs.h>)
+    #include <sanitizer/common_interface_defs.h>
+  #endif
+#endif
+
 void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
                                   size_t n, int result) {
 
-  __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2, (u64)n);
-  (void)pc;
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_n(
+        (u8 *)s1, (u8 *)s2, (u64)n,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_n((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
@@ -3824,17 +5146,26 @@ void __sanitizer_weak_hook_memcmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_memmem(void *pc, const void *s1, size_t len1,
                                   const void *s2, size_t len2, void *result) {
 
-  __cmplog_rtn_hook_n((u8 *)s1, (u8 *)s2, len1 < len2 ? (u64)len1 : (u64)len2);
-  (void)pc;
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_sub_n(
+        (u8 *)s1, (u64)len1, (u8 *)s2, (u64)len2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_n((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2,
+                 len1 < len2 ? (u64)len1 : (u64)len2);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strncasecmp(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strncasecmp(void *pc, const char *s1, const char *s2,
                                        size_t n, int result) {
 
-  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
-  (void)pc;
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_strn_ci(
+        (u8 *)s1, (u8 *)s2, (u64)n,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
@@ -3842,53 +5173,77 @@ void __sanitizer_weak_hook_strncasecmp(void *pc, const void *s1, const void *s2,
 void __sanitizer_weak_hook_strncasestr(void *pc, const void *s1, const void *s2,
                                        size_t n, char *result) {
 
-  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
-  (void)pc;
+  if (unlikely(__afl_vp_collection_enabled()))
+    vp_rtn_sub_hn((u8 *)s1, (u64)n, (u8 *)s2,
+                  vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT),
+                  VP_RTN_FOLD_CASE);
+  else
+    cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strncmp(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strncmp(void *pc, const char *s1, const char *s2,
                                    size_t n, int result) {
 
-  __cmplog_rtn_hook_strn((u8 *)s1, (u8 *)s2, (u64)n);
-  (void)pc;
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_strn(
+        (u8 *)s1, (u8 *)s2, (u64)n,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_strn((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2, (u64)n);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strcasecmp(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strcasecmp(void *pc, const char *s1, const char *s2,
                                       int result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
-  (void)pc;
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_str_ci(
+        (u8 *)s1, (u8 *)s2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strcasestr(void *pc, const void *s1, const void *s2,
-                                      size_t n, char *result) {
+void __sanitizer_weak_hook_strcasestr(void *pc, const char *s1, const char *s2,
+                                      char *result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
-  (void)pc;
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_sub_ci(
+        (u8 *)s1, (u8 *)s2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strcmp(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strcmp(void *pc, const char *s1, const char *s2,
                                   int result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
-  (void)pc;
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_str(
+        (u8 *)s1, (u8 *)s2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
 
-void __sanitizer_weak_hook_strstr(void *pc, const void *s1, const void *s2,
+void __sanitizer_weak_hook_strstr(void *pc, const char *s1, const char *s2,
                                   char *result) {
 
-  __cmplog_rtn_hook_str((u8 *)s1, (u8 *)s2);
-  (void)pc;
+  if (unlikely(__afl_vp_collection_enabled()))
+    __valueprofile_rtn_hook_sub(
+        (u8 *)s1, (u8 *)s2,
+        vp_runtime_site_token_pc((uintptr_t)pc, VP_RUNTIME_RTN_SALT));
+  else
+    cmplog_rtn_str((u64)(uintptr_t)pc, (u8 *)s1, (u8 *)s2);
   (void)result;
 
 }
@@ -3907,6 +5262,8 @@ void __afl_coverage_off() {
 
     __afl_area_ptr = __afl_area_ptr_dummy;
     __afl_cmp_map = NULL;
+    __afl_vp_map = NULL;
+    __afl_vp_refresh_enabled_ptr();
 
   }
 
@@ -3919,6 +5276,8 @@ void __afl_coverage_on() {
 
     __afl_area_ptr = __afl_area_ptr_backup;
     if (__afl_cmp_map_backup) { __afl_cmp_map = __afl_cmp_map_backup; }
+    if (__afl_vp_map_backup) { __afl_vp_map = __afl_vp_map_backup; }
+    __afl_vp_refresh_enabled_ptr();
 
   }
 
@@ -3933,6 +5292,18 @@ void __afl_coverage_discard() {
   if (__afl_cmp_map) {
 
     memset_noasan(__afl_cmp_map, 0, sizeof(struct cmp_map));
+    memset_noasan(__afl_cmp_cursor, 0, sizeof(__afl_cmp_cursor));
+
+  }
+
+  if (__afl_vp_map) {
+
+    /* vp_runtime_prepare_site() resets per-exec fields only when
+       site->exec_seen != vp->exec_id, so bump the epoch to force lazy reset
+       without wiping persistent slot frontier state. */
+    ++__afl_vp_map->exec_id;
+    if (unlikely(!__afl_vp_map->exec_id)) { ++__afl_vp_map->exec_id; }
+    __afl_vp_map->control_len = 0;
 
   }
 
@@ -4070,7 +5441,7 @@ uint32_t ijon_hashmem(uint32_t old, char *val, size_t len) {
   old = ijon_hashint(old, len);
   for (size_t i = 0; i < len; i++) {
 
-    old = ijon_hashint(old, val[i]);
+    old = ijon_hashint(old, (u8)val[i]);
 
   }
 
@@ -4935,28 +6306,25 @@ static void __afl_size_derive_log(AllocSizeRecord *r) {
   if (r->derive_logged) return;
   if (!r->size) return;
 
-  /* Per-(site, log2(size)) key into cmp_map; Knuth multiplicative hash on
-     site, a second golden-ratio multiplier on log2(size). Without the
-     size bucket the slot saturates fast at hot allocators called from
-     inner loops, dropping every later (size, max_off) pair from that
-     site. With the bucket, a site that mixes 16/64/256 byte allocations
-     spreads across three slots before saturation; a site that always
-     allocates the same size still maps to one slot (the bucket value is
-     constant). */
+  /* Per-(site, log2(size)) identity keeps hot allocator size classes separate
+     while sharing the CmpLog collision policy with ordinary observations. */
   u32 lg = r->size ? (64u - (u32)__builtin_clzll(r->size)) : 0;
-  u32 key =
-      ((r->alloc_site_id * 2654435761u) ^ (lg * 1597334677u)) & (CMP_MAP_W - 1);
+  u64 site = ((u64)r->alloc_site_id << 32) | lg;
+  u32 key = cmp_map_select(__afl_cmp_map, site);
+  if (key == CMP_MAP_W) return;
   struct cmp_header *h = &__afl_cmp_map->headers[key];
+  if (h->hits && (h->type != CMP_TYPE_RTN ||
+                  cmp_map_attribute(__afl_cmp_map, key) != CMP_ATTR_NONE))
+    return;
   if (h->hits >= CMP_MAP_RTN_H) return;                 /* slot full — skip */
-
-  u32 slot = h->hits;
-  if (slot >= CMP_MAP_RTN_H) return;
-  h->type = CMP_TYPE_RTN;
-  h->shape = 7;                                            /* 8-byte values */
-  h->attribute = 0;
+  u32 slot, occurrence;
+  key = cmplog_reserve(site, CMP_TYPE_RTN, 7, CMP_ATTR_NONE, CMP_MAP_RTN_H,
+                       &slot, &occurrence);
+  if (key == CMP_MAP_W) return;
 
   struct cmpfn_operands *op =
       (struct cmpfn_operands *)&__afl_cmp_map->log[key][slot];
+  memset_noasan(op, 0, sizeof(*op));
   /* Bytewise little-endian copy of the two u64s into v0/v1. */
   for (u32 i = 0; i < 8; ++i) {
 
@@ -4968,7 +6336,8 @@ static void __afl_size_derive_log(AllocSizeRecord *r) {
   op->v0_len = 8;
   op->v1_len = 8;
   op->addr_attr = 0;
-  ++h->hits;
+  op->occurrence = occurrence;
+  op->unused = 8;
   r->derive_logged = 1;
 
 }
@@ -4996,7 +6365,7 @@ static inline void __afl_alloc_persistent_reset(u8 flush_derive) {
          forkserver already memsets between runs; that case is a no-op. */
   if (__afl_bug_map_active && __afl_bug_map == __afl_bug_map_local) {
 
-    memset(__afl_bug_map_local, 0, MAP_SIZE_BUG_BYTES);
+    memset_noasan(__afl_bug_map_local, 0, MAP_SIZE_BUG_BYTES);
 
   }
 

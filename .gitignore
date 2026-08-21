@@ -37,6 +37,8 @@ afl-cmin
 afl-cmin.8
 afl-cmin.bash.8
 afl-cmin.py.8
+afl-merge
+afl-merge.8
 afl-cs-proxy
 afl-frida-trace.so
 afl-fuzz
@@ -51,6 +53,7 @@ afl-g++-fast
 afl-g++-fast.8
 afl-gotcpu
 afl-gotcpu.8
+afl-health.8
 afl-ld
 afl-ld-lto
 afl-lto
@@ -147,3 +150,19 @@ test/test-ijon-legacy
 test/test-ijon-pcguard
 test/test-instr.plain.mycheck
 test/test-multiple-mutators
+test/unittests/unit_cmplog
+test/unittests/unit_frameshift
+test/unittests/unit_ijon
+test/unittests/unit_ijon_replay
+test/unittests/unit_mopt
+test/unittests/unit_sharedmem_mmap
+test/unittests/unit_skipdet
+test/unittests/unit_queue_score
+test/unittests/unit_testcache
+test/unittests/unit_value_profile
+**/*~
+test/ijon-maze
+t
+te
+empty
+test/empty

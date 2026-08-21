@@ -26,6 +26,7 @@
  */
 
 #include "afl-gcc-common.h"
+#include "../include/cmplog.h"
 
 /* This plugin, being under the same license as GCC, satisfies the
    "GPL-compatible Software" definition in the GCC RUNTIME LIBRARY
@@ -164,6 +165,7 @@ struct afl_cmplog_pass : afl_base_pass {
 
     /* Round it up.  */
     if (sz % 8) sz = (((sz - 1) / 8) + 1) * 8;
+    if (sz == 8 && !CONSTANT_CLASS_P(lhs) && !CONSTANT_CLASS_P(rhs)) return;
 
     /* Select the hook function to call, based on the size.  */
     switch (sz) {
@@ -196,41 +198,66 @@ struct afl_cmplog_pass : afl_base_pass {
     }
 
     /* Set attr according to the compare operation.  */
-    unsigned char attr = 0;
+    unsigned char attr = CMP_ATTR_NONE;
+    bool          floating = FLOAT_TYPE_P(TREE_TYPE(lhs));
+    bool          signed_int = !floating && !TYPE_UNSIGNED(TREE_TYPE(lhs));
 
     switch (code) {
 
       case UNORDERED_EXPR:
+        attr = CMP_ATTR_FCMP_UNO;
+        break;
       case ORDERED_EXPR:
-        /* ??? */
-        /* Fallthrough.  */
+        attr = CMP_ATTR_FCMP_ORD;
+        break;
       case NE_EXPR:
+        attr = floating ? CMP_ATTR_FCMP_UNE : CMP_ATTR_ICMP_NE;
+        break;
       case LTGT_EXPR:
+        attr = CMP_ATTR_FCMP_ONE;
         break;
 
       case EQ_EXPR:
+        attr = floating ? CMP_ATTR_FCMP_OEQ : CMP_ATTR_ICMP_EQ;
+        break;
       case UNEQ_EXPR:
-        attr += 1;
+        attr = CMP_ATTR_FCMP_UEQ;
         break;
 
       case GT_EXPR:
+        attr = floating     ? CMP_ATTR_FCMP_OGT
+               : signed_int ? CMP_ATTR_ICMP_SGT
+                            : CMP_ATTR_ICMP_UGT;
+        break;
       case UNGT_EXPR:
-        attr += 2;
+        attr = CMP_ATTR_FCMP_UGT;
         break;
 
       case GE_EXPR:
+        attr = floating     ? CMP_ATTR_FCMP_OGE
+               : signed_int ? CMP_ATTR_ICMP_SGE
+                            : CMP_ATTR_ICMP_UGE;
+        break;
       case UNGE_EXPR:
-        attr += 3;
+        attr = CMP_ATTR_FCMP_UGE;
         break;
 
       case LT_EXPR:
+        attr = floating     ? CMP_ATTR_FCMP_OLT
+               : signed_int ? CMP_ATTR_ICMP_SLT
+                            : CMP_ATTR_ICMP_ULT;
+        break;
       case UNLT_EXPR:
-        attr += 4;
+        attr = CMP_ATTR_FCMP_ULT;
         break;
 
       case LE_EXPR:
+        attr = floating     ? CMP_ATTR_FCMP_OLE
+               : signed_int ? CMP_ATTR_ICMP_SLE
+                            : CMP_ATTR_ICMP_ULE;
+        break;
       case UNLE_EXPR:
-        attr += 5;
+        attr = CMP_ATTR_FCMP_ULE;
         break;
 
       default:
@@ -238,9 +265,7 @@ struct afl_cmplog_pass : afl_base_pass {
 
     }
 
-    if (FLOAT_TYPE_P(TREE_TYPE(lhs))) {
-
-      attr += 8;
+    if (floating) {
 
       tree t = build_nonstandard_integer_type(sz, 1);
 

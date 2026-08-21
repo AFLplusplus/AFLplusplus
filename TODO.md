@@ -2,15 +2,9 @@
 
 ## Must
 
- - Review `mutation_array = ` in src/afl-fuzz-one.c
+ - remove -n mode
  - find a solution that SAYF now prints to stderr (help!)
- - afl_fsrv_deinit cmplog
  - hardened_usercopy=0 page_alloc.shuffle=0
- - add value_profile but only enable after 15 minutes without finds
- - cmplog max items env?
- - cmplog rtn sanity check on fixed length? currently we ignore the length
- - when trimming perform crash detection, new cov?
-
 
 ## Should
 

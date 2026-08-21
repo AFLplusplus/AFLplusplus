@@ -5,6 +5,7 @@ extern struct cmp_map *__afl_cmp_map;
 
 void cmplog_config(void);
 void cmplog_init(void);
+void cmplog_reset(void);
 
 /* Functions to be implemented by the different architectures */
 void cmplog_instrument(const cs_insn *instr, GumStalkerIterator *iterator);

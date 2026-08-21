@@ -168,6 +168,7 @@ SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
   Options.TracePC |= ClTracePC;
   Options.TracePCGuard |= ClTracePCGuard;
   Options.NoPrune |= !ClPruneBlocks;
+  if (getenv("AFL_LLVM_DENSE")) { Options.NoPrune = true; }
   if (!Options.TracePCGuard && !Options.TracePC &&
       !Options.Inline8bitCounters && !Options.InlineBoolFlag)
     Options.TracePCGuard = true;  // TracePCGuard is default.
@@ -284,6 +285,8 @@ class ModuleSanitizerCoverageLTO
   std::ofstream                    dFile;
   size_t                           found = 0;
   bool                             deny_exec = false;
+  bool                             reachability_mode = false;
+  StringMap<uint32_t>              reachabilityValues;
   // AFL++ END
 
 };
@@ -658,6 +661,8 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
+
+  reachability_mode = setupReachability(reachabilityValues, "afl-llvm-lto");
 
   if ((ptr = getenv("AFL_LLVM_LTO_STARTID")) != NULL) {
 
@@ -1608,6 +1613,7 @@ static bool shouldInstrumentBlock(const Function &F, const BasicBlock *BB,
   if (BB->getFirstInsertionPt() == BB->end()) return false;
 
   if (&F.getEntryBlock() != BB && isFullyArtificialBlock(BB)) return false;
+  if (isAflSyntheticBlock(BB)) return false;
 
   // AFL++ START
   if (!Options.NoPrune && &F.getEntryBlock() == BB && F.size() > 1)
@@ -1768,6 +1774,12 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
   if (!isInInstrumentList(&F, FMNAME)) return;
   // AFL++ END
 
+  if (reachability_mode) {
+
+    instrumentReachability(F, getReachabilityValue(reachabilityValues, F));
+
+  }
+
   if (Options.CoverageType >= SanitizerCoverageOptions::SCK_Edge)
     SplitAllCriticalEdges(
         F, CriticalEdgeSplittingOptions().setIgnoreUnreachableDests());
@@ -1863,7 +1875,8 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
           CallInst *callInst = nullptr;
 
-          if ((callInst = dyn_cast<CallInst>(&IN))) {
+          if ((callInst = dyn_cast<CallInst>(&IN)) &&
+              !isAflCovMinMaxIntrinsic(IN)) {
 
             Function *Callee = callInst->getCalledFunction();
             if (!Callee) continue;
@@ -1934,6 +1947,29 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
             if (Op == AtomicRMWInst::Min || Op == AtomicRMWInst::Max ||
                 Op == AtomicRMWInst::UMin || Op == AtomicRMWInst::UMax)
               inst += 2;
+
+          } else if (isAflCovMinMaxIntrinsic(IN)) {
+
+            Type            *mmt = IN.getType();
+            FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
+
+            if (mmt->isIntegerTy() || mmt->isFloatingPointTy()) {
+
+              inst += 2;
+
+            } else if (isAflCovVectorEnabled()) {
+
+              if (mmv) {
+
+                inst += mmv->getElementCount().getKnownMinValue() * 2;
+
+              } else if (mmt->getTypeID() == llvm::Type::ScalableVectorTyID) {
+
+                inst += 2;
+
+              }
+
+            }
 
           }
 
@@ -2153,6 +2189,7 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
         if (skip_nozero == NULL) {
 
           Incr = IRB.CreateBinaryIntrinsic(Intrinsic::umax, Incr, One);
+          markAflSkip(Incr);
 
         }
 
@@ -2226,7 +2263,8 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
 
       if (IN.getMetadata("afl.skip")) continue;
 
-      if (auto *callInst = dyn_cast<CallInst>(&IN)) {
+      if (auto *callInst = dyn_cast<CallInst>(&IN);
+          callInst && !isAflCovMinMaxIntrinsic(IN)) {
 
         Function *Callee = callInst->getCalledFunction();
         if (!Callee) continue;
@@ -2478,6 +2516,107 @@ void ModuleSanitizerCoverageLTO::instrumentFunction(
           result = IRB.CreateSelect(res, val1, val2);
           markAflSkip(result);
           inst += 2;
+
+        } else if (isAflCovMinMaxIntrinsic(IN)) {
+
+          IntrinsicInst   *mmi = cast<IntrinsicInst>(&IN);
+          Type            *mmt = mmi->getType();
+          FixedVectorType *mmv = dyn_cast<FixedVectorType>(mmt);
+          bool mmscalable = mmt->getTypeID() == llvm::Type::ScalableVectorTyID;
+
+          if (!mmt->isIntegerTy() && !mmt->isFloatingPointTy() &&
+              !((mmv || mmscalable) && isAflCovVectorEnabled()))
+            continue;
+
+          Intrinsic::ID iid = mmi->getIntrinsicID();
+          Value        *lhs = mmi->getArgOperand(0);
+          Value        *rhs = iid == Intrinsic::abs ? ConstantInt::get(mmt, 0)
+                                                    : mmi->getArgOperand(1);
+          Value        *cmp = nullptr;
+
+          switch (iid) {
+
+            case Intrinsic::smin:
+            case Intrinsic::abs:
+              cmp = IRB.CreateICmpSLT(lhs, rhs);
+              break;
+            case Intrinsic::smax:
+              cmp = IRB.CreateICmpSGT(lhs, rhs);
+              break;
+            case Intrinsic::umin:
+              cmp = IRB.CreateICmpULT(lhs, rhs);
+              break;
+            case Intrinsic::umax:
+              cmp = IRB.CreateICmpUGT(lhs, rhs);
+              break;
+            case Intrinsic::minnum:
+            case Intrinsic::minimum:
+              cmp = IRB.CreateFCmpOLT(lhs, rhs);
+              break;
+            case Intrinsic::maxnum:
+            case Intrinsic::maximum:
+              cmp = IRB.CreateFCmpOGT(lhs, rhs);
+              break;
+            default:
+              continue;
+
+          }
+
+          markAflSkip(cmp);
+          Value *res = IRB.CreateFreeze(cmp);
+          markAflSkip(res);
+
+          if (mmv) {
+
+            uint32_t elements = mmv->getElementCount().getFixedValue();
+            if (!elements) continue;
+            vector_cnt = elements;
+            inst += elements * 2;
+
+            FixedVectorType *GuardPtr1 =
+                FixedVectorType::get(Int32Ty, elements);
+            FixedVectorType *GuardPtr2 =
+                FixedVectorType::get(Int32Ty, elements);
+
+            Value *val1 =
+                applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+            Value *val2 =
+                applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+            Value *x = IRB.CreateInsertElement(GuardPtr1, val1, (uint64_t)0);
+            Value *y = IRB.CreateInsertElement(GuardPtr2, val2, (uint64_t)0);
+
+            for (uint64_t i = 1; i < elements; i++) {
+
+              val1 = applyCtxOffset(IRB,
+                                    ConstantInt::get(Int32Ty, ++afl_global_id));
+              val2 = applyCtxOffset(IRB,
+                                    ConstantInt::get(Int32Ty, ++afl_global_id));
+              x = IRB.CreateInsertElement(x, val1, i);
+              y = IRB.CreateInsertElement(y, val2, i);
+
+            }
+
+            result = IRB.CreateSelect(res, x, y);
+
+          } else {
+
+            if (mmscalable) {
+
+              res = IRB.CreateOrReduce(res);
+              markAflSkip(res);
+
+            }
+
+            Value *val1 =
+                applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+            Value *val2 =
+                applyCtxOffset(IRB, ConstantInt::get(Int32Ty, ++afl_global_id));
+            result = IRB.CreateSelect(res, val1, val2);
+            inst += 2;
+
+          }
+
+          markAflSkip(result);
 
         }
 

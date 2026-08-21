@@ -20,6 +20,7 @@ import base64
 import collections
 import ctypes
 import errno
+import filecmp
 import glob
 import hashlib
 import itertools
@@ -110,7 +111,10 @@ class HelpFormatter(argparse.HelpFormatter):
 def init_args():
     parser = argparse.ArgumentParser(formatter_class=HelpFormatter)
 
-    cpu_count = multiprocessing.cpu_count()
+    if hasattr(os, "sched_getaffinity"):
+        cpu_count = len(os.sched_getaffinity(0))
+    else:
+        cpu_count = multiprocessing.cpu_count()
     group = parser.add_argument_group("Required parameters")
     group.add_argument(
         "-i",
@@ -730,6 +734,7 @@ def main():
         files, hash_list = dedup(args, files)
         logger.info("Remain %d files after dedup", len(files))
     else:
+        hash_list = [None] * len(files)
         logger.info("Skipping file deduplication.")
 
     file_index_type_code = detect_type_code(len(files))
@@ -964,31 +969,59 @@ def main():
     for f in trace_packs:
         f.close()
 
+    saved_crashes = 0
+
     if args.crash_dir:
         logger.info("Saving crashes to %s", args.crash_dir)
         crash_files = [files[c] for c in crashes]
+        # hash_list is indexed by the global file index, not by crash position
+        crash_hashes = [hash_list[c] for c in crashes]
 
         if args.no_dedup:
             # Unless we deduped previously, we have to dedup the crash files
             # now.
-            crash_files, hash_list = dedup(args, crash_files)
+            crash_files, crash_hashes = dedup(args, crash_files)
 
+        def crash_output_path(base_name, src_path):
+            """An existing destination is only reused when it holds this very
+            input, otherwise a unique name is picked - never overwrite."""
+            candidate = os.path.join(args.crash_dir, base_name)
+            for _ in range(10000):
+                if not os.path.exists(candidate):
+                    return candidate
+                if filecmp.cmp(src_path, candidate, shallow=False):
+                    return None
+                prefix = f"{random.getrandbits(32):08x}"
+                candidate = os.path.join(args.crash_dir, f"{prefix}_{base_name}")
+            raise RuntimeError(f'Unable to find unique crash name for "{base_name}"')
+
+        already_present = 0
         for idx, crash_path in enumerate(crash_files):
             if use_sha1_filenames:
-                fn = base64.b16encode(hash_list[idx]).decode("utf8").lower()
+                fn = base64.b16encode(crash_hashes[idx]).decode("utf8").lower()
             else:
                 fn = os.path.basename(crash_path)
-            output_path = os.path.join(args.crash_dir, fn)
+            output_path = crash_output_path(fn, crash_path)
+            if output_path is None:
+                already_present += 1
+                continue
             try:
                 os.link(crash_path, output_path)
             except OSError:
                 try:
                     shutil.copy(crash_path, output_path)
-                except shutil.Error:
-                    # This error happens when src and dest are hardlinks of the
-                    # same file. We have nothing to do in this case, but handle
-                    # it gracefully.
-                    pass
+                except (shutil.Error, OSError):
+                    logger.warning('cannot save crash "%s"', crash_path)
+                    continue
+            saved_crashes += 1
+
+        logger.info(
+            'saved %d crashing files in "%s" (%d already present)',
+            saved_crashes,
+            args.crash_dir,
+            already_present,
+        )
+        saved_crashes += already_present
 
     if count == 1:
         logger.warning("all test cases had the same traces, check syntax!")
@@ -997,6 +1030,17 @@ def main():
         logger.info("Deleting trace files")
         trace_dir = os.path.join(args.output, ".traces")
         shutil.rmtree(trace_dir, ignore_errors=True)
+
+    # An empty result must not look like a success: nothing matched the
+    # requested crash/timeout policy.
+    if count == 0 and not saved_crashes:
+        if args.crash_only:
+            logger.error("no input crashed the target, so -C selected nothing")
+        else:
+            logger.error(
+                "no input file was usable: check the target, the timeout and -A/-C"
+            )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

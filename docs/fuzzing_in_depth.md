@@ -408,6 +408,11 @@ shared-memory test cases and hence gives you the fastest speed possible.
 For more information, see
 [utils/aflpp_driver/README.md](../utils/aflpp_driver/README.md).
 
+Writing a harness that actually exercises the interesting parts of the target is
+a skill of its own. For a practical walkthrough of what makes a harness
+effective - and the common mistakes that cripple one - see
+[https://srlabs.de/blog/unlocking-secrets-effective-fuzzing-harness](https://srlabs.de/blog/unlocking-secrets-effective-fuzzing-harness).
+
 ## 2. Preparing the fuzzing campaign
 
 As you fuzz the target with mutated input, having as diverse inputs for the
@@ -455,6 +460,22 @@ produce a new path/coverage in the target:
 
 This step is highly recommended, because afterwards the testcase corpus is not
 bloated with duplicates anymore, which would slow down the fuzzing progress!
+
+To instead *add* only the inputs that give new coverage to an already existing
+corpus (like libFuzzer's `-merge=1`), use `afl-merge`. Unlike `afl-cmin` it does
+not minimize the output directory itself, it only appends inputs that cover
+something the output corpus does not already cover:
+
+```
+afl-merge -o CORPUS -i NEW_INPUTS -- bin/target -someopt @@
+```
+
+The output corpus may also be given as the first directory (then `-i` must not
+be used), and `-o` may appear at the beginning or the end:
+
+```
+afl-merge CORPUS NEW_INPUTS1 NEW_INPUTS2 -- bin/target -someopt @@
+```
 
 ### c) Minimizing all corpus files
 
@@ -616,6 +637,10 @@ during fuzzing) and their number, a value between 50-500MB is recommended. You
 can set the cache size (in MB) by setting the environment variable
 `AFL_TESTCACHE_SIZE`.
 
+The cache keeps the test cases with the highest selection probability per byte,
+recomputed whenever the queue changes, so raising the size keeps improving the
+hit rate instead of filling up with arbitrary entries.
+
 There should be one main fuzzer (`-M main-$HOSTNAME` option - set also
 `AFL_FINAL_SYNC=1`) and as many secondary fuzzers (e.g., `-S variant1`) as you
 have cores that you use. Every `-M`/`-S` entry needs a unique name (that can be
@@ -715,6 +740,13 @@ You can run this manually, per cron job - as you need it. There is a more
 complex and configurable script in
 [utils/distributed_fuzzing](../utils/distributed_fuzzing).
 
+An instance only picks up such freshly copied test cases with its next
+scheduled sync, which can be up to `AFL_SYNC_TIME` (20 minutes by default)
+away. To make it sync immediately, send it a `SIGUSR2`, e.g.
+`killall -USR2 afl-fuzz`. The sync - of the `-M`/`-S` sync directory as well as
+of all `-F` foreign directories - is performed as soon as the queue entry that
+is currently being fuzzed is done, so it does not throw away any work.
+
 ### e) The status of the fuzz campaign
 
 AFL++ comes with the `afl-whatsup` script to show the status of the fuzzing
@@ -730,7 +762,8 @@ execute this script per server.
 
 For a deeper analysis than the `afl-whatsup` summary, use `afl-health`. Instead
 of just listing the numbers it diagnoses the campaign and emits a verdict
-(`healthy`, `degraded`, `stalled`, `misconfigured`, or `dead`), a within-run and
+(`healthy`, `degraded`, `stalled`, `misconfigured`, `dead`, or - if no
+`fuzzer_stats` was found at all - `no_instances`), a within-run and
 cross-run trend, and a ranked list of concrete, actionable recommendations (e.g.
 triage crashes, inject seeds, add a CMPLOG instance, investigate low stability).
 It is read-only - it never modifies the campaign it inspects - and understands
@@ -752,6 +785,18 @@ It also offers `--json` (machine-readable report including the action
 directives), `--summary` (one line per campaign / fleet roll-up), `--watch N`
 (live refresh every N seconds), `--on-change CMD` (run a hook when a campaign
 flips state or gains new crashes) and process exit codes suitable for cron/CI.
+
+A `DEGRADED` verdict always names its reason - `dead-instances`,
+`low-stability`, `exec-slowdown`, or a `+`-joined combination. Instances that
+are no longer running are told apart rather than lumped together: `killed` (died
+unexpectedly - OOM, SIGKILL, a crash), `stopped` (shut down cleanly by the user
+or by a `-V`/`-E` limit) and `leftover` (ran before the currently running
+instances started, i.e. a previous campaign generation that was not restarted).
+Only the first counts against the verdict, so deliberately stopped or retired
+instances no longer make a healthy campaign look degraded. The distinction comes
+from the `fastresume.bin` file, which afl-fuzz writes only on a clean shutdown
+(so it needs AFL++ >= 4.22a and no `AFL_NO_FASTRESUME`; otherwise the cause is
+reported as `unknown` and does count).
 
 Another tool to inspect the current state and history of a specific instance is
 afl-plot, which generates an index.html file and graphs that show how the
@@ -807,6 +852,10 @@ and Rust). Feed its report to `cov-analysis` with `--reachability` to have the
 coverage report tell apart code that is *reachable but not reached yet* (the
 actionable gap) from code that is *unreachable* by the harness (expected to stay
 uncovered, so safe to ignore).
+
+For a walkthrough on how to read such coverage reports and turn them into
+concrete next steps for a campaign, see
+[https://srlabs.de/blog/coverage-analysis](https://srlabs.de/blog/coverage-analysis).
 
 If you see that an important area or a feature has not been covered so far, then
 try to find an input that is able to reach that and start a new secondary in

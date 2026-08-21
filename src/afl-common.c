@@ -152,6 +152,45 @@ void set_sanitizer_defaults() {
 
   }
 
+  /* AFL_CRASH_TRACES: symbolize sanitizer reports so captured crash traces are
+     readable, and disable the sanitizer's default coredump suppression
+     (disable_coredump=0) so the kernel still writes a core that can be saved as
+     "<crash>.core". Last-wins parsing makes these override the defaults.
+     Symbolization only runs when a report is printed (on a crash), so this adds
+     nothing to the fuzzing hot path. symbolize=1 is only added to the built-in
+     defaults, but disable_coredump=0 is required for the core file, so it is
+     also appended to a user-supplied ASAN_OPTIONS/UBSAN_OPTIONS (which would
+     otherwise skip the built-in defaults below and never dump a core). */
+
+  {
+
+    u8 *ct = (u8 *)getenv("AFL_CRASH_TRACES");
+    if (ct && atoi((char *)ct)) {
+
+      strcat(default_options, "symbolize=1:disable_coredump=0:");
+
+      if (have_asan_options) {
+
+        u8 buf[2048];
+        snprintf((char *)buf, sizeof(buf), "%s:disable_coredump=0",
+                 (char *)have_asan_options);
+        setenv("ASAN_OPTIONS", (char *)buf, 1);
+
+      }
+
+      if (have_ubsan_options) {
+
+        u8 buf[2048];
+        snprintf((char *)buf, sizeof(buf), "%s:disable_coredump=0",
+                 (char *)have_ubsan_options);
+        setenv("UBSAN_OPTIONS", (char *)buf, 1);
+
+      }
+
+    }
+
+  }
+
   /* Set sane defaults for ASAN if nothing else is specified. */
 
   if (!have_san_options) { setenv("ASAN_OPTIONS", default_options, 1); }
@@ -1066,12 +1105,14 @@ void read_bitmap(u8 *fname, u8 *map, size_t len) {
 
 inline u64 get_cur_time(void) {
 
-  struct timeval tv;
+  struct timespec ts;
 
-  // TO NOT REPLACE WITH clock_gettime!!!
-  gettimeofday(&tv, NULL);
+  // only CLOCK_REALTIME is safe here: MONOTONIC breaks the wall-clock
+  // comparisons, and any _COARSE clock is too low-resolution and wrecks
+  // fuzzing effectiveness by collapsing the per-exec timing
+  clock_gettime(CLOCK_REALTIME, &ts);
 
-  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
+  return (ts.tv_sec * 1000ULL) + (ts.tv_nsec / 1000000);
 
 }
 
@@ -1079,12 +1120,14 @@ inline u64 get_cur_time(void) {
 
 inline u64 get_cur_time_us(void) {
 
-  struct timeval tv;
+  struct timespec ts;
 
-  // TO NOT REPLACE WITH clock_gettime!!!
-  gettimeofday(&tv, NULL);
+  // only CLOCK_REALTIME is safe here: MONOTONIC breaks the wall-clock
+  // comparisons, and any _COARSE clock is too low-resolution and wrecks
+  // fuzzing effectiveness by collapsing the per-exec timing
+  clock_gettime(CLOCK_REALTIME, &ts);
 
-  return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
+  return (ts.tv_sec * 1000000ULL) + (ts.tv_nsec / 1000);
 
 }
 

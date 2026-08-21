@@ -4,7 +4,7 @@
 
    Written by Marc Heuse <mh@mh-sec.de>
 
-   Copyright 2019-2024 AFLplusplus Project. All rights reserved.
+   Copyright 2019-2026 AFLplusplus Project. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include "config.h"
 #include "types.h"
 #include "debug.h"
+#include "afl-network-proxy.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,40 +72,6 @@ void send_forkserver_error(int error) {
 static void __afl_map_shm(void) {
 
   char *id_str = getenv(SHM_ENV_VAR);
-  char *ptr;
-
-  if ((ptr = getenv("AFL_MAP_SIZE")) != NULL) {
-
-    u32 val = atoi(ptr);
-    if (val > 0) __afl_map_size = val;
-
-  }
-
-  if (__afl_map_size > MAP_SIZE) {
-
-    if (__afl_map_size > FS_OPT_MAX_MAPSIZE) {
-
-      fprintf(stderr,
-              "Error: AFL++ tools *require* to set AFL_MAP_SIZE to %u to "
-              "be able to run this instrumented program!\n",
-              __afl_map_size);
-      if (id_str) {
-
-        send_forkserver_error(FS_ERROR_MAP_SIZE);
-        exit(-1);
-
-      }
-
-    } else {
-
-      fprintf(stderr,
-              "Warning: AFL++ tools will need to set AFL_MAP_SIZE to %u to "
-              "be able to run this instrumented program!\n",
-              __afl_map_size);
-
-    }
-
-  }
 
   if (id_str) {
 
@@ -161,21 +128,46 @@ static void __afl_map_shm(void) {
 
 }
 
-/* Fork server logic. */
+/* Fork server logic. Speaks the same protocol as afl-compiler-rt so that the
+   remote target's map size is what afl-fuzz sees. */
 
 static void __afl_start_forkserver(void) {
 
-  u8  tmp[4] = {0, 0, 0, 0};
-  u32 status = 0;
+  u32 version = 0x41464c00 + FS_NEW_VERSION_MAX;
+  u32 status = 0, reply = 0;
 
-  if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
-    status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
-  if (status) status |= (FS_OPT_ENABLED);
-  memcpy(tmp, &status, 4);
+  if (getenv("AFL_OLD_FORKSERVER")) {
 
-  /* Phone home and tell the parent that we're OK. */
+    if (__afl_map_size <= FS_OPT_MAX_MAPSIZE)
+      status |= (FS_OPT_SET_MAPSIZE(__afl_map_size) | FS_OPT_MAPSIZE);
+    if (status) status |= (FS_OPT_ENABLED);
 
-  if (write(FORKSRV_FD + 1, tmp, 4) != 4) return;
+    /* Phone home and tell the parent that we're OK. */
+
+    if (write(FORKSRV_FD + 1, &status, 4) != 4) return;
+
+    return;
+
+  }
+
+  if (write(FORKSRV_FD + 1, &version, 4) != 4) return;
+
+  if (read(FORKSRV_FD, &reply, 4) != 4)
+    FATAL("could not read the forkserver version reply");
+
+  if (reply != (version ^ 0xffffffff))
+    FATAL("wrong forkserver message from the AFL++ tool");
+
+  status = FS_NEW_OPT_MAPSIZE;
+  if (write(FORKSRV_FD + 1, &status, 4) != 4)
+    FATAL("could not send the forkserver options");
+
+  status = __afl_map_size;
+  if (write(FORKSRV_FD + 1, &status, 4) != 4)
+    FATAL("could not send the map size");
+
+  if (write(FORKSRV_FD + 1, &version, 4) != 4)
+    FATAL("could not send the forkserver welcome message");
 
 }
 
@@ -205,18 +197,53 @@ static void __afl_end_testcase(int status) {
 
 }
 
+/* Exchange the protocol header with the server and learn the map size. */
+
+static u32 handshake(int s, u32 max_len) {
+
+  u32 header[3], flags = 0;
+
+#ifdef USE_DEFLATE
+  flags |= AFL_NETWORK_FLAG_DEFLATE;
+#endif
+
+  header[0] = AFL_NETWORK_HELLO;
+  header[1] = flags;
+  header[2] = max_len;
+
+  if (!afl_network_send(s, header, sizeof(header)))
+    FATAL("could not send the client hello");
+
+  if (!afl_network_recv(s, header, sizeof(header)))
+    FATAL("did not receive the server hello");
+
+  if (header[0] != AFL_NETWORK_HELLO)
+    FATAL(
+        "incompatible afl-network-server (protocol 0x%08x, expected 0x%08x), "
+        "update both sides to the same AFL++ version",
+        header[0], AFL_NETWORK_HELLO);
+
+  if (!header[2] || header[2] > FS_OPT_MAX_MAPSIZE)
+    FATAL("server announced an illegal map size of %u", header[2]);
+
+  __afl_map_size = header[2];
+
+  return header[1];
+
+}
+
 /* you just need to modify the while() loop in this main() */
 
 int main(int argc, char *argv[]) {
 
-  u8             *interface, *buf, *ptr;
+  u8             *interface, *buf;
   s32             s = -1;
   struct addrinfo hints, *hres, *aip;
-  u32            *lenptr, max_len = 65536;
+  u32            *lenptr, max_len = 65536, flags;
 #ifdef USE_DEFLATE
-  u8    *buf2;
-  u32   *lenptr1, *lenptr2, buf2_len, compress_len;
-  size_t decompress_len;
+  u8    *buf2 = NULL;
+  size_t buf2_len, decompress_len;
+  u32    compress_len;
 #endif
 
   if (argc < 3 || argc > 4) {
@@ -226,37 +253,29 @@ int main(int argc, char *argv[]) {
     printf(
         "IPv4 and IPv6 are supported, also binding to an interface with "
         "\"%%\"\n");
-    printf("The max-input-size default is %u.\n", max_len);
+    printf("The max-input-size default is %u, the maximum is %u.\n", max_len,
+           AFL_NETWORK_MAX_TESTCASE);
     printf(
-        "The default map size is %u and can be changed with setting "
-        "AFL_MAP_SIZE.\n",
-        __afl_map_size);
+        "The map size is transmitted by afl-network-server, so AFL_MAP_SIZE "
+        "only\nhas to be set there.\n");
     exit(-1);
 
   }
 
   if ((interface = strchr(argv[1], '%')) != NULL) *interface++ = 0;
 
-  if (argc > 3)
-    if ((max_len = atoi(argv[3])) < 0)
-      FATAL("max-input-size may not be negative or larger than 2GB: %s",
-            argv[3]);
+  if (argc > 3) {
 
-  if ((ptr = getenv("AFL_MAP_SIZE")) != NULL)
-    if ((__afl_map_size = atoi(ptr)) < 8)
-      FATAL("illegal map size, may not be < 8 or >= 2^30: %s", ptr);
+    max_len = strtoul(argv[3], NULL, 10);
+    if (max_len < 1 || max_len > AFL_NETWORK_MAX_TESTCASE)
+      FATAL("max-input-size must be between 1 and %u: %s",
+            AFL_NETWORK_MAX_TESTCASE, argv[3]);
+
+  }
 
   if ((buf = malloc(max_len + 4)) == NULL)
     PFATAL("can not allocate %u memory", max_len + 4);
   lenptr = (u32 *)buf;
-
-#ifdef USE_DEFLATE
-  buf2_len = (max_len > __afl_map_size ? max_len : __afl_map_size);
-  if ((buf2 = malloc(buf2_len + 8)) == NULL)
-    PFATAL("can not allocate %u memory", buf2_len + 8);
-  lenptr1 = (u32 *)buf2;
-  lenptr2 = (u32 *)(buf2 + 4);
-#endif
 
   memset(&hints, 0, sizeof(hints));
   hints.ai_socktype = SOCK_STREAM;
@@ -299,117 +318,120 @@ int main(int argc, char *argv[]) {
 
   }
 
-#ifdef USE_DEFLATE
-  struct libdeflate_compressor *compressor;
-  compressor = libdeflate_alloc_compressor(1);
-  struct libdeflate_decompressor *decompressor;
-  decompressor = libdeflate_alloc_decompressor();
-  fprintf(stderr, "Compiled with compression support\n");
-#endif
-
   if (s == -1)
     FATAL("could not connect to target tcp://%s:%s", argv[1], argv[2]);
   else
     fprintf(stderr, "Connected to target tcp://%s:%s\n", argv[1], argv[2]);
 
+  flags = handshake(s, max_len);
+
+  fprintf(stderr, "Coverage map size of the remote target is %u bytes\n",
+          __afl_map_size);
+
+#ifdef USE_DEFLATE
+  struct libdeflate_compressor   *compressor = NULL;
+  struct libdeflate_decompressor *decompressor = NULL;
+
+  if (flags & AFL_NETWORK_FLAG_DEFLATE) {
+
+    size_t bound;
+
+    compressor = libdeflate_alloc_compressor(1);
+    decompressor = libdeflate_alloc_decompressor();
+    if (!compressor || !decompressor) FATAL("libdeflate allocation failed");
+
+    buf2_len = libdeflate_deflate_compress_bound(compressor, max_len);
+    bound = libdeflate_deflate_compress_bound(compressor, __afl_map_size);
+    if (bound > buf2_len) buf2_len = bound;
+
+    if ((buf2 = malloc(buf2_len + 8)) == NULL)
+      PFATAL("can not allocate %zu memory", buf2_len + 8);
+
+    fprintf(stderr, "Using compression\n");
+
+  }
+
+#else
+  if (flags & AFL_NETWORK_FLAG_DEFLATE) FATAL("compression is not compiled in");
+#endif
+
   /* we initialize the shared memory map and start the forkserver */
   __afl_map_shm();
   __afl_start_forkserver();
 
-  int i = 1, j, status, ret, received;
+  int status;
 
-  // fprintf(stderr, "Waiting for first testcase\n");
   while ((*lenptr = __afl_next_testcase(buf + 4, max_len)) > 0) {
 
-    // fprintf(stderr, "Sending testcase with len %u\n", *lenptr);
-#ifdef USE_DEFLATE
-  #ifdef COMPRESS_TESTCASES
+#if defined(USE_DEFLATE) && defined(COMPRESS_TESTCASES)
     // we only compress the testcase if it does not fit in the TCP packet
-    if (*lenptr > 1500 - 20 - 32 - 4) {
+    if (compressor && *lenptr > 1500 - 20 - 32 - 4) {
+
+      u32 clen = (u32)libdeflate_deflate_compress(compressor, buf + 4, *lenptr,
+                                                  buf2 + 8, buf2_len);
+
+      if (!clen) FATAL("compression of the test case failed");
 
       // set highest byte to signify compression
-      *lenptr1 = (*lenptr | 0xff000000);
-      *lenptr2 = (u32)libdeflate_deflate_compress(compressor, buf + 4, *lenptr,
-                                                  buf2 + 8, buf2_len);
-      if (send(s, buf2, *lenptr2 + 8, 0) != *lenptr2 + 8)
+      ((u32 *)buf2)[0] = *lenptr | AFL_NETWORK_COMPRESSED;
+      ((u32 *)buf2)[1] = clen;
+
+      if (!afl_network_send(s, buf2, clen + 8))
         PFATAL("sending test data failed");
-      // fprintf(stderr, "COMPRESS (%u->%u):\n", *lenptr, *lenptr2);
-      // for (u32 i = 0; i < *lenptr; i++)
-      //  fprintf(stderr, "%02x", buf[i + 4]);
-      // fprintf(stderr, "\n");
-      // for (u32 i = 0; i < *lenptr2; i++)
-      //  fprintf(stderr, "%02x", buf2[i + 8]);
-      // fprintf(stderr, "\n");
 
-    } else {
+    } else
 
-  #endif
 #endif
-      if (send(s, buf, *lenptr + 4, 0) != *lenptr + 4)
+    {
+
+      if (!afl_network_send(s, buf, *lenptr + 4))
         PFATAL("sending test data failed");
-#ifdef USE_DEFLATE
-  #ifdef COMPRESS_TESTCASES
-      // fprintf(stderr, "unCOMPRESS (%u)\n", *lenptr);
 
     }
 
-  #endif
-#endif
+    if (!afl_network_recv(s, &status, 4)) FATAL("did not receive waitpid data");
 
-    received = 0;
-    while (received < 4 &&
-           (ret = recv(s, &status + received, 4 - received, 0)) > 0)
-      received += ret;
-    if (received != 4)
-      FATAL("did not receive waitpid data (%d, %d)", received, ret);
-    // fprintf(stderr, "Received status\n");
-
-    received = 0;
 #ifdef USE_DEFLATE
-    while (received < 4 &&
-           (ret = recv(s, &compress_len + received, 4 - received, 0)) > 0)
-      received += ret;
-    if (received != 4)
-      FATAL("did not receive compress_len (%d, %d)", received, ret);
-    // fprintf(stderr, "Received status\n");
+    if (decompressor) {
 
-    received = 0;
-    while (received < compress_len &&
-           (ret = recv(s, buf2 + received, buf2_len - received, 0)) > 0)
-      received += ret;
-    if (received != compress_len)
-      FATAL("did not receive coverage data (%d, %d)", received, ret);
+      if (!afl_network_recv(s, &compress_len, 4))
+        FATAL("did not receive the compressed coverage length");
 
-    if (libdeflate_deflate_decompress(decompressor, buf2, compress_len,
-                                      __afl_area_ptr, __afl_map_size,
-                                      &decompress_len) != LIBDEFLATE_SUCCESS ||
-        decompress_len != __afl_map_size)
-      FATAL("decompression failed");
-      // fprintf(stderr, "DECOMPRESS (%u->%u): ", compress_len, decompress_len);
-      // for (u32 i = 0; i < __afl_map_size; i++) fprintf(stderr, "%02x",
-      // __afl_area_ptr[i]); fprintf(stderr, "\n");
-#else
-    while (received < __afl_map_size &&
-           (ret = recv(s, __afl_area_ptr + received, __afl_map_size - received,
-                       0)) > 0)
-      received += ret;
-    if (received != __afl_map_size)
-      FATAL("did not receive coverage data (%d, %d)", received, ret);
+      if (!compress_len || compress_len > buf2_len)
+        FATAL("received an illegal compressed coverage length of %u",
+              compress_len);
+
+      if (!afl_network_recv(s, buf2, compress_len))
+        FATAL("did not receive coverage data");
+
+      if (libdeflate_deflate_decompress(
+              decompressor, buf2, compress_len, __afl_area_ptr, __afl_map_size,
+              &decompress_len) != LIBDEFLATE_SUCCESS ||
+          decompress_len != __afl_map_size)
+        FATAL("decompression failed");
+
+    } else
+
 #endif
-    // fprintf(stderr, "Received coverage\n");
+    {
+
+      if (!afl_network_recv(s, __afl_area_ptr, __afl_map_size))
+        FATAL("did not receive coverage data");
+
+    }
 
     /* report the test case is done and wait for the next */
     __afl_end_testcase(status);
-    // fprintf(stderr, "Waiting for next testcase %d\n", ++i);
 
   }
 
 #ifdef USE_DEFLATE
-  libdeflate_free_compressor(compressor);
-  libdeflate_free_decompressor(decompressor);
+  if (compressor) libdeflate_free_compressor(compressor);
+  if (decompressor) libdeflate_free_decompressor(decompressor);
   free(buf2);
 #endif
   free(buf);
+  close(s);
 
   return 0;
 

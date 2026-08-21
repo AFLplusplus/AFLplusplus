@@ -64,18 +64,30 @@ with open(".clang-format") as f:
 
 CLANG_FORMAT_PIP = check_clang_format_pip_version()
 
+if shutil.which(CLANG_FORMAT_BIN) is None and CLANG_FORMAT_PIP:
+    CLANG_FORMAT_BIN = os.path.join(
+        os.path.dirname(importlib.util.find_spec('clang_format').origin),
+        'data', 'bin', 'clang-format')
+
 if shutil.which(CLANG_FORMAT_BIN) is None:
     CLANG_FORMAT_BIN = f"clang-format-{CURRENT_LLVM}"
 
-if shutil.which(CLANG_FORMAT_BIN) is None \
-        and CLANG_FORMAT_PIP is False:
+if shutil.which(CLANG_FORMAT_BIN) is None:
+    UNVERSIONED_BIN = shutil.which("clang-format")
+    if UNVERSIONED_BIN is not None:
+        try:
+            UNVERSIONED_VERSION = subprocess.check_output(
+                [UNVERSIONED_BIN, "--version"]).decode("utf-8", "replace")
+        except (OSError, subprocess.SubprocessError):
+            UNVERSIONED_VERSION = ""
+        if f"version {CURRENT_LLVM}." in UNVERSIONED_VERSION:
+            CLANG_FORMAT_BIN = UNVERSIONED_BIN
+
+if shutil.which(CLANG_FORMAT_BIN) is None:
     print(f"[!] clang-format-{CURRENT_LLVM} is needed. Aborted.")
     print(f"Run `pip3 install --break-system-packages \"clang-format=={CURRENT_LLVM}.*\"` \
 to install via pip.")
     exit(1)
-
-if CLANG_FORMAT_PIP:
-    CLANG_FORMAT_BIN = shutil.which("clang-format")
 
 CLANG_FORMAT_VERSION = subprocess.check_output([CLANG_FORMAT_BIN, '--version'])
 
