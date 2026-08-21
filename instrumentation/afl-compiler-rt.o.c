@@ -517,7 +517,11 @@ vp_map_t       *__afl_vp_map;
 vp_map_t       *__afl_vp_map_backup;
 u8              __afl_vp_enabled_fallback;
 u8             *__afl_vp_enabled_ptr = &__afl_vp_enabled_fallback;
+#ifndef __APPLE__
 extern const u8 __afl_vp_instrumented __attribute__((weak));
+#else
+  #include <dlfcn.h>
+#endif
 
 static u8 __afl_cmplog_max_len = 32;  // 16-32
 
@@ -542,7 +546,11 @@ static inline void __afl_vp_refresh_enabled_ptr(void) {
 
 static inline u8 __afl_vp_target_supports_runtime(void) {
 
+#ifdef __APPLE__
+  return (u8)(dlsym(RTLD_DEFAULT, "__afl_vp_instrumented") != NULL);
+#else
   return (u8)((uintptr_t)&__afl_vp_instrumented != 0);
+#endif
 
 }
 
