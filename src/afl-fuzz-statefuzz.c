@@ -242,7 +242,12 @@ u32 state_shelf_cell(afl_state_t *afl, struct queue_entry *q) {
   u32 achieved = q->op_count ? q->op_count : q->len;
   u32 depth_b, cost_b;
 
-  if (achieved > afl->shelf_achieved_max) { afl->shelf_achieved_max = achieved; }
+  if (achieved > afl->shelf_achieved_max) {
+
+    afl->shelf_achieved_max = achieved;
+
+  }
+
   if (q->exec_us > afl->shelf_cost_max) { afl->shelf_cost_max = q->exec_us; }
 
   depth_b = MIN(7U, (u32)((u64)achieved * 8U / (afl->shelf_achieved_max + 1U)));
@@ -524,8 +529,7 @@ u8 state_admission_gate(afl_state_t *afl, void *mem, u32 len) {
       ++survived;
       if (afl->gate_ghost) { afl->gate_ghost[i] = GATE_GHOST_PROVEN; }
 
-    } else if (afl->gate_ghost &&
-               afl->gate_ghost[i] < GATE_GHOST_LEARN) {
+    } else if (afl->gate_ghost && afl->gate_ghost[i] < GATE_GHOST_LEARN) {
 
       if (++afl->gate_ghost[i] == GATE_GHOST_LEARN) { ++afl->gate_learned; }
 
@@ -1027,7 +1031,6 @@ void state_startup_checks(afl_state_t *afl) {
 
 }
 
-
 u8 hw_frontier_check(afl_state_t *afl) {
 
   u8  *trace = afl->fsrv.trace_bits, *hw = afl->hw_bits;
@@ -1267,3 +1270,4 @@ u32 state_score_bits(afl_state_t *afl, struct queue_entry *q) {
   return q->bitmap_size;
 
 }
+

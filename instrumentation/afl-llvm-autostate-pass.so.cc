@@ -70,20 +70,19 @@ class AFLAutoState : public PassInfoMixin<AFLAutoState> {
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
  private:
-  bool        keyOf(Value *ptr, Type *accessTy, std::string &key,
-                    unsigned &width);
-  void        collect(Function &F);
+  bool keyOf(Value *ptr, Type *accessTy, std::string &key, unsigned &width);
+  void collect(Function &F);
   static uint32_t slotOf(const std::string &key);
 
   std::map<std::string, std::set<uint64_t>> consts;
   std::map<std::string, std::set<uint64_t>> stored;
   std::map<std::string, uint64_t>           masks;
-  std::map<std::string, std::string>       bases;
+  std::map<std::string, std::string>        bases;
   std::map<std::string, unsigned>           widths;
-  const DataLayout *dl = nullptr;
-  unsigned min_consts = 3;
-  unsigned min_stores = 0;
-  unsigned max_width = 32;
+  const DataLayout                         *dl = nullptr;
+  unsigned                                  min_consts = 3;
+  unsigned                                  min_stores = 0;
+  unsigned                                  max_width = 32;
 
 };
 
@@ -111,8 +110,8 @@ bool AFLAutoState::keyOf(Value *ptr, Type *accessTy, std::string &key,
     if (ST->isStructTy() && cast<StructType>(ST)->hasName() &&
         GEP->getNumIndices() >= 2) {
 
-      if (auto *last =
-              dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1))) {
+      if (auto *last = dyn_cast<ConstantInt>(
+              GEP->getOperand(GEP->getNumOperands() - 1))) {
 
         key = "f:" + cast<StructType>(ST)->getName().str() + ":" +
               std::to_string(last->getZExtValue());
@@ -128,7 +127,7 @@ bool AFLAutoState::keyOf(Value *ptr, Type *accessTy, std::string &key,
      what a bitfield at the base of a global struct looks like once clang has
      dropped the zero-index GEP. */
 
-  APInt off(dl->getIndexTypeSizeInBits(raw->getType()), 0);
+  APInt  off(dl->getIndexTypeSizeInBits(raw->getType()), 0);
   Value *base = raw->stripAndAccumulateConstantOffsets(*dl, off, true);
 
   if (auto *GV = dyn_cast<GlobalVariable>(base)) {
@@ -292,8 +291,8 @@ void AFLAutoState::collect(Function &F) {
       /* Collect the field extractors: every `and` with a constant mask
          reachable from this load through width and shift operations. */
 
-      std::set<Value *>                seen;
-      std::vector<Value *>             work;
+      std::set<Value *>                         seen;
+      std::vector<Value *>                      work;
       std::vector<std::pair<Value *, uint64_t>> fields;
 
       seen.insert(LD);
@@ -426,10 +425,9 @@ PreservedAnalyses AFLAutoState::run(Module &M, ModuleAnalysisManager &MAM) {
 
     while (pos <= want.size()) {
 
-      size_t next = want.find(',', pos);
-      std::string one = want.substr(pos, next == std::string::npos
-                                             ? std::string::npos
-                                             : next - pos);
+      size_t      next = want.find(',', pos);
+      std::string one = want.substr(
+          pos, next == std::string::npos ? std::string::npos : next - pos);
 
       if (!one.empty() && src.find(one) != std::string::npos) {
 
@@ -449,10 +447,10 @@ PreservedAnalyses AFLAutoState::run(Module &M, ModuleAnalysisManager &MAM) {
 
   dl = &M.getDataLayout();
 
-  LLVMContext  &C = M.getContext();
-  Type         *VoidTy = Type::getVoidTy(C);
-  IntegerType  *Int32Ty = IntegerType::getInt32Ty(C);
-  FunctionType *FT = FunctionType::get(VoidTy, {Int32Ty, Int32Ty}, false);
+  LLVMContext   &C = M.getContext();
+  Type          *VoidTy = Type::getVoidTy(C);
+  IntegerType   *Int32Ty = IntegerType::getInt32Ty(C);
+  FunctionType  *FT = FunctionType::get(VoidTy, {Int32Ty, Int32Ty}, false);
   FunctionCallee Set = M.getOrInsertFunction("afl_autostate_set", FT);
 
   for (auto &F : M) {
@@ -481,7 +479,11 @@ PreservedAnalyses AFLAutoState::run(Module &M, ModuleAnalysisManager &MAM) {
 
   std::map<std::string, std::vector<std::string>> by_base;
 
-  for (auto &k : chosen) { by_base[bases[k]].push_back(k); }
+  for (auto &k : chosen) {
+
+    by_base[bases[k]].push_back(k);
+
+  }
 
   if (chosen.empty()) {
 
@@ -511,12 +513,13 @@ PreservedAnalyses AFLAutoState::run(Module &M, ModuleAnalysisManager &MAM) {
         if (!SI) { continue; }
         std::string base;
         unsigned    width = 0;
-        if (!keyOf(SI->getPointerOperand(),
-                   SI->getValueOperand()->getType(), base, width)) {
+        if (!keyOf(SI->getPointerOperand(), SI->getValueOperand()->getType(),
+                   base, width)) {
 
           continue;
 
         }
+
         if (!SI->getValueOperand()->getType()->isIntegerTy()) { continue; }
         if (!by_base.count(base)) { continue; }
         todo.push_back(SI);
@@ -551,11 +554,7 @@ PreservedAnalyses AFLAutoState::run(Module &M, ModuleAnalysisManager &MAM) {
 
         }
 
-        if (V->getType() != Int32Ty) {
-
-          V = IRB.CreateZExtOrTrunc(V, Int32Ty);
-
-        }
+        if (V->getType() != Int32Ty) { V = IRB.CreateZExtOrTrunc(V, Int32Ty); }
 
         IRB.CreateCall(Set, {ConstantInt::get(Int32Ty, slotOf(key)), V});
         ++stores;
@@ -609,3 +608,4 @@ llvmGetPassPluginInfo() {
           }};
 
 }
+

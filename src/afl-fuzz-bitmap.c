@@ -515,7 +515,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
       ret[len_current++] = ',';
       ret[len_current] = '\0';
 
-      ssize_t size_left = real_max_len - len_current - strlen(",+cov,+vp,+hw,+sig") - 2;
+      ssize_t size_left =
+          real_max_len - len_current - strlen(",+cov,+vp,+hw,+sig") - 2;
       if (is_timeout) { size_left -= strlen(",+tout"); }
       if (unlikely(size_left <= 0)) FATAL("filename got too long");
 

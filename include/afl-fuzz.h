@@ -351,13 +351,13 @@ struct queue_entry {
       hot_off,                          /* harness-declared hot region      */
       hot_len;                          /* harness-declared hot region size */
 
-  u8 shelf_member;                      /* witness of its shelf cell?       */
+  u8  shelf_member;                     /* witness of its shelf cell?       */
   u32 hw_max;                           /* highest raw hit count it drove   */
   u32 info_bitmap;                      /* bitmap_size minus ballast edges  */
-  u8 hw_only;                           /* saved for a high-water alone     */
-  u8 sig_only;                          /* saved for a signature alone      */
-  u8 state_only;                        /* saved for a new state alone      */
-  u8 ijon_only;                         /* saved for an IJON_SET/_INC alone */
+  u8  hw_only;                          /* saved for a high-water alone     */
+  u8  sig_only;                         /* saved for a signature alone      */
+  u8  state_only;                       /* saved for a new state alone      */
+  u8  ijon_only;                        /* saved for an IJON_SET/_INC alone */
 
   double stability,                     /* this entry's own stability in %  */
       info_score;                       /* sum of -log2 p over its edges    */
@@ -1249,10 +1249,10 @@ typedef struct afl_state {
   u64 situation_depth_sum,              /* chain lengths summed over runs   */
       situation_depth_runs;             /* runs that took a transition      */
 
-  u8  *gate_ghost;                      /* per-edge unreproduced-claim tally*/
-  u64  gate_skipped;                    /* candidates rejected without a run*/
-  u32  gate_learned;                    /* edges known to be one-shot       */
-  u64  total_info_bitmap;               /* info_bitmap summed over entries  */
+  u8 *gate_ghost;                       /* per-edge unreproduced-claim tally*/
+  u64 gate_skipped;                     /* candidates rejected without a run*/
+  u32 gate_learned;                     /* edges known to be one-shot       */
+  u64 total_info_bitmap;                /* info_bitmap summed over entries  */
 
   u8 *hw_bits;                          /* per-edge hit-count high-water    */
   u8  hw_admit_off;                     /* high-water may no longer save    */
@@ -1266,13 +1266,13 @@ typedef struct afl_state {
   u32 shelf_achieved_max;               /* largest achievement seen so far  */
   u64 shelf_cost_max;                   /* slowest entry seen so far        */
 
-  u8  *sig_seen;                        /* rare-edge signatures ever seen   */
-  u32  sig_k;                           /* rarest edges in a signature      */
-  u32  sig_max_freq;                    /* an edge this common is not rare  */
-  u32  sig_min_corpus;                  /* traces before the table is used  */
-  u8   sig_admit_off;                   /* signature may no longer save     */
-  u64  sig_only_admits, sig_only_paid;
-  u32  sig_found;                       /* distinct signatures seen         */
+  u8 *sig_seen;                         /* rare-edge signatures ever seen   */
+  u32 sig_k;                            /* rarest edges in a signature      */
+  u32 sig_max_freq;                     /* an edge this common is not rare  */
+  u32 sig_min_corpus;                   /* traces before the table is used  */
+  u8  sig_admit_off;                    /* signature may no longer save     */
+  u64 sig_only_admits, sig_only_paid;
+  u32 sig_found;                        /* distinct signatures seen         */
 
   u32 ijon_cov_bytes;                   /* coverage area of an IJON map     */
   u8  ijon_only_new;                    /* last novelty was IJON_SET only   */

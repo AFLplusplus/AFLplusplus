@@ -415,6 +415,7 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
     ijon_enabled = getenv("AFL_LLVM_AUTOSTATE");
 
   }
+
   if (getenv("AFL_LLVM_DENY_EXEC")) { deny_exec = true; }
   if (getenv("AFL_LLVM_ABORTLIST")) { abort_list = true; }
 
