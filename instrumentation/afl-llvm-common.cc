@@ -40,6 +40,11 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#if LLVM_MAJOR >= 17
+  #include "llvm/TargetParser/Triple.h"
+#else
+  #include "llvm/ADT/Triple.h"
+#endif
 
 #define IS_EXTERN extern
 #include "afl-llvm-common.h"
@@ -1132,12 +1137,27 @@ void createIJONEnabledGlobal(Module &M, Type *Int32Ty) {
 
   if (M.getNamedGlobal("__afl_ijon_enabled")) return;
   Constant *One32 = ConstantInt::get(Int32Ty, 1);
-  // comdat so multiple instrumented TUs each defining it merge to one strong
-  // definition instead of a multiple-definition link error, while still
-  // overriding the runtime's weak __afl_ijon_enabled = 0 default
-  auto *GV = new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
-                                One32, "__afl_ijon_enabled");
-  GV->setComdat(M.getOrInsertComdat("__afl_ijon_enabled"));
+  Triple    T(M.getTargetTriple());
+  if (T.supportsCOMDAT()) {
+
+    // ELF/COFF: comdat so multiple instrumented TUs each defining it merge to
+    // one strong definition instead of a multiple-definition link error, while
+    // still overriding the runtime's weak __afl_ijon_enabled = 0 default.
+    auto *GV = new GlobalVariable(M, Int32Ty, false,
+                                  GlobalValue::ExternalLinkage, One32,
+                                  "__afl_ijon_enabled");
+    GV->setComdat(M.getOrInsertComdat("__afl_ijon_enabled"));
+
+  } else {
+
+    // Mach-O has no COMDATs (attaching one is a fatal backend error). A
+    // weak_odr definition coalesces the per-TU definitions and, because
+    // afl-cc links afl-compiler-rt.o after the user objects, still overrides
+    // the runtime's weak __afl_ijon_enabled = 0 default.
+    new GlobalVariable(M, Int32Ty, false, GlobalValue::WeakODRLinkage, One32,
+                       "__afl_ijon_enabled");
+
+  }
 
 }
 
@@ -1145,12 +1165,27 @@ void createC11EnabledGlobal(Module &M, Type *Int32Ty) {
 
   if (M.getNamedGlobal("__afl_c11_enabled")) return;
   Constant *One32 = ConstantInt::get(Int32Ty, 1);
-  // comdat so multiple instrumented TUs each defining it merge to one strong
-  // definition instead of a multiple-definition link error, while still
-  // overriding the runtime's weak __afl_c11_enabled = 0 default
-  auto *GV = new GlobalVariable(M, Int32Ty, false, GlobalValue::ExternalLinkage,
-                                One32, "__afl_c11_enabled");
-  GV->setComdat(M.getOrInsertComdat("__afl_c11_enabled"));
+  Triple    T(M.getTargetTriple());
+  if (T.supportsCOMDAT()) {
+
+    // ELF/COFF: comdat so multiple instrumented TUs each defining it merge to
+    // one strong definition instead of a multiple-definition link error, while
+    // still overriding the runtime's weak __afl_c11_enabled = 0 default.
+    auto *GV = new GlobalVariable(M, Int32Ty, false,
+                                  GlobalValue::ExternalLinkage, One32,
+                                  "__afl_c11_enabled");
+    GV->setComdat(M.getOrInsertComdat("__afl_c11_enabled"));
+
+  } else {
+
+    // Mach-O has no COMDATs (attaching one is a fatal backend error). A
+    // weak_odr definition coalesces the per-TU definitions and, because
+    // afl-cc links afl-compiler-rt.o after the user objects, still overrides
+    // the runtime's weak __afl_c11_enabled = 0 default.
+    new GlobalVariable(M, Int32Ty, false, GlobalValue::WeakODRLinkage, One32,
+                       "__afl_c11_enabled");
+
+  }
 
 }
 

@@ -197,19 +197,10 @@ PreservedAnalyses IJONInstrumentation::run(Module                &M,
       if (ijon_state_calls > 0) printf(" (IJON_STATE: %d)", ijon_state_calls);
       printf(".\n");
 
-      if (M.getGlobalVariable("__afl_ijon_enabled", true) == nullptr) {
-
-        // Always create __afl_ijon_enabled for IJON memory allocation.
-        // comdat so multiple instrumented TUs merge to one strong definition
-        // instead of a multiple-definition link error.
-        IRBuilder<> IRB(M.getContext());
-        Constant   *One32 = ConstantInt::get(IRB.getInt32Ty(), 1);
-        auto       *GV = new GlobalVariable(M, IRB.getInt32Ty(), false,
-                                            GlobalValue::ExternalLinkage, One32,
-                                            "__afl_ijon_enabled");
-        GV->setComdat(M.getOrInsertComdat("__afl_ijon_enabled"));
-
-      }
+      // Always create __afl_ijon_enabled for IJON memory allocation.  Shared
+      // helper picks comdat (ELF/COFF) vs weak_odr (Mach-O, no COMDAT support).
+      IRBuilder<> IRB(M.getContext());
+      createIJONEnabledGlobal(M, IRB.getInt32Ty());
 
     } else {
 

@@ -39,6 +39,13 @@ test "$SYS" = "x86_64" -o "$SYS" = "amd64" && X86_64=1
 DLOPEN_LIBS=
 test "$(uname -s)" = "Linux" && DLOPEN_LIBS=-ldl
 
+# Prefer the LLVM tools afl-cc was built against; they read both ELF and Mach-O
+# (system objdump/readelf are ELF-only and absent/incompatible on macOS).
+BINDIR=$(../afl-cc --version 2>/dev/null | sed -n 's/^InstalledDir: //p' | head -1)
+test -d "$BINDIR" || BINDIR=
+OBJDUMP=$(command -v "${BINDIR:+$BINDIR/}llvm-objdump" 2>/dev/null || \
+  command -v llvm-objdump 2>/dev/null || command -v objdump 2>/dev/null || true)
+
 WORK=$(mktemp -d /tmp/afl-vp-tests.XXXXXX) || exit 1
 trap 'rm -rf "$WORK"' EXIT HUP INT TERM
 
@@ -438,16 +445,21 @@ int main(void) {
 }
 EOF
 
+  # Count call instructions to the hooks. Match both x86 (call/callq) and
+  # AArch64 (bl) mnemonics so this works on ELF and Mach-O targets alike.
   sites() {
-    objdump -d "$1" |
-      grep -cE 'call.*(__valueprofile_hook|__sanitizer_cov_trace_(const_)?cmp)'
+    "$OBJDUMP" -d "$1" |
+      grep -cE '(bl|call)[a-z]*[[:space:]].*(__valueprofile_hook|__sanitizer_cov_trace_(const_)?cmp)'
   }
 
+  # __sancov_guards section size / 4 = number of coverage points. llvm-objdump
+  # --section-headers prints the size (hex) next to the name on ELF and Mach-O.
   guards() {
     local sz
-    sz=$(readelf -S "$1" | grep -A1 '__sancov_guards' | sed -n 2p |
-      awk '{print $1}')
-    echo $((0x$sz / 4))
+    sz=$("$OBJDUMP" --section-headers "$1" 2>/dev/null |
+      awk '{ for (i = 1; i <= NF; i++) if ($i == "__sancov_guards") print $(i + 1) }' |
+      head -1)
+    test -n "$sz" && echo $((0x$sz / 4)) || echo 0
   }
 
   vp_cc -O0 -fno-inline -o "$d/local_const" "$d/sites.c" 2>/dev/null
@@ -519,11 +531,14 @@ int main(void) {
 }
 EOF
 
+  # __sancov_guards section size / 4 = coverage points; portable across ELF and
+  # Mach-O (readelf is ELF-only and absent on macOS).
   guards() {
     local sz
-    sz=$(readelf -S "$1" | grep -A1 '__sancov_guards' | sed -n 2p |
-      awk '{print $1}')
-    echo $((0x$sz / 4))
+    sz=$("$OBJDUMP" --section-headers "$1" 2>/dev/null |
+      awk '{ for (i = 1; i <= NF; i++) if ($i == "__sancov_guards") print $(i + 1) }' |
+      head -1)
+    test -n "$sz" && echo $((0x$sz / 4)) || echo 0
   }
 
   AFL_QUIET=1 ../afl-clang-fast -O2 -o "$d/sw_plain" "$d/sw.c" 2>/dev/null
@@ -598,10 +613,14 @@ __attribute__((noinline)) int cmp_result(const char *a, const char *b, int n) {
 }
 EOF
 
-  vp_cc -O1 -fno-builtin -S -emit-llvm -o "$d/vp.ll" "$d/t.c" 2>/dev/null
-  AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ../afl-clang-fast -O1 -fno-builtin \
+  # -D_FORTIFY_SOURCE=0: macOS headers rewrite strcpy() to the 3-arg
+  # __strcpy_chk(), which the routine heuristic then classifies as hook_n
+  # instead of the 2-arg hook. Disable fortification so the IR (and thus the
+  # expected hook counts below) is identical on ELF and Mach-O.
+  vp_cc -O1 -fno-builtin -D_FORTIFY_SOURCE=0 -S -emit-llvm -o "$d/vp.ll" "$d/t.c" 2>/dev/null
+  AFL_LLVM_CMPLOG=1 AFL_QUIET=1 ../afl-clang-fast -O1 -fno-builtin -D_FORTIFY_SOURCE=0 \
     -S -emit-llvm -o "$d/cl.ll" "$d/t.c" 2>/dev/null
-  vp_cc -O1 -fno-builtin -S -emit-llvm -o "$d/rvp.ll" "$d/r.c" 2>/dev/null
+  vp_cc -O1 -fno-builtin -D_FORTIFY_SOURCE=0 -S -emit-llvm -o "$d/rvp.ll" "$d/r.c" 2>/dev/null
 
   test -e "$d/vp.ll" -a -e "$d/cl.ll" -a -e "$d/rvp.ll" || {
     bad "routine scope: cannot build IR"
