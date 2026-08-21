@@ -49,9 +49,65 @@ void state_alloc(afl_state_t *afl) {
 
   }
 
-  if (afl->state_mode & STATE_MODE_RARE) {
+  if (afl->state_mode & (STATE_MODE_RARE | STATE_MODE_SIG)) {
 
     afl->edge_corpus_cnt = ck_alloc(map_size * sizeof(u32));
+
+  }
+
+  if (afl->state_mode & STATE_MODE_GATE) {
+
+    afl->gate_ghost = ck_alloc(map_size);
+
+  }
+
+  if (afl->state_mode & STATE_MODE_HIWATER) {
+
+    afl->hw_bits = ck_alloc(map_size);
+    afl->hw_min_count = HW_MIN_COUNT;
+    afl->hw_growth_pct = HW_GROWTH_PCT;
+
+    if (getenv("AFL_HW_MIN_COUNT")) {
+
+      afl->hw_min_count = atoi(getenv("AFL_HW_MIN_COUNT"));
+      if (afl->hw_min_count < 2) { afl->hw_min_count = 2; }
+
+    }
+
+    if (getenv("AFL_HW_GROWTH_PCT")) {
+
+      afl->hw_growth_pct = atoi(getenv("AFL_HW_GROWTH_PCT"));
+
+    }
+
+  }
+
+  if (afl->state_mode & STATE_MODE_SIG) {
+
+    afl->sig_seen = ck_alloc(SIG_MAP_BYTES);
+    afl->sig_k = SIG_DEFAULT_K;
+    afl->sig_max_freq = SIG_MAX_FREQ;
+    afl->sig_min_corpus = SIG_MIN_CORPUS;
+
+    if (getenv("AFL_SIG_MAX_FREQ")) {
+
+      afl->sig_max_freq = atoi(getenv("AFL_SIG_MAX_FREQ"));
+
+    }
+
+    if (getenv("AFL_SIG_MIN_CORPUS")) {
+
+      afl->sig_min_corpus = atoi(getenv("AFL_SIG_MIN_CORPUS"));
+
+    }
+
+    if (getenv("AFL_SIG_K")) {
+
+      afl->sig_k = atoi(getenv("AFL_SIG_K"));
+      if (afl->sig_k < 1) { afl->sig_k = 1; }
+      if (afl->sig_k > SIG_MAX_K) { afl->sig_k = SIG_MAX_K; }
+
+    }
 
   }
 
@@ -84,6 +140,13 @@ void state_free(afl_state_t *afl) {
   if (afl->state_seen) { ck_free(afl->state_seen); }
   if (afl->situation_seen) { ck_free(afl->situation_seen); }
   if (afl->situation_depth) { ck_free(afl->situation_depth); }
+  if (afl->gate_ghost) { ck_free(afl->gate_ghost); }
+  afl->gate_ghost = NULL;
+  if (afl->hw_bits) { ck_free(afl->hw_bits); }
+  if (afl->sig_seen) { ck_free(afl->sig_seen); }
+
+  afl->hw_bits = NULL;
+  afl->sig_seen = NULL;
 
   afl->virgin_state = NULL;
   afl->state_seen = NULL;
@@ -99,14 +162,6 @@ void state_free(afl_state_t *afl) {
   afl->shelf_avg_len = NULL;
   afl->shelf_avg_info = NULL;
   afl->shelf_count = NULL;
-
-}
-
-/* Floor of the base-2 logarithm, 0 for 0. */
-
-static u32 state_ilog2(u64 v) {
-
-  return v ? (63U - (u32)__builtin_clzll(v)) : 0U;
 
 }
 
@@ -184,11 +239,18 @@ u32 state_shelf_cell(afl_state_t *afl, struct queue_entry *q) {
      reports the operation count, which is the quantity depth was always a
      proxy for; without one, fall back to the mutation generation. */
 
-  u32 achieved = q->op_count ? q->op_count : q->depth;
-  u32 depth_b = MIN(7U, state_ilog2(achieved + 1));
-  u32 cost_b = MIN(7U, state_ilog2(1 + q->exec_us / 100));
-  u32 state_b =
-      (afl->state_signal_trusted || q->op_count) ? (q->state_id & 7) : 0;
+  u32 achieved = q->op_count ? q->op_count : q->len;
+  u32 depth_b, cost_b;
+
+  if (achieved > afl->shelf_achieved_max) { afl->shelf_achieved_max = achieved; }
+  if (q->exec_us > afl->shelf_cost_max) { afl->shelf_cost_max = q->exec_us; }
+
+  depth_b = MIN(7U, (u32)((u64)achieved * 8U / (afl->shelf_achieved_max + 1U)));
+  cost_b = MIN(7U, (u32)((u64)q->exec_us * 8U / (afl->shelf_cost_max + 1U)));
+  u32 state_b = (afl->state_signal_trusted || q->op_count || q->sig_only ||
+                 (afl->sig_seen && q->state_id))
+                    ? (q->state_id & 7)
+                    : 0;
 
   return (depth_b * STATE_SHELF_COST_BUCKETS + cost_b) *
              STATE_SHELF_STATE_BUCKETS +
@@ -373,7 +435,33 @@ void state_calibration_stats(afl_state_t *afl, struct queue_entry *q) {
 
   }
 
+  if (unlikely(afl->ballast_bits) && likely(afl->ballast_valid)) {
+
+    u32 info = 0;
+
+    for (i = 0; i < map_size; ++i) {
+
+      if (trace[i] && !afl->ballast_bits[i]) { ++info; }
+
+    }
+
+    q->info_bitmap = info;
+    afl->total_info_bitmap += info;
+
+  }
+
   state_map_record(afl, q);
+
+  if (unlikely(afl->hw_bits)) { q->hw_max = afl->hw_max_last; }
+
+  if (unlikely(afl->sig_seen)) {
+
+    u32 sig = sig_compute(afl);
+
+    if (sig) { q->state_id = sig; }
+
+  }
+
   q->shelf_cell = state_shelf_cell(afl, q);
   state_hot_region(afl, q);
 
@@ -386,15 +474,33 @@ u8 state_admission_gate(afl_state_t *afl, void *mem, u32 len) {
   if (unlikely(!afl->virgin_undo_valid)) { return 1; }
 
   u32 i, map_size = afl->fsrv.map_size;
-  u32 claimed = 0, survived = 0, restored = 0;
+  u32 claimed = 0, survived = 0, restored = 0, fresh = 0;
 
   for (i = 0; i < map_size; ++i) {
 
-    if (unlikely(afl->virgin_undo[i] != afl->virgin_bits[i])) { ++claimed; }
+    if (likely(afl->virgin_undo[i] == afl->virgin_bits[i])) { continue; }
+
+    ++claimed;
+
+    if (likely(!afl->gate_ghost) || afl->gate_ghost[i] < GATE_GHOST_LEARN ||
+        afl->gate_ghost[i] == GATE_GHOST_PROVEN) {
+
+      ++fresh;
+
+    }
 
   }
 
   if (unlikely(!claimed)) { return 1; }
+
+  if (unlikely(!fresh)) {
+
+    virgin_undo_rollback(afl, NULL);
+    ++afl->gate_rejected;
+    ++afl->gate_skipped;
+    return 0;
+
+  }
 
   void *gate_mem = mem;
 
@@ -412,7 +518,18 @@ u8 state_admission_gate(afl_state_t *afl, void *mem, u32 len) {
   for (i = 0; i < map_size; ++i) {
 
     if (likely(afl->virgin_undo[i] == afl->virgin_bits[i])) { continue; }
-    if (afl->fsrv.trace_bits[i]) { ++survived; }
+
+    if (afl->fsrv.trace_bits[i]) {
+
+      ++survived;
+      if (afl->gate_ghost) { afl->gate_ghost[i] = GATE_GHOST_PROVEN; }
+
+    } else if (afl->gate_ghost &&
+               afl->gate_ghost[i] < GATE_GHOST_LEARN) {
+
+      if (++afl->gate_ghost[i] == GATE_GHOST_LEARN) { ++afl->gate_learned; }
+
+    }
 
   }
 
@@ -910,3 +1027,243 @@ void state_startup_checks(afl_state_t *afl) {
 
 }
 
+
+u8 hw_frontier_check(afl_state_t *afl) {
+
+  u8  *trace = afl->fsrv.trace_bits, *hw = afl->hw_bits;
+  u64 *tw = (u64 *)trace;
+  u32  map_size = afl->fsrv.map_size;
+  u32  w, b, words = map_size >> 3;
+  u32  floor_cnt = afl->hw_min_count, growth = afl->hw_growth_pct;
+  u8   improved = 0;
+
+  for (w = 0; w <= words; ++w) {
+
+    u32 base = w << 3, top = MIN(base + 8, map_size);
+
+    if (w < words && likely(!tw[w])) { continue; }
+
+    for (b = base; b < top; ++b) {
+
+      u32 c = trace[b], prev = hw[b];
+
+      if (likely(c <= prev)) { continue; }
+      if (c < floor_cnt) { continue; }
+      if (prev && c * 100 < prev * (100 + growth) + 100) { continue; }
+
+      if (!prev) { ++afl->hw_slots; }
+
+      hw[b] = (u8)c;
+      ++afl->hw_credits;
+      improved = 1;
+
+    }
+
+  }
+
+  return improved;
+
+}
+
+void hw_absorb(afl_state_t *afl) {
+
+  u8  *trace = afl->fsrv.trace_bits, *hw = afl->hw_bits;
+  u64 *tw = (u64 *)trace;
+  u32  map_size = afl->fsrv.map_size;
+  u32  w, b, words = map_size >> 3;
+
+  afl->hw_max_last = 0;
+
+  for (w = 0; w <= words; ++w) {
+
+    u32 base = w << 3, top = MIN(base + 8, map_size);
+
+    if (w < words && likely(!tw[w])) { continue; }
+
+    for (b = base; b < top; ++b) {
+
+      if (unlikely(trace[b] > afl->hw_max_last)) {
+
+        afl->hw_max_last = trace[b];
+
+      }
+
+      if (unlikely(trace[b] > hw[b])) {
+
+        if (!hw[b]) { ++afl->hw_slots; }
+        hw[b] = trace[b];
+
+      }
+
+    }
+
+  }
+
+}
+
+void hw_admit_bound(afl_state_t *afl) {
+
+  u32 cap = (u32)afl->afl_env.afl_state_admit_pct;
+
+  if (!cap || afl->hw_admit_off) { return; }
+  if (afl->queued_items < STATE_ADMIT_MIN_ITEMS) { return; }
+  if (afl->hw_only_admits * 100 < (u64)afl->queued_items * cap) { return; }
+
+  if (afl->hw_only_admits >= STATE_YIELD_MIN_SAMPLE) {
+
+    u32 yield = (u32)afl->afl_env.afl_state_yield_pct;
+
+    if (yield && afl->hw_only_paid * 100 >= afl->hw_only_admits * yield) {
+
+      return;
+
+    }
+
+  }
+
+  afl->hw_admit_off = 1;
+
+  WARNF(
+      "hit-count high-water switched off for saving: it had created %u%% of "
+      "the queue\n    and only %llu of its %llu entries went on to find "
+      "anything.",
+      cap, afl->hw_only_paid, afl->hw_only_admits);
+
+}
+
+u32 sig_compute(afl_state_t *afl) {
+
+  u8  *trace = afl->fsrv.trace_bits;
+  u64 *tw = (u64 *)trace;
+  u32 *freq = afl->edge_corpus_cnt;
+  u32  map_size = afl->fsrv.map_size;
+  u32  w, b, words = map_size >> 3;
+  u32  k = afl->sig_k, n = 0;
+  u32  best_idx[SIG_MAX_K];
+  u32  best_frq[SIG_MAX_K];
+  u32  h = 0x811c9dc5U, i, j;
+
+  if (unlikely(!freq) || afl->corpus_trace_cnt < afl->sig_min_corpus) {
+
+    return 0;
+
+  }
+
+  for (w = 0; w <= words; ++w) {
+
+    u32 base = w << 3, top = MIN(base + 8, map_size);
+
+    if (w < words && likely(!tw[w])) { continue; }
+
+    for (b = base; b < top; ++b) {
+
+      if (likely(!trace[b])) { continue; }
+
+      u32 fq = freq[b];
+
+      if (fq > afl->sig_max_freq) { continue; }
+      if (n == k && fq >= best_frq[n - 1]) { continue; }
+
+      for (i = 0; i < n && best_frq[i] <= fq; ++i) {}
+
+      for (j = MIN(n, k - 1); j > i; --j) {
+
+        best_frq[j] = best_frq[j - 1];
+        best_idx[j] = best_idx[j - 1];
+
+      }
+
+      best_frq[i] = fq;
+      best_idx[i] = b;
+      if (n < k) { ++n; }
+
+    }
+
+  }
+
+  if (!n) { return 0; }
+
+  for (i = 0; i < n; ++i) {
+
+    for (j = i + 1; j < n; ++j) {
+
+      if (best_idx[j] < best_idx[i]) {
+
+        u32 t = best_idx[i];
+        best_idx[i] = best_idx[j];
+        best_idx[j] = t;
+
+      }
+
+    }
+
+  }
+
+  for (i = 0; i < n; ++i) {
+
+    h ^= best_idx[i];
+    h *= 0x01000193U;
+
+  }
+
+  return h ? h : 1;
+
+}
+
+u8 sig_is_new(afl_state_t *afl, u32 sig) {
+
+  u32 idx;
+
+  if (!sig || !afl->sig_seen) { return 0; }
+
+  idx = sig & ((1U << SIG_MAP_BITS) - 1U);
+
+  if (afl->sig_seen[idx >> 3] & (1U << (idx & 7))) { return 0; }
+
+  afl->sig_seen[idx >> 3] |= (u8)(1U << (idx & 7));
+  ++afl->sig_found;
+
+  return 1;
+
+}
+
+void sig_admit_bound(afl_state_t *afl) {
+
+  u32 cap = (u32)afl->afl_env.afl_state_admit_pct;
+
+  if (!cap || afl->sig_admit_off) { return; }
+  if (afl->queued_items < STATE_ADMIT_MIN_ITEMS) { return; }
+  if (afl->sig_only_admits * 100 < (u64)afl->queued_items * cap) { return; }
+
+  if (afl->sig_only_admits >= STATE_YIELD_MIN_SAMPLE) {
+
+    u32 yield = (u32)afl->afl_env.afl_state_yield_pct;
+
+    if (yield && afl->sig_only_paid * 100 >= afl->sig_only_admits * yield) {
+
+      return;
+
+    }
+
+  }
+
+  afl->sig_admit_off = 1;
+
+  WARNF(
+      "rare-edge signature switched off for saving: it had created %u%% of the "
+      "queue\n    and only %llu of its %llu entries went on to find anything.",
+      cap, afl->sig_only_paid, afl->sig_only_admits);
+
+}
+
+u32 state_score_bits(afl_state_t *afl, struct queue_entry *q) {
+
+  if (unlikely(afl->state_mode & STATE_MODE_BALLAST) && q->info_bitmap > 1) {
+
+    return q->info_bitmap;
+
+  }
+
+  return q->bitmap_size;
+
+}

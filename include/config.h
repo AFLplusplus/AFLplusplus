@@ -584,6 +584,19 @@ We add 4 byte for one u32 length field. */
 #define STATE_ADMIT_PCT 25U
 
 /* Queue entries needed before the share above means anything */
+#define HW_MIN_COUNT 8U
+#define HW_GROWTH_PCT 25U
+#define SIG_DEFAULT_K 3U
+#define SIG_MAX_K 8U
+#define GATE_GHOST_LEARN 3U
+#define GATE_GHOST_PROVEN 255U
+
+#define STATE_UTILITY_HYSTERESIS 15U
+#define SIG_MIN_CORPUS 200U
+#define SIG_MAX_FREQ 8U
+#define SIG_MAP_BITS 20U
+#define SIG_MAP_BYTES (1U << (SIG_MAP_BITS - 3))
+
 #define STATE_ADMIT_MIN_ITEMS 200U
 
 /* Percent of state-only entries that must have gone on to mother a coverage

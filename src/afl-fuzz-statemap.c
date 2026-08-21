@@ -565,6 +565,49 @@ static u32 state_probe_build(afl_state_t *afl, u8 **probe_out,
 
   }
 
+  if (likely(afl->queued_items > 1)) {
+
+    u32 tries;
+
+    for (tries = 0; tries < 16; ++tries) {
+
+      struct queue_entry *donor =
+          afl->queue_buf[rand_below(afl, afl->queued_items)];
+
+      if (!donor || donor->disabled || donor->len < 2) { continue; }
+
+      u32 take = MIN((u32)STATE_PROBE_MAX_LEN, donor->len);
+      u32 off;
+
+      if (take > 1) { take = 1 + rand_below(afl, take); }
+      off = donor->len - take;
+
+      s32 fd = open(donor->fname, O_RDONLY);
+
+      if (fd < 0) { continue; }
+
+      u8 *probe = ck_alloc(take);
+
+      if (read(fd, probe, 0) < 0) {}
+
+      if (lseek(fd, off, SEEK_SET) == (off_t)-1 ||
+          read(fd, probe, take) != (ssize_t)take) {
+
+        close(fd);
+        ck_free(probe);
+        continue;
+
+      }
+
+      close(fd);
+      *probe_out = probe;
+
+      return take;
+
+    }
+
+  }
+
   u32 probe_len = 1 + rand_below(afl, 32);
   u8 *probe = ck_alloc(probe_len);
 
@@ -610,8 +653,19 @@ static u8 state_probe_run(afl_state_t *afl, u8 *buf, u32 len,
   classify_counts(&afl->fsrv);
 
   *novel_out = has_new_bits(afl, virgin_scratch) ? 1 : 0;
-  *state_out = afl->shm.state_map->cur_state;
-  *trans_out = afl->shm.state_map->transitions;
+
+  if (unlikely(!afl->shm.state_map)) {
+
+    *state_out = sig_compute(afl);
+    *trans_out = count_bytes(afl, afl->fsrv.trace_bits);
+
+  } else {
+
+    *state_out = afl->shm.state_map->cur_state;
+    *trans_out = afl->shm.state_map->transitions;
+
+  }
+
   *fault_out = (u8)fault;
 
   return 1;
@@ -624,7 +678,7 @@ static u8 state_probe_run(afl_state_t *afl, u8 *buf, u32 len,
 
 const char *state_signal_str(afl_state_t *afl) {
 
-  if (!afl->shm.state_map) { return "unsupported"; }
+  if (!afl->shm.state_map && !afl->sig_seen) { return "unsupported"; }
   if (afl->state_signal_trusted) { return "trusted"; }
   if (afl->state_utility_status == STATE_UTIL_IGNORED) {
 
@@ -760,8 +814,10 @@ static u8 state_utility_due(afl_state_t *afl, u32 cands) {
 
 void state_utility_test(afl_state_t *afl) {
 
-  if (likely(!(afl->state_mode & STATE_MODE_SMAP))) { return; }
-  if (!afl->shm.state_map || !afl->virgin_state) { return; }
+  u8 use_sig = (afl->sig_seen && !afl->shm.state_map) ? 1 : 0;
+
+  if (likely(!(afl->state_mode & STATE_MODE_SMAP)) && !use_sig) { return; }
+  if (!use_sig && (!afl->shm.state_map || !afl->virgin_state)) { return; }
   if (!afl->fsrv.fsrv_pid || afl->stop_soon) { return; }
 
   if (afl->state_utility_last_ms &&
@@ -1062,9 +1118,45 @@ void state_utility_test(afl_state_t *afl) {
                       ? (u32)afl->afl_env.afl_state_utility_threshold
                       : STATE_UTILITY_THRESHOLD;
 
-  u8 was_trusted = afl->state_signal_trusted;
+  u8  was_trusted = afl->state_signal_trusted;
+  u32 drop = threshold > STATE_UTILITY_HYSTERESIS
+                 ? threshold - STATE_UTILITY_HYSTERESIS
+                 : 0;
 
-  if (afl->state_utility_pct >= (double)threshold) {
+  /* A 32-pair estimate is noisy enough to cross the threshold both ways on
+     consecutive tests, and every crossing re-keys the shelf. Hysteresis alone
+     did not stop it, so a change of verdict also has to be voted for twice in
+     a row before it is applied. */
+
+  u8 want = (afl->state_utility_pct >= (double)threshold ||
+             (was_trusted && afl->state_utility_pct >= (double)drop))
+                ? 1
+                : 0;
+
+  if (want == was_trusted) {
+
+    afl->state_trust_votes = 0;
+
+  } else if (afl->state_trust_pending == want) {
+
+    ++afl->state_trust_votes;
+
+  } else {
+
+    afl->state_trust_pending = want;
+    afl->state_trust_votes = 1;
+
+  }
+
+  if (want != was_trusted && afl->state_trust_votes < 2 && !first_verdict) {
+
+    return;
+
+  }
+
+  afl->state_trust_votes = 0;
+
+  if (want) {
 
     afl->state_signal_trusted = 1;
 

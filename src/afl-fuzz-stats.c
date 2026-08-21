@@ -607,6 +607,9 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       if (afl->state_mode & STATE_MODE_BENCH) { mode_str[mp++] = 'b'; }
       if (afl->state_mode & STATE_MODE_HOT) { mode_str[mp++] = 'h'; }
       if (afl->state_mode & STATE_MODE_WATCHDOG) { mode_str[mp++] = 'w'; }
+      if (afl->state_mode & STATE_MODE_HIWATER) { mode_str[mp++] = 'm'; }
+      if (afl->state_mode & STATE_MODE_SIG) { mode_str[mp++] = 'i'; }
+      if (afl->state_mode & STATE_MODE_BALLAST) { mode_str[mp++] = 'a'; }
       mode_str[mp] = 0;
 
       fprintf(f,
@@ -624,8 +627,11 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       fprintf(f,
               "gate_checked      : %llu\n"
               "gate_rejected     : %llu\n"
-              "gate_partial      : %llu\n",
-              afl->gate_checked, afl->gate_rejected, afl->gate_partial);
+              "gate_partial      : %llu\n"
+              "gate_skipped      : %llu\n"
+              "gate_learned      : %u\n",
+              afl->gate_checked, afl->gate_rejected, afl->gate_partial,
+              afl->gate_skipped, afl->gate_learned);
 
     }
 
@@ -724,7 +730,32 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
     }
 
-    if (afl->state_mode & STATE_MODE_SMAP) {
+    if (afl->hw_bits) {
+
+      fprintf(f,
+              "hw_only_saves     : %llu\n"
+              "hw_only_paid      : %llu\n"
+              "hw_credits        : %llu\n"
+              "hw_slots          : %u\n"
+              "hw_admit_off      : %u\n",
+              afl->hw_only_admits, afl->hw_only_paid, afl->hw_credits,
+              afl->hw_slots, afl->hw_admit_off);
+
+    }
+
+    if (afl->sig_seen) {
+
+      fprintf(f,
+              "sig_only_saves    : %llu\n"
+              "sig_only_paid     : %llu\n"
+              "sig_found         : %u\n"
+              "sig_admit_off     : %u\n",
+              afl->sig_only_admits, afl->sig_only_paid, afl->sig_found,
+              afl->sig_admit_off);
+
+    }
+
+    if ((afl->state_mode & STATE_MODE_SMAP) || afl->sig_seen) {
 
       fprintf(f,
               "state_signal      : %s\n"

@@ -92,6 +92,8 @@ static const u8 count_class_lookup8[256] = {
    - 8th bit: timeout marker */
 #define NEW_BITS_COVERAGE_MASK 0x03
 #define NEW_BITS_VP_MASK 0x04
+#define NEW_BITS_HW_MASK 0x08
+#define NEW_BITS_SIG_MASK 0x10
 #define NEW_BITS_TIMEOUT_MASK 0x80
 
 /* Write bitmap to file. The bitmap is useful mostly for the secret
@@ -467,6 +469,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   u8 is_timeout = (new_bits & NEW_BITS_TIMEOUT_MASK) ? 1 : 0;
   u8 is_vp = (new_bits & NEW_BITS_VP_MASK) ? 1 : 0;
+  u8 is_hw = (new_bits & NEW_BITS_HW_MASK) ? 1 : 0;
+  u8 is_sig = (new_bits & NEW_BITS_SIG_MASK) ? 1 : 0;
   u8 cov_bits = new_bits & NEW_BITS_COVERAGE_MASK;
   u8 san_crash_only = (afl->san_case_status & SAN_CRASH_ONLY);
   u8 non_cov_incr = (afl->san_case_status & NON_COV_INCREASE_BUG);
@@ -511,7 +515,7 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
       ret[len_current++] = ',';
       ret[len_current] = '\0';
 
-      ssize_t size_left = real_max_len - len_current - strlen(",+cov,+vp") - 2;
+      ssize_t size_left = real_max_len - len_current - strlen(",+cov,+vp,+hw,+sig") - 2;
       if (is_timeout) { size_left -= strlen(",+tout"); }
       if (unlikely(size_left <= 0)) FATAL("filename got too long");
 
@@ -563,6 +567,10 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
   if (cov_bits == 2) { strcat(ret, ",+cov"); }
 
   if (is_vp) { strcat(ret, ",+vp"); }
+
+  if (is_hw) { strcat(ret, ",+hw"); }
+
+  if (is_sig) { strcat(ret, ",+sig"); }
 
   if (san_crash_only) { strcat(ret, ",+san"); }
 
@@ -984,6 +992,9 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8 *queue_fn = "";
   u8  keeping = 0, res, is_timeout = 0, vp_entry = 0, vp_sample_ready = 0;
   u8  state_entry = 0;
+  u8  hw_entry = 0, hw_new = 0;
+  u8  sig_entry = 0, sig_new = 0;
+  u32 sig_val = 0;
   u8  ijon_entry = 0;
   u8  is_crash_save = 0;
   u8  vp_restore_suppressed = 0;
@@ -1003,6 +1014,19 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
      clobber it. Reporting sees every execution; the map that admission is
      decided against is only touched once the utility test says the state
      definition is worth believing. */
+
+  if (unlikely(afl->hw_bits) && likely(fault == afl->crash_mode)) {
+
+    hw_new = hw_frontier_check(afl);
+
+  }
+
+  if (unlikely(afl->sig_seen) && likely(fault == afl->crash_mode)) {
+
+    sig_val = sig_compute(afl);
+    if (sig_val) { sig_new = sig_is_new(afl, sig_val); }
+
+  }
 
   if (unlikely(afl->state_mode & STATE_MODE_SMAP)) {
 
@@ -1204,6 +1228,22 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
         }
 
+        if (unlikely(hw_new) && likely(!afl->hw_admit_off)) {
+
+          new_bits |= NEW_BITS_HW_MASK;
+          hw_entry = 1;
+          goto save_to_queue;
+
+        }
+
+        if (unlikely(sig_new) && likely(!afl->sig_admit_off)) {
+
+          new_bits |= NEW_BITS_SIG_MASK;
+          sig_entry = 1;
+          goto save_to_queue;
+
+        }
+
         /* A state transition nothing has reached before is a reason to keep
            an input, but only once the utility test has shown that inputs the
            state definition calls identical really do behave identically. */
@@ -1342,6 +1382,30 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       afl->cycles_wo_finds = saved_cycles_wo_finds;
       vp_mark_entry_vp_only(afl, afl->queue_top);
       afl->queue_top->vp_last_ref_cycle = afl->queue_cycle;
+
+    }
+
+    if (unlikely(hw_entry)) {
+
+      afl->queue_top->hw_only = 1;
+      ++afl->hw_only_admits;
+      hw_admit_bound(afl);
+
+    } else if (unlikely(afl->queue_cur && afl->queue_cur->hw_only)) {
+
+      ++afl->hw_only_paid;
+
+    }
+
+    if (unlikely(sig_entry)) {
+
+      afl->queue_top->sig_only = 1;
+      ++afl->sig_only_admits;
+      sig_admit_bound(afl);
+
+    } else if (unlikely(afl->queue_cur && afl->queue_cur->sig_only)) {
+
+      ++afl->sig_only_paid;
 
     }
 

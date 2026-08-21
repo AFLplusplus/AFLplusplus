@@ -263,11 +263,11 @@ fi
 # The watchdog letter only exists when AFL_TARGET_WATCHDOG is compiled in.
 if grep -qE '^#define AFL_TARGET_WATCHDOG' ../include/config.h; then
 
-  WANT_MODE="gprdscbhw"
+  WANT_MODE="gprdscbhwmia"
 
 else
 
-  WANT_MODE="gprdscbh"
+  WANT_MODE="gprdscbhmia"
 
 fi
 

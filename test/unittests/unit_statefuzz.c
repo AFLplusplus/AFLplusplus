@@ -341,10 +341,13 @@ static void test_shelf_cell_separates_depth(void **unused) {
   struct queue_entry *shallow = add_entry();
   struct queue_entry *deep = add_entry();
 
-  shallow->depth = 1;
+  shallow->len = 8;
   shallow->exec_us = 100;
-  deep->depth = 500;
+  deep->len = 4000;
   deep->exec_us = 100;
+
+  state_shelf_cell(afl, shallow);
+  state_shelf_cell(afl, deep);
 
   u32 a = state_shelf_cell(afl, shallow);
   u32 b = state_shelf_cell(afl, deep);
@@ -365,10 +368,13 @@ static void test_shelf_cell_separates_cost(void **unused) {
   struct queue_entry *fast = add_entry();
   struct queue_entry *slow = add_entry();
 
-  fast->depth = 4;
+  fast->len = 4;
   fast->exec_us = 10;
-  slow->depth = 4;
+  slow->len = 4;
   slow->exec_us = 900000;
+
+  state_shelf_cell(afl, fast);
+  state_shelf_cell(afl, slow);
 
   assert_int_not_equal(state_shelf_cell(afl, fast),
                        state_shelf_cell(afl, slow));
@@ -385,7 +391,7 @@ static void test_shelf_cell_ignores_state_until_trusted(void **unused) {
   struct queue_entry *a = add_entry();
   struct queue_entry *b = add_entry();
 
-  a->depth = b->depth = 4;
+  a->len = b->len = 4;
   a->exec_us = b->exec_us = 100;
   a->state_id = 1;
   b->state_id = 2;

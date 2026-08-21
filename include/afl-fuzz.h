@@ -352,6 +352,10 @@ struct queue_entry {
       hot_len;                          /* harness-declared hot region size */
 
   u8 shelf_member;                      /* witness of its shelf cell?       */
+  u32 hw_max;                           /* highest raw hit count it drove   */
+  u32 info_bitmap;                      /* bitmap_size minus ballast edges  */
+  u8 hw_only;                           /* saved for a high-water alone     */
+  u8 sig_only;                          /* saved for a signature alone      */
   u8 state_only;                        /* saved for a new state alone      */
   u8 ijon_only;                         /* saved for an IJON_SET/_INC alone */
 
@@ -1151,10 +1155,13 @@ typedef struct afl_state {
 #define STATE_MODE_BENCH 0x0040U    /* b - one-shot cost benchmark          */
 #define STATE_MODE_HOT 0x0080U      /* h - aimed havoc                      */
 #define STATE_MODE_WATCHDOG 0x0100U /* w - target-side hang watchdog        */
+#define STATE_MODE_HIWATER 0x0200U  /* m - hit-count high-water channel     */
+#define STATE_MODE_SIG 0x0400U      /* i - rare-edge signature state id     */
+#define STATE_MODE_BALLAST 0x0800U  /* a - ballast-adjusted scoring          */
 #ifdef AFL_TARGET_WATCHDOG
-  #define STATE_MODE_ALL 0x01ffU
+  #define STATE_MODE_ALL 0x0fffU
 #else
-  #define STATE_MODE_ALL 0x00ffU
+  #define STATE_MODE_ALL 0x0effU
 #endif
 
 #define STATE_SHELF_DEPTH_BUCKETS 8U /* deep-input shelf geometry: input    */
@@ -1197,6 +1204,8 @@ typedef struct afl_state {
       contract_failed,                  /* harness self-check found a diff  */
       state_bench_done,                 /* cost benchmark has run           */
       state_utility_status,             /* STATE_UTIL_*, why no verdict     */
+      state_trust_pending,              /* verdict awaiting a second vote   */
+      state_trust_votes,                /* consecutive tests agreeing on it */
       sit_unsupported;                  /* target keeps no situation list   */
 
   u8 *ballast_bits,                     /* edges hit by every input         */
@@ -1239,6 +1248,31 @@ typedef struct afl_state {
       situation_depth_max;              /* longest situation chain in a run */
   u64 situation_depth_sum,              /* chain lengths summed over runs   */
       situation_depth_runs;             /* runs that took a transition      */
+
+  u8  *gate_ghost;                      /* per-edge unreproduced-claim tally*/
+  u64  gate_skipped;                    /* candidates rejected without a run*/
+  u32  gate_learned;                    /* edges known to be one-shot       */
+  u64  total_info_bitmap;               /* info_bitmap summed over entries  */
+
+  u8 *hw_bits;                          /* per-edge hit-count high-water    */
+  u8  hw_admit_off;                     /* high-water may no longer save    */
+  u32 hw_min_count;                     /* smallest count worth crediting   */
+  u32 hw_growth_pct;                    /* growth a credit must show        */
+  u64 hw_only_admits,                   /* entries saved for high-water     */
+      hw_only_paid,                     /* of those, ones that found edges  */
+      hw_credits;                       /* slots credited over the run      */
+  u32 hw_slots;                         /* slots that ever carried a level  */
+  u32 hw_max_last;                      /* highest count of the last absorb */
+  u32 shelf_achieved_max;               /* largest achievement seen so far  */
+  u64 shelf_cost_max;                   /* slowest entry seen so far        */
+
+  u8  *sig_seen;                        /* rare-edge signatures ever seen   */
+  u32  sig_k;                           /* rarest edges in a signature      */
+  u32  sig_max_freq;                    /* an edge this common is not rare  */
+  u32  sig_min_corpus;                  /* traces before the table is used  */
+  u8   sig_admit_off;                   /* signature may no longer save     */
+  u64  sig_only_admits, sig_only_paid;
+  u32  sig_found;                       /* distinct signatures seen         */
 
   u32 ijon_cov_bytes;                   /* coverage area of an IJON map     */
   u8  ijon_only_new;                    /* last novelty was IJON_SET only   */
@@ -1788,6 +1822,13 @@ void state_alloc(afl_state_t *);
 void state_free(afl_state_t *);
 void state_startup_checks(afl_state_t *);
 void state_ballast_fold(afl_state_t *);
+u8   hw_frontier_check(afl_state_t *);
+void hw_absorb(afl_state_t *);
+void hw_admit_bound(afl_state_t *);
+u32  state_score_bits(afl_state_t *, struct queue_entry *);
+u32  sig_compute(afl_state_t *);
+u8   sig_is_new(afl_state_t *, u32);
+void sig_admit_bound(afl_state_t *);
 void state_calibration_stats(afl_state_t *, struct queue_entry *);
 u32  state_shelf_cell(afl_state_t *, struct queue_entry *);
 u8   state_admission_gate(afl_state_t *, void *, u32);

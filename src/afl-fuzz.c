@@ -342,6 +342,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  r=rare-edge scoring, d=deep-input shelf,\n"
       "                  s=state map from IJON annotations,\n"
       "                  c=harness self-check, b=execution cost benchmark,\n"
+      "                  m=hit-count high-water, i=rare-edge signature,\n"
+      "                  a=ballast-adjusted scoring,\n"
 #ifdef AFL_TARGET_WATCHDOG
       "                  h=aimed havoc, w=hang watchdog\n"
 #else
@@ -987,6 +989,18 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
               case 'h':
               case 'H':
                 afl->state_mode |= STATE_MODE_HOT;
+                break;
+              case 'm':
+              case 'M':
+                afl->state_mode |= STATE_MODE_HIWATER;
+                break;
+              case 'i':
+              case 'I':
+                afl->state_mode |= STATE_MODE_SIG;
+                break;
+              case 'a':
+              case 'A':
+                afl->state_mode |= STATE_MODE_BALLAST;
                 break;
               case 'w':
               case 'W':

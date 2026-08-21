@@ -386,7 +386,7 @@ void create_alias_table(afl_state_t *afl) {
 
         } else {
 
-          P[i] = log(q->bitmap_size);
+          P[i] = log(state_score_bits(afl, q));
 
         }
 
@@ -1711,11 +1711,11 @@ static void state_shelf_rebuild(afl_state_t *afl) {
 
     q->shelf_member = 0;
 
-    if (unlikely(q->disabled) || q->shelf_cell >= STATE_SHELF_CELLS) {
+    if (unlikely(q->disabled)) { continue; }
 
-      continue;
+    q->shelf_cell = state_shelf_cell(afl, q);
 
-    }
+    if (q->shelf_cell >= STATE_SHELF_CELLS) { continue; }
 
     struct queue_entry **w = &afl->shelf[q->shelf_cell * STATE_SHELF_WITNESSES];
 
@@ -1740,7 +1740,15 @@ static void state_shelf_rebuild(afl_state_t *afl) {
 
     }
 
-    if (!w[3] || q->bitmap_size > w[3]->bitmap_size) { w[3] = q; }
+    u32 q_work = q->op_count ? q->op_count : q->len;
+    u32 w3_work = w[3] ? (w[3]->op_count ? w[3]->op_count : w[3]->len) : 0;
+
+    if (!w[3] || q_work > w3_work ||
+        (q_work == w3_work && q->exec_us > w[3]->exec_us)) {
+
+      w[3] = q;
+
+    }
 
   }
 
@@ -1978,6 +1986,15 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   u32 avg_exec_us = afl->total_cal_us / cal_cycles;
   u32 avg_bitmap_size = afl->total_bitmap_size / bitmap_entries;
+
+  if (unlikely(afl->state_mode & STATE_MODE_BALLAST) &&
+      afl->total_info_bitmap > bitmap_entries) {
+
+    avg_bitmap_size = (u32)(afl->total_info_bitmap / bitmap_entries);
+
+  }
+
+  u32 score_bits = state_score_bits(afl, q);
   u32 perf_score = 100;
 
   /* Adjust score based on execution speed of this path, compared to the
@@ -2029,27 +2046,27 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   /* Adjust score based on bitmap size. The working theory is that better
      coverage translates to better targets. Multiplier from 0.25x to 3x. */
 
-  if (q->bitmap_size * 0.3 > avg_bitmap_size) {
+  if (score_bits * 0.3 > avg_bitmap_size) {
 
     perf_score *= 3;
 
-  } else if (q->bitmap_size * 0.5 > avg_bitmap_size) {
+  } else if (score_bits * 0.5 > avg_bitmap_size) {
 
     perf_score *= 2;
 
-  } else if (q->bitmap_size * 0.75 > avg_bitmap_size) {
+  } else if (score_bits * 0.75 > avg_bitmap_size) {
 
     perf_score *= 1.5;
 
-  } else if (q->bitmap_size * 3 < avg_bitmap_size) {
+  } else if (score_bits * 3 < avg_bitmap_size) {
 
     perf_score *= 0.25;
 
-  } else if (q->bitmap_size * 2 < avg_bitmap_size) {
+  } else if (score_bits * 2 < avg_bitmap_size) {
 
     perf_score *= 0.5;
 
-  } else if (q->bitmap_size * 1.5 < avg_bitmap_size) {
+  } else if (score_bits * 1.5 < avg_bitmap_size) {
 
     perf_score *= 0.75;
 

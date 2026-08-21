@@ -560,7 +560,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     cull_queue(afl);               // update favored entries
     afl_advance_queue_cycle(afl);  // start a new cycle when queue is exhausted
-    if (unlikely(afl->state_mode & STATE_MODE_SMAP)) {
+    if (unlikely((afl->state_mode & STATE_MODE_SMAP) || afl->sig_seen)) {
 
       state_utility_test(afl);  // retest the state signal as the corpus grows
 

@@ -5807,6 +5807,61 @@ void ijon_min_variadic(uint32_t addr, ...) {
 
 }
 
+/* Automatic state context, AFL_LLVM_AUTOSTATE.
+
+   The compiler pass gives every state-like variable it found a slot and calls
+   here on each store. The situation is the current tuple of those slots, kept
+   as an XOR of per-slot hashes so an update is O(1) and the result depends on
+   the values held, not on the order they were written in. */
+
+#define AFL_AUTOSTATE_SLOTS 256U
+
+static u32 __afl_autostate_slot[AFL_AUTOSTATE_SLOTS];
+static u32 __afl_autostate_digest;
+u64        __afl_autostate_updates;
+
+static inline u32 __afl_autostate_mix(u32 slot, u32 val) {
+
+  u32 h = slot * 0x9e3779b1u;
+
+  h ^= val + 0x85ebca6bu;
+  h *= 0xc2b2ae35u;
+  h ^= h >> 15;
+
+  return h;
+
+}
+
+static void __afl_state_advance(u32 prev);
+
+void afl_autostate_set(uint32_t slot, uint32_t val) {
+
+  slot %= AFL_AUTOSTATE_SLOTS;
+
+  u32 old = __afl_autostate_slot[slot];
+
+  if (likely(old == val)) { return; }
+
+  __afl_autostate_slot[slot] = val;
+  __afl_autostate_digest ^=
+      __afl_autostate_mix(slot, old) ^ __afl_autostate_mix(slot, val);
+  ++__afl_autostate_updates;
+
+  u32 prev = __afl_ijon_state;
+
+  __afl_ijon_state = __afl_autostate_digest % (u32)MAP_SIZE_IJON_MAP;
+
+  if (prev != __afl_ijon_state) { __afl_state_advance(prev); }
+
+}
+
+void afl_autostate_reset(void) {
+
+  memset(__afl_autostate_slot, 0, sizeof(__afl_autostate_slot));
+  __afl_autostate_digest = 0;
+
+}
+
 /* IJON state management functions */
 
 void ijon_xor_state(uint32_t val) {
@@ -5814,7 +5869,15 @@ void ijon_xor_state(uint32_t val) {
   uint32_t prev = __afl_ijon_state;
   __afl_ijon_state = (__afl_ijon_state ^ val) % (u32)MAP_SIZE_IJON_MAP;
 
-  if (likely(__afl_state_map != NULL)) {
+  __afl_state_advance(prev);
+
+}
+
+static void __afl_state_advance(u32 prev) {
+
+  {
+
+    if (likely(__afl_state_map != NULL)) {
 
     uint32_t idx =
         state_transition_index(prev, __afl_ijon_state, __afl_state_action);
@@ -5845,6 +5908,8 @@ void ijon_xor_state(uint32_t val) {
     __afl_state_map->cur_state = __afl_ijon_state;
     __afl_state_map->transitions++;
 
+    }
+
   }
 
 }
@@ -5853,6 +5918,7 @@ void ijon_reset_state(void) {
 
   __afl_ijon_state = 0;
   __afl_ijon_state_log = 0;
+  afl_autostate_reset();
   __afl_state_map_reset();
 
 }
