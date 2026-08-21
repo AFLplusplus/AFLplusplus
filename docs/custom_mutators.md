@@ -51,6 +51,8 @@ unsigned int afl_custom_fuzz_count(void *data, const unsigned char *buf, size_t 
 void afl_custom_splice_optout(void *data);
 size_t afl_custom_fuzz(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, unsigned char *add_buf, size_t add_buf_size, size_t max_size);
 const char *afl_custom_describe(void *data, size_t max_description_len);
+unsigned char afl_custom_describe_state(void *data, const unsigned char *buf, size_t buf_size, unsigned int *ops, unsigned int *state_id);
+unsigned int afl_custom_state_probe(void *data, unsigned char *out_buf, unsigned int max_len);
 size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf);
 int afl_custom_init_trim(void *data, unsigned char *buf, size_t buf_size);
 size_t afl_custom_trim(void *data, unsigned char **out_buf);
@@ -155,6 +157,11 @@ def deinit():  # optional for Python
     one mutation result.
     For non-Python: the returned output buffer is under **your** memory
     management!
+    If you implement `describe_state` but not `state_probe` (see below), `-Js`
+    also calls this method with a `buf_size` of 0 to build the probe action of
+    its state utility test, so handle an empty input gracefully - generating
+    from nothing, or returning 0 to decline, in which case AFL++ falls back to
+    random bytes.
 
 - `describe` (optional):
 
@@ -219,6 +226,61 @@ def deinit():  # optional for Python
 - `deinit` (optional in Python):
 
     The last method to be called, deinitializing the state.
+
+- `describe_state` (optional):
+
+    Report what an input *does* and what state it leaves the target in. Called
+    once per queue entry, at calibration time, with the entry's bytes. Fill in
+    `ops` with the number of operations the input performs and `state_id` with
+    an id for the state it ends in; return 1 if you filled them in, 0 to say
+    nothing about this input. Only useful for a mutator that understands the
+    input format.
+
+    AFL++ uses `ops` wherever it would otherwise use the mutation depth - which
+    counts generations from a seed, not work done - so an input that performs
+    more operations is no longer judged as merely longer and slower. It uses
+    `state_id` to keep inputs that reach different states from competing with
+    each other for the same queue slot (see `-Jd` in
+    [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md)), and to group
+    inputs for the state utility test.
+
+    **The id must be coarse.** It names a class of situations, not a path: a
+    digest of the live object store - which handles are open, which flags are
+    set - and nothing that carries the order or the number of the operations
+    that got there. An id that changes on almost every input makes almost every
+    input a find; the queue then fills with everything and the search becomes
+    random. AFL++ bounds that damage (`AFL_STATE_ADMIT_PCT`) but it cannot
+    repair a signal that carries no information. If you are unsure, start with
+    a bitmap of "which slots are live" and nothing else.
+
+    `custom_mutators/state_records/state_records.c` implements this over its
+    record format, with `STATE_RECORDS_DIGEST` selecting how much is folded in,
+    so the effect of a finer digest can be measured rather than argued.
+
+    With `AFL_STATE_PLUGIN_ADMIT=1` a state class nothing has reached before
+    also becomes a reason to save an input, on the same footing as new
+    coverage. That is off by default: it is the setting that can hurt if the
+    digest is too fine.
+
+- `state_probe` (optional):
+
+    Build one action in your input format and write it into `out_buf`, at most
+    `max_len` bytes; return how many you wrote, or 0 to decline.
+
+    `afl-fuzz -Js` uses this for the test that decides whether it may trust its
+    state signal: it gives two inputs it believes are in the same state the same
+    next action and checks that they behave the same. Without a mutator the
+    action is random bytes, which is only a valid action for a format in which a
+    bare byte string parses as a *new* operation — in any format that frames
+    records with a separator the bytes are read as more payload for the record
+    already there, no operation happens, and the test can never reach a verdict.
+    Implementing this makes the test work on your format.
+
+    It is called outside the mutation loop, at most once per test, with no queue
+    entry selected, so do not rely on `queue_get` state. If it is absent but
+    `describe_state` is present, `fuzz` is called with a `buf_size` of 0
+    instead. `custom_mutators/state_records/state_records.c` implements it as
+    one or two freshly generated records.
 
 Note that there are also three functions for trimming as described in the next
 section.
@@ -380,6 +442,16 @@ afl-fuzz /path/to/program
 
 See [example.c](../custom_mutators/examples/example.c) and
 [example.py](../custom_mutators/examples/example.py).
+
+For a stateful target, where an input is better understood as a list of
+operations than as a byte string, see
+[state_records](../custom_mutators/state_records/README.md). It ships a wire
+format, a mutator that works at record granularity, a record-granular trimmer
+via `afl_custom_trim`, splicing that only cuts between records, and a harness
+template. Its README also documents the two framing rules it exists to obey -
+never put a length or item count at the front of the input, and never let a
+bare length field be the only record separator - both of which are measured,
+not stylistic. See [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md).
 
 ## 5) Other Resources
 

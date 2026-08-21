@@ -43,6 +43,13 @@ u8 run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
 
 }
 
+void run_afl_custom_describe_state(afl_state_t *afl, struct queue_entry *q,
+                                   u8 *mem, u32 len) {
+
+  return;
+
+}
+
 #endif
 
 static inline u8 rand_schedule(afl_state_t *afl, u8 schedule) {
@@ -352,6 +359,17 @@ void create_alias_table(afl_state_t *afl) {
     double avg_len = 0.0;
     double inv_range = 0.0;
     u32    active = 0, c11_min = UINT_MAX, c11_max = 0;
+    u8     rare_score = (afl->state_mode & STATE_MODE_RARE) != 0;
+    u8     cell_score = (afl->state_mode & STATE_MODE_DEEP) && afl->shelf_count;
+
+    if (unlikely(cell_score)) {
+
+      memset(afl->shelf_avg_exec_us, 0, STATE_SHELF_CELLS * sizeof(double));
+      memset(afl->shelf_avg_len, 0, STATE_SHELF_CELLS * sizeof(double));
+      memset(afl->shelf_avg_info, 0, STATE_SHELF_CELLS * sizeof(double));
+      memset(afl->shelf_count, 0, STATE_SHELF_CELLS * sizeof(u32));
+
+    }
 
     for (i = 0; i < n; i++) {
 
@@ -361,10 +379,32 @@ void create_alias_table(afl_state_t *afl) {
       if (likely(!q->disabled)) {
 
         avg_exec_us += q->exec_us;
-        P[i] = log(q->bitmap_size);
+
+        if (unlikely(rare_score) && q->info_score > 0.0) {
+
+          P[i] = log(1.0 + q->info_score);
+
+        } else {
+
+          P[i] = log(state_score_bits(afl, q));
+
+        }
+
         avg_bitmap_size += P[i];
         avg_len += q->len;
         total_len += q->len;
+
+        if (unlikely(cell_score) && q->shelf_cell < STATE_SHELF_CELLS) {
+
+          u32 cell = q->shelf_cell;
+
+          afl->shelf_avg_exec_us[cell] += (double)q->exec_us;
+          afl->shelf_avg_len[cell] += (double)q->len;
+          afl->shelf_avg_info[cell] += P[i];
+          ++afl->shelf_count[cell];
+
+        }
+
         if (unlikely(q->c11)) {
 
           if (unlikely(q->c11 < c11_min)) c11_min = q->c11;
@@ -400,6 +440,24 @@ void create_alias_table(afl_state_t *afl) {
     avg_bitmap_size /= active;
     avg_len /= active;
 
+    if (unlikely(cell_score)) {
+
+      u32 c;
+
+      for (c = 0; c < STATE_SHELF_CELLS; c++) {
+
+        if (afl->shelf_count[c]) {
+
+          afl->shelf_avg_exec_us[c] /= afl->shelf_count[c];
+          afl->shelf_avg_len[c] /= afl->shelf_count[c];
+          afl->shelf_avg_info[c] /= afl->shelf_count[c];
+
+        }
+
+      }
+
+    }
+
     if (unlikely(afl->schedule == COE)) {
 
       update_coe_fuzz_mu(afl);
@@ -423,6 +481,34 @@ void create_alias_table(afl_state_t *afl) {
         double weight = 1.0;
         {  // inline does result in a compile error with LTO, weird
 
+          double ref_exec_us = avg_exec_us, ref_len = avg_len,
+                 ref_bitmap_size = avg_bitmap_size;
+
+          if (unlikely(cell_score) && q->shelf_cell < STATE_SHELF_CELLS &&
+              afl->shelf_count[q->shelf_cell] >= 2) {
+
+            u32 cell = q->shelf_cell;
+
+            if (afl->shelf_avg_exec_us[cell] > 0.0) {
+
+              ref_exec_us = afl->shelf_avg_exec_us[cell];
+
+            }
+
+            if (afl->shelf_avg_len[cell] > 0.0) {
+
+              ref_len = afl->shelf_avg_len[cell];
+
+            }
+
+            if (rare_score && afl->shelf_avg_info[cell] > 0.0) {
+
+              ref_bitmap_size = afl->shelf_avg_info[cell];
+
+            }
+
+          }
+
           if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {
 
             u32 hits = afl->n_fuzz[q->n_fuzz_entry];
@@ -432,7 +518,7 @@ void create_alias_table(afl_state_t *afl) {
 
           if (likely(afl->schedule < RARE)) {
 
-            double t = q->exec_us / avg_exec_us;
+            double t = q->exec_us / ref_exec_us;
 
             if (likely(t < 0.1)) {
 
@@ -481,7 +567,7 @@ void create_alias_table(afl_state_t *afl) {
 
           }
 
-          double l = q->len / avg_len;
+          double l = q->len / ref_len;
           if (likely(l < 0.1)) {
 
             weight *= 0.5;
@@ -523,7 +609,7 @@ void create_alias_table(afl_state_t *afl) {
 
           }
 
-          double bms = P[i] / avg_bitmap_size;
+          double bms = P[i] / ref_bitmap_size;
           if (likely(bms < 0.1)) {
 
             weight *= 0.01;
@@ -1568,6 +1654,160 @@ static void minimize_queue_disable(afl_state_t *afl) {
 
 }
 
+/* Recompute info_score from trace_mini for the entries that still hold one. */
+
+static void state_refresh_info_scores(afl_state_t *afl) {
+
+  u32    i, b, len = (afl->fsrv.map_size + 7) >> 3;
+  double total = (double)afl->corpus_trace_cnt;
+
+  for (i = 0; i < afl->queued_items; i++) {
+
+    struct queue_entry *q = afl->queue_buf[i];
+    double              info = 0.0;
+
+    if (!q->trace_mini || unlikely(q->disabled)) { continue; }
+
+    for (b = 0; b < len; b++) {
+
+      u32 bits = q->trace_mini[b];
+
+      while (bits) {
+
+        u32 idx = (b << 3) + __builtin_ctz(bits);
+
+        bits &= bits - 1;
+
+        if (likely(idx < afl->fsrv.map_size)) {
+
+          info += log2(total / (double)MAX(1U, afl->edge_corpus_cnt[idx]));
+
+        }
+
+      }
+
+    }
+
+    q->info_score = info;
+
+  }
+
+}
+
+/* Rebuild the per-cell witness shelf from the live queue entries. */
+
+static void state_shelf_rebuild(afl_state_t *afl) {
+
+  u32 i;
+  u8  use_stability = (afl->state_mode & STATE_MODE_PROBE) != 0;
+
+  memset(
+      afl->shelf, 0,
+      STATE_SHELF_CELLS * STATE_SHELF_WITNESSES * sizeof(struct queue_entry *));
+
+  for (i = 0; i < afl->queued_items; i++) {
+
+    struct queue_entry *q = afl->queue_buf[i];
+
+    q->shelf_member = 0;
+
+    if (unlikely(q->disabled)) { continue; }
+
+    q->shelf_cell = state_shelf_cell(afl, q);
+
+    if (q->shelf_cell >= STATE_SHELF_CELLS) { continue; }
+
+    struct queue_entry **w = &afl->shelf[q->shelf_cell * STATE_SHELF_WITNESSES];
+
+    if (!w[0] || q->len < w[0]->len) { w[0] = q; }
+    if (!w[1] || q->exec_us < w[1]->exec_us) { w[1] = q; }
+
+    if (use_stability) {
+
+      if (!w[2] ||
+          (q->stability > 0.0 &&
+           (w[2]->stability == 0.0 || q->stability > w[2]->stability)) ||
+          (q->stability == 0.0 && w[2]->stability == 0.0 &&
+           q->bitmap_size > w[2]->bitmap_size)) {
+
+        w[2] = q;
+
+      }
+
+    } else if (!w[2] || q->bitmap_size > w[2]->bitmap_size) {
+
+      w[2] = q;
+
+    }
+
+    u32 q_work = q->op_count ? q->op_count : q->len;
+    u32 w3_work = w[3] ? (w[3]->op_count ? w[3]->op_count : w[3]->len) : 0;
+
+    if (!w[3] || q_work > w3_work ||
+        (q_work == w3_work && q->exec_us > w[3]->exec_us)) {
+
+      w[3] = q;
+
+    }
+
+  }
+
+  /* Counted here rather than in create_alias_table(), which only reaches its
+     per-cell block for schedules below RARE - the count belongs with the
+     witnesses it is reported next to. */
+
+  u32 c, used = 0;
+
+  for (c = 0; c < STATE_SHELF_CELLS; c++) {
+
+    if (afl->shelf[c * STATE_SHELF_WITNESSES]) { ++used; }
+
+  }
+
+  afl->shelf_cells_used = used;
+
+}
+
+/* Favor every live shelf witness, on the same terms as a set-cover winner. */
+
+static void state_shelf_favor(afl_state_t *afl) {
+
+  u32 i, cnt = STATE_SHELF_CELLS * STATE_SHELF_WITNESSES;
+
+  afl->shelf_members = 0;
+
+  for (i = 0; i < cnt; i++) {
+
+    struct queue_entry *q = afl->shelf[i];
+
+    if (!q || q->shelf_member || q->disabled) { continue; }
+
+    q->shelf_member = 1;
+    ++afl->shelf_members;
+
+    if (!q->favored) {
+
+      q->favored = 1;
+      ++afl->queued_favored;
+
+      if (!q->was_fuzzed) {
+
+        ++afl->pending_favored;
+        if (unlikely(afl->smallest_favored < 0 ||
+                     afl->smallest_favored > (s64)q->id)) {
+
+          afl->smallest_favored = (s64)q->id;
+
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
 /* The second part of the mechanism discussed above is a routine that
    goes over afl->top_rated[] entries, and then sequentially grabs winners for
    previously-unseen bytes (temp_v) and marks them as favored, at least
@@ -1644,6 +1884,19 @@ inline void cull_queue(afl_state_t *afl) {
 
   }
 
+  if (unlikely((afl->state_mode & STATE_MODE_RARE) && afl->edge_corpus_cnt &&
+               afl->corpus_trace_cnt)) {
+
+    state_refresh_info_scores(afl);
+
+  }
+
+  if (unlikely((afl->state_mode & STATE_MODE_DEEP) && afl->shelf)) {
+
+    state_shelf_rebuild(afl);
+
+  }
+
   /* Let's see if anything in the bitmap isn't captured in temp_v.
      If yes, and if it has a afl->top_rated[] contender, let's use it. */
 
@@ -1691,6 +1944,12 @@ inline void cull_queue(afl_state_t *afl) {
 
   }
 
+  if (unlikely((afl->state_mode & STATE_MODE_DEEP) && afl->shelf)) {
+
+    state_shelf_favor(afl);
+
+  }
+
   for (i = 0; i < afl->queued_items; i++) {
 
     if (vp_favoring_active) {
@@ -1727,6 +1986,15 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
 
   u32 avg_exec_us = afl->total_cal_us / cal_cycles;
   u32 avg_bitmap_size = afl->total_bitmap_size / bitmap_entries;
+
+  if (unlikely(afl->state_mode & STATE_MODE_BALLAST) &&
+      afl->total_info_bitmap > bitmap_entries) {
+
+    avg_bitmap_size = (u32)(afl->total_info_bitmap / bitmap_entries);
+
+  }
+
+  u32 score_bits = state_score_bits(afl, q);
   u32 perf_score = 100;
 
   /* Adjust score based on execution speed of this path, compared to the
@@ -1778,27 +2046,27 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   /* Adjust score based on bitmap size. The working theory is that better
      coverage translates to better targets. Multiplier from 0.25x to 3x. */
 
-  if (q->bitmap_size * 0.3 > avg_bitmap_size) {
+  if (score_bits * 0.3 > avg_bitmap_size) {
 
     perf_score *= 3;
 
-  } else if (q->bitmap_size * 0.5 > avg_bitmap_size) {
+  } else if (score_bits * 0.5 > avg_bitmap_size) {
 
     perf_score *= 2;
 
-  } else if (q->bitmap_size * 0.75 > avg_bitmap_size) {
+  } else if (score_bits * 0.75 > avg_bitmap_size) {
 
     perf_score *= 1.5;
 
-  } else if (q->bitmap_size * 3 < avg_bitmap_size) {
+  } else if (score_bits * 3 < avg_bitmap_size) {
 
     perf_score *= 0.25;
 
-  } else if (q->bitmap_size * 2 < avg_bitmap_size) {
+  } else if (score_bits * 2 < avg_bitmap_size) {
 
     perf_score *= 0.5;
 
-  } else if (q->bitmap_size * 1.5 < avg_bitmap_size) {
+  } else if (score_bits * 1.5 < avg_bitmap_size) {
 
     perf_score *= 0.75;
 

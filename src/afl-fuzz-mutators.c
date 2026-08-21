@@ -33,6 +33,42 @@ struct custom_mutator *load_custom_mutator(afl_state_t *, const char *);
 struct custom_mutator *load_custom_mutator_py(afl_state_t *, char *);
 #endif
 
+/* Ask the mutators to describe the state an entry reaches. The first one that
+   answers wins; a mutator that knows nothing about this input says so by
+   returning 0 and the entry keeps whatever the instrumentation reported. */
+
+void run_afl_custom_describe_state(afl_state_t *afl, struct queue_entry *q,
+                                   u8 *mem, u32 len) {
+
+  if (likely(!afl->custom_mutators_count) || unlikely(!q) || unlikely(!mem)) {
+
+    return;
+
+  }
+
+  LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+    if (el->afl_custom_describe_state) {
+
+      u32 ops = 0;
+      u32 state_id = 0;
+
+      if (el->afl_custom_describe_state(el->data, mem, (size_t)len, &ops,
+                                        &state_id)) {
+
+        q->op_count = ops;
+        if (state_id) { q->state_id = state_id; }
+        ++afl->plugin_state_described;
+        return;
+
+      }
+
+    }
+
+  });
+
+}
+
 u8 run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
                                   u8 *fname, u8 *mother_fname) {
 
@@ -475,6 +511,47 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   } else {
 
     OKF("Found 'afl_custom_describe'.");
+
+  }
+
+  /* "afl_custom_describe_state", optional */
+  mutator->afl_custom_describe_state = dlsym(dh, "afl_custom_describe_state");
+  if (!mutator->afl_custom_describe_state) {
+
+    ACTF("optional symbol 'afl_custom_describe_state' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_describe_state'.");
+
+  }
+
+  /* "afl_custom_state_probe", optional - but with a state map attached a
+     missing hook is very unlikely to be intentional, and an info line is too
+     easy to miss in a launch log. */
+  mutator->afl_custom_state_probe = dlsym(dh, "afl_custom_state_probe");
+  if (!mutator->afl_custom_state_probe) {
+
+    if (afl->state_mode & STATE_MODE_SMAP) {
+
+      WARNF(
+          "optional symbol 'afl_custom_state_probe' not found in %s, while -Js "
+          "asks\n    for a state signal. Its utility test falls back to random "
+          "bytes, which a\n    record format reads as more payload for the "
+          "record already there - no\n    action is performed and the test "
+          "reaches no verdict. If this mutator does\n    implement the hook, "
+          "the .so is stale: rebuild it.",
+          fn);
+
+    } else {
+
+      ACTF("optional symbol 'afl_custom_state_probe' not found.");
+
+    }
+
+  } else {
+
+    OKF("Found 'afl_custom_state_probe'.");
 
   }
 

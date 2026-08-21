@@ -340,6 +340,28 @@ struct queue_entry {
      flag instead of letting the favoured set grow monotonically. */
   u32 tightness_novel_cycle;            /* cycle when tightness_novel set   */
 
+  /* State fuzzing mode (-J). var_edge_cnt and var_hit_cnt are this entry's
+     own variance, unlike afl->var_bytes which is cumulative over the corpus
+     and must stay that way. */
+  u32 var_edge_cnt,                     /* own edges that came and went     */
+      var_hit_cnt,                      /* own edges with wobbly hit count  */
+      state_id,                         /* state after the last calibration */
+      op_count,                         /* operations performed, 0=unknown  */
+      shelf_cell,                       /* deep-input shelf cell            */
+      hot_off,                          /* harness-declared hot region      */
+      hot_len;                          /* harness-declared hot region size */
+
+  u8 shelf_member;                      /* witness of its shelf cell?       */
+  u32 hw_max;                           /* highest raw hit count it drove   */
+  u32 info_bitmap;                      /* bitmap_size minus ballast edges  */
+  u8 hw_only;                           /* saved for a high-water alone     */
+  u8 sig_only;                          /* saved for a signature alone      */
+  u8 state_only;                        /* saved for a new state alone      */
+  u8 ijon_only;                         /* saved for an IJON_SET/_INC alone */
+
+  double stability,                     /* this entry's own stability in %  */
+      info_score;                       /* sum of -log2 p over its edges    */
+
 };
 
 typedef struct {
@@ -611,7 +633,8 @@ typedef struct afl_env_vars {
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
       afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
       afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled,
-      afl_crash_traces, afl_starved_minimize_queue;
+      afl_crash_traces, afl_starved_minimize_queue, afl_time_accounting,
+      afl_no_state_map;
 
   u16 afl_forksrv_nb_supl_gids;
 
@@ -622,7 +645,10 @@ typedef struct afl_env_vars {
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
       *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
 
-  s32 afl_pizza_mode, afl_ijon_history_limit;
+  s32 afl_pizza_mode, afl_ijon_history_limit, afl_state_probe_runs,
+      afl_state_utility_threshold, afl_state_utility_retry, afl_hot_bias,
+      afl_watchdog_ms, afl_state_admit_pct, afl_state_coarse,
+      afl_state_yield_pct, afl_ijon_admit_pct;
 
   uid_t afl_forksrv_uid;
 
@@ -1118,6 +1144,158 @@ typedef struct afl_state {
   s32 fr_fd;
 #endif
 
+  /* --- state fuzzing mode (-J), see docs/fuzzing_stateful_targets.md --- */
+
+#define STATE_MODE_GATE 0x0001U     /* g - double-run gate before saving    */
+#define STATE_MODE_PROBE 0x0002U    /* p - per-input stability, repeat probe*/
+#define STATE_MODE_RARE 0x0004U     /* r - rare-edge scoring                */
+#define STATE_MODE_DEEP 0x0008U     /* d - deep-input shelf                 */
+#define STATE_MODE_SMAP 0x0010U     /* s - state map from IJON annotations  */
+#define STATE_MODE_CONTRACT 0x0020U /* c - harness self-check at startup    */
+#define STATE_MODE_BENCH 0x0040U    /* b - one-shot cost benchmark          */
+#define STATE_MODE_HOT 0x0080U      /* h - aimed havoc                      */
+#define STATE_MODE_WATCHDOG 0x0100U /* w - target-side hang watchdog        */
+#define STATE_MODE_HIWATER 0x0200U  /* m - hit-count high-water channel     */
+#define STATE_MODE_SIG 0x0400U      /* i - rare-edge signature state id     */
+#define STATE_MODE_BALLAST 0x0800U  /* a - ballast-adjusted scoring          */
+#ifdef AFL_TARGET_WATCHDOG
+  #define STATE_MODE_ALL 0x0fffU
+#else
+  #define STATE_MODE_ALL 0x0effU
+#endif
+
+#define STATE_SHELF_DEPTH_BUCKETS 8U /* deep-input shelf geometry: input    */
+#define STATE_SHELF_COST_BUCKETS 8U  /* length x exec cost x state count,   */
+#define STATE_SHELF_STATE_BUCKETS 8U /* each entry competing only in its    */
+#define STATE_SHELF_CELLS                                 \
+  (STATE_SHELF_DEPTH_BUCKETS * STATE_SHELF_COST_BUCKETS * \
+   STATE_SHELF_STATE_BUCKETS)
+#define STATE_SHELF_WITNESSES 4U /* own cell, this many winners per cell    */
+
+#define STATE_UTILITY_MIN_ENTRIES 20U /* corpus size before the state       */
+#define STATE_UTILITY_MIN_PAIRS 8U    /* signal is tested, and the pair     */
+#define STATE_UTILITY_MAX_PAIRS 32U   /* sample size of one test, repeated  */
+#define STATE_UTILITY_CYCLES 8U       /* every this many queue cycles or    */
+#define STATE_UTILITY_RETRY_MS 60000U /* this often once there is more to   */
+#define STATE_UTILITY_MIN_EXECS 4096U /* test, and never before this many   */
+                                      /* more executions: one test costs at */
+                                      /* most 6 runs per pair, so it stays  */
+                                      /* under 5% of them                   */
+#define STATE_PROBE_MAX_LEN 512U      /* cap on a mutator-built probe       */
+
+  /* Why the state signal has no verdict, so that a state_util_pairs of 0 names
+     its own cause: a probe the target ignores is a format problem, too few
+     same-state entries is a timing one. */
+
+#define STATE_UTIL_UNTESTED 0      /* the test has not run yet              */
+#define STATE_UTIL_FEW_ENTRIES 1   /* too few entries carry a state id      */
+#define STATE_UTIL_FEW_PAIRS 2     /* too few same-state pairs formed       */
+#define STATE_UTIL_IGNORED 3       /* pairs formed, the probe did nothing   */
+#define STATE_UTIL_TESTED 4        /* a verdict was reached                 */
+
+  u32 state_mode;                       /* STATE_MODE_* bitmask, 0 = off    */
+  u32 hot_bias;                         /* % of havoc aimed at the hot span */
+  u32 hot_off_cur, hot_len_cur;         /* hot span of afl->queue_cur       */
+
+  u8 time_accounting,                   /* measure target vs total time     */
+      state_signal_trusted,             /* state signal passed its test     */
+      ballast_valid,                    /* ballast_bits has a first sample  */
+      contract_checked,                 /* harness self-check has run       */
+      contract_failed,                  /* harness self-check found a diff  */
+      state_bench_done,                 /* cost benchmark has run           */
+      state_utility_status,             /* STATE_UTIL_*, why no verdict     */
+      state_trust_pending,              /* verdict awaiting a second vote   */
+      state_trust_votes,                /* consecutive tests agreeing on it */
+      sit_unsupported;                  /* target keeps no situation list   */
+
+  u8 *ballast_bits,                     /* edges hit by every input         */
+      *cal_var_map,                     /* per-entry calibration variance   */
+      *probe_union,                     /* repeat probe: union of edges     */
+      *probe_isect,                     /* repeat probe: edges in every run */
+      *virgin_state,                    /* unseen state transitions         */
+      *state_seen,                      /* transitions ever observed        */
+      *situation_seen,                  /* IJON_STATE values ever observed  */
+      *situation_depth;                 /* depth each was first reached at  */
+
+  u64 plugin_state_described;           /* entries a mutator described      */
+  u8 *virgin_pstate;                    /* states a mutator reported        */
+  u8  plugin_state_admit;               /* may a mutator state save input?  */
+  u32 state_coarse_shift;               /* state map fold, 0 = finest       */
+  u64 state_only_admits;                /* entries saved for state alone    */
+  u64 state_admit_window;               /* the same, since the last fold    */
+  u8  state_admit_off;                  /* state may no longer save inputs  */
+  u8  trace_foreign;          /* trace_bits holds someone else's run
+                                 - set by every -J helper that
+                                 executes the target outside the
+                                 normal run-then-calibrate pairing  */
+  u64  state_only_paid;                 /* of those, ones that found edges  */
+  u32 *edge_corpus_cnt;                 /* per-edge corpus frequency        */
+  u64  corpus_trace_cnt;                /* traces folded into the above     */
+
+  u64 target_exec_us,                   /* time spent inside the target     */
+      target_exec_cnt,                  /* executions it was measured over  */
+      gate_checked, gate_rejected, gate_partial,
+      slow_path_execs,                  /* executions spent off the hot loop*/
+      probe_last_ms,                    /* when the repeat probe last ran   */
+      setup_cost_us, fork_cost_us,      /* item 4 benchmark results         */
+      state_utility_pairs, state_utility_agree,
+      state_utility_runs,               /* times the utility test ran       */
+      state_utility_ignored,            /* pairs that ignored the probe     */
+      state_utility_last_ms,            /* when the test last ran           */
+      state_utility_execs;              /* total_execs it last ran at       */
+
+  u32 situations_found,                 /* distinct IJON_STATE values seen  */
+      situation_depth_max;              /* longest situation chain in a run */
+  u64 situation_depth_sum,              /* chain lengths summed over runs   */
+      situation_depth_runs;             /* runs that took a transition      */
+
+  u8  *gate_ghost;                      /* per-edge unreproduced-claim tally*/
+  u64  gate_skipped;                    /* candidates rejected without a run*/
+  u32  gate_learned;                    /* edges known to be one-shot       */
+  u64  total_info_bitmap;               /* info_bitmap summed over entries  */
+
+  u8 *hw_bits;                          /* per-edge hit-count high-water    */
+  u8  hw_admit_off;                     /* high-water may no longer save    */
+  u32 hw_min_count;                     /* smallest count worth crediting   */
+  u32 hw_growth_pct;                    /* growth a credit must show        */
+  u64 hw_only_admits,                   /* entries saved for high-water     */
+      hw_only_paid,                     /* of those, ones that found edges  */
+      hw_credits;                       /* slots credited over the run      */
+  u32 hw_slots;                         /* slots that ever carried a level  */
+  u32 hw_max_last;                      /* highest count of the last absorb */
+  u32 shelf_achieved_max;               /* largest achievement seen so far  */
+  u64 shelf_cost_max;                   /* slowest entry seen so far        */
+
+  u8  *sig_seen;                        /* rare-edge signatures ever seen   */
+  u32  sig_k;                           /* rarest edges in a signature      */
+  u32  sig_max_freq;                    /* an edge this common is not rare  */
+  u32  sig_min_corpus;                  /* traces before the table is used  */
+  u8   sig_admit_off;                   /* signature may no longer save     */
+  u64  sig_only_admits, sig_only_paid;
+  u32  sig_found;                       /* distinct signatures seen         */
+
+  u32 ijon_cov_bytes;                   /* coverage area of an IJON map     */
+  u8  ijon_only_new;                    /* last novelty was IJON_SET only   */
+  u8  ijon_admit_off;                   /* IJON_SET may no longer save      */
+  u64 ijon_only_admits,                 /* entries saved for IJON_SET alone */
+      ijon_only_paid;                   /* of those, ones that found edges  */
+
+  u32 contract_diff_edges,              /* edges differing in exec #1 vs #2 */
+      state_transitions_found,          /* distinct transitions seen        */
+      state_utility_cycle,              /* queue cycle of the last test     */
+      state_utility_cands,              /* entries with a state id then     */
+      shelf_cells_used, shelf_members;
+
+  double ballast_pct,                   /* map share hit by every input     */
+      probe_pct,                        /* repeat probe: identical runs     */
+      probe_edge_pct,                   /* repeat probe: edge agreement     */
+      corpus_stability_avg, corpus_stability_min, info_score_avg,
+      state_utility_pct;
+
+  struct queue_entry **shelf;           /* STATE_SHELF_CELLS x WITNESSES    */
+  double              *shelf_avg_exec_us, *shelf_avg_len, *shelf_avg_info;
+  u32                 *shelf_count;
+
 } afl_state_t;
 
 struct custom_mutator {
@@ -1197,6 +1375,12 @@ struct custom_mutator {
    * @param[in] max_size Maximum size of the mutated output. The mutation must
    * not produce data larger than max_size.
    * @return Size of the mutated output.
+   *
+   * A mutator that implements afl_custom_describe_state but not
+   * afl_custom_state_probe is also called here with a buf_size of 0, to build
+   * the probe action of state fuzzing mode's utility test, so such a mutator
+   * must handle an empty input: generate from nothing, or return 0 to decline
+   * and let AFL++ fall back to random bytes.
    */
   size_t (*afl_custom_fuzz)(void *data, u8 *buf, size_t buf_size, u8 **out_buf,
                             u8 *add_buf, size_t add_buf_size, size_t max_size);
@@ -1215,6 +1399,59 @@ struct custom_mutator {
    *         An empty or NULL return will result in a default description
    */
   const char *(*afl_custom_describe)(void *data, size_t max_description_len);
+
+  /**
+   * Describe the state an input reaches, for a harness that knows more about
+   * its own input than a byte string can express.
+   *
+   * Called once per queue entry, at calibration time, with the entry's bytes.
+   * The mutator reports how many operations the input performs and an id for
+   * the state it ends in. AFL++ uses the operation count where it would
+   * otherwise use the mutation depth, and the state id to keep inputs that
+   * reach different states from competing with each other.
+   *
+   * The id must be COARSE. It names a class of situations, not a path: a
+   * digest of the live object store, not a hash of the program. An id that
+   * changes on every input makes every input a find, and the queue explodes.
+   * AFL++ bounds the damage but cannot repair a signal that carries no
+   * information.
+   *
+   * (Optional)
+   *
+   * @param[in] data pointer returned in afl_custom_init by this custom mutator
+   * @param[in] buf Buffer containing the test case
+   * @param[in] buf_size Size of the test case
+   * @param[out] ops Number of operations the input performs, 0 if unknown
+   * @param[out] state_id Id of the state the input ends in, 0 if unknown
+   * @return 1 if the values were filled in, 0 to say nothing about this input
+   */
+  u8 (*afl_custom_describe_state)(void *data, const u8 *buf, size_t buf_size,
+                                  u32 *ops, u32 *state_id);
+
+  /**
+   * Build one action in this input format, for the test that decides whether
+   * state fuzzing mode may trust its state signal.
+   *
+   * That test takes two inputs it believes are in the same state, gives both
+   * the same next action, and checks that they behave the same. The action has
+   * to be one the target actually performs: raw bytes are read as more payload
+   * for the record an input already ends with in every format that frames its
+   * records with a separator, no operation is added, and the pair is dropped.
+   * A mutator that knows the format can answer this properly.
+   *
+   * Called outside the mutation loop, at most once per test, with no queue
+   * entry selected. Write at most max_len bytes into out_buf and return how
+   * many were written; return 0 to decline, and AFL++ falls back to random
+   * bytes.
+   *
+   * (Optional)
+   *
+   * @param[in] data pointer returned in afl_custom_init by this custom mutator
+   * @param[out] out_buf Buffer to write the action into
+   * @param[in] max_len Size of out_buf
+   * @return Bytes written, 0 to decline
+   */
+  u32 (*afl_custom_state_probe)(void *data, u8 *out_buf, u32 max_len);
 
   /**
    * A post-processing function to use right before AFL writes the test case to
@@ -1400,6 +1637,8 @@ void destroy_custom_mutators(afl_state_t *);
 u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
                       struct custom_mutator *mutator, vp_trim_hooks_t *vp_hooks,
                       u64 *trim_start_us);
+void run_afl_custom_describe_state(afl_state_t *, struct queue_entry *, u8 *,
+                                   u32);
 u8   run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
                                     u8 *);
 
@@ -1576,6 +1815,45 @@ fsrv_run_result_t fuzz_run_target(afl_state_t *, afl_forkserver_t *fsrv, u32);
 /* Fuzz one */
 
 u8 fuzz_one(afl_state_t *);
+
+/* State fuzzing (-J) */
+
+void state_alloc(afl_state_t *);
+void state_free(afl_state_t *);
+void state_startup_checks(afl_state_t *);
+void state_ballast_fold(afl_state_t *);
+u8   hw_frontier_check(afl_state_t *);
+void hw_absorb(afl_state_t *);
+void hw_admit_bound(afl_state_t *);
+u32  state_score_bits(afl_state_t *, struct queue_entry *);
+u32  sig_compute(afl_state_t *);
+u8   sig_is_new(afl_state_t *, u32);
+void sig_admit_bound(afl_state_t *);
+void state_calibration_stats(afl_state_t *, struct queue_entry *);
+u32  state_shelf_cell(afl_state_t *, struct queue_entry *);
+u8   state_admission_gate(afl_state_t *, void *, u32);
+void state_repeat_probe(afl_state_t *, struct queue_entry *, u32);
+void state_cost_bench(afl_state_t *);
+void state_contract_check(afl_state_t *);
+void state_maybe_probe(afl_state_t *);
+void state_hot_from_taint(afl_state_t *, struct queue_entry *,
+                          struct tainted *);
+
+/* State map (-J s) */
+
+void        state_map_setup(afl_state_t *);
+void        state_map_reset(afl_state_t *);
+void        state_map_observe(afl_state_t *);
+u8          state_map_has_new(afl_state_t *);
+void        state_map_record(afl_state_t *, struct queue_entry *);
+void        state_admit_bound(afl_state_t *);
+void        ijon_admit_bound(afl_state_t *);
+u8          plugin_state_new(afl_state_t *, u8 *, u32, u32 *);
+void        state_utility_test(afl_state_t *);
+const char *state_utility_status_str(afl_state_t *);
+const char *state_signal_str(afl_state_t *);
+u32         state_map_density(afl_state_t *);
+u32         state_situation_hist(afl_state_t *, u8 *, u32);
 
 /* Init */
 

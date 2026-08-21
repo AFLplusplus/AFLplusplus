@@ -341,6 +341,7 @@ endif
 .PHONY: all
 all:	test_x86 test_shm test_python ready $(PROGS) llvm gcc_plugin test_build all_done
 	-$(MAKE) -C utils/aflpp_driver
+	-$(MAKE) -C custom_mutators/state_records CC="$(CC)"
 	@echo
 	@echo
 	@echo
@@ -626,12 +627,20 @@ unit_sharedmem_mmap: include/sharedmem.h include/cmplog.h test/unittests/unit_sh
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -DUSEMMAP=1 test/unittests/unit_sharedmem_mmap.c src/afl-sharedmem.c -o test/unittests/unit_sharedmem_mmap $(LDFLAGS) $(ASAN_LDFLAGS)
 	./test/unittests/unit_sharedmem_mmap
 
-unit_queue_score: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_queue_score.c src/afl-fuzz-queue.c
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_queue_score.c src/afl-fuzz-queue.c -Wl,--gc-sections -o test/unittests/unit_queue_score $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+unit_queue_score: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_queue_score.c src/afl-fuzz-queue.c src/afl-fuzz-statefuzz.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_queue_score.c src/afl-fuzz-queue.c src/afl-fuzz-statefuzz.c -Wl,--gc-sections -o test/unittests/unit_queue_score $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka -lm
 	./test/unittests/unit_queue_score
 
-unit_testcache: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_testcache.c src/afl-fuzz-queue.c
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_testcache.c src/afl-fuzz-queue.c -Wl,--gc-sections -o test/unittests/unit_testcache $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+unit_statefuzz: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_statefuzz.c src/afl-fuzz-statefuzz.c src/afl-fuzz-statemap.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_statefuzz.c src/afl-fuzz-statefuzz.c src/afl-fuzz-statemap.c -Wl,--gc-sections -o test/unittests/unit_statefuzz $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka -lm
+	./test/unittests/unit_statefuzz
+
+unit_state_records: $(COMM_HDR) test/unittests/unit_state_records.c custom_mutators/state_records/state_records.h
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -Icustom_mutators/state_records -ffunction-sections -fdata-sections test/unittests/unit_state_records.c -Wl,--gc-sections -o test/unittests/unit_state_records $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka
+	./test/unittests/unit_state_records
+
+unit_testcache: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_testcache.c src/afl-fuzz-queue.c src/afl-fuzz-statefuzz.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_testcache.c src/afl-fuzz-queue.c src/afl-fuzz-statefuzz.c -Wl,--gc-sections -o test/unittests/unit_testcache $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka -lm
 	./test/unittests/unit_testcache
 
 unit_skipdet: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_skipdet.c src/afl-fuzz-skipdet.c
@@ -661,11 +670,11 @@ endif
 
 .PHONY: unit_clean
 unit_clean:
-	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_mopt ./test/unittests/unit_cmplog ./test/unittests/unit_ijon_replay ./test/unittests/unit_sharedmem_mmap ./test/unittests/unit_queue_score ./test/unittests/unit_skipdet ./test/unittests/unit_frameshift ./test/unittests/unit_ijon ./test/unittests/unit_value_profile ./test/unittests/unit_testcache test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o test/unittests/*.o
+	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc ./test/unittests/unit_mopt ./test/unittests/unit_cmplog ./test/unittests/unit_ijon_replay ./test/unittests/unit_sharedmem_mmap ./test/unittests/unit_queue_score ./test/unittests/unit_skipdet ./test/unittests/unit_frameshift ./test/unittests/unit_ijon ./test/unittests/unit_value_profile ./test/unittests/unit_testcache ./test/unittests/unit_statefuzz ./test/unittests/unit_state_records test/unittests/unit_mopt.o src/afl-fuzz-mopt-adaptive.o test/unittests/*.o
 
 .PHONY: unit
 ifneq "$(SYS)" "Darwin"
-unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_mopt unit_cmplog unit_ijon_replay unit_sharedmem_mmap unit_queue_score unit_skipdet unit_frameshift unit_ijon unit_value_profile unit_testcache
+unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash unit_mopt unit_cmplog unit_ijon_replay unit_sharedmem_mmap unit_queue_score unit_skipdet unit_frameshift unit_ijon unit_value_profile unit_testcache unit_statefuzz unit_state_records
 else
 unit:
 	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
@@ -757,6 +766,7 @@ clean:
 	-$(MAKE) -C utils/libdislocator clean
 	-$(MAKE) -C utils/libtokencap clean
 	-$(MAKE) -C utils/aflpp_driver clean
+	-$(MAKE) -C custom_mutators/state_records clean
 	-$(MAKE) -C utils/afl_network_proxy clean
 	-$(MAKE) -C utils/socket_fuzzing clean
 	-$(MAKE) -C utils/argv_fuzzing clean

@@ -46,6 +46,7 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include "bitops.h"
 #include "cmplog.h"
 #include "value-profile.h"
+#include "afl-state-map.h"
 #include "afl-ijon-min.h"
 
 /* For backtrace() support in ijon_hashstack */
@@ -118,6 +119,7 @@ static inline void afl_sync_wake(void *uaddr) {
   #include <sys/shm.h>
 #endif
 #include <sys/wait.h>
+#include <sys/time.h>
 #include <sys/types.h>
 
 #if (defined(__linux__) && defined(__GLIBC__)) || defined(__APPLE__) || \
@@ -433,9 +435,25 @@ static u16 *__afl_alloc_shadow_get_or_init(uintptr_t a, uintptr_t *off_out);
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
 u32 __afl_ijon_state = 0;      // Current IJON state
 u32 __afl_ijon_state_log = 0;  // State history log
+u32 __afl_state_action = 0;    // Action class of the next transition
 #else
 __thread u32 __afl_ijon_state = 0;
 __thread u32 __afl_ijon_state_log = 0;
+__thread u32 __afl_state_action = 0;
+#endif
+
+/* State-transition map (-J s). NULL unless the fuzzer handed us a segment
+   through STATE_SHM_ENV_VAR, so every entry point below is inert without it.
+   The local copy is the landing place after the shared segment is unmapped,
+   mirroring __afl_bug_map / __afl_bug_map_local. */
+state_map_t       *__afl_state_map = NULL;
+static state_map_t __afl_state_map_local;
+static u8          __afl_state_map_active = 0;
+
+#ifdef AFL_TARGET_WATCHDOG
+/* Target-side watchdog (-J w), armed only when AFL_WATCHDOG_MS is set. */
+static u32 __afl_watchdog_ms = 0;
+static u8  __afl_watchdog_ready = 0;
 #endif
 
 #ifdef __AFL_CODE_COVERAGE
@@ -545,6 +563,123 @@ static inline u8 __afl_vp_target_supports_runtime(void) {
   return (u8)((uintptr_t)&__afl_vp_instrumented != 0);
 
 }
+
+/* Clear the state map and its per-execution scalars. A no-op when no state
+   map is attached. */
+
+static inline void __afl_state_map_reset(void) {
+
+  if (likely(__afl_state_map == NULL)) { return; }
+
+  if (likely(!__afl_state_map->touched_ovf) &&
+      likely(__afl_state_map->touched_n <= STATE_TOUCHED_MAX)) {
+
+    uint32_t i;
+
+    for (i = 0; i < __afl_state_map->touched_n; ++i) {
+
+      __afl_state_map->map[__afl_state_map->touched[i]] = 0;
+
+    }
+
+  } else {
+
+    memset_noasan(__afl_state_map->map, 0, STATE_MAP_SIZE);
+
+  }
+
+  __afl_state_map->touched_n = 0;
+  __afl_state_map->touched_ovf = 0;
+  __afl_state_map->touched_ok = 1;
+  __afl_state_map->sit_n = 0;
+  __afl_state_map->sit_ok = 1;
+  __afl_state_map->cur_state = 0;
+  __afl_state_map->prev_state = 0;
+  __afl_state_map->action = 0;
+  __afl_state_map->transitions = 0;
+  __afl_state_map->hot_off = 0;
+  __afl_state_map->hot_len = 0;
+  __afl_state_action = 0;
+
+}
+
+/* Target-side watchdog. Its only job is to turn a target that hangs where the
+   fuzzer's own timeout never fired into a SIGABRT that reproduces standalone
+   under a debugger. AFL_WATCHDOG_MS is deliberately above the fuzzer timeout,
+   so ordinary hangs keep their usual hangs/ handling. Compiled out unless
+   AFL_TARGET_WATCHDOG is defined, so the arm and disarm calls cost nothing
+   on the persistent-mode hot path. */
+
+#ifdef AFL_TARGET_WATCHDOG
+
+static void __afl_watchdog_handler(int sig) {
+
+  (void)sig;
+  abort();
+
+}
+
+static void __afl_watchdog_init(void) {
+
+  char *ptr = getenv("AFL_WATCHDOG_MS");
+  if (!ptr) { return; }
+
+  long ms = atol(ptr);
+  if (ms <= 0) { return; }
+
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sigemptyset(&sa.sa_mask);
+  sa.sa_handler = __afl_watchdog_handler;
+  if (sigaction(SIGALRM, &sa, NULL)) { return; }
+
+  __afl_watchdog_ms = (u32)ms;
+  __afl_watchdog_ready = 1;
+
+}
+
+static inline void __afl_watchdog_set(u32 ms) {
+
+  struct itimerval it;
+
+  it.it_interval.tv_sec = 0;
+  it.it_interval.tv_usec = 0;
+  it.it_value.tv_sec = (time_t)(ms / 1000);
+  it.it_value.tv_usec = (suseconds_t)((ms % 1000) * 1000);
+  setitimer(ITIMER_REAL, &it, NULL);
+
+}
+
+static inline void __afl_watchdog_arm(void) {
+
+  if (likely(!__afl_watchdog_ready)) { return; }
+  __afl_watchdog_set(__afl_watchdog_ms);
+
+}
+
+static inline void __afl_watchdog_disarm(void) {
+
+  if (likely(!__afl_watchdog_ready)) { return; }
+  __afl_watchdog_set(0);
+
+}
+
+#else
+
+  #define __afl_watchdog_init() \
+    do {                        \
+                                \
+    } while (0)
+  #define __afl_watchdog_arm() \
+    do {                       \
+                               \
+    } while (0)
+  #define __afl_watchdog_disarm() \
+    do {                          \
+                                  \
+    } while (0)
+
+#endif                                               /* AFL_TARGET_WATCHDOG */
 
 /* Debug? */
 
@@ -1099,6 +1234,68 @@ static void __afl_map_shm(void) {
 
   }
 
+  char *state_id_str = getenv(STATE_SHM_ENV_VAR);
+
+  if (__afl_debug) {
+
+    fprintf(stderr, "DEBUG: state map id_str %s\n",
+            state_id_str == NULL ? "<null>" : state_id_str);
+
+  }
+
+  if (state_id_str && !getenv("AFL_NO_STATE_MAP")) {
+
+    __afl_open_dummy_fd();
+
+#ifdef USEMMAP
+    const char  *shm_file_path = state_id_str;
+    int          shm_fd = -1;
+    state_map_t *shm_base = NULL;
+
+    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+    if (shm_fd == -1) {
+
+      perror("shm_open() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(1);
+
+    }
+
+    shm_base = mmap(0, sizeof(state_map_t), PROT_READ | PROT_WRITE, MAP_SHARED,
+                    shm_fd, 0);
+    if (shm_base == MAP_FAILED) {
+
+      close(shm_fd);
+      shm_fd = -1;
+
+      fprintf(stderr, "mmap() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(2);
+
+    }
+
+    close(shm_fd);
+    shm_fd = -1;
+    __afl_state_map = shm_base;
+#else
+    u32 shm_id = atoi(state_id_str);
+
+    __afl_state_map = (state_map_t *)shmat(shm_id, NULL, 0);
+#endif
+
+    if (!__afl_state_map || __afl_state_map == (void *)-1) {
+
+      perror("shmat for state map");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
+
+    __afl_state_map_active = 1;
+    __afl_state_map_reset();
+
+  }
+
   /* If we're running under AFL, attach to the appropriate region, replacing the
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
@@ -1581,6 +1778,24 @@ static void __afl_unmap_shm(void) {
 
   }
 
+  id_str = getenv(STATE_SHM_ENV_VAR);
+
+  if (id_str && __afl_state_map) {
+
+#ifdef USEMMAP
+
+    munmap((void *)__afl_state_map, sizeof(state_map_t));
+
+#else
+
+    shmdt((void *)__afl_state_map);
+
+#endif
+
+    __afl_state_map = __afl_state_map_active ? &__afl_state_map_local : NULL;
+
+  }
+
   __afl_already_initialized_shm = 0;
 
 }
@@ -1639,6 +1854,8 @@ static void __afl_start_forkserver(void) {
   u8 child_stopped = 0;
 
   void (*old_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
+
+  __afl_watchdog_init();
 
   if (getenv("AFL_NO_C11")) { __afl_c11_enabled = 0; }
 
@@ -1720,6 +1937,7 @@ static void __afl_start_forkserver(void) {
   // return because possible non-forkserver usage
   if (write(FORKSRV_FD + 1, msg, 4) != 4) {
 
+
     /* No forkserver parent. A tool that attached a shared map still watches
        this run - afl-showmap on a single input and afl-cmin.bash through it
        execve the target directly - and that map was sized from what this
@@ -1791,6 +2009,8 @@ static void __afl_start_forkserver(void) {
       }
 
     }
+
+    if (__afl_state_map) { status |= FS_NEW_OPT_STATE_MAP; }
 
     if (__afl_dictionary_len && __afl_dictionary) {
 
@@ -1996,6 +2216,9 @@ static void __afl_start_forkserver(void) {
 
         }
 
+        __afl_state_map_reset();
+        __afl_watchdog_arm();
+
         return;
 
       }
@@ -2074,6 +2297,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
   char tcase[PATH_MAX];
 #endif
 
+  __afl_watchdog_disarm();
+
   if (unlikely(first_pass)) {
 
     /* Make sure that every iteration of __AFL_LOOP() starts with a clean slate.
@@ -2101,6 +2326,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     __afl_area_ptr[0] = 1;
     __afl_prev_loc = 0;
     __afl_alloc_persistent_reset(0);
+    __afl_state_map_reset();
 
     first_pass = 0;
 #ifdef __APPLE__
@@ -2122,6 +2348,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
       cycle_cnt = max_cnt;
 
     }
+
+    __afl_watchdog_arm();
 
     return 1;
 
@@ -2153,6 +2381,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
         close(fd);
 
       }
+
+      __afl_state_map_reset();
+      __afl_watchdog_arm();
 
       return 1;
 
@@ -2229,6 +2460,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     }
 
     __afl_prev_loc = 0;
+    __afl_state_map_reset();
+    __afl_watchdog_arm();
 
     return 1;
 
@@ -5574,11 +5807,110 @@ void ijon_min_variadic(uint32_t addr, ...) {
 
 }
 
+/* Automatic state context, AFL_LLVM_AUTOSTATE.
+
+   The compiler pass gives every state-like variable it found a slot and calls
+   here on each store. The situation is the current tuple of those slots, kept
+   as an XOR of per-slot hashes so an update is O(1) and the result depends on
+   the values held, not on the order they were written in. */
+
+#define AFL_AUTOSTATE_SLOTS 256U
+
+static u32 __afl_autostate_slot[AFL_AUTOSTATE_SLOTS];
+static u32 __afl_autostate_digest;
+u64        __afl_autostate_updates;
+
+static inline u32 __afl_autostate_mix(u32 slot, u32 val) {
+
+  u32 h = slot * 0x9e3779b1u;
+
+  h ^= val + 0x85ebca6bu;
+  h *= 0xc2b2ae35u;
+  h ^= h >> 15;
+
+  return h;
+
+}
+
+static void __afl_state_advance(u32 prev);
+
+void afl_autostate_set(uint32_t slot, uint32_t val) {
+
+  slot %= AFL_AUTOSTATE_SLOTS;
+
+  u32 old = __afl_autostate_slot[slot];
+
+  if (likely(old == val)) { return; }
+
+  __afl_autostate_slot[slot] = val;
+  __afl_autostate_digest ^=
+      __afl_autostate_mix(slot, old) ^ __afl_autostate_mix(slot, val);
+  ++__afl_autostate_updates;
+
+  u32 prev = __afl_ijon_state;
+
+  __afl_ijon_state = __afl_autostate_digest % (u32)MAP_SIZE_IJON_MAP;
+
+  if (prev != __afl_ijon_state) { __afl_state_advance(prev); }
+
+}
+
+void afl_autostate_reset(void) {
+
+  memset(__afl_autostate_slot, 0, sizeof(__afl_autostate_slot));
+  __afl_autostate_digest = 0;
+
+}
+
 /* IJON state management functions */
 
 void ijon_xor_state(uint32_t val) {
 
+  uint32_t prev = __afl_ijon_state;
   __afl_ijon_state = (__afl_ijon_state ^ val) % (u32)MAP_SIZE_IJON_MAP;
+
+  __afl_state_advance(prev);
+
+}
+
+static void __afl_state_advance(u32 prev) {
+
+  {
+
+    if (likely(__afl_state_map != NULL)) {
+
+    uint32_t idx =
+        state_transition_index(prev, __afl_ijon_state, __afl_state_action);
+
+    if (!__afl_state_map->map[idx]) {
+
+      if (likely(__afl_state_map->touched_n < STATE_TOUCHED_MAX)) {
+
+        __afl_state_map->touched[__afl_state_map->touched_n++] = idx;
+
+      } else {
+
+        __afl_state_map->touched_ovf = 1;
+
+      }
+
+    }
+
+    if (__afl_state_map->map[idx] < 255) { __afl_state_map->map[idx]++; }
+
+    if (likely(__afl_state_map->sit_n < STATE_TOUCHED_MAX)) {
+
+      __afl_state_map->sit[__afl_state_map->sit_n++] = __afl_ijon_state;
+
+    }
+
+    __afl_state_map->prev_state = prev;
+    __afl_state_map->cur_state = __afl_ijon_state;
+    __afl_state_map->transitions++;
+
+    }
+
+  }
 
 }
 
@@ -5586,6 +5918,32 @@ void ijon_reset_state(void) {
 
   __afl_ijon_state = 0;
   __afl_ijon_state_log = 0;
+  afl_autostate_reset();
+  __afl_state_map_reset();
+
+}
+
+/* Name the operation the harness is about to perform, so a transition is
+   keyed by (previous state, current state, action). Inert without a map. */
+
+void afl_state_action(uint32_t a) {
+
+  __afl_state_action = a;
+  if (likely(__afl_state_map != NULL)) { __afl_state_map->action = a; }
+
+}
+
+/* Declare the input span the harness considers interesting, so havoc can aim
+   at it. Inert without a map. */
+
+void afl_state_hot(uint32_t off, uint32_t len) {
+
+  if (likely(__afl_state_map != NULL)) {
+
+    __afl_state_map->hot_off = off;
+    __afl_state_map->hot_len = len;
+
+  }
 
 }
 

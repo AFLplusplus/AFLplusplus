@@ -92,6 +92,8 @@ static const u8 count_class_lookup8[256] = {
    - 8th bit: timeout marker */
 #define NEW_BITS_COVERAGE_MASK 0x03
 #define NEW_BITS_VP_MASK 0x04
+#define NEW_BITS_HW_MASK 0x08
+#define NEW_BITS_SIG_MASK 0x10
 #define NEW_BITS_TIMEOUT_MASK 0x80
 
 /* Write bitmap to file. The bitmap is useful mostly for the secret
@@ -239,39 +241,24 @@ void init_count_class16(void) {
    This function is called after every exec() on a fairly large buffer, so
    it needs to be fast. We do this in 32-bit and 64-bit flavors. */
 
-inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
-
-  /* edges_found is derived from virgin_bits, so a secondary channel - cmplog,
-     a sanitizer binary, anything with its own guard ids - must never be
-     accounted here. Mixing a second guard id space into the primary map is
-     what made 4.40 look 25% better than it was. */
-  /*
-  if (unlikely(virgin_map == afl->virgin_bits && !afl->primary_trace)) {
-
-    FATAL("coverage map of a secondary target merged into virgin_bits");
-
-  }
-
-  */
+static u8 has_new_bits_words(afl_state_t *afl, u8 *virgin_map, u32 from,
+                             u32 to) {
 
 #ifdef WORD_SIZE_64
 
-  u64 *current = (u64 *)afl->fsrv.trace_bits;
-  u64 *virgin = (u64 *)virgin_map;
-
-  u32 i = ((afl->fsrv.real_map_size + 7) >> 3);
+  u64 *current = ((u64 *)afl->fsrv.trace_bits) + from;
+  u64 *virgin = ((u64 *)virgin_map) + from;
 
 #else
 
-  u32 *current = (u32 *)afl->fsrv.trace_bits;
-  u32 *virgin = (u32 *)virgin_map;
-
-  u32 i = ((afl->fsrv.real_map_size + 3) >> 2);
+  u32 *current = ((u32 *)afl->fsrv.trace_bits) + from;
+  u32 *virgin = ((u32 *)virgin_map) + from;
 
 #endif                                                     /* ^WORD_SIZE_64 */
 
-  u8 ret = 0;
-  u8 undo = (u8)(afl->virgin_undo_armed && !afl->virgin_undo_valid &&
+  u32 i = to - from;
+  u8  ret = 0;
+  u8  undo = (u8)(afl->virgin_undo_armed && !afl->virgin_undo_valid &&
                  virgin_map == afl->virgin_bits);
 
   while (i--) {
@@ -291,6 +278,55 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
     current++;
     virgin++;
+
+  }
+
+  return ret;
+
+}
+
+inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
+
+  /* edges_found is derived from virgin_bits, so a secondary channel - cmplog,
+     a sanitizer binary, anything with its own guard ids - must never be
+     accounted here. Mixing a second guard id space into the primary map is
+     what made 4.40 look 25% better than it was. */
+  /*
+  if (unlikely(virgin_map == afl->virgin_bits && !afl->primary_trace)) {
+
+    FATAL("coverage map of a secondary target merged into virgin_bits");
+
+  }
+
+  */
+
+#ifdef WORD_SIZE_64
+
+  u32 words = ((afl->fsrv.real_map_size + 7) >> 3);
+  u32 cov_words = (afl->ijon_cov_bytes + 7) >> 3;
+
+#else
+
+  u32 words = ((afl->fsrv.real_map_size + 3) >> 2);
+  u32 cov_words = (afl->ijon_cov_bytes + 3) >> 2;
+
+#endif                                                     /* ^WORD_SIZE_64 */
+
+  u8 ret;
+
+  if (unlikely(afl->ijon_cov_bytes) && likely(cov_words < words) &&
+      likely(virgin_map == afl->virgin_bits)) {
+
+    u8 cov = has_new_bits_words(afl, virgin_map, 0, cov_words);
+    u8 ijon = has_new_bits_words(afl, virgin_map, cov_words, words);
+
+    afl->ijon_only_new = (u8)(!cov && ijon);
+    ret = MAX(cov, ijon);
+
+  } else {
+
+    afl->ijon_only_new = 0;
+    ret = has_new_bits_words(afl, virgin_map, 0, words);
 
   }
 
@@ -433,6 +469,8 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
 
   u8 is_timeout = (new_bits & NEW_BITS_TIMEOUT_MASK) ? 1 : 0;
   u8 is_vp = (new_bits & NEW_BITS_VP_MASK) ? 1 : 0;
+  u8 is_hw = (new_bits & NEW_BITS_HW_MASK) ? 1 : 0;
+  u8 is_sig = (new_bits & NEW_BITS_SIG_MASK) ? 1 : 0;
   u8 cov_bits = new_bits & NEW_BITS_COVERAGE_MASK;
   u8 san_crash_only = (afl->san_case_status & SAN_CRASH_ONLY);
   u8 non_cov_incr = (afl->san_case_status & NON_COV_INCREASE_BUG);
@@ -477,7 +515,7 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
       ret[len_current++] = ',';
       ret[len_current] = '\0';
 
-      ssize_t size_left = real_max_len - len_current - strlen(",+cov,+vp") - 2;
+      ssize_t size_left = real_max_len - len_current - strlen(",+cov,+vp,+hw,+sig") - 2;
       if (is_timeout) { size_left -= strlen(",+tout"); }
       if (unlikely(size_left <= 0)) FATAL("filename got too long");
 
@@ -529,6 +567,10 @@ u8 *describe_op(afl_state_t *afl, u8 new_bits, size_t max_description_len) {
   if (cov_bits == 2) { strcat(ret, ",+cov"); }
 
   if (is_vp) { strcat(ret, ",+vp"); }
+
+  if (is_hw) { strcat(ret, ",+hw"); }
+
+  if (is_sig) { strcat(ret, ",+sig"); }
 
   if (san_crash_only) { strcat(ret, ",+san"); }
 
@@ -949,6 +991,11 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8  fn[PATH_MAX];
   u8 *queue_fn = "";
   u8  keeping = 0, res, is_timeout = 0, vp_entry = 0, vp_sample_ready = 0;
+  u8  state_entry = 0;
+  u8  hw_entry = 0, hw_new = 0;
+  u8  sig_entry = 0, sig_new = 0;
+  u32 sig_val = 0;
+  u8  ijon_entry = 0;
   u8  is_crash_save = 0;
   u8  vp_restore_suppressed = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
@@ -959,8 +1006,39 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   bool probed = false;
   u8   new_bits = 0;                       /* valid if bits_counted is true */
   u64  cksum = 0;                               /* valid if cksumed is true */
+  u8   state_new = 0;               /* a state transition never seen before */
 
   afl->san_case_status = 0;
+
+  /* The state map is consumed once per execution, before anything else can
+     clobber it. Reporting sees every execution; the map that admission is
+     decided against is only touched once the utility test says the state
+     definition is worth believing. */
+
+  if (unlikely(afl->hw_bits) && likely(fault == afl->crash_mode)) {
+
+    hw_new = hw_frontier_check(afl);
+
+  }
+
+  if (unlikely(afl->sig_seen) && likely(fault == afl->crash_mode)) {
+
+    sig_val = sig_compute(afl);
+    if (sig_val) { sig_new = sig_is_new(afl, sig_val); }
+
+  }
+
+  if (unlikely(afl->state_mode & STATE_MODE_SMAP)) {
+
+    state_map_observe(afl);
+
+    if (unlikely(afl->state_signal_trusted)) {
+
+      state_new = state_map_has_new(afl);
+
+    }
+
+  }
 
   if (unlikely(afl->fsrv.c11)) {
 
@@ -1121,6 +1199,20 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
        future fuzzing, etc. */
     calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
 
+    if (unlikely(new_bits) && unlikely(afl->ijon_only_new)) {
+
+      if (unlikely(afl->ijon_admit_off)) {
+
+        new_bits = 0;
+
+      } else {
+
+        ijon_entry = 1;
+
+      }
+
+    }
+
     if (likely(!new_bits)) {
 
       if (san_fault == FSRV_RUN_OK) {
@@ -1132,6 +1224,48 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
           new_bits |= NEW_BITS_VP_MASK;
           vp_entry = 1;
+          goto save_to_queue;
+
+        }
+
+        if (unlikely(hw_new) && likely(!afl->hw_admit_off)) {
+
+          new_bits |= NEW_BITS_HW_MASK;
+          hw_entry = 1;
+          goto save_to_queue;
+
+        }
+
+        if (unlikely(sig_new) && likely(!afl->sig_admit_off)) {
+
+          new_bits |= NEW_BITS_SIG_MASK;
+          sig_entry = 1;
+          goto save_to_queue;
+
+        }
+
+        /* A state transition nothing has reached before is a reason to keep
+           an input, but only once the utility test has shown that inputs the
+           state definition calls identical really do behave identically. */
+        if (unlikely(state_new && afl->state_signal_trusted) &&
+            likely(!afl->state_admit_off)) {
+
+          state_entry = 1;
+          goto save_to_queue;
+
+        }
+
+        /* The same, for a state a mutator reports instead of the
+           instrumentation. A mutator that speaks the input format is taken at
+           its word - that is the harness author saying what the state is - but
+           it is held to the same admission bound, because a digest that is too
+           fine is the failure mode either way. */
+
+        if (unlikely(afl->plugin_state_admit) &&
+            likely(!afl->state_admit_off) &&
+            unlikely(plugin_state_new(afl, mem, len, NULL))) {
+
+          state_entry = 1;
           goto save_to_queue;
 
         }
@@ -1157,6 +1291,18 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
        goto */
     calculate_cksum_if_necessary(afl, &cksum, &cksumed, &classified);
     calculate_new_bits_if_necessary(afl, &new_bits, &bits_counted, &classified);
+
+    if (unlikely((afl->state_mode & STATE_MODE_GATE) &&
+                 !afl->non_instrumented_mode)) {
+
+      if (unlikely(!state_admission_gate(afl, mem, len))) { return 0; }
+
+      /* The gate ran the input again, so trace_bits now holds the verifying
+         run. Re-derive the checksum from it, otherwise calibration would seed
+         first_trace from one run and exec_cksum from another. */
+      cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+    }
 
     if ((new_bits & NEW_BITS_COVERAGE_MASK) == 2) {
 
@@ -1236,6 +1382,60 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
       afl->cycles_wo_finds = saved_cycles_wo_finds;
       vp_mark_entry_vp_only(afl, afl->queue_top);
       afl->queue_top->vp_last_ref_cycle = afl->queue_cycle;
+
+    }
+
+    if (unlikely(hw_entry)) {
+
+      afl->queue_top->hw_only = 1;
+      ++afl->hw_only_admits;
+      hw_admit_bound(afl);
+
+    } else if (unlikely(afl->queue_cur && afl->queue_cur->hw_only)) {
+
+      ++afl->hw_only_paid;
+
+    }
+
+    if (unlikely(sig_entry)) {
+
+      afl->queue_top->sig_only = 1;
+      ++afl->sig_only_admits;
+      sig_admit_bound(afl);
+
+    } else if (unlikely(afl->queue_cur && afl->queue_cur->sig_only)) {
+
+      ++afl->sig_only_paid;
+
+    }
+
+    if (unlikely(state_entry)) {
+
+      afl->queue_top->state_only = 1;
+      ++afl->state_only_admits;
+      state_admit_bound(afl);
+
+    } else if (unlikely(afl->queue_cur && afl->queue_cur->state_only)) {
+
+      /* Credit assignment for the state channel: an entry kept only because it
+         reached a new state has paid for itself the moment something mutated
+         from it is saved for a reason of its own. Counted here and not next to
+         q->mother, because a state-only child crediting its state-only parent
+         would let a runaway signal vouch for itself. */
+
+      ++afl->state_only_paid;
+
+    }
+
+    if (unlikely(ijon_entry)) {
+
+      afl->queue_top->ijon_only = 1;
+      ++afl->ijon_only_admits;
+      ijon_admit_bound(afl);
+
+    } else if (unlikely(afl->queue_cur && afl->queue_cur->ijon_only)) {
+
+      ++afl->ijon_only_paid;
 
     }
 
@@ -1395,6 +1595,12 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     }
 
     if (unlikely(reloaded)) { ck_free(reloaded); }
+
+    if (unlikely(afl->state_mode & STATE_MODE_PROBE)) {
+
+      state_maybe_probe(afl);
+
+    }
 
     keeping = 1;
 

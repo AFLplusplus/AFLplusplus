@@ -1668,6 +1668,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
       }
 
+      if (status & FS_NEW_OPT_STATE_MAP) {
+
+        fsrv->use_state_map = 1;
+        if (!be_quiet) { ACTF("Using state map."); }
+
+      }
+
       if (status & FS_NEW_OPT_AUTODICT) {
 
         // even if we do not need the dictionary we have to read it
@@ -1748,6 +1755,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
         expected_flags |= FS_NEW_OPT_VALUE_PROFILE;
 
       }
+
+      if (fsrv->use_state_map) { expected_flags |= FS_NEW_OPT_STATE_MAP; }
 
       if ((status2 & ~expected_flags) != keep) {
 

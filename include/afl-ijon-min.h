@@ -47,27 +47,30 @@ typedef struct {
 
 } ijon_min_state;
 
-/* UNIFIED SHARED MEMORY LAYOUT - DYNAMIC DESIGN
+/* SHARED MEMORY LAYOUT
  *
- * Dynamic shared memory layout for all map sizes:
- * [0...coverage_size-1]                           : Coverage bitmap (variable
- * size) [coverage_size...coverage_size+IJON_MAP-1]      : IJON set/inc area
- * (65536 bytes) [coverage_size+IJON_MAP...coverage_size+IJON_MAP+IJON_BYTES-1]
- * : IJON max area (4096 bytes)
+ * One region, three areas, cov being the coverage size the instrumentation
+ * ended up with (rounded up to 64):
  *
- * Where coverage_size = map_size - MAP_SIZE_IJON_MAP - MAP_SIZE_IJON_BYTES
+ *   [0, cov)                          coverage bitmap, one byte per edge
+ *   [cov, cov + IJON_MAP)             IJON_SET / IJON_INC / IJON_STATE
+ *   [cov + IJON_MAP, ... + IJON_BYTES) IJON_MAX / IJON_MIN slots, u64 each
  *
- * OFFSET CALCULATIONS (ALIGNED):
- * Target IJON offset: __afl_map_size - 2*MAP_SIZE_IJON_BYTES -
- * MAP_SIZE_IJON_MAP Fuzzer IJON offset: map_size - MAP_SIZE_IJON_BYTES -
- * MAP_SIZE_IJON_MAP
+ * Target side (afl-compiler-rt.o.c):
+ *   __afl_cov_map_size = cov
+ *   __afl_map_size     = cov + MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES
+ *   __afl_set_map_size = cov + MAP_SIZE_IJON_MAP, which is both the start of
+ *                        the max slots (__afl_ijon_bits) and how much of the
+ *                        region a persistent loop clears
  *
- * Both calculations produce identical results:
- * - Target __afl_map_size includes full IJON areas (coverage + IJON_MAP +
- * IJON_BYTES)
- * - Fuzzer map_size has MAP_SIZE_IJON_BYTES subtracted by
- * afl->fsrv.real_map_size -= MAP_SIZE_IJON_BYTES
- * - Target compensates by subtracting extra MAP_SIZE_IJON_BYTES in calculation
+ * Fuzzer side: the forkserver reports __afl_map_size, and
+ * configure_ijon_runtime() takes MAP_SIZE_IJON_BYTES off it, so
+ * afl->fsrv.map_size == __afl_set_map_size and ijon_bits lands on the same
+ * offset as the target's. The set/inc area stays *inside* the fuzzer's map on
+ * purpose: a byte written there has to register as new coverage for the
+ * IJON_SET channel to feed anything back. The coverage area alone is therefore
+ * afl->fsrv.map_size - MAP_SIZE_IJON_MAP, and total_edges is the whole
+ * afl->fsrv.map_size.
  */
 
 // Dynamic shared memory access structure for all map sizes
@@ -80,6 +83,9 @@ typedef struct {
 
 /* ijon global state variable*/
 extern int afl_ijon_retire_max;
+
+/* Scheduling turns between two IJON max replays, AFL_IJON_REPLAY_INTERVAL */
+extern int afl_ijon_replay_interval;
 
 /* Function prototypes */
 ijon_min_state  *new_ijon_min_state(char *max_dir);
@@ -146,6 +152,10 @@ void ijon_inc(uint32_t addr, uint32_t val);
 /* IJON state management functions */
 void ijon_xor_state(uint32_t val);
 void ijon_reset_state(void);
+
+/* State fuzzing (-J s) annotations, see docs/fuzzing_stateful_targets.md */
+void afl_state_action(uint32_t a);
+void afl_state_hot(uint32_t off, uint32_t len);
 
 /* Supporting hash functions */
 uint64_t ijon_simple_hash(uint64_t x);
@@ -226,6 +236,13 @@ uint32_t ijon_memdist(char *a, char *b, size_t len);
 // IJON state macro - changes global state that affects ALL subsequent edge
 // coverage
 #define IJON_STATE(n) ijon_xor_state(n)
+
+// Names the operation about to be performed, keying the state transition on
+// (previous state, current state, action)
+#define AFL_STATE_ACTION(a) afl_state_action((uint32_t)(a))
+
+// Declares the input span the harness considers interesting
+#define AFL_HOT_REGION(o, l) afl_state_hot((uint32_t)(o), (uint32_t)(l))
 
 // IJON context macro - temporary state change that reverses itself
 #define IJON_CTX(x)                                   \

@@ -3760,6 +3760,12 @@ static void edit_params(aflcc_state_t *aflcc, u32 argc, char **argv,
 
     }
 
+    if (getenv("AFL_LLVM_AUTOSTATE")) {
+
+      load_llvm_pass(aflcc, "afl-llvm-autostate-pass.so");
+
+    }
+
     /* Include IJON header only for files that actually use IJON */
     if (getenv("AFL_LLVM_IJON")) {
 

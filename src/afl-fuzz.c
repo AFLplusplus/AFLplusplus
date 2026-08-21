@@ -268,7 +268,20 @@ static void configure_ijon_runtime(afl_state_t *afl) {
   save_ijon_state_for_fastresume(afl->fsrv.map_size, afl->fsrv.map_size,
                                  afl->fsrv.real_map_size, target_map_size);
 
+  afl->ijon_cov_bytes = afl->fsrv.real_map_size > MAP_SIZE_IJON_MAP
+                            ? afl->fsrv.real_map_size - MAP_SIZE_IJON_MAP
+                            : 0;
+
   afl_ijon_retire_max = getenv("AFL_IJON_RETIRE_MAX") != NULL;
+
+  if (getenv("AFL_IJON_REPLAY_INTERVAL")) {
+
+    int interval = atoi(getenv("AFL_IJON_REPLAY_INTERVAL"));
+
+    if (interval < 0) { interval = 0; }
+    afl_ijon_replay_interval = interval;
+
+  }
 
 }
 
@@ -321,6 +334,20 @@ static void usage(u8 *argv0, int more_help) {
 #endif
 #if defined(__linux__)
       "  -K dir        - use python script to interact with GUI (GUI mode)\n"
+#endif
+      "  -J[letters]   - state fuzzing mode, for targets that remember what\n"
+      "                  you sent them before (default: all parts):\n"
+      "                  g=double-run gate before saving a find,\n"
+      "                  p=repeat probe and per-input stability,\n"
+      "                  r=rare-edge scoring, d=deep-input shelf,\n"
+      "                  s=state map from IJON annotations,\n"
+      "                  c=harness self-check, b=execution cost benchmark,\n"
+      "                  m=hit-count high-water, i=rare-edge signature,\n"
+      "                  a=ballast-adjusted scoring,\n"
+#ifdef AFL_TARGET_WATCHDOG
+      "                  h=aimed havoc, w=hang watchdog\n"
+#else
+      "                  h=aimed havoc\n"
 #endif
       "\n"
 
@@ -828,10 +855,10 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
   afl->argv_cpy = argv_dup;
   afl->argc_cpy = argc;
 
-  // still available: HjJkqv
+  // still available: Hjkqv
   while ((opt = getopt(
               argc, argv,
-              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:K:l:L::m:M:nNo:Op:P:Qr:s:S:t:T:"
+              "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:J::K:l:L::m:M:nNo:Op:P:Qr:s:S:t:T:"
               "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
@@ -915,6 +942,91 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
         }
 
         break;
+
+      case 'J': {                                     /* state fuzzing mode */
+
+        if (afl->state_mode) { FATAL("Multiple -J options not supported"); }
+
+        if (!optarg || !*optarg) {
+
+          afl->state_mode = STATE_MODE_ALL;
+
+        } else {
+
+          char *c = optarg;
+          while (*c) {
+
+            switch (*c) {
+
+              case 'g':
+              case 'G':
+                afl->state_mode |= STATE_MODE_GATE;
+                break;
+              case 'p':
+              case 'P':
+                afl->state_mode |= STATE_MODE_PROBE;
+                break;
+              case 'r':
+              case 'R':
+                afl->state_mode |= STATE_MODE_RARE;
+                break;
+              case 'd':
+              case 'D':
+                afl->state_mode |= STATE_MODE_DEEP;
+                break;
+              case 's':
+              case 'S':
+                afl->state_mode |= STATE_MODE_SMAP;
+                break;
+              case 'c':
+              case 'C':
+                afl->state_mode |= STATE_MODE_CONTRACT;
+                break;
+              case 'b':
+              case 'B':
+                afl->state_mode |= STATE_MODE_BENCH;
+                break;
+              case 'h':
+              case 'H':
+                afl->state_mode |= STATE_MODE_HOT;
+                break;
+              case 'm':
+              case 'M':
+                afl->state_mode |= STATE_MODE_HIWATER;
+                break;
+              case 'i':
+              case 'I':
+                afl->state_mode |= STATE_MODE_SIG;
+                break;
+              case 'a':
+              case 'A':
+                afl->state_mode |= STATE_MODE_BALLAST;
+                break;
+              case 'w':
+              case 'W':
+  #ifdef AFL_TARGET_WATCHDOG
+                afl->state_mode |= STATE_MODE_WATCHDOG;
+  #else
+                WARNF(
+                    "-J%c ignored, AFL_TARGET_WATCHDOG is not compiled in "
+                    "(see include/config.h)",
+                    *c);
+  #endif
+                break;
+              default:
+                FATAL("Unknown option value '%c' in -J %s", *c, optarg);
+
+            }
+
+            ++c;
+
+          }
+
+        }
+
+        break;
+
+      }
 
       case 'Z':
         afl->old_seed_selection = 1;
@@ -2007,6 +2119,19 @@ void afl_check_environment(afl_state_t *afl) {
 
   if (afl->shm.cmplog_mode) { OKF("CmpLog level: %u", afl->cmplog_lvl); }
 
+  if (afl->afl_env.afl_time_accounting) { afl->time_accounting = 1; }
+  if (afl->afl_env.afl_hot_bias) { afl->hot_bias = afl->afl_env.afl_hot_bias; }
+
+  if (afl->state_mode) {
+
+    if ((afl->state_mode & STATE_MODE_SMAP) && !afl->afl_env.afl_no_state_map) {
+
+      afl->shm.state_mode = 1;
+
+    }
+
+  }
+
   if (afl->value_profile_mode) {
 
     afl->shm.vp_mode = 1;
@@ -2855,10 +2980,29 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
   afl->argv = use_argv;
 
+  #ifdef AFL_TARGET_WATCHDOG
+  if ((afl->state_mode & STATE_MODE_WATCHDOG) &&
+      !afl->afl_env.afl_watchdog_ms) {
+
+    u32 base = MAX(afl->fsrv.exec_tmout, afl->hang_tmout);
+    u32 ms = MAX((u32)1000, base * 2);
+    u8 *val = alloc_printf("%u", ms);
+    setenv("AFL_WATCHDOG_MS", (char *)val, 1);
+    ck_free(val);
+    OKF("Target watchdog armed at %u ms, hangs become reproducible crashes",
+        ms);
+
+  }
+
+  #else
+  afl->state_mode &= ~STATE_MODE_WATCHDOG;
+  #endif
+
   afl->fsrv.trace_bits =
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
                    afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
   afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
+  state_map_setup(afl);
 
   #ifdef __AFL_CODE_COVERAGE
   // Initialize pcmap and modmap before any forkserver starts
@@ -2941,6 +3085,13 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
     configure_ijon_runtime(afl);
 
+    /* The shared region is [cov | IJON_MAP | IJON_BYTES] and the three
+       printed numbers are those three areas, so they have to add up to the
+       size the target reports. map_size has had MAP_SIZE_IJON_BYTES taken off
+       it by configure_ijon_runtime() and still covers the IJON set/inc area,
+       which the fuzzer tracks as part of its bitmap on purpose, so the
+       coverage area is what is left below MAP_SIZE_IJON_MAP. The whole
+       tracked map is total_edges in fuzzer_stats. */
     OKF("IJON map: coverage bytes %u, ijon map bytes %u, ijon max size %u",
         (u32)(afl->fsrv.map_size - MAP_SIZE_IJON_MAP), (u32)MAP_SIZE_IJON_MAP,
         (u32)MAP_SIZE_IJON_BYTES);
@@ -3283,6 +3434,9 @@ void afl_load_seeds(afl_state_t *afl) {
         afl->fsrv.map_size = saved_ijon_state.map_size;
         afl->fsrv.real_map_size = saved_ijon_state.real_map_size;
         afl->ijon_bits = (u64 *)(afl->fsrv.trace_bits + afl->fsrv.map_size);
+        afl->ijon_cov_bytes = afl->fsrv.real_map_size > MAP_SIZE_IJON_MAP
+                                  ? afl->fsrv.real_map_size - MAP_SIZE_IJON_MAP
+                                  : 0;
 
         if (afl->ijon_shared_access) {
 
@@ -3504,6 +3658,8 @@ void afl_load_seeds(afl_state_t *afl) {
 
   } else {
 
+    state_alloc(afl);
+
     // after we have the correct bitmap size we can read the bitmap -B option
     // and set the virgin maps
     if (afl->in_bitmap) {
@@ -3531,6 +3687,9 @@ void afl_load_seeds(afl_state_t *afl) {
     }
 
   }
+
+  state_alloc(afl);
+  state_startup_checks(afl);
 
   if (afl->afl_env.afl_sha1_filenames) {
 
