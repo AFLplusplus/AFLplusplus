@@ -214,7 +214,33 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   ACTF("Loading custom mutator library from '%s'...", fn);
 
   dh = dlopen(fn, RTLD_NOW);
-  if (!dh) FATAL("%s", dlerror());
+
+  if (!dh) {
+
+    u8 *err = (u8 *)dlerror();
+
+    /* A mutator built with an instrumenting compiler needs symbols that live
+       in the target, not in afl-fuzz, and the bare symbol name does not say
+       so. Building targets and mutators in one shell with an exported CC is
+       all it takes. */
+
+    if (err && (strstr((char *)err, "__afl_") ||
+                strstr((char *)err, "__sanitizer_cov"))) {
+
+      WARNF(
+          "this library looks AFL-instrumented: the missing symbol lives in an "
+          "instrumented\n    target, not in afl-fuzz. Build the mutator with a "
+          "plain compiler (cc/clang),\n    not with afl-clang-fast or "
+          "afl-gcc-fast, and check with\n    'nm -D --undefined-only %s | grep "
+          "-E \"__afl_|__sanitizer_\"' that nothing is left.",
+          fn);
+
+    }
+
+    FATAL("%s", err ? (char *)err : "dlopen failed");
+
+  }
+
   mutator->dh = dh;
 
   /* Mutator */

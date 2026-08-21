@@ -638,6 +638,8 @@ struct foreign_sync {
 
   u8    *dir;
   time_t mtime;
+  u8     warned;              /* unopenable dir already reported            */
+  u8     announced;          /* first successful import already reported    */
 
 };
 

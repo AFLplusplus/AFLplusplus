@@ -297,6 +297,7 @@ void              afl_fsrv_kill(afl_forkserver_t *fsrv);
 void              afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
                                           char **use_argv, u32 map_size,
                                           volatile u8 *stop_soon, bool unicorn_mode);
+void              afl_fsrv_trim_extra_maps(afl_forkserver_t *fsrv);
 
 #ifdef __linux__
 void nyx_load_target_hash(afl_forkserver_t *fsrv);
