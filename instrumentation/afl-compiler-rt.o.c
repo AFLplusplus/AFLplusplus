@@ -1937,7 +1937,6 @@ static void __afl_start_forkserver(void) {
   // return because possible non-forkserver usage
   if (write(FORKSRV_FD + 1, msg, 4) != 4) {
 
-
     /* No forkserver parent. A tool that attached a shared map still watches
        this run - afl-showmap on a single input and afl-cmin.bash through it
        execve the target directly - and that map was sized from what this
@@ -1950,6 +1949,7 @@ static void __afl_start_forkserver(void) {
 
     }
 
+    __afl_watchdog_arm();
     return;
 
   }
