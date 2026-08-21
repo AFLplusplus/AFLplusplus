@@ -2067,10 +2067,23 @@ static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
   Function *Callee = CB ? CB->getCalledFunction() : nullptr;
   if (!Callee) return false;
   StringRef Name = Callee->getName();
+  // Strip clang's 0x01 asm-name escape and, on Mach-O, the '_' C-symbol prefix
+  // it carries (\01_read -> read). The '_' is only dropped after a 0x01 escape
+  // so Itanium mangled names (e.g. _Znwm) are left intact.
 #if LLVM_VERSION_MAJOR >= 18
-  if (Name.starts_with("\01")) Name = Name.drop_front();
+  if (Name.starts_with("\01")) {
+
+    Name = Name.drop_front();
+    if (Name.starts_with("_")) Name = Name.drop_front();
+
+  }
 #else
-  if (Name.startswith("\01")) Name = Name.drop_front();
+  if (Name.startswith("\01")) {
+
+    Name = Name.drop_front();
+    if (Name.startswith("_")) Name = Name.drop_front();
+
+  }
 #endif
 
   auto useArgs = [&](unsigned DestIdx, unsigned LenIdx) -> bool {
@@ -3538,9 +3551,16 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         // would violate that contract.
         if (Call->isNoBuiltin()) continue;
         StringRef name = cf->getName();
-        // Strip clang's leading 0x01 escape (used for asm-name aliases)
-        // so `\01_malloc` resolves the same as `malloc`.
-        if (!name.empty() && name[0] == '\x01') name = name.drop_front();
+        // Strip clang's leading 0x01 escape (used for asm-name aliases) and the
+        // Mach-O '_' C-symbol prefix it carries, so `\01_mmap` / `\01_malloc`
+        // resolve the same as `mmap` / `malloc`. The '_' is only dropped after a
+        // 0x01 escape so Itanium mangled names (e.g. `_Znwm`) are left intact.
+        if (!name.empty() && name[0] == '\x01') {
+
+          name = name.drop_front();
+          if (!name.empty() && name[0] == '_') name = name.drop_front();
+
+        }
         // 1) Direct rewrite for libc allocators.
         bool matched = false;
         for (const AllocRewriteSpec &spec : kRewriteSpecs) {
@@ -3978,6 +3998,43 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
           MB.CreateCall(oracle_n, {addr, lenI64});
           ++mem_sites;
           continue;
+
+        }
+
+        // libc memory-writer *calls* that were not lowered to a store or an
+        // llvm.mem* intrinsic. At -O0, and on macOS where <string.h> fortifies
+        // known-size destinations, the write survives as a memcpy/memmove/
+        // memset/mempcpy call (or its __*_chk form) - the only witness to the
+        // write. All take (dst, ?, len) with dst=arg0 and len=arg2, so feed
+        // (dst, len) to the oracle exactly like the MemIntrinsic case above.
+        if (auto *CB = dyn_cast<CallBase>(&I)) {
+
+          if (const Function *cf = CB->getCalledFunction()) {
+
+            StringRef n = cf->getName();
+            if (!n.empty() && n[0] == '\x01') {
+
+              n = n.drop_front();
+              if (!n.empty() && n[0] == '_') n = n.drop_front();
+
+            }
+            bool is_memwrite =
+                n == "memcpy" || n == "__memcpy_chk" || n == "memmove" ||
+                n == "__memmove_chk" || n == "memset" || n == "__memset_chk" ||
+                n == "mempcpy" || n == "__mempcpy_chk";
+            if (is_memwrite && CB->arg_size() >= 3 && !CB->isNoBuiltin()) {
+
+              IRBuilder<> MB(CB);
+              inheritDebugLoc(MB, CB);
+              Value *addr = castToPtrTy(MB, CB->getArgOperand(0), PtrTy);
+              Value *lenI64 = MB.CreateZExtOrTrunc(CB->getArgOperand(2), I64);
+              MB.CreateCall(oracle_n, {addr, lenI64});
+              ++mem_sites;
+              continue;
+
+            }
+
+          }
 
         }
 

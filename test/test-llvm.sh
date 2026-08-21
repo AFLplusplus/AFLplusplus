@@ -231,6 +231,9 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     CODE=1
   }
   rm -f test-compcov.compcov test.out
+  # The 120s afl-fuzz solve is marginal under the slow fork() on ARM/macOS and
+  # flakes there, so gate it to x86 like the cmplog/IJON fuzz tests below.
+ test "$SYS" = "i686" -o "$SYS" = "x86_64" -o "$SYS" = "amd64" && {
   AFL_LLVM_LAF_SPLIT_FLOATS=1 ../afl-clang-fast -o test-floatingpoint test-floatingpoint.c >errors 2>&1
   test -e test-floatingpoint && {
     mkdir -p in
@@ -250,6 +253,10 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
     $ECHO "$RED[!] llvm_mode laf-intel floatingpoint splitting feature compilation failed"
     CODE=1
   }
+ } || {
+  $ECHO "$YELLOW[-] laf-intel floatingpoint splitting too slow to test in ARM CI, cannot test"
+  INCOMPLETE=1
+ }
   rm -f test-floatingpoint test.out in/in errors core.*
   echo foobar.c > instrumentlist.txt
   AFL_DEBUG=1 AFL_LLVM_INSTRUMENT_FILE=instrumentlist.txt ../afl-clang-fast -o test-compcov test-compcov.c > test.out 2>&1

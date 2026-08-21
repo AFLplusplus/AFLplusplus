@@ -517,7 +517,11 @@ vp_map_t       *__afl_vp_map;
 vp_map_t       *__afl_vp_map_backup;
 u8              __afl_vp_enabled_fallback;
 u8             *__afl_vp_enabled_ptr = &__afl_vp_enabled_fallback;
+#ifndef __APPLE__
 extern const u8 __afl_vp_instrumented __attribute__((weak));
+#else
+  #include <dlfcn.h>
+#endif
 
 static u8 __afl_cmplog_max_len = 32;  // 16-32
 
@@ -542,7 +546,11 @@ static inline void __afl_vp_refresh_enabled_ptr(void) {
 
 static inline u8 __afl_vp_target_supports_runtime(void) {
 
+#ifdef __APPLE__
+  return (u8)(dlsym(RTLD_DEFAULT, "__afl_vp_instrumented") != NULL);
+#else
   return (u8)((uintptr_t)&__afl_vp_instrumented != 0);
+#endif
 
 }
 
@@ -832,6 +840,30 @@ static void __afl_open_dummy_fd(void) {
 
   if (attempted) { return; }
   attempted = 1;
+
+#if defined(__APPLE__) && defined(__MACH__)
+  /* The readability probe (area_is_valid) writes the tested bytes to this fd so
+     the kernel faults on unmapped source pages. On macOS neither sink used on
+     other platforms works: write() to /dev/urandom always returns -1, and
+     write() to /dev/null never faults (it reports success for unmapped memory).
+     A pipe faults correctly, so use it directly. Set both ends non-blocking so
+     that once the 64 KiB buffer fills the read end can be drained and the write
+     retried instead of blocking (see area_is_valid / __afl_drain_dummy_fd). */
+  if (pipe(__afl_dummy_fd) < 0) {
+
+    __afl_dummy_fd[0] = __afl_dummy_fd[1] = -1;
+
+  } else {
+
+    for (int i = 0; i < 2; ++i) {
+
+      int flags = fcntl(__afl_dummy_fd[i], F_GETFL, 0);
+      if (flags >= 0) { fcntl(__afl_dummy_fd[i], F_SETFL, flags | O_NONBLOCK); }
+
+    }
+
+  }
+#else
   if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
 
     if (pipe(__afl_dummy_fd) < 0) {
@@ -846,6 +878,7 @@ static void __afl_open_dummy_fd(void) {
     }
 
   }
+#endif
 
 }
 
@@ -4228,6 +4261,18 @@ __attribute__((weak_import)) void *__asan_region_is_poisoned(void  *beg,
 __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
 #endif
 
+#if defined(__APPLE__) && defined(__MACH__)
+/* Empty the probe pipe (see __afl_open_dummy_fd). Both ends are non-blocking,
+   so the read loop stops at EAGAIN once the buffer is drained. */
+static void __afl_drain_dummy_fd(void) {
+
+  if (__afl_dummy_fd[0] < 0) { return; }
+  u8 buf[256];
+  while (read(__afl_dummy_fd[0], buf, sizeof(buf)) > 0) {}
+
+}
+#endif
+
 // POSIX shenanigan to see if an area is mapped.
 // If it is mapped as X-only, we have a problem, so maybe we should add a check
 // to avoid to call it on .text addresses
@@ -4258,6 +4303,13 @@ static int area_is_valid(void *ptr, size_t len) {
   #pragma GCC diagnostic push
   #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+  if (unlikely(r < 0 && errno == EAGAIN)) {
+
+    /* probe pipe buffer is full; drain it and retry the fault probe once */
+    __afl_drain_dummy_fd();
+    r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+
+  }
   #pragma GCC diagnostic pop
 #else
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
@@ -4304,6 +4356,13 @@ static u32 area_pair_valid_len(void *ptr1, void *ptr2, size_t len) {
   #endif
   long r = syscall(SYS_writev, __afl_dummy_fd[1], iov, 2);
   #if defined(__APPLE__) && defined(__MACH__)
+  if (unlikely(r < 0 && errno == EAGAIN)) {
+
+    /* probe pipe buffer is full; drain it and retry the fault probe once */
+    __afl_drain_dummy_fd();
+    r = syscall(SYS_writev, __afl_dummy_fd[1], iov, 2);
+
+  }
     #pragma GCC diagnostic pop
   #endif
 
