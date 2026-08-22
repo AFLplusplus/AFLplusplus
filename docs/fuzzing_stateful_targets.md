@@ -15,28 +15,38 @@ it did before.
 afl-fuzz -J -i seeds -o out -- ./target @@
 ```
 
-That enables every part. To enable only some:
+That enables the three parts that were measured to pay for themselves. To
+enable others as well:
 
 ```bash
-afl-fuzz -Jgpr -i seeds -o out -- ./target @@
+afl-fuzz -Jdcbs -i seeds -o out -- ./target @@
 ```
 
-| Letter | Turns on |
-|---|---|
-| `g` | double-run gate before saving a find |
-| `p` | per-input stability and the repeat probe |
-| `r` | rare-edge scoring |
-| `d` | deep-input shelf, so long inputs stop losing |
-| `s` | state map from IJON annotations |
-| `c` | harness self-check at startup |
-| `b` | one-shot execution cost benchmark |
-| `h` | aimed havoc, from a harness annotation |
-| `w` | hang watchdog inside the target, needs a compile-time opt-in |
+| Letter | Turns on | In bare `-J` |
+|---|---|---|
+| `d` | deep-input shelf, so long inputs stop losing | yes |
+| `c` | harness self-check at startup | yes |
+| `b` | one-shot execution cost benchmark | yes |
+| `g` | double-run gate before saving a find | no |
+| `p` | per-input stability and the repeat probe | no |
+| `r` | rare-edge scoring | no |
+| `s` | state map from IJON annotations | no |
+| `h` | aimed havoc, from a harness annotation | no |
+| `m` | hit-count high-water channel | no |
+| `i` | rare-edge signature state id | no |
+| `a` | ballast-adjusted scoring | no |
+| `w` | hang watchdog inside the target, needs a compile-time opt-in | no |
 
 The letters are case-insensitive and must be **attached** to `-J`: `-Jgpr`
 works, `-J gpr` does not, because `-J` takes an optional argument. Plain `-J`
-selects everything except `w`, which is not compiled in by default. A second
-`-J` on the same command line is an error.
+selects `dcb`; everything else has to be asked for by letter. A second `-J` on
+the same command line is an error.
+
+Why only three: see [what the letters were measured to
+do](#what-the-letters-were-measured-to-do) below. The short version is that the
+shelf is the only part that improved the search on either target measured, `c`
+and `b` are one-shot diagnostics that cannot steer it, and every other letter
+came out at or below the baseline.
 
 The ballast share is always on under `-J`. Time accounting is separate from
 `-J` entirely and is switched on with `AFL_TIME_ACCOUNTING=1`, with or without
@@ -56,9 +66,10 @@ the same version.
 
 Some parts need more than a letter:
 
-* `s` needs a target built with a matching `afl-clang-fast`/`afl-gcc-fast`
-  **and** at least one `IJON_STATE()` call in the harness — or a custom mutator
-  that describes state instead.
+* `s` needs a target built with a matching `afl-clang-fast`/`afl-gcc-fast`,
+  built with `AFL_LLVM_IJON=1` in the environment, **and** at least one
+  `IJON_STATE()` call in the harness — or a custom mutator that describes state
+  instead. Miss the variable and the annotations compile to nothing.
 * `h`'s `AFL_HOT_REGION()` annotation travels through the state map's shared
   memory, so it needs `s` as well: use `-Jhs` or plain `-J`. `-Jh` on its own
   only gets the CmpLog fallback.
@@ -296,8 +307,14 @@ what took `-Js` from roughly 15× slower to 5–15% overhead on a fast target. A
 target that touches more than 512 distinct slots in one execution, or one built
 before the list existed, falls back to the full walk.
 
-Three requirements, all of which are easy to miss:
+Four requirements, all of which are easy to miss:
 
+* **The build needs `AFL_LLVM_IJON=1`.** `afl-cc` only puts `afl-ijon-min.h` in
+  front of the source when that variable is set. Without it, a harness whose own
+  header defines fallback no-op macros behind `__has_include` — the usual
+  pattern — compiles every annotation away, and nothing says so: the runtime is
+  linked either way, so every `ijon_*` symbol is still in the binary and only the
+  call sites are gone. `objdump -d target | grep -c ijon_xor_state` reads 0.
 * The map lives in the instrumentation runtime, so the target must be built with
   a matching `afl-clang-fast` or `afl-gcc-fast`. Binary-only modes (QEMU, Frida,
   Unicorn, Nyx) have no state map and `state_signal` reads `unsupported`.
@@ -869,6 +886,75 @@ exists, prints the min–max spread next to every median, and refuses to let a
 contrast look meaningful when it falls inside that spread. Five repetitions per
 arm is the default because run-to-run variance routinely exceeds the effect
 sizes involved.
+
+---
+
+## What the letters were measured to do
+
+Every letter was compared against `-Jd` alone, one letter at a time, on two
+targets: an OpenSSL 3.5 QUIC server harness with `IJON_STATE()` annotations and
+lwext4's `fuzz_ops`. Independent replicates, each instance on its own `-o` with
+no syncing, 2 h per instance. Depth comes from an external probe compiled
+without AFL that reports what one execution achieved; coverage is a union over
+an equal-N sample per arm replayed through one common build; bugs are crashes
+reproduced standalone and deduplicated on assertion text with values stripped.
+
+QUIC, distinct situations reached and the tail of the depth distribution,
+n=18 per arm:
+
+| arm | situations | depth >= 8 | depth >= 10 | depth >= 12 | slow path |
+|---|---|---|---|---|---|
+| `-Jdg` | 0.92x (p=0.002) | 0.90x (p=0.003) | 0.90x (p=0.008) | 0.90x | 1.67% |
+| `-Jdp` | 1.00x | 1.00x | 1.02x | 1.06x | 1.00% |
+| `-Jdr` | 0.98x | 0.98x | 0.99x | 1.00x | 0.00% |
+| `-Jds` | 0.96x | 0.95x | 0.94x | 0.95x | 0.66% |
+| `-Jdsh` | 0.95x | 0.94x | 0.95x | 0.96x | 0.66% |
+| `-J` | 0.85x (p=0.0001) | 0.83x (p=0.0001) | 0.83x (p=0.0006) | 0.83x (p=0.010) | 3.51% |
+
+lwext4, operations retired and I/O done per input, n=11 per arm:
+
+| arm | mean ops | p95 ops | ops >= 64 | ops >= 128 | work >= 1e5 |
+|---|---|---|---|---|---|
+| `-Jdg` | 0.88x | 0.89x | 0.82x | 0.68x | 1.02x |
+| `-Jdp` | 0.91x | 0.89x | 0.84x | 0.67x | 0.89x (p=0.014) |
+| `-Jdr` | 0.95x | 0.95x | 0.87x | 0.86x | 0.94x |
+| `-Jds` | 0.86x (p=0.014) | 0.85x (p=0.013) | 0.78x (p=0.042) | 0.53x (p=0.007) | 0.95x |
+| `-J` | 0.87x | 0.93x | 0.77x (p=0.038) | 0.83x | 0.84x (p=0.0009) |
+
+Read those p-values as nominally significant and uncorrected: seven correlated
+metrics were tested per arm. What is worth trusting is not any single cell but
+that **no letter came out above 1.00x on both targets**, and that the two
+targets agree on bare `-J`.
+
+Coverage moved the same way and barely: on QUIC every arm ended within 0.5% of
+`-Jd`, and for every single arm the edges only `-Jd` found outnumbered the edges
+only that arm found. On lwext4, bare `-J` lost `edges_found` at p=0.049. Bugs
+did not move at all — 31.6 to 32.4 distinct sites per replicate across every
+arm, union 33 to 35.
+
+### `g`, and why a stability number can go the wrong way
+
+`g` is the one letter measured actively harmful. The mechanism fits: the gate
+drops a find whose new edges do not reproduce, QUIC runs at about 62%
+stability, and on an unstable target the inputs that reach furthest are exactly
+the ones with wobbly coverage. lwext4 runs at 99.9% stability and there the
+gate is neutral, which is the same explanation seen from the other side.
+
+Its one flattering number is a trap. `-Jdg` reports stability 1.34-1.41x higher
+than `-Jd` (p=0.0004), while coverage and depth do not move and the corpus grows
+11%. It is not making the queue better; it is keeping the entries that drag the
+average down out of it. The gate rejects 0.15-0.42% of finds for 1.67% of the
+execution budget.
+
+### `s` without annotations is not free either
+
+On lwext4, with no `IJON_STATE()` call anywhere, `-Js` reports zero transitions
+and zero extra executions, and it still moved the depth distribution down. Part
+of that is length - it produced shorter inputs (0.87x, p=0.021) - but a residue
+survives inside equal-length bands. The mechanism was not identified: the shelf's
+state bucket stays 0 without a trusted signal, so it is not the shelf keying.
+Treat "inert without annotations" as unproven and ask for `s` only when the
+harness actually has annotations.
 
 ---
 

@@ -336,12 +336,13 @@ static void usage(u8 *argv0, int more_help) {
       "  -K dir        - use python script to interact with GUI (GUI mode)\n"
 #endif
       "  -J[letters]   - state fuzzing mode, for targets that remember what\n"
-      "                  you sent them before (default: all parts):\n"
+      "                  you sent them before (bare -J selects dcb):\n"
+      "                  d=deep-input shelf, c=harness self-check,\n"
+      "                  b=execution cost benchmark,\n"
       "                  g=double-run gate before saving a find,\n"
       "                  p=repeat probe and per-input stability,\n"
-      "                  r=rare-edge scoring, d=deep-input shelf,\n"
+      "                  r=rare-edge scoring,\n"
       "                  s=state map from IJON annotations,\n"
-      "                  c=harness self-check, b=execution cost benchmark,\n"
       "                  m=hit-count high-water, i=rare-edge signature,\n"
       "                  a=ballast-adjusted scoring,\n"
 #ifdef AFL_TARGET_WATCHDOG
@@ -949,7 +950,7 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
 
         if (!optarg || !*optarg) {
 
-          afl->state_mode = STATE_MODE_ALL;
+          afl->state_mode = STATE_MODE_DEFAULT;
 
         } else {
 

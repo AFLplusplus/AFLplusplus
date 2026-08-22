@@ -6,72 +6,9 @@
 ### Version ++5.03a (dev)
   ! State fuzzing mode, enabled with `-J`, for targets that remember what you
     sent them before (protocols, databases, filesystems). Off by default and
-    inert without `-J`. See docs/fuzzing_stateful_targets.md. In short: a
-    double-run gate so a find has to reproduce before it is saved, a per-input
-    stability number and a repeat probe next to the old corpus-cumulative one,
-    rare-edge (`-log p`) scoring so ballast stops drowning the signal, a
-    deep-input shelf so long inputs are compared against other long inputs
-    instead of losing to `exec_us * len`, a separate (prev state, cur state,
-    action) map fed by IJON annotations plus the test that decides whether to
-    believe it, a harness self-check, an execution cost benchmark, aimed
-    havoc, and a target-side hang watchdog that turns a spinning target into a
-    reproducible crash (compiled out unless `AFL_TARGET_WATCHDOG` is enabled
-    in config.h, it costs a branch on the persistent-mode hot path). Time
-    accounting is not part of `-J` and is enabled with `AFL_TIME_ACCOUNTING`.
-    Also ships `custom_mutators/state_records/` (inputs as
-    operation programs, with record-granular trim and splice),
-    `utils/state_oracles/` (round-trip, allocation-failure injection,
-    uninitialised-memory probe, exact-size buffers, each with a self-test) and
-    `utils/state_fuzzing/` (the ablation experiment, which now replays each
-    arm's corpus through one coverage build with llvm-cov instead of comparing
-    `edges_found`, a number that is not the same unit in two binaries).
-    A state signal that is too fine is now bounded rather than trusted: a
-    digest that carries the input's history makes almost every execution a
-    find, so `AFL_STATE_ADMIT_PCT` caps the share of the queue the state
-    channel may create; past it the channel stops saving inputs unless its
-    entries are demonstrably mothering finds of their own
-    (`AFL_STATE_YIELD_PCT`, from the new `state_only_saves` /
-    `state_only_paid` stats). Measured on this repository's own end-to-end
-    target: 15,712 queue entries without the bound against 317 with it.
-    Coarsening the map instead was measured and rejected - it kept the corpus
-    cost and lost the benefit, ending below no state signal at all.
-    The state map also no longer costs a 64KB clear and a 64KB scan per
-    execution - the target reports which slots it touched - which took `-Js`
-    from roughly 15x slower to 5-15% on a fast target.
-    `-Js` now also reports the objective IJON_STATE is actually for, which
-    coverage answers backwards: `state_situations` (distinct IJON_STATE values
-    ever reached), `state_depth_max`, `state_depth_avg` and
-    `state_depth_hist`. On a QUIC harness the annotated arms covered fewer
-    regions than the plain ones while reaching 3x the situations and twice the
-    depth per input, so judging the annotation by `edges_found` or a coverage
-    report gets the answer wrong.
-  - IJON: the three channels are now bounded and reported separately.
-    `IJON_SET`/`IJON_INC` write inside the coverage bitmap by design, so their
-    finds are ordinary coverage finds that no `AFL_STATE_*` knob could reach -
-    on an annotated harness they created 206 of 267 queue entries. New
-    `ijon_only_saves` / `ijon_only_paid` / `ijon_admit_off` stats make that
-    visible and `AFL_IJON_ADMIT_PCT` bounds it (off by default).
-    `AFL_IJON_REPLAY_INTERVAL` sets the share of scheduling turns the
-    `IJON_MAX` replay pool gets (default 16, as before), because an `IJON_MAX`
-    objective can otherwise lose to plain coverage feedback on its own
-    quantity. `ijon_max_vars` and `ijon_max_updates` report that pool.
-    `AFL_IJON_HISTORY_LIMIT` below the live variable count now warns once
-    instead of aborting the run: the count only becomes known as slots are
-    first reached, so no value could be validated up front and the knob was
-    unusable.
-  - the corpus-cumulative `stability` is no longer painted red once `-Jp` has
-    measured a per-input stability of 95% or better. `IJON_STATE()` perturbs
-    every later edge index, which degrades the cumulative figure for reasons
-    that say nothing about the harness.
-  - custom mutators: new optional `afl_custom_describe_state()`, through which
-    a mutator that understands the input format reports how many operations an
-    input performs and an id for the state it reaches. The operation count
-    replaces the mutation depth in the `-Jd` shelf, and the state id lets
-    inputs in different states stop competing - a state signal with no
-    annotation, no instrumentation and no rebuild of the target, and without
-    `IJON_STATE()`'s side effect of folding state into the edge hash. With
-    `AFL_STATE_PLUGIN_ADMIT=1` a new state class also justifies saving an
-    input.
+    inert without `-J`. See docs/fuzzing_stateful_targets.md. Various
+    parameters can be selected, by default on are `dcb` (deep-input shelf,
+    harness self-check, cost benchmark).
   ! Value Profile implementation for AFL++ by Khaled Yakdan (@kyakdan) that
     is much more efficient and intelligent than the libfuzzer implementation.
     Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for
@@ -85,6 +22,7 @@
       minimize the the queue like afl-cmin does and make the coverage of the
       removed entries rediscoverable. Inspired by `Novelty Not Found: Adaptive
       Fuzzer Restarts to Improve Input Space Coverage`
+    - IJON: the three channels are now bounded and reported separately.
     - sending `SIGUSR2` forces a sync (AFL internal sync and foreign `-F` ) as
       soon as the current queue entry has been fuzzed
     - the trimming stage no longer throws away what it produces: crashes,
@@ -114,6 +52,9 @@
     - a custom mutator that fails to load because it was built with an
       instrumenting compiler is named as such instead of just showing the
       missing `__afl_*` symbol
+  - custom mutators: new optional `afl_custom_describe_state()`, through which
+    a mutator that understands the input format reports how many operations an
+    input performs and an id for the state it reaches.
   - afl-cc
     - remove classic AFL instrumentation (colliding coverage), as `AFL_LLVM_PATH`
       and `AFL_LLVM_CALLER` replace these mostly and are overall much better

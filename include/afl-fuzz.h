@@ -1158,11 +1158,8 @@ typedef struct afl_state {
 #define STATE_MODE_HIWATER 0x0200U  /* m - hit-count high-water channel     */
 #define STATE_MODE_SIG 0x0400U      /* i - rare-edge signature state id     */
 #define STATE_MODE_BALLAST 0x0800U  /* a - ballast-adjusted scoring          */
-#ifdef AFL_TARGET_WATCHDOG
-  #define STATE_MODE_ALL 0x0fffU
-#else
-  #define STATE_MODE_ALL 0x0effU
-#endif
+#define STATE_MODE_DEFAULT \
+  (STATE_MODE_DEEP | STATE_MODE_CONTRACT | STATE_MODE_BENCH)
 
 #define STATE_SHELF_DEPTH_BUCKETS 8U /* deep-input shelf geometry: input    */
 #define STATE_SHELF_COST_BUCKETS 8U  /* length x exec cost x state count,   */

@@ -224,13 +224,24 @@ else
 
 fi
 
-# Full run with every part enabled.
-run_afl "${WORKDIR}/out_state" -J
+# Full run with every part enabled. Bare -J does not do this any more, so the
+# letters are spelled out.
+if grep -qE '^#define AFL_TARGET_WATCHDOG' ../include/config.h; then
+
+  ALL_LETTERS="gprdscbhwmia"
+
+else
+
+  ALL_LETTERS="gprdscbhmia"
+
+fi
+
+run_afl "${WORKDIR}/out_state" "-J${ALL_LETTERS}"
 STATE="$(stats_of "${WORKDIR}/out_state")"
 
 if [ -z "${STATE}" ]; then
 
-  fail "-J run produced no fuzzer_stats"
+  fail "-J${ALL_LETTERS} run produced no fuzzer_stats"
   tail -20 "${WORKDIR}/out_state.log"
   exit ${CODE}
 
@@ -252,33 +263,53 @@ done
 
 if [ -n "${MISSING}" ]; then
 
-  fail "missing fuzzer_stats keys under -J:${MISSING}"
+  fail "missing fuzzer_stats keys under -J${ALL_LETTERS}:${MISSING}"
 
 else
 
-  ok "every state fuzzing stat is reported under -J"
-
-fi
-
-# The watchdog letter only exists when AFL_TARGET_WATCHDOG is compiled in.
-if grep -qE '^#define AFL_TARGET_WATCHDOG' ../include/config.h; then
-
-  WANT_MODE="gprdscbhwmia"
-
-else
-
-  WANT_MODE="gprdscbhmia"
+  ok "every state fuzzing stat is reported when every letter is asked for"
 
 fi
 
 MODE="$(echo "${STATE}" | grep -E '^state_mode *:' | sed 's/.*: *//')"
-if [ "${MODE}" = "${WANT_MODE}" ]; then
+if [ "${MODE}" = "${ALL_LETTERS}" ]; then
 
-  ok "bare -J enables every part (${MODE})"
+  ok "-J${ALL_LETTERS} enables every part (${MODE})"
 
 else
 
-  fail "bare -J reported state_mode '${MODE}', expected '${WANT_MODE}'"
+  fail "-J${ALL_LETTERS} reported state_mode '${MODE}', expected '${ALL_LETTERS}'"
+
+fi
+
+run_afl "${WORKDIR}/out_default" -J
+DEFSTATE="$(stats_of "${WORKDIR}/out_default")"
+DEFMODE="$(echo "${DEFSTATE}" | grep -E '^state_mode *:' | sed 's/.*: *//')"
+if [ "${DEFMODE}" = "dcb" ]; then
+
+  ok "bare -J selects the measured default set (${DEFMODE})"
+
+else
+
+  fail "bare -J reported state_mode '${DEFMODE}', expected 'dcb'"
+
+fi
+
+LEAKED=""
+for key in gate_checked probe_pct state_signal state_transitions \
+           hot_region_hits; do
+
+  if has_key "${key}" "${DEFSTATE}"; then LEAKED="${LEAKED} ${key}"; fi
+
+done
+
+if [ -n "${LEAKED}" ]; then
+
+  fail "bare -J reported stats for letters it does not enable:${LEAKED}"
+
+else
+
+  ok "bare -J reports nothing for the letters it leaves off"
 
 fi
 

@@ -944,9 +944,11 @@ never seen fire is not known to work.
 If your target is a protocol implementation, a database, a filesystem or
 anything else where the current input only makes sense after the previous one,
 read [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md) and try
-`afl-fuzz -J`. It changes how finds are admitted, how stability is reported,
-how rare edges are scored, and how the queue prices long inputs - all of which
-are tuned for the forgetful case by default. It is off unless you ask for it.
+`afl-fuzz -J`. It changes how the queue prices long inputs, which is tuned for
+the forgetful case by default, and it checks the harness and measures execution
+cost once at startup. The other parts - how finds are admitted, how stability
+is reported, how rare edges are scored, the state map - are letters you ask for
+by name. It is off unless you ask for it.
 
 ### k) Known limitations & areas for improvement
 
