@@ -33,6 +33,10 @@ VERSION     = $(shell grep '^ *$(HASH)define VERSION ' ./config.h | cut -d '"' -
 
 SYS = $(shell uname -s)
 
+ifneq "$(filter Linux GNU%,$(SYS))" ""
+  override LDFLAGS += -lrt
+endif
+
 override LLVM_TOO_NEW_DEFAULT := 23
 override LLVM_TOO_OLD_DEFAULT := 14
 
