@@ -703,6 +703,15 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
               "cost_setup_us     : %llu\n",
               afl->fork_cost_us, afl->setup_cost_us);
 
+      if (afl->prefix_cost_us) {
+
+        fprintf(f,
+                "cost_prefix_us    : %llu\n"
+                "cost_prefix_pct   : %0.02f%%\n",
+                afl->prefix_cost_us, afl->prefix_share_pct);
+
+      }
+
     }
 
     if (afl->plugin_state_described) {

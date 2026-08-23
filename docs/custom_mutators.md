@@ -52,6 +52,7 @@ void afl_custom_splice_optout(void *data);
 size_t afl_custom_fuzz(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf, unsigned char *add_buf, size_t add_buf_size, size_t max_size);
 const char *afl_custom_describe(void *data, size_t max_description_len);
 unsigned char afl_custom_describe_state(void *data, const unsigned char *buf, size_t buf_size, unsigned int *ops, unsigned int *state_id);
+unsigned int afl_custom_describe_state_ops(void *data, const unsigned char *buf, size_t buf_size, unsigned int *offsets, unsigned int max_ops);
 unsigned int afl_custom_state_probe(void *data, unsigned char *out_buf, unsigned int max_len);
 size_t afl_custom_post_process(void *data, unsigned char *buf, size_t buf_size, unsigned char **out_buf);
 int afl_custom_init_trim(void *data, unsigned char *buf, size_t buf_size);
@@ -261,6 +262,36 @@ def deinit():  # optional for Python
     also becomes a reason to save an input, on the same footing as new
     coverage. That is off by default: it is the setting that can hurt if the
     digest is too fine.
+
+- `describe_state_ops` (optional):
+
+    Report where each operation of this input *starts*, so that AFL++ can say
+    "this new input shares your first k operations, which end at byte b".
+    Called with the entry's bytes; write ascending byte offsets into `offsets`,
+    `offsets[i]` being the first byte of operation `i`, and return the total
+    number of operations in `buf`.
+
+    Write one extra entry, `offsets[n]` = one past the last byte of the last
+    operation, whenever there is room for it (`n + 1 <= max_ops`), so that the
+    caller knows how long the whole program is and not only where the last
+    operation begins. Write at most `max_ops` entries but **return the true
+    total either way**: that is how the caller tells a truncated answer from a
+    complete one. Return 0 to say nothing about this input.
+
+    This is a separate symbol rather than an extra parameter on
+    `describe_state` on purpose. Mutators are `dlopen`ed and the API is
+    versioned by which symbols are present, so widening an existing signature
+    would make every mutator built against the old one read garbage.
+
+    Only implement it for a format whose operations have byte boundaries. A
+    format where an operation is not a contiguous byte range - anything with a
+    trailing checksum over the whole input, or a length prefix that has to be
+    rewritten - has no honest answer here and should leave the symbol out
+    rather than return approximate offsets.
+
+    `custom_mutators/state_records/state_records.c` implements this over its
+    record format, where a record is a contiguous byte range and the boundaries
+    are exactly what its decoder already recovers.
 
 - `state_probe` (optional):
 

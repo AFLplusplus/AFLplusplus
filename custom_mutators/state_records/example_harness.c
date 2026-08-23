@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "state_records.h"
@@ -243,16 +245,82 @@ static void do_commit(void) {
 
 }
 
+/* AFL_POOL_FORK_PROBE=<k> replays k operations, then times fork plus reap
+   against the dirty footprint that k operations built. The reap is inside the
+   timed loop because that is what a pool hit actually pays. */
+
+static unsigned long pool_probe_rss_kb(void) {
+
+  FILE         *f = fopen("/proc/self/statm", "r");
+  unsigned long total = 0, resident = 0;
+
+  if (!f) { return 0; }
+
+  if (fscanf(f, "%lu %lu", &total, &resident) != 2) { resident = 0; }
+
+  fclose(f);
+  return resident * (unsigned long)(sysconf(_SC_PAGESIZE) / 1024);
+
+}
+
+static unsigned long pool_probe_now_us(void) {
+
+  struct timespec ts;
+
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (unsigned long)ts.tv_sec * 1000000UL +
+         (unsigned long)(ts.tv_nsec / 1000);
+
+}
+
+static void pool_probe_fork_cost(unsigned park_ops) {
+
+  const unsigned runs = 200;
+  unsigned long  start, stop;
+  unsigned       i;
+
+  start = pool_probe_now_us();
+
+  for (i = 0; i < runs; ++i) {
+
+    pid_t p = fork();
+
+    if (p < 0) { break; }
+
+    if (!p) { _exit(0); }
+
+    while (waitpid(p, NULL, 0) < 0) {}
+
+  }
+
+  stop = pool_probe_now_us();
+
+  printf("park_ops=%u us_per_fork=%.2f rss_kb=%lu runs=%u\n", park_ops,
+         (double)(stop - start) / (double)(i ? i : 1), pool_probe_rss_kb(), i);
+  fflush(stdout);
+
+}
+
 static void run(const unsigned char *buf, size_t len) {
 
   static state_rec_t recs[STATE_MAX_RECS];
   size_t             n, i;
+  const char        *probe = getenv("AFL_POOL_FORK_PROBE");
+  size_t park = probe ? (size_t)strtoul(probe, NULL, 10) : (size_t)-1;
 
   store_reset();
 
   n = state_rec_decode(buf, len, recs, STATE_MAX_RECS);
 
   for (i = 0; i < n; ++i) {
+
+    if (probe && i == park) {
+
+      pool_probe_fork_cost((unsigned)i);
+      store_reset();
+      return;
+
+    }
 
     switch (recs[i].opcode) {
 
@@ -283,6 +351,8 @@ static void run(const unsigned char *buf, size_t len) {
     }
 
   }
+
+  if (probe && park >= n) { pool_probe_fork_cost((unsigned)n); }
 
   store_reset();
 

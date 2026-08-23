@@ -271,6 +271,16 @@ else
 
 fi
 
+if has_key cost_prefix_pct "${STATE}"; then
+
+  fail "cost_prefix_pct is reported without a mutator that knows the boundaries"
+
+else
+
+  ok "-Jb skips the prefix decomposition when no mutator reports boundaries"
+
+fi
+
 MODE="$(echo "${STATE}" | grep -E '^state_mode *:' | sed 's/.*: *//')"
 if [ "${MODE}" = "${ALL_LETTERS}" ]; then
 

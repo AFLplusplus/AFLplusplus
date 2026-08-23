@@ -301,6 +301,16 @@ collide — the same trade AFL++ already makes with edge collisions.
 `state_map_density` is reported in hundredths of a percent, because a real
 target reaching 169 of 65536 slots would otherwise read 0%.
 
+**Watch that number, because the map fills up and then stops working.** Every
+cell set means a genuinely new transition lands in a cell already marked, looks
+like something seen before, and is not flagged. On the QUIC harness measured
+here `state_map_density` reached 98.3% at 60 minutes, 100% at 93 minutes, and
+97.7-99.9% on every one of eighteen 2 h runs. Past that point `-Js` is paying
+its cost and returning nothing, so the benefit has a horizon measured in hours
+and a long campaign spends most of its time on the wrong side of it. If density
+is near 100% early, the state definition is too fine — coarsen it (see the
+warning about history below, and `AFL_STATE_COARSE`) rather than running longer.
+
 It costs a handful of slots per execution, not 64 KB. The target keeps a list of
 the slots it actually touched, and both sides clear and scan only those; that is
 what took `-Js` from roughly 15× slower to 5–15% overhead on a fast target. A
@@ -599,7 +609,35 @@ once, at startup. On a target whose cost depends strongly on the input, that is
 a number for that input. Read the ratio, not the two absolute timings — the
 standalone child does not get the exact environment the forkserver provides.
 
-Stats: `cost_fork_us`, `cost_setup_us`.
+**A third number, when the input format has operation boundaries.** A snapshot
+pool does not compete with process setup — it removes *prefix replay*. So `-Jb`
+also times the same input truncated after its first `n/2` operations, which is
+exactly what a process parked halfway through the program will already have done.
+`cost_prefix_us` is that timing and `cost_prefix_pct` is its share of a whole
+forkserver execution.
+
+The truncation point comes from `afl_custom_describe_state_ops` (see
+[custom_mutators.md](custom_mutators.md)). Without a mutator that implements it
+there is no honest boundary to cut at, so the decomposition is **skipped with one
+warning** and neither key is written — a boundary is never guessed. `b` is in bare
+`-J`'s default set (`dcb`), and no mutator outside the `state_records` class
+implements the callback, so a bare `-J` user pays nothing for this. Users who do
+implement it pay 200 extra forkserver runs once at startup: roughly 0.5–0.8 s on a
+target whose forkserver iteration is 2.7–4.0 ms, against `-Jb`'s existing 0.85 s.
+
+Two cautions on reading `cost_prefix_pct`:
+
+* It is a share of a **whole execution**, fixed per-execution cost included, so it
+  over-reports the prefix share of *operation work* — in a pool's favour. Writing
+  an execution as `F + W` (fixed cost plus the work of `n` operations), a measured
+  share `p` implies the prefix's operation work is only
+  `(p - 0.5) / (1 - p) x 0.5` of an execution. On `state_records/example_harness`
+  a measured 83.9 % at 20 operations is **15.5 %** of an execution by that
+  correction, and 64.7 % at 200 operations is **36 %**.
+* It rises with program length, because `W` grows while `F` does not. One reading
+  at one input length is not a property of the target.
+
+Stats: `cost_fork_us`, `cost_setup_us`, `cost_prefix_us`, `cost_prefix_pct`.
 
 ### `h` — aimed havoc
 
@@ -946,6 +984,22 @@ than `-Jd` (p=0.0004), while coverage and depth do not move and the corpus grows
 average down out of it. The gate rejects 0.15-0.42% of finds for 1.67% of the
 execution budget.
 
+### What the `s` row actually measured
+
+Worth being precise, because the number understates and overstates different
+things. In those 2 h runs the state map ended **97.7-99.9% full** and
+`state_signal` read `observing` on 17 of 18 replicates, with `state_utility_pct`
+between 18% and 59% against a threshold of 80. An untrusted signal never reaches
+`state_map_has_new`, so for almost the whole measurement the state channel was
+**not admitting anything** — what the 0.94-0.96x really prices is the map's
+overhead with its benefit switched off, on a map that had saturated anyway.
+
+That is the honest reading of "`s` does not pay by default", and it is the right
+basis for a default, because it is what a user who adds `-Js` to this harness
+actually gets. It is **not** a test of whether a trusted, unsaturated state map
+helps — that question is still open, and answering it needs a coarser state
+definition that keeps density well below 100% and clears the utility threshold.
+
 ### `s` without annotations is not free either
 
 On lwext4, with no `IJON_STATE()` call anywhere, `-Js` reports zero transitions
@@ -967,6 +1021,24 @@ missing, and it is deliberately last: whether it pays is a per-target question
 with a measured spread of 30×, `-Jb` is the go/no-go measurement, and moving the
 snapshot point past the harness's own init means every child inherits whatever
 the parent holds. See `TODO.md`.
+
+**The gate was run, and it said no on the targets available here.** The whole
+measurement phase of `SNAPSHOT-PLAN.md` was executed; the numbers are in
+`SNAPSHOT-MEASUREMENTS.md`. Two targets were measured. samba `fuzz_smb2_server`
+reads `-Jb` at **1.4×** and spends **~0 %** of an execution on input-proportional
+work — cutting its input to a tenth of its bytes changes the cost by under 0.5 % —
+so a pool has nothing to remove there. The in-tree `state_records/example_harness`
+reads `-Jb` at 142–395× but spends only **15.5 %** of an execution replaying the
+first half of its operations, appends to a cached prefix in **0.4 %** of new queue
+entries, and exhausts its queue inside 20 minutes. The best case from the spec's
+own formula is **5.1 %**, against a **1.33×** spread between replicates of one
+arm — inside the noise.
+
+Two things from that phase did ship, because they are useful without the pool:
+`afl_custom_describe_state_ops` (see [custom_mutators.md](custom_mutators.md)) and
+`-Jb`'s third number, `cost_prefix_us` / `cost_prefix_pct`. The gate is
+per-target, so a target whose execution cost actually scales with input length can
+re-take it — `utils/pool_probe/prefix-share.sh` is the one-minute screen.
 
 ---
 

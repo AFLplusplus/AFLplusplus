@@ -1239,7 +1239,10 @@ typedef struct afl_state {
       state_utility_runs,               /* times the utility test ran       */
       state_utility_ignored,            /* pairs that ignored the probe     */
       state_utility_last_ms,            /* when the test last ran           */
-      state_utility_execs;              /* total_execs it last ran at       */
+      state_utility_execs,              /* total_execs it last ran at       */
+      prefix_cost_us;                   /* the same input, first half of ops*/
+
+  double prefix_share_pct;              /* prefix cost / whole cost, percent*/
 
   u32 situations_found,                 /* distinct IJON_STATE values seen  */
       situation_depth_max;              /* longest situation chain in a run */
@@ -1424,6 +1427,30 @@ struct custom_mutator {
    */
   u8 (*afl_custom_describe_state)(void *data, const u8 *buf, size_t buf_size,
                                   u32 *ops, u32 *state_id);
+
+  /**
+   * Report where each operation of this input starts, so the fuzzer can say
+   * "this new input shares your first k operations, which end at byte b".
+   *
+   * Returns the total number of operations in buf. Writes ascending byte
+   * offsets into offsets: offsets[i] is the first byte of operation i, and
+   * offsets[n] is one past the last byte of the last operation when there is
+   * room for it. At most max_ops entries are written; the return value is the
+   * true total either way, so a caller can detect truncation. Return 0 to say
+   * nothing about this input.
+   *
+   * (Optional)
+   *
+   * @param[in] data pointer returned in afl_custom_init by this custom mutator
+   * @param[in] buf Buffer containing the test case
+   * @param[in] buf_size Size of the test case
+   * @param[out] offsets Byte offset of each operation, ascending
+   * @param[in] max_ops Entries available in offsets
+   * @return Total operations in buf, 0 to decline
+   */
+  u32 (*afl_custom_describe_state_ops)(void *data, const u8 *buf,
+                                       size_t buf_size, u32 *offsets,
+                                       u32 max_ops);
 
   /**
    * Build one action in this input format, for the test that decides whether
@@ -1636,6 +1663,7 @@ u8   trim_case_custom(afl_state_t *, struct queue_entry *q, u8 *in_buf,
                       u64 *trim_start_us);
 void run_afl_custom_describe_state(afl_state_t *, struct queue_entry *, u8 *,
                                    u32);
+u32  run_afl_custom_describe_state_ops(afl_state_t *, u8 *, u32, u32 *, u32);
 u8   run_afl_custom_queue_new_entry(afl_state_t *, struct queue_entry *, u8 *,
                                     u8 *);
 

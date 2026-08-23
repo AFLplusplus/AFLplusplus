@@ -69,6 +69,40 @@ void run_afl_custom_describe_state(afl_state_t *afl, struct queue_entry *q,
 
 }
 
+u32 run_afl_custom_describe_state_ops(afl_state_t *afl, u8 *mem, u32 len,
+                                      u32 *offsets, u32 max_ops) {
+
+  u32 ret = 0;
+
+  if (likely(!afl->custom_mutators_count) || unlikely(!mem) ||
+      unlikely(!offsets) || unlikely(!max_ops)) {
+
+    return 0;
+
+  }
+
+  LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+    if (el->afl_custom_describe_state_ops) {
+
+      u32 n = el->afl_custom_describe_state_ops(el->data, mem, (size_t)len,
+                                                offsets, max_ops);
+
+      if (n) {
+
+        ret = n;
+        break;
+
+      }
+
+    }
+
+  });
+
+  return ret;
+
+}
+
 u8 run_afl_custom_queue_new_entry(afl_state_t *afl, struct queue_entry *q,
                                   u8 *fname, u8 *mother_fname) {
 
@@ -523,6 +557,19 @@ struct custom_mutator *load_custom_mutator(afl_state_t *afl, const char *fn) {
   } else {
 
     OKF("Found 'afl_custom_describe_state'.");
+
+  }
+
+  /* "afl_custom_describe_state_ops", optional */
+  mutator->afl_custom_describe_state_ops =
+      dlsym(dh, "afl_custom_describe_state_ops");
+  if (!mutator->afl_custom_describe_state_ops) {
+
+    ACTF("optional symbol 'afl_custom_describe_state_ops' not found.");
+
+  } else {
+
+    OKF("Found 'afl_custom_describe_state_ops'.");
 
   }
 

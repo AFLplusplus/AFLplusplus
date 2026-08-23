@@ -561,6 +561,8 @@ We add 4 byte for one u32 length field. */
    handful of states should pay for a handful of slots, not for the map. */
 #define STATE_TOUCHED_MAX 512U
 
+#define POOL_MAX_OPS 1024U
+
 /* Executions of one input per repeat probe (-Jp). Detects an edge that fires
    in a fraction p of runs with probability 1 - p^N - (1-p)^N: 100 runs cover
    p >= 2% at 90%, 30 runs only p >= 7%. Cost is N executions per probe

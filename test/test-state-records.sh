@@ -247,4 +247,41 @@ else
 
 fi
 
+JB_DIR="${WORKDIR}/out_jb"
+
+if AFL_NO_UI=1 AFL_SKIP_CPUFREQ=1 AFL_TRY_AFFINITY=1 \
+  AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
+  AFL_CUSTOM_MUTATOR_LIBRARY="${MUTATOR}" \
+  "${ROOT_DIR}/afl-fuzz" -Jb -V5 -d -s 1 -m none -i "${IN_DIR}" -o "${JB_DIR}" \
+  -- "${BIN}" > "${WORKDIR}/jb.log" 2>&1; then
+
+  if grep -q "^cost_prefix_pct" "${JB_DIR}/default/fuzzer_stats"; then
+
+    say "${GREEN}[+] -Jb reports cost_prefix_pct with a boundary-aware mutator${RESET}"
+
+  else
+
+    grep -E "cost_fork_us|cost_setup_us|cost_prefix" \
+      "${JB_DIR}/default/fuzzer_stats" || true
+    fail "-Jb does not report cost_prefix_pct"
+
+  fi
+
+else
+
+  tail -20 "${WORKDIR}/jb.log"
+  fail "-Jb run with the record mutator failed"
+
+fi
+
+if nm -D "${MUTATOR}" 2>/dev/null | grep -q afl_custom_describe_state_ops; then
+
+  say "${GREEN}[+] state_records exports afl_custom_describe_state_ops${RESET}"
+
+else
+
+  fail "state_records does not export afl_custom_describe_state_ops"
+
+fi
+
 exit "${CODE}"

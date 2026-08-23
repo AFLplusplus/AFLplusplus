@@ -725,6 +725,60 @@ void state_cost_bench(afl_state_t *afl) {
   stop_us = get_cur_time_us();
   afl->fork_cost_us = (stop_us - start_us) / MAX(1U, r);
 
+  u64 whole_us = stop_us - start_us;
+  u32 whole_runs = MAX(1U, r);
+
+  {
+
+    u32 *offsets = ck_alloc(sizeof(u32) * (POOL_MAX_OPS + 1));
+    u32  ops = run_afl_custom_describe_state_ops(afl, buf, q->len, offsets,
+                                                 POOL_MAX_OPS + 1);
+
+    if (ops >= 2 && ops <= POOL_MAX_OPS) {
+
+      u32 k = ops / 2;
+      u32 plen = offsets[k];
+
+      if (plen && plen < q->len) {
+
+        u64 pstart = get_cur_time_us(), pstop;
+
+        for (r = 0; r < STATE_BENCH_FORK_RUNS && !afl->stop_soon; ++r) {
+
+          void *use_mem = buf;
+
+          (void)write_to_testcase(afl, &use_mem, plen, 1);
+          (void)fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+          afl->trace_foreign = 1;
+          ++afl->slow_path_execs;
+
+        }
+
+        pstop = get_cur_time_us();
+
+        if (likely(!afl->stop_soon && r)) {
+
+          afl->prefix_cost_us = (pstop - pstart) / r;
+          afl->prefix_share_pct = ((double)(pstop - pstart) / (double)r) *
+                                  100.0 * (double)whole_runs /
+                                  (double)MAX(1ULL, whole_us);
+
+        }
+
+      }
+
+    } else if (!ops) {
+
+      WARNF(
+          "-Jb cannot decompose prefix and tail: no mutator reports operation "
+          "boundaries (afl_custom_describe_state_ops)");
+
+    }
+
+    ck_free(offsets);
+
+  }
+
   u8 *bench_fn =
       alloc_printf("%s/.state_bench_input",
                    afl->tmp_dir ? (char *)afl->tmp_dir : (char *)afl->out_dir);
@@ -903,6 +957,13 @@ void state_cost_bench(afl_state_t *afl) {
   SAYF("    fork + run       : %7llu us/exec\n", afl->fork_cost_us);
   SAYF("    full process set : %7llu us/exec  (%.1fx)\n", afl->setup_cost_us,
        ratio);
+
+  if (afl->prefix_cost_us) {
+
+    SAYF("    first half ops   : %7llu us/exec  (%.1f%% of the whole)\n",
+         afl->prefix_cost_us, afl->prefix_share_pct);
+
+  }
 
   if (ratio >= 2.0) {
 

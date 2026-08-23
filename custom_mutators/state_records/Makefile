@@ -21,7 +21,7 @@ CFLAGS ?= -Wall -Wextra
 SO_CC ?= cc
 HARNESS_CFLAGS = -Wall -Wextra -O0 -g
 
-all: state_records.so example_harness
+all: state_records.so example_harness depth_probe
 
 state_records.so: state_records.c state_records.h
 	$(SO_CC) $(CFLAGS) -D_FORTIFY_SOURCE=2 -O3 -fPIC -shared -g -I ../../include -I . state_records.c -o state_records.so
@@ -29,7 +29,10 @@ state_records.so: state_records.c state_records.h
 example_harness: example_harness.c state_records.h
 	$(CC) $(HARNESS_CFLAGS) -I . example_harness.c -o example_harness
 
+depth_probe: depth_probe.c state_records.h
+	$(SO_CC) $(CFLAGS) -O2 -g -I . depth_probe.c -o depth_probe
+
 clean:
-	rm -f state_records.so example_harness
+	rm -f state_records.so example_harness depth_probe
 
 .PHONY: all clean

@@ -86,6 +86,12 @@ typedef struct state_mutator {
   const char *last_op;
   char        describe[32];
 
+  u8  credit_on;
+  u32 credit_op[STATE_OP_COUNT];
+  u32 credit_mut[10];
+  u32 last_gen_op;
+  u32 last_mut;
+
 } state_mutator_t;
 
 /* ---- random ---------------------------------------------------------- */
@@ -223,6 +229,35 @@ static size_t state_store(state_mutator_t *data, state_arena_t *arena,
 static u8 state_gen_opcode(state_mutator_t *data) {
 
   if (state_rand_below(data, 16)) {
+
+    if (unlikely(data->credit_on)) {
+
+      u32 i, total = 0, pick;
+
+      for (i = 0; i < STATE_OP_COUNT; ++i) {
+
+        total += data->credit_op[i] + 1;
+
+      }
+
+      pick = state_rand_below(data, total);
+
+      for (i = 0; i < STATE_OP_COUNT; ++i) {
+
+        u32 w = data->credit_op[i] + 1;
+
+        if (pick < w) {
+
+          data->last_gen_op = i;
+          return (u8)i;
+
+        }
+
+        pick -= w;
+
+      }
+
+    }
 
     return (u8)state_rand_below(data, STATE_OP_COUNT);
 
@@ -556,7 +591,45 @@ static const char *state_op_shrink(state_mutator_t *data) {
 
 static const char *state_apply_one(state_mutator_t *data) {
 
-  switch (state_rand_below(data, 10)) {
+  u32 which;
+
+  if (unlikely(data->credit_on)) {
+
+    u32 i, total = 0, pick;
+
+    for (i = 0; i < 10; ++i) {
+
+      total += data->credit_mut[i] + 1;
+
+    }
+
+    pick = state_rand_below(data, total);
+    which = 9;
+
+    for (i = 0; i < 10; ++i) {
+
+      u32 w = data->credit_mut[i] + 1;
+
+      if (pick < w) {
+
+        which = i;
+        break;
+
+      }
+
+      pick -= w;
+
+    }
+
+  } else {
+
+    which = state_rand_below(data, 10);
+
+  }
+
+  data->last_mut = which;
+
+  switch (which) {
 
     case 0:
       return state_op_insert(data);
@@ -664,6 +737,30 @@ state_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   data->rnd[1] = 0xbf58476d1ce4e5b9ULL + ((u64)seed << 32);
   data->last_op = "none";
 
+  {
+
+    const char *e = getenv("STATE_RECORDS_CREDIT");
+    u32         i;
+
+    data->credit_on = (u8)(e && *e && *e != '0');
+
+    for (i = 0; i < STATE_OP_COUNT; ++i) {
+
+      data->credit_op[i] = 0;
+
+    }
+
+    for (i = 0; i < 10; ++i) {
+
+      data->credit_mut[i] = 0;
+
+    }
+
+    data->last_gen_op = STATE_OP_COUNT;
+    data->last_mut = 10;
+
+  }
+
   return data;
 
 }
@@ -678,6 +775,8 @@ size_t afl_custom_fuzz(state_mutator_t *data, u8 *buf, size_t buf_size,
 
   *out_buf = NULL;
   data->last_op = "none";
+  data->last_gen_op = STATE_OP_COUNT;
+  data->last_mut = 10;
   data->work.len = 0;
   data->prog_n = state_load(data, &data->work, buf, buf_size, data->prog);
 
@@ -960,6 +1059,52 @@ u8 afl_custom_describe_state(state_mutator_t *data, const u8 *buf,
   }
 
   return 1;
+
+}
+
+u32 afl_custom_describe_state_ops(state_mutator_t *data, const u8 *buf,
+                                  size_t buf_size, u32 *offsets, u32 max_ops) {
+
+  size_t n, i, pos = 0;
+
+  if (!buf || !buf_size || !offsets || !max_ops) { return 0; }
+
+  n = state_rec_decode(buf, buf_size, data->scratch, STATE_MAX_RECS);
+
+  if (!n) { return 0; }
+
+  for (i = 0; i < n && i < max_ops; ++i) {
+
+    pos = (size_t)(data->scratch[i].payload - buf) - STATE_REC_HDR;
+    offsets[i] = (u32)pos;
+    pos += STATE_REC_HDR + data->scratch[i].len;
+
+  }
+
+  if (n < max_ops) { offsets[n] = (u32)pos; }
+
+  return (u32)n;
+
+}
+
+u8 afl_custom_queue_new_entry(state_mutator_t *data,
+                              const u8        *filename_new_queue,
+                              const u8        *filename_orig_queue) {
+
+  (void)filename_new_queue;
+  (void)filename_orig_queue;
+
+  if (!data->credit_on) { return 0; }
+
+  if (data->last_gen_op < STATE_OP_COUNT) {
+
+    ++data->credit_op[data->last_gen_op];
+
+  }
+
+  if (data->last_mut < 10) { ++data->credit_mut[data->last_mut]; }
+
+  return 0;
 
 }
 

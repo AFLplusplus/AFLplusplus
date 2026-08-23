@@ -573,6 +573,10 @@ queue entry, with or without `-J`.
 - `contract_diff`      - edges differing between execution #1 and #2
 - `cost_fork_us`       - measured cost of fork + run, microseconds
 - `cost_setup_us`      - measured cost of a full process start, microseconds
+- `cost_prefix_us`     - measured cost of the input's first half of operations,
+                         microseconds; only with a mutator that reports
+                         operation boundaries
+- `cost_prefix_pct`    - that cost as a share of a whole forkserver execution
 - `state_signal`       - unsupported, observing, unmeasurable, or trusted
 - `state_transitions`  - distinct (prev, cur, action) transitions seen
 - `state_map_density`  - share of the state map ever hit
