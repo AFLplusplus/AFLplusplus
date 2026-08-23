@@ -33,6 +33,10 @@ VERSION     = $(shell grep '^ *$(HASH)define VERSION ' ./config.h | cut -d '"' -
 
 SYS = $(shell uname -s)
 
+ifneq "$(filter Linux GNU%,$(SYS))" ""
+  override LDFLAGS += -lrt
+endif
+
 override LLVM_TOO_NEW_DEFAULT := 23
 override LLVM_TOO_OLD_DEFAULT := 14
 
@@ -373,12 +377,12 @@ ifeq "$(SYS)" "OpenBSD"
   CLANG_CPPFL += -mno-retpoline
   CFLAGS += -mno-retpoline
   # Needed for unwind symbols
-  LDFLAGS += -lc++abi -lpthread
+  override LDFLAGS += -lc++abi -lpthread
 endif
 
 # needed for backtrace under FreeBSD
 ifeq "$(SYS)" "FreeBSD"
-  LDFLAGS += -lexecinfo
+  override LDFLAGS += -lexecinfo
 endif
 
 ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int main() { int _id = shmget(IPC_PRIVATE, 65536, IPC_CREAT | IPC_EXCL | 0600); shmctl(_id, IPC_RMID, 0); return 0;}' | tr @ '\n' | $(CC) -x c - -o .test2 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
@@ -386,13 +390,13 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
 else
         SHMAT_OK=0
         CFLAGS_SAFE += -DUSEMMAP=1
-        LDFLAGS += -Wno-deprecated-declarations
+        override LDFLAGS += -Wno-deprecated-declarations
 endif
 
 ifeq "$(TEST_MMAP)" "1"
         SHMAT_OK=0
         CFLAGS_SAFE += -DUSEMMAP=1
-        LDFLAGS += -Wno-deprecated-declarations
+        override LDFLAGS += -Wno-deprecated-declarations
 endif
 
 PROGS_ALWAYS = ./afl-cc ./afl-compiler-rt.o ./afl-compiler-rt-32.o ./afl-compiler-rt-64.o
