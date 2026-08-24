@@ -144,17 +144,10 @@ Step-by-step quick start:
 
 Questions? Concerns? Bug reports?
 
-* The contributors can be reached via (e.g., by creating an issue):
+* The contributors can be reached via (e.g., by creating an issue - but only for AFL++ defects!):
   [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus).
-* Take a look at our [FAQ](docs/FAQ.md). If you find an interesting or important
-  question missing, submit it via
-  [https://github.com/AFLplusplus/AFLplusplus/discussions](https://github.com/AFLplusplus/AFLplusplus/discussions).
-* Best: join the [Fuzzing Zulip server](https://fuzz.zulipchat.com/).
-* There is a (not really used) mailing list for the AFL/AFL++ project
-  ([browse archive](https://groups.google.com/group/afl-users)). To compare
-  notes with other users or to get notified about major new features, send an
-  email to <afl-users+subscribe@googlegroups.com>, but note that this is not
-  managed by us.
+* Take a look at our [FAQ](docs/FAQ.md) and [Best Practices](docs/best_practices.md).
+* **Best: join the [Fuzzing Zulip server](https://fuzz.zulipchat.com/)!**
 
 ## Branches
 

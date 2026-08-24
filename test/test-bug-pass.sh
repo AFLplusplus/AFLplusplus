@@ -852,7 +852,10 @@ fi
 # --- ALLOCSIZE stack-alloca: catches OOB on stack arrays.  Registers
 #     entry-block allocas (size multiple of 64 bytes, alignment 64) so
 #     the existing store oracle's shadow lookup finds them.
-AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 \
+# -fno-stack-protector: isolate the ALLOCSIZE oracle from the compiler's own
+# stack-canary, which (on macOS/arm64, unlike glibc/x86) independently aborts
+# on this overflow and would otherwise mask what the oracle does.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 "$CC" -O0 -fno-stack-protector \
   "$SCRIPT_DIR/test-bug-allocsize-stack-oob.c" -o "$TMP/aso"
 set +e
 printf '\x00\x00\x00\x00' | "$TMP/aso" 2>"$TMP/aso.err"
@@ -918,7 +921,9 @@ fi
 
 # Gating: AFL_LLVM_BUG_ALLOCSIZE_STACK=0 must restore pre-fix behavior.
 # Rebuild the TP source with the opt-out; OOB must slip past silently.
-AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 AFL_LLVM_BUG_ALLOCSIZE_STACK=0 "$CC" -O0 \
+# -fno-stack-protector: see the TP build above - without it the stack canary,
+# not AFL, aborts the STACK=0 binary on macOS and the opt-out looks broken.
+AFL_QUIET=1 AFL_LLVM_BUG_ALLOCSIZE=1 AFL_LLVM_BUG_ALLOCSIZE_STACK=0 "$CC" -O0 -fno-stack-protector \
   "$SCRIPT_DIR/test-bug-allocsize-stack-oob.c" -o "$TMP/aso_off"
 set +e
 printf '\x00\x00\x00\x00' | "$TMP/aso_off" 2>"$TMP/aso_off.err"
