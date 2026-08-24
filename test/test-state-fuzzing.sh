@@ -121,8 +121,22 @@ BIN="${WORKDIR}/test-state-machine"
 
 IJON_BUILD=1
 
+# --allow-multiple-definition is a GNU ld spelling. Apple's ld rejects it
+# outright, which made the IJON build fail for the wrong reason and quietly
+# drop the whole test to the uninstrumented fallback below. Probe for it and
+# only pass it where the linker knows it.
+ALLOW_MULTI=""
+printf 'int main(void) { return 0; }\n' > "${WORKDIR}/ldprobe.c"
+
+if AFL_QUIET=1 "${AFL_CC}" -Wl,--allow-multiple-definition \
+     -o "${WORKDIR}/ldprobe" "${WORKDIR}/ldprobe.c" > /dev/null 2>&1; then
+
+  ALLOW_MULTI="-Wl,--allow-multiple-definition"
+
+fi
+
 if ! AFL_LLVM_IJON=1 AFL_QUIET=1 "${AFL_CC}" -O0 \
-      -I "${ROOT_DIR}/include" -Wl,--allow-multiple-definition \
+      -I "${ROOT_DIR}/include" ${ALLOW_MULTI} \
       -o "${BIN}" "${SCRIPT_DIR}/test-state-machine.c" \
       > "${WORKDIR}/build.log" 2>&1; then
 

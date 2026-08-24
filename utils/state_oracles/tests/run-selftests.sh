@@ -27,6 +27,37 @@ FAIL=0
 ok() { echo "[+] $1"; }
 no() { echo "[-] $1" >&2; FAIL=1; }
 
+# Two things are spelled differently outside Linux. The preload variable is
+# LD_PRELOAD for ELF and DYLD_INSERT_LIBRARIES for dyld. And a write into a
+# guard page comes back as SIGSEGV (rc 139) on Linux but as SIGBUS on Darwin,
+# where SIGBUS is signal 10 and so rc 138; both mean the guard page did its
+# job, and nothing else does.
+
+case `uname -s` in
+
+  Darwin)
+    PRELOAD_VAR=DYLD_INSERT_LIBRARIES
+    FAULT_RCS="139 138"
+    ;;
+  *)
+    PRELOAD_VAR=LD_PRELOAD
+    FAULT_RCS="139"
+    ;;
+
+esac
+
+is_fault() {
+
+  for want in $FAULT_RCS; do
+
+    test "$1" = "$want" && return 0
+
+  done
+
+  return 1
+
+}
+
 # --- 1. round-trip oracle: the broken loader must abort ---
 
 rc=`./tests/roundtrip_bad >/dev/null 2>&1; echo $?`
@@ -40,8 +71,8 @@ test "$rc" = 0 && ok "round-trip oracle quiet on roundtrip_good" \
 # --- 2. exact-size buffers: the one-byte overrun must fault ---
 
 rc=`./tests/exactbuf_bad >/dev/null 2>&1; echo $?`
-test "$rc" = 139 && ok "guard page fires on exactbuf_bad (SIGSEGV)" \
-                 || no "guard page did NOT fire on exactbuf_bad (rc=$rc, expected 139)"
+is_fault "$rc" && ok "guard page fires on exactbuf_bad (rc=$rc)" \
+                || no "guard page did NOT fire on exactbuf_bad (rc=$rc, expected one of $FAULT_RCS)"
 
 rc=`./tests/exactbuf_good >/dev/null 2>&1; echo $?`
 test "$rc" = 0 && ok "guard page quiet on exactbuf_good" \
@@ -56,7 +87,7 @@ hit=0
 n=1
 while [ "$n" -le 20 ]; do
 
-  rc=`AFL_ALLOCFAIL_N=$n LD_PRELOAD=./afl_allocfail.so ./tests/allocfail_bad >/dev/null 2>&1; echo $?`
+  rc=`AFL_ALLOCFAIL_N=$n env "$PRELOAD_VAR=./afl_allocfail.so" ./tests/allocfail_bad >/dev/null 2>&1; echo $?`
   test "$rc" -ge 128 && hit=1
   n=`expr $n + 1`
 
@@ -69,7 +100,7 @@ bad=0
 n=1
 while [ "$n" -le 20 ]; do
 
-  rc=`AFL_ALLOCFAIL_N=$n LD_PRELOAD=./afl_allocfail.so ./tests/allocfail_good >/dev/null 2>&1; echo $?`
+  rc=`AFL_ALLOCFAIL_N=$n env "$PRELOAD_VAR=./afl_allocfail.so" ./tests/allocfail_good >/dev/null 2>&1; echo $?`
   test "$rc" = 0 || bad=1
   n=`expr $n + 1`
 

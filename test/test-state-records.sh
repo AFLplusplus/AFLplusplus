@@ -274,7 +274,11 @@ else
 
 fi
 
-if nm -D "${MUTATOR}" 2>/dev/null | grep -q afl_custom_describe_state_ops; then
+# nm -D is the ELF spelling; Mach-O has no dynamic symbol table and nm -D
+# fails there, so fall back to nm -g. The Mach-O name carries a leading
+# underscore, which the unanchored grep below matches either way.
+if { nm -D "${MUTATOR}" 2>/dev/null || nm -g "${MUTATOR}" 2>/dev/null; } \
+     | grep -q afl_custom_describe_state_ops; then
 
   say "${GREEN}[+] state_records exports afl_custom_describe_state_ops${RESET}"
 

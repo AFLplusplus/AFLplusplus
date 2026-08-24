@@ -15,9 +15,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# Runs one target on one input at four different MALLOC_PERTURB_ values and
-# diffs the outputs. Any difference means the output depends on uninitialised
-# heap.
+# Runs one target on one input at four different heap-perturbation settings
+# and diffs the outputs. Any difference means the output depends on
+# uninitialised heap.
+#
+# glibc offers MALLOC_PERTURB_, a byte value written into freed and freshly
+# allocated chunks. macOS libmalloc has no equivalent knob; it offers
+# MallocScribble (0x55 into freed memory) and MallocPreScribble (0xaa into
+# fresh allocations), which are on/off rather than a byte, so there the sweep
+# runs over the four on/off combinations instead.
 #
 #   afl-perturb-check.sh ./target input            input on stdin
 #   afl-perturb-check.sh ./target input -f @@      @@ is the input path
@@ -29,7 +35,31 @@
 
 set -u
 
-PERTURB_VALUES="0 42 170 255"
+case `uname -s` in
+
+  Darwin)
+    PERTURB_VALUES="none scribble prescribble both"
+    ;;
+  *)
+    PERTURB_VALUES="0 42 170 255"
+    ;;
+
+esac
+
+# Echoes the environment assignments for one point of the sweep. Unquoted at
+# the call site on purpose: the result is a list of assignments for env(1).
+
+perturb_env() {
+
+  case "$1" in
+    none)        echo "" ;;
+    scribble)    echo "MallocScribble=1" ;;
+    prescribble) echo "MallocPreScribble=1" ;;
+    both)        echo "MallocScribble=1 MallocPreScribble=1" ;;
+    *)           echo "MALLOC_PERTURB_=$1" ;;
+  esac
+
+}
 
 usage() {
 
@@ -66,9 +96,9 @@ done
 for p in $PERTURB_VALUES; do
 
   if [ "$USE_STDIN" = 1 ]; then
-    MALLOC_PERTURB_=$p "$TARGET" $ARGS <"$INPUT" >"$WORK/out.$p" 2>&1
+    env `perturb_env "$p"` "$TARGET" $ARGS <"$INPUT" >"$WORK/out.$p" 2>&1
   else
-    MALLOC_PERTURB_=$p "$TARGET" $ARGS >"$WORK/out.$p" 2>&1
+    env `perturb_env "$p"` "$TARGET" $ARGS >"$WORK/out.$p" 2>&1
   fi
 
   echo "$?" >"$WORK/rc.$p"
@@ -86,20 +116,20 @@ for p in $PERTURB_VALUES; do
   fi
 
   if ! cmp -s "$WORK/out.$FIRST" "$WORK/out.$p"; then
-    echo "[-] output differs between MALLOC_PERTURB_=$FIRST and $p" >&2
+    echo "[-] output differs between perturbation $FIRST and $p" >&2
     diff "$WORK/out.$FIRST" "$WORK/out.$p" >&2 || true
     STATUS=1
   fi
 
   if [ "`cat "$WORK/rc.$FIRST"`" != "`cat "$WORK/rc.$p"`" ]; then
-    echo "[-] exit status differs between MALLOC_PERTURB_=$FIRST ("`cat "$WORK/rc.$FIRST"`") and $p ("`cat "$WORK/rc.$p"`")" >&2
+    echo "[-] exit status differs between perturbation $FIRST ("`cat "$WORK/rc.$FIRST"`") and $p ("`cat "$WORK/rc.$p"`")" >&2
     STATUS=1
   fi
 
 done
 
 if [ "$STATUS" = 0 ]; then
-  echo "[+] identical across MALLOC_PERTURB_ = $PERTURB_VALUES"
+  echo "[+] identical across perturbation settings: $PERTURB_VALUES"
 else
   echo "[-] the output of $TARGET depends on uninitialised heap" >&2
 fi

@@ -8,7 +8,7 @@ how to save.
 | File | Oracle |
 |---|---|
 | `afl-oracles.h` | round-trip check, exact-size buffer allocator |
-| `afl_allocfail.c` | `LD_PRELOAD` allocation-failure injection |
+| `afl_allocfail.c` | preloaded allocation-failure injection |
 | `afl-perturb-check.sh` | uninitialised-memory probe |
 | `tests/` | one broken and one correct example per detector |
 
@@ -75,7 +75,8 @@ attributable: the input plus the value of `N` reproduce it, and no second
 failure muddies the stack.
 
 ```sh
-AFL_ALLOCFAIL_N=7 LD_PRELOAD=./afl_allocfail.so ./target input
+AFL_ALLOCFAIL_N=7 LD_PRELOAD=./afl_allocfail.so ./target input            # ELF
+AFL_ALLOCFAIL_N=7 DYLD_INSERT_LIBRARIES=./afl_allocfail.so ./target input  # macOS
 ```
 
 `AFL_ALLOCFAIL_VERBOSE=1` writes one line to stderr when the failure is
@@ -85,12 +86,20 @@ through.
 The first few allocations of any process belong to libc startup rather than to
 the program, so sweep `N` rather than assuming `N=1` reaches your code.
 
+On macOS the loader is interposed from the process's first allocation, so
+counting only starts once the inserted library's constructor has run; without
+that, every `N` in range would fail loader code and kill correct programs too.
+
 ## Uninitialised-memory probe
 
 `afl-perturb-check.sh <target> <input> [args ...]` runs the target four times
-at different `MALLOC_PERTURB_` values and diffs the outputs. Any difference
+at different heap-perturbation settings and diffs the outputs. Any difference
 means the output depends on uninitialised heap. `@@` in the argument list is
 replaced by the input path; without it the input is fed on stdin.
+
+The four settings are `MALLOC_PERTURB_` = 0, 42, 170, 255 on glibc. macOS has
+no byte-valued equivalent, so there the sweep runs over the on/off
+combinations of `MallocScribble` and `MallocPreScribble` instead.
 
 ```sh
 ./afl-perturb-check.sh ./target input          # exit 0 clean, 1 dependent
@@ -114,7 +123,7 @@ Expected outcomes:
 |---|---|
 | `tests/roundtrip_bad` | exit 134 (`SIGABRT` from the oracle) |
 | `tests/roundtrip_good` | exit 0 |
-| `tests/exactbuf_bad` | exit 139 (`SIGSEGV` on the guard page) |
+| `tests/exactbuf_bad` | exit 139 (`SIGSEGV` on the guard page; 138, `SIGBUS`, on Darwin) |
 | `tests/exactbuf_good` | exit 0 |
 | `tests/allocfail_bad` under the preload | killed by a signal for some `N` in 1..20 |
 | `tests/allocfail_good` under the preload | exit 0 for every `N` in 1..20 |
