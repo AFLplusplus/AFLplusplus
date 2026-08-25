@@ -385,6 +385,13 @@ bool instrument_write_inline(GumArm64Writer *cw, GumAddress code_addr,
   afl_log_code code = {0};
   code.code = template;
 
+  /* code_addr points to the first byte actually emitted. When coverage
+   * suppression is disabled, the template's branch and restoration prologue
+   * are skipped, so account for them when calculating page-relative fixups. */
+  size_t offset =
+      instrument_suppress ? 0 : offsetof(afl_log_code, code.stp_x0_x1);
+  GumAddress template_addr = code_addr - offset;
+
   /*
    * Given our map is allocated on a 64KB boundary and our map is a multiple of
    * 64KB in size, then it should also end on a 64 KB boundary. It is followed
@@ -395,7 +402,7 @@ bool instrument_write_inline(GumArm64Writer *cw, GumAddress code_addr,
 
   if (!instrument_patch_ardp(
           &code.code.adrp_x0_prev_loc1,
-          code_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc1),
+          template_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc1),
           GUM_ADDRESS(instrument_previous_pc_addr))) {
 
     return false;
@@ -414,7 +421,7 @@ bool instrument_write_inline(GumArm64Writer *cw, GumAddress code_addr,
 
   if (!instrument_patch_ardp(
           &code.code.adrp_x1_area_ptr,
-          code_addr + offsetof(afl_log_code, code.adrp_x1_area_ptr),
+          template_addr + offsetof(afl_log_code, code.adrp_x1_area_ptr),
           GUM_ADDRESS(__afl_area_ptr))) {
 
     return false;
@@ -423,7 +430,7 @@ bool instrument_write_inline(GumArm64Writer *cw, GumAddress code_addr,
 
   if (!instrument_patch_ardp(
           &code.code.adrp_x0_prev_loc2,
-          code_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc2),
+          template_addr + offsetof(afl_log_code, code.adrp_x0_prev_loc2),
           GUM_ADDRESS(instrument_previous_pc_addr))) {
 
     return false;
@@ -438,7 +445,6 @@ bool instrument_write_inline(GumArm64Writer *cw, GumAddress code_addr,
 
   } else {
 
-    size_t offset = offsetof(afl_log_code, code.stp_x0_x1);
     gum_arm64_writer_put_bytes(cw, &code.bytes[offset],
                                sizeof(afl_log_code) - offset);
 
