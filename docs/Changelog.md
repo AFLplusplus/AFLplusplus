@@ -89,6 +89,9 @@
     - more speed, more info, a few fixes
   - custom_mutators:
     - removed outdated and pointless radamsa
+  - frida_mode:
+    - fix arm64 inline coverage ADRP fixups when instrumentation suppression is
+      disabled
 
 
 ### Version ++5.02c (release)
