@@ -48,13 +48,12 @@ int rel_on_insert(fs_relation_t *rel, u64 idx, u64 size) {
   // Check if we should update the value of the field.
   if (idx >= rel->anchor && idx <= rel->insert) {
 
-    u64 pre = rel->val;
+    u64 max = rel->size < 8 ? (1ULL << (rel->size * 8)) - 1 : UINT64_MAX;
+
+    // Check before adding: masking first misses increments that wrap by a
+    // complete field width, such as adding 256 to an 8-bit length.
+    if (size > max - rel->val) { return 1; }
     rel->val += size;
-
-    if (rel->size < 8) { rel->val &= (1ULL << (rel->size * 8)) - 1; }
-
-    // Check if we overflowed the field.
-    if (rel->val < pre) { return 1; }
 
   }
 
