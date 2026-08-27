@@ -23,7 +23,7 @@ jobs:
       AFL_SKIP_CPUFREQ: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: update
         run: sudo apt-get update && sudo apt-get upgrade -y
       - name: debug
@@ -38,8 +38,8 @@ jobs:
         run: sudo apt install -y libclang-${{ matrix.version }}-dev
       - name: compiler installed
         run: gcc -v; echo; clang -v
-      - name: build afl++
-        run: export NO_NYX=1; export NO_UNICORN=1; export NO_FRIDA=1; export NO_QEMU=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} all
+      - name: install afl++
+        run: export NO_NYX=1; export NO_UNICORN=1; export NO_FRIDA=1; export NO_QEMU=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; export DESTDIR=/tmp; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} install
       - name: Check llvm passes
         run: make NO_QEMU=1 NO_UNICORN=1 NO_FRIDA=1 ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} llvm-build-test || exit 1
       - name: run tests
@@ -54,7 +54,7 @@ jobs:
       AFL_SKIP_CPUFREQ: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: update
         run: sudo apt-get update && sudo apt-get upgrade -y
       - name: debug
@@ -76,8 +76,8 @@ jobs:
         run: sudo apt install -y libclang-${{ matrix.version }}-dev
       - name: compiler installed
         run: gcc -v; echo; clang -v
-      - name: build afl++
-        run: export NO_NYX=1; export NO_UNICORN=1; export NO_FRIDA=1; export NO_QEMU=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} all
+      - name: install afl++
+        run: export NO_NYX=1; export NO_UNICORN=1; export NO_FRIDA=1; export NO_QEMU=1; export ASAN_BUILD=1; export LLVM_CONFIG=llvm-config-${{ matrix.version }}; export DESTDIR=/tmp; make ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} install
       - name: Check llvm passes
         run: make NO_QEMU=1 NO_UNICORN=1 NO_FRIDA=1 ASAN_BUILD=1 NO_NYX=1 LLVM_CONFIG=llvm-config-${{ matrix.version }} llvm-build-test || exit 1
       - name: run tests
@@ -98,7 +98,7 @@ jobs:
       AFL_SKIP_CPUFREQ: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: update
         run: sudo apt-get update && sudo apt-get upgrade -y
       - name: install packages
@@ -133,7 +133,7 @@ jobs:
       AFL_SKIP_CPUFREQ: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: update
         run: sudo apt-get update && sudo apt-get upgrade -y
       - name: debug
@@ -155,7 +155,7 @@ jobs:
       AFL_SKIP_CPUFREQ: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: install
         run: brew install make gcc llvm
 #     - name: fix install
