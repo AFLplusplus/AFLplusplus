@@ -13,6 +13,8 @@
 int  rel_on_insert(fs_relation_t *rel, u64 idx, u64 size);
 int  rel_on_remove(fs_relation_t *rel, u64 idx, u64 size);
 void rel_apply(u8 *buf, fs_relation_t *rel);
+int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size, u8 ignore_invalid);
+void fs_sanitize(fs_meta_t *meta, u8 *buf, u32 len);
 u8   lightweight_run(afl_state_t *afl, u8 *out_buf, u32 len);
 u64  frameshift_slice_budget(u64 spent_ms, u64 allowed_ms);
 
@@ -124,6 +126,42 @@ static void test_rel_insert_between_anchor_insert_updates_val(void **state) {
   assert_int_equal(rel_on_insert(&rel, 25, 3), 0);
   assert_int_equal(rel.val, 8);
   assert_int_equal(rel.pos, 53);
+
+}
+
+static void test_rel_insert_rejects_full_width_wrap(void **state) {
+
+  (void)state;
+  fs_relation_t rel = {.pos = 50,
+                       .val = 5,
+                       .anchor = 20,
+                       .insert = 30,
+                       .size = 1,
+                       .le = 1,
+                       .enabled = 1};
+
+  assert_int_equal(rel_on_insert(&rel, 25, 256), 1);
+
+}
+
+static void test_tracking_disables_wrapped_relation(void **state) {
+
+  (void)state;
+  fs_relation_t rel = {.pos = 0,
+                       .val = 5,
+                       .anchor = 1,
+                       .insert = 10,
+                       .size = 1,
+                       .le = 1,
+                       .enabled = 1};
+  fs_meta_t     meta = {.relations = &rel, .rel_count = 1, .rel_capacity = 1};
+  u8            buf[300] = {99};
+
+  assert_int_equal(fs_track_insert(&meta, 5, 256, 1), 0);
+  assert_int_equal(rel.enabled, 0);
+
+  fs_sanitize(&meta, buf, sizeof(buf));
+  assert_int_equal(buf[0], 99);
 
 }
 
@@ -269,6 +307,8 @@ int main(void) {
       cmocka_unit_test(test_rel_insert_inside_field_errors),
       cmocka_unit_test(test_rel_insert_after_field_no_shift),
       cmocka_unit_test(test_rel_insert_between_anchor_insert_updates_val),
+      cmocka_unit_test(test_rel_insert_rejects_full_width_wrap),
+      cmocka_unit_test(test_tracking_disables_wrapped_relation),
       cmocka_unit_test(test_rel_remove_overlapping_field_errors),
       cmocka_unit_test(test_rel_apply_endianness),
       cmocka_unit_test(test_lightweight_run_reports_skip),
