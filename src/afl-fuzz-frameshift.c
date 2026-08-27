@@ -453,6 +453,17 @@ u64 decode_value(u8 *buf, u8 size, u8 le) {
 
 }
 
+// Pick a shift amount that tests the given field size without overflowing
+// the field itself.
+u64 frameshift_shift_amount(u8 size, u64 curr_size) {
+
+  u64 field_max = size < 8 ? (1ULL << (size * 8)) - 1 : UINT64_MAX;
+  if (curr_size >= field_max) { return 0; }
+
+  return MIN(size == 1 ? (u64)0x20 : (u64)0xff, field_max - curr_size);
+
+}
+
 int is_blocked(fs_meta_t *meta, u32 pos, u8 size) {
 
   for (u32 i = 0; i < size; i++) {
@@ -772,15 +783,8 @@ void frameshift_stage(afl_state_t *afl) {
         // Does this look like a size/offset field?
         if (curr_size == 0 || curr_size > len) { continue; }
 
-        // Pick a shift amount that will test this field size.
-        u64 shift_amount = 0xff;  // overflow the field boundary
-        if (size == 1) {
-
-          u64 max_shift = 0xff - curr_size;
-          if (max_shift == 0) { continue; }
-          shift_amount = MIN((u64)0x20, max_shift);
-
-        }
+        u64 shift_amount = frameshift_shift_amount(size, curr_size);
+        if (!shift_amount) { continue; }
 
         // Check if the field is blocked.
         if (is_blocked(meta, field_pos, size)) {

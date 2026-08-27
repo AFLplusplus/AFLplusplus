@@ -17,6 +17,7 @@ int fs_track_insert(fs_meta_t *meta, u64 idx, u64 data_size, u8 ignore_invalid);
 void fs_sanitize(fs_meta_t *meta, u8 *buf, u32 len);
 u8   lightweight_run(afl_state_t *afl, u8 *out_buf, u32 len);
 u64  frameshift_slice_budget(u64 spent_ms, u64 allowed_ms);
+u64  frameshift_shift_amount(u8 size, u64 curr_size);
 
 static u8                g_write_ok = 1;
 static u64               g_time;
@@ -165,6 +166,21 @@ static void test_tracking_disables_wrapped_relation(void **state) {
 
 }
 
+static void test_shift_amount_never_overflows_field(void **state) {
+
+  (void)state;
+  assert_int_equal(frameshift_shift_amount(1, 0x10), 0x20);
+  assert_int_equal(frameshift_shift_amount(1, 0xf0), 0x0f);
+  assert_int_equal(frameshift_shift_amount(1, 0xff), 0);
+  assert_int_equal(frameshift_shift_amount(2, 0x100), 0xff);
+  assert_int_equal(frameshift_shift_amount(2, 0xff80), 0x7f);
+  assert_int_equal(frameshift_shift_amount(2, 0xffff), 0);
+  assert_int_equal(frameshift_shift_amount(4, 0xffffff80), 0x7f);
+  assert_int_equal(frameshift_shift_amount(4, 0xffffffff), 0);
+  assert_int_equal(frameshift_shift_amount(8, 0x1000), 0xff);
+
+}
+
 static void test_rel_remove_overlapping_field_errors(void **state) {
 
   (void)state;
@@ -309,6 +325,7 @@ int main(void) {
       cmocka_unit_test(test_rel_insert_between_anchor_insert_updates_val),
       cmocka_unit_test(test_rel_insert_rejects_full_width_wrap),
       cmocka_unit_test(test_tracking_disables_wrapped_relation),
+      cmocka_unit_test(test_shift_amount_never_overflows_field),
       cmocka_unit_test(test_rel_remove_overlapping_field_errors),
       cmocka_unit_test(test_rel_apply_endianness),
       cmocka_unit_test(test_lightweight_run_reports_skip),
