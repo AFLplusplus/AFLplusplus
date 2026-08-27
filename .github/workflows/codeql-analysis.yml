@@ -25,7 +25,7 @@ jobs:
       - name: Fix for using external repo in container build # https://github.com/actions/checkout/issues/760
         run: git config --global --add safe.directory /__w/AFLplusplus/AFLplusplus
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
         with:
