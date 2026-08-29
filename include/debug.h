@@ -26,6 +26,7 @@
 #define _HAVE_DEBUG_H
 
 #include <errno.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
 #include "types.h"
@@ -325,6 +326,21 @@ static inline const char *colorfilter(const char *x) {
                                                                          \
   } while (0)
 
+/* Die like FATAL(), but without running the exit handlers. For a forked child
+   that must not tear down state its parent still owns. */
+
+#define CFATAL(x...)                                                     \
+  do {                                                                   \
+                                                                         \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW    cRST cLRD                         \
+         "\n[-] PROGRAM ABORT : " cRST x);                               \
+    SAYF(cLRD "\n         Location : " cRST "%s(), %s:%u\n\n", __func__, \
+         __FILE__, (u32)__LINE__);                                       \
+    fflush(NULL);                                                        \
+    _exit(1);                                                            \
+                                                                         \
+  } while (0)
+
 /* Die by calling abort() to provide a core dump. */
 
 #define ABORT(x...)                                                      \
@@ -351,6 +367,23 @@ static inline const char *colorfilter(const char *x) {
          __FILE__, (u32)__LINE__);                                     \
     SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));    \
     exit(1);                                                           \
+                                                                       \
+  } while (0)
+
+/* Die like PFATAL(), but without running the exit handlers. For a forked child
+   that must not tear down state its parent still owns. */
+
+#define PCFATAL(x...)                                                  \
+  do {                                                                 \
+                                                                       \
+    fflush(stdout);                                                    \
+    SAYF(bSTOP RESET_G1 CURSOR_SHOW    cRST cLRD                       \
+         "\n[-]  SYSTEM ERROR : " cRST x);                             \
+    SAYF(cLRD "\n    Stop location : " cRST "%s(), %s:%u\n", __func__, \
+         __FILE__, (u32)__LINE__);                                     \
+    SAYF(cLRD "       OS message : " cRST "%s\n", strerror(errno));    \
+    fflush(NULL);                                                      \
+    _exit(1);                                                          \
                                                                        \
   } while (0)
 

@@ -8,8 +8,10 @@
     is much more efficient and intelligent than the libfuzzer implementation.
     Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for
     afl-fuzz with `-r <seconds>` when to activate (default off)
-  - afl-fuzz
+  afl-fuzz
     - big change: limits before switching modes is not time based but exec based now.
+    - fix: shmem leakage on target timeouts and crashes - this has been the case
+      since vanilla AFL. Now fixed for Linux.
     - for more variability, a "starved" mode is implemented now. If for a longer
       time no finds are found, then more seed and mutation variability is
       introduced incl. splicing phase enabled. This is visible in the UI.
@@ -85,6 +87,7 @@
     - the IJON max-value slots and a bug-pass map are no longer counted as
       coverage: they hold wide values, not hit counts, and were reported as
       tuples, minimised against and bucket-classified in place
+    - fix: releaseshared memory when aborted
   - afl-health
     - more speed, more info, a few fixes
   - custom_mutators:

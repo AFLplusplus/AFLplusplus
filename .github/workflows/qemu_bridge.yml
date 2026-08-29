@@ -27,7 +27,7 @@ jobs:
       AFL_NO_AFFINITY: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: false
       - name: install dependencies
@@ -92,7 +92,7 @@ jobs:
       AFL_NO_AFFINITY: 1
       AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: false
       - name: install dependencies
@@ -142,7 +142,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: false
       - name: install dependencies
