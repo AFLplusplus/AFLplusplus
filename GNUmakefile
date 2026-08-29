@@ -979,6 +979,7 @@ endif
 	cp -r testcases/ $${DESTDIR}$(MISC_PATH)
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
 	cp injections.dic $${DESTDIR}$(MISC_PATH)
+	@test -e $${DESTDIR}$(BIN_PATH)/afl-clang-fast || echo "[!] WARNING: LLVM mode was not installed, afl-clang-fast/afl-clang-fast++ are missing! Install llvm and clang 16+ (or set LLVM_CONFIG), rebuild and install again, see docs/INSTALL.md"
 
 .PHONY: uninstall
 uninstall:
