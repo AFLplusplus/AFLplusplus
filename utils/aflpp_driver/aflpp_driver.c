@@ -378,7 +378,10 @@ __attribute__((weak)) int LLVMFuzzerRunDriver(
 
   }
 
-  bool in_afl = !(!getenv(SHM_FUZZ_ENV_VAR) || !getenv(SHM_ENV_VAR) ||
+  /* The shared maps arrive either by name or - with a tool that unlinks them
+     at creation - as an inherited descriptor, so accept both. */
+  bool in_afl = !((!getenv(SHM_FUZZ_ENV_VAR) && !getenv(SHM_FUZZ_FD_ENV_VAR)) ||
+                  (!getenv(SHM_ENV_VAR) && !getenv(SHM_FD_ENV_VAR)) ||
                   fcntl(FORKSRV_FD, F_GETFD) == -1 ||
                   fcntl(FORKSRV_FD + 1, F_GETFD) == -1);
 

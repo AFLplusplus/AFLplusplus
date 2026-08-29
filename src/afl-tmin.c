@@ -1514,13 +1514,8 @@ int main(int argc, char **argv_orig, char **envp) {
   setenv(SHM_FUZZ_MAP_SIZE_ENV_VAR, shm_fuzz_map_size_str, 1);
   ck_free(shm_fuzz_map_size_str);
 
-#ifdef USEMMAP
-  setenv(SHM_FUZZ_ENV_VAR, shm_fuzz->g_shm_file_path, 1);
-#else
-  u8 *shm_str = alloc_printf("%d", shm_fuzz->shm_id);
-  setenv(SHM_FUZZ_ENV_VAR, shm_str, 1);
-  ck_free(shm_str);
-#endif
+  afl_shm_fuzz_env_set(shm_fuzz);
+
   fsrv->support_shmem_fuzz = 1;
   fsrv->shmem_fuzz_len = (u32 *)map;
   fsrv->shmem_fuzz = map + sizeof(u32);

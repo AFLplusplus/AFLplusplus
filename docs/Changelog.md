@@ -8,10 +8,15 @@
     is much more efficient and intelligent than the libfuzzer implementation.
     Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for
     afl-fuzz with `-r <seconds>` when to activate (default off)
+  ! macOS now uses POSIX shared memory instead of SysV, which lifts the
+    `kern.sysv.shmseg` / `kern.sysv.shmmax` ceilings (CmpLog alone needs a
+    145 MB segment, far past the 4 MB macOS default). !!! You need to
+    recompile your targets on macOS - a target built by an older afl-cc still
+    expects a SysV id in `__AFL_SHM_ID` !!!
   afl-fuzz
     - big change: limits before switching modes is not time based but exec based now.
     - fix: shmem leakage on target timeouts and crashes - this has been the case
-      since vanilla AFL. Now fixed for Linux.
+      since vanilla AFL. Now fixed for Linux, MacOS and mmap targets.
     - for more variability, a "starved" mode is implemented now. If for a longer
       time no finds are found, then more seed and mutation variability is
       introduced incl. splicing phase enabled. This is visible in the UI.
@@ -63,6 +68,7 @@
     - removed the obsolete afl-as assembler wrapper and its remaining references
     - headers shipped in a source checkout are found in `include/` now, an
       in-tree build silently preferred an older installed copy before
+    - fix: `CODE_COVERAGE=1` builds
     - IJON: the map expansion is re-applied after a guard-init reset, so a
       target whose coverage is split over several instrumented modules gets
       the full map; the IJON channels also stay live under a tool that
@@ -77,6 +83,9 @@
     - afl-cmin.c is now the default afl-cmin, but it needed a larger rewrite
     - `-T all` (C and python variants) now counts the CPUs the process is
       actually allowed to run on (like `nproc` does)
+    - fix: afl-cmin.c asked afl_shm_init() to chown the shared maps to gid 0,
+      which aborted with `fchown() failed` on POSIX shared memory. No tool
+      wants a chown here, so it now passes -1 like all the others do.
   - afl-showmap:
     - `-i` now follows symlinked test cases and symlinked subdirectories
     - a child killed by a signal no longer reports a garbage exit code in

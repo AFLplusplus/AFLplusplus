@@ -30,6 +30,25 @@
 // c = release, a = volatile github dev, e = experimental branch
 #define VERSION "++5.03a"
 
+/* Which flavour of shared memory the tools and the target agree on. USEMMAP
+   selects POSIX shared memory (shm_open/mmap), otherwise SysV segments are
+   used. macOS is deliberately kept off SysV even though shmat() works there:
+   kern.sysv.shmseg caps a process at 8 segments and kern.sysv.shmmax a
+   segment at 4 MB by default (CmpLog alone needs ~145 MB), and a segment can
+   no longer be attached once it is marked for destruction, so a SIGKILLed
+   tool leaks it. POSIX shared memory handed over as an inherited descriptor
+   (see SHM_FD_ENV_VAR) has none of those problems.
+
+   This lives here rather than only in the makefiles so that every consumer of
+   config.h agrees - the struct in sharedmem.h has a different layout for each
+   flavour, so a build where only some objects got -DUSEMMAP would corrupt
+   memory. The makefiles still set it for the platforms detected at build
+   time, which is why this is guarded. */
+
+#if defined(__APPLE__) && !defined(USEMMAP)
+  #define USEMMAP 1
+#endif
+
 /******************************************************
  *                                                    *
  *  Settings that may be of interest to power users:  *
@@ -434,6 +453,17 @@ and the mapping size to the called program. */
 #define SHM_FUZZ_ENV_VAR "__AFL_SHM_FUZZ_ID"
 #define SHM_FUZZ_MAP_SIZE_ENV_VAR "__AFL_SHM_FUZZ_MAP_SIZE"
 
+/* Environment variables carrying the *descriptor* of a shared map instead of
+   a name or a SysV id. Wherever the maps are POSIX shared memory (USEMMAP
+   builds, which includes macOS) the fuzzer shm_open()s them, mmap()s them and
+   shm_unlink()s the name straight away, so a SIGKILLed tool cannot leave
+   anything behind. What the target gets is the still-open descriptor, whose
+   number is passed here. A target built by an older afl-cc does not know
+   these variables and falls back to SHM_ENV_VAR & co. */
+
+#define SHM_FD_ENV_VAR "__AFL_SHM_FD"
+#define SHM_FUZZ_FD_ENV_VAR "__AFL_SHM_FUZZ_FD"
+
 /* Default size of the shared memory fuzz map.
 We add 4 byte for one u32 length field. */
 #define SHM_FUZZ_MAP_SIZE_DEFAULT (MAX_FILE + 4)
@@ -464,6 +494,14 @@ We add 4 byte for one u32 length field. */
    use FORKSRV_FD and FORKSRV_FD + 1): */
 
 #define FORKSRV_FD 198
+
+/* Lowest descriptor number a shared map may be handed over on (see
+   SHM_FD_ENV_VAR). Starting above FORKSRV_FD + 1 keeps the maps clear of the
+   forkserver control and status pipes; SHM_FD_COUNT is how many slots the
+   range reserves (trace, cmplog, value profile, state, shmem input, spare). */
+
+#define SHM_FD_MIN (FORKSRV_FD + 2)
+#define SHM_FD_COUNT 8
 
 /* Fork server init timeout multiplier: we'll wait the user-selected
    timeout plus this much for the fork server to spin up. */
@@ -566,6 +604,10 @@ We add 4 byte for one u32 length field. */
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
 #define VP_SHM_ENV_VAR "__AFL_VP_SHM_ID"
+
+/* Descriptor-passing variants of the two above (see SHM_FD_ENV_VAR) */
+#define CMPLOG_SHM_FD_ENV_VAR "__AFL_CMPLOG_SHM_FD"
+#define VP_SHM_FD_ENV_VAR "__AFL_VP_SHM_FD"
 
 #define VP_FOCUS_TARGET_SITES 4096U
 
