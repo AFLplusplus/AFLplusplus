@@ -21,7 +21,7 @@ jobs:
     container: docker.io/aflplusplus/aflplusplus:dev
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
       - name: Format
         run: |
           git config --global --add safe.directory /__w/AFLplusplus/AFLplusplus

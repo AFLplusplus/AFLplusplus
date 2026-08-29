@@ -776,13 +776,13 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     // Wait for parent by reading from the pipe. Exit if read fails
 
-    if (read(FORKSRV_FD, &was_killed, 4) != 4) { exit(0); }
+    if (read(FORKSRV_FD, &was_killed, 4) != 4) { _exit(0); }
 
     // Create a clone of our process
 
     child_pid = fork();
 
-    if (child_pid < 0) { PFATAL("Fork failed"); }
+    if (child_pid < 0) { PCFATAL("Fork failed"); }
 
     // In child process: close fds, resume execution
 
@@ -820,7 +820,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
         if (setgid(fsrv->gid) == -1) {
 
-          FATAL("setgid failed: %s\n", strerror(errno));
+          CFATAL("setgid failed: %s\n", strerror(errno));
 
         }
 
@@ -830,7 +830,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
         if (setuid(fsrv->uid) == -1) {
 
-          FATAL("setuid failed: %s\n", strerror(errno));
+          CFATAL("setuid failed: %s\n", strerror(errno));
 
         }
 
@@ -851,7 +851,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     // In parent process: write PID to AFL
 
-    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) { exit(0); }
+    if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) { _exit(0); }
 
     // after child exited, get and relay exit status to parent through waitpid
 
@@ -864,7 +864,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
     // Relay wait status to AFL pipe, then loop back
 
-    if (write(FORKSRV_FD + 1, &status, 4) != 4) { exit(1); }
+    if (write(FORKSRV_FD + 1, &status, 4) != 4) { _exit(1); }
 
   }
 
@@ -1378,8 +1378,8 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     // Set up control and status pipes, close the unneeded original fds
 
-    if (dup2(ctl_pipe[0], FORKSRV_FD) < 0) { PFATAL("dup2() failed"); }
-    if (dup2(st_pipe[1], FORKSRV_FD + 1) < 0) { PFATAL("dup2() failed"); }
+    if (dup2(ctl_pipe[0], FORKSRV_FD) < 0) { PCFATAL("dup2() failed"); }
+    if (dup2(st_pipe[1], FORKSRV_FD + 1) < 0) { PCFATAL("dup2() failed"); }
 
     close(ctl_pipe[0]);
     close(ctl_pipe[1]);
@@ -1426,7 +1426,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
        falling through. */
 
     *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
-    FATAL("Error: execv to target failed\n");
+    CFATAL("Error: execv to target failed\n");
 
   }
 

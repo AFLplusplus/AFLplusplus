@@ -812,7 +812,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
       if (fd < 0 || dup2(fd, 1) < 0 || dup2(fd, 2) < 0) {
 
         *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
-        PFATAL("Descriptor initialization failed");
+        PCFATAL("Descriptor initialization failed");
 
       }
 
@@ -855,7 +855,7 @@ static void showmap_run_target(afl_forkserver_t *fsrv, char **argv) {
     execv(fsrv->target_path, argv);
 
     *(u32 *)fsrv->trace_bits = EXEC_FAIL_SIG;
-    exit(0);
+    _exit(0);
 
   }
 

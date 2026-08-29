@@ -51,7 +51,7 @@ from typing import Any
 
 __version__ = "0.1"
 __license__ = "AGPL-3.0"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 # ============================================================================
@@ -74,6 +74,9 @@ class RawInstance:
     fastresume_present: bool = False
     main_node_file: bool = False
     no_fastresume_env: bool = False
+    starting: bool = False  # fuzzer_stats is missing or older than fuzzer_setup, and afl-fuzz is running
+    setup_mtime: float | None = None
+    setup_cmdline: str = ""  # the '# command line:' line of fuzzer_setup, still shell-quoted
 
 
 @dataclass
@@ -124,6 +127,7 @@ class Instance:
     start_time: int = 0
     afl_version: str = ""
     death: str = ""
+    starting: bool = False  # running but in its dry run/calibration: no stats for this run yet
     absent_fields: list[str] = field(default_factory=list)
     status: str = ""  # filled by analyze
     issues: list[str] = field(default_factory=list)
@@ -174,6 +178,7 @@ class CampaignSnapshot:
     instances: list[Instance]
     collection_error: str | None = None
     no_pids: bool = False
+    starting_count: int = 0
 
     def edges_found_max(self) -> int:
         """Representative campaign edge count: the max across (synced) instances."""
@@ -220,7 +225,7 @@ class ActionDirective:
 @dataclass
 class Report:
     snapshot: CampaignSnapshot
-    overall: str  # healthy | degraded | stalled | misconfigured | dead | no_instances | collection_error
+    overall: str  # healthy|degraded|stalled|misconfigured|dead|starting|no_instances|collection_error
     verdict_explainer: str
     findings: list[Finding] = field(default_factory=list)
     actions: list[ActionDirective] = field(default_factory=list)
@@ -269,6 +274,20 @@ def parse_fuzzer_stats(text: str) -> dict[str, str]:
     return kv
 
 
+def unquote_cmdline(line: str) -> str:
+    """The ``# command line:`` line of fuzzer_setup, shell-unquoted back to plain argv.
+
+    fuzzer_setup single-quotes every argument, while fuzzer_stats' ``command_line`` is
+    plain; the classifiers want the plain form. A line that does not parse is returned
+    unchanged rather than dropped.
+    """
+    line = line.strip()
+    try:
+        return " ".join(shlex.split(line))
+    except ValueError:
+        return line
+
+
 def cmplog_enabled(cmdline: str) -> bool:
     """True if CMPLOG is enabled on this afl-fuzz command line.
 
@@ -294,11 +313,17 @@ def cmplog_enabled(cmdline: str) -> bool:
 
 
 def classify_role(cmdline: str, instance_count: int) -> str:
-    """Topology role: ``main`` (-M), ``secondary`` (-S), or ``solo`` (lone, no -M/-S)."""
+    """Topology role: ``main`` (-M), ``secondary`` (-S), or ``solo`` (lone, no -M/-S).
+
+    Both spellings of the flag count — ``-M main`` and the attached ``-Mmain`` — and only
+    afl-fuzz's own arguments are looked at: everything from ``--`` on belongs to the target.
+    """
     toks = cmdline.split()
-    if "-M" in toks:
+    if "--" in toks:
+        toks = toks[: toks.index("--")]
+    if any(t.startswith("-M") for t in toks):
         return "main"
-    if instance_count == 1 and "-M" not in toks and "-S" not in toks:
+    if instance_count == 1 and not any(t.startswith("-S") for t in toks):
         return "solo"
     return "secondary"
 
@@ -458,6 +483,9 @@ def classify_death(inst: Instance, raw: RawInstance, *, generation_start: int | 
                   fuzzer_stats itself could not be read, so nothing about this instance,
                   liveness included, can be determined.
 
+    A sixth class, ``startup``, is not decided here: it is assigned in build_snapshot to a
+    dir that never got a fuzzer_stats at all and has no live afl-fuzz behind it.
+
     ``generation_start`` is the start_time of the earliest *freshly reporting* instance:
     liveness alone cannot define it, since an instance that was stopped moments ago still
     belongs to the generation its siblings are running in.
@@ -505,7 +533,7 @@ def build_snapshot(raw: RawCampaign, *, no_pids: bool = False) -> CampaignSnapsh
 
     for ri in raw.instances:
         kv = parse_fuzzer_stats(ri.fuzzer_stats)
-        cl = kv.get("command_line", "")
+        cl = kv.get("command_line", "") or unquote_cmdline(ri.setup_cmdline)
         banner = kv.get("afl_banner", "")
         role = classify_role(cl, n)
         variant = classify_variant(cl, banner)
@@ -513,17 +541,29 @@ def build_snapshot(raw: RawCampaign, *, no_pids: bool = False) -> CampaignSnapsh
         tc_ziggy = tc_ziggy or tc == "ziggy"
         tc_cargo = tc_cargo or tc == "cargo-afl"
 
-        run_time = _inum(kv, "run_time")
-        run_time_max = max(run_time_max, run_time)
-        last_update = _inum(kv, "last_update")
+        # A starting instance has published no numbers for this run: whatever fuzzer_stats
+        # holds is the previous run's, so metrics come from an empty source and only the
+        # identity fields (command line, banner, version) are taken from the file.
+        mv = {} if ri.starting else kv
+
+        run_time = _inum(mv, "run_time")
+        last_update = _inum(mv, "last_update")
         lu_age = max(0, raw.now - last_update)
-        last_find = _inum(kv, "last_find")
+        last_find = _inum(mv, "last_find")
         lf_age = max(0, raw.now - last_find) if last_find > 0 else None
         alive = lu_age < NO_PIDS_STALE_SECONDS if no_pids else ri.pid_alive
+        if ri.starting:
+            # The setup file's age is the only clock there is, and only a live process can
+            # tell "starting up" from "aborted before it ever wrote stats".
+            run_time = lu_age = max(0, int(raw.now - ri.setup_mtime)) if ri.setup_mtime else 0
+            lf_age = None
+            alive = ri.pid_alive
+        else:
+            run_time_max = max(run_time_max, run_time)
         if alive:
             alive_count += 1
 
-        edges_found = _inum(kv, "edges_found")
+        edges_found = _inum(mv, "edges_found")
 
         crash_total += ri.crash_count
         hang_total += ri.hang_count
@@ -544,41 +584,50 @@ def build_snapshot(raw: RawCampaign, *, no_pids: bool = False) -> CampaignSnapsh
                 alive=alive,
                 pid_alive=ri.pid_alive,
                 target_mode=kv.get("target_mode", ""),
-                execs_per_sec=_fnum(kv, "execs_per_sec")[0],
-                execs_ps_last_min=_fnum(kv, "execs_ps_last_min")[0],
-                stability=_fnum(kv, "stability")[0],
-                bitmap_cvg=_fnum(kv, "bitmap_cvg")[0],
+                execs_per_sec=_fnum(mv, "execs_per_sec")[0],
+                execs_ps_last_min=_fnum(mv, "execs_ps_last_min")[0],
+                stability=_fnum(mv, "stability")[0],
+                bitmap_cvg=_fnum(mv, "bitmap_cvg")[0],
                 edges_found=edges_found,
-                total_edges=_inum(kv, "total_edges"),
-                pending_favs=_inum(kv, "pending_favs"),
-                pending_total=_inum(kv, "pending_total"),
-                cycles_done=_inum(kv, "cycles_done"),
-                cycles_wo_finds=_inum(kv, "cycles_wo_finds"),
-                time_wo_finds=_inum(kv, "time_wo_finds"),
-                corpus_count=_inum(kv, "corpus_count"),
-                corpus_variable=_inum(kv, "corpus_variable"),
-                saved_crashes=_inum(kv, "saved_crashes"),
-                saved_hangs=_inum(kv, "saved_hangs"),
+                total_edges=_inum(mv, "total_edges"),
+                pending_favs=_inum(mv, "pending_favs"),
+                pending_total=_inum(mv, "pending_total"),
+                cycles_done=_inum(mv, "cycles_done"),
+                cycles_wo_finds=_inum(mv, "cycles_wo_finds"),
+                time_wo_finds=_inum(mv, "time_wo_finds"),
+                corpus_count=_inum(mv, "corpus_count"),
+                corpus_variable=_inum(mv, "corpus_variable"),
+                saved_crashes=_inum(mv, "saved_crashes"),
+                saved_hangs=_inum(mv, "saved_hangs"),
                 crash_files=ri.crash_count,
                 hang_files=ri.hang_count,
-                slowest_exec_ms=_inum(kv, "slowest_exec_ms"),
-                peak_rss_mb=_inum(kv, "peak_rss_mb"),
-                exec_timeout=_inum(kv, "exec_timeout"),
+                slowest_exec_ms=_inum(mv, "slowest_exec_ms"),
+                peak_rss_mb=_inum(mv, "peak_rss_mb"),
+                exec_timeout=_inum(mv, "exec_timeout"),
                 run_time_s=run_time,
                 last_update_age_s=lu_age,
                 last_find_age_s=lf_age,
-                start_time=_inum(kv, "start_time"),
+                start_time=_inum(mv, "start_time"),
                 afl_version=kv.get("afl_version", ""),
+                starting=ri.starting,
                 absent_fields=absent,
             ),
         )
 
-    generation_start = min(
-        (i.start_time for i in instances if i.last_update_age_s < STALE_SECONDS and i.start_time > 0),
-        default=None,
-    )
+    # A starting instance has no start_time yet, so its fuzzer_setup stands in for one.
+    fresh_starts = [i.start_time for i in instances if i.last_update_age_s < STALE_SECONDS and i.start_time > 0]
+    fresh_starts += [
+        int(ri.setup_mtime) for i, ri in zip(instances, raw.instances) if i.starting and i.alive and ri.setup_mtime
+    ]
+    generation_start = min(fresh_starts, default=None)
     for i, ri in zip(instances, raw.instances):
-        if not i.alive:
+        if i.alive:
+            continue
+        if ri.starting:
+            setup_ts = int(ri.setup_mtime or 0)
+            older = generation_start is not None and 0 < setup_ts < generation_start
+            i.death = "leftover" if older else "startup"
+        else:
             i.death = classify_death(
                 i,
                 ri,
@@ -589,8 +638,9 @@ def build_snapshot(raw: RawCampaign, *, no_pids: bool = False) -> CampaignSnapsh
     toolchain = "ziggy" if tc_ziggy else "cargo-afl" if tc_cargo else "aflpp"
 
     # Campaign-level trend comes from the running main's queue (it syncs everything), else
-    # from the newest/leading running instance — never from one that is no longer running.
-    pairs = list(zip(instances, raw.instances))
+    # from the newest/leading running instance — never from one that is no longer running,
+    # and never from one that is still starting up (its plot_data holds only the header).
+    pairs = [p for p in zip(instances, raw.instances) if not p[0].starting]
     running = [p for p in pairs if p[0].alive] or pairs
     main = next((p for p in running if p[0].role == "main"), None)
 
@@ -645,6 +695,7 @@ def build_snapshot(raw: RawCampaign, *, no_pids: bool = False) -> CampaignSnapsh
         instances=instances,
         collection_error=raw.collection_error,
         no_pids=no_pids,
+        starting_count=sum(1 for i in instances if i.starting),
     )
 
 
@@ -674,8 +725,8 @@ DEGRADED_REASON_TEXT = {
     "exec-slowdown": "dropped exec rate",
 }
 
-DEATH_UNEXPECTED = ("killed", "unknown", "")
-DEATH_ORDER = ("killed", "unknown", "stopped", "leftover")
+DEATH_UNEXPECTED = ("killed", "unknown", "startup", "")
+DEATH_ORDER = ("killed", "unknown", "startup", "stopped", "leftover")
 
 DEATH_CAUSE = {
     "unreadable": "fuzzer_stats could not be read: permissions (campaign owned by another user) "
@@ -684,6 +735,8 @@ DEATH_CAUSE = {
     "unknown": "no clean-exit marker available (AFL++ < 4.22a or AFL_NO_FASTRESUME) — cause undeterminable",
     "stopped": "shut down cleanly: stopped by the user, or a -V/-E limit was reached",
     "leftover": "ran before the current instances started: a previous campaign generation, not restarted",
+    "startup": "afl-fuzz gave up before finishing its initial dry run: a FATAL on a seed, an OOM-killed "
+    "or timed-out dry run, or the launcher stopped it again right away",
     "": "crashed or OOM-killed, or the campaign was stopped",
 }
 
@@ -693,6 +746,7 @@ DEATH_ISSUE = {
     "unknown": "not running; clean exit could not be confirmed",
     "stopped": "stopped cleanly (user stop or -V/-E limit)",
     "leftover": "leftover from an earlier campaign generation",
+    "startup": "aborted during startup (never wrote fuzzer_stats)",
 }
 
 
@@ -726,13 +780,35 @@ def analyze(
 
     if snap.instance_count == 0:
         explainer = (
-            f"No fuzzer_stats found under {snap.output_dir} (searched 3 levels deep) — not an "
-            "AFL++/cargo-afl/ziggy output directory, a campaign that never got as far as writing stats, "
-            "or stats that this user may not read. Nothing was measured, so nothing is claimed about health."
+            f"No fuzzer_stats or fuzzer_setup found under {snap.output_dir} (searched 3 levels deep) — not "
+            "an AFL++/cargo-afl/ziggy output directory, a campaign that never got as far as creating its "
+            "instance dirs, or files that this user may not read. Nothing was measured, so nothing is "
+            "claimed about health."
         )
         if snap.honggfuzz_present:
             explainer += " A ziggy honggfuzz instance is present but is not interpreted (out of scope)."
         return Report(snap, "no_instances", explainer, notes=[explainer])
+
+    starting = [i for i in snap.instances if i.starting]
+    live_starting = [i for i in starting if i.alive]
+    if len(starting) == snap.instance_count and live_starting:
+        # Every instance is still in its initial dry run: there is no fuzzer_stats to read,
+        # so every metric would be a fake zero. Report the state, judge nothing.
+        age = max((i.run_time_s for i in live_starting), default=0)
+        explainer = (
+            f"{len(live_starting)} of {snap.instance_count} instance"
+            f"{'' if snap.instance_count == 1 else 's'} still starting up, no stats for this run yet — "
+            f"afl-fuzz writes its first stats only once the initial dry run and calibration are "
+            f"through, which on a large corpus or a slow target takes a while (launched {_hm(age)} ago). "
+            f"Nothing was measured, so nothing is claimed about health."
+        )
+        notes = [explainer]
+        if len(live_starting) != snap.instance_count:
+            notes.append(
+                f"{snap.instance_count - len(live_starting)} of them have a startup directory but no "
+                f"live afl-fuzz process: {DEATH_CAUSE['startup']}."
+            )
+        return Report(snap, "starting", explainer, notes=notes)
 
     findings: list[Finding] = []
     actions: list[ActionDirective] = []
@@ -741,6 +817,7 @@ def analyze(
     snap.trend.prior = prior
 
     n = snap.instance_count
+    reporting = [i for i in snap.instances if not i.starting]
     alive = [i for i in snap.instances if i.alive]
     dead = [i for i in snap.instances if not i.alive]
     died = [i for i in dead if i.death in DEATH_UNEXPECTED]
@@ -804,8 +881,8 @@ def analyze(
         )
 
     # --- objective / AFL-normalized: misconfigured ------------------------------
-    all_zero_edges = n > 0 and snap.run_time_s > 0 and all(i.edges_found == 0 for i in snap.instances)
-    all_zero_eps = n > 0 and snap.run_time_s > 0 and all(i.execs_per_sec == 0 for i in snap.instances)
+    all_zero_edges = bool(reporting) and snap.run_time_s > 0 and all(i.edges_found == 0 for i in reporting)
+    all_zero_eps = bool(reporting) and snap.run_time_s > 0 and all(i.execs_per_sec == 0 for i in reporting)
     saturated = [i for i in snap.instances if i.bitmap_cvg >= SATURATION_CVG]
     if all_zero_edges:
         findings.append(
@@ -908,6 +985,9 @@ def analyze(
                         DEATH_CAUSE[i.death],
                     )
                 )
+        elif i.starting:
+            status = "starting"
+            issues.append(f"starting up for {_hm(i.run_time_s)}, no stats for this run yet")
         if i.stability and i.stability < STABILITY_BAD:
             low_stability = True
             if i.alive:
@@ -981,7 +1061,8 @@ def analyze(
     # --- throughput-bound vs plateau (need a trend, not a snapshot) -------------
     cov_old = t.last_cov_entry_age_s is not None and t.last_cov_entry_age_s >= max(1800, snap.run_time_s // 4)
     flat = t.source == "plot_data" and t.edges_slope_recent_per_min <= FLAT_SLOPE
-    drained = pending_favs_total <= max(1, snap.alive_count)  # favored queue essentially exhausted
+    # favored queue essentially exhausted (only instances that report a queue can drain one)
+    drained = pending_favs_total <= max(1, sum(1 for i in reporting if i.alive))
     throughput_bound = cycles_max == 0 and snap.run_time_s >= THROUGHPUT_RUNTIME and pending_favs_total > 0
     plateau = flat and cov_old and drained and not throughput_bound
 
@@ -1056,6 +1137,13 @@ def analyze(
                 {"variants": snap.variants},
                 suggested_command="add a -c <cmplog_bin> or -c0 instance (AFL_CMPLOG_ONLY_NEW=1 on restart)",
             )
+        )
+
+    if live_starting:
+        notes.append(
+            f"{len(live_starting)} of {snap.instance_count} instance(s) are still starting up "
+            f"(oldest {_hm(max(i.run_time_s for i in live_starting))}, no stats for this run yet) — "
+            "they contribute nothing to the measurements above."
         )
 
     if idle:
@@ -1225,13 +1313,15 @@ EXIT = {
     "stalled": 1,
     "misconfigured": 2,
     "dead": 2,
+    "starting": 0,
     "no_instances": 3,
     "collection_error": 3,
 }
 
-# Verdicts where no instance was read at all: every metric would be a fake zero, so
+# Verdicts where no instance could be measured: every metric would be a fake zero, so
 # these report the reason instead of a header block, a table and a trend.
 NOTHING_MEASURED = {
+    "starting": "STARTING",
     "no_instances": "NO INSTANCES",
     "collection_error": "COLLECTION ERROR",
 }
@@ -1242,10 +1332,14 @@ def exit_code(reports: list[Report]) -> int:
 
 
 def fleet_verdict(reports: list[Report]) -> str:
-    """The worst verdict across the fleet (by exit-code rank; stalled wins its tie with degraded)."""
+    """The worst verdict across the fleet (by exit-code rank).
+
+    Ties are broken towards the more informative state — ``stalled`` over ``degraded``,
+    ``starting`` over ``healthy`` — so the roll-up does not depend on argument order.
+    """
     if not reports:
         return "healthy"
-    return max(reports, key=lambda r: (EXIT.get(r.overall, 0), r.overall == "stalled")).overall
+    return max(reports, key=lambda r: (EXIT.get(r.overall, 0), r.overall in ("stalled", "starting"))).overall
 
 
 def render_json(reports: list[Report], *, now: int, version: str) -> str:
@@ -1342,7 +1436,8 @@ def _wrap_labels(labels: list[str], indent: str, width: int = 92) -> list[str]:
 def render_text(report: Report, summary: bool = False) -> str:
     s = report.snapshot
     if report.overall in NOTHING_MEASURED:
-        return f"=== {s.campaign_id} ===\n{NOTHING_MEASURED[report.overall]}: {report.verdict_explainer}\n"
+        head = f"=== {s.campaign_id} ===\n{NOTHING_MEASURED[report.overall]}: {report.verdict_explainer}\n"
+        return head + "".join(f"note: {x}\n" for x in report.notes if x != report.verdict_explainer)
 
     hl = report.headline
     tc = _toolchain_label(s.toolchain)
@@ -1496,8 +1591,8 @@ class TrendStore:
         s = report.snapshot
         t = s.trend
         if report.overall in NOTHING_MEASURED:
-            # No instance was read: store the verdict only, with NULL metrics, so the next
-            # run's cross-run delta is suppressed instead of computed against fake zeros.
+            # No instance could be measured: store the verdict only, with NULL metrics, so the
+            # next run's cross-run delta is suppressed instead of computed against fake zeros.
             self._conn.execute(
                 "INSERT INTO snapshots (campaign_id, generated_at, verdict, raw_json) VALUES (?,?,?,?)",
                 (s.campaign_id, s.generated_at, report.overall, json.dumps(report.to_dict())),
@@ -1549,6 +1644,14 @@ class TrendStore:
 # turns into a RawCampaign. Every blob length is measured from the same snapshot
 # that is written out, because afl-fuzz replaces fuzzer_stats by rename(): reading
 # the file twice can see two different inodes and would desync the stream.
+#
+# Instances are discovered by fuzzer_stats *or* fuzzer_setup: afl-fuzz writes the
+# setup file at startup but the first fuzzer_stats only once the initial dry run and
+# calibration are done, which on a large corpus takes many minutes. A dir whose stats
+# are missing — or older than the setup file, i.e. a restarted instance whose stats are
+# still the previous run's — is therefore an instance that is starting up (STARTING 1).
+# It has no usable fuzzer_pid, so it is matched to its live afl-fuzz through /proc; a
+# restarted dir with no such process is not starting at all and keeps the normal path.
 # ============================================================================
 
 # POSIX-sh collector. $1 = campaign output dir. Honours $AFL_HEALTH_NOW for tests.
@@ -1557,15 +1660,15 @@ DIR=$1
 nopids=$2
 abs=$(cd "$DIR" 2>/dev/null && pwd) || { printf 'ERROR no such dir: %s\n' "$DIR"; exit 9; }
 now=${AFL_HEALTH_NOW:-$(date +%s)}
-stats=$(find "$abs" -maxdepth 3 \( -name queue -o -name crashes -o -name hangs \) -prune -o -type f -name fuzzer_stats -print 2>/dev/null | sort)
+found=$(find "$abs" -maxdepth 3 \( -name queue -o -name crashes -o -name hangs \) -prune -o -type f \( -name fuzzer_stats -o -name fuzzer_setup \) -print 2>/dev/null)
+dirs=$(printf '%s\n' "$found" | sed -n 's|/[^/]*$||p' | sort -u)
 hf=0
 if [ -n "$(find "$abs" \( -name queue -o -name crashes -o -name hangs \) -prune -o -type d -name honggfuzz -print 2>/dev/null | head -n1)" ]; then hf=1; fi
 layout=flat
-if printf '%s\n' "$stats" | grep -q '/afl/[^/]*/fuzzer_stats'; then
+if printf '%s\n' "$found" | grep -q '/afl/[^/]*/fuzzer_s'; then
   layout=ziggy-afl-subdir
 fi
-pid_owns() {
-  tr '\0' '\n' < "/proc/$1/cmdline" 2>/dev/null | awk -v iname="$2" -v odir="$3" '
+OWN_AWK='
     NR==1 { n=split($0,a,"/"); if (a[n] ~ /afl-fuzz/) bin=1; next }
     stop { next }
     wo { if (fo=="") fo=$0; wo=0; next }
@@ -1578,29 +1681,106 @@ pid_owns() {
     END {
       if (!bin) exit 1
       if (fn=="") fn="default"
-      if (fn != iname) exit 1
-      if (fo != "") {
-        n=split(fo,b,"/"); ob=b[n]; if (ob=="" && n>1) ob=b[n-1]
-        if (ob != odir) exit 1
-      }
-      exit 0
+      printf "%s|%s\n", fn, fo
     }'
+pid_ident() {
+  tr '\0' '\n' < "/proc/$1/cmdline" 2>/dev/null | awk "$OWN_AWK"
 }
+phys() {
+  (cd "$1" 2>/dev/null && pwd -P)
+}
+base_of() {
+  b=${1%/}; printf '%s' "${b##*/}"
+}
+own_dir() {
+  case $1 in
+    "") return 0 ;;
+    /*) phys "$1" ;;
+    *) c=$(readlink "/proc/$2/cwd" 2>/dev/null); [ -n "$c" ] && phys "$c/$1" ;;
+  esac
+}
+pid_owns() {
+  ident=$(pid_ident "$1") || return 1
+  [ "${ident%%|*}" = "$2" ] || return 1
+  oraw=${ident#*|}
+  od=$(own_dir "$oraw" "$1")
+  if [ -n "$od" ]; then
+    [ "$od" = "$3" ] || return 1
+  else
+    ob=$(base_of "$oraw")
+    [ -z "$ob" ] || [ "$ob" = "$4" ] || return 1
+  fi
+  return 0
+}
+owns_dir() {
+  printf '%s' "$owners" | (
+    while IFS='|' read -r onm ophys obase; do
+      [ "$onm" = "$1" ] || continue
+      if [ -n "$ophys" ]; then
+        if [ "$ophys" = "$2" ]; then exit 0; fi
+      elif [ -z "$obase" ] || [ "$obase" = "$3" ]; then
+        exit 0
+      fi
+    done
+    exit 1
+  )
+}
+starting_dirs=$(printf '%s\n' "$dirs" | while IFS= read -r d; do
+  [ -n "$d" ] || continue
+  if [ ! -f "$d/fuzzer_stats" ]; then
+    printf '%s\n' "$d"
+  elif [ -f "$d/fuzzer_setup" ] && [ "$d/fuzzer_stats" -ot "$d/fuzzer_setup" ]; then
+    printf '%s\n' "$d"
+  fi
+done)
+owners=
+if [ "$nopids" != 1 ] && [ -n "$starting_dirs" ] && [ -d /proc ]; then
+  cands=$(grep -las afl-fuzz /proc/[0-9]*/cmdline 2>/dev/null)
+  if [ $? -gt 1 ]; then cands=$(echo /proc/[0-9]*/cmdline); fi
+  for c in $cands; do
+    p=${c#/proc/}; p=${p%/cmdline}
+    ident=$(pid_ident "$p") || continue
+    oraw=${ident#*|}
+    owners="$owners${ident%%|*}|$(own_dir "$oraw" "$p")|$(base_of "$oraw")
+"
+  done
+fi
 printf 'CAMPAIGN now=%s honggfuzz=%s layout=%s\n' "$now" "$hf" "$layout"
 printf 'DIR %s\n' "$abs"
-printf '%s\n' "$stats" | while IFS= read -r f; do
-  [ -n "$f" ] || continue
-  d=$(dirname "$f"); name=$(basename "$d")
-  pid=$(awk -F: '/^fuzzer_pid/{gsub(/[ \t]/,"",$2); print $2; exit}' "$f")
+printf '%s\n' "$dirs" | while IFS= read -r d; do
+  [ -n "$d" ] || continue
+  f=$d/fuzzer_stats
+  name=$(basename "$d")
+  parent=$(dirname "$d")
+  pphys=$(phys "$parent")
+  pbase=$(base_of "$parent")
+  starting=0
+  restarted=0
+  if [ ! -f "$f" ]; then
+    starting=1
+  elif [ -f "$d/fuzzer_setup" ] && [ "$f" -ot "$d/fuzzer_setup" ]; then
+    restarted=1
+  fi
   pa=0
-  if [ "$nopids" != 1 ] && [ -n "$pid" ]; then
-    if [ -d "/proc/$pid" ]; then
-      pa=1
-      if [ -r "/proc/$pid/cmdline" ]; then
-        pid_owns "$pid" "$name" "$(basename "$(dirname "$d")")" || pa=0
+  if [ "$nopids" != 1 ]; then
+    if [ "$starting" = 1 ] || [ "$restarted" = 1 ]; then
+      if owns_dir "$name" "$pphys" "$pbase"; then
+        pa=1
+        starting=1
       fi
-    elif [ ! -d /proc ] && kill -0 "$pid" 2>/dev/null; then
-      pa=1
+    fi
+    if [ "$starting" = 0 ]; then
+      pid=$(awk -F: '/^fuzzer_pid/{gsub(/[ \t]/,"",$2); print $2; exit}' "$f")
+      if [ -n "$pid" ]; then
+        if [ -d "/proc/$pid" ]; then
+          pa=1
+          if [ -r "/proc/$pid/cmdline" ]; then
+            pid_owns "$pid" "$name" "$pphys" "$pbase" || pa=0
+          fi
+        elif [ ! -d /proc ] && kill -0 "$pid" 2>/dev/null; then
+          pa=1
+        fi
+      fi
     fi
   fi
   qm=$(find "$d/queue" -maxdepth 1 -type f -name 'id:*' -printf '%T@ %f\n' 2>/dev/null | awk '{ if ($1+0>q) q=$1+0; if (index($2,"+cov") && $1+0>c) c=$1+0 } END { printf "%.0f %.0f", q+0, c+0 }')
@@ -1611,6 +1791,7 @@ printf '%s\n' "$stats" | while IFS= read -r f; do
   fr=0; if [ -f "$d/fastresume.bin" ]; then fr=1; fi
   mn=0; if [ -f "$d/is_main_node" ]; then mn=1; fi
   nf=0; if grep -q '^AFL_NO_FASTRESUME=.' "$d/fuzzer_setup" 2>/dev/null; then nf=1; fi
+  sm=$(find "$d" -maxdepth 1 -type f -name fuzzer_setup -printf '%T@\n' 2>/dev/null | awk '{ printf "%.0f", $1+0; exit }')
   printf 'INSTANCE %s\n' "$name"
   printf 'PIDALIVE %s\n' "$pa"
   printf 'COVMTIME %s\n' "$cov"
@@ -1621,10 +1802,12 @@ printf '%s\n' "$stats" | while IFS= read -r f; do
   printf 'FASTRESUME %s\n' "$fr"
   printf 'MAINNODEFILE %s\n' "$mn"
   printf 'NOFASTRESUME %s\n' "$nf"
-  if st=$(cat "$f" 2>/dev/null); then
-    sn=$(printf '%s\n' "$st" | wc -c | tr -d ' ')
+  printf 'STARTING %s\n' "$starting"
+  printf 'SETUPMTIME %s\n' "${sm:-0}"
+  if sdata=$(cat "$f" 2>/dev/null); then
+    sn=$(printf '%s\n' "$sdata" | wc -c | tr -d ' ')
     printf 'BLOB stats %s\n' "$sn"
-    printf '%s\n' "$st"
+    printf '%s\n' "$sdata"
   else
     printf 'BLOB stats 0\n'
   fi
@@ -1635,6 +1818,17 @@ printf '%s\n' "$stats" | while IFS= read -r f; do
     printf '%s' "$pt"
   else
     printf 'BLOB plot 0\n'
+  fi
+  sc=
+  if [ ! -f "$f" ]; then
+    sc=$(awk '/^# command line:/{getline; print; exit}' "$d/fuzzer_setup" 2>/dev/null)
+  fi
+  if [ -n "$sc" ]; then
+    cn=$(printf '%s\n' "$sc" | wc -c | tr -d ' ')
+    printf 'BLOB setup %s\n' "$cn"
+    printf '%s\n' "$sc"
+  else
+    printf 'BLOB setup 0\n'
   fi
   printf 'ENDINSTANCE\n'
 done
@@ -1804,8 +1998,11 @@ def parse_dump(data: bytes, *, host: str, output_dir: str = "") -> RawCampaign:
         fastresume = field_after_space() == "1"
         main_node_file = field_after_space() == "1"
         no_fastresume_env = field_after_space() == "1"
+        starting = field_after_space() == "1"
+        setup_mtime = _opt_mtime(field_after_space())
         stats = read_blob("stats")
         plot = read_blob("plot") or None
+        setup_cmdline = read_blob("setup")
         end = read_line()
         if end != "ENDINSTANCE":
             raise DumpFormatError(f"expected 'ENDINSTANCE' after {name}, got {end[:60]!r}")
@@ -1823,6 +2020,9 @@ def parse_dump(data: bytes, *, host: str, output_dir: str = "") -> RawCampaign:
                 fastresume,
                 main_node_file,
                 no_fastresume_env,
+                starting,
+                setup_mtime,
+                setup_cmdline,
             )
         )
 

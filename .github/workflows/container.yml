@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build ${{ matrix.arch }}
@@ -70,7 +70,7 @@ jobs:
     if: ${{ github.event_name == 'push' && github.repository == 'AFLplusplus/AFLplusplus' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to docker.io

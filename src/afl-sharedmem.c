@@ -62,6 +62,12 @@
   #include <sys/shm.h>
 #endif
 
+#if defined(__linux__) && !defined(__ANDROID__) && !defined(USEMMAP)
+  #define AFL_SHM_AUTO_RECLAIM(id) shmctl((id), IPC_RMID, NULL)
+#else
+  #define AFL_SHM_AUTO_RECLAIM(id) ((void)0)
+#endif
+
 static list_t shm_list = {.element_prealloc_count = 0};
 
 void afl_shm_vp_env_unset(void) {
@@ -777,6 +783,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
+  AFL_SHM_AUTO_RECLAIM(shm->shm_id);
+
   if (shm->cmplog_mode) {
 
     shm->cmp_map = shmat(shm->cmplog_shm_id, NULL, 0);
@@ -795,6 +803,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     }
 
+    AFL_SHM_AUTO_RECLAIM(shm->cmplog_shm_id);
+
   }
 
   if (shm->vp_mode) {
@@ -807,6 +817,8 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       PFATAL("shmat() failed");
 
     }
+
+    AFL_SHM_AUTO_RECLAIM(shm->vp_shm_id);
 
     memset((void *)shm->vp_map, 0, sizeof(vp_map_t));
 
