@@ -2602,6 +2602,7 @@ static void cleanup_tmp_files(void) {
 
   kill_workers();
   remove_tmp_files();
+  afl_shm_deinit_all();
 
 }
 
@@ -2611,6 +2612,7 @@ static void cleanup_signal(int sig) {
 
     kill_workers();
     remove_tmp_files();
+    afl_shm_deinit_all();
 
   }
 

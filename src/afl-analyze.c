@@ -171,6 +171,7 @@ static inline u8 anything_set(void) {
 static void at_exit_handler(void) {
 
   unlink(fsrv.out_file);                                   /* Ignore errors */
+  afl_shm_deinit_all();
 
 }
 
