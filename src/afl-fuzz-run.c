@@ -377,7 +377,7 @@ u32 __attribute__((hot)) write_to_testcase(afl_state_t *afl, void **mem,
 u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
                   u32 handicap, u8 from_queue) {
 
-  u8 fault = 0, new_bits = 0, var_detected = 0, hnb = 0,
+  u8 fault = 0, new_bits = 0, var_detected = 0, new_var = 0, hnb = 0,
      first_run = (q->exec_cksum == 0);
   u64 start_us, stop_us, diff_us;
   s32 old_sc = afl->stage_cur, old_sm = afl->stage_max;
@@ -538,12 +538,14 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
             afl->var_bytes[i] = 1;
             // ignore the variable edge by setting it to fully discovered
             afl->virgin_bits[i] = 0;
+            new_var = 1;
 
           }
 
         }
 
-        if (unlikely(!var_detected && !afl->afl_env.afl_no_warn_instability)) {
+        if (unlikely(new_var && !var_detected &&
+                     !afl->afl_env.afl_no_warn_instability)) {
 
           // note: from_queue seems to only be set during initialization
           if (afl->afl_env.afl_no_ui || from_queue) {
@@ -559,8 +561,13 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
         }
 
         var_detected = 1;
-        afl->stage_max =
-            afl->afl_env.afl_cal_fast ? CAL_CYCLES : CAL_CYCLES_LONG;
+
+        if (new_var) {
+
+          afl->stage_max =
+              afl->afl_env.afl_cal_fast ? CAL_CYCLES : CAL_CYCLES_LONG;
+
+        }
 
       } else {
 
