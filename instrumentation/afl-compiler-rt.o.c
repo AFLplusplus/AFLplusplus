@@ -31,10 +31,22 @@
     #define __USE_GNU
   #endif
   #include <dlfcn.h>
+  #include <stddef.h>                              /* size_t, used just below */
 
+/* Part of the sanitizer runtime, so it is only there when the target was
+   linked with one. Mach-O needs weak_import for an undefined weak symbol - a
+   plain weak declaration still makes its linker demand a definition (same as
+   for __asan_region_is_poisoned further down). */
+  #ifdef __APPLE__
+__attribute__((weak_import)) void __sanitizer_symbolize_pc(void       *,
+                                                           const char *fmt,
+                                                           char       *out_buf,
+                                                           size_t out_buf_size);
+  #else
 __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
                                                     char  *out_buf,
                                                     size_t out_buf_size);
+  #endif
 #endif
 
 #ifdef __ANDROID__
@@ -119,6 +131,7 @@ static inline void afl_sync_wake(void *uaddr) {
 #endif
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #if (defined(__linux__) && defined(__GLIBC__)) || defined(__APPLE__) || \
     defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
@@ -223,10 +236,17 @@ u32 *__afl_child_sync = NULL;
 /* Byte offset of the child_sync word inside the trace_bits shared map (0 if
    none). */
 static u32 __afl_child_sync_off = 0;
-#ifdef USEMMAP
-/* Actual length we mapped for the trace_bits region (so we can munmap the
-   exact region, which may include the trailing sync word). */
+/* Lengths we mmap()ed for each shared region, so __afl_unmap_shm() can undo
+   exactly what was done. A length of 0 means the region was not mmap()ed -
+   either it was never attached, or it came in as a SysV segment that has to be
+   released with shmdt() instead. The trace_bits length can exceed
+   __afl_map_size because that map carries the child_sync word behind it. */
 static size_t __afl_shm_map_len = 0;
+static size_t __afl_cmp_map_len = 0;
+static size_t __afl_vp_map_len = 0;
+#ifdef __AFL_CODE_COVERAGE
+static size_t __afl_pcmap_map_len = 0;
+static size_t __afl_modmap_map_len = 0;
 #endif
 u8        *__afl_fuzz_ptr;
 static u32 __afl_fuzz_len_dummy;
@@ -628,6 +648,139 @@ static void send_forkserver_error(int error) {
 
 }
 
+/* Never map past the end of a shared memory object: macOS rejects such an
+   mmap() outright with EINVAL, and where it is accepted (Linux) every access
+   past the end raises SIGBUS anyway. The tool sizes its object from what this
+   target reported, so a short object means the two disagree - and the map size
+   negotiation in the forkserver handshake is what resolves that, by restarting
+   the target against a big enough map. Until then, mapping what is really
+   there is what keeps the handshake itself alive. */
+
+static size_t __afl_shm_clamp_len(int fd, size_t len, const char *what) {
+
+  struct stat st;
+
+  if (fstat(fd, &st) != 0 || st.st_size <= 0 || (size_t)st.st_size >= len) {
+
+    return len;
+
+  }
+
+  if (__afl_debug) {
+
+    fprintf(stderr,
+            "DEBUG: the shared map %s is %lld bytes, %zu were requested - "
+            "mapping what is there\n",
+            what, (long long)st.st_size, len);
+
+  }
+
+  return (size_t)st.st_size;
+
+}
+
+/* Map a shared region that the tool handed over as an inherited descriptor.
+
+   Recent AFL++ tools create their shared maps with shm_open(), mmap() them and
+   shm_unlink() the name straight away, so nothing is left behind if the tool
+   is SIGKILLed. All the target gets is the still-open descriptor, whose number
+   arrives in `env`. `len` bytes are mapped - exactly as many as the name based
+   path would map, the tool's object is regularly larger than that - and the
+   length is reported back through `mapped_len` for the matching munmap().
+
+   `fixed_addr` requests a mapping at a specific address (AFL_LLVM_MAP_ADDR);
+   NULL lets the kernel place it.
+
+   Returns NULL when the variable is not set or the descriptor is unusable,
+   which puts the caller back on the shm_open(name) / shmat(id) path - that is
+   what happens with a tool that predates the descriptor handover. The
+   descriptor is deliberately left open: __afl_map_shm() can be run a second
+   time when a late module grows the map (see __sanitizer_cov_trace_pc_guard_init
+   -> __afl_unmap_shm/__afl_map_shm). */
+
+static void *__afl_map_shm_fd(const char *env, size_t len, int prot,
+                              void *fixed_addr, size_t *mapped_len) {
+
+  const char *fd_str = getenv(env);
+
+  if (!fd_str || !*fd_str) { return NULL; }
+
+  char *endptr = NULL;
+  errno = 0;
+  long parsed = strtol(fd_str, &endptr, 10);
+
+  if (errno || endptr == fd_str || *endptr || parsed < 0 ||
+      parsed > (long)INT_MAX) {
+
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: %s=\"%s\" is not a descriptor number\n", env,
+              fd_str);
+
+    }
+
+    return NULL;
+
+  }
+
+  int fd = (int)parsed;
+
+  /* The descriptor has to still be open - a target that closes every
+     descriptor at startup ends up here, and can then only be served by name. */
+
+  struct stat st;
+
+  errno = 0;
+
+  if (fstat(fd, &st) != 0 || st.st_size <= 0) {
+
+    if (__afl_debug) {
+
+      fprintf(stderr, "DEBUG: %s=%d is not a usable shared map: %s\n", env, fd,
+              errno ? strerror(errno) : "it is empty");
+
+    }
+
+    return NULL;
+
+  }
+
+  size_t map_len = __afl_shm_clamp_len(fd, len, env);
+  void  *ret;
+
+  if (fixed_addr) {
+
+    ret = mmap(fixed_addr, map_len, prot, MAP_FIXED_NOREPLACE | MAP_SHARED, fd,
+               0);
+
+  } else {
+
+    ret = mmap(NULL, map_len, prot, MAP_SHARED, fd, 0);
+
+  }
+
+  if (ret == MAP_FAILED) {
+
+    fprintf(stderr, "Error: mmap() of %s (fd %d, %zu bytes) failed: %s\n", env,
+            fd, map_len, strerror(errno));
+    send_forkserver_error(fixed_addr ? FS_ERROR_MAP_ADDR : FS_ERROR_MMAP);
+    _exit(1);
+
+  }
+
+  if (mapped_len) { *mapped_len = map_len; }
+
+  if (__afl_debug) {
+
+    fprintf(stderr, "DEBUG: %s=%d mapped %zu bytes at %p\n", env, fd, map_len,
+            ret);
+
+  }
+
+  return ret;
+
+}
+
 /* SHM fuzzing setup. */
 
 static void __afl_map_shm_fuzz() {
@@ -640,11 +793,9 @@ static void __afl_map_shm_fuzz() {
 
   }
 
-  if (id_str) {
+  if (id_str || getenv(SHM_FUZZ_FD_ENV_VAR)) {
 
     u8 *map = NULL;
-
-#ifdef USEMMAP
 
     // Newer afl-fuzz versions will set a shm_fuzz page size env, else fall back
     size_t shm_fuzz_map_size = SHM_FUZZ_MAP_SIZE_DEFAULT;
@@ -664,27 +815,38 @@ static void __afl_map_shm_fuzz() {
 
     }
 
-    const char *shm_file_path = id_str;
-    int         shm_fd = -1;
+    /* Preferred path: the map was handed to us as an inherited descriptor. */
 
-    /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
-    if (shm_fd == -1) {
+    map = (u8 *)__afl_map_shm_fd(SHM_FUZZ_FD_ENV_VAR, shm_fuzz_map_size,
+                                 PROT_READ, NULL, NULL);
 
-      fprintf(stderr, "shm_open() failed for fuzz\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
+    if (!map && id_str) {
 
-    }
+#ifdef USEMMAP
 
-    map = (u8 *)mmap(0, shm_fuzz_map_size, PROT_READ, MAP_SHARED, shm_fd, 0);
-    close(shm_fd);
+      const char *shm_file_path = id_str;
+      int         shm_fd = -1;
+
+      /* create the shared memory segment as if it was a file */
+      shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+      if (shm_fd == -1) {
+
+        fprintf(stderr, "shm_open() failed for fuzz\n");
+        send_forkserver_error(FS_ERROR_SHM_OPEN);
+        exit(1);
+
+      }
+
+      map = (u8 *)mmap(0, shm_fuzz_map_size, PROT_READ, MAP_SHARED, shm_fd, 0);
+      close(shm_fd);
 
 #else
-    u32 shm_id = atoi(id_str);
-    map = (u8 *)shmat(shm_id, NULL, 0);
+      u32 shm_id = atoi(id_str);
+      map = (u8 *)shmat(shm_id, NULL, 0);
 
 #endif
+
+    }
 
     /* Whooooops. */
 
@@ -918,6 +1080,9 @@ static void __afl_map_shm(void) {
   if (getenv("AFL_NO_C11")) { __afl_c11_enabled = 0; }
 
   char *id_str = getenv(SHM_ENV_VAR);
+  /* Newer tools hand the coverage map over as an inherited descriptor and
+     unlink its name, so either variable means "a tool attached a map". */
+  char *fd_str = getenv(SHM_FD_ENV_VAR);
 
   if (__afl_final_loc) {
 
@@ -1013,9 +1178,11 @@ static void __afl_map_shm(void) {
 
   }
 
-  if (__afl_sharedmem_fuzzing && (!id_str || !getenv(SHM_FUZZ_ENV_VAR) ||
-                                  fcntl(FORKSRV_FD, F_GETFD) == -1 ||
-                                  fcntl(FORKSRV_FD + 1, F_GETFD) == -1)) {
+  if (__afl_sharedmem_fuzzing &&
+      ((!id_str && !fd_str) ||
+       (!getenv(SHM_FUZZ_ENV_VAR) && !getenv(SHM_FUZZ_FD_ENV_VAR)) ||
+       fcntl(FORKSRV_FD, F_GETFD) == -1 ||
+       fcntl(FORKSRV_FD + 1, F_GETFD) == -1)) {
 
     if (__afl_debug) {
 
@@ -1029,7 +1196,7 @@ static void __afl_map_shm(void) {
 
   }
 
-  if (!id_str) {
+  if (!id_str && !fd_str) {
 
     u32 val = 0;
     u8 *ptr;
@@ -1079,45 +1246,55 @@ static void __afl_map_shm(void) {
 
   }
 
-  if (vp_id_str && __afl_vp_target_supports_runtime()) {
+  if ((vp_id_str || getenv(VP_SHM_FD_ENV_VAR)) &&
+      __afl_vp_target_supports_runtime()) {
 
     __afl_open_dummy_fd();
 
+    __afl_vp_map = (vp_map_t *)__afl_map_shm_fd(
+        VP_SHM_FD_ENV_VAR, sizeof(vp_map_t), PROT_READ | PROT_WRITE, NULL,
+        &__afl_vp_map_len);
+
+    if (!__afl_vp_map && vp_id_str) {
+
 #ifdef USEMMAP
-    const char *shm_file_path = vp_id_str;
-    int         shm_fd = -1;
-    vp_map_t   *shm_base = NULL;
+      const char *shm_file_path = vp_id_str;
+      int         shm_fd = -1;
+      vp_map_t   *shm_base = NULL;
 
-    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
-    if (shm_fd == -1) {
+      shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+      if (shm_fd == -1) {
 
-      perror("shm_open() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
+        perror("shm_open() failed\n");
+        send_forkserver_error(FS_ERROR_SHM_OPEN);
+        exit(1);
 
-    }
+      }
 
-    shm_base = mmap(0, sizeof(vp_map_t), PROT_READ | PROT_WRITE, MAP_SHARED,
-                    shm_fd, 0);
-    if (shm_base == MAP_FAILED) {
+      shm_base = mmap(0, sizeof(vp_map_t), PROT_READ | PROT_WRITE, MAP_SHARED,
+                      shm_fd, 0);
+      if (shm_base == MAP_FAILED) {
+
+        close(shm_fd);
+        shm_fd = -1;
+
+        fprintf(stderr, "mmap() failed\n");
+        send_forkserver_error(FS_ERROR_SHM_OPEN);
+        exit(2);
+
+      }
 
       close(shm_fd);
       shm_fd = -1;
+      __afl_vp_map = shm_base;
+      __afl_vp_map_len = sizeof(vp_map_t);
+#else
+      u32 shm_id = atoi(vp_id_str);
 
-      fprintf(stderr, "mmap() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(2);
+      __afl_vp_map = (vp_map_t *)shmat(shm_id, NULL, 0);
+#endif
 
     }
-
-    close(shm_fd);
-    shm_fd = -1;
-    __afl_vp_map = shm_base;
-#else
-    u32 shm_id = atoi(vp_id_str);
-
-    __afl_vp_map = (vp_map_t *)shmat(shm_id, NULL, 0);
-#endif
 
     if (!__afl_vp_map || __afl_vp_map == (void *)-1) {
 
@@ -1148,7 +1325,7 @@ static void __afl_map_shm(void) {
 
   }
 
-  if (id_str) {
+  if (id_str || fd_str) {
 
     if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial &&
         __afl_area_ptr != __afl_area_ptr_dummy) {
@@ -1167,25 +1344,10 @@ static void __afl_map_shm(void) {
 
     }
 
-#ifdef USEMMAP
-    const char    *shm_file_path = id_str;
-    int            shm_fd = -1;
-    unsigned char *shm_base = NULL;
-
-    /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
-    if (shm_fd == -1) {
-
-      fprintf(stderr, "shm_open() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
-
-    }
-
-    /* The fuzzer reserved the child_sync word past the coverage region, so the
-       segment is larger than __afl_map_size; map enough to reach it. */
+    /* The tool reserved the child_sync word past the coverage region, so the
+       segment can be larger than __afl_map_size; map enough to reach it. */
     size_t shm_map_len = __afl_map_size;
-  #if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__)
     if (__afl_child_sync_off &&
         __afl_child_sync_off + sizeof(u32) > shm_map_len) {
 
@@ -1193,83 +1355,100 @@ static void __afl_map_shm(void) {
 
     }
 
-  #endif
+#endif
 
-    __afl_shm_map_len = shm_map_len;
+    /* Preferred path: the map was handed to us as an inherited descriptor. */
 
-    /* map the shared memory segment to the address space of the process */
-    if (__afl_map_addr) {
+    __afl_area_ptr = (u8 *)__afl_map_shm_fd(
+        SHM_FD_ENV_VAR, shm_map_len, PROT_READ | PROT_WRITE,
+        (void *)(uintptr_t)__afl_map_addr, &__afl_shm_map_len);
 
-      shm_base =
-          mmap((void *)__afl_map_addr, shm_map_len, PROT_READ | PROT_WRITE,
-               MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
+    if (!__afl_area_ptr && id_str) {
 
-    } else {
+#ifdef USEMMAP
+      const char    *shm_file_path = id_str;
+      int            shm_fd = -1;
+      unsigned char *shm_base = NULL;
 
-      shm_base =
-          mmap(0, shm_map_len, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+      /* create the shared memory segment as if it was a file */
+      shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+      if (shm_fd == -1) {
 
-    }
+        fprintf(stderr, "shm_open() failed\n");
+        send_forkserver_error(FS_ERROR_SHM_OPEN);
+        exit(1);
 
-    close(shm_fd);
-    shm_fd = -1;
+      }
 
-    if (shm_base == MAP_FAILED) {
+      shm_map_len = __afl_shm_clamp_len(shm_fd, shm_map_len, shm_file_path);
+      __afl_shm_map_len = shm_map_len;
 
-      fprintf(stderr, "mmap() failed\n");
-      perror("mmap for map");
+      /* map the shared memory segment to the address space of the process */
+      if (__afl_map_addr) {
 
-      if (__afl_map_addr)
-        send_forkserver_error(FS_ERROR_MAP_ADDR);
-      else
-        send_forkserver_error(FS_ERROR_MMAP);
-
-      exit(2);
-
-    }
-
-    close(shm_fd);
-    shm_fd = -1;
-
-    __afl_area_ptr = shm_base;
-    /* DEFERRED IJON SETUP: Initialize on first use when actual map size is
-     * known */
-    /* This fixes PCGUARD mode where __afl_final_loc=0 at initialization time */
-    __afl_ijon_bits =
-        NULL;  // Mark as uninitialized - will init on first ijon_max() call
-
-    /* IJON STATE RESET: Reset state for each execution */
-    ijon_reset_state();
-#else
-    u32 shm_id = atoi(id_str);
-
-    if (__afl_map_size && __afl_map_size > MAP_SIZE) {
-
-      u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
-
-      // IJON SUPPORT: For IJON targets using new forkserver protocol,
-      // skip this check as map size is communicated via FS_NEW_OPT_MAPSIZE
-      if (__afl_ijon_enabled) {
-
-        // Skip the check for IJON targets - let the fuzzer handle validation
-        // via forkserver protocol
+        shm_base =
+            mmap((void *)__afl_map_addr, shm_map_len, PROT_READ | PROT_WRITE,
+                 MAP_FIXED_NOREPLACE | MAP_SHARED, shm_fd, 0);
 
       } else {
 
-        // Original check for non-IJON targets
-        if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
+        shm_base =
+            mmap(0, shm_map_len, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
-          fprintf(stderr, "FS_ERROR_MAP_SIZE\n");
-          send_forkserver_error(FS_ERROR_MAP_SIZE);
-          _exit(1);
+      }
+
+      close(shm_fd);
+      shm_fd = -1;
+
+      if (shm_base == MAP_FAILED) {
+
+        fprintf(stderr, "mmap() failed\n");
+        perror("mmap for map");
+
+        if (__afl_map_addr)
+          send_forkserver_error(FS_ERROR_MAP_ADDR);
+        else
+          send_forkserver_error(FS_ERROR_MMAP);
+
+        exit(2);
+
+      }
+
+      __afl_area_ptr = shm_base;
+#else
+      u32 shm_id = atoi(id_str);
+
+      if (__afl_map_size && __afl_map_size > MAP_SIZE) {
+
+        u8 *map_env = (u8 *)getenv("AFL_MAP_SIZE");
+
+        // IJON SUPPORT: For IJON targets using new forkserver protocol,
+        // skip this check as map size is communicated via FS_NEW_OPT_MAPSIZE
+        if (__afl_ijon_enabled) {
+
+          // Skip the check for IJON targets - let the fuzzer handle validation
+          // via forkserver protocol
+
+        } else {
+
+          // Original check for non-IJON targets
+          if (!map_env || atoi((char *)map_env) < MAP_SIZE) {
+
+            fprintf(stderr, "FS_ERROR_MAP_SIZE\n");
+            send_forkserver_error(FS_ERROR_MAP_SIZE);
+            _exit(1);
+
+          }
 
         }
 
       }
 
-    }
+      __afl_area_ptr = (u8 *)shmat(shm_id, (void *)__afl_map_addr, 0);
 
-    __afl_area_ptr = (u8 *)shmat(shm_id, (void *)__afl_map_addr, 0);
+#endif
+
+    }
 
     /* Whooooops. */
 
@@ -1280,12 +1459,11 @@ static void __afl_map_shm(void) {
       else
         send_forkserver_error(FS_ERROR_SHMAT);
 
-      perror("shmat for map");
+      perror("attaching the coverage map");
       _exit(1);
 
     }
 
-#endif
 
     /* DEFERRED IJON SETUP: Initialize on first use when actual map size is
      * known */
@@ -1349,7 +1527,7 @@ static void __afl_map_shm(void) {
   /* The sync word lives in the shared trace_bits map (only valid when we
      actually attached one, i.e. id_str was present). Derive it from the real
      map base before any selective-coverage redirection of __afl_area_ptr. */
-  if (__afl_child_sync_off && id_str) {
+  if (__afl_child_sync_off && (id_str || fd_str)) {
 
     __afl_child_sync =
         (u32 *)(void *)(__afl_area_ptr_backup + __afl_child_sync_off);
@@ -1405,51 +1583,60 @@ static void __afl_map_shm(void) {
 
   }
 
-  if (id_str) {
+  if (id_str || getenv(CMPLOG_SHM_FD_ENV_VAR)) {
 
     __afl_open_dummy_fd();
 
+    __afl_cmp_map = (struct cmp_map *)__afl_map_shm_fd(
+        CMPLOG_SHM_FD_ENV_VAR, sizeof(struct cmp_map), PROT_READ | PROT_WRITE,
+        NULL, &__afl_cmp_map_len);
+
+    if (!__afl_cmp_map && id_str) {
+
 #ifdef USEMMAP
-    const char     *shm_file_path = id_str;
-    int             shm_fd = -1;
-    struct cmp_map *shm_base = NULL;
+      const char     *shm_file_path = id_str;
+      int             shm_fd = -1;
+      struct cmp_map *shm_base = NULL;
 
-    /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
-    if (shm_fd == -1) {
+      /* create the shared memory segment as if it was a file */
+      shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+      if (shm_fd == -1) {
 
-      perror("shm_open() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
+        perror("shm_open() failed\n");
+        send_forkserver_error(FS_ERROR_SHM_OPEN);
+        exit(1);
 
-    }
+      }
 
-    /* map the shared memory segment to the address space of the process */
-    shm_base = mmap(0, sizeof(struct cmp_map), PROT_READ | PROT_WRITE,
-                    MAP_SHARED, shm_fd, 0);
-    if (shm_base == MAP_FAILED) {
+      /* map the shared memory segment to the address space of the process */
+      shm_base = mmap(0, sizeof(struct cmp_map), PROT_READ | PROT_WRITE,
+                      MAP_SHARED, shm_fd, 0);
+      if (shm_base == MAP_FAILED) {
+
+        close(shm_fd);
+        shm_fd = -1;
+
+        fprintf(stderr, "mmap() failed\n");
+        send_forkserver_error(FS_ERROR_SHM_OPEN);
+        exit(2);
+
+      }
 
       close(shm_fd);
       shm_fd = -1;
+      __afl_cmp_map = shm_base;
+      __afl_cmp_map_len = sizeof(struct cmp_map);
+#else
+      u32 shm_id = atoi(id_str);
 
-      fprintf(stderr, "mmap() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(2);
+      __afl_cmp_map = (struct cmp_map *)shmat(shm_id, NULL, 0);
+#endif
 
     }
 
-    close(shm_fd);
-    shm_fd = -1;
-    __afl_cmp_map = shm_base;
-#else
-    u32 shm_id = atoi(id_str);
-
-    __afl_cmp_map = (struct cmp_map *)shmat(shm_id, NULL, 0);
-#endif
-
     if (!__afl_cmp_map || __afl_cmp_map == (void *)-1) {
 
-      perror("shmat for cmplog");
+      perror("attaching the cmplog map");
       send_forkserver_error(FS_ERROR_SHM_OPEN);
       _exit(1);
 
@@ -1462,18 +1649,30 @@ static void __afl_map_shm(void) {
 #ifdef __AFL_CODE_COVERAGE
   char *pcmap_id_str = getenv("__AFL_PCMAP_SHM_ID");
 
-  if (pcmap_id_str) {
+  if (pcmap_id_str || getenv("__AFL_PCMAP_SHM_FD")) {
 
-    __afl_pcmap_size = __afl_map_size * sizeof(void *);
-    u32 shm_id = atoi(pcmap_id_str);
+    size_t pcmap_len = __afl_map_size * sizeof(void *);
+    void  *pcmap = __afl_map_shm_fd("__AFL_PCMAP_SHM_FD", pcmap_len,
+                                    PROT_READ | PROT_WRITE, NULL,
+                                    &__afl_pcmap_map_len);
 
-    void *pcmap = shmat(shm_id, NULL, 0);
-    __afl_pcmap_ptr = pcmap == (void *)-1 ? NULL : (uintptr_t *)pcmap;
+    if (!pcmap && pcmap_id_str) {
+
+  #ifndef USEMMAP
+      u32 shm_id = atoi(pcmap_id_str);
+
+      pcmap = shmat(shm_id, NULL, 0);
+      if (pcmap == (void *)-1) { pcmap = NULL; }
+  #endif
+
+    }
+
+    __afl_pcmap_ptr = (uintptr_t *)pcmap;
+    __afl_pcmap_size = pcmap ? __afl_map_size * sizeof(void *) : 0;
 
     if (__afl_debug) {
 
-      fprintf(stderr, "DEBUG: Received %p via shmat for pcmap\n",
-              __afl_pcmap_ptr);
+      fprintf(stderr, "DEBUG: Received %p for pcmap\n", __afl_pcmap_ptr);
 
     }
 
@@ -1481,18 +1680,31 @@ static void __afl_map_shm(void) {
 
   char *modmap_id_str = getenv("__AFL_MODMAP_SHM_ID");
 
-  if (modmap_id_str) {
+  if (modmap_id_str || getenv("__AFL_MODMAP_SHM_FD")) {
 
     // Allocate space for module_entry_t array
-    __afl_modmap_size = MAX_AFL_MODULES;
-    u32 shm_id = atoi(modmap_id_str);
+    size_t modmap_len = sizeof(module_entry_t) * MAX_AFL_MODULES;
+    void  *modmap = __afl_map_shm_fd("__AFL_MODMAP_SHM_FD", modmap_len,
+                                     PROT_READ | PROT_WRITE, NULL,
+                                     &__afl_modmap_map_len);
 
-    void *modmap = shmat(shm_id, NULL, 0);
-    __afl_modmap_ptr = modmap == (void *)-1 ? NULL : (module_entry_t *)modmap;
+    if (!modmap && modmap_id_str) {
+
+  #ifndef USEMMAP
+      u32 shm_id = atoi(modmap_id_str);
+
+      modmap = shmat(shm_id, NULL, 0);
+      if (modmap == (void *)-1) { modmap = NULL; }
+  #endif
+
+    }
+
+    __afl_modmap_ptr = (module_entry_t *)modmap;
+    __afl_modmap_size = modmap ? MAX_AFL_MODULES : 0;
 
     if (__afl_debug) {
 
-      fprintf(stderr, "DEBUG: Received %p via shmat for modmap (%u entries)\n",
+      fprintf(stderr, "DEBUG: Received %p for modmap (%u entries)\n",
               __afl_modmap_ptr, __afl_modmap_size);
 
     }
@@ -1527,7 +1739,19 @@ static void __afl_unmap_shm(void) {
 #ifdef __AFL_CODE_COVERAGE
   if (__afl_pcmap_size) {
 
-    shmdt((void *)__afl_pcmap_ptr);
+    if (__afl_pcmap_map_len) {
+
+      munmap((void *)__afl_pcmap_ptr, __afl_pcmap_map_len);
+      __afl_pcmap_map_len = 0;
+
+    } else {
+
+  #ifndef USEMMAP
+      shmdt((void *)__afl_pcmap_ptr);
+  #endif
+
+    }
+
     __afl_pcmap_ptr = NULL;
     __afl_pcmap_size = 0;
 
@@ -1535,7 +1759,19 @@ static void __afl_unmap_shm(void) {
 
   if (__afl_modmap_size) {
 
-    shmdt((void *)__afl_modmap_ptr);
+    if (__afl_modmap_map_len) {
+
+      munmap((void *)__afl_modmap_ptr, __afl_modmap_map_len);
+      __afl_modmap_map_len = 0;
+
+    } else {
+
+  #ifndef USEMMAP
+      shmdt((void *)__afl_modmap_ptr);
+  #endif
+
+    }
+
     __afl_modmap_ptr = NULL;
     __afl_modmap_size = 0;
 
@@ -1545,17 +1781,20 @@ static void __afl_unmap_shm(void) {
 
   char *id_str = getenv(SHM_ENV_VAR);
 
-  if (id_str) {
+  /* A recorded length means the region was mmap()ed - from the inherited
+     descriptor or from shm_open() - and has to be unmapped exactly as it was
+     mapped (that may include the trailing child_sync word past
+     __afl_map_size). Without one it is a SysV attachment, if it is anything. */
 
-#ifdef USEMMAP
+  if (__afl_shm_map_len) {
 
-    /* Unmap exactly what we mapped (may include the trailing child_sync word
-       past __afl_map_size). */
-    munmap((void *)__afl_area_ptr,
-           __afl_shm_map_len ? __afl_shm_map_len : __afl_map_size);
+    munmap((void *)__afl_area_ptr, __afl_shm_map_len);
     __afl_shm_map_len = 0;
+    __afl_child_sync = NULL;
 
-#else
+  } else if (id_str) {
+
+#ifndef USEMMAP
 
     shmdt((void *)__afl_area_ptr);
 
@@ -1577,13 +1816,16 @@ static void __afl_unmap_shm(void) {
 
   id_str = getenv(CMPLOG_SHM_ENV_VAR);
 
-  if (id_str) {
+  if (__afl_cmp_map_len) {
 
-#ifdef USEMMAP
+    munmap((void *)__afl_cmp_map, __afl_cmp_map_len);
+    __afl_cmp_map_len = 0;
+    __afl_cmp_map = NULL;
+    __afl_cmp_map_backup = NULL;
 
-    munmap((void *)__afl_cmp_map, sizeof(struct cmp_map));
+  } else if (id_str) {
 
-#else
+#ifndef USEMMAP
 
     shmdt((void *)__afl_cmp_map);
 
@@ -1596,17 +1838,22 @@ static void __afl_unmap_shm(void) {
 
   id_str = getenv(VP_SHM_ENV_VAR);
 
-  if (id_str && __afl_vp_map) {
+  if (__afl_vp_map && (__afl_vp_map_len || id_str)) {
 
-#ifdef USEMMAP
+    if (__afl_vp_map_len) {
 
-    munmap((void *)__afl_vp_map, sizeof(vp_map_t));
+      munmap((void *)__afl_vp_map, __afl_vp_map_len);
+      __afl_vp_map_len = 0;
 
-#else
+    } else {
 
-    shmdt((void *)__afl_vp_map);
+#ifndef USEMMAP
+
+      shmdt((void *)__afl_vp_map);
 
 #endif
+
+    }
 
     __afl_vp_map = NULL;
     __afl_vp_map_backup = NULL;
@@ -1758,7 +2005,7 @@ static void __afl_start_forkserver(void) {
        execve the target directly - and that map was sized from what this
        target reported, IJON areas included, so the IJON channels stay live
        for it. Without a shared map there is nobody to read them. */
-    if (!getenv(SHM_ENV_VAR)) {
+    if (!getenv(SHM_ENV_VAR) && !getenv(SHM_FD_ENV_VAR)) {
 
       __afl_ijon_enabled = 0;
       __afl_ijon_map_increased = 1;
@@ -2792,8 +3039,21 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg,
       if (pc_filter && !mod_info->next) {
 
         char PcDescr[1024];
-        // This function is a part of the sanitizer run-time.
-        // To use it, link with AddressSanitizer or other sanitizer.
+
+        // This function is a part of the sanitizer run-time, so it is only
+        // there if the target was linked with one. Without it there is nothing
+        // to match the filter against, and calling through the null weak
+        // symbol would just crash here.
+        if (!__sanitizer_symbolize_pc) {
+
+          fprintf(stderr,
+                  "Error: AFL_PC_FILTER needs __sanitizer_symbolize_pc(), "
+                  "which is part of the sanitizer runtime - rebuild the "
+                  "target with AFL_USE_ASAN=1 (or another sanitizer).\n");
+          abort();
+
+        }
+
         __sanitizer_symbolize_pc((void *)start->PC, "%p %F %L", PcDescr,
                                  sizeof(PcDescr));
 

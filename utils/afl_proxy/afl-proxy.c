@@ -42,6 +42,7 @@
 #include <sys/shm.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 
 u8 *__afl_area_ptr;
@@ -60,6 +61,39 @@ void send_forkserver_error(int error) {
   if (!error || error > 0xffff) return;
   status = (FS_OPT_ERROR | FS_OPT_SET_ERROR(error));
   if (write(FORKSRV_FD + 1, (char *)&status, 4) != 4) return;
+
+}
+
+/* Map a shared region the AFL++ tool handed over as an inherited descriptor.
+   Recent tools shm_unlink() their shared maps right after creating them and
+   only pass the still-open descriptor number, so nothing survives if the tool
+   is SIGKILLed. Returns NULL when there is no usable descriptor, which puts
+   the caller back on the shm_open(name) / shmat(id) path. */
+
+static void *__afl_map_shm_fd(const char *env, size_t len) {
+
+  const char *fd_str = getenv(env);
+  struct stat st;
+  void       *ret;
+  int         fd;
+
+  if (!fd_str || !*fd_str) { return NULL; }
+
+  fd = atoi(fd_str);
+
+  if (fd < 0 || fstat(fd, &st) != 0 || st.st_size <= 0) { return NULL; }
+
+  ret = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+  if (ret == MAP_FAILED) {
+
+    fprintf(stderr, "mmap() of %s failed\n", env);
+    send_forkserver_error(FS_ERROR_MMAP);
+    exit(2);
+
+  }
+
+  return ret;
 
 }
 
@@ -109,47 +143,54 @@ static void __afl_map_shm(void) {
 
   }
 
-  if (id_str) {
+  if (id_str || getenv(SHM_FD_ENV_VAR)) {
+
+    /* Preferred path: the map was handed to us as an inherited descriptor. */
+    __afl_area_ptr = __afl_map_shm_fd(SHM_FD_ENV_VAR, __afl_map_size);
+
+    if (!__afl_area_ptr && id_str) {
 
 #ifdef USEMMAP
-    const char    *shm_file_path = id_str;
-    int            shm_fd = -1;
-    unsigned char *shm_base = NULL;
+      const char    *shm_file_path = id_str;
+      int            shm_fd = -1;
+      unsigned char *shm_base = NULL;
 
-    /* create the shared memory segment as if it was a file */
-    shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
-    if (shm_fd == -1) {
+      /* create the shared memory segment as if it was a file */
+      shm_fd = shm_open(shm_file_path, O_RDWR, 0600);
+      if (shm_fd == -1) {
 
-      fprintf(stderr, "shm_open() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
+        fprintf(stderr, "shm_open() failed\n");
+        send_forkserver_error(FS_ERROR_SHM_OPEN);
+        exit(1);
 
-    }
+      }
 
-    /* map the shared memory segment to the address space of the process */
-    shm_base =
-        mmap(0, __afl_map_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+      /* map the shared memory segment to the address space of the process */
+      shm_base = mmap(0, __afl_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                      shm_fd, 0);
 
-    if (shm_base == MAP_FAILED) {
+      if (shm_base == MAP_FAILED) {
 
-      close(shm_fd);
-      shm_fd = -1;
+        close(shm_fd);
+        shm_fd = -1;
 
-      fprintf(stderr, "mmap() failed\n");
-      send_forkserver_error(FS_ERROR_MMAP);
-      exit(2);
+        fprintf(stderr, "mmap() failed\n");
+        send_forkserver_error(FS_ERROR_MMAP);
+        exit(2);
 
-    }
+      }
 
-    __afl_area_ptr = shm_base;
+      __afl_area_ptr = shm_base;
 #else
-    u32 shm_id = atoi(id_str);
+      u32 shm_id = atoi(id_str);
 
-    __afl_area_ptr = shmat(shm_id, 0, 0);
+      __afl_area_ptr = shmat(shm_id, 0, 0);
 
 #endif
 
-    if (__afl_area_ptr == (void *)-1) {
+    }
+
+    if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
 
       send_forkserver_error(FS_ERROR_SHMAT);
       exit(1);

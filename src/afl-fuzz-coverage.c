@@ -45,6 +45,7 @@ void afl_pcmap_init(afl_state_t *afl, u32 map_size) {
 
   #ifdef USEMMAP
   setenv("__AFL_PCMAP_SHM_ID", afl->shm_pcmap.g_shm_file_path, 1);
+  afl_shm_env_set_fd("__AFL_PCMAP_SHM_FD", afl->shm_pcmap.g_shm_fd);
   OKF("PCMAP ready at %s", afl->shm_pcmap.g_shm_file_path);
   #else
   u8 *shm_str = alloc_printf("%d", afl->shm_pcmap.shm_id);
@@ -83,6 +84,7 @@ void afl_modmap_init(afl_state_t *afl) {
 
   #ifdef USEMMAP
   setenv("__AFL_MODMAP_SHM_ID", afl->shm_modmap.g_shm_file_path, 1);
+  afl_shm_env_set_fd("__AFL_MODMAP_SHM_FD", afl->shm_modmap.g_shm_fd);
   OKF("MODMAP ready at %s", afl->shm_modmap.g_shm_file_path);
   #else
   u8 *shm_str = alloc_printf("%d", afl->shm_modmap.shm_id);

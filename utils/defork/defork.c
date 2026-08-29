@@ -22,7 +22,7 @@ static pid_t nop(void) {
 
 __attribute__((constructor)) void preeny_fork_orig() {
 
-  if (getenv(SHM_ENV_VAR)) {
+  if (getenv(SHM_ENV_VAR) || getenv(SHM_FD_ENV_VAR)) {
 
     printf("defork: running in AFL++. Allowing forkserver.\n");
     original_fork = dlsym(RTLD_NEXT, "socket");

@@ -62,6 +62,13 @@
   #include <sys/shm.h>
 #endif
 
+/* Drop the SysV segment the moment it is attached so a SIGKILLed tool cannot
+   leak it. Linux only, and deliberately so: only Linux still lets a process
+   shmat() a segment that is already marked for destruction. On the BSDs and
+   macOS the IPC_RMID would make the target's shmat() fail, so those platforms
+   get the same "nothing survives" guarantee from the POSIX shared memory /
+   descriptor handover below (see afl_shm_handover_fd) instead. */
+
 #if defined(__linux__) && !defined(__ANDROID__) && !defined(USEMMAP)
   #define AFL_SHM_AUTO_RECLAIM(id) shmctl((id), IPC_RMID, NULL)
 #else
@@ -70,9 +77,177 @@
 
 static list_t shm_list = {.element_prealloc_count = 0};
 
+#ifdef USEMMAP
+
+/* Should the POSIX shared memory objects keep their name for the lifetime of
+   the session? Set AFL_SHM_KEEP_NAME=1 when the target was built by an afl-cc
+   that predates the descriptor handover: such a target only knows how to
+   shm_open() the name from SHM_ENV_VAR and cannot find an unlinked object. */
+
+static u8 afl_shm_keep_name(void) {
+
+  static s8 keep = -1;
+
+  if (keep < 0) {
+
+    char *ptr = getenv("AFL_SHM_KEEP_NAME");
+    keep = (ptr && *ptr && *ptr != '0') ? 1 : 0;
+
+  }
+
+  return (u8)keep;
+
+}
+
+/* Move a freshly created shared map onto a descriptor the target can inherit.
+
+   The duplicate is allocated at or above SHM_FD_MIN so it can never collide
+   with the forkserver pipes on FORKSRV_FD / FORKSRV_FD + 1, and FD_CLOEXEC is
+   cleared on it so it survives the execv() into the target. The original
+   descriptor is closed on success.
+
+   Returns the new descriptor, or -1 if the map has to be handed over by name
+   after all - in which case the caller keeps the object linked. */
+
+static int afl_shm_reserve_fd(int fd) {
+
+  if (fd < 0) { return -1; }
+
+  int new_fd = fcntl(fd, F_DUPFD, SHM_FD_MIN);
+
+  if (new_fd < 0 && (errno == EMFILE || errno == EINVAL)) {
+
+    /* The soft descriptor limit is below our range - OpenBSD hands root a
+       soft limit of 128, macOS defaults to 256. Raise it once and retry. */
+
+    struct rlimit r;
+
+    if (!getrlimit(RLIMIT_NOFILE, &r) &&
+        r.rlim_cur < (rlim_t)(SHM_FD_MIN + SHM_FD_COUNT)) {
+
+      rlim_t want = (rlim_t)(SHM_FD_MIN + SHM_FD_COUNT);
+
+      if (r.rlim_max != RLIM_INFINITY && want > r.rlim_max) {
+
+        want = r.rlim_max;
+
+      }
+
+      if (want > r.rlim_cur) {
+
+        r.rlim_cur = want;
+        if (!setrlimit(RLIMIT_NOFILE, &r)) {
+
+          new_fd = fcntl(fd, F_DUPFD, SHM_FD_MIN);
+
+        }
+
+      }
+
+    }
+
+  }
+
+  if (new_fd < 0) { return -1; }
+
+  /* F_DUPFD already hands out a descriptor with FD_CLOEXEC clear, but the whole
+     point of this descriptor is that it survives the exec, so be explicit.
+     Clear it before dropping the original, so that a failure here hands the
+     caller back exactly the descriptor it came in with. */
+
+  if (fcntl(new_fd, F_SETFD, 0) < 0) {
+
+    close(new_fd);
+    return -1;
+
+  }
+
+  close(fd);
+
+  return new_fd;
+
+}
+
+/* Hand a just-mmap()ed POSIX shared memory object to the target as an
+   inherited descriptor and drop its name right away, so neither a SIGKILL nor
+   a crash of this process can leave anything behind in /dev/shm.
+
+   On success *map_fd holds the inheritable descriptor and the object is
+   unlinked. On failure - or when AFL_SHM_KEEP_NAME asks for it - *map_fd is
+   closed and set to -1 and the object keeps its name, which is how targets
+   built by an older afl-cc reach the map. afl_shm_deinit() uses exactly that
+   distinction to decide whether an unlink is still owed. */
+
+static void afl_shm_handover_fd(int *map_fd, const char *path) {
+
+  int fd = afl_shm_keep_name() ? -1 : afl_shm_reserve_fd(*map_fd);
+
+  if (fd < 0) {
+
+    if (*map_fd >= 0) { close(*map_fd); }
+    *map_fd = -1;
+    return;
+
+  }
+
+  *map_fd = fd;
+  shm_unlink(path);
+
+}
+
+#endif                                                          /* ^USEMMAP */
+
+/* Export the number of an inheritable shared map descriptor. */
+
+void afl_shm_env_set_fd(const char *env, int fd) {
+
+#ifdef USEMMAP
+
+  if (!env || fd < 0) { return; }
+
+  u8 *fd_str = alloc_printf("%d", fd);
+  setenv(env, (char *)fd_str, 1);
+  ck_free(fd_str);
+
+#else
+
+  (void)env;
+  (void)fd;
+
+#endif
+
+}
+
+/* Export the handover of the shared memory test case map. Unlike the coverage
+   map this one is created in non_instrumented_mode - so that afl_shm_init()
+   does not clobber SHM_ENV_VAR with it - and therefore has to publish itself
+   here, once the caller has settled on it. */
+
+void afl_shm_fuzz_env_set(sharedmem_t *shm) {
+
+  if (!shm) { return; }
+
+#ifdef USEMMAP
+
+  setenv(SHM_FUZZ_ENV_VAR, shm->g_shm_file_path, 1);
+  afl_shm_env_set_fd(SHM_FUZZ_FD_ENV_VAR, shm->g_shm_fd);
+
+#else
+
+  u8 *shm_str = alloc_printf("%d", shm->shm_id);
+  setenv(SHM_FUZZ_ENV_VAR, (char *)shm_str, 1);
+  ck_free(shm_str);
+
+#endif
+
+}
+
 void afl_shm_vp_env_unset(void) {
 
   unsetenv(VP_SHM_ENV_VAR);
+#ifdef USEMMAP
+  unsetenv(VP_SHM_FD_ENV_VAR);
+#endif
 
 }
 
@@ -87,6 +262,8 @@ void afl_shm_vp_env_set(sharedmem_t *shm) {
     setenv(VP_SHM_ENV_VAR, shm->vp_g_shm_file_path, 1);
 
   }
+
+  afl_shm_env_set_fd(VP_SHM_FD_ENV_VAR, shm->vp_g_shm_fd);
 
 #else
 
@@ -121,10 +298,16 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
     unsetenv(SHM_FUZZ_ENV_VAR);
     unsetenv(SHM_FUZZ_MAP_SIZE_ENV_VAR);
+#ifdef USEMMAP
+    unsetenv(SHM_FUZZ_FD_ENV_VAR);
+#endif
 
   } else {
 
     unsetenv(SHM_ENV_VAR);
+#ifdef USEMMAP
+    unsetenv(SHM_FD_ENV_VAR);
+#endif
 
   }
 
@@ -141,23 +324,26 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
   }
 
+  /* A live descriptor means the object was already unlinked at creation and
+     only the last reference has to go; otherwise the name is still there. */
+
   if (shm->g_shm_fd != -1) {
 
     close(shm->g_shm_fd);
     shm->g_shm_fd = -1;
 
-  }
-
-  if (shm->g_shm_file_path[0]) {
+  } else if (shm->g_shm_file_path[0]) {
 
     shm_unlink(shm->g_shm_file_path);
-    shm->g_shm_file_path[0] = 0;
 
   }
+
+  shm->g_shm_file_path[0] = 0;
 
   if (shm->cmplog_mode) {
 
     unsetenv(CMPLOG_SHM_ENV_VAR);
+    unsetenv(CMPLOG_SHM_FD_ENV_VAR);
 
     if (shm->cmp_map != NULL) {
 
@@ -172,14 +358,13 @@ void afl_shm_deinit(sharedmem_t *shm) {
       close(shm->cmplog_g_shm_fd);
       shm->cmplog_g_shm_fd = -1;
 
-    }
-
-    if (shm->cmplog_g_shm_file_path[0]) {
+    } else if (shm->cmplog_g_shm_file_path[0]) {
 
       shm_unlink(shm->cmplog_g_shm_file_path);
-      shm->cmplog_g_shm_file_path[0] = 0;
 
     }
+
+    shm->cmplog_g_shm_file_path[0] = 0;
 
   }
 
@@ -197,14 +382,13 @@ void afl_shm_deinit(sharedmem_t *shm) {
       close(shm->vp_g_shm_fd);
       shm->vp_g_shm_fd = -1;
 
-    }
-
-    if (shm->vp_g_shm_file_path[0]) {
+    } else if (shm->vp_g_shm_file_path[0]) {
 
       shm_unlink(shm->vp_g_shm_file_path);
-      shm->vp_g_shm_file_path[0] = 0;
 
     }
+
+    shm->vp_g_shm_file_path[0] = 0;
 
   }
 
@@ -372,15 +556,25 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   }
 
   shm->map_alloc_size = alloc_size;
-  close(shm->g_shm_fd);
-  shm->g_shm_fd = -1;
+
+  /* Hand the map over as an inheritable descriptor and drop its name, so a
+     SIGKILLed tool leaves nothing behind in /dev/shm. The shmem input map
+     (non_instrumented_mode, see setup_testcase_shmem) exports its descriptor
+     later through afl_shm_fuzz_env_set(). */
+
+  afl_shm_handover_fd(&shm->g_shm_fd, shm->g_shm_file_path);
 
   /* If somebody is asking us to fuzz instrumented binaries in non-instrumented
      mode, we don't want them to detect instrumentation, since we won't be
      sending fork server commands. This should be replaced with better
      auto-detection later on, perhaps? */
 
-  if (!non_instrumented_mode) setenv(SHM_ENV_VAR, shm->g_shm_file_path, 1);
+  if (!non_instrumented_mode) {
+
+    setenv(SHM_ENV_VAR, shm->g_shm_file_path, 1);
+    afl_shm_env_set_fd(SHM_FD_ENV_VAR, shm->g_shm_fd);
+
+  }
 
   if (shm->map == (void *)-1 || !shm->map) PFATAL("mmap() failed");
 
@@ -434,8 +628,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     }
 
-    close(shm->cmplog_g_shm_fd);
-    shm->cmplog_g_shm_fd = -1;
+    afl_shm_handover_fd(&shm->cmplog_g_shm_fd, shm->cmplog_g_shm_file_path);
 
     shm->cmp_map_alloc_size = sizeof(struct cmp_map);
 
@@ -444,8 +637,12 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
        since we won't be sending fork server commands. This should be replaced
        with better auto-detection later on, perhaps? */
 
-    if (!non_instrumented_mode)
+    if (!non_instrumented_mode) {
+
       setenv(CMPLOG_SHM_ENV_VAR, shm->cmplog_g_shm_file_path, 1);
+      afl_shm_env_set_fd(CMPLOG_SHM_FD_ENV_VAR, shm->cmplog_g_shm_fd);
+
+    }
 
     if (shm->cmp_map == (void *)-1 || !shm->cmp_map)
       PFATAL("cmplog mmap() failed");
@@ -488,8 +685,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
     }
 
-    close(shm->vp_g_shm_fd);
-    shm->vp_g_shm_fd = -1;
+    afl_shm_handover_fd(&shm->vp_g_shm_fd, shm->vp_g_shm_file_path);
 
     memset((void *)shm->vp_map, 0, sizeof(vp_map_t));
 

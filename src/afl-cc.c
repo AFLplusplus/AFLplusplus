@@ -2598,6 +2598,13 @@ void add_runtime(aflcc_state_t *aflcc) {
     insert_param(aflcc, "-Wl,-U");
     insert_param(aflcc, "-Wl,___asan_region_is_poisoned");
 
+    #ifdef __AFL_CODE_COVERAGE
+    /* Same for the sanitizer runtime symbol AFL_PC_FILTER resolves through -
+       a target that is not built with a sanitizer simply does not have it. */
+    insert_param(aflcc, "-Wl,-U");
+    insert_param(aflcc, "-Wl,___sanitizer_symbolize_pc");
+    #endif
+
   #endif
 
   }

@@ -236,6 +236,10 @@ void instrument_coverage_optimize_init(void) {
   char *shm_env = getenv(SHM_ENV_VAR);
   FVERBOSE("SHM_ENV_VAR: %s", shm_env);
 
+  /* A tool that unlinks its maps at creation hands them over as an inherited
+     descriptor instead, so that variable counts as "attached" too. */
+  if (shm_env == NULL) { shm_env = getenv(SHM_FD_ENV_VAR); }
+
   if (shm_env == NULL) {
 
     FWARNF("SHM_ENV_VAR not set, using dummy for debugging purposes");
