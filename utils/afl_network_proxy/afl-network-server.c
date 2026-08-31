@@ -558,7 +558,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_shm_fuzz_env_set(&shm_fuzz);
 
-
   fsrv->support_shmem_fuzz = true;
   fsrv->shmem_fuzz_len = (u32 *)fuzz_map;
   fsrv->shmem_fuzz = fuzz_map + sizeof(u32);

@@ -41,7 +41,7 @@ static char fuzzing_state[4][7 + 11 + 5 + 1] = {
 char *get_fuzzing_state(afl_state_t *afl) {
 
   u64 cur_ms = get_cur_time();
-  u64 last_find = cur_ms - afl->last_find_time;
+  u64 last_edge = cur_ms - afl->last_edge_time;
   u64 cur_run_time = cur_ms - afl->start_time;
   u64 cur_total_run_time = afl->prev_run_time + cur_run_time;
 
@@ -57,9 +57,9 @@ char *get_fuzzing_state(afl_state_t *afl) {
 
   } else {
 
-    u64 last_find_100 = 100 * last_find;
-    u64 percent_cur = last_find_100 / cur_run_time;
-    u64 percent_total = last_find_100 / cur_total_run_time;
+    u64 last_edge_100 = 100 * last_edge;
+    u64 percent_cur = last_edge_100 / cur_run_time;
+    u64 percent_total = last_edge_100 / cur_total_run_time;
 
     if (unlikely(percent_cur >= 75 && percent_total >= 75)) {
 

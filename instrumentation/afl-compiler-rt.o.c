@@ -31,14 +31,14 @@
     #define __USE_GNU
   #endif
   #include <dlfcn.h>
-  #include <stddef.h>                              /* size_t, used just below */
+  #include <stddef.h>                            /* size_t, used just below */
 
 /* Part of the sanitizer runtime, so it is only there when the target was
    linked with one. Mach-O needs weak_import for an undefined weak symbol - a
    plain weak declaration still makes its linker demand a definition (same as
    for __asan_region_is_poisoned further down). */
   #ifdef __APPLE__
-__attribute__((weak_import)) void __sanitizer_symbolize_pc(void       *,
+__attribute__((weak_import)) void __sanitizer_symbolize_pc(void *,
                                                            const char *fmt,
                                                            char       *out_buf,
                                                            size_t out_buf_size);
@@ -695,7 +695,8 @@ static size_t __afl_shm_clamp_len(int fd, size_t len, const char *what) {
    which puts the caller back on the shm_open(name) / shmat(id) path - that is
    what happens with a tool that predates the descriptor handover. The
    descriptor is deliberately left open: __afl_map_shm() can be run a second
-   time when a late module grows the map (see __sanitizer_cov_trace_pc_guard_init
+   time when a late module grows the map (see
+   __sanitizer_cov_trace_pc_guard_init
    -> __afl_unmap_shm/__afl_map_shm). */
 
 static void *__afl_map_shm_fd(const char *env, size_t len, int prot,
@@ -1025,6 +1026,7 @@ static void __afl_open_dummy_fd(void) {
     }
 
   }
+
 #else
   if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
 
@@ -1040,6 +1042,7 @@ static void __afl_open_dummy_fd(void) {
     }
 
   }
+
 #endif
 
 }
@@ -1464,7 +1467,6 @@ static void __afl_map_shm(void) {
 
     }
 
-
     /* DEFERRED IJON SETUP: Initialize on first use when actual map size is
      * known */
     /* This fixes PCGUARD mode where __afl_final_loc=0 at initialization time */
@@ -1652,9 +1654,9 @@ static void __afl_map_shm(void) {
   if (pcmap_id_str || getenv("__AFL_PCMAP_SHM_FD")) {
 
     size_t pcmap_len = __afl_map_size * sizeof(void *);
-    void  *pcmap = __afl_map_shm_fd("__AFL_PCMAP_SHM_FD", pcmap_len,
-                                    PROT_READ | PROT_WRITE, NULL,
-                                    &__afl_pcmap_map_len);
+    void  *pcmap =
+        __afl_map_shm_fd("__AFL_PCMAP_SHM_FD", pcmap_len,
+                         PROT_READ | PROT_WRITE, NULL, &__afl_pcmap_map_len);
 
     if (!pcmap && pcmap_id_str) {
 
@@ -1684,9 +1686,9 @@ static void __afl_map_shm(void) {
 
     // Allocate space for module_entry_t array
     size_t modmap_len = sizeof(module_entry_t) * MAX_AFL_MODULES;
-    void  *modmap = __afl_map_shm_fd("__AFL_MODMAP_SHM_FD", modmap_len,
-                                     PROT_READ | PROT_WRITE, NULL,
-                                     &__afl_modmap_map_len);
+    void  *modmap =
+        __afl_map_shm_fd("__AFL_MODMAP_SHM_FD", modmap_len,
+                         PROT_READ | PROT_WRITE, NULL, &__afl_modmap_map_len);
 
     if (!modmap && modmap_id_str) {
 
@@ -4531,6 +4533,7 @@ static void __afl_drain_dummy_fd(void) {
   while (read(__afl_dummy_fd[0], buf, sizeof(buf)) > 0) {}
 
 }
+
 #endif
 
 // POSIX shenanigan to see if an area is mapped.
@@ -4570,6 +4573,7 @@ static int area_is_valid(void *ptr, size_t len) {
     r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
 
   }
+
   #pragma GCC diagnostic pop
 #else
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
@@ -4623,6 +4627,7 @@ static u32 area_pair_valid_len(void *ptr1, void *ptr2, size_t len) {
     r = syscall(SYS_writev, __afl_dummy_fd[1], iov, 2);
 
   }
+
     #pragma GCC diagnostic pop
   #endif
 
