@@ -574,6 +574,257 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   fprintf(f, "starved_count     : %llu\n", afl->starved_count);
 
+  if (unlikely(afl->state_mode || afl->time_accounting)) {
+
+    u64 target_us = afl->target_exec_us;
+    u64 target_cnt = afl->target_exec_cnt ? afl->target_exec_cnt : 1;
+    u64 total_execs = afl->fsrv.total_execs ? afl->fsrv.total_execs : 1;
+
+    if (afl->time_accounting) {
+
+      fprintf(f,
+              "target_time_us    : %llu\n"
+              "target_time_pct   : %0.02f%%\n"
+              "us_per_exec_target: %0.02f\n"
+              "us_per_exec_total : %0.02f\n",
+              target_us, (double)target_us * 100 / ((double)runtime_ms * 1000),
+              (double)target_us / (double)target_cnt,
+              (double)runtime_ms * 1000 / (double)total_execs);
+
+    }
+
+    if (afl->state_mode) {
+
+      char mode_str[16];
+      u32  mp = 0;
+
+      if (afl->state_mode & STATE_MODE_GATE) { mode_str[mp++] = 'g'; }
+      if (afl->state_mode & STATE_MODE_PROBE) { mode_str[mp++] = 'p'; }
+      if (afl->state_mode & STATE_MODE_RARE) { mode_str[mp++] = 'r'; }
+      if (afl->state_mode & STATE_MODE_DEEP) { mode_str[mp++] = 'd'; }
+      if (afl->state_mode & STATE_MODE_SMAP) { mode_str[mp++] = 's'; }
+      if (afl->state_mode & STATE_MODE_CONTRACT) { mode_str[mp++] = 'c'; }
+      if (afl->state_mode & STATE_MODE_BENCH) { mode_str[mp++] = 'b'; }
+      if (afl->state_mode & STATE_MODE_HOT) { mode_str[mp++] = 'h'; }
+      if (afl->state_mode & STATE_MODE_WATCHDOG) { mode_str[mp++] = 'w'; }
+      if (afl->state_mode & STATE_MODE_HIWATER) { mode_str[mp++] = 'm'; }
+      if (afl->state_mode & STATE_MODE_SIG) { mode_str[mp++] = 'i'; }
+      if (afl->state_mode & STATE_MODE_BALLAST) { mode_str[mp++] = 'a'; }
+      mode_str[mp] = 0;
+
+      fprintf(f,
+              "state_mode        : %s\n"
+              "ballast_pct       : %0.02f%%\n"
+              "slow_path_execs   : %llu\n"
+              "slow_path_pct     : %0.02f%%\n",
+              mode_str, afl->ballast_pct, afl->slow_path_execs,
+              (double)afl->slow_path_execs * 100 / (double)total_execs);
+
+    }
+
+    if (afl->state_mode & STATE_MODE_GATE) {
+
+      fprintf(f,
+              "gate_checked      : %llu\n"
+              "gate_rejected     : %llu\n"
+              "gate_partial      : %llu\n"
+              "gate_skipped      : %llu\n"
+              "gate_learned      : %u\n",
+              afl->gate_checked, afl->gate_rejected, afl->gate_partial,
+              afl->gate_skipped, afl->gate_learned);
+
+    }
+
+    if (afl->state_mode & STATE_MODE_PROBE) {
+
+      fprintf(f,
+              "probe_pct         : %0.02f%%\n"
+              "probe_edge_pct    : %0.02f%%\n"
+              "probe_runs        : %u\n"
+              "input_stab_avg    : %0.02f%%\n"
+              "input_stab_min    : %0.02f%%\n",
+              afl->probe_pct, afl->probe_edge_pct,
+              afl->afl_env.afl_state_probe_runs
+                  ? (u32)afl->afl_env.afl_state_probe_runs
+                  : STATE_PROBE_RUNS,
+              afl->corpus_stability_avg, afl->corpus_stability_min);
+
+    }
+
+    if (afl->state_mode & STATE_MODE_RARE) {
+
+      fprintf(f, "info_score_avg    : %0.02f\n", afl->info_score_avg);
+
+    }
+
+    if (afl->state_mode & STATE_MODE_DEEP) {
+
+      fprintf(f,
+              "shelf_cells_used  : %u\n"
+              "shelf_members     : %u\n",
+              afl->shelf_cells_used, afl->shelf_members);
+
+    }
+
+    if (afl->state_mode & STATE_MODE_HOT) {
+
+      u32 hot = 0, i;
+
+      for (i = 0; i < afl->queued_items; ++i) {
+
+        if (afl->queue_buf[i] && !afl->queue_buf[i]->disabled &&
+            afl->queue_buf[i]->hot_len) {
+
+          ++hot;
+
+        }
+
+      }
+
+      fprintf(f, "hot_region_hits   : %u\n", hot);
+
+    }
+
+    if (afl->state_mode & STATE_MODE_CONTRACT) {
+
+      fprintf(f,
+              "contract_check    : %s\n"
+              "contract_diff     : %u\n",
+              afl->contract_checked ? (afl->contract_failed ? "fail" : "pass")
+                                    : "skipped",
+              afl->contract_diff_edges);
+
+    }
+
+    if (afl->state_mode & STATE_MODE_BENCH) {
+
+      fprintf(f,
+              "cost_fork_us      : %llu\n"
+              "cost_setup_us     : %llu\n",
+              afl->fork_cost_us, afl->setup_cost_us);
+
+      if (afl->prefix_cost_us) {
+
+        fprintf(f,
+                "cost_prefix_us    : %llu\n"
+                "cost_prefix_pct   : %0.02f%%\n",
+                afl->prefix_cost_us, afl->prefix_share_pct);
+
+      }
+
+    }
+
+    if (afl->plugin_state_described) {
+
+      u32 i, cnt = 0, ops_max = 0;
+      u64 ops_sum = 0;
+
+      for (i = 0; i < afl->queued_items; ++i) {
+
+        struct queue_entry *q = afl->queue_buf[i];
+
+        if (unlikely(!q) || q->disabled || !q->op_count) { continue; }
+        ops_sum += q->op_count;
+        if (q->op_count > ops_max) { ops_max = q->op_count; }
+        ++cnt;
+
+      }
+
+      fprintf(f,
+              "plugin_described  : %llu\n"
+              "plugin_ops_avg    : %0.02f\n"
+              "plugin_ops_max    : %u\n",
+              afl->plugin_state_described,
+              cnt ? (double)ops_sum / (double)cnt : 0.0, ops_max);
+
+    }
+
+    if (afl->hw_bits) {
+
+      fprintf(f,
+              "hw_only_saves     : %llu\n"
+              "hw_only_paid      : %llu\n"
+              "hw_credits        : %llu\n"
+              "hw_slots          : %u\n"
+              "hw_admit_off      : %u\n",
+              afl->hw_only_admits, afl->hw_only_paid, afl->hw_credits,
+              afl->hw_slots, afl->hw_admit_off);
+
+    }
+
+    if (afl->sig_seen) {
+
+      fprintf(f,
+              "sig_only_saves    : %llu\n"
+              "sig_only_paid     : %llu\n"
+              "sig_found         : %u\n"
+              "sig_admit_off     : %u\n",
+              afl->sig_only_admits, afl->sig_only_paid, afl->sig_found,
+              afl->sig_admit_off);
+
+    }
+
+    if ((afl->state_mode & STATE_MODE_SMAP) || afl->sig_seen) {
+
+      fprintf(f,
+              "state_signal      : %s\n"
+              "state_transitions : %u\n"
+              "state_map_density : %0.02f%%\n"
+              "state_utility_pct : %0.02f%%\n"
+              "state_util_pairs  : %llu\n"
+              "state_util_runs   : %llu\n"
+              "state_util_ignored: %llu\n"
+              "state_util_cands  : %u\n"
+              "state_util_status : %s\n"
+              "state_only_saves  : %llu\n"
+              "state_only_paid   : %llu\n"
+              "state_admit_off   : %u\n"
+              "state_coarse_fold : %u\n",
+              state_signal_str(afl), afl->state_transitions_found,
+              (double)state_map_density(afl) / 100.0, afl->state_utility_pct,
+              afl->state_utility_pairs, afl->state_utility_runs,
+              afl->state_utility_ignored, afl->state_utility_cands,
+              state_utility_status_str(afl), afl->state_only_admits,
+              afl->state_only_paid, afl->state_admit_off,
+              1U << afl->state_coarse_shift);
+
+      u8 hist[256];
+
+      state_situation_hist(afl, hist, sizeof(hist));
+
+      fprintf(f,
+              "state_sit_report  : %s\n"
+              "state_situations  : %u\n"
+              "state_depth_max   : %u\n"
+              "state_depth_avg   : %0.02f\n"
+              "state_depth_hist  : %s\n",
+              afl->sit_unsupported ? "no" : "yes", afl->situations_found,
+              afl->situation_depth_max,
+              afl->situation_depth_runs ? (double)afl->situation_depth_sum /
+                                              (double)afl->situation_depth_runs
+                                        : 0.0,
+              hist);
+
+    }
+
+  }
+
+  if (unlikely(afl->fsrv.use_ijon)) {
+
+    fprintf(f,
+            "ijon_max_vars     : %zu\n"
+            "ijon_max_updates  : %zu\n"
+            "ijon_only_saves   : %llu\n"
+            "ijon_only_paid    : %llu\n"
+            "ijon_admit_off    : %u\n"
+            "ijon_replay_int   : %d\n",
+            afl->ijon_state ? afl->ijon_state->num_entries : (size_t)0,
+            afl->ijon_state ? afl->ijon_state->num_updates : (size_t)0,
+            afl->ijon_only_admits, afl->ijon_only_paid, afl->ijon_admit_off,
+            afl_ijon_replay_interval);
+
+  }
+
   if (unlikely(afl->afl_env.afl_starved_minimize_queue)) {
 
     fprintf(f, "starve_minimized  : %llu\n", afl->starved_minimize_count);
@@ -793,7 +1044,108 @@ static void check_term_size(afl_state_t *afl) {
   if (ioctl(1, TIOCGWINSZ, &ws)) { return; }
 
   if (ws.ws_row == 0 || ws.ws_col == 0) { return; }
-  if (ws.ws_row < 24 || ws.ws_col < 79) { afl->term_too_small = 1; }
+
+  u32 rows_needed = (afl->state_mode || afl->time_accounting) ? 26 : 24;
+
+  if (ws.ws_row < rows_needed || ws.ws_col < 79) { afl->term_too_small = 1; }
+
+}
+
+/* Two extra UI lines for state fuzzing mode (-J), appended below the grid.
+   Both are padded to a fixed width so a shrinking value leaves no ghosts. */
+
+static void show_state_lines(afl_state_t *afl) {
+
+  char   line[256];
+  size_t n;
+
+#define STATE_APPEND(...)                                         \
+  do {                                                            \
+                                                                  \
+    if (n < sizeof(line) - 1) {                                   \
+                                                                  \
+      int _w = snprintf(line + n, sizeof(line) - n, __VA_ARGS__); \
+      n = (_w < 0) ? n : MIN(n + (size_t)_w, sizeof(line) - 1);   \
+                                                                  \
+    }                                                             \
+                                                                  \
+  } while (0)
+
+  if (likely(!afl->state_mode && !afl->time_accounting)) { return; }
+
+  line[0] = 0;
+  n = 0;
+
+  if (afl->time_accounting) {
+
+    u64 runtime_ms = afl->prev_run_time + get_cur_time() - afl->start_time + 1;
+    STATE_APPEND("tgt/tot %0.1f%%", (double)afl->target_exec_us * 100 /
+                                        ((double)runtime_ms * 1000));
+
+  }
+
+  if (afl->state_mode) {
+
+    STATE_APPEND("%sballast %0.1f%%", n ? " | " : "", afl->ballast_pct);
+
+  }
+
+  if (afl->state_mode & STATE_MODE_PROBE) {
+
+    STATE_APPEND("%sprobe %0.1f%%/%0.1f%% | in-stab %0.1f%%", n ? " | " : "",
+                 afl->probe_pct, afl->probe_edge_pct,
+                 afl->corpus_stability_avg);
+
+  }
+
+  SAYF(cGRA "  state" cRST " : %-70.70s\n", line);
+
+  line[0] = 0;
+  n = 0;
+
+  if (afl->state_mode & STATE_MODE_GATE) {
+
+    STATE_APPEND("gate %llu/%llu", afl->gate_rejected, afl->gate_checked);
+
+  }
+
+  if (afl->state_mode & STATE_MODE_RARE) {
+
+    STATE_APPEND("%sinfo %0.1f", n ? " | " : "", afl->info_score_avg);
+
+  }
+
+  if (afl->state_mode & STATE_MODE_DEEP) {
+
+    STATE_APPEND("%sshelf %uc/%uw", n ? " | " : "", afl->shelf_cells_used,
+                 afl->shelf_members);
+
+  }
+
+  if (afl->state_mode & STATE_MODE_SMAP) {
+
+    STATE_APPEND("%strans %u %s", n ? " | " : "", afl->state_transitions_found,
+                 afl->shm.state_map ? state_signal_str(afl) : "n/a");
+
+    STATE_APPEND(" | sit %u/d%0.1f", afl->situations_found,
+                 afl->situation_depth_runs
+                     ? (double)afl->situation_depth_sum /
+                           (double)afl->situation_depth_runs
+                     : 0.0);
+
+  }
+
+  if (afl->state_mode) {
+
+    u64 execs = afl->fsrv.total_execs ? afl->fsrv.total_execs : 1;
+    STATE_APPEND("%sslow %0.1f%%", n ? " | " : "",
+                 (double)afl->slow_path_execs * 100 / (double)execs);
+
+  }
+
+  SAYF(cGRA "        " cRST " : %-70.70s\n", line);
+
+#undef STATE_APPEND
 
 }
 
@@ -1464,7 +1816,9 @@ void show_stats_normal(afl_state_t *afl) {
   }
 
   SAYF(" stability : %s%-10s" bSTG bV "\n",
-       (stab_ratio < 85 && afl->var_byte_count > 40)
+       (stab_ratio < 85 && afl->var_byte_count > 40 &&
+        !((afl->state_mode & STATE_MODE_PROBE) &&
+          afl->corpus_stability_avg >= 95.0))
            ? cLRD
            : ((afl->queued_variable &&
                (!afl->persistent_mode || afl->var_byte_count > 20))
@@ -1630,6 +1984,13 @@ void show_stats_normal(afl_state_t *afl) {
               " %s " bSTG bH10               cCYA bSTOP " state:" cPIN
               " %s " bSTG bH2 bRB bSTOP cRST RESET_G1,
        afl->fuzz_mode == 0 ? "explore" : "exploit", get_fuzzing_state(afl));
+
+  if (unlikely(afl->state_mode || afl->time_accounting)) {
+
+    SAYF("\n");
+    show_state_lines(afl);
+
+  }
 
 #undef IB
 
@@ -2306,7 +2667,9 @@ void show_stats_pizza(afl_state_t *afl) {
   }
 
   SAYF("                    oven flameout : %s%-10s          " bSTG bV "\n",
-       (stab_ratio < 85 && afl->var_byte_count > 40)
+       (stab_ratio < 85 && afl->var_byte_count > 40 &&
+        !((afl->state_mode & STATE_MODE_PROBE) &&
+          afl->corpus_stability_avg >= 95.0))
            ? cLRD
            : ((afl->queued_variable &&
                (!afl->persistent_mode || afl->var_byte_count > 20))
@@ -2466,6 +2829,13 @@ void show_stats_pizza(afl_state_t *afl) {
 
   /* Last line */
   SAYF(SET_G1 "\n" bSTG bLB bH30 bH20 bH2 bH20 bH2 bH bRB bSTOP cRST RESET_G1);
+
+  if (unlikely(afl->state_mode || afl->time_accounting)) {
+
+    SAYF("\n");
+    show_state_lines(afl);
+
+  }
 
 #undef IB
 

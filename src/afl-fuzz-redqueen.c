@@ -3525,6 +3525,8 @@ exit_its:
 
   }
 
+  state_hot_from_taint(afl, afl->queue_cur, taint);
+
   while (taint) {
 
     t = taint->next;

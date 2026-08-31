@@ -113,6 +113,7 @@ const char SanCovLowestStackName[] = "__sancov_lowest_stack";
 static const char *skip_nozero;
 static const char *use_threadsafe_counters;
 static const char *ijon_enabled;
+static bool        autostate_enabled = false;
 
 namespace {
 
@@ -408,6 +409,13 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
   skip_nozero = getenv("AFL_LLVM_SKIP_NEVERZERO");
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
   ijon_enabled = getenv("AFL_LLVM_IJON");
+  autostate_enabled = getenv("AFL_LLVM_AUTOSTATE") != NULL;
+  if (autostate_enabled && !ijon_enabled) {
+
+    ijon_enabled = getenv("AFL_LLVM_AUTOSTATE");
+
+  }
+
   if (getenv("AFL_LLVM_DENY_EXEC")) { deny_exec = true; }
   if (getenv("AFL_LLVM_ABORTLIST")) { abort_list = true; }
 
@@ -1099,6 +1107,18 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
   if (ijon_enabled) {
 
     std::tie(uses_ijon_functions, uses_ijon_state) = detectIJONUsage(M);
+
+    /* The automatic state pass runs after this one, so its calls cannot be
+       detected here. Asking for it is the declaration that the state value
+       will exist. */
+
+    if (autostate_enabled) {
+
+      uses_ijon_functions = true;
+      uses_ijon_state = true;
+
+    }
+
     if (!uses_ijon_functions) { ijon_enabled = nullptr; }
 
   }

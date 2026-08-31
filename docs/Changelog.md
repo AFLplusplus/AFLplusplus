@@ -4,6 +4,11 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.03a (dev)
+  ! State fuzzing mode, enabled with `-J`, for targets that remember what you
+    sent them before (protocols, databases, filesystems). Off by default and
+    inert without `-J`. See docs/fuzzing_stateful_targets.md. Various
+    parameters can be selected, by default on are `dcb` (deep-input shelf,
+    harness self-check, cost benchmark).
   ! Value Profile implementation for AFL++ by Khaled Yakdan (@kyakdan) that
     is much more efficient and intelligent than the libfuzzer implementation.
     Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for
@@ -24,6 +29,7 @@
       minimize the the queue like afl-cmin does and make the coverage of the
       removed entries rediscoverable. Inspired by `Novelty Not Found: Adaptive
       Fuzzer Restarts to Improve Input Space Coverage`
+    - IJON: the three channels are now bounded and reported separately.
     - sending `SIGUSR2` forces a sync (AFL internal sync and foreign `-F` ) as
       soon as the current queue entry has been fuzzed
     - the trimming stage no longer throws away what it produces: crashes,
@@ -53,6 +59,9 @@
     - a custom mutator that fails to load because it was built with an
       instrumenting compiler is named as such instead of just showing the
       missing `__afl_*` symbol
+  - custom mutators: new optional `afl_custom_describe_state()`, through which
+    a mutator that understands the input format reports how many operations an
+    input performs and an id for the state it reaches.
   - afl-cc
     - remove classic AFL instrumentation (colliding coverage), as `AFL_LLVM_PATH`
       and `AFL_LLVM_CALLER` replace these mostly and are overall much better

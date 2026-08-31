@@ -57,9 +57,13 @@ To learn about fuzzing other targets, see:
 * Network services:
   [best_practices.md#fuzzing-a-network-service](best_practices.md#fuzzing-a-network-service)
 * Non-linux: [unicorn_mode/README.md](../unicorn_mode/README.md)
+* Targets that remember what you sent before (protocols, databases,
+  filesystems): [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md)
 
 ## Additional information
 
+* State fuzzing (`-J`): [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md)
+* Guiding the fuzzer with state annotations: [IJON.md](IJON.md)
 * Value profiling:
   [value_profiling.md](value_profiling.md)
 * Tools that help fuzzing with AFL++:
