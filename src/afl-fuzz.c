@@ -130,7 +130,11 @@ extern u64 time_spent_working;
 
 static void at_exit() {
 
-  s32   i, pid1 = 0, pid2 = 0, pgrp = -1;
+  s32 i, pid1 = 0, pid2 = 0, pgrp = -1;
+  /* Backstop for a shared map that afl_shm_deinit_all() could not reach. On
+     USEMMAP builds the maps are normally already unlinked at creation and
+     only reachable through the inherited descriptor, so these unlinks are
+     expected to be no-ops - they still matter with AFL_SHM_KEEP_NAME. */
   char *list[5] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR,
                    VP_SHM_ENV_VAR, NULL};
   char *ptr;

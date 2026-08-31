@@ -2077,6 +2077,7 @@ static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
     if (Name.starts_with("_")) Name = Name.drop_front();
 
   }
+
 #else
   if (Name.startswith("\01")) {
 
@@ -2084,6 +2085,7 @@ static bool getLibcMemoryWriteDestAndSize(CallBase *CB, Value *&Dest,
     if (Name.startswith("_")) Name = Name.drop_front();
 
   }
+
 #endif
 
   auto useArgs = [&](unsigned DestIdx, unsigned LenIdx) -> bool {
@@ -3553,14 +3555,16 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
         StringRef name = cf->getName();
         // Strip clang's leading 0x01 escape (used for asm-name aliases) and the
         // Mach-O '_' C-symbol prefix it carries, so `\01_mmap` / `\01_malloc`
-        // resolve the same as `mmap` / `malloc`. The '_' is only dropped after a
-        // 0x01 escape so Itanium mangled names (e.g. `_Znwm`) are left intact.
+        // resolve the same as `mmap` / `malloc`. The '_' is only dropped after
+        // a 0x01 escape so Itanium mangled names (e.g. `_Znwm`) are left
+        // intact.
         if (!name.empty() && name[0] == '\x01') {
 
           name = name.drop_front();
           if (!name.empty() && name[0] == '_') name = name.drop_front();
 
         }
+
         // 1) Direct rewrite for libc allocators.
         bool matched = false;
         for (const AllocRewriteSpec &spec : kRewriteSpecs) {
@@ -4018,10 +4022,11 @@ bool runAllocSizeMode(Module &M, ModuleAnalysisManager &,
               if (!n.empty() && n[0] == '_') n = n.drop_front();
 
             }
-            bool is_memwrite =
-                n == "memcpy" || n == "__memcpy_chk" || n == "memmove" ||
-                n == "__memmove_chk" || n == "memset" || n == "__memset_chk" ||
-                n == "mempcpy" || n == "__mempcpy_chk";
+
+            bool is_memwrite = n == "memcpy" || n == "__memcpy_chk" ||
+                               n == "memmove" || n == "__memmove_chk" ||
+                               n == "memset" || n == "__memset_chk" ||
+                               n == "mempcpy" || n == "__mempcpy_chk";
             if (is_memwrite && CB->arg_size() >= 3 && !CB->isNoBuiltin()) {
 
               IRBuilder<> MB(CB);

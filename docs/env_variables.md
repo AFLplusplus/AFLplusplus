@@ -921,6 +921,19 @@ checks or alter some of the more exotic semantics of the tool:
     of their contents, rather than use the standard `id:000000,...` names.
     Warning: this disables any syncing to any AFL instances!
 
+  - `AFL_SHM_KEEP_NAME` keeps the POSIX shared memory objects (the coverage,
+    CmpLog, value profile, state and shared memory test case maps) reachable
+    under their name for the whole session. Only relevant where those maps are
+    POSIX shared memory - macOS and any build with `USEMMAP`, i.e. not the
+    default Linux build, which uses SysV segments. Normally each map is
+    `shm_unlink()`ed the moment it is created and only handed to the target as
+    an inherited file descriptor, so a SIGKILLed fuzzer cannot leave anything
+    behind in `/dev/shm`. Set this if the target was built by an afl-cc that
+    predates the descriptor handover and can therefore only `shm_open()` the
+    name - the trade-off is that the maps leak if the fuzzer is SIGKILLed.
+    Rebuilding the target is the better fix. It also applies to afl-showmap,
+    afl-tmin, afl-analyze, afl-cmin and afl-merge.
+
   - `AFL_SHUFFLE_QUEUE` randomly reorders the input queue on startup. Requested
     by some users for unorthodox parallelized fuzzing setups, but not advisable
     otherwise.

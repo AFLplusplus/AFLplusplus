@@ -32,6 +32,9 @@
 
 #include <unistd.h>
 
+/* config.h decides whether this struct is the POSIX shared memory or the SysV
+   flavour (USEMMAP), so it has to be seen before the struct either way. */
+#include "config.h"
 #include "types.h"
 #include "value-profile.h"
 #include "afl-state-map.h"
@@ -42,6 +45,14 @@ typedef struct sharedmem {
 
 #ifdef USEMMAP
   /* ================ Proteas ================ */
+  /* The g_shm_*fd fields hold the descriptor the target inherits (moved into
+     the SHM_FD_MIN range and with FD_CLOEXEC cleared), or -1 when the map is
+     handed over by name instead (AFL_SHM_KEEP_NAME, or no free descriptor).
+     That is also what says whether the object is still linked: a descriptor
+     means it was shm_unlink()ed at creation and afl_shm_deinit() only has to
+     drop the last reference, -1 means the name is still there to remove. The
+     g_shm_*file_path stays set either way - the *_SHM_ENV_VAR variables keep
+     carrying it so that "am I running under AFL++?" checks keep working. */
   int    g_shm_fd;
   char   g_shm_file_path[L_tmpnam];
   int    cmplog_g_shm_fd;
@@ -85,6 +96,11 @@ u8  *afl_shm_init(sharedmem_t *, size_t, unsigned char non_instrumented_mode,
                   mode_t mode, int gid);
 void afl_shm_deinit(sharedmem_t *);
 void afl_shm_deinit_all(void);
+void afl_shm_fuzz_env_set(sharedmem_t *);
+/* Publish the descriptor a shared map was handed over on (see SHM_FD_ENV_VAR)
+   under `env`. A no-op where the map is a SysV segment or was handed over by
+   name, so callers do not need to know which of the two it is. */
+void afl_shm_env_set_fd(const char *env, int fd);
 void afl_shm_vp_env_set(sharedmem_t *);
 void afl_shm_vp_env_unset(void);
 void afl_shm_state_env_set(sharedmem_t *);

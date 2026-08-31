@@ -326,6 +326,17 @@ else
 	LDFLAGS += -Wno-deprecated-declarations
 endif
 
+# macOS is deliberately moved off SysV shared memory even though shmat() works
+# there: kern.sysv.shmseg caps a process at 8 segments by default, and a
+# segment can no longer be attached once it is marked for destruction, so a
+# SIGKILLed tool leaks it. POSIX shared memory handed to the target as an
+# inherited descriptor (see SHM_FD_ENV_VAR) has neither problem.
+ifeq "$(SYS)" "Darwin"
+	SHMAT_OK=0
+	override CFLAGS += -DUSEMMAP=1
+	LDFLAGS += -Wno-deprecated-declarations
+endif
+
 ifdef TEST_MMAP
 	SHMAT_OK=0
 	override CFLAGS += -DUSEMMAP=1
@@ -989,6 +1000,7 @@ endif
 	cp -r testcases/ $${DESTDIR}$(MISC_PATH)
 	cp -r dictionaries/ $${DESTDIR}$(MISC_PATH)
 	cp injections.dic $${DESTDIR}$(MISC_PATH)
+	@test -e $${DESTDIR}$(BIN_PATH)/afl-clang-fast || echo "[!] WARNING: LLVM mode was not installed, afl-clang-fast/afl-clang-fast++ are missing! Install llvm and clang 16+ (or set LLVM_CONFIG), rebuild and install again, see docs/INSTALL.md"
 
 .PHONY: uninstall
 uninstall:

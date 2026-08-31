@@ -389,13 +389,24 @@ ifeq "$(shell echo '$(HASH)include <sys/ipc.h>@$(HASH)include <sys/shm.h>@int ma
         SHMAT_OK=1
 else
         SHMAT_OK=0
-        CFLAGS_SAFE += -DUSEMMAP=1
+        override CFLAGS_SAFE += -DUSEMMAP=1
+        override LDFLAGS += -Wno-deprecated-declarations
+endif
+
+# macOS is deliberately moved off SysV shared memory even though shmat() works
+# there: kern.sysv.shmseg caps a process at 8 segments by default, and a
+# segment can no longer be attached once it is marked for destruction, so a
+# SIGKILLed tool leaks it. POSIX shared memory handed to the target as an
+# inherited descriptor (see SHM_FD_ENV_VAR) has neither problem.
+ifeq "$(SYS)" "Darwin"
+        SHMAT_OK=0
+        override CFLAGS_SAFE += -DUSEMMAP=1
         override LDFLAGS += -Wno-deprecated-declarations
 endif
 
 ifeq "$(TEST_MMAP)" "1"
         SHMAT_OK=0
-        CFLAGS_SAFE += -DUSEMMAP=1
+        override CFLAGS_SAFE += -DUSEMMAP=1
         override LDFLAGS += -Wno-deprecated-declarations
 endif
 
@@ -640,8 +651,8 @@ install: all
 	@if [ -f ./afl-ld-lto ]; then set -e; install -m 755 ./afl-ld-lto $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f ./afl-compiler-rt-32.o ]; then set -e; install -m 755 ./afl-compiler-rt-32.o $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f ./afl-compiler-rt-64.o ]; then set -e; install -m 755 ./afl-compiler-rt-64.o $${DESTDIR}$(HELPER_PATH); fi
-	@if [ -f ./compare-transform-pass.so ]; then set -e; install -m 755 ./*.so $${DESTDIR}$(HELPER_PATH); fi
-	@if [ -f ./compare-transform-pass.so ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-fast ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang-fast++ ; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang++ ; fi
+	@if [ -f ./SanitizerCoveragePCGUARD.so ]; then set -e; install -m 755 ./*.so $${DESTDIR}$(HELPER_PATH); fi
+	@if [ -f ./SanitizerCoveragePCGUARD.so ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-fast ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang-fast++ ; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang++ ; fi
 	@if [ -f ./SanitizerCoverageLTO.so ]; then set -e; ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang-lto ; ln -sf ./afl-c++ $${DESTDIR}$(BIN_PATH)/afl-clang-lto++ ; fi
 	set -e; install -m 644 ./dynamic_list.txt $${DESTDIR}$(HELPER_PATH)
 	install -m 644 instrumentation/README.*.md $${DESTDIR}$(DOC_PATH)/
