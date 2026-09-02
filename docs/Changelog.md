@@ -3,7 +3,7 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
-### Version ++5.03a (dev)
+### Version ++5.03c (release)
   ! State fuzzing mode, enabled with `-J`, for targets that remember what you
     sent them before (protocols, databases, filesystems). Off by default and
     inert without `-J`. See docs/fuzzing_stateful_targets.md. Various
