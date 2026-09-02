@@ -2315,10 +2315,14 @@ def _fleet_summary(reports: list[Report]) -> str:
             lines.append(f"  {r.overall.upper():<14} {s.campaign_id}  (nothing measured: {reason})")
             continue
         why = f", degraded: {degraded_tag(r.degraded_reasons)}" if r.degraded_reasons else ""
+        stab_vals = [i.stability for i in s.instances if i.stability > 0]
+        stability = f"{min(stab_vals):.1f}%" if stab_vals else r.headline.get("stability", "?")
+        cov_age = "n/a" if s.trend.last_cov_entry_age_s is None else _hm(s.trend.last_cov_entry_age_s)
         lines.append(
             f"  {r.overall.upper():<14} {s.campaign_id}  "
             f"({s.alive_count}/{s.instance_count} alive{_dead_suffix(s)}, {s.bitmap_cvg_max():.2f}% cov, "
-            f"{s.pending_favs_total()} favs, {s.crashes.total} crashes{why})"
+            f"{stability} stab, {s.pending_favs_total()} favs, {s.crashes.total} crashes, "
+            f"{cov_age} +cov{why})"
         )
     return "\n".join(lines)
 

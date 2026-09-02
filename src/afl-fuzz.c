@@ -130,7 +130,7 @@ extern u64 time_spent_working;
 
 static void at_exit() {
 
-  s32   i, pid1 = 0, pid2 = 0, pgrp = -1;
+  s32 i, pid1 = 0, pid2 = 0, pgrp = -1;
   /* Backstop for a shared map that afl_shm_deinit_all() could not reach. On
      USEMMAP builds the maps are normally already unlinked at creation and
      only reachable through the inherited descriptor, so these unlinks are

@@ -1270,9 +1270,8 @@ static void exec_worker(worker_data_t *data, u32 *shared_cmin_idx) {
   // Setup SHM fuzzing (testcase delivery via shared memory)
   sharedmem_t shm_fuzz;
   memset(&shm_fuzz, 0, sizeof(sharedmem_t));
-  u8 *map =
-      afl_shm_init(&shm_fuzz, MAX_FILE + sizeof(u32), 1, DEFAULT_PERMISSION,
-                   -1);
+  u8 *map = afl_shm_init(&shm_fuzz, MAX_FILE + sizeof(u32), 1,
+                         DEFAULT_PERMISSION, -1);
 
   if (map) {
 
@@ -2353,9 +2352,8 @@ static void test_target_binary(void) {
   /* Set up shared-memory test-case delivery; the fork server negotiates
      shmem-fuzz support during the handshake (needed for Frida/QEMU). */
   sharedmem_t shm_fuzz = {0};
-  u8         *fuzz_map =
-      afl_shm_init(&shm_fuzz, MAX_FILE + sizeof(u32), 1, DEFAULT_PERMISSION,
-                   -1);
+  u8         *fuzz_map = afl_shm_init(&shm_fuzz, MAX_FILE + sizeof(u32), 1,
+                                      DEFAULT_PERMISSION, -1);
 
   if (fuzz_map) {
 
@@ -2504,9 +2502,8 @@ static void seed_baseline(void) {
     argv = prepare_fsrv(&fsrv, &shm, map_size, (u32)-1);
 
   sharedmem_t shm_fuzz = {0};
-  u8         *fuzz_map =
-      afl_shm_init(&shm_fuzz, MAX_FILE + sizeof(u32), 1, DEFAULT_PERMISSION,
-                   -1);
+  u8         *fuzz_map = afl_shm_init(&shm_fuzz, MAX_FILE + sizeof(u32), 1,
+                                      DEFAULT_PERMISSION, -1);
 
   if (fuzz_map) {
 
