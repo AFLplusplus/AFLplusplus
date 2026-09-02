@@ -798,6 +798,13 @@ from the `fastresume.bin` file, which afl-fuzz writes only on a clean shutdown
 (so it needs AFL++ >= 4.22a and no `AFL_NO_FASTRESUME`; otherwise the cause is
 reported as `unknown` and does count).
 
+If you script your launches, do not treat the existence of `fuzzer_stats` as
+proof that an instance is alive. On resume afl-fuzz rewrites it with the
+previous run's values before it does anything else, so a check of the form
+`[ -f out/$n/fuzzer_stats ]` passes for an instance that aborted seconds
+earlier. Use `afl-whatsup` or `afl-health`, which both treat a stale file as
+stale, or compare `last_update` in the file against the current time.
+
 Another tool to inspect the current state and history of a specific instance is
 afl-plot, which generates an index.html file and graphs that show how the
 fuzzing instance is performing. The syntax is `afl-plot instance_dir web_dir`,
@@ -924,6 +931,24 @@ you are the maintainer of a particular package, you can make this code
 conditional with `#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION` (a flag also
 shared with libfuzzer and honggfuzz) or `#ifdef __AFL_COMPILER` (this one is
 just for AFL++).
+
+`utils/state_oracles/` ships ready-made versions of several of these - a
+round-trip checker, allocation-failure injection, an uninitialised-memory probe
+built on `MALLOC_PERTURB_`, and an exact-size buffer allocator that puts a guard
+page where a generous buffer would otherwise hide an overflow. Each one comes
+with a deliberately broken example it has to flag, because a detector you have
+never seen fire is not known to work.
+
+### j2) Targets that remember what you sent before
+
+If your target is a protocol implementation, a database, a filesystem or
+anything else where the current input only makes sense after the previous one,
+read [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md) and try
+`afl-fuzz -J`. It changes how the queue prices long inputs, which is tuned for
+the forgetful case by default, and it checks the harness and measures execution
+cost once at startup. The other parts - how finds are admitted, how stability
+is reported, how rare edges are scored, the state map - are letters you ask for
+by name. It is off unless you ask for it.
 
 ### k) Known limitations & areas for improvement
 

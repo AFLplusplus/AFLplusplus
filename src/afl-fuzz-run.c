@@ -86,7 +86,18 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
 
   */
 
+  u64 exec_start_us = 0;
+
+  if (unlikely(afl->time_accounting)) { exec_start_us = get_cur_time_us(); }
+
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
+
+  if (unlikely(afl->time_accounting)) {
+
+    afl->target_exec_us += get_cur_time_us() - exec_start_us;
+    ++afl->target_exec_cnt;
+
+  }
 
 #ifdef __AFL_CODE_COVERAGE
   if (unlikely(!fsrv->persistent_trace_bits)) {
@@ -387,6 +398,12 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   u64 calibration_start_us = get_cur_time_us();
   if (unlikely(afl->shm.cmplog_mode)) { q->exec_cksum = 0; }
 
+  if (unlikely(afl->cal_var_map)) {
+
+    memset(afl->cal_var_map, 0, afl->fsrv.map_size);
+
+  }
+
   /* Be a bit more generous about timeouts when resuming sessions, or when
      trying to calibrate already-added finds. This helps avoid trouble due
      to intermittent latency. */
@@ -471,6 +488,22 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   */
 
+  /* first_trace is seeded from the map on the assumption that trace_bits still
+     holds THIS entry's run - true when calibrate_case follows
+     save_if_interesting. The -J helpers (repeat probe, double-run gate,
+     self-check, utility test) execute the target outside that pairing, so the
+     map can belong to an unrelated input. Comparing against it marks the
+     symmetric difference of two traces as variable, which floods var_bytes,
+     clears those virgin_bits and drives q->stability to 0. Re-baseline instead.
+   */
+  if (unlikely(afl->trace_foreign)) {
+
+    afl->trace_foreign = 0;
+    q->exec_cksum = 0;
+    first_run = 1;
+
+  }
+
   if (q->exec_cksum) {
 
     memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
@@ -516,6 +549,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     if (unlikely(!q->bitsmap_size)) { q->bitsmap_size = afl->bitsmap_size; }
 #endif
 
+    if (unlikely(afl->hw_bits)) { hw_absorb(afl); }
+
     classify_counts(&afl->fsrv);
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
 
@@ -539,6 +574,25 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
             // ignore the variable edge by setting it to fully discovered
             afl->virgin_bits[i] = 0;
             new_var = 1;
+
+          }
+
+        }
+
+        if (unlikely(afl->cal_var_map != NULL)) {
+
+          for (i = 0; i < afl->fsrv.map_size; ++i) {
+
+            if (likely(afl->first_trace[i] == afl->fsrv.trace_bits[i])) {
+
+              continue;
+
+            }
+
+            if (afl->cal_var_map[i]) { continue; }
+
+            afl->cal_var_map[i] =
+                (!afl->first_trace[i] || !afl->fsrv.trace_bits[i]) ? 2 : 1;
 
           }
 
@@ -624,6 +678,10 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   afl->total_bitmap_size += q->bitmap_size;
   ++afl->total_bitmap_entries;
+
+  if (unlikely(afl->ballast_bits != NULL)) { state_ballast_fold(afl); }
+  run_afl_custom_describe_state(afl, q, use_mem, q->len);
+  if (unlikely(afl->state_mode)) { state_calibration_stats(afl, q); }
 
   update_bitmap_score(afl, q, true);
 

@@ -582,6 +582,93 @@ We add 4 byte for one u32 length field. */
    (see MAP_SIZE_ALLOCSHADOW_BYTES). */
 #define MAP_SIZE_ALLOCRECORDS 4096
 
+/* State fuzzing mode (-J). The state-transition map lives in its own shared
+   memory segment so the state signal stays separable from edge coverage.
+   Internal constants of the mode are in afl-fuzz.h; only the knobs worth
+   changing are here. Recompile the target after changing STATE_MAP_SIZE. */
+
+/* Environment variable carrying the state map's shared memory id */
+#define STATE_SHM_ENV_VAR "__AFL_STATE_SHM_ID"
+
+/* State map footprint in bytes, one hit counter per (prev, cur, action) */
+#define STATE_MAP_SIZE 65536U
+
+/* Distinct state slots one execution may touch before the map is handled the
+   slow way. The map is 64KB, so clearing and scanning all of it per execution
+   costs more than a fast target's whole execution; a target that visits a
+   handful of states should pay for a handful of slots, not for the map. */
+#define STATE_TOUCHED_MAX 512U
+
+#define POOL_MAX_OPS 1024U
+
+/* Executions of one input per repeat probe (-Jp). Detects an edge that fires
+   in a fraction p of runs with probability 1 - p^N - (1-p)^N: 100 runs cover
+   p >= 2% at 90%, 30 runs only p >= 7%. Cost is N executions per probe
+   interval, so lower it on targets slower than ~50 execs/s. */
+#define STATE_PROBE_RUNS 100U
+
+/* Minimum wall clock between two repeat probes, milliseconds */
+#define STATE_PROBE_INTERVAL_MS 60000U
+
+/* Executions sampled by the cost benchmark (-Jb) to time a full fork ... */
+#define STATE_BENCH_FORK_RUNS 200U
+
+/* ... and to time target setup alone */
+#define STATE_BENCH_SETUP_RUNS 20U
+
+/* Percent of the queue the state signal (-Js) is allowed to have created on
+   its own. Past this the signal is resolving finer than it can pay for, and
+   the state map is folded one level coarser. The utility test bounds the other
+   end, so between the two the resolution settles where the target supports
+   it. */
+#define STATE_ADMIT_PCT 25U
+
+/* Queue entries needed before the share above means anything */
+#define HW_MIN_COUNT 8U
+#define HW_GROWTH_PCT 25U
+#define SIG_DEFAULT_K 3U
+#define SIG_MAX_K 8U
+#define GATE_GHOST_LEARN 3U
+#define GATE_GHOST_PROVEN 255U
+
+#define STATE_UTILITY_HYSTERESIS 15U
+#define SIG_MIN_CORPUS 200U
+#define SIG_MAX_FREQ 8U
+#define SIG_MAP_BITS 20U
+#define SIG_MAP_BYTES (1U << (SIG_MAP_BITS - 3))
+
+#define STATE_ADMIT_MIN_ITEMS 200U
+
+/* Percent of state-only entries that must have gone on to mother a coverage
+   find for the resolution to be considered worth its cost. Above this the
+   ladder leaves the signal alone however much of the queue it owns: a channel
+   that is producing finds is not too fine, it is expensive and working. */
+#define STATE_YIELD_PCT 10U
+
+/* State-only entries needed before that share means anything */
+#define STATE_YIELD_MIN_SAMPLE 50U
+
+/* Largest hand-set fold of the state map index (AFL_STATE_COARSE). At 8 the
+   65536 slots collapse to 256 state classes. Folding is not done automatically:
+   measured against both alternatives it was the worst of the three, because a
+   half-resolution signal keeps its corpus cost and loses its benefit. */
+#define STATE_COARSE_MAX_SHIFT 8U
+
+/* Percent of same-state input pairs that must agree before the state signal
+   (-Js) may influence which inputs are saved */
+#define STATE_UTILITY_THRESHOLD 80U
+
+/* Percent of single-byte havoc mutations aimed at the harness hot region */
+#define STATE_HOT_BIAS 70U
+
+/* Target-side hang watchdog (-J w). Turns a target that hangs where the
+   fuzzer timeout never fires into a SIGABRT that reproduces standalone.
+   Off by default: arming and disarming the timer costs a branch on the
+   persistent-mode hot path even when the watchdog is never used. Enabling
+   this requires recompiling both afl-fuzz and the target. */
+
+// #define AFL_TARGET_WATCHDOG
+
 /* Maximum allocator request size (keep well under INT_MAX): */
 
 #define MAX_ALLOC 0x40000000

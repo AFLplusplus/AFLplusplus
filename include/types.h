@@ -59,12 +59,10 @@ typedef uint128_t         u128;
 #define FS_NEW_OPT_SHDMEM_FUZZ 0x00000002       // parameter: none
 #define FS_NEW_OPT_FUTEX 0x00000004             // parameter: none
 #define FS_NEW_OPT_ALLOCSIZE_DERIVE 0x00000008  // parameter: none
-/* Target appended a bug-pass map tail (MAP_SIZE_BUG_BYTES) to
- * __afl_set_map_size; the fuzzer subtracts it before treating the
- * region as coverage. parameter: none */
-#define FS_NEW_OPT_BUG_MAP 0x00000010        // parameter: none
-#define FS_NEW_OPT_VALUE_PROFILE 0x00000020  // parameter: none
-#define FS_NEW_OPT_AUTODICT 0x00000800       // autodictionary data
+#define FS_NEW_OPT_BUG_MAP 0x00000010           // parameter: none
+#define FS_NEW_OPT_VALUE_PROFILE 0x00000020     // parameter: none
+#define FS_NEW_OPT_STATE_MAP 0x00000040         // parameter: none
+#define FS_NEW_OPT_AUTODICT 0x00000800          // autodictionary data
 
 #if defined(__linux__) || defined(__APPLE__)
 /* Protocol phases for the futex-based forkserver handshake.

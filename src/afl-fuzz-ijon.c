@@ -41,7 +41,9 @@
 /* Global IJON history limit - initialized from environment or AFL state */
 static int  afl_ijon_history_limit_global = 0;
 static bool afl_ijon_history_limit_initialized = false;
+static bool afl_ijon_history_limit_warned = false;
 int         afl_ijon_retire_max = 0;
+int         afl_ijon_replay_interval = IJON_REPLAY_INTERVAL;
 
 /* Global comprehensive IJON state for fastresume save/load */
 static ijon_fastresume_state_t afl_ijon_fastresume_state = {0};
@@ -221,7 +223,14 @@ u8 ijon_should_schedule(ijon_min_state *self) {
 
   }
 
-  if (++self->schedule_prob < IJON_REPLAY_INTERVAL) { return 0; }
+  if (afl_ijon_replay_interval <= 0) {
+
+    self->schedule_prob = 0;
+    return 0;
+
+  }
+
+  if (++self->schedule_prob < afl_ijon_replay_interval) { return 0; }
 
   self->schedule_prob = 0;
   return 1;
@@ -441,21 +450,21 @@ void ijon_store_history_unconditional(ijon_min_state *self, int i,
   // Store historical input if history is enabled
   if (afl_ijon_history_limit_global > 0) {
 
-    // Check if limit is sufficient for discovered variables (one-time check)
-    if (self->variable_discovered[i] == -1) {
+    if (self->variable_discovered[i] == -1 &&
+        self->num_discovered_vars + 1 > afl_ijon_history_limit_global &&
+        !afl_ijon_history_limit_warned) {
 
-      // New variable discovered - check if limit is sufficient
-      if (self->num_discovered_vars + 1 > afl_ijon_history_limit_global) {
+      afl_ijon_history_limit_warned = true;
 
-        FATAL(
-            "AFL_IJON_HISTORY_LIMIT=%d insufficient for %d variables. Minimum "
-            "required: %d. "
-            "Either increase limit or disable history (unset "
-            "AFL_IJON_HISTORY_LIMIT).",
-            afl_ijon_history_limit_global, self->num_discovered_vars + 1,
-            self->num_discovered_vars + 1);
-
-      }
+      WARNF(
+          "AFL_IJON_HISTORY_LIMIT=%d is below the %d IJON variables now live. "
+          "The rolling\n    history buffer wraps within one round of "
+          "variables, so a finding of one\n    variable can evict another's. "
+          "Raise the limit or unset it (history off) to\n    keep one slot "
+          "per variable. The maximum-reaching inputs in %s are not\n    "
+          "affected, only the finding_*.dat history.",
+          afl_ijon_history_limit_global, self->num_discovered_vars + 1,
+          self->max_dir);
 
     }
 
@@ -523,6 +532,26 @@ void ijon_store_history_unconditional(ijon_min_state *self, int i,
     ck_free(history_filename);
 
   }
+
+}
+
+void ijon_admit_bound(afl_state_t *afl) {
+
+  u32 cap = (u32)afl->afl_env.afl_ijon_admit_pct;
+
+  if (!cap || afl->ijon_admit_off) { return; }
+  if (afl->queued_items < STATE_ADMIT_MIN_ITEMS) { return; }
+  if (afl->ijon_only_admits * 100 < (u64)afl->queued_items * cap) { return; }
+
+  afl->ijon_admit_off = 1;
+
+  WARNF(
+      "IJON_SET/IJON_INC switched off for saving: it had created %u%% of the "
+      "queue\n    and %llu of its %llu entries went on to find anything. The "
+      "channel is still\n    recorded in the map and still reported; only "
+      "saving stops. Raise or unset\n    AFL_IJON_ADMIT_PCT to let it keep "
+      "saving. See docs/IJON.md.",
+      cap, afl->ijon_only_paid, afl->ijon_only_admits);
 
 }
 

@@ -166,3 +166,9 @@ t
 te
 empty
 test/empty
+test/unittests/unit_elf_dict
+test/unittests/unit_state_records
+test/unittests/unit_statefuzz
+custom_mutators/state_records/example_harness
+custom_mutators/state_records/depth_probe
+utils/pool_probe/pool-hit-rate

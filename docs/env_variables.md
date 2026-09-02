@@ -609,7 +609,10 @@ There are a few specific features that are only available in GCC_PLUGIN mode.
 The following environment variables are for a compiled AFL++ target.
 
   - Setting `AFL_DUMP_MAP_SIZE` when executing the target directly will
-    dump the map size of the target and exit.
+    dump the map size of the target and exit. On a target built with
+    `AFL_LLVM_IJON=1` that size includes the IJON areas, so the breakdown
+    (`total = coverage + ijon + ijon max`) is written to stderr as well while
+    stdout keeps the single number - see [IJON.md](IJON.md).
 
   - Setting `AFL_OLD_FORKSERVER` will use the old AFL vanilla forkserver.
     This makes only sense when you
@@ -965,6 +968,127 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_SYNC_TIME` allows you to specify a different minimal time (in minutes)
     between fuzzing instances synchronization. Default sync time is 20 minutes,
     note that time is halved for -M main nodes.
+
+  - The following settings belong to state fuzzing mode, which is enabled with
+    `-J`. See [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md) for
+    the full picture. Two of them work without `-J`: `AFL_TIME_ACCOUNTING`,
+    which is independent of it by design, and `AFL_STATE_PLUGIN_ADMIT`, because
+    a custom mutator that implements `afl_custom_describe_state()` is asked
+    about every queue entry in any run.
+
+  - `AFL_TIME_ACCOUNTING` makes `afl-fuzz` measure how much of the wall clock
+    is spent inside the target and how much is spent everywhere else, and
+    report it as `target_time_pct` in `fuzzer_stats` and as `tgt/tot` in the
+    UI. Costs two clock reads per execution. It is independent of `-J`: set
+    this variable to get it, with or without state fuzzing mode.
+
+  - `AFL_STATE_PROBE_RUNS` sets how many times the repeat probe (`-Jp`) runs
+    one input from a clean start before reporting how often it reproduced.
+    Default is 100, minimum 2. An edge that fires in a fraction `p` of runs is
+    caught with probability `1 - p^N - (1-p)^N`, so 100 runs cover an edge that
+    flickers in 2% of runs, and 30 runs only reach that for 7%. The cost is one
+    burst of `N` executions per probe interval, so lower it for targets slower
+    than roughly 50 executions per second.
+
+  - `AFL_STATE_UTILITY_THRESHOLD` is the percentage of same-state input pairs
+    that must behave the same before the state signal (`-Js`) is allowed to
+    influence which inputs are saved. Default 80. Below the threshold the state
+    signal stays a metadata note, which is the intended safe behaviour.
+
+  - `AFL_STATE_UTILITY_RETRY` is the shortest time in seconds between two runs
+    of that test. Default 60, range 1 to 3600. The test also needs 4,096
+    executions and new material before it repeats - another queue entry
+    carrying a state id, 20 more of them once a verdict has been reached, or a
+    queue cycled 8 times - so lowering this does not by itself make it run more
+    often.
+
+  - `AFL_STATE_ADMIT_PCT` is the largest share of the queue, in percent, that
+    the state signal may create on its own. Default 25, and 0 turns the bound
+    off. Past the share the signal stops saving inputs and goes back to being a
+    note; transitions are still recorded, still reported, and still group
+    entries for `-Jd`. The utility test asks whether a state definition is
+    *sound*; this asks whether it is *affordable*, which is a different question
+    and the one a digest carrying input history fails. Measured on a synthetic
+    target whose digest kept eight steps of history: 15,712 queue entries
+    without the bound against 317 with it, same target, same time.
+
+    Note what this does *not* do: it does not try a coarser resolution first.
+    That was measured and it was the worst of the three options - a folded map
+    still admitted entries that never found anything, and dropped the share of
+    the corpus reaching the target's deep states from 40% to 16%, i.e. below
+    never having enabled the signal at all. Fine-and-expensive and off are both
+    defensible; half-resolution is not.
+
+  - `AFL_STATE_YIELD_PCT` is the escape hatch from that bound: if at least this
+    percentage of the entries the state signal created went on to mother a find
+    of their own, the signal keeps saving inputs however much of the queue it
+    owns, because a channel that is producing finds is not too fine - it is
+    expensive and working. Default 10. `state_only_saves` and `state_only_paid`
+    in `fuzzer_stats` are the two numbers this compares, and they are worth
+    looking at directly: on the synthetic target above the ratio was 0.3%, which
+    is why the bound fires there.
+
+  - `AFL_STATE_COARSE` folds the state map index by hand: the number of bits
+    dropped, 0 (finest, 65536 classes) to 8 (256 classes). For measuring the
+    resolution trade yourself; it is not applied automatically for the reason
+    given above.
+
+  - `AFL_STATE_PLUGIN_ADMIT` lets a state id reported by a custom mutator
+    (`afl_custom_describe_state`) count as a reason to save an input, the same
+    way a new state transition does. Off by default. It is subject to
+    `AFL_STATE_ADMIT_PCT` as well, because a mutator's digest can be too fine
+    just as easily as a harness annotation can.
+
+  - `AFL_HOT_BIAS` is the percentage of havoc offsets aimed at the region a
+    harness marked with `AFL_HOT_REGION()` (`-Jh`). Default 70. The remaining
+    share stays uniform on purpose: plain byte mutation still finds parser and
+    memory bugs, and the annotation can be wrong. Note that the annotation
+    travels through the state map's shared memory, so it needs `-Jhs` (or plain
+    `-J`); with `-Jh` alone only the CmpLog taint fallback supplies a region.
+
+  - `AFL_NO_STATE_MAP` is honoured on both sides: the fuzzer will not create the
+    state-transition segment, and an instrumented target will not attach to one.
+
+  - `AFL_IJON_ADMIT_PCT` is the same kind of bound for the *other* IJON channel,
+    and it is needed because `AFL_STATE_ADMIT_PCT` above cannot reach it:
+    `IJON_SET()` and `IJON_INC()` write into an area that sits inside the
+    coverage bitmap on purpose, so such a write is an ordinary coverage find on
+    the ordinary save path. Once the queue holds at least 200 entries and
+    novelty that is *only* such a write has created more than this percentage of
+    them, it stops saving inputs; the channel keeps writing into the map and
+    keeps being reported. Default 0, no bound - a coverage find that is dropped
+    is dropped for good, so this stays opt-in. `ijon_only_saves` and
+    `ijon_only_paid` in `fuzzer_stats` are the numbers to judge it by. There is
+    deliberately no yield licence like `AFL_STATE_YIELD_PCT` here.
+
+  - `AFL_IJON_REPLAY_INTERVAL` is how many scheduling turns pass between two
+    replays of the stored `IJON_MAX`/`IJON_MIN` inputs. Default 16, so the max
+    channel gets one turn in sixteen; 1 gives it every turn, 0 switches replay
+    off. Raise it when an `IJON_MAX` objective is not being pursued - measured on
+    a QUIC harness, arms *without* the annotation grew the annotated quantity 20
+    to 50 times better, because the queue growth from `IJON_SET` in the same
+    harness diluted every entry's energy. See [IJON.md](IJON.md).
+
+  - `AFL_IJON_HISTORY_LIMIT` sets the size of the rolling `finding_*.dat`
+    history in `<out>/ijon_max/`, which records every improvement of any IJON max
+    slot. Default 0, no history. It is a file budget only: it changes nothing
+    about what is saved, scheduled or replayed. A value below the number of live
+    IJON variables warns once and keeps running - the ring then wraps within one
+    round of variables, so one variable's newest finding can evict another's. The
+    count cannot be validated at startup because a slot only becomes live the
+    first time its `IJON_MAX` is reached, so it grows during the run.
+
+  - `AFL_WATCHDOG_MS` is read by the *target*. When set, the AFL++ runtime
+    arms a timer at the start of every execution and calls `abort()` if the
+    execution outlives it, so a spinning target becomes a crash that reproduces
+    standalone instead of a hang nobody notices. `-Jw` sets it to
+    `max(1000, 2 x exec timeout)` if you have not. Keep it above the fuzzer's
+    own timeout: below it, merely-slow executions turn into fabricated
+    crashes. The whole feature is compiled out by default because arming and
+    disarming the timer costs a branch on the persistent-mode hot path;
+    uncomment `AFL_TARGET_WATCHDOG` in `include/config.h` and rebuild both
+    `afl-fuzz` and the target to get it. Without that, `-Jw` warns and does
+    nothing.
 
   - `AFL_NO_SYNC` disables any syncing whatsoever and takes priority on all
     other syncing parameters, including a sync forced with `SIGUSR2`.
