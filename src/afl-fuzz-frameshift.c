@@ -375,13 +375,18 @@ u8 lightweight_run(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   }
 
-  u64 remaining = afl->frameshift_deadline - now;
-  u32 timeout = afl->fsrv.exec_tmout;
-  if (!timeout || remaining < timeout) { timeout = (u32)remaining; }
+  /* The stage deadline bounds how long frameshift may keep going, not how
+     long the target is allowed to take. Cutting an execution short at the
+     remaining budget makes a target that runs in milliseconds return
+     FSRV_RUN_TMOUT, and save_if_interesting() then files the input as a hang.
+     Run with the timeout the user asked for and let the deadline checks above
+     and below end the stage - the overrun is one execution, as in every other
+     stage. */
 
   afl->fs_stats.search_tests++;
 
-  fsrv_run_result_t fault = fuzz_run_target(afl, &afl->fsrv, timeout);
+  fsrv_run_result_t fault =
+      fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
   afl->queued_discovered += save_if_interesting(afl, out_buf, written, fault);
 
@@ -609,7 +614,7 @@ void frameshift_stage(afl_state_t *afl) {
       frameshift_slice_budget(afl->fs_stats.total_time_ms, allowed_ms);
   if (!budget_ms) { return; }
 
-  afl->frameshift_deadline = time_start + FRAMESHIFT_TIME_BUDGET_MS;
+  afl->frameshift_deadline = time_start + budget_ms;
   u32 *inflection_points = NULL;
   u32 *loss_buffer = NULL;
   u8  *repeat_buffer = NULL;
