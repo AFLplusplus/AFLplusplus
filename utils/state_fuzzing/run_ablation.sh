@@ -142,10 +142,10 @@ arm_flags() {
   # The letters must be attached to -J; a detached argument is not consumed.
   case "$1" in
     A) echo "" ;;
-    B) echo "-Jgprdcw" ;;
-    C) echo "-Jgprdcw" ;;
-    D) echo "-Jgprdcws" ;;
-    E) echo "-Jgprdcws" ;;
+    B) echo "-Jdmcw" ;;
+    C) echo "-Jdmcw" ;;
+    D) echo "-Jdmcw" ;;
+    E) echo "-Jdmcw" ;;
     *) echo "__invalid__" ;;
   esac
 
@@ -166,7 +166,7 @@ arm_desc() {
     A) echo "baseline: normal coverage, normal executor" ;;
     B) echo "improved executor (B-A = engineering wins)" ;;
     C) echo "improved executor + record mutator" ;;
-    D) echo "improved executor + state signal (D-B = state wins)" ;;
+    D) echo "improved executor + state signal, i.e. an IJON-annotated target (D-B = state wins)" ;;
     E) echo "improved executor + records + state" ;;
   esac
 

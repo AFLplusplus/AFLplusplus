@@ -267,7 +267,6 @@ typedef struct afl_forkserver {
   bool cmplog_size_derive_requested;    /* -l Z requires target support     */
   bool supports_allocsize_derive;       /* target reports derive support    */
   bool use_bug_map;                     /* target reports bug-pass map      */
-  bool use_state_map;                   /* target reports state map         */
 
 } afl_forkserver_t;
 

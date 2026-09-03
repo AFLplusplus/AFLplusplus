@@ -521,6 +521,9 @@ directory. This includes:
 - `peak_rss_mb`       - max rss usage reached during fuzzing in MB
 - `cpu_affinity`      - CPU core the fuzzer is bound to, or -1 if not bound
 - `edges_found`       - how many edges have been found
+- `cov_edges_found`   - the same over the coverage area alone; differs from
+                        `edges_found` only on an IJON build, whose map also
+                        holds the IJON areas
 - `total_edges`       - total number of edges in the coverage map
 - `var_byte_count`    - how many edges are non-deterministic
 - `havoc_expansion`   - current havoc expansion level (raised while no new coverage is found)
@@ -550,25 +553,14 @@ giving each binary's path and its own execution count; `virgin_bytes` and
 State fuzzing mode (`-J`, see
 [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md)) adds these, each
 only when the part that produces it is enabled. The three `plugin_*` fields are
-the exception: they appear whenever a custom mutator described at least one
-queue entry, with or without `-J`.
+the exception: they appear whenever a custom mutator reported an operation count
+for at least one queue entry, with or without `-J`.
 
 - `state_mode`         - the active `-J` letters
-- `ballast_pct`        - share of discovered map bytes that every input hits
 - `slow_path_execs`    - executions spent on off-hot-loop state fuzzing work
 - `slow_path_pct`      - that as a share of all executions
-- `gate_checked`       - inputs put through the double-run admission gate
-- `gate_rejected`      - inputs the gate discarded (nothing reproduced)
-- `gate_partial`       - inputs kept after handing some ghost edges back
-- `probe_pct`          - repeat probe: runs whose whole trace matched run 1
-- `probe_edge_pct`     - repeat probe: edges in every run over edges in any
-- `probe_runs`         - repeat probe run count
-- `input_stab_avg`     - mean per-input stability over the corpus
-- `input_stab_min`     - worst per-input stability in the corpus
-- `info_score_avg`     - mean per-input information score (sum of -log2 p)
 - `shelf_cells_used`   - occupied deep-input shelf cells
 - `shelf_members`      - queue entries protected as shelf witnesses
-- `hot_region_hits`    - queue entries carrying a hot-region annotation
 - `contract_check`     - harness self-check: pass, fail or skipped
 - `contract_diff`      - edges differing between execution #1 and #2
 - `cost_fork_us`       - measured cost of fork + run, microseconds
@@ -577,25 +569,12 @@ queue entry, with or without `-J`.
                          microseconds; only with a mutator that reports
                          operation boundaries
 - `cost_prefix_pct`    - that cost as a share of a whole forkserver execution
-- `state_signal`       - unsupported, observing, unmeasurable, or trusted
-- `state_transitions`  - distinct (prev, cur, action) transitions seen
-- `state_map_density`  - share of the state map ever hit
-- `state_utility_pct`  - same-state pairs that behaved the same
-- `state_util_pairs`   - pairs the utility test managed to form
-- `state_util_runs`    - times the utility test ran, so a 0 above is readable
-- `state_util_ignored` - pairs dropped because the probe performed no action
-- `state_util_cands`   - entries carrying a state id at the last attempt
-- `state_util_status`  - why there is no verdict, or that one was reached
-- `state_only_saves`   - queue entries saved for a new state alone
-- `state_only_paid`    - of those, the ones that went on to find coverage
-- `state_admit_off`    - 1 once the state signal lost its licence to save
-- `state_coarse_fold`  - state classes folded into one (1 = no folding)
-- `state_sit_report`   - whether the target keeps a situation list at all
-- `state_situations`   - distinct IJON_STATE values ever reached
-- `state_depth_max`    - longest situation chain one execution went through
-- `state_depth_avg`    - mean situation chain length over all executions
-- `state_depth_hist`   - distinct situations by first-reached depth, log2 buckets
-- `plugin_described`   - queue entries a custom mutator described
+- `hw_only_saves`      - queue entries saved for a hit-count high-water alone
+- `hw_only_paid`       - of those, the ones that went on to find coverage
+- `hw_credits`         - times a slot's high-water mark was raised
+- `hw_slots`           - map slots that ever carried a mark
+- `hw_admit_off`       - 1 once the high-water channel lost its licence to save
+- `plugin_described`   - queue entries carrying a mutator-reported operation count
 - `plugin_ops_avg`     - mean reported operation count over the corpus
 - `plugin_ops_max`     - largest reported operation count
 
@@ -613,10 +592,9 @@ Note that `stability` keeps its original meaning — one minus the cumulative
 union of every map byte ever seen to vary, over the whole corpus. It is not
 comparable between runs with different corpus sizes, and it is not comparable
 across an IJON boundary either, because `IJON_STATE()` mixes the situation into
-every later edge index. `input_stab_avg` and `input_stab_min` are the per-input
-numbers people usually mean when they read `stability`, and both are shown so
-the difference is visible. Under `-Jp`, once those measure 95% or better, the UI
-stops painting the cumulative figure red — see
+every later edge index. On an IJON build compare `cov_edges_found`, which counts
+the coverage area alone, rather than `edges_found`, which counts the whole map
+including the `IJON_SET`/`IJON_INC` area — see
 [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md).
 
 `last_edge_execs` backs the execution-count based strategy switches: once the

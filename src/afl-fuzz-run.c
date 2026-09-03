@@ -398,12 +398,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   u64 calibration_start_us = get_cur_time_us();
   if (unlikely(afl->shm.cmplog_mode)) { q->exec_cksum = 0; }
 
-  if (unlikely(afl->cal_var_map)) {
-
-    memset(afl->cal_var_map, 0, afl->fsrv.map_size);
-
-  }
-
   /* Be a bit more generous about timeouts when resuming sessions, or when
      trying to calibrate already-added finds. This helps avoid trouble due
      to intermittent latency. */
@@ -579,25 +573,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
         }
 
-        if (unlikely(afl->cal_var_map != NULL)) {
-
-          for (i = 0; i < afl->fsrv.map_size; ++i) {
-
-            if (likely(afl->first_trace[i] == afl->fsrv.trace_bits[i])) {
-
-              continue;
-
-            }
-
-            if (afl->cal_var_map[i]) { continue; }
-
-            afl->cal_var_map[i] =
-                (!afl->first_trace[i] || !afl->fsrv.trace_bits[i]) ? 2 : 1;
-
-          }
-
-        }
-
         if (unlikely(new_var && !var_detected &&
                      !afl->afl_env.afl_no_warn_instability)) {
 
@@ -679,7 +654,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   afl->total_bitmap_size += q->bitmap_size;
   ++afl->total_bitmap_entries;
 
-  if (unlikely(afl->ballast_bits != NULL)) { state_ballast_fold(afl); }
   run_afl_custom_describe_state(afl, q, use_mem, q->len);
   if (unlikely(afl->state_mode)) { state_calibration_stats(afl, q); }
 

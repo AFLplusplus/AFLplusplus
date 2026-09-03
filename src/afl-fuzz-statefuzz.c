@@ -14,9 +14,9 @@
 
    SPDX-License-Identifier: Apache-2.0
 
-   State fuzzing mode (-J): time accounting, ballast measurement, the repeat
-   probe, the execution cost benchmark, the harness self-check, the
-   double-run admission gate and the per-input stability number.
+   State fuzzing mode (-J): time accounting, the execution cost benchmark,
+   the harness self-check, the deep-input shelf keying and the hit-count
+   high-water channel.
 
    Everything here is either off the hot path entirely or guarded by
    afl->state_mode. See docs/fuzzing_stateful_targets.md.
@@ -24,44 +24,14 @@
  */
 
 #include "afl-fuzz.h"
-#include <math.h>
 
 void state_alloc(afl_state_t *afl) {
 
-  if ((!afl->state_mode && !afl->time_accounting) || afl->ballast_bits) {
-
-    return;
-
-  }
+  if (!afl->state_mode) { return; }
 
   u32 map_size = afl->fsrv.map_size;
 
-  afl->ballast_bits = ck_alloc(map_size);
-
-  if (!afl->state_mode) { return; }
-
-  afl->cal_var_map = ck_alloc(map_size);
-
-  if (afl->state_mode & STATE_MODE_PROBE) {
-
-    afl->probe_union = ck_alloc(map_size);
-    afl->probe_isect = ck_alloc(map_size);
-
-  }
-
-  if (afl->state_mode & (STATE_MODE_RARE | STATE_MODE_SIG)) {
-
-    afl->edge_corpus_cnt = ck_alloc(map_size * sizeof(u32));
-
-  }
-
-  if (afl->state_mode & STATE_MODE_GATE) {
-
-    afl->gate_ghost = ck_alloc(map_size);
-
-  }
-
-  if (afl->state_mode & STATE_MODE_HIWATER) {
+  if ((afl->state_mode & STATE_MODE_HIWATER) && !afl->hw_bits) {
 
     afl->hw_bits = ck_alloc(map_size);
     afl->hw_min_count = HW_MIN_COUNT;
@@ -82,42 +52,12 @@ void state_alloc(afl_state_t *afl) {
 
   }
 
-  if (afl->state_mode & STATE_MODE_SIG) {
-
-    afl->sig_seen = ck_alloc(SIG_MAP_BYTES);
-    afl->sig_k = SIG_DEFAULT_K;
-    afl->sig_max_freq = SIG_MAX_FREQ;
-    afl->sig_min_corpus = SIG_MIN_CORPUS;
-
-    if (getenv("AFL_SIG_MAX_FREQ")) {
-
-      afl->sig_max_freq = atoi(getenv("AFL_SIG_MAX_FREQ"));
-
-    }
-
-    if (getenv("AFL_SIG_MIN_CORPUS")) {
-
-      afl->sig_min_corpus = atoi(getenv("AFL_SIG_MIN_CORPUS"));
-
-    }
-
-    if (getenv("AFL_SIG_K")) {
-
-      afl->sig_k = atoi(getenv("AFL_SIG_K"));
-      if (afl->sig_k < 1) { afl->sig_k = 1; }
-      if (afl->sig_k > SIG_MAX_K) { afl->sig_k = SIG_MAX_K; }
-
-    }
-
-  }
-
-  if (afl->state_mode & STATE_MODE_DEEP) {
+  if ((afl->state_mode & STATE_MODE_DEEP) && !afl->shelf) {
 
     afl->shelf = ck_alloc(STATE_SHELF_CELLS * STATE_SHELF_WITNESSES *
                           sizeof(struct queue_entry *));
     afl->shelf_avg_exec_us = ck_alloc(STATE_SHELF_CELLS * sizeof(double));
     afl->shelf_avg_len = ck_alloc(STATE_SHELF_CELLS * sizeof(double));
-    afl->shelf_avg_info = ck_alloc(STATE_SHELF_CELLS * sizeof(double));
     afl->shelf_count = ck_alloc(STATE_SHELF_CELLS * sizeof(u32));
 
   }
@@ -126,42 +66,17 @@ void state_alloc(afl_state_t *afl) {
 
 void state_free(afl_state_t *afl) {
 
-  if (afl->ballast_bits) { ck_free(afl->ballast_bits); }
-  if (afl->cal_var_map) { ck_free(afl->cal_var_map); }
-  if (afl->probe_union) { ck_free(afl->probe_union); }
-  if (afl->probe_isect) { ck_free(afl->probe_isect); }
-  if (afl->edge_corpus_cnt) { ck_free(afl->edge_corpus_cnt); }
   if (afl->shelf) { ck_free(afl->shelf); }
   if (afl->shelf_avg_exec_us) { ck_free(afl->shelf_avg_exec_us); }
   if (afl->shelf_avg_len) { ck_free(afl->shelf_avg_len); }
-  if (afl->shelf_avg_info) { ck_free(afl->shelf_avg_info); }
   if (afl->shelf_count) { ck_free(afl->shelf_count); }
-  if (afl->virgin_state) { ck_free(afl->virgin_state); }
-  if (afl->state_seen) { ck_free(afl->state_seen); }
-  if (afl->situation_seen) { ck_free(afl->situation_seen); }
-  if (afl->situation_depth) { ck_free(afl->situation_depth); }
-  if (afl->gate_ghost) { ck_free(afl->gate_ghost); }
-  afl->gate_ghost = NULL;
   if (afl->hw_bits) { ck_free(afl->hw_bits); }
-  if (afl->sig_seen) { ck_free(afl->sig_seen); }
 
-  afl->hw_bits = NULL;
-  afl->sig_seen = NULL;
-
-  afl->virgin_state = NULL;
-  afl->state_seen = NULL;
-  afl->situation_seen = NULL;
-  afl->situation_depth = NULL;
-  afl->ballast_bits = NULL;
-  afl->cal_var_map = NULL;
-  afl->probe_union = NULL;
-  afl->probe_isect = NULL;
-  afl->edge_corpus_cnt = NULL;
   afl->shelf = NULL;
   afl->shelf_avg_exec_us = NULL;
   afl->shelf_avg_len = NULL;
-  afl->shelf_avg_info = NULL;
   afl->shelf_count = NULL;
+  afl->hw_bits = NULL;
 
 }
 
@@ -199,45 +114,11 @@ static void state_exec_once(afl_state_t *afl, u8 *buf, u32 len) {
 
 }
 
-void state_ballast_fold(afl_state_t *afl) {
-
-  if (likely(!afl->ballast_bits)) { return; }
-
-  u8 *trace = afl->fsrv.trace_bits;
-  u32 i, map_size = afl->fsrv.map_size;
-
-  if (unlikely(!afl->ballast_valid)) {
-
-    for (i = 0; i < map_size; ++i) {
-
-      afl->ballast_bits[i] = trace[i] ? 1 : 0;
-
-    }
-
-    afl->ballast_valid = 1;
-
-  } else {
-
-    for (i = 0; i < map_size; ++i) {
-
-      if (afl->ballast_bits[i] && !trace[i]) { afl->ballast_bits[i] = 0; }
-
-    }
-
-  }
-
-  u32 reached = count_non_255_bytes(afl, afl->virgin_bits);
-
-  afl->ballast_pct = 100.0 * (double)count_bytes(afl, afl->ballast_bits) /
-                     (double)MAX(1U, reached);
-
-}
-
 u32 state_shelf_cell(afl_state_t *afl, struct queue_entry *q) {
 
   /* How much the input achieves. A mutator that speaks the input format
      reports the operation count, which is the quantity depth was always a
-     proxy for; without one, fall back to the mutation generation. */
+     proxy for; without one, fall back to the input length. */
 
   u32 achieved = q->op_count ? q->op_count : q->len;
   u32 depth_b, cost_b;
@@ -252,443 +133,15 @@ u32 state_shelf_cell(afl_state_t *afl, struct queue_entry *q) {
 
   depth_b = MIN(7U, (u32)((u64)achieved * 8U / (afl->shelf_achieved_max + 1U)));
   cost_b = MIN(7U, (u32)((u64)q->exec_us * 8U / (afl->shelf_cost_max + 1U)));
-  u32 state_b = (afl->state_signal_trusted || q->op_count || q->sig_only ||
-                 (afl->sig_seen && q->state_id))
-                    ? (q->state_id & 7)
-                    : 0;
-
-  return (depth_b * STATE_SHELF_COST_BUCKETS + cost_b) *
-             STATE_SHELF_STATE_BUCKETS +
-         state_b;
-
-}
-
-/* Clamp a byte range to the input and store it as the entry's hot region. */
-
-static void state_hot_set(struct queue_entry *q, u32 off, u32 hot_len) {
-
-  if (!hot_len || off >= q->len) {
-
-    off = 0;
-    hot_len = 0;
-
-  } else if (off + hot_len > q->len) {
-
-    hot_len = q->len - off;
-
-  }
-
-  q->hot_off = off;
-  q->hot_len = hot_len;
-
-}
-
-/* The hot region the harness declared for this input, recorded at
-   calibration time. Targets without the annotation are covered later by
-   state_hot_from_taint(). */
-
-static void state_hot_region(afl_state_t *afl, struct queue_entry *q) {
-
-  if (afl->shm.state_map && afl->shm.state_map->hot_len) {
-
-    state_hot_set(q, afl->shm.state_map->hot_off, afl->shm.state_map->hot_len);
-
-  }
-
-}
-
-/* The fallback for harnesses without AFL_HOT_REGION: the largest byte range
-   CmpLog colorization found to matter. Called while the taint list is still
-   alive, since RedQueen frees it on the way out, and it never overrides a
-   region the harness declared itself. */
-
-void state_hot_from_taint(afl_state_t *afl, struct queue_entry *q,
-                          struct tainted *t) {
-
-  if (likely(!(afl->state_mode & STATE_MODE_HOT))) { return; }
-  if (!q || q->hot_len || !q->len) { return; }
-
-  u32 best_off = 0, best_len = 0;
-
-  while (t) {
-
-    if (t->len > best_len && t->pos < q->len) {
-
-      best_off = t->pos;
-      best_len = t->len;
-
-    }
-
-    t = t->next;
-
-  }
-
-  if (best_len && best_len < q->len) { state_hot_set(q, best_off, best_len); }
+  return depth_b * STATE_SHELF_COST_BUCKETS + cost_b;
 
 }
 
 void state_calibration_stats(afl_state_t *afl, struct queue_entry *q) {
 
-  u32 i, map_size = afl->fsrv.map_size;
-  u8 *trace = afl->fsrv.trace_bits;
-
-  if (likely(afl->cal_var_map != NULL)) {
-
-    u32 edges = 0, hits = 0;
-
-    for (i = 0; i < map_size; ++i) {
-
-      if (likely(!afl->cal_var_map[i])) { continue; }
-
-      if (afl->cal_var_map[i] == 2) {
-
-        ++edges;
-
-      } else {
-
-        ++hits;
-
-      }
-
-    }
-
-    q->var_edge_cnt = edges;
-    q->var_hit_cnt = hits;
-
-    double var = (double)(edges + hits) / (double)MAX(1U, q->bitmap_size);
-
-    q->stability = 100.0 * (1.0 - var);
-    if (q->stability < 0.0) { q->stability = 0.0; }
-    if (q->stability > 100.0) { q->stability = 100.0; }
-
-  }
-
-  if (unlikely(afl->edge_corpus_cnt != NULL)) {
-
-    double score = 0.0;
-
-    ++afl->corpus_trace_cnt;
-
-    for (i = 0; i < map_size; ++i) {
-
-      if (likely(!trace[i])) { continue; }
-
-      if (likely(afl->edge_corpus_cnt[i] < 0xffffffff)) {
-
-        ++afl->edge_corpus_cnt[i];
-
-      }
-
-      score += log2((double)afl->corpus_trace_cnt /
-                    (double)MAX(1U, afl->edge_corpus_cnt[i]));
-
-    }
-
-    q->info_score = score;
-
-  }
-
-  if (afl->cal_var_map || afl->edge_corpus_cnt) {
-
-    double stab_sum = 0.0, stab_min = 100.0, info_sum = 0.0;
-    u32    cnt = 0, scnt = 0;
-
-    for (i = 0; i < afl->queued_items; ++i) {
-
-      struct queue_entry *e = afl->queue_buf[i];
-
-      if (unlikely(!e) || e->disabled || !e->bitmap_size) { continue; }
-
-      info_sum += e->info_score;
-      ++cnt;
-
-      /* q->stability is only set when an entry is calibrated with the var map,
-         and it is not persisted, so after a resume the queue is full of
-         entries that carry no measurement at all. Averaging those in as 0%
-         dragged input_stab_avg to a small number and pinned input_stab_min at
-         0.00%, which inverts the advice to trust these fields rather than the
-         corpus-cumulative stability. A genuinely 0%-stable entry always has a
-         non-zero var count, so the two cases are distinguishable. */
-      if (e->stability == 0.0 && !e->var_edge_cnt && !e->var_hit_cnt) {
-
-        continue;
-
-      }
-
-      stab_sum += e->stability;
-      if (e->stability < stab_min) { stab_min = e->stability; }
-      ++scnt;
-
-    }
-
-    if (likely(cnt)) {
-
-      if (afl->cal_var_map && scnt) {
-
-        afl->corpus_stability_avg = stab_sum / (double)scnt;
-        afl->corpus_stability_min = stab_min;
-
-      }
-
-      if (afl->edge_corpus_cnt) {
-
-        afl->info_score_avg = info_sum / (double)cnt;
-
-      }
-
-    }
-
-  }
-
-  if (unlikely(afl->ballast_bits) && likely(afl->ballast_valid)) {
-
-    u32 info = 0;
-
-    for (i = 0; i < map_size; ++i) {
-
-      if (trace[i] && !afl->ballast_bits[i]) { ++info; }
-
-    }
-
-    q->info_bitmap = info;
-    afl->total_info_bitmap += info;
-
-  }
-
-  state_map_record(afl, q);
-
   if (unlikely(afl->hw_bits)) { q->hw_max = afl->hw_max_last; }
 
-  if (unlikely(afl->sig_seen)) {
-
-    u32 sig = sig_compute(afl);
-
-    if (sig) { q->state_id = sig; }
-
-  }
-
   q->shelf_cell = state_shelf_cell(afl, q);
-  state_hot_region(afl, q);
-
-}
-
-u8 state_admission_gate(afl_state_t *afl, void *mem, u32 len) {
-
-  if (likely(!(afl->state_mode & STATE_MODE_GATE))) { return 1; }
-  if (unlikely(afl->non_instrumented_mode)) { return 1; }
-  if (unlikely(!afl->virgin_undo_valid)) { return 1; }
-
-  u32 i, map_size = afl->fsrv.map_size;
-  u32 claimed = 0, survived = 0, restored = 0, fresh = 0;
-
-  for (i = 0; i < map_size; ++i) {
-
-    if (likely(afl->virgin_undo[i] == afl->virgin_bits[i])) { continue; }
-
-    ++claimed;
-
-    if (likely(!afl->gate_ghost) || afl->gate_ghost[i] < GATE_GHOST_LEARN ||
-        afl->gate_ghost[i] == GATE_GHOST_PROVEN) {
-
-      ++fresh;
-
-    }
-
-  }
-
-  if (unlikely(!claimed)) { return 1; }
-
-  if (unlikely(!fresh)) {
-
-    virgin_undo_rollback(afl, NULL);
-    ++afl->gate_rejected;
-    ++afl->gate_skipped;
-    return 0;
-
-  }
-
-  void *gate_mem = mem;
-
-  (void)write_to_testcase(afl, &gate_mem, len, 1);
-  (void)fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
-  afl->trace_foreign = 1;
-
-  ++afl->gate_checked;
-  ++afl->slow_path_execs;
-
-  if (unlikely(afl->stop_soon)) { return 1; }
-
-  classify_counts(&afl->fsrv);
-
-  for (i = 0; i < map_size; ++i) {
-
-    if (likely(afl->virgin_undo[i] == afl->virgin_bits[i])) { continue; }
-
-    if (afl->fsrv.trace_bits[i]) {
-
-      ++survived;
-      if (afl->gate_ghost) { afl->gate_ghost[i] = GATE_GHOST_PROVEN; }
-
-    } else if (afl->gate_ghost && afl->gate_ghost[i] < GATE_GHOST_LEARN) {
-
-      if (++afl->gate_ghost[i] == GATE_GHOST_LEARN) { ++afl->gate_learned; }
-
-    }
-
-  }
-
-  if (!survived) {
-
-    virgin_undo_rollback(afl, NULL);
-    ++afl->gate_rejected;
-    return 0;
-
-  }
-
-  for (i = 0; i < map_size; ++i) {
-
-    if (likely(afl->virgin_undo[i] == afl->virgin_bits[i])) { continue; }
-    if (afl->fsrv.trace_bits[i]) { continue; }
-    if (unlikely(afl->virgin_reclaim[i] >= CAL_RECLAIM_MAX)) { continue; }
-
-    ++afl->virgin_reclaim[i];
-
-    if (likely(!afl->var_bytes[i])) {
-
-      afl->virgin_bits[i] = afl->virgin_undo[i];
-      ++restored;
-
-    }
-
-  }
-
-  if (restored) {
-
-    ++afl->gate_partial;
-    afl->bitmap_changed = 1;
-
-  }
-
-  return 1;
-
-}
-
-void state_repeat_probe(afl_state_t *afl, struct queue_entry *q, u32 runs) {
-
-  if (unlikely(!afl->probe_union || !afl->probe_isect)) { return; }
-  if (unlikely(!q || !q->len || afl->non_instrumented_mode)) { return; }
-
-  if (!runs) {
-
-    runs = afl->afl_env.afl_state_probe_runs > 0
-               ? (u32)afl->afl_env.afl_state_probe_runs
-               : STATE_PROBE_RUNS;
-
-  }
-
-  u8 *buf = queue_testcase_get(afl, q);
-  u32 i, r, map_size = afl->fsrv.map_size, identical = 0;
-  u64 first_hash = 0;
-
-  for (r = 0; r < runs; ++r) {
-
-    state_exec_once(afl, buf, q->len);
-
-    if (unlikely(afl->stop_soon)) { return; }
-
-    u64 cksum = hash64(afl->fsrv.trace_bits, map_size, HASH_CONST);
-
-    if (!r) {
-
-      first_hash = cksum;
-      identical = 1;
-
-      for (i = 0; i < map_size; ++i) {
-
-        u8 present = afl->fsrv.trace_bits[i] ? 1 : 0;
-
-        afl->probe_union[i] = present;
-        afl->probe_isect[i] = present;
-
-      }
-
-    } else {
-
-      if (cksum == first_hash) { ++identical; }
-
-      for (i = 0; i < map_size; ++i) {
-
-        if (afl->fsrv.trace_bits[i]) {
-
-          afl->probe_union[i] = 1;
-
-        } else {
-
-          afl->probe_isect[i] = 0;
-
-        }
-
-      }
-
-    }
-
-  }
-
-  u32 in_union = count_bytes(afl, afl->probe_union);
-  u32 in_isect = count_bytes(afl, afl->probe_isect);
-
-  afl->probe_edge_pct = 100.0 * (double)in_isect / (double)MAX(1U, in_union);
-  afl->probe_pct = 100.0 * (double)identical / (double)MAX(1U, runs);
-  afl->probe_last_ms = get_cur_time();
-
-}
-
-void state_maybe_probe(afl_state_t *afl) {
-
-  if (likely(!(afl->state_mode & STATE_MODE_PROBE))) { return; }
-  if (unlikely(!afl->probe_union)) { return; }
-
-  if (likely(get_cur_time() - afl->probe_last_ms < STATE_PROBE_INTERVAL_MS)) {
-
-    return;
-
-  }
-
-  u32 i, cand = 0;
-
-  for (i = 0; i < afl->queued_items; ++i) {
-
-    struct queue_entry *q = afl->queue_buf[i];
-
-    if (q && !q->disabled && q->favored && q->len) { ++cand; }
-
-  }
-
-  if (unlikely(!cand)) {
-
-    state_repeat_probe(afl, state_first_entry(afl), 0);
-    return;
-
-  }
-
-  u32 pick = rand_below(afl, cand);
-
-  cand = 0;
-
-  for (i = 0; i < afl->queued_items; ++i) {
-
-    struct queue_entry *q = afl->queue_buf[i];
-
-    if (!q || q->disabled || !q->favored || !q->len) { continue; }
-
-    if (cand++ == pick) {
-
-      state_repeat_probe(afl, q, 0);
-      return;
-
-    }
-
-  }
 
 }
 
@@ -1088,8 +541,6 @@ void state_startup_checks(afl_state_t *afl) {
   state_contract_check(afl);
   state_cost_bench(afl);
 
-  if (afl->state_mode & STATE_MODE_PROBE) { state_repeat_probe(afl, q, 0); }
-
 }
 
 u8 hw_frontier_check(afl_state_t *afl) {
@@ -1192,143 +643,6 @@ void hw_admit_bound(afl_state_t *afl) {
       "the queue\n    and only %llu of its %llu entries went on to find "
       "anything.",
       cap, afl->hw_only_paid, afl->hw_only_admits);
-
-}
-
-u32 sig_compute(afl_state_t *afl) {
-
-  u8  *trace = afl->fsrv.trace_bits;
-  u64 *tw = (u64 *)trace;
-  u32 *freq = afl->edge_corpus_cnt;
-  u32  map_size = afl->fsrv.map_size;
-  u32  w, b, words = map_size >> 3;
-  u32  k = afl->sig_k, n = 0;
-  u32  best_idx[SIG_MAX_K];
-  u32  best_frq[SIG_MAX_K];
-  u32  h = 0x811c9dc5U, i, j;
-
-  if (unlikely(!freq) || afl->corpus_trace_cnt < afl->sig_min_corpus) {
-
-    return 0;
-
-  }
-
-  for (w = 0; w <= words; ++w) {
-
-    u32 base = w << 3, top = MIN(base + 8, map_size);
-
-    if (w < words && likely(!tw[w])) { continue; }
-
-    for (b = base; b < top; ++b) {
-
-      if (likely(!trace[b])) { continue; }
-
-      u32 fq = freq[b];
-
-      if (fq > afl->sig_max_freq) { continue; }
-      if (n == k && fq >= best_frq[n - 1]) { continue; }
-
-      for (i = 0; i < n && best_frq[i] <= fq; ++i) {}
-
-      for (j = MIN(n, k - 1); j > i; --j) {
-
-        best_frq[j] = best_frq[j - 1];
-        best_idx[j] = best_idx[j - 1];
-
-      }
-
-      best_frq[i] = fq;
-      best_idx[i] = b;
-      if (n < k) { ++n; }
-
-    }
-
-  }
-
-  if (!n) { return 0; }
-
-  for (i = 0; i < n; ++i) {
-
-    for (j = i + 1; j < n; ++j) {
-
-      if (best_idx[j] < best_idx[i]) {
-
-        u32 t = best_idx[i];
-        best_idx[i] = best_idx[j];
-        best_idx[j] = t;
-
-      }
-
-    }
-
-  }
-
-  for (i = 0; i < n; ++i) {
-
-    h ^= best_idx[i];
-    h *= 0x01000193U;
-
-  }
-
-  return h ? h : 1;
-
-}
-
-u8 sig_is_new(afl_state_t *afl, u32 sig) {
-
-  u32 idx;
-
-  if (!sig || !afl->sig_seen) { return 0; }
-
-  idx = sig & ((1U << SIG_MAP_BITS) - 1U);
-
-  if (afl->sig_seen[idx >> 3] & (1U << (idx & 7))) { return 0; }
-
-  afl->sig_seen[idx >> 3] |= (u8)(1U << (idx & 7));
-  ++afl->sig_found;
-
-  return 1;
-
-}
-
-void sig_admit_bound(afl_state_t *afl) {
-
-  u32 cap = (u32)afl->afl_env.afl_state_admit_pct;
-
-  if (!cap || afl->sig_admit_off) { return; }
-  if (afl->queued_items < STATE_ADMIT_MIN_ITEMS) { return; }
-  if (afl->sig_only_admits * 100 < (u64)afl->queued_items * cap) { return; }
-
-  if (afl->sig_only_admits >= STATE_YIELD_MIN_SAMPLE) {
-
-    u32 yield = (u32)afl->afl_env.afl_state_yield_pct;
-
-    if (yield && afl->sig_only_paid * 100 >= afl->sig_only_admits * yield) {
-
-      return;
-
-    }
-
-  }
-
-  afl->sig_admit_off = 1;
-
-  WARNF(
-      "rare-edge signature switched off for saving: it had created %u%% of the "
-      "queue\n    and only %llu of its %llu entries went on to find anything.",
-      cap, afl->sig_only_paid, afl->sig_only_admits);
-
-}
-
-u32 state_score_bits(afl_state_t *afl, struct queue_entry *q) {
-
-  if (unlikely(afl->state_mode & STATE_MODE_BALLAST) && q->info_bitmap > 1) {
-
-    return q->info_bitmap;
-
-  }
-
-  return q->bitmap_size;
 
 }
 

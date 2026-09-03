@@ -359,14 +359,12 @@ void create_alias_table(afl_state_t *afl) {
     double avg_len = 0.0;
     double inv_range = 0.0;
     u32    active = 0, c11_min = UINT_MAX, c11_max = 0;
-    u8     rare_score = (afl->state_mode & STATE_MODE_RARE) != 0;
     u8     cell_score = (afl->state_mode & STATE_MODE_DEEP) && afl->shelf_count;
 
     if (unlikely(cell_score)) {
 
       memset(afl->shelf_avg_exec_us, 0, STATE_SHELF_CELLS * sizeof(double));
       memset(afl->shelf_avg_len, 0, STATE_SHELF_CELLS * sizeof(double));
-      memset(afl->shelf_avg_info, 0, STATE_SHELF_CELLS * sizeof(double));
       memset(afl->shelf_count, 0, STATE_SHELF_CELLS * sizeof(u32));
 
     }
@@ -380,15 +378,7 @@ void create_alias_table(afl_state_t *afl) {
 
         avg_exec_us += q->exec_us;
 
-        if (unlikely(rare_score) && q->info_score > 0.0) {
-
-          P[i] = log(1.0 + q->info_score);
-
-        } else {
-
-          P[i] = log(state_score_bits(afl, q));
-
-        }
+        P[i] = log(q->bitmap_size);
 
         avg_bitmap_size += P[i];
         avg_len += q->len;
@@ -400,7 +390,6 @@ void create_alias_table(afl_state_t *afl) {
 
           afl->shelf_avg_exec_us[cell] += (double)q->exec_us;
           afl->shelf_avg_len[cell] += (double)q->len;
-          afl->shelf_avg_info[cell] += P[i];
           ++afl->shelf_count[cell];
 
         }
@@ -450,7 +439,6 @@ void create_alias_table(afl_state_t *afl) {
 
           afl->shelf_avg_exec_us[c] /= afl->shelf_count[c];
           afl->shelf_avg_len[c] /= afl->shelf_count[c];
-          afl->shelf_avg_info[c] /= afl->shelf_count[c];
 
         }
 
@@ -498,12 +486,6 @@ void create_alias_table(afl_state_t *afl) {
             if (afl->shelf_avg_len[cell] > 0.0) {
 
               ref_len = afl->shelf_avg_len[cell];
-
-            }
-
-            if (rare_score && afl->shelf_avg_info[cell] > 0.0) {
-
-              ref_bitmap_size = afl->shelf_avg_info[cell];
 
             }
 
@@ -1654,52 +1636,11 @@ static void minimize_queue_disable(afl_state_t *afl) {
 
 }
 
-/* Recompute info_score from trace_mini for the entries that still hold one. */
-
-static void state_refresh_info_scores(afl_state_t *afl) {
-
-  u32    i, b, len = (afl->fsrv.map_size + 7) >> 3;
-  double total = (double)afl->corpus_trace_cnt;
-
-  for (i = 0; i < afl->queued_items; i++) {
-
-    struct queue_entry *q = afl->queue_buf[i];
-    double              info = 0.0;
-
-    if (!q->trace_mini || unlikely(q->disabled)) { continue; }
-
-    for (b = 0; b < len; b++) {
-
-      u32 bits = q->trace_mini[b];
-
-      while (bits) {
-
-        u32 idx = (b << 3) + __builtin_ctz(bits);
-
-        bits &= bits - 1;
-
-        if (likely(idx < afl->fsrv.map_size)) {
-
-          info += log2(total / (double)MAX(1U, afl->edge_corpus_cnt[idx]));
-
-        }
-
-      }
-
-    }
-
-    q->info_score = info;
-
-  }
-
-}
-
 /* Rebuild the per-cell witness shelf from the live queue entries. */
 
 static void state_shelf_rebuild(afl_state_t *afl) {
 
   u32 i;
-  u8  use_stability = (afl->state_mode & STATE_MODE_PROBE) != 0;
 
   memset(
       afl->shelf, 0,
@@ -1722,23 +1663,7 @@ static void state_shelf_rebuild(afl_state_t *afl) {
     if (!w[0] || q->len < w[0]->len) { w[0] = q; }
     if (!w[1] || q->exec_us < w[1]->exec_us) { w[1] = q; }
 
-    if (use_stability) {
-
-      if (!w[2] ||
-          (q->stability > 0.0 &&
-           (w[2]->stability == 0.0 || q->stability > w[2]->stability)) ||
-          (q->stability == 0.0 && w[2]->stability == 0.0 &&
-           q->bitmap_size > w[2]->bitmap_size)) {
-
-        w[2] = q;
-
-      }
-
-    } else if (!w[2] || q->bitmap_size > w[2]->bitmap_size) {
-
-      w[2] = q;
-
-    }
+    if (!w[2] || q->bitmap_size > w[2]->bitmap_size) { w[2] = q; }
 
     u32 q_work = q->op_count ? q->op_count : q->len;
     u32 w3_work = w[3] ? (w[3]->op_count ? w[3]->op_count : w[3]->len) : 0;
@@ -1884,13 +1809,6 @@ inline void cull_queue(afl_state_t *afl) {
 
   }
 
-  if (unlikely((afl->state_mode & STATE_MODE_RARE) && afl->edge_corpus_cnt &&
-               afl->corpus_trace_cnt)) {
-
-    state_refresh_info_scores(afl);
-
-  }
-
   if (unlikely((afl->state_mode & STATE_MODE_DEEP) && afl->shelf)) {
 
     state_shelf_rebuild(afl);
@@ -1987,14 +1905,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
   u32 avg_exec_us = afl->total_cal_us / cal_cycles;
   u32 avg_bitmap_size = afl->total_bitmap_size / bitmap_entries;
 
-  if (unlikely(afl->state_mode & STATE_MODE_BALLAST) &&
-      afl->total_info_bitmap > bitmap_entries) {
-
-    avg_bitmap_size = (u32)(afl->total_info_bitmap / bitmap_entries);
-
-  }
-
-  u32 score_bits = state_score_bits(afl, q);
+  u32 score_bits = q->bitmap_size;
   u32 perf_score = 100;
 
   /* Adjust score based on execution speed of this path, compared to the

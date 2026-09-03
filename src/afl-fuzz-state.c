@@ -73,10 +73,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->max_length = MAX_FILE;
   afl->switch_fuzz_mode = STRATEGY_SWITCH_TIME * 1000;
   afl->q_testcase_max_cache_size = TESTCASE_CACHE_SIZE * 1048576UL;
-  afl->hot_bias = STATE_HOT_BIAS;
   afl->afl_env.afl_state_admit_pct = STATE_ADMIT_PCT;
   afl->afl_env.afl_state_yield_pct = STATE_YIELD_PCT;
-  afl->corpus_stability_min = 100.0;
 
 #ifdef HAVE_AFFINITY
   afl->cpu_aff = -1;                    /* Selected CPU core                */
@@ -828,61 +826,6 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_time_accounting =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
-          } else if (!strncmp(env, "AFL_NO_STATE_MAP",
-
-                              afl_environment_variable_len)) {
-
-            afl->afl_env.afl_no_state_map =
-                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
-
-          } else if (!strncmp(env, "AFL_STATE_PROBE_RUNS",
-
-                              afl_environment_variable_len)) {
-
-            afl->afl_env.afl_state_probe_runs =
-                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
-
-            if (afl->afl_env.afl_state_probe_runs < 2) {
-
-              WARNF("AFL_STATE_PROBE_RUNS below 2, using 2");
-              afl->afl_env.afl_state_probe_runs = 2;
-
-            }
-
-          } else if (!strncmp(env, "AFL_STATE_UTILITY_THRESHOLD",
-
-                              afl_environment_variable_len)) {
-
-            afl->afl_env.afl_state_utility_threshold =
-                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
-
-            if (afl->afl_env.afl_state_utility_threshold < 1 ||
-                afl->afl_env.afl_state_utility_threshold > 100) {
-
-              WARNF("AFL_STATE_UTILITY_THRESHOLD out of range, using %u",
-                    STATE_UTILITY_THRESHOLD);
-              afl->afl_env.afl_state_utility_threshold =
-                  STATE_UTILITY_THRESHOLD;
-
-            }
-
-          } else if (!strncmp(env, "AFL_STATE_UTILITY_RETRY",
-
-                              afl_environment_variable_len)) {
-
-            afl->afl_env.afl_state_utility_retry =
-                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
-
-            if (afl->afl_env.afl_state_utility_retry < 1 ||
-                afl->afl_env.afl_state_utility_retry > 3600) {
-
-              WARNF("AFL_STATE_UTILITY_RETRY out of range, using %u",
-                    STATE_UTILITY_RETRY_MS / 1000);
-              afl->afl_env.afl_state_utility_retry =
-                  STATE_UTILITY_RETRY_MS / 1000;
-
-            }
-
           } else if (!strncmp(env, "AFL_STATE_ADMIT_PCT",
 
                               afl_environment_variable_len)) {
@@ -927,44 +870,6 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
               WARNF("AFL_STATE_YIELD_PCT out of range, using %u",
                     STATE_YIELD_PCT);
               afl->afl_env.afl_state_yield_pct = STATE_YIELD_PCT;
-
-            }
-
-          } else if (!strncmp(env, "AFL_STATE_PLUGIN_ADMIT",
-
-                              afl_environment_variable_len)) {
-
-            afl->plugin_state_admit = 1;
-
-          } else if (!strncmp(env, "AFL_STATE_COARSE",
-
-                              afl_environment_variable_len)) {
-
-            afl->afl_env.afl_state_coarse =
-                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
-
-            if (afl->afl_env.afl_state_coarse < 0 ||
-                afl->afl_env.afl_state_coarse > (int)STATE_COARSE_MAX_SHIFT) {
-
-              WARNF("AFL_STATE_COARSE out of range, using 0");
-              afl->afl_env.afl_state_coarse = 0;
-
-            }
-
-            afl->state_coarse_shift = (u32)afl->afl_env.afl_state_coarse;
-
-          } else if (!strncmp(env, "AFL_HOT_BIAS",
-
-                              afl_environment_variable_len)) {
-
-            afl->afl_env.afl_hot_bias =
-                atoi((u8 *)get_afl_env(afl_environment_variables[i]));
-
-            if (afl->afl_env.afl_hot_bias < 0 ||
-                afl->afl_env.afl_hot_bias > 100) {
-
-              WARNF("AFL_HOT_BIAS out of range, using %u", STATE_HOT_BIAS);
-              afl->afl_env.afl_hot_bias = STATE_HOT_BIAS;
 
             }
 

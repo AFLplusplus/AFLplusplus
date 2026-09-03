@@ -1,4 +1,4 @@
-# pool_probe — measurement tools for the snapshot pool (`-Jo`)
+# pool_probe — measurement tools for the snapshot pool
 
 Two independent tools plus a mandatory pre-launch check. None of them needs the
 snapshot pool to exist; they are the Phase 0 measurements of

@@ -58,7 +58,6 @@ __attribute__((weak)) void __sanitizer_symbolize_pc(void *, const char *fmt,
 #include "bitops.h"
 #include "cmplog.h"
 #include "value-profile.h"
-#include "afl-state-map.h"
 #include "afl-ijon-min.h"
 
 /* For backtrace() support in ijon_hashstack */
@@ -277,6 +276,23 @@ static u64 __afl_ijon_initial[MAP_SIZE_IJON_ENTRIES];
 u64 *__afl_ijon_bits = __afl_ijon_initial;  // Initial buffer, will point to
                                             // shared memory at MAP_SIZE offset
 u32 __afl_ijon_map_size = MAP_SIZE_IJON_ENTRIES;
+
+/* AFL_LLVM_IJON_STATE_MAX: emitted into the binary by the instrumentation pass,
+   so the forkserver can size the shared map before any environment is read.
+   Weak, so a binary built without it links unchanged and reads 0. */
+__attribute__((weak)) extern const u32 __afl_ijon_state_max_decl;
+u32                                    __afl_ijon_state_max = 0;
+
+static void __afl_ijon_state_max_init(void) {
+
+  if (&__afl_ijon_state_max_decl) {
+
+    __afl_ijon_state_max = __afl_ijon_state_max_decl;
+
+  }
+
+}
+
 u32 __afl_ijon_map_increased = 0;
 u32 __afl_ijon_enabled __attribute__((weak)) = 0;
 
@@ -455,20 +471,10 @@ static u16 *__afl_alloc_shadow_get_or_init(uintptr_t a, uintptr_t *off_out);
 #if defined(__ANDROID__) || defined(__HAIKU__) || defined(NO_TLS)
 u32 __afl_ijon_state = 0;      // Current IJON state
 u32 __afl_ijon_state_log = 0;  // State history log
-u32 __afl_state_action = 0;    // Action class of the next transition
 #else
 __thread u32 __afl_ijon_state = 0;
 __thread u32 __afl_ijon_state_log = 0;
-__thread u32 __afl_state_action = 0;
 #endif
-
-/* State-transition map (-J s). NULL unless the fuzzer handed us a segment
-   through STATE_SHM_ENV_VAR, so every entry point below is inert without it.
-   The local copy is the landing place after the shared segment is unmapped,
-   mirroring __afl_bug_map / __afl_bug_map_local. */
-state_map_t       *__afl_state_map = NULL;
-static state_map_t __afl_state_map_local;
-static u8          __afl_state_map_active = 0;
 
 #ifdef AFL_TARGET_WATCHDOG
 /* Target-side watchdog (-J w), armed only when AFL_WATCHDOG_MS is set. */
@@ -589,45 +595,6 @@ static inline u8 __afl_vp_target_supports_runtime(void) {
 #else
   return (u8)((uintptr_t)&__afl_vp_instrumented != 0);
 #endif
-
-}
-
-/* Clear the state map and its per-execution scalars. A no-op when no state
-   map is attached. */
-
-static inline void __afl_state_map_reset(void) {
-
-  if (likely(__afl_state_map == NULL)) { return; }
-
-  if (likely(!__afl_state_map->touched_ovf) &&
-      likely(__afl_state_map->touched_n <= STATE_TOUCHED_MAX)) {
-
-    uint32_t i;
-
-    for (i = 0; i < __afl_state_map->touched_n; ++i) {
-
-      __afl_state_map->map[__afl_state_map->touched[i]] = 0;
-
-    }
-
-  } else {
-
-    memset_noasan(__afl_state_map->map, 0, STATE_MAP_SIZE);
-
-  }
-
-  __afl_state_map->touched_n = 0;
-  __afl_state_map->touched_ovf = 0;
-  __afl_state_map->touched_ok = 1;
-  __afl_state_map->sit_n = 0;
-  __afl_state_map->sit_ok = 1;
-  __afl_state_map->cur_state = 0;
-  __afl_state_map->prev_state = 0;
-  __afl_state_map->action = 0;
-  __afl_state_map->transitions = 0;
-  __afl_state_map->hot_off = 0;
-  __afl_state_map->hot_len = 0;
-  __afl_state_action = 0;
 
 }
 
@@ -1230,6 +1197,15 @@ static void __afl_map_shm(void) {
 
       __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
       __afl_cov_map_size = __afl_map_size;
+      __afl_ijon_state_max_init();
+      if (__afl_ijon_state_max) {
+
+        /* One dedicated copy of the coverage map per declared state. Region 0
+           is the plain build's map, so it stays directly comparable. */
+        __afl_map_size = __afl_cov_map_size * (__afl_ijon_state_max + 1);
+
+      }
+
       __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
       __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
       __afl_ijon_map_increased = 1;
@@ -1444,68 +1420,6 @@ static void __afl_map_shm(void) {
 
     __afl_vp_map_backup = __afl_vp_map;
     __afl_vp_refresh_enabled_ptr();
-
-  }
-
-  char *state_id_str = getenv(STATE_SHM_ENV_VAR);
-
-  if (__afl_debug) {
-
-    fprintf(stderr, "DEBUG: state map id_str %s\n",
-            state_id_str == NULL ? "<null>" : state_id_str);
-
-  }
-
-  if (state_id_str && !getenv("AFL_NO_STATE_MAP")) {
-
-    __afl_open_dummy_fd();
-
-#ifdef USEMMAP
-    const char  *shm_file_path = state_id_str;
-    int          shm_fd = -1;
-    state_map_t *shm_base = NULL;
-
-    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
-    if (shm_fd == -1) {
-
-      perror("shm_open() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(1);
-
-    }
-
-    shm_base = mmap(0, sizeof(state_map_t), PROT_READ | PROT_WRITE, MAP_SHARED,
-                    shm_fd, 0);
-    if (shm_base == MAP_FAILED) {
-
-      close(shm_fd);
-      shm_fd = -1;
-
-      fprintf(stderr, "mmap() failed\n");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      exit(2);
-
-    }
-
-    close(shm_fd);
-    shm_fd = -1;
-    __afl_state_map = shm_base;
-#else
-    u32 shm_id = atoi(state_id_str);
-
-    __afl_state_map = (state_map_t *)shmat(shm_id, NULL, 0);
-#endif
-
-    if (!__afl_state_map || __afl_state_map == (void *)-1) {
-
-      perror("shmat for state map");
-      send_forkserver_error(FS_ERROR_SHM_OPEN);
-      _exit(1);
-
-    }
-
-    __afl_state_map_active = 1;
-    __afl_state_map_reset();
 
   }
 
@@ -2060,24 +1974,6 @@ static void __afl_unmap_shm(void) {
 
   }
 
-  id_str = getenv(STATE_SHM_ENV_VAR);
-
-  if (id_str && __afl_state_map) {
-
-#ifdef USEMMAP
-
-    munmap((void *)__afl_state_map, sizeof(state_map_t));
-
-#else
-
-    shmdt((void *)__afl_state_map);
-
-#endif
-
-    __afl_state_map = __afl_state_map_active ? &__afl_state_map_local : NULL;
-
-  }
-
   __afl_already_initialized_shm = 0;
 
 }
@@ -2169,6 +2065,14 @@ static void __afl_start_forkserver(void) {
     }
 
     __afl_cov_map_size = __afl_map_size;
+    __afl_ijon_state_max_init();
+    if (__afl_ijon_state_max) {
+
+      /* one dedicated copy of the coverage map per declared state */
+      __afl_map_size = __afl_cov_map_size * (__afl_ijon_state_max + 1);
+
+    }
+
     __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
     __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
     __afl_ijon_map_increased = 1;
@@ -2291,8 +2195,6 @@ static void __afl_start_forkserver(void) {
       }
 
     }
-
-    if (__afl_state_map) { status |= FS_NEW_OPT_STATE_MAP; }
 
     if (__afl_dictionary_len && __afl_dictionary) {
 
@@ -2498,7 +2400,6 @@ static void __afl_start_forkserver(void) {
 
         }
 
-        __afl_state_map_reset();
         __afl_watchdog_arm();
 
         return;
@@ -2608,7 +2509,6 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     __afl_area_ptr[0] = 1;
     __afl_prev_loc = 0;
     __afl_alloc_persistent_reset(0);
-    __afl_state_map_reset();
 
     first_pass = 0;
 #ifdef __APPLE__
@@ -2664,7 +2564,6 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
       }
 
-      __afl_state_map_reset();
       __afl_watchdog_arm();
 
       return 1;
@@ -2742,7 +2641,6 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     }
 
     __afl_prev_loc = 0;
-    __afl_state_map_reset();
     __afl_watchdog_arm();
 
     return 1;
@@ -3637,6 +3535,14 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
       __afl_map_size = (((__afl_map_size + 63) >> 6) << 6);
       __afl_cov_map_size = __afl_map_size;
+      __afl_ijon_state_max_init();
+      if (__afl_ijon_state_max) {
+
+        /* one dedicated copy of the coverage map per declared state */
+        __afl_map_size = __afl_cov_map_size * (__afl_ijon_state_max + 1);
+
+      }
+
       __afl_map_size += MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
       __afl_set_map_size = __afl_map_size - MAP_SIZE_IJON_BYTES;
       __afl_ijon_map_increased = 1;
@@ -6156,8 +6062,6 @@ static inline u32 __afl_autostate_mix(u32 slot, u32 val) {
 
 }
 
-static void __afl_state_advance(u32 prev);
-
 void afl_autostate_set(uint32_t slot, uint32_t val) {
 
   slot %= AFL_AUTOSTATE_SLOTS;
@@ -6171,11 +6075,7 @@ void afl_autostate_set(uint32_t slot, uint32_t val) {
       __afl_autostate_mix(slot, old) ^ __afl_autostate_mix(slot, val);
   ++__afl_autostate_updates;
 
-  u32 prev = __afl_ijon_state;
-
   __afl_ijon_state = __afl_autostate_digest % (u32)MAP_SIZE_IJON_MAP;
-
-  if (prev != __afl_ijon_state) { __afl_state_advance(prev); }
 
 }
 
@@ -6190,49 +6090,29 @@ void afl_autostate_reset(void) {
 
 void ijon_xor_state(uint32_t val) {
 
-  uint32_t prev = __afl_ijon_state;
-  __afl_ijon_state = (__afl_ijon_state ^ val) % (u32)MAP_SIZE_IJON_MAP;
+  if (__afl_ijon_state_max) {
 
-  __afl_state_advance(prev);
+    /* Declared-state mode: the argument IS the state, not something to XOR in.
+       Out of range is fatal on purpose - a modulo here would silently
+       reintroduce exactly the aliasing this mode exists to remove, which is how
+       the 16-bit truncation went unnoticed for so long. */
+    if (val > __afl_ijon_state_max) {
 
-}
-
-static void __afl_state_advance(u32 prev) {
-
-  {
-
-    if (likely(__afl_state_map != NULL)) {
-
-      uint32_t idx =
-          state_transition_index(prev, __afl_ijon_state, __afl_state_action);
-
-      if (!__afl_state_map->map[idx]) {
-
-        if (likely(__afl_state_map->touched_n < STATE_TOUCHED_MAX)) {
-
-          __afl_state_map->touched[__afl_state_map->touched_n++] = idx;
-
-        } else {
-
-          __afl_state_map->touched_ovf = 1;
-
-        }
-
-      }
-
-      if (__afl_state_map->map[idx] < 255) { __afl_state_map->map[idx]++; }
-
-      if (likely(__afl_state_map->sit_n < STATE_TOUCHED_MAX)) {
-
-        __afl_state_map->sit[__afl_state_map->sit_n++] = __afl_ijon_state;
-
-      }
-
-      __afl_state_map->prev_state = prev;
-      __afl_state_map->cur_state = __afl_ijon_state;
-      __afl_state_map->transitions++;
+      fprintf(stderr,
+              "[-] IJON_STATE(%u) exceeds AFL_LLVM_IJON_STATE_MAX=%u.\n"
+              "    A state id must be a protocol position (pre-auth, keys "
+              "exchanged, authenticated,\n    ...), never a configuration, a "
+              "resource count or a slot bitmask.\n",
+              val, __afl_ijon_state_max);
+      abort();
 
     }
+
+    __afl_ijon_state = val;
+
+  } else {
+
+    __afl_ijon_state = (__afl_ijon_state ^ val) % (u32)MAP_SIZE_IJON_MAP;
 
   }
 
@@ -6243,31 +6123,6 @@ void ijon_reset_state(void) {
   __afl_ijon_state = 0;
   __afl_ijon_state_log = 0;
   afl_autostate_reset();
-  __afl_state_map_reset();
-
-}
-
-/* Name the operation the harness is about to perform, so a transition is
-   keyed by (previous state, current state, action). Inert without a map. */
-
-void afl_state_action(uint32_t a) {
-
-  __afl_state_action = a;
-  if (likely(__afl_state_map != NULL)) { __afl_state_map->action = a; }
-
-}
-
-/* Declare the input span the harness considers interesting, so havoc can aim
-   at it. Inert without a map. */
-
-void afl_state_hot(uint32_t off, uint32_t len) {
-
-  if (likely(__afl_state_map != NULL)) {
-
-    __afl_state_map->hot_off = off;
-    __afl_state_map->hot_len = len;
-
-  }
 
 }
 

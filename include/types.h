@@ -61,8 +61,8 @@ typedef uint128_t         u128;
 #define FS_NEW_OPT_ALLOCSIZE_DERIVE 0x00000008  // parameter: none
 #define FS_NEW_OPT_BUG_MAP 0x00000010           // parameter: none
 #define FS_NEW_OPT_VALUE_PROFILE 0x00000020     // parameter: none
-#define FS_NEW_OPT_STATE_MAP 0x00000040         // parameter: none
-#define FS_NEW_OPT_AUTODICT 0x00000800          // autodictionary data
+// 0x00000040 was FS_NEW_OPT_STATE_MAP, removed - do not reuse
+#define FS_NEW_OPT_AUTODICT 0x00000800  // autodictionary data
 
 #if defined(__linux__) || defined(__APPLE__)
 /* Protocol phases for the futex-based forkserver handshake.

@@ -24,6 +24,14 @@ and add `AFL_CUSTOM_MUTATOR_ONLY=1` if you only want to use the custom mutator.
 
 Multiple custom mutators can be used by separating their paths with `:` in the environment variable.
 
+### A template for reporting operation counts
+
+In `./describe_state_template` you find a starting point for telling afl-fuzz
+how much work an input performs, for targets that replay a program of protocol
+operations. Fill in one function and `-Jd`'s shelf stops using file size as a
+proxy for work done. Its defaults already match a common
+record framing, so for some harnesses it needs no edit at all.
+
 ### The AFL++ grammar agnostic grammar mutator
 
 In `./autotokens` you find a token-level fuzzer that does not need to know

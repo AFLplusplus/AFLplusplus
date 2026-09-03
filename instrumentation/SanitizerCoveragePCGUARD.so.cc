@@ -114,6 +114,12 @@ static const char *skip_nozero;
 static const char *use_threadsafe_counters;
 static const char *ijon_enabled;
 static bool        autostate_enabled = false;
+/* AFL_LLVM_IJON_STATE_MAX=N: give each declared protocol state its own copy of
+   the coverage map instead of XOR-folding the state into the edge index. The
+   map becomes cov_size * (N+1); region 0 is the plain build's map exactly.
+   State ids must be real protocol progress, never configuration or slot
+   identity - see docs/fuzzing_stateful_targets.md. */
+static int         ijon_state_max = 0;
 
 namespace {
 
@@ -410,6 +416,21 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
   use_threadsafe_counters = getenv("AFL_LLVM_THREADSAFE_INST");
   ijon_enabled = getenv("AFL_LLVM_IJON");
   autostate_enabled = getenv("AFL_LLVM_AUTOSTATE") != NULL;
+  if (char *e = getenv("AFL_LLVM_IJON_STATE_MAX")) {
+
+    ijon_state_max = atoi(e);
+    if (ijon_state_max < 0) { ijon_state_max = 0; }
+    if (ijon_state_max > 255) {
+
+      FATAL(
+          "AFL_LLVM_IJON_STATE_MAX=%d is too large. The map becomes "
+          "cov_size*(N+1);\n    a state id must be a protocol position, not a "
+          "configuration or a slot mask,\n    so this should be well under 32.",
+          ijon_state_max);
+
+    }
+
+  }
   if (autostate_enabled && !ijon_enabled) {
 
     ijon_enabled = getenv("AFL_LLVM_AUTOSTATE");
@@ -899,10 +920,23 @@ void ModuleSanitizerCoverageAFL::emitPathCoverage(Function &F) {
 
       LoadInst *IJONStateVal = IRB.CreateLoad(Int32, AFLIJONState);
       setNoSanitizeMetadata(IJONStateVal);
-      Value    *XorResult = IRB.CreateXor(IJONStateVal, CoverageIndex);
       LoadInst *CovMapSize = IRB.CreateLoad(Int32, AFLCovMapSize);
       setNoSanitizeMetadata(CovMapSize);
-      CoverageIndex = IRB.CreateURem(XorResult, CovMapSize);
+
+      if (ijon_state_max > 0) {
+
+        /* One dedicated map region per state: idx = state*cov_size + edge.
+           A perfect 2-D index, so a state-relabelled edge can never collide
+           with a real one, and region 0 is byte-identical to a plain build. */
+        Value *Base = IRB.CreateMul(IJONStateVal, CovMapSize);
+        CoverageIndex = IRB.CreateAdd(Base, CoverageIndex);
+
+      } else {
+
+        Value *XorResult = IRB.CreateXor(IJONStateVal, CoverageIndex);
+        CoverageIndex = IRB.CreateURem(XorResult, CovMapSize);
+
+      }
 
     }
 
@@ -999,10 +1033,23 @@ void ModuleSanitizerCoverageAFL::updateCoverageForSelect(IRBuilder<> &IRB,
 
       LoadInst *IJONStateVal = IRB.CreateLoad(Int32Ty, AFLIJONState);
       setNoSanitizeMetadata(IJONStateVal);
-      Value    *XorResult = IRB.CreateXor(IJONStateVal, CoverageIndex);
       LoadInst *CovMapSize = IRB.CreateLoad(Int32Ty, AFLCovMapSize);
       setNoSanitizeMetadata(CovMapSize);
-      CoverageIndex = IRB.CreateURem(XorResult, CovMapSize);
+
+      if (ijon_state_max > 0) {
+
+        /* One dedicated map region per state: idx = state*cov_size + edge.
+           A perfect 2-D index, so a state-relabelled edge can never collide
+           with a real one, and region 0 is byte-identical to a plain build. */
+        Value *Base = IRB.CreateMul(IJONStateVal, CovMapSize);
+        CoverageIndex = IRB.CreateAdd(Base, CoverageIndex);
+
+      } else {
+
+        Value *XorResult = IRB.CreateXor(IJONStateVal, CoverageIndex);
+        CoverageIndex = IRB.CreateURem(XorResult, CovMapSize);
+
+      }
 
     }
 
@@ -1166,6 +1213,17 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
         M, PtrTy, false, GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
   AFLCovMapSize = new GlobalVariable(
       M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_cov_map_size");
+
+  /* Baked into the binary, not read from the environment at fuzz time: the
+     forkserver sizes the shared map from it before any env of ours is read. */
+  if (ijon_state_max > 0 && !M.getNamedGlobal("__afl_ijon_state_max_decl")) {
+
+    new GlobalVariable(M, Int32Ty, /*isConstant=*/true,
+                       GlobalValue::WeakAnyLinkage,
+                       ConstantInt::get(Int32Ty, ijon_state_max),
+                       "__afl_ijon_state_max_decl");
+
+  }
 
   One = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 1);
   Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
@@ -2302,12 +2360,23 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
 
       LoadInst *IJONStateVal = IRB.CreateLoad(Int32Ty, AFLIJONState);
       setNoSanitizeMetadata(IJONStateVal);
-      // Apply IJON formula: state XOR coverage_index
-      Value *XorResult = IRB.CreateXor(IJONStateVal, CoverageIndex);
-      // Ensure result stays within map bounds to prevent buffer overruns
       LoadInst *CovMapSize = IRB.CreateLoad(Int32Ty, AFLCovMapSize);
       setNoSanitizeMetadata(CovMapSize);
-      CoverageIndex = IRB.CreateURem(XorResult, CovMapSize);
+
+      if (ijon_state_max > 0) {
+
+        /* One dedicated map region per state: idx = state*cov_size + edge.
+           A perfect 2-D index, so a state-relabelled edge can never collide
+           with a real one, and region 0 is byte-identical to a plain build. */
+        Value *Base = IRB.CreateMul(IJONStateVal, CovMapSize);
+        CoverageIndex = IRB.CreateAdd(Base, CoverageIndex);
+
+      } else {
+
+        Value *XorResult = IRB.CreateXor(IJONStateVal, CoverageIndex);
+        CoverageIndex = IRB.CreateURem(XorResult, CovMapSize);
+
+      }
 
     }
 

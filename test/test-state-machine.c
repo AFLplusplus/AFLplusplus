@@ -34,19 +34,6 @@
 #ifndef IJON_STATE
   #define IJON_STATE(x) ((void)(x))
 #endif
-#ifndef AFL_STATE_ACTION
-  #define AFL_STATE_ACTION(x) ((void)(x))
-#endif
-#ifndef AFL_HOT_REGION
-  #define AFL_HOT_REGION(o, l) \
-    do {                       \
-                               \
-      (void)(o);               \
-      (void)(l);               \
-                               \
-    } while (0)
-
-#endif
 
 #ifdef __AFL_FUZZ_TESTCASE_LEN
 __AFL_FUZZ_INIT();
@@ -69,8 +56,7 @@ __AFL_FUZZ_INIT();
 #define SLOT_CAP 32
 
 /* The command stream starts here. Everything before is a fixed preamble, so
-   the interesting bytes are a small part of a large input - which is the
-   situation AFL_HOT_REGION exists for. */
+   the interesting bytes are a small part of a large input. */
 #define PREAMBLE 64
 
 static unsigned long long ops_total;
@@ -110,7 +96,6 @@ static int step(struct session *s, uint8_t cmd, uint8_t arg, const uint8_t *pay,
                 size_t pay_len) {
 
   ++ops_total;
-  AFL_STATE_ACTION(cmd);
 
   switch (cmd) {
 
@@ -227,8 +212,6 @@ static void run(const uint8_t *buf, size_t len) {
     return;
 
   }
-
-  AFL_HOT_REGION(PREAMBLE, len - PREAMBLE);
 
   size_t p = PREAMBLE;
   while (p + 3 <= len) {

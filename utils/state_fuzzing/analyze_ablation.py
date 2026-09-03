@@ -50,13 +50,10 @@ CONTRASTS = [
 # Reported for context, never as the headline.
 CONTEXT_KEYS = [
     "target_time_pct",
-    "ballast_pct",
     "slow_path_pct",
-    "input_stab_avg",
-    "probe_pct",
-    "gate_rejected",
-    "state_signal",
-    "state_utility_pct",
+    "cov_edges_found",
+    "hw_only_saves",
+    "plugin_ops_avg",
     "shelf_members",
 ]
 

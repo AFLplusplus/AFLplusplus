@@ -614,6 +614,14 @@ The following environment variables are for a compiled AFL++ target.
     (`total = coverage + ijon + ijon max`) is written to stderr as well while
     stdout keeps the single number - see [IJON.md](IJON.md).
 
+  - Setting `AFL_LLVM_IJON_STATE_MAX=N` at compile time, together with
+    `AFL_LLVM_IJON=1`, changes what `IJON_STATE()` does: instead of folding the
+    state into the edge index it gives each of the `N + 1` declared states its
+    own copy of the coverage map, so the map becomes `cov_size * (N + 1)` and
+    region 0 stays identical to a plain build's. A state id must be a position
+    in the protocol's progress, never a configuration or a slot mask, and a
+    value above `N` aborts the run - see [IJON.md](IJON.md).
+
   - Setting `AFL_OLD_FORKSERVER` will use the old AFL vanilla forkserver.
     This makes only sense when you
       a) compile in a classic colliding coverage mode (e.g. with the gcc
@@ -971,10 +979,7 @@ checks or alter some of the more exotic semantics of the tool:
 
   - The following settings belong to state fuzzing mode, which is enabled with
     `-J`. See [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md) for
-    the full picture. Two of them work without `-J`: `AFL_TIME_ACCOUNTING`,
-    which is independent of it by design, and `AFL_STATE_PLUGIN_ADMIT`, because
-    a custom mutator that implements `afl_custom_describe_state()` is asked
-    about every queue entry in any run.
+    the full picture. `AFL_TIME_ACCOUNTING` works without `-J`, by design.
 
   - `AFL_TIME_ACCOUNTING` makes `afl-fuzz` measure how much of the wall clock
     is spent inside the target and how much is spent everywhere else, and
@@ -982,35 +987,18 @@ checks or alter some of the more exotic semantics of the tool:
     UI. Costs two clock reads per execution. It is independent of `-J`: set
     this variable to get it, with or without state fuzzing mode.
 
-  - `AFL_STATE_PROBE_RUNS` sets how many times the repeat probe (`-Jp`) runs
-    one input from a clean start before reporting how often it reproduced.
-    Default is 100, minimum 2. An edge that fires in a fraction `p` of runs is
-    caught with probability `1 - p^N - (1-p)^N`, so 100 runs cover an edge that
-    flickers in 2% of runs, and 30 runs only reach that for 7%. The cost is one
-    burst of `N` executions per probe interval, so lower it for targets slower
-    than roughly 50 executions per second.
+  - `AFL_HW_MIN_COUNT` is the raw hit count a map slot has to reach before the
+    high-water channel (`-Jm`) will credit it, and `AFL_HW_GROWTH_PCT` is the
+    growth over the slot's recorded mark that a credit has to show. Defaults 8
+    and 25. Both were measured against 4 and 10 on every state measure and
+    nothing moved, so the defaults are fine.
 
-  - `AFL_STATE_UTILITY_THRESHOLD` is the percentage of same-state input pairs
-    that must behave the same before the state signal (`-Js`) is allowed to
-    influence which inputs are saved. Default 80. Below the threshold the state
-    signal stays a metadata note, which is the intended safe behaviour.
-
-  - `AFL_STATE_UTILITY_RETRY` is the shortest time in seconds between two runs
-    of that test. Default 60, range 1 to 3600. The test also needs 4,096
-    executions and new material before it repeats - another queue entry
-    carrying a state id, 20 more of them once a verdict has been reached, or a
-    queue cycled 8 times - so lowering this does not by itself make it run more
-    often.
-
-  - `AFL_STATE_ADMIT_PCT` is the largest share of the queue, in percent, that
-    the state signal may create on its own. Default 25, and 0 turns the bound
-    off. Past the share the signal stops saving inputs and goes back to being a
-    note; transitions are still recorded, still reported, and still group
-    entries for `-Jd`. The utility test asks whether a state definition is
-    *sound*; this asks whether it is *affordable*, which is a different question
-    and the one a digest carrying input history fails. Measured on a synthetic
-    target whose digest kept eight steps of history: 15,712 queue entries
-    without the bound against 317 with it, same target, same time.
+  - `AFL_STATE_ADMIT_PCT` is the largest share of the queue, in percent, that a
+    save channel may create on its own. Default 25, and 0 turns the bound off.
+    Past the share the channel stops saving inputs; it keeps recording and
+    reporting. Measured on a synthetic target whose state digest kept eight
+    steps of history: 15,712 queue entries without the bound against 317 with
+    it, same target, same time.
 
     Note what this does *not* do: it does not try a coarser resolution first.
     That was measured and it was the worst of the three options - a folded map
@@ -1020,34 +1008,12 @@ checks or alter some of the more exotic semantics of the tool:
     defensible; half-resolution is not.
 
   - `AFL_STATE_YIELD_PCT` is the escape hatch from that bound: if at least this
-    percentage of the entries the state signal created went on to mother a find
-    of their own, the signal keeps saving inputs however much of the queue it
-    owns, because a channel that is producing finds is not too fine - it is
-    expensive and working. Default 10. `state_only_saves` and `state_only_paid`
-    in `fuzzer_stats` are the two numbers this compares, and they are worth
-    looking at directly: on the synthetic target above the ratio was 0.3%, which
-    is why the bound fires there.
-
-  - `AFL_STATE_COARSE` folds the state map index by hand: the number of bits
-    dropped, 0 (finest, 65536 classes) to 8 (256 classes). For measuring the
-    resolution trade yourself; it is not applied automatically for the reason
-    given above.
-
-  - `AFL_STATE_PLUGIN_ADMIT` lets a state id reported by a custom mutator
-    (`afl_custom_describe_state`) count as a reason to save an input, the same
-    way a new state transition does. Off by default. It is subject to
-    `AFL_STATE_ADMIT_PCT` as well, because a mutator's digest can be too fine
-    just as easily as a harness annotation can.
-
-  - `AFL_HOT_BIAS` is the percentage of havoc offsets aimed at the region a
-    harness marked with `AFL_HOT_REGION()` (`-Jh`). Default 70. The remaining
-    share stays uniform on purpose: plain byte mutation still finds parser and
-    memory bugs, and the annotation can be wrong. Note that the annotation
-    travels through the state map's shared memory, so it needs `-Jhs` (or plain
-    `-J`); with `-Jh` alone only the CmpLog taint fallback supplies a region.
-
-  - `AFL_NO_STATE_MAP` is honoured on both sides: the fuzzer will not create the
-    state-transition segment, and an instrumented target will not attach to one.
+    percentage of the entries a channel created went on to mother a find of
+    their own, it keeps saving inputs however much of the queue it owns, because
+    a channel that is producing finds is not too fine - it is expensive and
+    working. Default 10. `hw_only_saves` and `hw_only_paid` in `fuzzer_stats`
+    are the two numbers this compares for `-Jm`, and they are worth looking at
+    directly.
 
   - `AFL_IJON_ADMIT_PCT` is the same kind of bound for the *other* IJON channel,
     and it is needed because `AFL_STATE_ADMIT_PCT` above cannot reach it:

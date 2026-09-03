@@ -343,16 +343,10 @@ static void usage(u8 *argv0, int more_help) {
       "                  you sent them before (bare -J selects dcb):\n"
       "                  d=deep-input shelf, c=harness self-check,\n"
       "                  b=execution cost benchmark,\n"
-      "                  g=double-run gate before saving a find,\n"
-      "                  p=repeat probe and per-input stability,\n"
-      "                  r=rare-edge scoring,\n"
-      "                  s=state map from IJON annotations,\n"
-      "                  m=hit-count high-water, i=rare-edge signature,\n"
-      "                  a=ballast-adjusted scoring,\n"
 #ifdef AFL_TARGET_WATCHDOG
-      "                  h=aimed havoc, w=hang watchdog\n"
+      "                  m=hit-count high-water, w=hang watchdog\n"
 #else
-      "                  h=aimed havoc\n"
+      "                  m=hit-count high-water\n"
 #endif
       "\n"
 
@@ -963,25 +957,9 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
 
             switch (*c) {
 
-              case 'g':
-              case 'G':
-                afl->state_mode |= STATE_MODE_GATE;
-                break;
-              case 'p':
-              case 'P':
-                afl->state_mode |= STATE_MODE_PROBE;
-                break;
-              case 'r':
-              case 'R':
-                afl->state_mode |= STATE_MODE_RARE;
-                break;
               case 'd':
               case 'D':
                 afl->state_mode |= STATE_MODE_DEEP;
-                break;
-              case 's':
-              case 'S':
-                afl->state_mode |= STATE_MODE_SMAP;
                 break;
               case 'c':
               case 'C':
@@ -991,21 +969,9 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
               case 'B':
                 afl->state_mode |= STATE_MODE_BENCH;
                 break;
-              case 'h':
-              case 'H':
-                afl->state_mode |= STATE_MODE_HOT;
-                break;
               case 'm':
               case 'M':
                 afl->state_mode |= STATE_MODE_HIWATER;
-                break;
-              case 'i':
-              case 'I':
-                afl->state_mode |= STATE_MODE_SIG;
-                break;
-              case 'a':
-              case 'A':
-                afl->state_mode |= STATE_MODE_BALLAST;
                 break;
               case 'w':
               case 'W':
@@ -2125,17 +2091,6 @@ void afl_check_environment(afl_state_t *afl) {
   if (afl->shm.cmplog_mode) { OKF("CmpLog level: %u", afl->cmplog_lvl); }
 
   if (afl->afl_env.afl_time_accounting) { afl->time_accounting = 1; }
-  if (afl->afl_env.afl_hot_bias) { afl->hot_bias = afl->afl_env.afl_hot_bias; }
-
-  if (afl->state_mode) {
-
-    if ((afl->state_mode & STATE_MODE_SMAP) && !afl->afl_env.afl_no_state_map) {
-
-      afl->shm.state_mode = 1;
-
-    }
-
-  }
 
   if (afl->value_profile_mode) {
 
@@ -3007,7 +2962,6 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
       afl_shm_init(&afl->shm, afl->fsrv.map_size, afl->non_instrumented_mode,
                    afl->perm, afl->chown_needed ? afl->fsrv.gid : -1);
   afl->fsrv.child_sync_offset = afl->shm.child_sync_offset;
-  state_map_setup(afl);
 
   #ifdef __AFL_CODE_COVERAGE
   // Initialize pcmap and modmap before any forkserver starts

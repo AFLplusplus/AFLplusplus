@@ -67,11 +67,12 @@ Arms C and E need a target that speaks the record format; point `-T` at
 `-m` at `state_records.so`. Without them, run `-a "A B D"` and you still get
 the two contrasts that matter most.
 
-Aimed havoc (`-Jh`) is deliberately left out of every arm. Its annotation path
-rides on the state shared memory, so enabling it would arrive together with the
-state signal in arms D and E and change two things at once — which is the exact
-failure mode this experiment exists to avoid. Measure it separately if you want
-a number for it.
+Arms D and E carry the state signal, and since the fuzzer-side state channel
+was removed the signal lives entirely in the target: point `-T` at an
+`IJON_STATE()`-annotated build for those arms and at an unannotated one for A
+to C. That means D and E run a *different binary*, which is exactly the trap
+`edges_found` falls into — score them through the common `llvm-cov` build
+(`-c`) and nothing else.
 
 Runs are sequential by default. On a machine with performance and efficiency
 cores, running arms in parallel lands some of them on the slow cores and halves
@@ -118,9 +119,10 @@ result.
 **Number of states found.** It is not a success metric and this tooling will
 not print one as a headline. A broken observer that hashes the clock finds
 millions of states and fuzzes nothing. If you want to know whether a state
-definition is any good, use the utility test built into `-Js`: it takes two
-inputs the definition calls identical, applies the same next action to both,
-and checks whether they behave the same. That number (`state_utility_pct`) is
-in the context line.
+definition is any good, test it yourself: take two inputs the definition calls
+identical, apply the same next action to both, and check whether they behave
+the same. `afl-fuzz` used to run that test under `-Js`; the channel it gated was
+measured to cost without paying and was removed, so it is a harness-side
+measurement now.
 
 See [../../docs/fuzzing_stateful_targets.md](../../docs/fuzzing_stateful_targets.md).

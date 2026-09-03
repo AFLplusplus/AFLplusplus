@@ -37,28 +37,6 @@ _Static_assert(MOPT_OP_MAX == MUT_MAX, "MOPT_OP_MAX must equal MUT_MAX");
 _Static_assert(MOPT_LUT_SIZE == MUT_STRATEGY_ARRAY_SIZE,
                "MOPT_LUT_SIZE must equal MUT_STRATEGY_ARRAY_SIZE");
 
-/* Pick a havoc offset, aimed at the hot region of the current entry (-Jh). */
-
-static inline u32 havoc_offset(afl_state_t *afl, u32 span) {
-
-  if (likely(!(afl->state_mode & STATE_MODE_HOT)) || !afl->hot_len_cur ||
-      afl->hot_off_cur >= span) {
-
-    return rand_below(afl, span);
-
-  }
-
-  if (rand_below(afl, 100) < afl->hot_bias) {
-
-    u32 hot_span = MIN(afl->hot_len_cur, span - afl->hot_off_cur);
-    if (hot_span) { return afl->hot_off_cur + rand_below(afl, hot_span); }
-
-  }
-
-  return rand_below(afl, span);
-
-}
-
 /* Helper function to see if a particular change (xor_val = old ^ new) could
    be a product of deterministic bit flips with the lengths and stepovers
    attempted by afl-fuzz. This is used to avoid dupes in some of the
@@ -385,8 +363,6 @@ u8 fuzz_one(afl_state_t *afl) {
 
     /* Setup variables for the mutation stages */
     temp_len = len;
-    afl->hot_off_cur = 0;
-    afl->hot_len_cur = 0;
     orig_hit_cnt = afl->queued_items + afl->saved_crashes;
     havoc_queued = afl->queued_items;
     perf_score = 100;
@@ -561,9 +537,6 @@ u8 fuzz_one(afl_state_t *afl) {
 
   out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
   if (unlikely(!out_buf)) { PFATAL("alloc"); }
-
-  afl->hot_off_cur = afl->queue_cur->hot_off;
-  afl->hot_len_cur = afl->queue_cur->hot_len;
 
   afl->subseq_tmouts = 0;
 
@@ -2508,7 +2481,7 @@ havoc_stage:
 
           /* Flip a single bit somewhere. Spooky! */
           u8  bit = rand_below(afl, 8);
-          u32 off = havoc_offset(afl, temp_len);
+          u32 off = rand_below(afl, temp_len);
           out_buf[off] ^= 1 << bit;
           mopt_changed = 1;
 
@@ -2529,7 +2502,7 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING8_%u", item);
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          u32 pos = havoc_offset(afl, temp_len);
+          u32 pos = rand_below(afl, temp_len);
           mopt_changed = out_buf[pos] != (u8)interesting_8[item];
           out_buf[pos] = interesting_8[item];
           break;
@@ -2548,7 +2521,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
 
-          u32 pos = havoc_offset(afl, temp_len - 1);
+          u32 pos = rand_below(afl, temp_len - 1);
           u16 val = interesting_16[item];
           mopt_changed = memcmp(out_buf + pos, &val, sizeof(val)) != 0;
           INSERT16(out_buf, pos, val);
@@ -2568,7 +2541,7 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING16BE_%u", item);
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          u32 pos = havoc_offset(afl, temp_len - 1);
+          u32 pos = rand_below(afl, temp_len - 1);
           u16 val = SWAP16(interesting_16[item]);
           mopt_changed = memcmp(out_buf + pos, &val, sizeof(val)) != 0;
           INSERT16(out_buf, pos, val);
@@ -2589,7 +2562,7 @@ havoc_stage:
           strcat(afl->mutation, afl->m_tmp);
 #endif
 
-          u32 pos = havoc_offset(afl, temp_len - 3);
+          u32 pos = rand_below(afl, temp_len - 3);
           u32 val = interesting_32[item];
           mopt_changed = memcmp(out_buf + pos, &val, sizeof(val)) != 0;
           INSERT32(out_buf, pos, val);
@@ -2609,7 +2582,7 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " INTERESTING32BE_%u", item);
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          u32 pos = havoc_offset(afl, temp_len - 3);
+          u32 pos = rand_below(afl, temp_len - 3);
           u32 val = SWAP32(interesting_32[item]);
           mopt_changed = memcmp(out_buf + pos, &val, sizeof(val)) != 0;
           INSERT32(out_buf, pos, val);
@@ -2627,7 +2600,7 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH8-_%u", item);
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          out_buf[havoc_offset(afl, temp_len)] -= item;
+          out_buf[rand_below(afl, temp_len)] -= item;
           mopt_changed = 1;
           break;
 
@@ -2642,7 +2615,7 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " ARITH8+_%u", item);
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          out_buf[havoc_offset(afl, temp_len)] += item;
+          out_buf[rand_below(afl, temp_len)] += item;
           mopt_changed = 1;
           break;
 
@@ -2654,7 +2627,7 @@ havoc_stage:
 
           if (unlikely(temp_len < 2)) { break; }  // no retry
 
-          u32 pos = havoc_offset(afl, temp_len - 1);
+          u32 pos = rand_below(afl, temp_len - 1);
           item = 1 + rand_below(afl, ARITH_MAX);
 
 #ifdef INTROSPECTION
@@ -2674,7 +2647,7 @@ havoc_stage:
 
           if (unlikely(temp_len < 2)) { break; }  // no retry
 
-          u32 pos = havoc_offset(afl, temp_len - 1);
+          u32 pos = rand_below(afl, temp_len - 1);
           u16 num = 1 + rand_below(afl, ARITH_MAX);
 
 #ifdef INTROSPECTION
@@ -2694,7 +2667,7 @@ havoc_stage:
 
           if (unlikely(temp_len < 2)) { break; }  // no retry
 
-          u32 pos = havoc_offset(afl, temp_len - 1);
+          u32 pos = rand_below(afl, temp_len - 1);
           item = 1 + rand_below(afl, ARITH_MAX);
 
 #ifdef INTROSPECTION
@@ -2714,7 +2687,7 @@ havoc_stage:
 
           if (unlikely(temp_len < 2)) { break; }  // no retry
 
-          u32 pos = havoc_offset(afl, temp_len - 1);
+          u32 pos = rand_below(afl, temp_len - 1);
           u16 num = 1 + rand_below(afl, ARITH_MAX);
 
 #ifdef INTROSPECTION
@@ -2734,7 +2707,7 @@ havoc_stage:
 
           if (unlikely(temp_len < 4)) { break; }  // no retry
 
-          u32 pos = havoc_offset(afl, temp_len - 3);
+          u32 pos = rand_below(afl, temp_len - 3);
           item = 1 + rand_below(afl, ARITH_MAX);
 
 #ifdef INTROSPECTION
@@ -2754,7 +2727,7 @@ havoc_stage:
 
           if (unlikely(temp_len < 4)) { break; }  // no retry
 
-          u32 pos = havoc_offset(afl, temp_len - 3);
+          u32 pos = rand_below(afl, temp_len - 3);
           u32 num = 1 + rand_below(afl, ARITH_MAX);
 
 #ifdef INTROSPECTION
@@ -2774,7 +2747,7 @@ havoc_stage:
 
           if (unlikely(temp_len < 4)) { break; }  // no retry
 
-          u32 pos = havoc_offset(afl, temp_len - 3);
+          u32 pos = rand_below(afl, temp_len - 3);
           item = 1 + rand_below(afl, ARITH_MAX);
 
 #ifdef INTROSPECTION
@@ -2794,7 +2767,7 @@ havoc_stage:
 
           if (unlikely(temp_len < 4)) { break; }  // no retry
 
-          u32 pos = havoc_offset(afl, temp_len - 3);
+          u32 pos = rand_below(afl, temp_len - 3);
           u32 num = 1 + rand_below(afl, ARITH_MAX);
 
 #ifdef INTROSPECTION
@@ -2814,7 +2787,7 @@ havoc_stage:
              why not. We use XOR with 1-255 to eliminate the
              possibility of a no-op. */
 
-          u32 pos = havoc_offset(afl, temp_len);
+          u32 pos = rand_below(afl, temp_len);
           item = 1 + rand_below(afl, 255);
 #ifdef INTROSPECTION
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " RAND8_%u",
@@ -2837,7 +2810,7 @@ havoc_stage:
             u32 clone_cap = (u32)(MAX_FILE - 1 - temp_len);
             if (unlikely(clone_len > clone_cap)) { clone_len = clone_cap; }
             u32 clone_from = rand_below(afl, temp_len - clone_len + 1);
-            u32 clone_to = havoc_offset(afl, temp_len);
+            u32 clone_to = rand_below(afl, temp_len);
 
 #ifdef INTROSPECTION
             snprintf(afl->m_tmp, sizeof(afl->m_tmp), " CLONE-%s_%u_%u_%u",
@@ -2899,7 +2872,7 @@ havoc_stage:
             u32 clone_len = choose_block_len(afl, HAVOC_BLK_XL);
             u32 clone_cap = (u32)(MAX_FILE - 1 - temp_len);
             if (unlikely(clone_len > clone_cap)) { clone_len = clone_cap; }
-            u32 clone_to = havoc_offset(afl, temp_len);
+            u32 clone_to = rand_below(afl, temp_len);
             u32 strat = rand_below(afl, 2);
             u32 clone_from = clone_to ? clone_to - 1 : 0;
             item = strat ? rand_below(afl, 256) : out_buf[clone_from];
@@ -3022,7 +2995,7 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " BYTEADD_");
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          out_buf[havoc_offset(afl, temp_len)]++;
+          out_buf[rand_below(afl, temp_len)]++;
           mopt_changed = 1;
           break;
 
@@ -3036,7 +3009,7 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " BYTESUB_");
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          out_buf[havoc_offset(afl, temp_len)]--;
+          out_buf[rand_below(afl, temp_len)]--;
           mopt_changed = 1;
           break;
 
@@ -3050,7 +3023,7 @@ havoc_stage:
           snprintf(afl->m_tmp, sizeof(afl->m_tmp), " FLIP8_");
           strcat(afl->mutation, afl->m_tmp);
 #endif
-          out_buf[havoc_offset(afl, temp_len)] ^= 0xff;
+          out_buf[rand_below(afl, temp_len)] ^= 0xff;
           mopt_changed = 1;
           break;
 
@@ -3063,10 +3036,10 @@ havoc_stage:
           /* Switch bytes. */
 
           u32 to_end, switch_to, switch_len, switch_from, switch_tries = 0;
-          switch_from = havoc_offset(afl, temp_len);
+          switch_from = rand_below(afl, temp_len);
           do {
 
-            switch_to = havoc_offset(afl, temp_len);
+            switch_to = rand_below(afl, temp_len);
 
           } while (unlikely(switch_from == switch_to && ++switch_tries < 16));
 
@@ -3230,7 +3203,7 @@ havoc_stage:
           if (unlikely(temp_len < 2)) { break; }  // no retry
 
           u32 clone_len = 1;
-          u32 clone_to = havoc_offset(afl, temp_len);
+          u32 clone_to = rand_below(afl, temp_len);
           u32 strat = rand_below(afl, 2);
           u32 clone_from = clone_to ? clone_to - 1 : 0;
           item = strat ? rand_below(afl, 256) : out_buf[clone_from];
@@ -3280,7 +3253,7 @@ havoc_stage:
 
           if (unlikely(temp_len < 4)) { break; }  // no retry
 
-          u32 off = havoc_offset(afl, temp_len), off2 = off, cnt = 0;
+          u32 off = rand_below(afl, temp_len), off2 = off, cnt = 0;
 
           while (off2 + cnt < temp_len && !isdigit(out_buf[off2 + cnt])) {
 
@@ -3484,7 +3457,7 @@ havoc_stage:
         case MUT_INSERTASCIINUM: {
 
           u32 len = 1 + rand_below(afl, 8);
-          u32 pos = havoc_offset(afl, temp_len);
+          u32 pos = rand_below(afl, temp_len);
           /* Insert ascii number. */
           if (unlikely(temp_len < pos + len)) {
 

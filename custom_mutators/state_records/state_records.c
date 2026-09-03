@@ -1108,47 +1108,6 @@ u8 afl_custom_queue_new_entry(state_mutator_t *data,
 
 }
 
-/* One to two fresh records for the state utility test of `afl-fuzz -Js`. The
-   test needs an action the target performs, and raw bytes are not one in this
-   format: they are read as more payload for the record the input ends with. */
-
-u32 afl_custom_state_probe(state_mutator_t *data, u8 *out_buf, u32 max_len) {
-
-  u32    want, i;
-  size_t len;
-
-  if (!out_buf || max_len < STATE_REC_HDR) { return 0; }
-
-  data->work.len = 0;
-  data->prog_n = 0;
-  want = 1 + state_rand_below(data, 2);
-
-  for (i = 0; i < want; ++i) {
-
-    if (!state_gen_rec(data, &data->prog[data->prog_n], data->prog_n)) {
-
-      break;
-
-    }
-
-    ++data->prog_n;
-
-  }
-
-  if (!data->prog_n) { return 0; }
-
-  len = state_store(data, &data->work, data->prog, data->prog_n, &data->out_buf,
-                    (size_t)max_len);
-
-  if (!len || len > (size_t)max_len) { return 0; }
-
-  memcpy(out_buf, data->out_buf, len);
-  data->last_op = "probe";
-
-  return (u32)len;
-
-}
-
 void afl_custom_deinit(state_mutator_t *data) {
 
   if (!data) { return; }

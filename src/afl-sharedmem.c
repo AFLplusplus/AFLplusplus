@@ -275,34 +275,6 @@ void afl_shm_vp_env_set(sharedmem_t *shm) {
 
 }
 
-void afl_shm_state_env_unset(void) {
-
-  unsetenv(STATE_SHM_ENV_VAR);
-
-}
-
-void afl_shm_state_env_set(sharedmem_t *shm) {
-
-  if (!shm || !shm->state_mode || !shm->state_map) { return; }
-
-#ifdef USEMMAP
-
-  if (shm->state_g_shm_file_path[0]) {
-
-    setenv(STATE_SHM_ENV_VAR, shm->state_g_shm_file_path, 1);
-
-  }
-
-#else
-
-  u8 *shm_str = alloc_printf("%d", shm->state_shm_id);
-  setenv(STATE_SHM_ENV_VAR, shm_str, 1);
-  ck_free(shm_str);
-
-#endif
-
-}
-
 void afl_shm_deinit_all(void) {
 
   element_t *head = get_head(&shm_list);
@@ -340,7 +312,6 @@ void afl_shm_deinit(sharedmem_t *shm) {
   }
 
   if (shm->vp_mode) { afl_shm_vp_env_unset(); }
-  if (shm->state_mode) { afl_shm_state_env_unset(); }
 
 #ifdef USEMMAP
   if (shm->map != NULL) {
@@ -421,42 +392,15 @@ void afl_shm_deinit(sharedmem_t *shm) {
 
   }
 
-  if (shm->state_mode) {
-
-    if (shm->state_map != NULL) {
-
-      munmap((void *)shm->state_map, sizeof(state_map_t));
-      shm->state_map = NULL;
-
-    }
-
-    if (shm->state_g_shm_fd != -1) {
-
-      close(shm->state_g_shm_fd);
-      shm->state_g_shm_fd = -1;
-
-    }
-
-    if (shm->state_g_shm_file_path[0]) {
-
-      shm_unlink(shm->state_g_shm_file_path);
-      shm->state_g_shm_file_path[0] = 0;
-
-    }
-
-  }
-
 #else
   shmctl(shm->shm_id, IPC_RMID, NULL);
   if (shm->cmplog_mode) { shmctl(shm->cmplog_shm_id, IPC_RMID, NULL); }
   if (shm->vp_mode) { shmctl(shm->vp_shm_id, IPC_RMID, NULL); }
-  if (shm->state_mode) { shmctl(shm->state_shm_id, IPC_RMID, NULL); }
 #endif
 
   shm->map = NULL;
   shm->cmp_map = NULL;
   shm->vp_map = NULL;
-  shm->state_map = NULL;
   shm->child_sync = NULL;
   shm->child_sync_offset = 0;
 
@@ -481,12 +425,6 @@ static void afl_shm_release_partial(sharedmem_t *shm) {
 
   }
 
-  if (shm->state_mode && shm->state_shm_id >= 0) {
-
-    shmctl(shm->state_shm_id, IPC_RMID, NULL);
-
-  }
-
 }
 
 #endif
@@ -504,12 +442,10 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   shm->map = NULL;
   shm->cmp_map = NULL;
   shm->vp_map = NULL;
-  shm->state_map = NULL;
 #ifndef USEMMAP
   shm->shm_id = -1;
   shm->cmplog_shm_id = -1;
   shm->vp_shm_id = -1;
-  shm->state_shm_id = -1;
 #endif
 
   shm->child_sync_offset = 0;
@@ -535,7 +471,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   shm->g_shm_fd = -1;
   shm->cmplog_g_shm_fd = -1;
   shm->vp_g_shm_fd = -1;
-  shm->state_g_shm_fd = -1;
   shm->map_alloc_size = 0;
   shm->cmp_map_alloc_size = 0;
 
@@ -758,55 +693,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  if (shm->state_mode) {
-
-    snprintf(shm->state_g_shm_file_path, L_tmpnam, "/afl_state_%d_%ld",
-             getpid(), random());
-
-    shm->state_g_shm_fd = shm_open(shm->state_g_shm_file_path,
-                                   O_CREAT | O_RDWR | O_EXCL, permission);
-    if (shm->state_g_shm_fd == -1) { PFATAL("shm_open() failed"); }
-    if (gid != -1) {
-
-      if (fchown(shm->state_g_shm_fd, -1, gid) == -1) {
-
-        PFATAL("fchown() failed");
-
-      }
-
-    }
-
-    if (ftruncate(shm->state_g_shm_fd, sizeof(state_map_t))) {
-
-      PFATAL("setup_shm(): state ftruncate() failed");
-
-    }
-
-    shm->state_map = mmap(0, sizeof(state_map_t), PROT_READ | PROT_WRITE,
-                          MAP_SHARED, shm->state_g_shm_fd, 0);
-    if (shm->state_map == MAP_FAILED) {
-
-      close(shm->state_g_shm_fd);
-      shm->state_g_shm_fd = -1;
-      shm_unlink(shm->state_g_shm_file_path);
-      shm->state_g_shm_file_path[0] = 0;
-      PFATAL("state mmap() failed");
-
-    }
-
-    close(shm->state_g_shm_fd);
-    shm->state_g_shm_fd = -1;
-
-    memset((void *)shm->state_map, 0, sizeof(state_map_t));
-
-    if (shm->state_map == (void *)-1 || !shm->state_map) {
-
-      PFATAL("state mmap() failed");
-
-    }
-
-  }
-
 #else
   u8             *shm_str;
   struct shmid_ds shmid_ds;
@@ -912,39 +798,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
-  if (shm->state_mode) {
-
-    shm->state_shm_id = shmget(IPC_PRIVATE, sizeof(state_map_t),
-                               IPC_CREAT | IPC_EXCL | permission);
-
-    if (shm->state_shm_id < 0) {
-
-      afl_shm_release_partial(shm);
-      PFATAL("shmget() failed, try running afl-system-config");
-
-    }
-
-    if (gid != -1) {
-
-      if (shmctl(shm->state_shm_id, IPC_STAT, &shmid_ds) == -1) {
-
-        afl_shm_release_partial(shm);
-        PFATAL("shmctl(IPC_STAT) failed");
-
-      }
-
-      shmid_ds.shm_perm.gid = (gid_t)gid;
-      if (shmctl(shm->state_shm_id, IPC_SET, &shmid_ds) == -1) {
-
-        afl_shm_release_partial(shm);
-        PFATAL("shmctl(IPC_SET) failed");
-
-      }
-
-    }
-
-  }
-
   if (!non_instrumented_mode) {
 
     shm_str = alloc_printf("%d", shm->shm_id);
@@ -993,8 +846,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
       if (shm->vp_mode) { shmctl(shm->vp_shm_id, IPC_RMID, NULL); }
 
-      if (shm->state_mode) { shmctl(shm->state_shm_id, IPC_RMID, NULL); }
-
       PFATAL("shmat() failed");
 
     }
@@ -1017,21 +868,6 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     AFL_SHM_AUTO_RECLAIM(shm->vp_shm_id);
 
     memset((void *)shm->vp_map, 0, sizeof(vp_map_t));
-
-  }
-
-  if (shm->state_mode) {
-
-    shm->state_map = shmat(shm->state_shm_id, NULL, 0);
-
-    if (shm->state_map == (void *)-1 || !shm->state_map) {
-
-      afl_shm_release_partial(shm);
-      PFATAL("shmat() failed");
-
-    }
-
-    memset((void *)shm->state_map, 0, sizeof(state_map_t));
 
   }
 

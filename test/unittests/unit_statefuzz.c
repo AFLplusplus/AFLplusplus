@@ -1,9 +1,8 @@
 /* Regression tests for state fuzzing mode (-J).
 
-   Covers the arithmetic that decides how an input is judged: the per-input
-   stability number, the information score that replaces raw edge count, and
-   the shelf cell that keeps deep inputs from being compared against tiny fast
-   ones. */
+   Covers the arithmetic that decides how an input is judged: the shelf cell
+   that keeps deep inputs from being compared against tiny fast ones, and the
+   allocations the letters ask for. */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +13,7 @@
 #include <cmocka.h>
 #include "afl-fuzz.h"
 
-/* --- stubs for everything state_calibration_stats does not exercise --- */
+/* --- stubs for everything the tested functions do not exercise --- */
 
 AFL_RAND_RETURN rand_next(afl_state_t *afl) {
 
@@ -48,19 +47,6 @@ void classify_counts(afl_forkserver_t *fsrv) {
 
 }
 
-void virgin_undo_rollback(afl_state_t *afl, struct queue_entry *q) {
-
-  (void)afl;
-  (void)q;
-
-}
-
-void afl_shm_state_env_set(sharedmem_t *shm) {
-
-  (void)shm;
-
-}
-
 u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   (void)afl;
@@ -74,6 +60,18 @@ u8 *queue_testcase_get(afl_state_t *afl, struct queue_entry *q) {
   (void)afl;
   (void)q;
   return NULL;
+
+}
+
+u32 run_afl_custom_describe_state_ops(afl_state_t *afl, u8 *mem, u32 len,
+                                      u32 *offsets, u32 max_ops) {
+
+  (void)afl;
+  (void)mem;
+  (void)len;
+  (void)offsets;
+  (void)max_ops;
+  return 0;
 
 }
 
@@ -141,7 +139,6 @@ static void setup(u32 state_mode) {
   afl->fsrv.map_size = TEST_MAP;
   afl->fsrv.real_map_size = TEST_MAP;
   afl->state_mode = state_mode;
-  afl->corpus_stability_min = 100.0;
 
   afl->fsrv.trace_bits = calloc(1, TEST_MAP);
   afl->virgin_bits = malloc(TEST_MAP);
@@ -193,145 +190,7 @@ static struct queue_entry *add_entry(void) {
 
 }
 
-/* --- the state map (item 16) --- */
-
-static state_map_t *state_map_setup_fixture(void) {
-
-  static state_map_t map;
-
-  memset(&map, 0, sizeof(map));
-  afl->shm.state_mode = 1;
-  afl->shm.state_map = &map;
-  state_map_setup(afl);
-
-  return &map;
-
-}
-
-static void test_state_map_observing_keeps_admission_unspent(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_SMAP);
-
-  state_map_t *map = state_map_setup_fixture();
-
-  map->map[17] = 1;
-
-  /* The observational phase runs for every execution and must not consume
-     the transitions the admission map is asked about later. */
-  state_map_observe(afl);
-  state_map_observe(afl);
-
-  assert_int_equal(afl->state_transitions_found, 1);
-  assert_int_equal(state_map_has_new(afl), 1);
-
-  teardown();
-
-}
-
-static void test_state_map_admission_consumes_once(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_SMAP);
-
-  state_map_t *map = state_map_setup_fixture();
-
-  map->map[17] = 1;
-
-  assert_int_equal(state_map_has_new(afl), 1);
-  assert_int_equal(state_map_has_new(afl), 0);
-
-  map->map[18] = 1;
-  assert_int_equal(state_map_has_new(afl), 1);
-
-  teardown();
-
-}
-
-static void test_situations_counted_with_first_reach_depth(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_SMAP);
-
-  state_map_t *map = state_map_setup_fixture();
-  u8           hist[256];
-
-  map->sit_ok = 1;
-  map->sit_n = 3;
-  map->transitions = 3;
-  map->sit[0] = 5;
-  map->sit[1] = 9;
-  map->sit[2] = 5;
-
-  state_map_observe(afl);
-
-  assert_int_equal(afl->situations_found, 2);
-  assert_int_equal(afl->situation_depth_max, 3);
-  assert_int_equal(afl->situation_depth_runs, 1);
-  assert_int_equal(afl->situation_depth_sum, 3);
-
-  state_situation_hist(afl, hist, sizeof(hist));
-  assert_string_equal((char *)hist, "1:1 2:1");
-
-  /* The same chain again reaches nothing new, but still counts as a run. */
-  state_map_observe(afl);
-
-  assert_int_equal(afl->situations_found, 2);
-  assert_int_equal(afl->situation_depth_runs, 2);
-
-  teardown();
-
-}
-
-static void test_situations_absent_without_target_support(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_SMAP);
-
-  state_map_t *map = state_map_setup_fixture();
-
-  map->sit_n = 2;
-  map->transitions = 2;
-  map->sit[0] = 5;
-  map->sit[1] = 9;
-
-  state_map_observe(afl);
-
-  assert_int_equal(afl->situations_found, 0);
-  assert_int_equal(afl->situation_depth_runs, 0);
-
-  teardown();
-
-}
-
-static void test_state_map_density_counts_observations(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_SMAP);
-
-  state_map_t *map = state_map_setup_fixture();
-
-  assert_int_equal(state_map_density(afl), 0);
-
-  u32 i;
-
-  for (i = 0; i < STATE_MAP_SIZE / 4; ++i) {
-
-    map->map[i] = 1;
-
-  }
-
-  state_map_observe(afl);
-
-  /* A quarter of the map, reported in hundredths of a percent. */
-  assert_int_equal(state_map_density(afl), 2500);
-  assert_int_equal(afl->state_transitions_found, STATE_MAP_SIZE / 4);
-
-  teardown();
-
-}
-
-/* --- the shelf cell (item 9) --- */
+/* --- the deep-input shelf --- */
 
 static void test_shelf_cell_separates_depth(void **unused) {
 
@@ -383,25 +242,28 @@ static void test_shelf_cell_separates_cost(void **unused) {
 
 }
 
-static void test_shelf_cell_ignores_state_until_trusted(void **unused) {
+/* An operation count is what the achievement axis is for; where a mutator
+   reports one it must beat the file size it falls back to. */
+
+static void test_shelf_cell_prefers_op_count(void **unused) {
 
   (void)unused;
   setup(STATE_MODE_DEEP);
 
-  struct queue_entry *a = add_entry();
-  struct queue_entry *b = add_entry();
+  struct queue_entry *few = add_entry();
+  struct queue_entry *many = add_entry();
 
-  a->len = b->len = 4;
-  a->exec_us = b->exec_us = 100;
-  a->state_id = 1;
-  b->state_id = 2;
+  few->len = 4000;
+  few->exec_us = 100;
+  few->op_count = 2;
+  many->len = 8;
+  many->exec_us = 100;
+  many->op_count = 200;
 
-  /* An untrusted state signal must not influence bucketing: that is the
-     item 16 rule, applied here. */
-  assert_int_equal(state_shelf_cell(afl, a), state_shelf_cell(afl, b));
+  state_shelf_cell(afl, few);
+  state_shelf_cell(afl, many);
 
-  afl->state_signal_trusted = 1;
-  assert_int_not_equal(state_shelf_cell(afl, a), state_shelf_cell(afl, b));
+  assert_true(state_shelf_cell(afl, many) > state_shelf_cell(afl, few));
 
   teardown();
 
@@ -414,218 +276,14 @@ static void test_shelf_cell_always_in_range(void **unused) {
 
   struct queue_entry *q = add_entry();
 
-  afl->state_signal_trusted = 1;
-
   for (u32 i = 0; i < 64; i++) {
 
-    q->depth = (u64)1 << i % 40;
+    q->len = (u64)1 << i % 40;
     q->exec_us = (u64)1 << i % 40;
-    q->state_id = i * 2654435761u;
+    q->op_count = i * 2654435761u;
     assert_true(state_shelf_cell(afl, q) < STATE_SHELF_CELLS);
 
   }
-
-  teardown();
-
-}
-
-/* --- per-input stability (item 6) --- */
-
-static void test_stability_clean_entry_is_100(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_PROBE);
-
-  struct queue_entry *q = add_entry();
-
-  q->bitmap_size = 40;
-  memset(afl->cal_var_map, 0, TEST_MAP);
-
-  state_calibration_stats(afl, q);
-
-  assert_int_equal(q->var_edge_cnt, 0);
-  assert_int_equal(q->var_hit_cnt, 0);
-  assert_true(q->stability > 99.99);
-
-  teardown();
-
-}
-
-static void test_stability_splits_edges_from_hit_counts(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_PROBE);
-
-  struct queue_entry *q = add_entry();
-
-  q->bitmap_size = 100;
-  memset(afl->cal_var_map, 0, TEST_MAP);
-
-  /* 3 edges that came and went, 7 that only wobbled in hit count. The two
-     are counted separately because they mean different things: a missing
-     edge means a saved input no longer describes what it does, a hit-count
-     wobble usually does not. */
-  afl->cal_var_map[10] = 2;
-  afl->cal_var_map[11] = 2;
-  afl->cal_var_map[12] = 2;
-  for (u32 i = 20; i < 27; i++) {
-
-    afl->cal_var_map[i] = 1;
-
-  }
-
-  state_calibration_stats(afl, q);
-
-  assert_int_equal(q->var_edge_cnt, 3);
-  assert_int_equal(q->var_hit_cnt, 7);
-  assert_true(fabs(q->stability - 90.0) < 0.001);
-
-  teardown();
-
-}
-
-static void test_stability_clamped_to_zero(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_PROBE);
-
-  struct queue_entry *q = add_entry();
-
-  q->bitmap_size = 2;
-  memset(afl->cal_var_map, 0, TEST_MAP);
-
-  for (u32 i = 0; i < 50; i++) {
-
-    afl->cal_var_map[i] = 2;
-
-  }
-
-  state_calibration_stats(afl, q);
-
-  assert_true(q->stability >= 0.0);
-  assert_true(q->stability <= 100.0);
-
-  teardown();
-
-}
-
-static void test_corpus_stability_tracks_the_worst(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_PROBE);
-
-  struct queue_entry *good = add_entry();
-  struct queue_entry *bad = add_entry();
-
-  good->bitmap_size = 100;
-  good->stability = 100.0;
-  bad->bitmap_size = 100;
-
-  memset(afl->cal_var_map, 0, TEST_MAP);
-  for (u32 i = 0; i < 25; i++) {
-
-    afl->cal_var_map[i] = 2;
-
-  }
-
-  state_calibration_stats(afl, bad);
-
-  assert_true(fabs(bad->stability - 75.0) < 0.001);
-  assert_true(fabs(afl->corpus_stability_avg - 87.5) < 0.001);
-  assert_true(fabs(afl->corpus_stability_min - 75.0) < 0.001);
-
-  teardown();
-
-}
-
-/* --- information score (item 8) --- */
-
-static void test_info_score_ignores_ballast(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_RARE);
-
-  struct queue_entry *q;
-  u32                 i;
-
-  /* Edge 5 fires on every input, edge 6 fires only on the last one. After
-     the corpus has grown, the ballast edge must contribute nothing and the
-     rare edge must carry the whole score. */
-  for (i = 0; i < 16; i++) {
-
-    q = add_entry();
-    q->bitmap_size = 1;
-    memset(afl->fsrv.trace_bits, 0, TEST_MAP);
-    afl->fsrv.trace_bits[5] = 1;
-    if (i == 15) {
-
-      afl->fsrv.trace_bits[6] = 1;
-      q->bitmap_size = 2;
-
-    }
-
-    state_calibration_stats(afl, q);
-
-  }
-
-  assert_int_equal(afl->corpus_trace_cnt, 16);
-  assert_int_equal(afl->edge_corpus_cnt[5], 16);
-  assert_int_equal(afl->edge_corpus_cnt[6], 1);
-
-  /* log2(16/16) = 0 for the ballast edge, log2(16/1) = 4 for the rare one. */
-  assert_true(fabs(entries[0]->info_score - 0.0) < 0.001);
-  assert_true(fabs(entries[15]->info_score - 4.0) < 0.001);
-
-  teardown();
-
-}
-
-static void test_info_score_absent_without_the_letter(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_PROBE);
-
-  struct queue_entry *q = add_entry();
-
-  q->bitmap_size = 1;
-  afl->fsrv.trace_bits[5] = 1;
-
-  assert_null(afl->edge_corpus_cnt);
-
-  state_calibration_stats(afl, q);
-
-  assert_true(fabs(q->info_score - 0.0) < 0.001);
-
-  teardown();
-
-}
-
-/* --- ballast (item 2) --- */
-
-static void test_ballast_is_the_intersection(void **unused) {
-
-  (void)unused;
-  setup(STATE_MODE_GATE);
-
-  /* Edge 1 in both traces, edge 2 in only one. Ballast is what every input
-     hits, so only edge 1 survives. */
-  memset(afl->fsrv.trace_bits, 0, TEST_MAP);
-  afl->fsrv.trace_bits[1] = 1;
-  afl->fsrv.trace_bits[2] = 1;
-  afl->virgin_bits[1] = 0xfe;
-  afl->virgin_bits[2] = 0xfe;
-  state_ballast_fold(afl);
-
-  assert_int_equal(afl->ballast_bits[1], 1);
-  assert_int_equal(afl->ballast_bits[2], 1);
-
-  memset(afl->fsrv.trace_bits, 0, TEST_MAP);
-  afl->fsrv.trace_bits[1] = 1;
-  state_ballast_fold(afl);
-
-  assert_int_equal(afl->ballast_bits[1], 1);
-  assert_int_equal(afl->ballast_bits[2], 0);
-  assert_true(fabs(afl->ballast_pct - 50.0) < 0.001);
 
   teardown();
 
@@ -636,21 +294,16 @@ static void test_ballast_is_the_intersection(void **unused) {
 static void test_alloc_follows_the_letters(void **unused) {
 
   (void)unused;
-  setup(STATE_MODE_GATE);
+  setup(STATE_MODE_CONTRACT);
 
-  assert_non_null(afl->ballast_bits);
-  assert_non_null(afl->cal_var_map);
-  assert_null(afl->probe_union);
-  assert_null(afl->edge_corpus_cnt);
+  assert_null(afl->hw_bits);
   assert_null(afl->shelf);
 
   teardown();
 
-  setup(STATE_MODE_PROBE | STATE_MODE_RARE | STATE_MODE_DEEP);
+  setup(STATE_MODE_DEEP | STATE_MODE_HIWATER);
 
-  assert_non_null(afl->probe_union);
-  assert_non_null(afl->probe_isect);
-  assert_non_null(afl->edge_corpus_cnt);
+  assert_non_null(afl->hw_bits);
   assert_non_null(afl->shelf);
   assert_non_null(afl->shelf_count);
 
@@ -661,16 +314,16 @@ static void test_alloc_follows_the_letters(void **unused) {
 static void test_alloc_is_idempotent(void **unused) {
 
   (void)unused;
-  setup(STATE_MODE_RARE);
+  setup(STATE_MODE_DEEP | STATE_MODE_HIWATER);
 
-  u8  *first = afl->ballast_bits;
-  u32 *counts = afl->edge_corpus_cnt;
+  struct queue_entry **shelf = afl->shelf;
+  u8                  *hw = afl->hw_bits;
 
   state_alloc(afl);
   state_alloc(afl);
 
-  assert_ptr_equal(afl->ballast_bits, first);
-  assert_ptr_equal(afl->edge_corpus_cnt, counts);
+  assert_ptr_equal(afl->shelf, shelf);
+  assert_ptr_equal(afl->hw_bits, hw);
 
   teardown();
 
@@ -680,22 +333,10 @@ int main(void) {
 
   const struct CMUnitTest tests[] = {
 
-      cmocka_unit_test(test_state_map_observing_keeps_admission_unspent),
-      cmocka_unit_test(test_state_map_admission_consumes_once),
-      cmocka_unit_test(test_state_map_density_counts_observations),
-      cmocka_unit_test(test_situations_counted_with_first_reach_depth),
-      cmocka_unit_test(test_situations_absent_without_target_support),
       cmocka_unit_test(test_shelf_cell_separates_depth),
       cmocka_unit_test(test_shelf_cell_separates_cost),
-      cmocka_unit_test(test_shelf_cell_ignores_state_until_trusted),
+      cmocka_unit_test(test_shelf_cell_prefers_op_count),
       cmocka_unit_test(test_shelf_cell_always_in_range),
-      cmocka_unit_test(test_stability_clean_entry_is_100),
-      cmocka_unit_test(test_stability_splits_edges_from_hit_counts),
-      cmocka_unit_test(test_stability_clamped_to_zero),
-      cmocka_unit_test(test_corpus_stability_tracks_the_worst),
-      cmocka_unit_test(test_info_score_ignores_ballast),
-      cmocka_unit_test(test_info_score_absent_without_the_letter),
-      cmocka_unit_test(test_ballast_is_the_intersection),
       cmocka_unit_test(test_alloc_follows_the_letters),
       cmocka_unit_test(test_alloc_is_idempotent),
 

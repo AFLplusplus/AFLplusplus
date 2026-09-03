@@ -152,9 +152,7 @@ AFL_CUSTOM_MUTATOR_LIBRARY=custom_mutators/state_records/state_records.so \
 ```
 
 A stale `.so` is easy to mistake for a format problem: `afl-fuzz` says which
-optional hooks it did not find, and under `-Js` a missing
-`afl_custom_state_probe` is a warning, because without it the state utility
-test falls back to random bytes and reaches no verdict on this format.
+optional hooks it did not find.
 
 To run it against the example target:
 
@@ -179,39 +177,19 @@ Neither is reachable by a single operation, which is the point.
 ## Reporting state: `afl_custom_describe_state`
 
 The mutator also answers the question AFL++ cannot answer for itself: what does
-this input *do*, and where does it leave the target? It walks the program the
-way the harness does and reports two numbers per queue entry — the number of
-operations, and an id for the state the program ends in.
+this input *do*? It walks the program the way the harness does and reports the
+number of operations per queue entry.
 
-The operation count is what `-Jd`'s depth bucket always wanted; AFL++'s own
-`depth` counts mutation generations from a seed, which is only a proxy for work
-done. The state id keeps inputs that end in different situations from competing
-for the same queue slot.
+That count is what `-Jd`'s achievement bucket always wanted; without it the
+shelf falls back to the input length, which makes its depth axis a proxy for
+file size. Supplying it was measured **not** to change depth on its own, so it
+is worth reporting because the number is then right, not because it buys depth.
 
-`STATE_RECORDS_DIGEST` selects how much goes into the id, so the trade can be
-measured instead of argued:
-
-| value | id is | classes |
-|---|---|---|
-| `0` | nothing is reported | — |
-| `1` (default) | which slots are open | ≤ 256 |
-| `2` | open slots, whether a commit landed, log2 of the bytes held | ≤ 4608 |
-| `3` | a hash of the whole opcode sequence | unbounded |
-
-Loading this mutator also makes `-Js`'s state utility test usable on this
-format. That test probes a pair of same-state inputs with one extra action, and
-`afl_custom_state_probe` here builds it out of one or two fresh records; raw
-random bytes would be swallowed by the trailing record and no pair would ever
-count. Measured on an `IJON_STATE`-annotated harness for this format: 32 of 32
-pairs usable with the mutator loaded, 31 of 32 dropped without it. See
-[fuzzing_stateful_targets.md](../../docs/fuzzing_stateful_targets.md).
-
-Level 3 exists to be wrong on purpose. It names a *path*, not a state, so
-almost every input reaches a state nothing reached before, and if state ids are
-allowed to save inputs (`AFL_STATE_PLUGIN_ADMIT=1`) the queue fills with
-everything. That is the failure mode every state signal has, and the reason
-level 1 is the default: a digest of the live object store, and nothing that
-remembers how it got there.
+The state id the hook also takes is left over from a removed feature: nothing in
+`afl-fuzz` consumes one any more, and `STATE_RECORDS_DIGEST` therefore only
+affects what this mutator computes for itself. Level 3 remains a demonstration
+of the failure mode a state digest has — it names a *path*, not a state, so
+almost every input looks like a new state.
 
 ## Do not set `AFL_CUSTOM_MUTATOR_ONLY`
 

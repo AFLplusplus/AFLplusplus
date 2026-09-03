@@ -645,8 +645,8 @@ unit_queue_score: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_queue_score
 	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_queue_score.c src/afl-fuzz-queue.c src/afl-fuzz-statefuzz.c -Wl,--gc-sections -o test/unittests/unit_queue_score $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka -lm
 	./test/unittests/unit_queue_score
 
-unit_statefuzz: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_statefuzz.c src/afl-fuzz-statefuzz.c src/afl-fuzz-statemap.c
-	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_statefuzz.c src/afl-fuzz-statefuzz.c src/afl-fuzz-statemap.c -Wl,--gc-sections -o test/unittests/unit_statefuzz $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka -lm
+unit_statefuzz: $(COMM_HDR) include/afl-fuzz.h test/unittests/unit_statefuzz.c src/afl-fuzz-statefuzz.c
+	@$(CC) $(CFLAGS) $(ASAN_CFLAGS) -ffunction-sections -fdata-sections test/unittests/unit_statefuzz.c src/afl-fuzz-statefuzz.c -Wl,--gc-sections -o test/unittests/unit_statefuzz $(LDFLAGS) $(ASAN_LDFLAGS) -lcmocka -lm
 	./test/unittests/unit_statefuzz
 
 unit_state_records: $(COMM_HDR) test/unittests/unit_state_records.c custom_mutators/state_records/state_records.h

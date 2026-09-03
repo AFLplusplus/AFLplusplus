@@ -71,35 +71,75 @@ The same code paths will count as different coverage depending on the value of `
 Use sparingly—too many states may cause state explosion.  
 Example: `IJON_STATE(has_hello + has_login)` distinguishes protocol states.
 
+Two properties of the default mode surprise harness authors, and both have been
+found in the wild:
+
+- **It accumulates by exclusive-or.** The register is `state ^= n`, so passing a
+  raw identifier each time makes the register a digest of the *route* taken
+  rather than the *situation* the target is in. To report a situation, pass the
+  delta against what you reported last:
+  `IJON_STATE(prev ^ cur); prev = cur;` — and reset `prev` at the start of every
+  execution, or the first annotation of one input inherits the last state of the
+  previous one.
+- **It is reduced modulo 65536**, so every bit from 16 upwards is discarded
+  silently. An identifier built by setting one bit per condition runs out of
+  room at 16 conditions; fold it yourself first, e.g.
+  `n = ((n >> 16) ^ n) & 0xffff;`, so the high conditions still affect the
+  result instead of vanishing.
+
+`AFL_LLVM_IJON_STATE_MAX` (below) removes both problems, at the cost of
+requiring you to declare how many states there are.
+
+#### Declared state regions — `AFL_LLVM_IJON_STATE_MAX=N`
+
+Compile with `AFL_LLVM_IJON_STATE_MAX=N` and `IJON_STATE()` stops folding the
+state into the edge index. Instead each state gets **its own copy of the whole
+coverage map**: the edge index becomes `state * cov_size + edge` and the map
+becomes `cov_size * (N + 1)`. Region 0 is byte-for-byte the plain build's map,
+so a run with the state never leaving 0 is directly comparable to an
+unannotated build.
+
+In this mode the argument **is** the state, not something to mix in. It is
+assigned, not exclusive-ored, so no delta trick and no folding is needed, and a
+value above `N` aborts the run with a message rather than wrapping — a modulo
+there would reintroduce exactly the aliasing the mode exists to remove.
+
+The rule for what may be a state id is stricter than in the default mode, and
+the abort is there to enforce it: **a state id must be a position in the
+protocol's progress** — pre-auth, keys exchanged, authenticated, channel open,
+rekeyed — and never a configuration (cipher choice, dialect, whether signing is
+on), never a resource count, and never a slot or handle bitmask. Those belong in
+`IJON_SET`/`IJON_INC` or in the ordinary coverage signal. Real protocols need
+well under 32 such positions; the pass refuses anything above 255.
+
+The map expansion is cheaper than it looks, because AFL's per-execution map work
+is small next to a real protocol target's execution. Measured on Samba's SMB2
+server harness, whose coverage map is 403,392 bytes, seven declared positions
+take the map to 2,893,376 bytes — a 6.1× expansion for **4.3 % of throughput**.
+
+Before reaching for it, consider `IJON_MAX_AT(slot + position, work_done)` on
+the same position ladder: it needs no rebuild flag, no map expansion and no
+declaration, and on an nginx QUIC/HTTP-3 harness it drove inputs measurably
+further into the protocol than declared regions did for the same cost. Declared
+regions are the tool when you need states genuinely *separated* — so that the
+same edge in two states can never alias — rather than merely rewarded.
+
 #### `IJON_CTX(x)`
 Scoped state hashing: temporarily incorporates variable `x` into the state hash.  
 Useful for distinguishing behavior based on execution context.  
 Example: `IJON_CTX(function_id)` makes AFL track the same code differently depending on the active function.
 
-#### `AFL_STATE_ACTION(a)`
-Name the operation the harness is about to perform. Only meaningful together
-with `afl-fuzz -Js`, which keys a separate state-transition map by
-`(previous state, current state, action)`. With no annotation the action is 0
-and the map degrades to `(previous, current)` pairs.
-Example: `AFL_STATE_ACTION(msg.type);` right before dispatching a message.
-
-#### `AFL_HOT_REGION(offset, length)`
-Tell the fuzzer which bytes of the current input actually matter, so havoc aims
-there instead of spreading uniformly. Only meaningful together with
-`afl-fuzz -Jh`. A region of *k* bytes in an *n*-byte input otherwise receives
-*k/n* of all mutations.
-Example: `AFL_HOT_REGION(hdr_off, hdr_len);` after locating the header.
-
-Both are no-ops unless the target is run under `afl-fuzz -Js` (or `-Jh`), so
-they are safe to leave in a harness permanently.
+`AFL_STATE_ACTION()` and `AFL_HOT_REGION()` were removed along with the
+state-transition map and aimed havoc they fed; both measured at or below the
+baseline. A harness still carrying them will not compile against this header —
+delete the calls.
 
 ### Relationship to state fuzzing mode
 
 `IJON_STATE()` mixes the state into the edge hash, which makes state and
-coverage one signal. `afl-fuzz -Js` additionally records every state
-transition in a **separate** map, in its own shared-memory segment, so the two
-can be told apart and measured independently. Existing `IJON_STATE()` harnesses
-get this with no source change. See
+coverage one signal. That is the whole mechanism now: the separate
+state-transition map `-Js` used to keep was measured to cost without paying and
+was removed. See
 [fuzzing_stateful_targets.md](fuzzing_stateful_targets.md).
 
 ### Distance and Comparison Macros
@@ -287,6 +327,31 @@ So three different numbers describe one map, and all three are correct:
 Comparing an IJON build against a plain one by map size only works on the
 coverage figure, not on `AFL_DUMP_MAP_SIZE` or `total_edges`.
 
+### `edges_found` is not coverage on an IJON build — read `cov_edges_found`
+
+`edges_found` counts set bytes over the whole map, and on an IJON build the map
+also holds the 64 KB `IJON_SET`/`IJON_INC` area. Those writes are *meant* to
+register as coverage, so they land in the same count as real edges. The effect
+is not marginal. A target with nine reachable edges and one
+`IJON_SET(b[0] << 8 | b[1])`:
+
+```
+edges_found       : 15397
+cov_edges_found   : 9
+total_edges       : 65600
+```
+
+`cov_edges_found` counts the coverage area only — `real_map_size` minus the
+IJON map — and is the figure to compare against a plain build or between two
+IJON builds. `edges_found` is kept unchanged so existing tooling and plot files
+are unaffected.
+
+One caveat: with `AFL_LLVM_IJON_STATE_MAX=N` the coverage area is itself `N + 1`
+copies of the map, and `cov_edges_found` spans all of them. It is therefore
+still not comparable between two builds with different `N`, or against a plain
+build. When comparing arms that differ in `N`, replay the corpora through one
+common build instead of reading either figure.
+
 ### What bounds each IJON channel
 
 The three channels are saved and bounded in three different ways, and the
@@ -296,7 +361,7 @@ natural assumption — that the state-fuzzing knobs cover all of them — is wro
 |---|---|---|
 | `IJON_MAX` / `IJON_MIN` | 4 KB of `u64` slots outside the fuzzer's map, one stored input per slot in `<out>/ijon_max/` | one slot per variable, replayed every `AFL_IJON_REPLAY_INTERVAL` turns; `AFL_IJON_RETIRE_MAX` drops slots that reached an `IJON_MAX_UNTIL` limit |
 | `IJON_SET` / `IJON_INC` | inside the coverage bitmap, on purpose | nothing, by default — `AFL_IJON_ADMIT_PCT` |
-| `IJON_STATE` | the edge hash, plus the `-Js` transition map | `AFL_STATE_ADMIT_PCT` for the transition map only; the edge-hash effect is unbounded by design |
+| `IJON_STATE` | the edge hash | unbounded by design. `AFL_LLVM_IJON_STATE_MAX` replaces the hash with one map region per state, which bounds the aliasing instead of the saving |
 
 A byte written by `IJON_SET` or `IJON_INC` **has** to register as new coverage —
 that is the whole mechanism — so such a find travels the ordinary save path and
@@ -335,6 +400,7 @@ nm ./target | grep __afl_ijon_enabled     # "D" = instrumented, "V" = weak defau
 ### Environment Variables
 
 - **`AFL_LLVM_IJON=1`**: Enables IJON instrumentation during compilation
+- **`AFL_LLVM_IJON_STATE_MAX=N`**: Compile-time. Give each of the `N + 1` declared states its own copy of the coverage map instead of folding the state into the edge index — see [Declared state regions](#declared-state-regions--afl_llvm_ijon_state_maxn). Requires `AFL_LLVM_IJON=1`. Refused above 255; real protocols need well under 32
 - **`AFL_IJON_RETIRE_MAX=1`**: Treats `UINT64_MAX` IJON max values as completed targets and stops scheduling their stored IJON input
 - **`AFL_IJON_ADMIT_PCT=N`**: Largest share of the queue, in percent, that `IJON_SET`/`IJON_INC` may create on its own (default 0, no bound) — see above
 - **`AFL_IJON_REPLAY_INTERVAL=N`**: Scheduling turns between two `IJON_MAX` replays (default 16, 0 switches replay off)
