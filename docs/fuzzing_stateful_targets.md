@@ -15,25 +15,21 @@ it did before.
 afl-fuzz -J -i seeds -o out -- ./target @@
 ```
 
-That enables the three parts in the default set. The launch line the
-measurements favour adds the high-water channel:
-
-```bash
-afl-fuzz -Jdm -i seeds -o out -- ./target @@
-```
+That enables the four parts in the default set, which is the launch line the
+measurements favour.
 
 | Letter | Turns on | In bare `-J` |
 |---|---|---|
 | `d` | deep-input shelf, so long inputs stop losing | yes |
 | `c` | harness self-check at startup | yes |
 | `b` | one-shot execution cost benchmark | yes |
-| `m` | hit-count high-water channel | no |
+| `m` | hit-count high-water channel | yes |
 | `w` | hang watchdog inside the target, needs a compile-time opt-in | no |
 
 The letters are case-insensitive and must be **attached** to `-J`: `-Jdm`
 works, `-J dm` does not, because `-J` takes an optional argument. Plain `-J`
-selects `dcb`; everything else has to be asked for by letter. A second `-J` on
-the same command line is an error.
+selects `dcbm`; anything else — a larger set or a smaller one — has to be
+spelled out by letter. A second `-J` on the same command line is an error.
 
 `d` is the only part measured to improve the search on its own, `m` adds to it
 independently, and `c` and `b` are one-shot diagnostics that cannot steer it.
@@ -195,7 +191,7 @@ The truncation point comes from `afl_custom_describe_state_ops` (see
 [custom_mutators.md](custom_mutators.md)). Without a mutator that implements it
 there is no honest boundary to cut at, so the decomposition is **skipped with one
 warning** and neither key is written — a boundary is never guessed. `b` is in bare
-`-J`'s default set (`dcb`), and no mutator outside the `state_records` class
+`-J`'s default set (`dcbm`), and no mutator outside the `state_records` class
 implements the callback, so a bare `-J` user pays nothing for this. Users who do
 implement it pay 200 extra forkserver runs once at startup: roughly 0.5–0.8 s on a
 target whose forkserver iteration is 2.7–4.0 ms, against `-Jb`'s existing 0.85 s.

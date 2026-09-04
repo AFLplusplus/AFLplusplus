@@ -7,9 +7,9 @@
   ! State fuzzing mode, enabled with `-J`, for targets that remember what you
     sent them before (protocols, databases, filesystems). Off by default and
     inert without `-J`. See docs/fuzzing_stateful_targets.md. Parameters can be
-    selected by letter, by default on are `dcb` (deep-input shelf, harness
-    self-check, cost benchmark); `-Jdm` adds the hit-count high-water channel
-    and is the launch line the measurements favour.
+    selected by letter, by default on are `dcbm` (deep-input shelf, harness
+    self-check, cost benchmark, hit-count high-water channel), which is the
+    launch line the measurements favour.
   ! Value Profile implementation for AFL++ by Khaled Yakdan (@kyakdan) that
     is much more efficient and intelligent than the libfuzzer implementation.
     Enable in the fuzz target with `AFL_LLVM_VALUE_PROFILE=1` and enable for

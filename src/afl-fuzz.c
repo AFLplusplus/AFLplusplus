@@ -340,7 +340,7 @@ static void usage(u8 *argv0, int more_help) {
       "  -K dir        - use python script to interact with GUI (GUI mode)\n"
 #endif
       "  -J[letters]   - state fuzzing mode, for targets that remember what\n"
-      "                  you sent them before (bare -J selects dcb):\n"
+      "                  you sent them before (bare -J selects dcbm):\n"
       "                  d=deep-input shelf, c=harness self-check,\n"
       "                  b=execution cost benchmark,\n"
 #ifdef AFL_TARGET_WATCHDOG
