@@ -21,8 +21,9 @@
 
    Off unless preloaded, and off when AFL_ALLOCFAIL_N is unset or 0.
 
-     AFL_ALLOCFAIL_N=7 LD_PRELOAD=./afl_allocfail.so ./target input          (ELF)
-     AFL_ALLOCFAIL_N=7 DYLD_INSERT_LIBRARIES=./afl_allocfail.so ./target input  (macOS)
+     AFL_ALLOCFAIL_N=7 LD_PRELOAD=./afl_allocfail.so ./target input (ELF)
+     AFL_ALLOCFAIL_N=7 DYLD_INSERT_LIBRARIES=./afl_allocfail.so ./target input
+   (macOS)
 
    The two platforms need different machinery. With ELF, defining malloc()
    here shadows the libc one for the whole process and the real one is
@@ -92,7 +93,7 @@ static int afl_is_boot_ptr(const void *ptr) {
 
 }
 
-#endif                                                       /* !__APPLE__ */
+#endif                                                        /* !__APPLE__ */
 
 static void afl_allocfail_read_env(void) {
 
@@ -281,7 +282,7 @@ char *strdup(const char *s) {
 
 }
 
-#else                                                         /* __APPLE__ */
+#else                                                          /* __APPLE__ */
 
 /* Explicit dyld interposition. These are ordinary static functions; the
    table at the bottom is what makes dyld route every other image's calls
@@ -346,21 +347,22 @@ static char *afl_i_strdup(const char *s) {
 
 }
 
-#define AFL_INTERPOSE(repl, orig)                                    \
-  __attribute__((used)) static struct {                              \
-                                                                     \
-    const void *replacement;                                         \
-    const void *original;                                            \
-                                                                     \
-  } afl_interpose_##orig __attribute__((section("__DATA,__interpose"))) = { \
-                                                                     \
-      (const void *)(unsigned long)&repl,                            \
-      (const void *)(unsigned long)&orig}
+  #define AFL_INTERPOSE(repl, orig)                                           \
+    __attribute__((used)) static struct {                                     \
+                                                                              \
+      const void *replacement;                                                \
+      const void *original;                                                   \
+                                                                              \
+    } afl_interpose_##orig __attribute__((section("__DATA,__interpose"))) = { \
+                                                                              \
+                                                                              \
+        (const void *)(unsigned long)&repl,                                   \
+        (const void *)(unsigned long)&orig}
 
 AFL_INTERPOSE(afl_i_malloc, malloc);
 AFL_INTERPOSE(afl_i_calloc, calloc);
 AFL_INTERPOSE(afl_i_realloc, realloc);
 AFL_INTERPOSE(afl_i_strdup, strdup);
 
-#endif                                                        /* __APPLE__ */
+#endif                                                         /* __APPLE__ */
 

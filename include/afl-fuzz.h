@@ -1135,8 +1135,9 @@ typedef struct afl_state {
 #define STATE_MODE_BENCH 0x0004U    /* b - one-shot cost benchmark          */
 #define STATE_MODE_WATCHDOG 0x0008U /* w - target-side hang watchdog        */
 #define STATE_MODE_HIWATER 0x0010U  /* m - hit-count high-water channel     */
-#define STATE_MODE_DEFAULT \
-  (STATE_MODE_DEEP | STATE_MODE_CONTRACT | STATE_MODE_BENCH)
+#define STATE_MODE_DEFAULT                                    \
+  (STATE_MODE_DEEP | STATE_MODE_CONTRACT | STATE_MODE_BENCH | \
+   STATE_MODE_HIWATER)
 
 #define STATE_SHELF_DEPTH_BUCKETS 8U /* deep-input shelf geometry: input    */
 #define STATE_SHELF_COST_BUCKETS 8U  /* length x exec cost, each entry      */

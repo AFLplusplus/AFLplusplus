@@ -119,7 +119,7 @@ static bool        autostate_enabled = false;
    map becomes cov_size * (N+1); region 0 is the plain build's map exactly.
    State ids must be real protocol progress, never configuration or slot
    identity - see docs/fuzzing_stateful_targets.md. */
-static int         ijon_state_max = 0;
+static int ijon_state_max = 0;
 
 namespace {
 
@@ -431,6 +431,7 @@ void ModuleSanitizerCoverageAFL::setupEnvironmentVariables() {
     }
 
   }
+
   if (autostate_enabled && !ijon_enabled) {
 
     ijon_enabled = getenv("AFL_LLVM_AUTOSTATE");
@@ -1218,10 +1219,9 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
      forkserver sizes the shared map from it before any env of ours is read. */
   if (ijon_state_max > 0 && !M.getNamedGlobal("__afl_ijon_state_max_decl")) {
 
-    new GlobalVariable(M, Int32Ty, /*isConstant=*/true,
-                       GlobalValue::WeakAnyLinkage,
-                       ConstantInt::get(Int32Ty, ijon_state_max),
-                       "__afl_ijon_state_max_decl");
+    new GlobalVariable(
+        M, Int32Ty, /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
+        ConstantInt::get(Int32Ty, ijon_state_max), "__afl_ijon_state_max_decl");
 
   }
 
