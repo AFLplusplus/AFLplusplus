@@ -4,6 +4,9 @@
   release of the tool. See README.md for the general instruction manual.
 
 ### Version ++5.04a (dev)
+  - afl-fuzz
+    - frameshift timeout fix (fixes spurious timeouts that can occur, especially
+      with persistent loop counts of 1
   - afl-cc
     - a plain `-fcf-protection` (part of the default hardened CFLAGS on
       Fedora/RHEL) was mistaken for `AFL_USE_CFISAN` and injected `-flto`,
