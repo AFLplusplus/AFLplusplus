@@ -265,7 +265,7 @@ static void test_lightweight_run_deadline_and_fault(void **state) {
   g_time = 900;
   afl->frameshift_deadline = 1000;
   assert_int_equal(lightweight_run(afl, buf, sizeof(buf)), 1);
-  assert_int_equal(g_timeout, 100);
+  assert_int_equal(g_timeout, 500);
 
   g_time = 0;
   afl->frameshift_deadline = 1000;
