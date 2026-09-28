@@ -614,6 +614,11 @@ void frameshift_stage(afl_state_t *afl) {
       frameshift_slice_budget(afl->fs_stats.total_time_ms, allowed_ms);
   if (!budget_ms) { return; }
 
+  afl->stage_name = "frameshift";
+  afl->stage_short = "frameshift";
+  afl->stage_cur_byte = -1;
+  afl->stage_cur_val = 0;
+
   afl->frameshift_deadline = time_start + budget_ms;
   u32 *inflection_points = NULL;
   u32 *loss_buffer = NULL;

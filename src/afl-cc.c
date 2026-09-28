@@ -2836,7 +2836,7 @@ param_st parse_misc_params(aflcc_state_t *aflcc, u8 *cur_argv, u8 scan) {
 
   } else if (!strncmp(cur_argv, "-fcf-protection", strlen("-fcf-protection"))) {
 
-    SCAN_KEEP(aflcc->have_cfisan, 1);
+    SCAN_KEEP(aflcc->have_fcf, 1);
 
   } else if (!strncmp(cur_argv, "-O", 2)) {
 

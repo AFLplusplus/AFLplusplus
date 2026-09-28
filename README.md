@@ -4,7 +4,7 @@
 
 Release version: [5.03c](https://github.com/AFLplusplus/AFLplusplus/releases)
 
-GitHub version: 5.03c
+GitHub version: 5.04a
 
 Repository:
 [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
