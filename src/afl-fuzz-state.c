@@ -347,6 +347,34 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_disable_redundant =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_BASFUZZ",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_basfuzz =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_BASFUZZ_BOOST",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_basfuzz_boost =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_BASFUZZ_MAX_POS",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_basfuzz_max_pos =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_BASFUZZ_INTERVAL",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_basfuzz_interval =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
           } else if (!strncmp(env, "AFL_STARVED_MINIMIZE_QUEUE",
 
                               afl_environment_variable_len)) {

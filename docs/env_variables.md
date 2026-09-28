@@ -632,6 +632,13 @@ checks or alter some of the more exotic semantics of the tool:
     for an existing out folder, even if a different `-i` was provided. Without
     this setting, afl-fuzz will refuse execution for a long-fuzzed out dir.
 
+  - `AFL_BASFUZZ` weights seed selection towards entries whose bytes are
+    atypical for the corpus (see [BaSFuzz.md](BaSFuzz.md)).
+    `AFL_BASFUZZ_BOOST` sets the maximum weight factor (1.0-1000, default
+    2.0), `AFL_BASFUZZ_MAX_POS` how many leading bytes per entry are compared
+    (16-65536, default 2048) and `AFL_BASFUZZ_INTERVAL` the minimum number of
+    seconds between rescores (1-86400, default 30).
+
   - Benchmarking only: `AFL_BENCH_JUST_ONE` causes the fuzzer to exit after
     processing the first queue entry; and `AFL_BENCH_UNTIL_CRASH` causes it to
     exit soon after the first crash is found.

@@ -428,6 +428,10 @@ static void usage(u8 *argv0, int more_help) {
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
       "AFL_ALLOW_CORES: allow creating core files of target crashes\n"
       "AFL_AUTORESUME: resume fuzzing if directory specified by -o already exists\n"
+      "AFL_BASFUZZ: weight seed selection towards byte-wise atypical seeds\n"
+      "AFL_BASFUZZ_BOOST: max weight factor for BaSFuzz (1.0-1000, default 2.0)\n"
+      "AFL_BASFUZZ_MAX_POS: leading bytes per seed BaSFuzz compares (default 2048)\n"
+      "AFL_BASFUZZ_INTERVAL: min seconds between BaSFuzz rescores (default 30)\n"
       "AFL_BENCH_JUST_ONE: run the target just once\n"
       "AFL_BENCH_UNTIL_CRASH: exit soon when the first crashing input has been found\n"
       "AFL_CMPLOG_ONLY_NEW: do not run cmplog on initial testcases (good for resumes!)\n"
@@ -3545,6 +3549,7 @@ void afl_load_seeds(afl_state_t *afl) {
   }
 
   cull_queue(afl);
+  bas_setup(afl);
 
   // ensure we have at least one seed that is not disabled.
   u32 entry, valid_seeds = 0;
@@ -3867,6 +3872,7 @@ void stop_fuzzing(afl_state_t *afl) {
 
   }
 
+  bas_destroy(afl);
   destroy_queue(afl);
   destroy_extras(afl);
   destroy_custom_mutators(afl);

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <setjmp.h>
+#include <math.h>
 #include <cmocka.h>
 #include "afl-fuzz.h"
 
@@ -226,6 +227,42 @@ static void test_starve_rescores_before_redundant_disable(void **state) {
 
 }
 
+static void test_alias_table_applies_bas_mult(void **state) {
+
+  (void)state;
+  afl_state_t *afl = calloc(1, sizeof(afl_state_t));
+  assert_non_null(afl);
+  base_state(afl);
+  afl->schedule = EXPLORE;
+  afl->smallest_favored = 0;
+
+  struct queue_entry  q[2];
+  struct queue_entry *qb[2] = {&q[0], &q[1]};
+  base_entry(&q[0]);
+  base_entry(&q[1]);
+  q[0].was_fuzzed = 1;
+  q[1].was_fuzzed = 1;
+  q[0].bas_mult = 4.0;
+  q[1].bas_mult = 0.25;
+  afl->queue_buf = qb;
+  afl->queued_items = 2;
+
+  bas_state_t dummy;
+  memset(&dummy, 0, sizeof(dummy));
+
+  create_alias_table(afl);
+  assert_true(fabs(q[0].weight - q[1].weight) < 1e-12);
+
+  afl->bas = &dummy;
+  create_alias_table(afl);
+  assert_true(fabs(q[0].weight / q[1].weight - 16.0) < 1e-9);
+
+  free(afl->alias_table);
+  free(afl->alias_probability);
+  free(afl);
+
+}
+
 int main(void) {
 
   const struct CMUnitTest tests[] = {
@@ -234,6 +271,7 @@ int main(void) {
       cmocka_unit_test(test_lin_fraction_not_truncated),
       cmocka_unit_test(test_quad_fraction_not_truncated),
       cmocka_unit_test(test_starve_rescores_before_redundant_disable),
+      cmocka_unit_test(test_alias_table_applies_bas_mult),
 
   };
 

@@ -5,6 +5,8 @@
 
 ### Version ++5.04a (dev)
   - afl-fuzz
+    - new `AFL_BASFUZZ` seed weighting, a native and fixed implementation of
+      BaSFuzz byte-similarity seed selection, see docs/BaSFuzz.md
     - frameshift timeout fix (fixes spurious timeouts that can occur, especially
       with persistent loop counts of 1
   - afl-cc

@@ -346,6 +346,8 @@ static inline u8 afl_fuzz_queue(afl_state_t *afl) {
 
       } else {
 
+        if (unlikely(afl->bas)) { bas_maybe_rescore(afl); }
+
         if (unlikely(afl->prev_queued_items < afl->queued_items ||
                      afl->reinit_table)) {
 

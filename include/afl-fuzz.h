@@ -49,6 +49,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "basfuzz.h"
 
 #include "afl-ijon-min.h"
 
@@ -322,7 +323,7 @@ struct queue_entry {
 #endif
 
   double perf_score,                    /* performance score                */
-      weight;
+      weight, bas_mult;
 
   struct queue_entry *mother;            /* queue entry this based on        */
   u8                 *trace_mini;        /* Trace bytes, if kept             */
@@ -611,7 +612,7 @@ typedef struct afl_env_vars {
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
       afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
       afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled,
-      afl_crash_traces, afl_starved_minimize_queue;
+      afl_crash_traces, afl_starved_minimize_queue, afl_basfuzz;
 
   u16 afl_forksrv_nb_supl_gids;
 
@@ -620,7 +621,8 @@ typedef struct afl_env_vars {
       *afl_max_det_extras, *afl_statsd_host, *afl_statsd_port,
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
-      *afl_target_env, *afl_persistent_record, *afl_exit_on_time;
+      *afl_target_env, *afl_persistent_record, *afl_exit_on_time,
+      *afl_basfuzz_boost, *afl_basfuzz_max_pos, *afl_basfuzz_interval;
 
   s32 afl_pizza_mode, afl_ijon_history_limit;
 
@@ -1084,6 +1086,7 @@ typedef struct afl_state {
 #endif
   /* IJON max tracking state */
   ijon_min_state *ijon_state;                /* IJON input management state */
+  bas_state_t    *bas;
   u64            *ijon_bits;            /* Pointer to IJON max tracking map */
   time_t          last_ijon_log_time;   /* Rate limiting for IJON UI output */
   u8             *ijon_input_data;    /* Currently executed IJON input data */
@@ -1592,6 +1595,10 @@ void   nuke_resume_dir(afl_state_t *);
 int    check_main_node_exists(afl_state_t *);
 u32    select_next_queue_entry(afl_state_t *afl);
 void   create_alias_table(afl_state_t *afl);
+void   bas_setup(afl_state_t *afl);
+void   bas_maybe_rescore(afl_state_t *afl);
+void   bas_destroy(afl_state_t *afl);
+u64    bas_mem_bytes(const bas_state_t *b);
 void   setup_dirs_fds(afl_state_t *);
 void   setup_cmdline_file(afl_state_t *, char **);
 void   setup_stdio_file(afl_state_t *);

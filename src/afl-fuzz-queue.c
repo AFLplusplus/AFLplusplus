@@ -606,6 +606,8 @@ void create_alias_table(afl_state_t *afl) {
 
         }
 
+        if (unlikely(afl->bas)) { weight *= q->bas_mult; }
+
         q->weight = weight;
         q->perf_score = calculate_score(afl, q);
         sum += q->weight;
@@ -657,7 +659,7 @@ void create_alias_table(afl_state_t *afl) {
       if (likely(!q->disabled)) {
 
         q->perf_score = calculate_score(afl, q);
-        sum += q->perf_score;
+        sum += unlikely(afl->bas) ? q->perf_score * q->bas_mult : q->perf_score;
         total_len += q->len;
 
         if (unlikely(find_favored)) {
@@ -684,7 +686,9 @@ void create_alias_table(afl_state_t *afl) {
 
       } else {
 
-        P[i] = (afl->queue_buf[i]->perf_score * n) / sum;
+        double w = afl->queue_buf[i]->perf_score;
+        if (unlikely(afl->bas)) { w *= afl->queue_buf[i]->bas_mult; }
+        P[i] = (w * n) / sum;
 
       }
 
@@ -1113,6 +1117,7 @@ u8 add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->passed_det = passed_det;
   q->mother = afl->is_doing_ijon ? NULL : afl->queue_cur;
   q->weight = 1.0;
+  q->bas_mult = 1.0;
   q->cache_wanted = afl->q_testcase_max_cache_size != 0;
   q->perf_score = 100;
 

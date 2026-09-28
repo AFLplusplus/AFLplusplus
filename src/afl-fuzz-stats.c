@@ -456,7 +456,8 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
   u64 runtime_ms = afl->prev_run_time + cur_time - afl->start_time;
   u64 overhead_ms =
       (afl->calibration_time_us + afl->sync_time_us + afl->trim_time_us +
-       afl->cmplog_time_us + afl->table_time_us) /
+       afl->cmplog_time_us + afl->table_time_us +
+       (afl->bas ? afl->bas->rescore_us : 0)) /
       1000;
   if (unlikely(!runtime_ms)) { runtime_ms = 1; }
 
@@ -573,6 +574,17 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       afl->orig_cmdline);
 
   fprintf(f, "starved_count     : %llu\n", afl->starved_count);
+
+  if (unlikely(afl->bas)) {
+
+    fprintf(f,
+            "basfuzz_rescores  : %llu\n"
+            "basfuzz_time      : %llu\n"
+            "basfuzz_mem_kb    : %llu\n",
+            afl->bas->rescores, afl->bas->rescore_us / 1000000,
+            bas_mem_bytes(afl->bas) >> 10);
+
+  }
 
   if (unlikely(afl->afl_env.afl_starved_minimize_queue)) {
 
