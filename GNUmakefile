@@ -367,9 +367,11 @@ endif
 	@echo
 
 .PHONY: llvm
-llvm:
+llvm: afl-showmap
 	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
 	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
+
+afl-cc: llvm
 
 llvm-build-test:
 	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
