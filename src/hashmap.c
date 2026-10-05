@@ -102,7 +102,7 @@ bool hashmap_search_and_add_ptr(uint8_t type, u8 *key) {
 
   if (unlikely(type >= 8)) return false;
   uint64_t key_t = 0;
-  memcpy(((char *)key_t) + (7 - type), key, type + 1);
+  memcpy(((char *)&key_t) + (7 - type), key, type + 1);
   return hashmap_search_and_add(type, key_t);
 
 }
