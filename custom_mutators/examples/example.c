@@ -201,9 +201,9 @@ int32_t afl_custom_init_trim(my_mutator_t *data, uint8_t *buf,
  * arguments because we already have the initial buffer from init_trim and we
  * can memorize the current state in *data. This can also save
  * reparsing steps for each iteration. It should return the trimmed input
- * buffer, where the returned data must not exceed the initial input data in
- * length. Returning anything that is larger than the original data (passed
- * to init_trim) will result in a fatal abort of AFLFuzz.
+ * buffer. The returned data may be larger than the original input in some
+ * cases, such as when a grammar mutator reduces a grammar structure without
+ * reducing the resulting binary representation.
  *
  * (Optional)
  *
