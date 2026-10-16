@@ -1267,10 +1267,9 @@ struct custom_mutator {
    * This method is called for each trimming operation. It doesn't have any
    * arguments because we already have the initial buffer from init_trim and we
    * can memorize the current state in global variables. This can also save
-   * reparsing steps for each iteration. It should return the trimmed input
-   * buffer, where the returned data must not exceed the initial input data in
-   * length. Returning anything that is larger than the original data (passed
-   * to init_trim) will result in a fatal abort of AFLFuzz.
+   * reparsing steps for each iteration. It should return a candidate input
+   * buffer. The candidate may be larger than the initial input passed to
+   * init_trim; AFL++ still tests it and accepts it if the trimming checks pass.
    *
    * (Optional)
    *
