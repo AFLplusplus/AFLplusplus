@@ -86,6 +86,15 @@ fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
 
   */
 
+  /* Account for initialization only when starting a new persistent child. */
+  if (unlikely(fsrv->persistent_mode && fsrv->child_pid <= 0 &&
+               fsrv->child_init_tmout)) {
+
+    u32 cap = afl->exec_tmout_ceil ? afl->exec_tmout_ceil : EXEC_TIMEOUT;
+    timeout = MAX(timeout, MIN((u64)timeout + fsrv->child_init_tmout, cap));
+
+  }
+
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
 #ifdef __AFL_CODE_COVERAGE
@@ -379,7 +388,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   u8 fault = 0, new_bits = 0, var_detected = 0, new_var = 0, hnb = 0,
      first_run = (q->exec_cksum == 0);
-  u64 start_us, stop_us, diff_us;
+  u64 start_us, stop_us, diff_us, child_us = 0;
   s32 old_sc = afl->stage_cur, old_sm = afl->stage_max;
   u32 use_tmout = afl->fsrv.exec_tmout;
   u8 *old_sn = afl->stage_name;
@@ -493,7 +502,31 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     (void)write_to_testcase(afl, (void **)&use_mem, q->len, 1);
 
+    u8 measure_startup = afl->fsrv.persistent_mode &&
+                         !afl->fsrv.child_init_tmout && afl->timeout_given != 1;
+    u8  new_child = afl->fsrv.child_pid <= 0;
+    u64 exec_start_us = measure_startup ? get_cur_time_us() : 0;
+
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
+
+    if (unlikely(measure_startup && fault == FSRV_RUN_OK)) {
+
+      u64 exec_us = get_cur_time_us() - exec_start_us;
+      if (new_child) {
+
+        child_us = exec_us;
+
+      } else if (child_us > exec_us) {
+
+        /* Compare the same seed in a new child and a resumed iteration. */
+        u64 init_ms = (child_us - exec_us + 999) / 1000;
+        afl->fsrv.child_init_tmout =
+            MIN(use_tmout,
+                MAX(init_ms + CAL_TMOUT_ADD, init_ms * CAL_TMOUT_PERC / 100));
+
+      }
+
+    }
 
     // update the time spend in calibration after each execution, as those may
     // be slow

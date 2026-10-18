@@ -153,6 +153,13 @@ the impact of memory leaks and similar glitches; 1000 is a good starting point,
 and going much higher increases the likelihood of hiccups without giving you any
 real performance benefits.
 
+When choosing a timeout automatically, AFL++ compares a new child's first run
+with a resumed iteration during calibration. New children get extra time for
+initialization before the persistent loop, within the automatic timeout ceiling;
+resumed iterations keep the normal execution timeout.
+This startup allowance is preserved when resuming a session. A fixed `-t` value
+still applies to every execution.
+
 A more detailed template is shown in
 [utils/persistent_mode](../utils/persistent_mode). Similarly to the deferred
 initialization, the feature works only with afl-clang-fast; `#ifdef` guards can

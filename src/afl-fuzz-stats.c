@@ -503,6 +503,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       "last_edge_execs   : %llu\n"
       "last_edge_find    : %llu\n"
       "exec_timeout      : %u\n"
+      "child_init_tmout  : %u\n"
       "slowest_exec_ms   : %u\n"
       "peak_rss_mb       : %lu\n"
       "cpu_affinity      : %d\n"
@@ -543,7 +544,7 @@ void write_stats_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
       afl->last_find_time / 1000, afl->last_crash_time / 1000,
       afl->last_hang_time / 1000, afl->fsrv.total_execs - afl->last_crash_execs,
       afl->last_edge_execs, (unsigned long long)(afl->last_edge_time / 1000),
-      afl->fsrv.exec_tmout, afl->slowest_exec_ms,
+      afl->fsrv.exec_tmout, afl->fsrv.child_init_tmout, afl->slowest_exec_ms,
 #ifndef __HAIKU__
       (unsigned long int)afl->peak_rss_mb,
 #else

@@ -2667,7 +2667,7 @@ void afl_setup_environment(afl_state_t *afl) {
 
   pivot_inputs(afl);
 
-  if (!afl->timeout_given) { find_timeout(afl); }  // only for resumes!
+  if (afl->timeout_given != 1) { find_timeout(afl); }  // only for resumes!
 
   if (afl->afl_env.afl_tmpdir && !afl->in_place_resume) {
 

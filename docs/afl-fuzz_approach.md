@@ -517,6 +517,8 @@ directory. This includes:
 - `last_edge_execs`   - number of total executions performed when the last new edge was found
 - `last_edge_find`    - seconds since the last edge was found
 - `exec_timeout`      - the -t command line value
+- `child_init_tmout`  - extra timeout for a new persistent child, in ms; zero when
+  no startup allowance was learned during calibration
 - `slowest_exec_ms`   - exec time of the slowest test case, measured during calibration, in ms
 - `peak_rss_mb`       - max rss usage reached during fuzzing in MB
 - `cpu_affinity`      - CPU core the fuzzer is bound to, or -1 if not bound
