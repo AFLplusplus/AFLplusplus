@@ -18,6 +18,8 @@
 
      https://www.apache.org/licenses/LICENSE-2.0
 
+   SPDX-License-Identifier: Apache-2.0
+
    Value profiling provides an additional gradient signal by tracking
    how close comparison operands are to matching. It considers inputs
    that bring operands closer as "interesting".

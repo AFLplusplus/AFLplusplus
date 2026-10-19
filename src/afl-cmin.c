@@ -627,8 +627,8 @@ void get_binary_hash_local(cmin_file_t *f, int dirfd) {
 
   if (st.st_size >= UINT32_MAX) {
 
-    WARNF("File '%s/%s' is too large (%ld bytes), skipping.", f->dir, f->name,
-          st.st_size);
+    WARNF("File '%s/%s' is too large (%lu bytes), skipping.", f->dir, f->name,
+          (unsigned long)st.st_size);
     close(fd);
     f->size = 0;
     memset(f->sha1, 0, SHA1_SIZE);

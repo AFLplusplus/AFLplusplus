@@ -3,6 +3,16 @@
   This is the list of all noteworthy changes made in every public
   release of the tool. See README.md for the general instruction manual.
 
+### Version ++5.04a (dev)
+  - afl-fuzz
+    - frameshift timeout fix (fixes spurious timeouts that can occur, especially
+      with persistent loop counts of 1
+  - afl-cc
+    - a plain `-fcf-protection` (part of the default hardened CFLAGS on
+      Fedora/RHEL) was mistaken for `AFL_USE_CFISAN` and injected `-flto`,
+      which silently disabled PCGUARD instrumentation for the target
+
+
 ### Version ++5.03c (release)
   ! Value Profile implementation for AFL++ by Khaled Yakdan (@kyakdan) that
     is much more efficient and intelligent than the libfuzzer implementation.
@@ -147,7 +157,7 @@
 ### Version ++5.01c (release)
   - MacOS persistent mode now uses futex mode now too which increases speed
     and reduces system call overhead (opt out with AFL_FAST_CHILD_SYNC) - this
-    requires a MacOS from 2024 onwards.
+    requires a MacOS from 2024 onwards (Sonoma 14.4+).
   - afl-fuzz
     - new adaptive MOpt! Much better than the outdated one we still had.
       How good it is still needs to be seen but initially it seems to be

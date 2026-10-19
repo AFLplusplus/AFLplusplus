@@ -28,7 +28,7 @@
 /* Version string: */
 
 // c = release, a = volatile github dev, e = experimental branch
-#define VERSION "++5.03c"
+#define VERSION "++5.04a"
 
 /* Which flavour of shared memory the tools and the target agree on. USEMMAP
    selects POSIX shared memory (shm_open/mmap), otherwise SysV segments are
