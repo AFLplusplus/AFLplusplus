@@ -2088,6 +2088,15 @@ void find_timeout(afl_state_t *afl) {
   (void)i;                                                 /* Ignore errors */
   close(fd);
 
+  off = strstr(tmp, "child_init_tmout  : ");
+  if (off && afl->fsrv.persistent_mode) {
+
+    afl->fsrv.child_init_tmout = strtoul(off + 20, NULL, 10);
+
+  }
+
+  if (afl->timeout_given) { return; }
+
   off = strstr(tmp, "exec_timeout      : ");
   if (!off) { return; }
 
