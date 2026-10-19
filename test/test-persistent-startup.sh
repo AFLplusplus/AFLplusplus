@@ -145,6 +145,25 @@ run_case() {
   echo "[+] PASS: $name ($scenario, $children children, $timeout/$startup ms)"
 }
 
+run_legacy_resume() {
+  name=$1
+  mode=$2
+
+  run_case "$name" slow "$TMP/in" auto
+  stats="$TMP/$name/default/fuzzer_stats"
+  awk '$1 != "child_init_tmout"' "$stats" > "$TMP/old_stats"
+  mv "$TMP/old_stats" "$stats"
+
+  if [ "$mode" = fast ]; then
+    export AFL_FORCE_FASTRESUME=1
+  else
+    export AFL_NO_FASTRESUME=1
+  fi
+
+  run_case "$name" slow - auto
+  unset AFL_FORCE_FASTRESUME AFL_NO_FASTRESUME
+}
+
 for sync in default pipe; do
   unset AFL_OLD_CHILD_SYNC
   if [ "$sync" = pipe ]; then export AFL_OLD_CHILD_SYNC=1; fi
@@ -158,4 +177,6 @@ for sync in default pipe; do
   run_case "$sync-limit" limit "$TMP/in" auto -t 400+
   run_case "$sync-hang" hang "$TMP/in" auto
   run_case "$sync-crash" crash "$TMP/in" auto
+  run_legacy_resume "$sync-legacy-fast" fast
+  run_legacy_resume "$sync-legacy-normal" normal
 done

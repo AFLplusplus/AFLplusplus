@@ -391,6 +391,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
   u64 start_us, stop_us, diff_us, child_us = 0;
   s32 old_sc = afl->stage_cur, old_sm = afl->stage_max;
   u32 use_tmout = afl->fsrv.exec_tmout;
+  u32 child_tmout = use_tmout;
   u8 *old_sn = afl->stage_name;
 
   u64 calibration_start_us = get_cur_time_us();
@@ -507,7 +508,16 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     u8  new_child = afl->fsrv.child_pid <= 0;
     u64 exec_start_us = measure_startup ? get_cur_time_us() : 0;
 
-    fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
+    u32 run_tmout = use_tmout;
+    if (measure_startup && new_child && afl->resuming_fuzz) {
+
+      u32 cap = afl->exec_tmout_ceil ? afl->exec_tmout_ceil : EXEC_TIMEOUT;
+      run_tmout = MAX(run_tmout, cap);
+
+    }
+
+    if (measure_startup && new_child) { child_tmout = run_tmout; }
+    fault = fuzz_run_target(afl, &afl->fsrv, run_tmout);
 
     if (unlikely(measure_startup && fault == FSRV_RUN_OK)) {
 
@@ -521,7 +531,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
         /* Compare the same seed in a new child and a resumed iteration. */
         u64 init_ms = (child_us - exec_us + 999) / 1000;
         afl->fsrv.child_init_tmout =
-            MIN(use_tmout,
+            MIN(child_tmout,
                 MAX(init_ms + CAL_TMOUT_ADD, init_ms * CAL_TMOUT_PERC / 100));
 
       }

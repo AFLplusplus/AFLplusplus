@@ -3246,6 +3246,56 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
 }
 
+static void measure_resume_child_init(afl_state_t *afl) {
+
+  if (!afl->fsrv.persistent_mode || afl->fsrv.child_init_tmout ||
+      afl->timeout_given == 1 || afl->afl_env.afl_no_startup_calibration) {
+
+    return;
+
+  }
+
+  for (u32 i = 0; i < afl->queued_items; ++i) {
+
+    struct queue_entry *q = afl->queue_buf[i];
+    if (q->disabled) { continue; }
+
+    u8 *mem = queue_testcase_get(afl, q);
+    u8  saved_keep_original = afl->afl_env.afl_post_process_keep_original;
+    afl->afl_env.afl_post_process_keep_original = 1;
+
+    u32 cap = afl->exec_tmout_ceil ? afl->exec_tmout_ceil : EXEC_TIMEOUT;
+    u32 cold_tmout = MAX(afl->fsrv.exec_tmout, cap);
+    (void)write_to_testcase(afl, (void **)&mem, q->len, 1);
+    u64 cold_start_us = get_cur_time_us();
+    u8  fault = fuzz_run_target(afl, &afl->fsrv, cold_tmout);
+    u64 cold_us = get_cur_time_us() - cold_start_us;
+
+    if (fault == FSRV_RUN_OK && afl->fsrv.child_pid > 0 && !afl->stop_soon) {
+
+      (void)write_to_testcase(afl, (void **)&mem, q->len, 1);
+      u64 warm_start_us = get_cur_time_us();
+      fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+      u64 warm_us = get_cur_time_us() - warm_start_us;
+
+      if (fault == FSRV_RUN_OK && cold_us > warm_us) {
+
+        u64 init_ms = (cold_us - warm_us + 999) / 1000;
+        afl->fsrv.child_init_tmout =
+            MIN(cold_tmout, MAX(init_ms + CAL_TMOUT_ADD,
+                                init_ms * CAL_TMOUT_PERC / 100));
+
+      }
+
+    }
+
+    afl->afl_env.afl_post_process_keep_original = saved_keep_original;
+    break;
+
+  }
+
+}
+
 void afl_load_seeds(afl_state_t *afl) {
 
   if (unlikely(afl->fast_resume)) {
@@ -3505,6 +3555,8 @@ void afl_load_seeds(afl_state_t *afl) {
       afl->fsrv.shmem_fuzz = NULL;
 
     }
+
+    measure_resume_child_init(afl);
 
   } else {
 
