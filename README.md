@@ -23,9 +23,10 @@ AFL++ is a superior fork to Google's AFL - more speed, more and better
 mutations, more and better instrumentation, custom module support, etc.
 
 AFL++ is licensed under the **AGPL-3.0-or-later**, and it also contains files under the Apache-2.0 License.
-**Everything compiled into a fuzzing harness is and will stay Apache 2.0 licensed.**
-Each file states its own license in its `SPDX-License-Identifier` header — that
-is the license you must follow for that file.
+The instrumentation runtime included in fuzzing targets contains files under
+Apache-2.0, as stated by their SPDX identifiers. This does not change AFL++'s
+own AGPL-3.0-or-later license: the combined `afl-fuzz` program includes
+AGPL-licensed files. Always follow each file's `SPDX-License-Identifier`.
 An optional **commercial license** is available for organizations that
 cannot use the AGPL (obtained by donating to a good cause — the project and its
 maintainers receive no money).
