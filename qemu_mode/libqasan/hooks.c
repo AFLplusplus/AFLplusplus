@@ -209,7 +209,7 @@ char *fgets(char *s, int size, FILE *stream) {
 
   QASAN_DEBUG("%14p: fgets(%p, %d, %p)\n", rtv, s, size, stream);
   QASAN_STORE(s, size);
-#ifndef __ANDROID__
+#if defined(QASAN_HAVE_COMPLETE_FILE) && !defined(__ANDROID__)
   QASAN_LOAD(stream, sizeof(FILE));
 #endif
   char *r = __lq_libc_fgets(s, size, stream);
