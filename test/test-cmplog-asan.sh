@@ -5,9 +5,9 @@
 # __asan_region_is_poisoned(ptr, len) does not see a poisoned byte at the end
 # of a partial 8-byte granule when the next granule is addressable. The hooks
 # validate a 32-byte window with it and then read a shorter range that ends on
-# that byte. If they read it with memcpy(), the ASan interceptor aborts
-# ("unknown-crash"), although the memory is mapped. In a real target this kills
-# the CmpLog forkserver at startup.
+# that byte. If they read it with memcpy() or strnlen(), the ASan interceptor
+# aborts ("unknown-crash"), although the memory is mapped. In a real target
+# this kills the CmpLog forkserver at startup.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 AFL_DIR="$SCRIPT_DIR/.."
@@ -34,11 +34,13 @@ cat > "$TEMP_DIR/cmplog-asan.c" << 'EOF'
 
 extern struct cmp_map *__afl_cmp_map;
 void                   __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2);
+void                   __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2);
 
 static struct cmp_map cmp_map;
 
 /* Byte 31 of each buffer is poisoned, bytes 28..30 and 32.. are addressable. */
 static char buf_rtn[64] __attribute__((aligned(8)));
+static char buf_str[64] __attribute__((aligned(8)));
 
 static int has_operand(const struct cmp_map *cmp_map, const char *value,
                        u32 v0_len) {
@@ -75,6 +77,9 @@ int main(void) {
   ASAN_POISON_MEMORY_REGION(buf_rtn + 31, 1);
   if (__asan_region_is_poisoned(buf_rtn + 28, 32)) return 2;
   if (!__asan_region_is_poisoned(buf_rtn + 28, 4)) return 2;
+  memset(buf_str, 'A', sizeof(buf_str));
+  buf_str[31] = 0;
+  ASAN_POISON_MEMORY_REGION(buf_str + 31, 1);
 
   /* Only 4 bytes are readable before a PROT_NONE page, so the generic hook
      copies 4 bytes of the other operand: bytes 28..31. */
@@ -89,6 +94,10 @@ int main(void) {
 
   __cmplog_rtn_hook((u8 *)buf_rtn + 28, (u8 *)tail);
   if (!has_operand(&cmp_map, "AAAZ", 4)) return 4;
+
+  /* The string hook stops at the NUL in byte 31: "AAA" plus NUL. */
+  __cmplog_rtn_hook_str((u8 *)buf_str + 28, (u8 *)"AAB");
+  if (!has_operand(&cmp_map, "AAA", 0x80 + 4)) return 5;
   return 0;
 
 }

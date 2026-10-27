@@ -231,6 +231,20 @@ static FORCEINLINE NOASAN void memcpy_noasan(void *dst, const void *src,
 
 }
 
+static FORCEINLINE NOASAN size_t strnlen_noasan(const void *str, size_t n) {
+
+  const volatile u8 *s = (const volatile u8 *)str;
+  size_t             len = 0;
+  while (len < n && s[len]) {
+
+    ++len;
+
+  }
+
+  return len;
+
+}
+
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
@@ -5079,7 +5093,7 @@ static inline u32 cmplog_string_len(u8 *ptr, u32 cap, u8 *attr) {
   int valid = cmplog_area_is_valid(ptr, cap, attr);
   if (valid <= 0) { return 0; }
   cap = (u32)valid;
-  return cmplog_string_len_with_nul((u32)strnlen((char *)ptr, cap), cap);
+  return cmplog_string_len_with_nul((u32)strnlen_noasan(ptr, cap), cap);
 
 }
 
