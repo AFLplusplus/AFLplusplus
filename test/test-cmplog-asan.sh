@@ -1,6 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Regression test: the CmpLog routine hooks must not trigger an ASan report.
+# Regression test: the CmpLog and value-profile routine hooks must not trigger
+# an ASan report.
 #
 # __asan_region_is_poisoned(ptr, len) does not see a poisoned byte at the end
 # of a partial 8-byte granule when the next granule is addressable. The hooks
@@ -27,20 +28,28 @@ cat > "$TEMP_DIR/cmplog-asan.c" << 'EOF'
 #include <unistd.h>
 
 #include "cmplog.h"
+#include "value-profile.h"
 
 #ifndef MAP_ANONYMOUS
   #define MAP_ANONYMOUS MAP_ANON
 #endif
 
 extern struct cmp_map *__afl_cmp_map;
+extern vp_map_t       *__afl_vp_map;
 void                   __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2);
 void                   __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2);
+void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2, u64 site_token);
+void __valueprofile_rtn_hook_sub(u8 *hay, u8 *needle, u64 site_token);
 
 static struct cmp_map cmp_map;
+static vp_map_t       vp_map;
 
 /* Byte 31 of each buffer is poisoned, bytes 28..30 and 32.. are addressable. */
 static char buf_rtn[64] __attribute__((aligned(8)));
 static char buf_str[64] __attribute__((aligned(8)));
+/* Value profile checks 32 bytes of both operands, so no short literals. */
+static char vp_str[64] = "AAB";
+static char vp_sub[64] = "AA";
 
 static int has_operand(const struct cmp_map *cmp_map, const char *value,
                        u32 v0_len) {
@@ -98,6 +107,13 @@ int main(void) {
   /* The string hook stops at the NUL in byte 31: "AAA" plus NUL. */
   __cmplog_rtn_hook_str((u8 *)buf_str + 28, (u8 *)"AAB");
   if (!has_operand(&cmp_map, "AAA", 0x80 + 4)) return 5;
+
+  /* The value-profile string hooks measure the same operand with strnlen. */
+  vp_map.enabled = 1;
+  vp_map.exec_id = 1;
+  __afl_vp_map = &vp_map;
+  __valueprofile_rtn_hook_str((u8 *)buf_str + 28, (u8 *)vp_str, 1);
+  __valueprofile_rtn_hook_sub((u8 *)buf_str + 28, (u8 *)vp_sub, 1);
   return 0;
 
 }

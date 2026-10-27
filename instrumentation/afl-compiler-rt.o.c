@@ -5308,8 +5308,8 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
   if (cap < 2) return;
-  u32 n1 = (u32)strnlen((char *)ptr1, cap);
-  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 n1 = (u32)strnlen_noasan(ptr1, cap);
+  u32 n2 = (u32)strnlen_noasan(ptr2, cap);
   u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
   if (max_len < 2) return;
   vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, VP_RTN_STOP_AT_ZERO);
@@ -5343,8 +5343,8 @@ void __valueprofile_rtn_hook_str_ci(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
   if (cap < 2) return;
-  u32 n1 = (u32)strnlen((char *)ptr1, cap);
-  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 n1 = (u32)strnlen_noasan(ptr1, cap);
+  u32 n2 = (u32)strnlen_noasan(ptr2, cap);
   u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
   if (max_len < 2) return;
   vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len,
@@ -5414,8 +5414,8 @@ void __valueprofile_rtn_hook_sub(u8 *hay, u8 *needle, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(hay, needle, 32);
   if (cap < 2) return;
-  u32 hay_len = (u32)strnlen((char *)hay, cap);
-  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  u32 hay_len = (u32)strnlen_noasan(hay, cap);
+  u32 needle_len = (u32)strnlen_noasan(needle, cap);
   if (needle_len < 1 || hay_len < needle_len) return;
   vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len, 0);
 
@@ -5427,8 +5427,8 @@ void __valueprofile_rtn_hook_sub_ci(u8 *hay, u8 *needle, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(hay, needle, 32);
   if (cap < 2) return;
-  u32 hay_len = (u32)strnlen((char *)hay, cap);
-  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  u32 hay_len = (u32)strnlen_noasan(hay, cap);
+  u32 needle_len = (u32)strnlen_noasan(needle, cap);
   if (needle_len < 1 || hay_len < needle_len) return;
   vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len,
                         VP_RTN_FOLD_CASE);
@@ -5460,10 +5460,9 @@ static inline void vp_rtn_sub_hn(u8 *hay, u64 hay_len, u8 *needle,
      also stop at a nul inside a bounded haystack, so truncate there either
      way - otherwise a match found past the nul reports a solved constraint
      for a call that returns NULL. */
-  u32 hay_len_real = (u32)strnlen(
-      (char *)hay,
-      (s64)hay_len < 0 ? (size_t)cap : (size_t)MIN(hay_len, (u64)cap));
-  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  u32 hay_len_real = (u32)strnlen_noasan(
+      hay, (s64)hay_len < 0 ? (size_t)cap : (size_t)MIN(hay_len, (u64)cap));
+  u32 needle_len = (u32)strnlen_noasan(needle, cap);
   if (needle_len < 1 || hay_len_real < needle_len) return;
   vp_runtime_record_sub(site_token, hay, hay_len_real, needle, needle_len,
                         flags);
