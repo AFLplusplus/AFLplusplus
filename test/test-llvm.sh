@@ -336,6 +336,15 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       CODE=1
     }
   }
+  # Test cmplog routine hooks do not trip ASan on partially poisoned granules
+  test -e test-cmplog-asan.sh && {
+    ./test-cmplog-asan.sh > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] cmplog routines ASan test passed"
+    } || {
+      $ECHO "$RED[!] cmplog routines ASan test failed"
+      CODE=1
+    }
+  }
   # Test cmplog instructions pass with non-standard integer sizes (issue #2704)
   test -e test-cmplog-bitint.sh && {
     ./test-cmplog-bitint.sh > /dev/null 2>&1 && {

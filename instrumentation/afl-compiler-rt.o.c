@@ -215,6 +215,22 @@ static FORCEINLINE NOASAN void *memset_noasan(void *dst, int c, size_t n) {
 
 }
 
+/* Read target operands in the hooks without libc: the ASan interceptors abort
+   on poisoned bytes that __asan_region_is_poisoned() can miss. volatile stops
+   the compiler from turning a loop back into a libc call. */
+static FORCEINLINE NOASAN void memcpy_noasan(void *dst, const void *src,
+                                             size_t n) {
+
+  u8                *d = (u8 *)dst;
+  const volatile u8 *s = (const volatile u8 *)src;
+  while (n--) {
+
+    *d++ = *s++;
+
+  }
+
+}
+
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
@@ -5087,8 +5103,8 @@ static inline void cmplog_rtn_store(u64 site, u8 *ptr1, u32 len1, u8 *ptr2,
   cmpfn[slot].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
   cmpfn[slot].occurrence = occurrence;
   cmpfn[slot].unused = semantic_len;
-  __builtin_memcpy(cmpfn[slot].v0, ptr1, len1);
-  __builtin_memcpy(cmpfn[slot].v1, ptr2, len2);
+  memcpy_noasan(cmpfn[slot].v0, ptr1, len1);
+  memcpy_noasan(cmpfn[slot].v1, ptr2, len2);
 
 }
 
