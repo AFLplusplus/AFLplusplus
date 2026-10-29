@@ -3644,6 +3644,18 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   */
 
+  /* The CmpLog binary is often the target itself (e.g. -c 0). Scanning the
+     same file again gives the same result, so skip it. */
+  static dev_t checked_dev;
+  static ino_t checked_ino;
+  static u8    checked;
+
+  if (checked && st.st_dev == checked_dev && st.st_ino == checked_ino) {
+
+    return;
+
+  }
+
   fd = open(afl->fsrv.target_path, O_RDONLY);
 
   if (fd < 0) { PFATAL("Unable to open '%s'", afl->fsrv.target_path); }
@@ -3844,6 +3856,10 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
+
+  checked_dev = st.st_dev;
+  checked_ino = st.st_ino;
+  checked = 1;
 
 }
 
