@@ -65,18 +65,23 @@ void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
                  size_t needlelen) {
 
   if (unlikely(needlelen > haystacklen)) { return NULL; }
+  if (unlikely(needlelen == 0)) { return (void *)haystack; }
 
-  for (size_t i = 0; i <= haystacklen - needlelen; ++i) {
+  /* memchr() jumps to the next candidate for the first needle byte */
+  const u8 *h = haystack;
+  const u8 *n = needle;
+  const u8 *last = h + (haystacklen - needlelen);
 
-    if (unlikely(memcmp(haystack + i, needle, needlelen) == 0)) {
+  while (h <= last) {
 
-      return (void *)(haystack + i);
-
-    }
+    h = memchr(h, n[0], (size_t)(last - h) + 1);
+    if (!h) { return NULL; }
+    if (memcmp(h + 1, n + 1, needlelen - 1) == 0) { return (void *)h; }
+    ++h;
 
   }
 
-  return (void *)NULL;
+  return NULL;
 
 }
 
