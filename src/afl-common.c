@@ -66,7 +66,7 @@ void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
 
   if (unlikely(needlelen > haystacklen)) { return NULL; }
 
-  for (u32 i = 0; i <= haystacklen - needlelen; ++i) {
+  for (size_t i = 0; i <= haystacklen - needlelen; ++i) {
 
     if (unlikely(memcmp(haystack + i, needle, needlelen) == 0)) {
 
@@ -223,8 +223,8 @@ u32 check_binary_signatures(u8 *fn) {
   if (fd < 0) { PFATAL("Unable to open '%s'", fn); }
   struct stat st;
   if (fstat(fd, &st) < 0) { PFATAL("Unable to fstat '%s'", fn); }
-  u32 f_len = st.st_size;
-  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
+  size_t f_len = st.st_size;
+  u8    *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
   if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
   close(fd);
 

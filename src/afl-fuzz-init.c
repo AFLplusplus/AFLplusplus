@@ -3524,9 +3524,9 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   u8         *env_path = 0;
   struct stat st;
 
-  s32 fd;
-  u8 *f_data;
-  u32 f_len = 0;
+  s32    fd;
+  u8    *f_data;
+  size_t f_len = 0;
 
   ACTF("Validating target binary...");
 
