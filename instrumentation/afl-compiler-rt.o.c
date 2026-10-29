@@ -4547,12 +4547,16 @@ static void __afl_drain_dummy_fd(void) {
 
 #endif
 
-#ifdef __linux__
+#ifdef AFL_PROBE_PIPE
 /* Write ptr[0..len) to the probe pipe. Drain and retry once if the pipe is
-   full. Keep errno: the hooks run inside target code. */
+   full. Keep errno: the hooks run inside target code. syscall(2) is flagged
+   deprecated on modern macOS, but the BSD numbers in <sys/syscall.h> remain
+   stable, and the raw syscall avoids libc and sanitizer interception. */
 static long __afl_probe_write(void *ptr, size_t len) {
 
-  int  saved_errno = errno;
+  int saved_errno = errno;
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
   if (unlikely(r < 0 && errno == EAGAIN)) {
 
@@ -4561,6 +4565,7 @@ static long __afl_probe_write(void *ptr, size_t len) {
 
   }
 
+  #pragma GCC diagnostic pop
   errno = saved_errno;
   return r;
 
@@ -4602,23 +4607,7 @@ static int area_is_valid(void *ptr, size_t len) {
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
 #elif defined(__OpenBSD__)
   long r = write(__afl_dummy_fd[1], ptr, len);
-#elif defined(__APPLE__) && defined(__MACH__)
-  /* syscall(2) is flagged deprecated on modern macOS, but the BSD numbers
-     in <sys/syscall.h> remain stable and we deliberately want the raw
-     syscall here to avoid libc/sanitizer interception on this hot path. */
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-  if (unlikely(r < 0 && errno == EAGAIN)) {
-
-    /* probe pipe buffer is full; drain it and retry the fault probe once */
-    __afl_drain_dummy_fd();
-    r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-
-  }
-
-  #pragma GCC diagnostic pop
-#elif defined(__linux__)
+#elif defined(AFL_PROBE_PIPE)
   /* A pipe write fails as a whole if any byte faults, so probe up to the page
      end first to find the readable prefix. */
   size_t first = __afl_page_prefix(ptr, len);
@@ -4633,7 +4622,7 @@ static int area_is_valid(void *ptr, size_t len) {
 
 #else
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-#endif  // HAIKU, OPENBSD, APPLE, LINUX
+#endif  // HAIKU, OPENBSD, AFL_PROBE_PIPE (LINUX, APPLE)
 
   if (r <= 0 || (size_t)r > len) return 0;
   return (int)r;
