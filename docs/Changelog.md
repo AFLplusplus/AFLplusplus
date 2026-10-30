@@ -13,6 +13,8 @@
     - a plain `-fcf-protection` (part of the default hardened CFLAGS on
       Fedora/RHEL) was mistaken for `AFL_USE_CFISAN` and injected `-flto`,
       which silently disabled PCGUARD instrumentation for the target
+  - frida_mode:
+    - bump to 17.24.3
 
 
 ### Version ++5.03c (release)

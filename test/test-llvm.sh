@@ -336,6 +336,15 @@ test -e ../afl-clang-fast -a -e ../split-switches-pass.so && {
       CODE=1
     }
   }
+  # Test cmplog routine hooks do not trip ASan on partially poisoned granules
+  test -e test-cmplog-asan.sh && {
+    ./test-cmplog-asan.sh > /dev/null 2>&1 && {
+      $ECHO "$GREEN[+] cmplog routines ASan test passed"
+    } || {
+      $ECHO "$RED[!] cmplog routines ASan test failed"
+      CODE=1
+    }
+  }
   # Test the cmplog readability probe (pipe sink, errno, readable prefix)
   test -e test-cmplog-probe.sh && {
     test "$OS" = "Linux" && {
