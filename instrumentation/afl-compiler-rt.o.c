@@ -215,6 +215,36 @@ static FORCEINLINE NOASAN void *memset_noasan(void *dst, int c, size_t n) {
 
 }
 
+/* Read target operands in the hooks without libc: the ASan interceptors abort
+   on poisoned bytes that __asan_region_is_poisoned() can miss. volatile stops
+   the compiler from turning a loop back into a libc call. */
+static FORCEINLINE NOASAN void memcpy_noasan(void *dst, const void *src,
+                                             size_t n) {
+
+  u8                *d = (u8 *)dst;
+  const volatile u8 *s = (const volatile u8 *)src;
+  while (n--) {
+
+    *d++ = *s++;
+
+  }
+
+}
+
+static FORCEINLINE NOASAN size_t strnlen_noasan(const void *str, size_t n) {
+
+  const volatile u8 *s = (const volatile u8 *)str;
+  size_t             len = 0;
+  while (len < n && s[len]) {
+
+    ++len;
+
+  }
+
+  return len;
+
+}
+
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
@@ -5063,7 +5093,7 @@ static inline u32 cmplog_string_len(u8 *ptr, u32 cap, u8 *attr) {
   int valid = cmplog_area_is_valid(ptr, cap, attr);
   if (valid <= 0) { return 0; }
   cap = (u32)valid;
-  return cmplog_string_len_with_nul((u32)strnlen((char *)ptr, cap), cap);
+  return cmplog_string_len_with_nul((u32)strnlen_noasan(ptr, cap), cap);
 
 }
 
@@ -5087,8 +5117,8 @@ static inline void cmplog_rtn_store(u64 site, u8 *ptr1, u32 len1, u8 *ptr2,
   cmpfn[slot].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
   cmpfn[slot].occurrence = occurrence;
   cmpfn[slot].unused = semantic_len;
-  __builtin_memcpy(cmpfn[slot].v0, ptr1, len1);
-  __builtin_memcpy(cmpfn[slot].v1, ptr2, len2);
+  memcpy_noasan(cmpfn[slot].v0, ptr1, len1);
+  memcpy_noasan(cmpfn[slot].v1, ptr2, len2);
 
 }
 
@@ -5278,8 +5308,8 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
   if (cap < 2) return;
-  u32 n1 = (u32)strnlen((char *)ptr1, cap);
-  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 n1 = (u32)strnlen_noasan(ptr1, cap);
+  u32 n2 = (u32)strnlen_noasan(ptr2, cap);
   u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
   if (max_len < 2) return;
   vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, VP_RTN_STOP_AT_ZERO);
@@ -5313,8 +5343,8 @@ void __valueprofile_rtn_hook_str_ci(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
   if (cap < 2) return;
-  u32 n1 = (u32)strnlen((char *)ptr1, cap);
-  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 n1 = (u32)strnlen_noasan(ptr1, cap);
+  u32 n2 = (u32)strnlen_noasan(ptr2, cap);
   u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
   if (max_len < 2) return;
   vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len,
@@ -5384,8 +5414,8 @@ void __valueprofile_rtn_hook_sub(u8 *hay, u8 *needle, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(hay, needle, 32);
   if (cap < 2) return;
-  u32 hay_len = (u32)strnlen((char *)hay, cap);
-  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  u32 hay_len = (u32)strnlen_noasan(hay, cap);
+  u32 needle_len = (u32)strnlen_noasan(needle, cap);
   if (needle_len < 1 || hay_len < needle_len) return;
   vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len, 0);
 
@@ -5397,8 +5427,8 @@ void __valueprofile_rtn_hook_sub_ci(u8 *hay, u8 *needle, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(hay, needle, 32);
   if (cap < 2) return;
-  u32 hay_len = (u32)strnlen((char *)hay, cap);
-  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  u32 hay_len = (u32)strnlen_noasan(hay, cap);
+  u32 needle_len = (u32)strnlen_noasan(needle, cap);
   if (needle_len < 1 || hay_len < needle_len) return;
   vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len,
                         VP_RTN_FOLD_CASE);
@@ -5430,10 +5460,9 @@ static inline void vp_rtn_sub_hn(u8 *hay, u64 hay_len, u8 *needle,
      also stop at a nul inside a bounded haystack, so truncate there either
      way - otherwise a match found past the nul reports a solved constraint
      for a call that returns NULL. */
-  u32 hay_len_real = (u32)strnlen(
-      (char *)hay,
-      (s64)hay_len < 0 ? (size_t)cap : (size_t)MIN(hay_len, (u64)cap));
-  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  u32 hay_len_real = (u32)strnlen_noasan(
+      hay, (s64)hay_len < 0 ? (size_t)cap : (size_t)MIN(hay_len, (u64)cap));
+  u32 needle_len = (u32)strnlen_noasan(needle, cap);
   if (needle_len < 1 || hay_len_real < needle_len) return;
   vp_runtime_record_sub(site_token, hay, hay_len_real, needle, needle_len,
                         flags);
