@@ -1009,6 +1009,9 @@ static void __afl_open_dummy_fd(void) {
 
   if (attempted) { return; }
   attempted = 1;
+  /* A failed pipe() or open() changes errno, and this can run inside target
+     code (lazy initialization from a hook). */
+  int saved_errno = errno;
 
 #ifdef AFL_PROBE_PIPE
   /* On macOS write() to /dev/urandom always returns -1. On Linux it works, but
@@ -1053,6 +1056,8 @@ static void __afl_open_dummy_fd(void) {
   }
 
 #endif
+
+  errno = saved_errno;
 
 }
 
@@ -4536,11 +4541,12 @@ __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
 #ifdef AFL_PROBE_PIPE
 /* Empty the probe pipe (see __afl_open_dummy_fd). Both ends are non-blocking,
    so the read loop stops at EAGAIN once the buffer is drained. The contents
-   are thrown away; the buffer is static to keep the target's stack small. */
+   are thrown away. The buffer is on the stack, so that threads which drain
+   at the same time do not share it. */
 static void __afl_drain_dummy_fd(void) {
 
   if (__afl_dummy_fd[0] < 0) { return; }
-  static u8 buf[4096];
+  u8 buf[1024];
   while (read(__afl_dummy_fd[0], buf, sizeof(buf)) > 0) {}
 
 }

@@ -99,8 +99,13 @@ int main(void) {
   memset(a, 'A', 64);
   memset(b, 'B', 64);
 
-  /* 4000 calls write 256 KiB, much more than a 64 KiB pipe buffer holds. */
-  for (int i = 0; i < 4000; ++i) {
+  /* A Linux pipe holds 16 pages by default, 1 MiB with 64 KiB pages. Each
+     call writes 64 bytes, so these calls write twice that and the pipe must
+     be drained. */
+  long page_size = sysconf(_SC_PAGESIZE);
+  if (page_size <= 0) return 5;
+  size_t calls = (size_t)page_size * 16U * 2U / 64U;
+  for (size_t i = 0; i < calls; ++i) {
 
     __cmplog_rtn_hook(a, b);
 
@@ -113,8 +118,6 @@ int main(void) {
   if (!has_operand(a, 32)) return 4;
 
   /* Only 4 bytes are readable before a PROT_NONE page. */
-  long page_size = sysconf(_SC_PAGESIZE);
-  if (page_size <= 0) return 5;
   u8 *map = mmap(NULL, (size_t)page_size * 2U, PROT_READ | PROT_WRITE,
                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (map == MAP_FAILED) return 5;
