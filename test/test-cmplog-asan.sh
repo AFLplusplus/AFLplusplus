@@ -9,6 +9,8 @@
 # that byte. If they read it with memcpy() or strnlen(), the ASan interceptor
 # aborts ("unknown-crash"), although the memory is mapped. In a real target
 # this kills the CmpLog forkserver at startup.
+#
+# ASan from LLVM 23 on sees that byte. Then the hooks must skip it instead.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 AFL_DIR="$SCRIPT_DIR/.."
@@ -80,18 +82,20 @@ int main(void) {
 
   __afl_cmp_map = &cmp_map;
 
-  /* Operands start at byte 28, so a 32-byte check does not see byte 31. */
+  /* Operands start at byte 28, so a 32-byte check of an affected ASan does
+     not see byte 31. */
   memset(buf_rtn, 'A', sizeof(buf_rtn));
   buf_rtn[31] = 'Z';
   ASAN_POISON_MEMORY_REGION(buf_rtn + 31, 1);
-  if (__asan_region_is_poisoned(buf_rtn + 28, 32)) return 2;
+  int blind = !__asan_region_is_poisoned(buf_rtn + 28, 32);
   if (!__asan_region_is_poisoned(buf_rtn + 28, 4)) return 2;
   memset(buf_str, 'A', sizeof(buf_str));
   buf_str[31] = 0;
   ASAN_POISON_MEMORY_REGION(buf_str + 31, 1);
 
   /* Only 4 bytes are readable before a PROT_NONE page, so the generic hook
-     copies 4 bytes of the other operand: bytes 28..31. */
+     copies 4 bytes of the other operand: bytes 28..31. If ASan sees byte 31,
+     the hook skips the operands. */
   long page_size = sysconf(_SC_PAGESIZE);
   if (page_size <= 0) return 3;
   char *map = mmap(NULL, (size_t)page_size * 2U, PROT_READ | PROT_WRITE,
@@ -102,11 +106,12 @@ int main(void) {
   memcpy(tail, "BBBB", 4);
 
   __cmplog_rtn_hook((u8 *)buf_rtn + 28, (u8 *)tail);
-  if (!has_operand(&cmp_map, "AAAZ", 4)) return 4;
+  if (has_operand(&cmp_map, "AAAZ", 4) != blind) return 4;
 
-  /* The string hook stops at the NUL in byte 31: "AAA" plus NUL. */
+  /* The string hook stops at the NUL in byte 31: "AAA" plus NUL, or before
+     byte 31 if ASan sees it: "AAA" without NUL. */
   __cmplog_rtn_hook_str((u8 *)buf_str + 28, (u8 *)"AAB");
-  if (!has_operand(&cmp_map, "AAA", 0x80 + 4)) return 5;
+  if (!has_operand(&cmp_map, "AAA", 0x80 + (blind ? 4 : 3))) return 5;
 
   /* The value-profile string hooks measure the same operand with strnlen. */
   vp_map.enabled = 1;
