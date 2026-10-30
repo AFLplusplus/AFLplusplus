@@ -126,6 +126,10 @@ static inline void afl_sync_wake(void *uaddr) {
   #include <sys/uio.h>
   #define AFL_HAVE_RAW_WRITEV 1
 #endif
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+  /* The readability probes write to a pipe (see __afl_open_dummy_fd). */
+  #define AFL_PROBE_PIPE 1
+#endif
 #ifndef USEMMAP
   #include <sys/shm.h>
 #endif
@@ -1024,29 +1028,35 @@ static void __afl_bug_bind_map(void) {
    work: the kernel never reads the source buffer, so the probe would report
    unmapped memory as valid - which is also why there is no fallback to the
    target's own stdout or stderr, whose sink the target does not control and
-   which afl-fuzz points at /dev/null. The pipe fallback is set non-blocking
-   because nothing ever drains it: once the 64K buffer is full the probes fail
-   closed and stop collecting instead of blocking the target forever. Runs at
-   most once - until it does, the descriptor stays -1 and the probes fail
-   closed. */
+   which afl-fuzz points at /dev/null. On other platforms the pipe fallback is
+   set non-blocking because nothing ever drains it: once the 64K buffer is full
+   the probes fail closed and stop collecting instead of blocking the target
+   forever. Runs at most once - until it does, the descriptor stays -1 and the
+   probes fail closed. */
 static void __afl_open_dummy_fd(void) {
 
   static u8 attempted = 0;
 
   if (attempted) { return; }
   attempted = 1;
+  /* A failed pipe() or open() changes errno, and this can run inside target
+     code (lazy initialization from a hook). */
+  int saved_errno = errno;
 
-#if defined(__APPLE__) && defined(__MACH__)
-  /* The readability probe (area_is_valid) writes the tested bytes to this fd so
-     the kernel faults on unmapped source pages. On macOS neither sink used on
-     other platforms works: write() to /dev/urandom always returns -1, and
-     write() to /dev/null never faults (it reports success for unmapped memory).
-     A pipe faults correctly, so use it directly. Set both ends non-blocking so
-     that once the 64 KiB buffer fills the read end can be drained and the write
-     retried instead of blocking (see area_is_valid / __afl_drain_dummy_fd). */
+#ifdef AFL_PROBE_PIPE
+  /* On macOS write() to /dev/urandom always returns -1. On Linux it works, but
+     the kernel mixes every byte into the entropy pool under a global lock,
+     which is slow and serializes parallel fuzzer instances. A pipe faults
+     correctly and is cheap. Set both ends non-blocking so that once the 64 KiB
+     buffer fills the read end can be drained and the write retried instead of
+     blocking (see __afl_drain_dummy_fd). */
   if (pipe(__afl_dummy_fd) < 0) {
 
     __afl_dummy_fd[0] = __afl_dummy_fd[1] = -1;
+  #ifdef __linux__
+    /* Slower, but it faults correctly. */
+    __afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY);
+  #endif
 
   } else {
 
@@ -1076,6 +1086,8 @@ static void __afl_open_dummy_fd(void) {
   }
 
 #endif
+
+  errno = saved_errno;
 
 }
 
@@ -4556,18 +4568,57 @@ __attribute__((weak_import)) void *__asan_region_is_poisoned(void  *beg,
 __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
 #endif
 
-#if defined(__APPLE__) && defined(__MACH__)
+#ifdef AFL_PROBE_PIPE
 /* Empty the probe pipe (see __afl_open_dummy_fd). Both ends are non-blocking,
-   so the read loop stops at EAGAIN once the buffer is drained. */
+   so the read loop stops at EAGAIN once the buffer is drained. The contents
+   are thrown away. The buffer is on the stack, so that threads which drain
+   at the same time do not share it. */
 static void __afl_drain_dummy_fd(void) {
 
   if (__afl_dummy_fd[0] < 0) { return; }
-  u8 buf[256];
+  u8 buf[1024];
   while (read(__afl_dummy_fd[0], buf, sizeof(buf)) > 0) {}
 
 }
 
 #endif
+
+#ifdef AFL_PROBE_PIPE
+/* Write ptr[0..len) to the probe pipe. Drain and retry once if the pipe is
+   full. Keep errno: the hooks run inside target code. syscall(2) is flagged
+   deprecated on modern macOS, but the BSD numbers in <sys/syscall.h> remain
+   stable, and the raw syscall avoids libc and sanitizer interception. */
+static long __afl_probe_write(void *ptr, size_t len) {
+
+  int saved_errno = errno;
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+  if (unlikely(r < 0 && errno == EAGAIN)) {
+
+    __afl_drain_dummy_fd();
+    r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+
+  }
+
+  #pragma GCC diagnostic pop
+  errno = saved_errno;
+  return r;
+
+}
+
+#endif
+
+/* Number of bytes from ptr to the end of its page, at most len. 0 if the page
+   size is unknown. A fault always starts at a page boundary. */
+static inline size_t __afl_page_prefix(void *ptr, size_t len) {
+
+  long page_size = sysconf(_SC_PAGE_SIZE);
+  if (unlikely(page_size <= 0)) { return 0; }
+  size_t offset = (uintptr_t)ptr & ((size_t)page_size - 1U);
+  return MIN(len, (size_t)page_size - offset);
+
+}
 
 // POSIX shenanigan to see if an area is mapped.
 // If it is mapped as X-only, we have a problem, so maybe we should add a check
@@ -4592,25 +4643,22 @@ static int area_is_valid(void *ptr, size_t len) {
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
 #elif defined(__OpenBSD__)
   long r = write(__afl_dummy_fd[1], ptr, len);
-#elif defined(__APPLE__) && defined(__MACH__)
-  /* syscall(2) is flagged deprecated on modern macOS, but the BSD numbers
-     in <sys/syscall.h> remain stable and we deliberately want the raw
-     syscall here to avoid libc/sanitizer interception on this hot path. */
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-  if (unlikely(r < 0 && errno == EAGAIN)) {
+#elif defined(AFL_PROBE_PIPE)
+  /* A pipe write fails as a whole if any byte faults, so probe up to the page
+     end first to find the readable prefix. */
+  size_t first = __afl_page_prefix(ptr, len);
+  if (unlikely(!first)) { return 0; }
+  long r = __afl_probe_write(ptr, first);
+  if (r == (long)first && first < len) {
 
-    /* probe pipe buffer is full; drain it and retry the fault probe once */
-    __afl_drain_dummy_fd();
-    r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+    long r2 = __afl_probe_write((u8 *)ptr + first, len - first);
+    if (r2 > 0) { r += r2; }
 
   }
 
-  #pragma GCC diagnostic pop
 #else
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-#endif  // HAIKU, OPENBSD, APPLE
+#endif  // HAIKU, OPENBSD, AFL_PROBE_PIPE (LINUX, APPLE)
 
   if (r <= 0 || (size_t)r > len) return 0;
   return (int)r;
@@ -4639,20 +4687,17 @@ static u32 area_pair_valid_len(void *ptr1, void *ptr2, size_t len) {
 
   }
 
-  long page_size = sysconf(_SC_PAGE_SIZE);
-  if (unlikely(page_size <= 0)) return 0;
-
-  size_t page_mask = (size_t)page_size - 1U;
-  size_t len1 = MIN(len, (size_t)page_size - ((uintptr_t)ptr1 & page_mask));
-  size_t len2 = MIN(len, (size_t)page_size - ((uintptr_t)ptr2 & page_mask));
+  size_t len1 = __afl_page_prefix(ptr1, len);
+  size_t len2 = __afl_page_prefix(ptr2, len);
+  if (unlikely(!len1 || !len2)) return 0;
   struct iovec iov[2] = {{ptr1, len1}, {ptr2, len2}};
 
-  #if defined(__APPLE__) && defined(__MACH__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  #endif
+  /* syscall(2) is deprecated on macOS, see area_is_valid. */
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  int  saved_errno = errno;
   long r = syscall(SYS_writev, __afl_dummy_fd[1], iov, 2);
-  #if defined(__APPLE__) && defined(__MACH__)
+  #ifdef AFL_PROBE_PIPE
   if (unlikely(r < 0 && errno == EAGAIN)) {
 
     /* probe pipe buffer is full; drain it and retry the fault probe once */
@@ -4661,8 +4706,9 @@ static u32 area_pair_valid_len(void *ptr1, void *ptr2, size_t len) {
 
   }
 
-    #pragma GCC diagnostic pop
   #endif
+  #pragma GCC diagnostic pop
+  errno = saved_errno;
 
   if (unlikely(r != (long)(len1 + len2))) return 0;
   return (u32)MIN(len1, len2);
