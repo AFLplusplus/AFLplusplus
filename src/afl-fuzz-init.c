@@ -3644,14 +3644,41 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   */
 
+  afl_forkserver_t *fsrv = &afl->fsrv;
+  char             *which = "fuzzing";
+
+  if (fname == (u8 *)afl->cmplog_binary) {
+
+    fsrv = &afl->cmplog_fsrv;
+    which = "CMPLOG";
+
+  } else {
+
+    for (u8 i = 0; i < afl->san_binary_length; i++) {
+
+      if (fname == (u8 *)afl->san_binary[i]) {
+
+        fsrv = &afl->san_fsrvs[i];
+        which = "SAND";
+        break;
+
+      }
+
+    }
+
+  }
+
   /* The CmpLog binary is often the target itself (e.g. -c 0). Scanning the
-     same file again gives the same result, so skip it. */
+     same file again gives the same result, so skip it and reuse its sanitizer
+     flags. */
   static dev_t checked_dev;
   static ino_t checked_ino;
   static u8    checked;
+  static u8    checked_uses_asan;
 
   if (checked && st.st_dev == checked_dev && st.st_ino == checked_ino) {
 
+    fsrv->uses_asan = checked_uses_asan;
     return;
 
   }
@@ -3718,26 +3745,6 @@ void check_binary(afl_state_t *afl, u8 *fname) {
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
       !afl_memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR))) {
 
-    char *which = "fuzzing";
-    if (fname == (u8 *)afl->cmplog_binary) {
-
-      which = "CMPLOG";
-
-    } else {
-
-      for (u8 i = 0; i < afl->san_binary_length; i++) {
-
-        if (fname == (u8 *)afl->san_binary[i]) {
-
-          which = "SAND";
-          break;
-
-        }
-
-      }
-
-    }
-
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the %s target binary is not instrumented!\n"
          "    The fuzzer depends on compile-time instrumentation to isolate "
@@ -3783,25 +3790,13 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   }
 
-  afl->fsrv.uses_asan = 0;
+  fsrv->uses_asan = 0;
 
-  if (afl_memmem(f_data, f_len, "__asan_init", 11)) {
+  if (afl_memmem(f_data, f_len, "__asan_init", 11)) { fsrv->uses_asan |= 1; }
 
-    afl->fsrv.uses_asan |= 1;
+  if (afl_memmem(f_data, f_len, "__lsan_init", 11)) { fsrv->uses_asan |= 2; }
 
-  }
-
-  if (afl_memmem(f_data, f_len, "__lsan_init", 11)) {
-
-    afl->fsrv.uses_asan |= 2;
-
-  }
-
-  if (afl_memmem(f_data, f_len, "__msan_init", 11)) {
-
-    afl->fsrv.uses_asan |= 4;
-
-  }
+  if (afl_memmem(f_data, f_len, "__msan_init", 11)) { fsrv->uses_asan |= 4; }
 
   /* Detect persistent & deferred init signatures in the binary. */
 
@@ -3859,6 +3854,7 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 
   checked_dev = st.st_dev;
   checked_ino = st.st_ino;
+  checked_uses_asan = fsrv->uses_asan;
   checked = 1;
 
 }
