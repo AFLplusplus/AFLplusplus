@@ -3524,9 +3524,9 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   u8         *env_path = 0;
   struct stat st;
 
-  s32 fd;
-  u8 *f_data;
-  u32 f_len = 0;
+  s32    fd;
+  u8    *f_data;
+  size_t f_len = 0;
 
   ACTF("Validating target binary...");
 
@@ -3643,6 +3643,18 @@ void check_binary(afl_state_t *afl, u8 *fname) {
     }
 
   */
+
+  /* The CmpLog binary is often the target itself (e.g. -c 0). Scanning the
+     same file again gives the same result, so skip it. */
+  static dev_t checked_dev;
+  static ino_t checked_ino;
+  static u8    checked;
+
+  if (checked && st.st_dev == checked_dev && st.st_ino == checked_ino) {
+
+    return;
+
+  }
 
   fd = open(afl->fsrv.target_path, O_RDONLY);
 
@@ -3844,6 +3856,10 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   }
 
   if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
+
+  checked_dev = st.st_dev;
+  checked_ino = st.st_ino;
+  checked = 1;
 
 }
 
