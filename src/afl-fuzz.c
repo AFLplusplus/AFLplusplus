@@ -3282,8 +3282,8 @@ static void measure_resume_child_init(afl_state_t *afl) {
 
         u64 init_ms = (cold_us - warm_us + 999) / 1000;
         afl->fsrv.child_init_tmout =
-            MIN(cold_tmout, MAX(init_ms + CAL_TMOUT_ADD,
-                                init_ms * CAL_TMOUT_PERC / 100));
+            MIN(cold_tmout,
+                MAX(init_ms + CAL_TMOUT_ADD, init_ms * CAL_TMOUT_PERC / 100));
 
       }
 

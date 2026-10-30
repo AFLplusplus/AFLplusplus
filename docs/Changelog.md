@@ -9,6 +9,7 @@
       with persistent loop counts of 1
     - timeout fix for slow starting targets (until they reach the fork server)
     - fix for AFL_NO_STARTUP_CALIBRATION (don't use it, change your setup)
+    - improve cmplog pipe, more speed (thanks to @martinus)
   - afl-cc
     - a plain `-fcf-protection` (part of the default hardened CFLAGS on
       Fedora/RHEL) was mistaken for `AFL_USE_CFISAN` and injected `-flto`,
