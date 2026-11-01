@@ -75,18 +75,26 @@ def recent_turns(limit=20):
         return [dict(zip(("id","created","scenario","feedback","result_json","state_json","rating","commentary"), row))
                 for row in db.execute("SELECT id,created,scenario,feedback,result_json,state_json,rating,commentary FROM turns ORDER BY id DESC LIMIT ?", (limit,))]
 
+def relevance_tokens(text):
+    stop={'with','that','this','have','someone','they','their','about','from','your','what',
+          'when','were','would','could','should','will','feel','feels','feeling','emotions',
+          'emotion','decide','decision','situation','because','which','them','then','into',
+          'does','want','make','made','both','also','only','completely','increasingly'}
+    return set(re.findall(r'\b\w{4,}\b',text.casefold()))-stop
+
+def relevance_score(query, text):
+    # Require two substantive matches, not a shared pronoun such as "your".
+    overlap=relevance_tokens(query) & relevance_tokens(text)
+    return len(overlap) if len(overlap)>=2 else 0
+
 def feedback_context(query, limit=3, max_chars=2000):
     """Retrieve relevant trainer corrections with explicit local source IDs."""
-    stop = {'with', 'that', 'this', 'have', 'someone', 'they', 'their', 'about', 'from',
-            'your', 'what', 'when', 'were', 'would', 'could', 'should', 'will'}
-    words = set(re.findall(r'\b\w{4,}\b', query.casefold())) - stop
     with connect() as db:
         rows = db.execute('SELECT id,scenario,rating,commentary FROM turns '
                           "WHERE trim(commentary) != '' ORDER BY id DESC LIMIT 100").fetchall()
     ranked = []
     for id, scenario, rating, correction in rows:
-        tokens = set(re.findall(r'\b\w{4,}\b', (scenario + ' ' + correction).casefold()))
-        score = len(words & tokens)
+        score = relevance_score(query, scenario + ' ' + correction)
         if score:
             ranked.append((score, id, {'turn_id': id, 'rating': rating,
                                       'scenario_excerpt': scenario[:250], 'correction': correction[:1200]}))

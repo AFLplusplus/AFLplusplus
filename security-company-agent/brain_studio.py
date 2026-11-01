@@ -3,6 +3,7 @@ import json
 import streamlit as st
 from brain_core import trainer, studio, service, personality
 from brain_core.appraisal import EMOTIONS, NEUTRAL
+from brain_core.decision import emotional_transition
 from brain_core.model_api import ModelConfig, ModelError, local_inventory
 from brain_core.runtime_guard import available_memory_gib
 from brain_core.model_policy import selected_local_model, policy_for
@@ -160,10 +161,9 @@ with train_tab:
             st.markdown('**Why this recommendation**')
             st.write(decision['rationale'])
         st.subheader('Simulated emotional state — before and after')
-        before = result.get('_before_state', {}).get('emotions', NEUTRAL)
-        after = updated.get('emotions', NEUTRAL)
-        chart = [{'Emotion': name.replace('_', ' ').title(),
-                  'Before': before.get(name, 0.5), 'After': after[name]} for name in EMOTIONS]
+        chart = emotional_transition(result, updated)
+        st.caption('Before is persisted mood; Model proposed is raw output; After applies 65% of the proposal '
+                   'and 35% of prior mood. Blank values were not recorded in older sessions.')
         st.bar_chart(chart, x='Emotion', y=['Before', 'After'], horizontal=True, stack=False)
         st.dataframe(chart,
                      hide_index=True, width='stretch')

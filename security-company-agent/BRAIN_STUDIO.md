@@ -43,7 +43,7 @@ Memory failures and invalid structured model output are separate error types.
 
 ### Emotional display and memory
 
-The model returns eleven simulated emotional indexes, competing emotions,
+The model returns thirteen simulated emotional indexes (including guilt and jealousy), competing emotions,
 evidence versus uncertainty, decision options, a proposed action and a concise
 explanation. Indexes are computational representations, not real experiences or
 psychological measurements. Legacy dopamine/cortisol/serotonin values and old
@@ -56,6 +56,27 @@ are separately opt-in. This is persistent contextual adaptation, not fine-tuning
 A correction being included in a prompt is not proof that a model followed it.
 Offline mode keeps the fixed narrative fixture and labels its deterministic
 word-matched emotion visualization explicitly. It is never treated as real inference.
+
+### Scenario quality and state inspection
+
+Responsibility for harming a coworker and jealousy without evidence of dishonesty
+receive different advisory candidates, affected-party concerns and consequences.
+Responsibility and fairness are contextual concerns, separate from stable traits.
+The lexical appraisal is fallible; the model may choose an action outside its candidates.
+There is no fallback that replaces a model decision with a preferred action.
+
+The compact inference prompt omits the old numerical state and unreviewed proposed
+rules to reduce copying. Relevant corrections and relationship context remain explicit.
+Retrieval requires two substantive token matches; shared pronouns are insufficient.
+Runtime validation rejects malformed structure, placeholder labels, bare option IDs,
+unrelated evidence and exact state copying when appraisal materially differs. Invalid
+output is reported without saving a turn, retrying automatically or fabricating emotions.
+
+The transition table distinguishes persisted Before, raw Model proposed, and smoothed
+After (35% previous / 65% proposed). Older history is retained unchanged; absent new
+indexes appear blank in historical output and receive explicit baseline defaults only
+when loading current state. Identity and stable traits are never changed by this migration.
+Controlled fake-model regressions validate data flow, not genuine Qwen judgment.
 
 Enterprise gateways remain replaceable through `BRAIN_API_BASE`, `BRAIN_MODEL`
 and `BRAIN_API_KEY`. Remote inference requires HTTPS and explicit UI authorization

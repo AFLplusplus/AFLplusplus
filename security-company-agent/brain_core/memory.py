@@ -1,10 +1,8 @@
 """Local experience and relationship retrieval behind a replaceable storage boundary."""
 import json
-import re
 from . import studio
 
 def experiences(query, limit=3):
-    words=set(re.findall(r'\b\w{4,}\b',query.casefold())) - {'with','that','this','have','someone','their','they'}
     candidates=[]
     for row in studio.recent_turns(100):
         result=json.loads(row['result_json'])
@@ -13,7 +11,7 @@ def experiences(query, limit=3):
         # Legacy turns without provenance are visible in history, not presumed model evidence.
         if not result.get('_provenance',{}).get('source'):
             continue
-        score=len(words & set(re.findall(r'\b\w{4,}\b',row['scenario'].casefold())))
+        score=studio.relevance_score(query,row['scenario'])
         if score:
             candidates.append((score,row['id'],{'turn_id':row['id'],
                 'scenario_excerpt':row['scenario'][:200], 'previous_recommendation':

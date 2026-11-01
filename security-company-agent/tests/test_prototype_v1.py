@@ -15,6 +15,7 @@ sys.path.insert(0,str(ROOT))
 from brain_core import personality, trainer, studio, service, cognition, memory
 from brain_core.appraisal import NEUTRAL
 from brain_core.model_api import ModelConfig
+from quality_fixtures import output
 
 class PrototypeTests(unittest.TestCase):
     def setUp(self):
@@ -83,8 +84,10 @@ class PrototypeTests(unittest.TestCase):
         high=dict(low,anger=1)
         first=cognition.build_context(profile,NEUTRAL,{},low,[])['decision_preferences']
         second=cognition.build_context(profile,NEUTRAL,{},high,[])['decision_preferences']
-        self.assertEqual(first[0]['option'],'seek_clarity')
-        self.assertEqual(second[0]['option'],'set_boundaries')
+        self.assertEqual(second[0]['option'],'pause_and_regulate')
+        a=next(x['emotion_contribution'] for x in first if x['option']=='pause_and_regulate')
+        b=next(x['emotion_contribution'] for x in second if x['option']=='pause_and_regulate')
+        self.assertGreater(b,a)
         self.assertEqual(profile,personality.load())
 
     def test_relationship_emotions_are_separate(self):
@@ -99,7 +102,7 @@ class PrototypeTests(unittest.TestCase):
         fixture=trainer.infer('fixture','',{}, {},mock=True)
         def fake_complete(messages,config,schema):
             calls.append(json.loads(messages[-1]['content']))
-            return copy.deepcopy(fixture),{'source':'unit_test_mock','model':'fake','seconds':0}
+            return output(calls[-1]['scenario']),{'source':'unit_test_mock','model':'fake','seconds':0}
         config=ModelConfig('http://127.0.0.1:12345/v1','unit-test')
         with patch.object(trainer,'complete',side_effect=fake_complete), \
              patch('subprocess.Popen',side_effect=AssertionError('Operational execution is forbidden')):

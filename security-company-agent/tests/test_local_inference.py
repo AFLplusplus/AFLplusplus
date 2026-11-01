@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from brain_core import trainer, studio, service, model_api, personality
 from brain_core.appraisal import EMOTIONS, offline_appraisal
 from brain_core.decision import SCHEMA
+from quality_fixtures import output
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
@@ -58,8 +59,7 @@ class LocalTests(unittest.TestCase):
             self.addCleanup(p.stop)
         self.server.seen = []
         self.server.status = 200
-        self.fixture = trainer.infer('I feel love and anger', '', {}, {}, mock=True)
-        self.fixture.pop('_provenance')
+        self.fixture = output('Love and attachment in an uncertain relationship. Anger and attachment.')
         self.server.output = json.dumps({'choices': [{'message': {'content': json.dumps(self.fixture)},
                                                      'finish_reason': 'stop'}]}).encode()
         self.config = model_api.ModelConfig(f'http://127.0.0.1:{self.server.server_port}/v1',
