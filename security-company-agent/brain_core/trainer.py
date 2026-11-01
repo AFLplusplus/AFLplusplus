@@ -8,6 +8,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from .appraisal import NEUTRAL, offline_appraisal, update_emotions
+from .personality import model_context
 from .decision import SCHEMA, validate_decision
 from .model_api import ModelConfig, ModelError, complete
 
@@ -113,6 +114,7 @@ def infer(scenario, feedback, state, history, mock=False, *, config=None,
     messages = [{'role': 'system', 'content': SYSTEM},
                 {'role': 'user', 'content': json.dumps({
                     'scenario': scenario, 'trainer_guidance': feedback,
+                    'persistent_personality': model_context(),
                     'previous_state': {'metrics': state.get('metrics', BASE),
                                        'emotions': state.get('emotions', NEUTRAL)},
                     'previous_trainer_corrections': past_feedback or [],
