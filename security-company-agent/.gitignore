@@ -19,3 +19,4 @@ logs/
 *.safetensors
 *.pem
 *.key
+brain_core/studio_data/
