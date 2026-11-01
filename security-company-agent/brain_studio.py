@@ -1,7 +1,7 @@
 """Sovereign Brain trainer UI, independent from Hermes and operational agents."""
 import json
 import streamlit as st
-from brain_core import trainer, studio, service
+from brain_core import trainer, studio, service, personality
 from brain_core.appraisal import EMOTIONS, NEUTRAL
 from brain_core.model_api import ModelConfig, ModelError, local_inventory
 from brain_core.runtime_guard import available_memory_gib
@@ -11,6 +11,12 @@ st.title('🧠 Sovereign Brain')
 st.caption('Train the Brain · simulated emotions · decisions you can challenge')
 st.info('Emotional indexes are computational simulations, not feelings or biological measurements. '
         'Saved feedback can be retrieved as context; it does not update model weights.')
+try:
+    profile = personality.load()
+except (personality.PersonalityError, OSError):
+    st.error('The established personality is missing, invalid, or unreadable. No identity was reset. '
+             'Restore the local personality from backup before continuing.')
+    st.stop()
 
 @st.cache_data(ttl=10)
 def installed_models():
@@ -24,6 +30,13 @@ if 'studio_last_turn' not in st.session_state:
 
 with st.sidebar:
     st.subheader('Model connection')
+    with st.expander('Persistent personality'):
+        st.write(profile['identity_name'])
+        st.caption('Identity: ' + profile['identity_id'])
+        st.write(profile['mission'])
+        for name, value in profile['traits'].items():
+            st.progress(float(value), text=f'{name.replace("_", " ").title()}: {value:.2f}')
+        st.caption('Stable traits persist independently from temporary emotions. They do not grant execution authority.')
     mode = st.radio('Inference', ['Local model (Ollama)', 'Enterprise gateway', 'Offline demonstration'],
                     index=0 if ready else 2, key='studio_inference',
                     help='Offline mode uses a fixed response and lexical visualization, not model reasoning.')
@@ -74,10 +87,13 @@ train_tab, docs_tab, research_tab, history_tab = st.tabs(
     ['💬 Train the Brain', '📚 Documents', '🌍 Research', '📈 Training history'])
 
 with train_tab:
-    st.subheader('Describe a situation')
+    st.subheader('Talk to the Brain')
+    st.caption('One persistent simulated identity. A message can be a question, a situation, or a decision to explore.')
     scenario = st.text_area('Situation', height=135, max_chars=8000,
                            placeholder='Describe the emotional conflict and the decision to consider.')
     context = st.text_area('Context and relationships (optional)', height=80, max_chars=3000)
+    relationship_label = st.text_input('Relationship or context label (optional)', max_chars=100,
+                                       help='Use the same label to recall emotions for this relationship. Leave empty to keep contexts separate.')
     guidance = st.text_area('Your guidance (optional)', height=75, max_chars=4000,
                             placeholder='What should the Brain pay attention to?')
     use_memory = st.checkbox('Retrieve relevant previous trainer corrections', value=True)
@@ -97,7 +113,8 @@ with train_tab:
             with st.spinner('Analyzing locally...' if not mock and config and config.local else 'Preparing response...'):
                 turn_id, updated, result, retrieved = service.analyze(
                     combined, guidance, mock=mock, config=config,
-                    use_references=use_refs, use_feedback=use_memory)
+                    use_references=use_refs, use_feedback=use_memory,
+                    relationship_label=relationship_label)
             st.session_state.studio_last_turn = turn_id
             st.session_state.studio_result = result
             st.session_state.studio_state = updated
@@ -145,6 +162,10 @@ with train_tab:
                      hide_index=True, width='stretch')
         ids = result.get('_feedback_turn_ids', [])
         st.caption('Retrieved trainer corrections used as context: ' + (', '.join(map(str, ids)) if ids else 'none'))
+        with st.expander('Inspect appraisal and decision preferences'):
+            st.caption('These transparent heuristic scores are computed before inference. '
+                       'They are not proof of genuine emotional reasoning.')
+            st.json(result.get('_cognitive_context', {}))
         rating = st.radio('Rate emotional appropriateness', ['good', 'partial', 'poor'], horizontal=True,
                           key=f"rating_{st.session_state.studio_last_turn}")
         correction = st.text_area('Correct the response / challenge its recommendation', max_chars=4000,
@@ -207,6 +228,7 @@ with history_tab:
             st.write('Correction:', row['commentary'] or 'None')
             result = json.loads(row['result_json'])
             st.write('Response source:', result.get('_provenance', {}).get('source', 'legacy record — see original history mode'))
+            st.write('Persistent identity:', result.get('_personality_id', 'legacy record predating identity tracking'))
             st.json(result)
     st.caption('Persistent contextual adaptation is retrieval of prior corrections. It is not fine-tuning, '
                'and inclusion in a prompt does not prove a model followed the correction.')

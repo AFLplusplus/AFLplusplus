@@ -5,12 +5,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from brain_core import trainer
+from brain_core import trainer, personality
 
 class BrainTests(unittest.TestCase):
     def test_offline_train_and_memory(self):
         with tempfile.TemporaryDirectory() as d:
-            with patch.object(trainer, "STATE_PATH", Path(d) / "state.json"), \
+            with patch.object(personality, 'PROFILE_PATH', Path(d) / 'personality.json'), \
+                 patch.object(trainer, "STATE_PATH", Path(d) / "state.json"), \
                  patch.object(trainer, "HISTORY_PATH", Path(d) / "history.json"):
                 state, result = trainer.train("A colleague is worried", "Respond empathetically", mock=True)
                 self.assertEqual(state["iterations"], 1)

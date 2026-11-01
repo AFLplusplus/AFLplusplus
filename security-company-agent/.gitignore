@@ -27,3 +27,6 @@ ollama-runtime/
 brain-local-settings.json
 local_runtime_profile/
 local_models/
+brain_core/personality.json
+brain_core/personality.identity
+brain_core/personality.*.tmp

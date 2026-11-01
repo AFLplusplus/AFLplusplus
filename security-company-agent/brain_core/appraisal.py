@@ -15,8 +15,8 @@ def validate_emotions(values):
             raise ValueError(f'Invalid simulated {name} index.')
     return {name: float(values[name]) for name in EMOTIONS}
 
-def offline_appraisal(text):
-    """Transparent lexical UI fixture, not inference or psychological measurement."""
+def lexical_appraisal(text):
+    """Transparent lexical prior, not inference or psychological measurement."""
     text = text.casefold()
     groups = {
         'attachment': ('love', 'attached', 'attachment', 'invested'),
@@ -36,6 +36,8 @@ def offline_appraisal(text):
     if any(term in text for term in ('distrust', 'no longer trust', 'not trust', 'using you')):
         values['trust'] = 0.15
     return values
+
+offline_appraisal = lexical_appraisal  # backward-compatible name for demonstration tests
 
 def update_emotions(previous, proposed):
     proposed = validate_emotions(proposed)

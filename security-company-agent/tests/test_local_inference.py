@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from brain_core import trainer, studio, service, model_api
+from brain_core import trainer, studio, service, model_api, personality
 from brain_core.appraisal import EMOTIONS, offline_appraisal
 from brain_core.decision import SCHEMA
 
@@ -49,7 +49,8 @@ class LocalTests(unittest.TestCase):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         root = Path(self.folder.name)
-        for owner, name, value in ((trainer, 'STATE_PATH', root / 'state.json'),
+        for owner, name, value in ((personality, 'PROFILE_PATH', root / 'personality.json'),
+                                   (trainer, 'STATE_PATH', root / 'state.json'),
                                    (trainer, 'HISTORY_PATH', root / 'history.json'),
                                    (studio, 'DATA', root), (studio, 'DB', root / 'test.sqlite3')):
             p = patch.object(owner, name, value)

@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from brain_core import trainer, studio, model_api, runtime_guard
+from brain_core import trainer, studio, model_api, runtime_guard, personality
 from streamlit.testing.v1 import AppTest
 
 class StudioUITests(unittest.TestCase):
@@ -15,7 +15,8 @@ class StudioUITests(unittest.TestCase):
         self.context = ExitStack()
         self.addCleanup(self.context.close)
         root = Path(self.context.enter_context(tempfile.TemporaryDirectory()))
-        for owner, key, value in ((trainer, 'STATE_PATH', root / 'state.json'),
+        for owner, key, value in ((personality, 'PROFILE_PATH', root / 'personality.json'),
+                                   (trainer, 'STATE_PATH', root / 'state.json'),
                                    (trainer, 'HISTORY_PATH', root / 'history.json'),
                                    (studio, 'DATA', root), (studio, 'DB', root / 'brain.sqlite3')):
             self.context.enter_context(patch.object(owner, key, value))

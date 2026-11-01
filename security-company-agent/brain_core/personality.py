@@ -7,10 +7,17 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import math
+import copy
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
 PROFILE_PATH = Path(__file__).resolve().parent / "personality.json"
+_LOCK = threading.RLock()
+
+class PersonalityError(ValueError):
+    """Invalid or missing established identity; recovery requires human review."""
 DEFAULT = {
     "identity_id": "sovereign-brain-001",
     "identity_name": "Sovereign Brain",
@@ -35,25 +42,75 @@ DEFAULT = {
     "created_at": "2026-11-01T00:00:00+00:00"
 }
 
-def load():
+def validate(profile):
+    if not isinstance(profile, dict) or profile.get('identity_id') != DEFAULT['identity_id']:
+        raise PersonalityError('Unexpected personality identity; refusing to overwrite.')
+    if type(profile.get('version')) is not int or profile['version'] != 1:
+        raise PersonalityError('Unsupported personality version; explicit migration is required.')
+    for key in ('identity_name', 'mission', 'created_at'):
+        if not isinstance(profile.get(key), str) or not profile[key].strip():
+            raise PersonalityError('Personality metadata is incomplete; the existing file was preserved.')
+    traits = profile.get('traits')
+    if not isinstance(traits, dict) or not set(DEFAULT['traits']).issubset(traits):
+        raise PersonalityError('Personality traits are incomplete; the existing file was preserved.')
+    for value in traits.values():
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
+            raise PersonalityError('Personality trait values must be finite numbers from 0 to 1.')
+    if not isinstance(profile.get('principles'), list) or not profile['principles'] or any(
+            not isinstance(item, str) or not item.strip() for item in profile['principles']):
+        raise PersonalityError('Personality principles are invalid; the existing file was preserved.')
+    return profile
+
+def _load():
+    anchor = PROFILE_PATH.with_suffix('.identity')
+    if anchor.exists() and not PROFILE_PATH.exists():
+        raise PersonalityError('The established personality file is missing. Restore it from backup; no reset was performed.')
     if not PROFILE_PATH.exists():
         PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
         fd, temporary = tempfile.mkstemp(prefix="personality.", suffix=".tmp", dir=PROFILE_PATH.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fp:
-                json.dump(DEFAULT, fp, ensure_ascii=False, indent=2)
-            os.replace(temporary, PROFILE_PATH)
+                profile = copy.deepcopy(DEFAULT)
+                profile['created_at'] = datetime.now(timezone.utc).isoformat()
+                json.dump(profile, fp, ensure_ascii=False, indent=2, allow_nan=False)
+                fp.flush()
+                os.fsync(fp.fileno())
+            try:
+                os.link(temporary, PROFILE_PATH)  # publish a complete file without replacing a concurrent creator
+            except FileExistsError:
+                pass
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)
-    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
-    if not isinstance(profile, dict) or profile.get("identity_id") != "sovereign-brain-001":
-        raise ValueError("Unexpected personality identity; refusing to overwrite.")
+    try:
+        profile = validate(json.loads(PROFILE_PATH.read_text(encoding="utf-8")))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        raise PersonalityError('The personality cannot be read. Existing data was preserved; no reset was performed.') from None
+    if anchor.exists():
+        try:
+            established_id = anchor.read_text(encoding='utf-8').strip()
+        except (OSError, UnicodeError):
+            raise PersonalityError('The personality identity marker is unreadable; no reset was performed.') from None
+        if established_id != profile['identity_id']:
+            raise PersonalityError('Personality identity does not match its persistent identity marker.')
+    else:
+        try:
+            with anchor.open('x', encoding='utf-8') as output:
+                output.write(profile['identity_id'] + '\n')
+                output.flush()
+                os.fsync(output.fileno())
+        except FileExistsError:
+            pass
     return profile
 
-def model_context():
-    profile = load()
+def load():
+    with _LOCK:
+        return _load()
+
+def model_context(profile=None):
+    profile = validate(profile) if profile is not None else load()
     return {
+        "identity_id": profile['identity_id'],
         "identity_name": profile["identity_name"],
         "mission": profile["mission"],
         "baseline_traits": profile["traits"],

@@ -1,5 +1,9 @@
 # Sovereign Brain Training Studio (Phase 1)
 
+Prototype V1 now includes one persistent simulated personality, relationship memory,
+and pre-decision appraisal. See `PROTOTYPE_V1.md` for module boundaries, limitations,
+and the migration path to a self-hosted API, PostgreSQL and a secure web frontend.
+
 ## Standalone local model upgrade
 
 The Training Studio remains independent from Hermes and all operational agents.
