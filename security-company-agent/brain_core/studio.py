@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import re
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -16,11 +18,13 @@ MAX_UPLOAD = 10 * 1024 * 1024
 def now():
     return datetime.now(timezone.utc).isoformat()
 
+@contextmanager
 def connect():
     DATA.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB)
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.executescript("""
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.executescript("""
     CREATE TABLE IF NOT EXISTS turns (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       created TEXT NOT NULL,
@@ -48,7 +52,10 @@ def connect():
       approved INTEGER NOT NULL DEFAULT 0
     );
     """)
-    return conn
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 def add_turn(scenario, feedback, result, state):
     with connect() as db:
@@ -67,6 +74,30 @@ def recent_turns(limit=20):
     with connect() as db:
         return [dict(zip(("id","created","scenario","feedback","result_json","state_json","rating","commentary"), row))
                 for row in db.execute("SELECT id,created,scenario,feedback,result_json,state_json,rating,commentary FROM turns ORDER BY id DESC LIMIT ?", (limit,))]
+
+def feedback_context(query, limit=3, max_chars=2000):
+    """Retrieve relevant trainer corrections with explicit local source IDs."""
+    stop = {'with', 'that', 'this', 'have', 'someone', 'they', 'their', 'about', 'from',
+            'your', 'what', 'when', 'were', 'would', 'could', 'should', 'will'}
+    words = set(re.findall(r'\b\w{4,}\b', query.casefold())) - stop
+    with connect() as db:
+        rows = db.execute('SELECT id,scenario,rating,commentary FROM turns '
+                          "WHERE trim(commentary) != '' ORDER BY id DESC LIMIT 100").fetchall()
+    ranked = []
+    for id, scenario, rating, correction in rows:
+        tokens = set(re.findall(r'\b\w{4,}\b', (scenario + ' ' + correction).casefold()))
+        score = len(words & tokens)
+        if score:
+            ranked.append((score, id, {'turn_id': id, 'rating': rating,
+                                      'scenario_excerpt': scenario[:250], 'correction': correction[:1200]}))
+    ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    selected, budget = [], max_chars
+    for _, _, item in ranked[:limit]:
+        size = len(json.dumps(item))
+        if size <= budget:
+            selected.append(item)
+            budget -= size
+    return selected
 
 def decode_document(name, content):
     extension = Path(name).suffix.lower()

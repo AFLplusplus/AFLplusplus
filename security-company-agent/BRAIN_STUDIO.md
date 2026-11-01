@@ -1,5 +1,69 @@
 # Sovereign Brain Training Studio (Phase 1)
 
+## Standalone local model upgrade
+
+The Training Studio remains independent from Hermes and all operational agents.
+The local inference adapter defaults to `http://127.0.0.1:11434/v1` and the exact
+requested model `qwen3:1.7b`. It uses OpenAI-compatible structured output with
+validated JSON; no API key is sent to local Ollama. Connection errors, timeouts,
+HTTP failures and malformed output produce safe messages without response bodies.
+
+Choose a user-writable workspace such as
+`%USERPROFILE%\Documents\Codex\SovereignBrain`. Leave protected repositories
+and Windows permissions unchanged. Before updating an existing workspace, compare
+upstream code, back up local changes, and preserve all private training data.
+
+Double-click `Launch Sovereign Brain.cmd` to start the Studio. `launch_studio.py`
+uses an available loopback port and records the actual URL in
+`local_logs/studio-url.json`. If the bundled official Ollama CLI is present under
+`ollama-runtime/`, it starts only that local inference service, never agents.
+The separate child-process profile, model store and logs stay within this workspace.
+No system environment, existing credentials, services, ACLs or firewall settings
+are changed. New Ollama application identity files remain private and Git-ignored.
+Cloud inference and prompt logging are disabled in the managed local runtime.
+
+### Resource policy
+
+The runtime uses a 4096-token context, one concurrent generation and one loaded
+model. Models are unloaded after a request. New Ollama model loading is blocked
+below 2.5 GiB available physical RAM; preferably free 3 GiB for initial evaluation.
+This is a conservative application policy, not an official model minimum.
+No alternative model is silently downloaded. A detected installation is not proof
+that inference succeeds. Read the deployment verification report for actual results.
+
+### Emotional display and memory
+
+The model returns eleven simulated emotional indexes, competing emotions,
+evidence versus uncertainty, decision options, a proposed action and a concise
+explanation. Indexes are computational representations, not real experiences or
+psychological measurements. Legacy dopamine/cortisol/serotonin values and old
+training histories remain readable. Each new response records state before and
+after, its source, and the IDs of previous corrections included in its request.
+
+Saved trainer corrections are retrieved by transparent word overlap from recent
+local turns. Trainers can inspect retrieved corrections and opt out. References
+are separately opt-in. This is persistent contextual adaptation, not fine-tuning.
+A correction being included in a prompt is not proof that a model followed it.
+Offline mode keeps the fixed narrative fixture and labels its deterministic
+word-matched emotion visualization explicitly. It is never treated as real inference.
+
+Enterprise gateways remain replaceable through `BRAIN_API_BASE`, `BRAIN_MODEL`
+and `BRAIN_API_KEY`. Remote inference requires HTTPS and explicit UI authorization
+for session data, retrieved feedback and selected reference excerpts. References
+and research do not automatically overwrite behavioral rules.
+
+### Verification
+
+Run `.venv\Scripts\python.exe -m unittest discover -s tests -v` from the
+standalone application directory. Transport tests use fake loopback responses;
+they are explicitly separate from genuine Ollama inference checks. UI tests use
+temporary stores and never alter the trainer's real saved history.
+
+Modules: `model_api.py` (transport), `appraisal.py` (state), `decision.py`
+(recommendation contract), `trainer.py` (state updates), `service.py` (training),
+and `studio.py` (feedback/references/documents/research). No autonomous execution
+interface is provided.
+
 **Standalone application.** Hermes, agent orchestration, network campaigns, and real model-weight fine-tuning are not part of this phase.
 
 ## Run on Windows

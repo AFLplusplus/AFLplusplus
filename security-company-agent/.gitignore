@@ -20,3 +20,10 @@ logs/
 *.pem
 *.key
 brain_core/studio_data/
+local_logs/
+local_backups/
+.ollama/
+ollama-runtime/
+brain-local-settings.json
+local_runtime_profile/
+local_models/
