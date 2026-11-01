@@ -5,18 +5,28 @@ import json
 import os
 import socket
 import time
+import threading
 import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 from .runtime_guard import available_memory_gib
+from .model_policy import DEFAULT_LOCAL_MODEL, policy_for
 
 class ModelError(RuntimeError):
     """A safe, user-facing error; excludes response bodies, prompts and credentials."""
 
+class MemoryGuardError(ModelError):
+    """Resource limit failure, distinct from structured model-output failure."""
+
+class ModelOutputError(ModelError):
+    """An incomplete or invalid model response; not evidence of a RAM failure."""
+
+_REQUEST_LOCK = threading.Lock()
+
 @dataclass(frozen=True)
 class ModelConfig:
     base_url: str = 'http://127.0.0.1:11434/v1'
-    model: str = 'qwen3:1.7b'
+    model: str = DEFAULT_LOCAL_MODEL
     timeout: float = 180
     allow_remote: bool = False
     reasoning_effort: str | None = 'none'
@@ -48,7 +58,7 @@ class ModelConfig:
         effort = os.getenv('BRAIN_REASONING_EFFORT')
         if effort is None:
             effort = 'none' if urlsplit(endpoint).port == 11434 else None
-        return cls(endpoint, os.getenv('BRAIN_MODEL', 'qwen3:1.7b'),
+        return cls(endpoint, os.getenv('BRAIN_MODEL', DEFAULT_LOCAL_MODEL),
                    float(os.getenv('BRAIN_TIMEOUT_SECONDS', '180')), allow_remote, effort or None)
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -62,20 +72,23 @@ def opener_for(config):
     return urllib.request.build_opener(*handlers)
 
 def complete(messages, config, schema):
+    # Prevent multiple callers in this process from queueing concurrent inference.
+    with _REQUEST_LOCK:
+        return _complete(messages, config, schema)
+
+def _complete(messages, config, schema):
     if config.local and urlsplit(config.base_url).port == 11434:
-        # Read-only inventory: an already-loaded model need not allocate its full weights again.
-        loaded = False
-        try:
-            with opener_for(config).open(config.base_url.rsplit('/v1', 1)[0] + '/api/ps', timeout=2) as response:
-                loaded = any(item.get('name') == config.model for item in json.load(response).get('models', []))
-        except (OSError, ValueError):
-            pass
+        # Check before any request; an installed or resident model does not bypass the guard.
         memory = available_memory_gib()
-        if not loaded and memory is not None and memory < 2.5:
-            raise ModelError(f'Local model loading is on hold: only {memory:.2f} GiB RAM is available. '
-                             'Free at least 2.5 GiB, preferably 3 GiB, before retrying. No model was launched.')
+        threshold = policy_for(config.model).minimum_available_gib
+        if memory is None:
+            raise MemoryGuardError('Local inference is on hold because available physical RAM cannot be verified.')
+        if memory < threshold:
+            raise MemoryGuardError(f'Local inference is on hold: {memory:.2f} GiB RAM is available; '
+                                   f'{config.model} requires at least {threshold:.1f} GiB available before a request. '
+                                   'No generation request was sent.')
     body = {'model': config.model, 'messages': messages, 'temperature': 0.3,
-            'max_tokens': 1000, 'stream': False,
+            'max_tokens': policy_for(config.model).output_tokens, 'stream': False,
             'response_format': {'type': 'json_schema', 'json_schema': {
                 'name': 'emotional_decision', 'strict': True, 'schema': schema}}}
     if config.reasoning_effort:
@@ -91,29 +104,34 @@ def complete(messages, config, schema):
         with opener_for(config).open(request, timeout=config.timeout) as response:
             raw = response.read(1_048_577)
         if len(raw) > 1_048_576:
-            raise ModelError('Model response exceeded the response-size limit.')
+            raise ModelOutputError('Model response exceeded the response-size limit.')
         payload = json.loads(raw)
         choice = payload['choices'][0]
         if choice.get('finish_reason') == 'length':
-            raise ModelError('Model output was truncated. Shorten references or increase the output budget.')
+            raise ModelOutputError('Model output was truncated. Shorten references or increase the output budget.')
         content = choice['message']['content']
         if not isinstance(content, str) or not content.strip():
-            raise ModelError('Model returned no structured answer.')
+            raise ModelOutputError('Model returned no structured answer.')
         result = json.loads(content)
         if not isinstance(result, dict):
-            raise ModelError('Model output must be a JSON object.')
+            raise ModelOutputError('Model output must be a JSON object.')
         return result, {'model': config.model, 'seconds': round(time.perf_counter() - started, 3),
                         'source': 'local_model' if config.local else 'authorized_gateway'}
     except urllib.error.HTTPError as error:
         status = error.code
+        diagnostic = error.read(16384).decode('utf-8', errors='replace').casefold()
         error.close()
+        if status >= 500 and any(marker in diagnostic for marker in (
+                'out of memory', 'requires more system memory', 'unable to allocate', 'insufficient memory')):
+            raise MemoryGuardError('The local model service reported insufficient memory. '
+                                   'No automatic retry or replacement model will be attempted.') from None
         raise ModelError(f'Model service returned HTTP {status}. Check model availability and configuration.') from None
     except (TimeoutError, socket.timeout):
         raise ModelError('Model request timed out. Your saved history is unchanged.') from None
     except urllib.error.URLError:
         raise ModelError('Cannot connect to the model service. Check that it is running on the configured endpoint.') from None
     except (ValueError, KeyError, IndexError, TypeError, UnicodeError):
-        raise ModelError('Model returned invalid structured output. No training turn was saved.') from None
+        raise ModelOutputError('Model returned invalid structured output. No training turn was saved.') from None
 
 def local_inventory(timeout=2):
     config = ModelConfig()

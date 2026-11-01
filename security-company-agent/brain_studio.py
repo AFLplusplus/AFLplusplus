@@ -5,6 +5,7 @@ from brain_core import trainer, studio, service, personality
 from brain_core.appraisal import EMOTIONS, NEUTRAL
 from brain_core.model_api import ModelConfig, ModelError, local_inventory
 from brain_core.runtime_guard import available_memory_gib
+from brain_core.model_policy import selected_local_model, policy_for
 
 st.set_page_config(page_title='Sovereign Brain | Training Studio', page_icon='🧠', layout='wide')
 st.title('🧠 Sovereign Brain')
@@ -23,7 +24,9 @@ def installed_models():
     return local_inventory()
 
 models = installed_models()
-ready = 'qwen3:1.7b' in models
+local_model = selected_local_model()
+local_policy = policy_for(local_model)
+ready = local_model in models
 config, configuration_error = None, None
 if 'studio_last_turn' not in st.session_state:
     st.session_state.studio_last_turn = None
@@ -46,9 +49,9 @@ with st.sidebar:
         st.warning('Offline demonstration: fixed example response, not actual model reasoning. '
                    'Emotion bars use transparent word matching only.')
     elif mode == 'Local model (Ollama)':
-        config = ModelConfig()
-        st.caption('Local endpoint: 127.0.0.1:11434 · requested model: qwen3:1.7b')
-        st.write('Model inventory:', 'qwen3:1.7b available' if ready else 'Requested model not detected')
+        config = ModelConfig(model=local_model)
+        st.caption(f'Local endpoint: 127.0.0.1:11434 · requested model: {local_model}')
+        st.write('Model inventory:', f'{local_model} installed' if ready else 'Requested model not detected')
         if not ready:
             configuration_error = 'Local model is not installed or Ollama is not responding.'
     else:
@@ -64,9 +67,13 @@ with st.sidebar:
     memory = available_memory_gib()
     if memory is not None:
         st.caption(f'Available RAM: {memory:.2f} GiB')
-        if memory < 2.5:
-            st.warning('Low available RAM. New local model loading is held until at least 2.5 GiB is free; '
-                       '3 GiB is preferred for the first test.')
+        if memory < local_policy.minimum_available_gib:
+            st.warning(f'Local inference is held until at least {local_policy.minimum_available_gib:.1f} GiB '
+                       f'physical RAM is available for {local_model}. No model is preloaded.')
+            if mode == 'Local model (Ollama)' and ready:
+                configuration_error = 'The model can be installed while genuine inference remains memory-blocked.'
+    elif mode == 'Local model (Ollama)':
+        configuration_error = 'Cannot verify available physical RAM; local inference is paused.'
     if configuration_error:
         st.warning(configuration_error)
     if st.button('Refresh connection status'):

@@ -2,7 +2,7 @@
 
 This self-hostable prototype is a recommendation system with one persisted simulated
 personality. It is not a foundation model, a conscious entity, or an agent orchestrator.
-The preferred open-weight model is `qwen3:1.7b` served by local Ollama. No OpenAI SDK,
+The temporary prototype model is `qwen3:0.6b` served by local Ollama. No OpenAI SDK,
 OpenAI account, or OpenAI-hosted inference is required. The transport uses an open,
 OpenAI-compatible HTTP message format, which is distinct from depending on that provider.
 
@@ -73,8 +73,12 @@ explanation, and inspectable pre-decision preferences. Prior experiences remain 
 Training history; trainer corrections are visible before reuse.
 
 Ollama stays on `127.0.0.1:11434`, with cloud inference disabled. The application
-protects new local model loading below 2.5 GiB available RAM; initial deployment of
-the preferred model should wait for at least 3 GiB. A software test pass does not
+blocks every local generation request below the model-specific physical RAM guard:
+1.5 GiB for `qwen3:0.6b`, 2.5 GiB for other identifiers. Unknown RAM fails closed.
+The 0.6B policy uses 2048 context tokens, at most 768 output tokens, one request at
+a time, one loaded model and zero-second keep-alive. No background preload occurs.
+Set `BRAIN_LOCAL_MODEL` to select the local Studio/runtime model; `BRAIN_MODEL`
+selects the configurable API adapter model. A software test pass does not
 establish hardware readiness or successful generation. The deployment report must
 state whether genuine inference was actually performed. No model is silently swapped.
 

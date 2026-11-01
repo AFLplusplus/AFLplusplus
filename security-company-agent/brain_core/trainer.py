@@ -11,7 +11,7 @@ from .appraisal import NEUTRAL, offline_appraisal, update_emotions
 from .personality import model_context
 from . import personality, cognition
 from .decision import SCHEMA, validate_decision
-from .model_api import ModelConfig, ModelError, complete
+from .model_api import ModelConfig, ModelError, ModelOutputError, complete
 
 ROOT = Path(__file__).resolve().parent
 STATE_PATH = ROOT / 'eq_matrix.json'
@@ -131,7 +131,7 @@ def infer(scenario, feedback, state, history, mock=False, *, config=None,
     try:
         validate(result)
     except ValueError:
-        raise ModelError('Model response failed emotional-output validation. No training turn was saved.') from None
+        raise ModelOutputError('Model response failed emotional-output validation. No training turn was saved.') from None
     result['_provenance'] = provenance
     return result
 

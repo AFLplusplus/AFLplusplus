@@ -8,7 +8,7 @@ and the migration path to a self-hosted API, PostgreSQL and a secure web fronten
 
 The Training Studio remains independent from Hermes and all operational agents.
 The local inference adapter defaults to `http://127.0.0.1:11434/v1` and the exact
-requested model `qwen3:1.7b`. It uses OpenAI-compatible structured output with
+requested model `qwen3:0.6b`. It uses OpenAI-compatible structured output with
 validated JSON; no API key is sent to local Ollama. Connection errors, timeouts,
 HTTP failures and malformed output produce safe messages without response bodies.
 
@@ -28,12 +28,18 @@ Cloud inference and prompt logging are disabled in the managed local runtime.
 
 ### Resource policy
 
-The runtime uses a 4096-token context, one concurrent generation and one loaded
-model. Models are unloaded after a request. New Ollama model loading is blocked
-below 2.5 GiB available physical RAM; preferably free 3 GiB for initial evaluation.
+The `qwen3:0.6b` runtime uses a 2048-token context, at most 768 output tokens, one
+concurrent generation and one loaded model. Keep-alive is zero seconds; there is
+no model preloading. Every local generation request requires at least 1.5 GiB of
+available physical RAM. Unknown RAM fails closed. Other model identifiers retain
+the conservative 2.5 GiB guard and 4096-token context.
 This is a conservative application policy, not an official model minimum.
 No alternative model is silently downloaded. A detected installation is not proof
 that inference succeeds. Read the deployment verification report for actual results.
+
+Set `BRAIN_LOCAL_MODEL` to configure the Studio's local Ollama model and managed
+runtime policy. `BRAIN_MODEL` configures the standalone API adapter default.
+Memory failures and invalid structured model output are separate error types.
 
 ### Emotional display and memory
 

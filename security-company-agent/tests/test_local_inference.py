@@ -124,7 +124,19 @@ class LocalTests(unittest.TestCase):
             opener.return_value.open.side_effect = OSError()
             with self.assertRaisesRegex(model_api.ModelError, 'on hold'):
                 model_api.complete([], model_api.ModelConfig(), SCHEMA)
-            self.assertEqual(opener.return_value.open.call_count, 1)  # inventory only
+            self.assertEqual(opener.return_value.open.call_count, 0)
+
+    def test_resource_error_is_separate_from_output_validation(self):
+        self.server.status = 500
+        self.server.output = b'model requires more system memory; private diagnostic'
+        with self.assertRaises(model_api.MemoryGuardError) as raised:
+            model_api.complete([], self.config, SCHEMA)
+        self.assertNotIn('private diagnostic', str(raised.exception))
+
+    def test_invalid_json_has_output_error_category(self):
+        self.server.output = b'not-json'
+        with self.assertRaises(model_api.ModelOutputError):
+            model_api.complete([], self.config, SCHEMA)
 
     def test_feedback_retrieved_and_sent_on_second_session(self):
         first, _, _, _ = service.analyze('Love and attachment in an uncertain relationship', config=self.config)
