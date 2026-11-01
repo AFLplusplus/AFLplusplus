@@ -1,0 +1,21 @@
+# Local runtime and secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+brain_core/eq_matrix.json
+brain_core/neuroplasticity_log.json
+brain_core/*log*.json
+campaign_scope.json
+campaign_results/
+logs/
+*.pst
+*.ost
+*.gguf
+*.safetensors
+*.pem
+*.key
