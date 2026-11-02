@@ -4,7 +4,7 @@ import streamlit as st
 from brain_core import trainer, studio, service, personality
 from brain_core.appraisal import EMOTIONS, NEUTRAL
 from brain_core.decision import emotional_transition
-from brain_core.model_api import ModelConfig, ModelError, local_inventory
+from brain_core.model_api import ModelConfig, ModelError, ModelOutputError, local_inventory
 from brain_core.runtime_guard import available_memory_gib
 from brain_core.model_policy import selected_local_model, policy_for
 
@@ -14,7 +14,10 @@ st.caption('Train the Brain · simulated emotions · decisions you can challenge
 st.info('Emotional indexes are computational simulations, not feelings or biological measurements. '
         'Saved feedback can be retrieved as context; it does not update model weights.')
 try:
-    profile = personality.load()
+    profile = personality.inspect()
+    if profile is None:
+        st.warning('No persistent personality profile exists yet. It will be initialized only when you explicitly start training.')
+        profile = dict(personality.DEFAULT)
 except (personality.PersonalityError, OSError):
     st.error('The established personality is missing, invalid, or unreadable. No identity was reset. '
              'Restore the local personality from backup before continuing.')
@@ -81,7 +84,9 @@ with st.sidebar:
         installed_models.clear()
         st.rerun()
     st.divider()
-    state, history = trainer.status()
+    state, history = trainer.inspect_status()
+    if state is None:
+        state = {'iterations': 0, 'emotion': 'neutral', 'metrics': dict(trainer.BASE), 'emotions': dict(NEUTRAL)}
     st.subheader('Training memory')
     st.metric('Iterations', state['iterations'])
     st.write('Simulated emotion:', state['emotion'])
@@ -109,25 +114,45 @@ with train_tab:
     if mode == 'Enterprise gateway' and use_refs:
         st.warning('Selected excerpts will leave this computer only after the explicit gateway authorization above.')
     combined = scenario.strip() + ('\n\nContext and relationships: ' + context.strip() if context.strip() else '')
-    corrections = studio.feedback_context(combined) if use_memory and scenario.strip() else []
+    corrections = studio.feedback_context(combined, initialize=False) if use_memory and scenario.strip() else []
     if corrections:
         with st.expander(f'Previous corrections available for this session ({len(corrections)})'):
             for correction in corrections:
                 st.write(f"Training turn #{correction['turn_id']} · {correction['rating']}")
                 st.write(correction['correction'])
+    retry_pending = st.session_state.pop('retry_model_output_pending', False)
     if st.button('Analyze emotions and decide', type='primary',
-                 disabled=not scenario.strip() or bool(configuration_error)):
+                 disabled=not scenario.strip() or bool(configuration_error)) or retry_pending:
         try:
             with st.spinner('Analyzing locally...' if not mock and config and config.local else 'Preparing response...'):
                 turn_id, updated, result, retrieved = service.analyze(
                     combined, guidance, mock=mock, config=config,
                     use_references=use_refs, use_feedback=use_memory,
-                    relationship_label=relationship_label)
+                    relationship_label=relationship_label, initialize_profile=False,
+                    persist_fixture_state=mock, state_path=trainer.STATE_PATH,
+                    history_path=trainer.HISTORY_PATH, data_dir=studio.DATA, db_path=studio.DB,
+                    profile_path=personality.PROFILE_PATH)
+                if result.get('_trainer_pending'):
+                    updated, _ = trainer.inspect_status(state_path=trainer.STATE_PATH,
+                                                       history_path=trainer.HISTORY_PATH)
+                    if updated is None:
+                        updated = {'iterations': 0, 'emotion': 'neutral', 'metrics': dict(trainer.BASE), 'emotions': dict(NEUTRAL)}
             st.session_state.studio_last_turn = turn_id
             st.session_state.studio_result = result
             st.session_state.studio_state = updated
             st.session_state.studio_feedback = retrieved
+            if result.get('_trainer_pending'):
+                st.success('Response validated; review it and explicitly save trainer feedback to add an approved training record.')
+            elif mock:
+                st.info('Offline demonstration fixture. This is not a model-generated training response.')
             st.rerun()
+        except ModelOutputError as error:
+            st.error('The model response did not meet the reasoning quality checks. No training data or emotional state was changed.')
+            if error.diagnostic_id:
+                st.caption(f'Diagnostic reference: {error.diagnostic_id}')
+            if st.button('Retry analysis', key='retry_model_output'):
+                st.session_state['retry_model_output_pending'] = True
+                st.rerun()
         except (ModelError, ValueError) as error:
             st.error(str(error))
         except Exception:
@@ -139,6 +164,8 @@ with train_tab:
         provenance = result.get('_provenance', {})
         if provenance.get('source') == 'offline_fixture':
             st.warning('This result is an offline fixture. It is not an analysis by a pretrained model.')
+        elif result.get('_trainer_pending'):
+            st.info(f"Pending review: {provenance.get('model')} · {provenance.get('seconds')} seconds")
         else:
             st.success(f"Model response: {provenance.get('model')} · {provenance.get('seconds')} seconds")
         st.subheader('First-person simulated response')
@@ -173,14 +200,38 @@ with train_tab:
             st.caption('These transparent heuristic scores are computed before inference. '
                        'They are not proof of genuine emotional reasoning.')
             st.json(result.get('_cognitive_context', {}))
+        if result.get('_trainer_pending'):
+            st.warning('Review this response. Saving feedback below is the explicit approval action.')
         rating = st.radio('Rate emotional appropriateness', ['good', 'partial', 'poor'], horizontal=True,
                           key=f"rating_{st.session_state.studio_last_turn}")
         correction = st.text_area('Correct the response / challenge its recommendation', max_chars=4000,
                                    key=f"correction_{st.session_state.studio_last_turn}")
         if st.button('Save trainer feedback'):
-            service.give_feedback(st.session_state.studio_last_turn, rating, correction)
-            st.success('Feedback saved locally. Relevant corrections can be retrieved in later sessions; '
-                       'model weights have not changed.')
+            if result.get('_provenance', {}).get('source') == 'offline_fixture':
+                st.warning('Offline fixture is not eligible for approval or training history.')
+            elif result.get('_trainer_pending'):
+                approved_result = dict(result)
+                approved_result.pop('_trainer_pending', None)
+                approved_result['_trainer_approved'] = True
+                approved_result['_provenance'] = dict(approved_result.get('_provenance', {}),
+                                                      source='approved_training')
+                turn_id, updated, approved_result, _ = service.analyze(
+                        combined, guidance, config=config, use_references=use_refs,
+                        use_feedback=use_memory, relationship_label=relationship_label,
+                        state_path=trainer.STATE_PATH, history_path=trainer.HISTORY_PATH,
+                        data_dir=studio.DATA, db_path=studio.DB,
+                        profile_path=personality.PROFILE_PATH, approved_result=approved_result)
+                st.session_state.studio_last_turn = turn_id
+                st.session_state.studio_state = updated
+                st.session_state.studio_result = approved_result
+                service.give_feedback(st.session_state.studio_last_turn, rating, correction,
+                                      data_dir=studio.DATA, db_path=studio.DB)
+            if result.get('_trainer_pending'):
+                st.success('Response approved and feedback saved locally. Relevant corrections can be retrieved in later sessions; '
+                           'model weights have not changed.')
+            elif result.get('_provenance', {}).get('source') != 'offline_fixture':
+                st.success('Feedback saved locally. Relevant corrections can be retrieved in later sessions; '
+                           'model weights have not changed.')
     else:
         st.subheader('Current simulated emotional state')
         for name, value in state.get('emotions', NEUTRAL).items():
@@ -200,7 +251,7 @@ with docs_tab:
                 st.warning('Document import failed. Check its type, size and readable text.')
     st.caption('Documents stay in local SQLite storage. References are opt-in per session. '
                'Remote inference requires explicit authorization; scanned PDFs need OCR, which is not enabled.')
-    for document in studio.documents():
+    for document in studio.inspect_documents():
         st.write(f"📄 {document['filename']} — {document['char_count']:,} characters")
 
 with research_tab:
@@ -213,19 +264,19 @@ with research_tab:
             st.success(f'Saved {len(found)} candidate sources for review.')
         except Exception:
             st.error('Research unavailable. Check the optional research provider configuration.')
-    for item in studio.research_items():
+    for item in studio.inspect_research_items():
         with st.expander(item['title'] or item['url']):
             st.write('Source:', item['url'])
             st.write(item['excerpt'])
             approved = st.checkbox('Approve as reference evidence', value=bool(item['approved']),
                                    key=f"research_{item['id']}")
             if st.button('Save approval', key=f"approve_{item['id']}"):
-                studio.approve_research(item['id'], approved)
+                studio.approve_research(item['id'], bool(approved))
                 st.success('Reference status updated. Behavioral rules were not overwritten.')
 
 with history_tab:
     st.subheader('Your training history')
-    records = studio.recent_turns(50)
+    records = studio.inspect_turns(50)
     st.metric('Saved training scenarios (latest 50)', len(records))
     for row in records:
         with st.expander(f"#{row['id']} · {row['scenario'][:95]}"):

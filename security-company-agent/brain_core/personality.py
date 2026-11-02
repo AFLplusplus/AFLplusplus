@@ -61,13 +61,14 @@ def validate(profile):
         raise PersonalityError('Personality principles are invalid; the existing file was preserved.')
     return profile
 
-def _load():
-    anchor = PROFILE_PATH.with_suffix('.identity')
-    if anchor.exists() and not PROFILE_PATH.exists():
+def _load(profile_path=None):
+    profile_path = Path(profile_path) if profile_path is not None else PROFILE_PATH
+    anchor = profile_path.with_suffix('.identity')
+    if anchor.exists() and not profile_path.exists():
         raise PersonalityError('The established personality file is missing. Restore it from backup; no reset was performed.')
-    if not PROFILE_PATH.exists():
-        PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(prefix="personality.", suffix=".tmp", dir=PROFILE_PATH.parent)
+    if not profile_path.exists():
+        profile_path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(prefix="personality.", suffix=".tmp", dir=profile_path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fp:
                 profile = copy.deepcopy(DEFAULT)
@@ -76,14 +77,14 @@ def _load():
                 fp.flush()
                 os.fsync(fp.fileno())
             try:
-                os.link(temporary, PROFILE_PATH)  # publish a complete file without replacing a concurrent creator
+                os.link(temporary, profile_path)  # publish a complete file without replacing a concurrent creator
             except FileExistsError:
                 pass
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)
     try:
-        profile = validate(json.loads(PROFILE_PATH.read_text(encoding="utf-8")))
+        profile = validate(json.loads(profile_path.read_text(encoding="utf-8")))
     except (OSError, UnicodeError, json.JSONDecodeError):
         raise PersonalityError('The personality cannot be read. Existing data was preserved; no reset was performed.') from None
     if anchor.exists():
@@ -103,12 +104,36 @@ def _load():
             pass
     return profile
 
-def load():
+def load(*, profile_path=None, initialize=False):
+    """Inspect identity by default; create the established profile only by explicit opt-in."""
+    if not initialize:
+        return inspect(profile_path=profile_path)
     with _LOCK:
-        return _load()
+        return _load(profile_path)
 
-def model_context(profile=None):
-    profile = validate(profile) if profile is not None else load()
+def inspect(*, profile_path=None):
+    """Read the established profile without creating files or identity markers."""
+    profile_path = Path(profile_path) if profile_path is not None else PROFILE_PATH
+    with _LOCK:
+        if not profile_path.exists():
+            return None
+        try:
+            profile = validate(json.loads(profile_path.read_text(encoding="utf-8")))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            raise PersonalityError('The personality cannot be read. Existing data was preserved; no reset was performed.') from None
+        anchor = profile_path.with_suffix('.identity')
+        if anchor.exists():
+            try:
+                established_id = anchor.read_text(encoding='utf-8').strip()
+            except (OSError, UnicodeError):
+                raise PersonalityError('The personality identity marker is unreadable; no reset was performed.') from None
+            if established_id != profile['identity_id']:
+                raise PersonalityError('Personality identity does not match its persistent identity marker.')
+        return profile
+
+def model_context(profile=None, *, initialize=False, profile_path=None):
+    profile = validate(profile) if profile is not None else (
+        load(profile_path=profile_path) if initialize else inspect(profile_path=profile_path) or copy.deepcopy(DEFAULT))
     return {
         "identity_id": profile['identity_id'],
         "identity_name": profile["identity_name"],

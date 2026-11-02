@@ -4,19 +4,36 @@ import json
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from brain_core import model_api, model_policy, local_runtime, trainer
+from brain_core import model_api, model_policy, local_runtime, trainer, personality, studio
 from brain_core.decision import SCHEMA
 
 class PolicyTests(unittest.TestCase):
+    def test_explicit_lower_output_limit_is_respected_and_cannot_raise_policy(self):
+        config = model_api.ModelConfig(max_output_tokens=400, context_tokens=4096,
+                                       keep_alive_seconds=60)
+        policy = model_policy.policy_for(config.model)
+        self.assertEqual(min(policy.output_tokens, config.max_output_tokens), 400)
+        self.assertEqual(min(policy.context_tokens, config.context_tokens), 2048)
+        self.assertEqual(min(policy.keep_alive_seconds, config.keep_alive_seconds), 0)
+
     def test_default_is_authorized_qwen06(self):
         self.assertEqual(model_api.ModelConfig().model,'qwen3:0.6b')
         with patch.dict(os.environ,{},clear=True):
             self.assertEqual(model_policy.selected_local_model(),'qwen3:0.6b')
             self.assertEqual(model_api.ModelConfig.from_env().model,'qwen3:0.6b')
+
+    def test_model_environment_runtime_limits_are_read(self):
+        with patch.dict(os.environ, {'BRAIN_MAX_OUTPUT_TOKENS': '400', 'BRAIN_CONTEXT_TOKENS': '1024',
+                                    'BRAIN_KEEP_ALIVE_SECONDS': '12'}):
+            config = model_api.ModelConfig.from_env()
+        self.assertEqual(config.max_output_tokens, 400)
+        self.assertEqual(config.context_tokens, 1024)
+        self.assertEqual(config.keep_alive_seconds, 0)
 
     def test_model_identifiers_remain_configurable(self):
         with patch.dict(os.environ,{'BRAIN_LOCAL_MODEL':'qwen3:1.7b','BRAIN_MODEL':'approved-gateway-model'}):
@@ -49,19 +66,35 @@ class PolicyTests(unittest.TestCase):
             opener.assert_not_called()
 
     def test_exact_threshold_permits_only_fake_request(self):
-        fixture=trainer.infer('fixture','',{}, {},mock=True)
-        response=json.dumps({'choices':[{'message':{'content':json.dumps(fixture)},'finish_reason':'stop'}]}).encode()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            fixture = trainer.infer('fixture', '', {}, {}, mock=True,
+                                    state_path=root / 'state.json', history_path=root / 'history.json',
+                                    data_dir=root, db_path=root / 'brain.sqlite3')
+        response=json.dumps({'message': {'content': json.dumps(fixture)}, 'done': True,
+                             'done_reason': 'stop'}).encode()
+        local_config = model_api.ModelConfig()
         with patch.object(model_api,'available_memory_gib',return_value=1.5), \
              patch.object(model_api,'opener_for') as opener:
             opener.return_value.open.return_value=io.BytesIO(response)
-            result,_=model_api.complete([],model_api.ModelConfig(),SCHEMA)
+            result,_=model_api.complete([],local_config,SCHEMA)
             request=opener.return_value.open.call_args.args[0]
         body=json.loads(request.data)
+        self.assertEqual(request.full_url, 'http://127.0.0.1:11434/api/chat')
         self.assertEqual(body['model'],'qwen3:0.6b')
-        self.assertEqual(body['max_tokens'],768)
-        self.assertEqual(body['reasoning_effort'],'none')
+        self.assertEqual(body['options']['num_ctx'],2048)
+        self.assertEqual(body['options']['num_predict'],768)
+        self.assertEqual(body['keep_alive'],0)
         self.assertEqual(body['stream'],False)
         self.assertEqual(result['emotion'],'curious')
+
+    def test_lower_output_cap_is_honored_and_policy_settings_cannot_be_raised(self):
+        config = model_api.ModelConfig(max_output_tokens=400, context_tokens=4096,
+                                       keep_alive_seconds=60)
+        policy = model_policy.policy_for(config.model)
+        self.assertEqual(min(policy.output_tokens, config.max_output_tokens or policy.output_tokens), 400)
+        self.assertEqual(min(policy.context_tokens, config.context_tokens or policy.context_tokens), 2048)
+        self.assertEqual(min(policy.keep_alive_seconds, config.keep_alive_seconds), 0)
 
     def test_17b_guard_is_not_lowered(self):
         with patch.object(model_api,'available_memory_gib',return_value=1.9), \
@@ -69,6 +102,21 @@ class PolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(model_api.MemoryGuardError,'2.5 GiB'):
                 model_api.complete([],model_api.ModelConfig(model='qwen3:1.7b'),SCHEMA)
             opener.assert_not_called()
+
+    def test_native_server_info_is_read_only_and_marks_parallel_setting_unknown(self):
+        class Response:
+            def __init__(self, value): self.value = value
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def read(self): return json.dumps(self.value).encode()
+        with patch.object(model_api, 'opener_for') as factory:
+            factory.return_value.open.side_effect = [Response({'version': 'test'}),
+                                                       Response({'models': [{'name': 'qwen3:0.6b'}]})]
+            info = model_api.ollama_server_info()
+        self.assertEqual(info['version'], 'test')
+        self.assertEqual(info['loaded_models'][0]['name'], 'qwen3:0.6b')
+        self.assertEqual(info['parallel_setting'], 'unknown')
+        self.assertEqual(factory.return_value.open.call_count, 2)
 
     def test_runtime_config_is_local_and_does_not_preload(self):
         with patch.dict(os.environ,{'BRAIN_LOCAL_MODEL':'qwen3:0.6b'}):

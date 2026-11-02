@@ -19,12 +19,18 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 @contextmanager
-def connect():
-    DATA.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB)
+def connect(*, initialize=False, data_dir=None, db_path=None):
+    data_dir = Path(data_dir) if data_dir is not None else DATA
+    db_path = Path(db_path) if db_path is not None else (data_dir / 'brain.sqlite3' if data_dir != DATA else DB)
+    if initialize:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    elif not db_path.exists():
+        raise FileNotFoundError(db_path)
+    conn = sqlite3.connect(db_path if initialize else f'file:{db_path.as_posix()}?mode=rw', uri=not initialize)
     try:
         conn.execute("PRAGMA foreign_keys=ON")
-        conn.executescript("""
+        if initialize:
+            conn.executescript("""
     CREATE TABLE IF NOT EXISTS turns (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       created TEXT NOT NULL,
@@ -51,27 +57,58 @@ def connect():
       excerpt TEXT NOT NULL,
       approved INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS relationship_states (
+      label TEXT PRIMARY KEY,
+      emotions_json TEXT NOT NULL,
+      updated TEXT NOT NULL
+    );
     """)
         with conn:
             yield conn
     finally:
         conn.close()
 
-def add_turn(scenario, feedback, result, state):
-    with connect() as db:
+def add_turn(scenario, feedback, result, state, *, data_dir=None, db_path=None):
+    if result.get('_trainer_pending'):
+        raise ValueError('Unreviewed inference cannot be saved as a training record.')
+    if result.get('_provenance', {}).get('source') == 'approved_training' and not result.get('_trainer_approved'):
+        raise ValueError('Approved training records require explicit trainer approval.')
+    if not result.get('_trainer_approved') and result.get('_provenance', {}).get('source') not in ('offline_fixture', 'unit_test_mock'):
+        raise ValueError('Training records require explicit trainer approval.')
+    with connect(initialize=True, data_dir=data_dir, db_path=db_path) as db:
         cur = db.execute("INSERT INTO turns(created,scenario,feedback,result_json,state_json) VALUES(?,?,?,?,?)",
                         (now(), scenario, feedback, json.dumps(result), json.dumps(state)))
         return cur.lastrowid
 
-def rate_turn(turn_id, rating, commentary):
+def rate_turn(turn_id, rating, commentary, *, data_dir=None, db_path=None):
     if rating not in ("good", "partial", "poor"):
         raise ValueError("Unknown rating")
-    with connect() as db:
+    with connect(initialize=True, data_dir=data_dir, db_path=db_path) as db:
+        row = db.execute("SELECT result_json FROM turns WHERE id=?", (turn_id,)).fetchone()
+        if not row:
+            raise ValueError("Training turn does not exist; feedback was not saved.")
+        result = json.loads(row[0])
+        if result.get('_trainer_pending'):
+            raise ValueError("Unreviewed inference cannot receive saved trainer feedback.")
+        if not result.get('_trainer_approved'):
+            raise ValueError("Training turn requires an explicit saved approval action.")
         db.execute("UPDATE turns SET rating=?, commentary=? WHERE id=?",
                    (rating, commentary[:4000], turn_id))
 
-def recent_turns(limit=20):
-    with connect() as db:
+def inspect_turns(limit=20, *, data_dir=None, db_path=None):
+    """Read existing turns without creating the data directory or database."""
+    db_path = Path(db_path) if db_path is not None else (Path(data_dir) / 'brain.sqlite3' if data_dir is not None else DB)
+    if not db_path.exists():
+        return []
+    with connect(initialize=False, data_dir=data_dir, db_path=db_path) as db:
+        return [dict(zip(("id","created","scenario","feedback","result_json","state_json","rating","commentary"), row))
+                for row in db.execute("SELECT id,created,scenario,feedback,result_json,state_json,rating,commentary FROM turns ORDER BY id DESC LIMIT ?", (limit,))]
+
+def recent_turns(limit=20, *, data_dir=None, db_path=None):
+    db_path = Path(db_path) if db_path is not None else (Path(data_dir) / 'brain.sqlite3' if data_dir is not None else DB)
+    if not db_path.exists():
+        return []
+    with connect(initialize=False, data_dir=data_dir, db_path=db_path) as db:
         return [dict(zip(("id","created","scenario","feedback","result_json","state_json","rating","commentary"), row))
                 for row in db.execute("SELECT id,created,scenario,feedback,result_json,state_json,rating,commentary FROM turns ORDER BY id DESC LIMIT ?", (limit,))]
 
@@ -87,9 +124,12 @@ def relevance_score(query, text):
     overlap=relevance_tokens(query) & relevance_tokens(text)
     return len(overlap) if len(overlap)>=2 else 0
 
-def feedback_context(query, limit=3, max_chars=2000):
+def feedback_context(query, limit=3, max_chars=2000, *, initialize=False, data_dir=None, db_path=None):
     """Retrieve relevant trainer corrections with explicit local source IDs."""
-    with connect() as db:
+    target_db = Path(db_path) if db_path is not None else (Path(data_dir) / 'brain.sqlite3' if data_dir is not None else DB)
+    if not initialize and not target_db.exists():
+        return []
+    with connect(initialize=False, data_dir=data_dir, db_path=target_db) as db:
         rows = db.execute('SELECT id,scenario,rating,commentary FROM turns '
                           "WHERE trim(commentary) != '' ORDER BY id DESC LIMIT 100").fetchall()
     ranked = []
@@ -130,21 +170,35 @@ def decode_document(name, content):
         raise ValueError("No readable text found. Scanned PDFs need OCR (not enabled).")
     return text[:250000]
 
-def add_document(filename, text):
-    with connect() as db:
+def add_document(filename, text, *, data_dir=None, db_path=None):
+    with connect(initialize=True, data_dir=data_dir, db_path=db_path) as db:
         cur = db.execute("INSERT INTO documents(created,filename,content,char_count) VALUES(?,?,?,?)",
                          (now(), Path(filename).name[:240], text, len(text)))
         return cur.lastrowid
 
-def documents():
-    with connect() as db:
+def inspect_documents(*, data_dir=None, db_path=None):
+    db_path = Path(db_path) if db_path is not None else (Path(data_dir) / 'brain.sqlite3' if data_dir is not None else DB)
+    if not db_path.exists():
+        return []
+    with connect(initialize=False, data_dir=data_dir, db_path=db_path) as db:
         return [dict(zip(("id","filename","char_count"), row))
                 for row in db.execute("SELECT id,filename,char_count FROM documents ORDER BY id DESC")]
 
-def relevant_context(query, max_chars=11000):
+def documents(*, data_dir=None, db_path=None):
+    db_path = Path(db_path) if db_path is not None else (Path(data_dir) / 'brain.sqlite3' if data_dir is not None else DB)
+    if not db_path.exists():
+        return []
+    with connect(initialize=False, data_dir=data_dir, db_path=db_path) as db:
+        return [dict(zip(("id","filename","char_count"), row))
+                for row in db.execute("SELECT id,filename,char_count FROM documents ORDER BY id DESC")]
+
+def relevant_context(query, max_chars=11000, *, initialize=False, data_dir=None, db_path=None):
     # Simple word overlap retrieval for the MVP. Upgrade to embeddings in next phase.
     words = {w.lower() for w in query.split() if len(w) > 3}
-    with connect() as db:
+    target_db = Path(db_path) if db_path is not None else (Path(data_dir) / 'brain.sqlite3' if data_dir is not None else DB)
+    if not initialize and not target_db.exists():
+        return ''
+    with connect(initialize=False, data_dir=data_dir, db_path=target_db) as db:
         rows = db.execute("SELECT filename,content FROM documents ORDER BY id DESC LIMIT 60").fetchall()
         research = db.execute("SELECT title,url,excerpt FROM research WHERE approved=1 ORDER BY id DESC LIMIT 30").fetchall()
     candidates = [(sum(w in content.lower() for w in words), f"DOCUMENT: {name}\n{content[:4500]}")
@@ -155,7 +209,7 @@ def relevant_context(query, max_chars=11000):
     candidates.sort(key=lambda x: x[0], reverse=True)
     return "\n\n".join(text for score,text in candidates if score > 0)[:max_chars]
 
-def research_search(query):
+def research_search(query, *, data_dir=None, db_path=None):
     """Search via optional Tavily API; results are UNAPPROVED drafts."""
     import urllib.request
     key = os.getenv("TAVILY_API_KEY", "").strip()
@@ -169,7 +223,7 @@ def research_search(query):
     with urllib.request.urlopen(request, timeout=25) as response:
         results = json.load(response).get("results", [])
     saved = []
-    with connect() as db:
+    with connect(initialize=True, data_dir=data_dir, db_path=db_path) as db:
         for item in results[:5]:
             url = item.get("url", "")
             if urlparse(url).scheme != "https":
@@ -181,11 +235,26 @@ def research_search(query):
             saved.append({"id": cur.lastrowid,"title":title,"url":url,"excerpt":excerpt})
     return saved
 
-def research_items():
-    with connect() as db:
+def inspect_research_items(*, data_dir=None, db_path=None):
+    db_path = Path(db_path) if db_path is not None else (Path(data_dir) / 'brain.sqlite3' if data_dir is not None else DB)
+    if not db_path.exists():
+        return []
+    with connect(initialize=False, data_dir=data_dir, db_path=db_path) as db:
         return [dict(zip(("id","title","url","excerpt","approved"), row))
                 for row in db.execute("SELECT id,title,url,excerpt,approved FROM research ORDER BY id DESC LIMIT 50")]
 
-def approve_research(id, approved):
-    with connect() as db:
-        db.execute("UPDATE research SET approved=? WHERE id=?", (int(bool(approved)), id))
+def research_items(*, data_dir=None, db_path=None):
+    db_path = Path(db_path) if db_path is not None else (Path(data_dir) / 'brain.sqlite3' if data_dir is not None else DB)
+    if not db_path.exists():
+        return []
+    with connect(initialize=False, data_dir=data_dir, db_path=db_path) as db:
+        return [dict(zip(("id","title","url","excerpt","approved"), row))
+                for row in db.execute("SELECT id,title,url,excerpt,approved FROM research ORDER BY id DESC LIMIT 50")]
+
+def approve_research(id, approved, *, data_dir=None, db_path=None):
+    if type(approved) is not bool:
+        raise ValueError("Research approval must be an explicit boolean decision.")
+    with connect(initialize=False, data_dir=data_dir, db_path=db_path) as db:
+        changed = db.execute("UPDATE research SET approved=? WHERE id=?", (int(approved), id)).rowcount
+        if not changed:
+            raise ValueError("Research item does not exist; approval was not saved.")
