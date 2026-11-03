@@ -71,7 +71,7 @@ def get_reachable(grammar, start):
 
 
 def gettokens(rule):
-    pattern = re.compile("([^\s\"\']+)|\"([^\"]*)\"|\'([^\']*)\'")
+    pattern = re.compile(r"([^\s\"\']+)|\"([^\"]*)\"|\'([^\']*)\'")
     return [matched.group(0) for matched in pattern.finditer(rule)]
 
 def gnf(grammar):
