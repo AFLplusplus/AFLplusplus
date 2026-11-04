@@ -2,6 +2,7 @@
 from contextlib import ExitStack
 from pathlib import Path
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -14,14 +15,16 @@ from streamlit.testing.v1 import AppTest
 
 
 def sequential_routing(test):
-    """Mark future-only tests for pytest while retaining unittest compatibility."""
+    """Skip future routing cases by default; opt in with SOVEREIGN_RUN_FUTURE_ROUTING=1."""
     try:
         import pytest
         test = pytest.mark.sequential_routing(test)
     except ImportError:
         pass
-    test.__unittest_skip__ = True
-    test.__unittest_skip_why__ = 'Sequential routing is future work outside Step 8M.'
+    if os.environ.get('SOVEREIGN_RUN_FUTURE_ROUTING') != '1':
+        test.__unittest_skip__ = True
+        test.__unittest_skip_why__ = (
+            'Future feature: automatic sequential provider routing not implemented.')
     return test
 
 

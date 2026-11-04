@@ -10,11 +10,10 @@ from brain_core.providers import ProviderID
 
 
 class ProviderRoutingTests(unittest.TestCase):
-    """Preserved, separately runnable acceptance tests for future routing work."""
-    __test__ = False
+    """Preserved acceptance tests for future automatic provider routing."""
     __unittest_skip__ = True
-    __unittest_skip_why__ = 'Sequential provider routing is future work outside Step 8M.'
-    __unittest_skip__ = False
+    __unittest_skip_why__ = 'Future feature: automatic sequential provider routing not implemented.'
+    __test__ = False
 
     def setUp(self):
         self.health = (dict(app.PROVIDER_STATUS), dict(app.PROVIDER_FAILURE), set(app.PROVIDER_BLOCKED))
