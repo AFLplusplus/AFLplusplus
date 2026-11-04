@@ -88,8 +88,11 @@ class AlibabaQwenProvider:
         body = {'model':request.model,'messages':list(request.messages),'stream':False,
                 'max_tokens':request.max_output_tokens,'temperature':0.2}
         if request.json_schema:
+            schema_name = ('sovereign_general_answer_v1'
+                           if request.json_schema.get('properties', {}).get('answer', {}).get('type') == 'string'
+                           else 'sovereign_reasoning_v1')
             body['response_format']={'type':'json_schema','json_schema':{
-                'name':'sovereign_reasoning_v1','strict':True,'schema':request.json_schema}}
+                'name':schema_name,'strict':True,'schema':request.json_schema}}
         return body
 
     @classmethod

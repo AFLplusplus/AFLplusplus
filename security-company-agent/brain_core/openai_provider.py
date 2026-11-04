@@ -138,7 +138,10 @@ def responses_payload(request: InferenceRequest):
     if instructions:
         payload['instructions'] = '\n\n'.join(instructions)
     if request.json_schema:
-        payload['text'] = {'format': {'type': 'json_schema', 'name': 'sovereign_reasoning_v1',
+        schema_name = ('sovereign_general_answer_v1'
+                       if request.json_schema.get('properties', {}).get('answer', {}).get('type') == 'string'
+                       else 'sovereign_reasoning_v1')
+        payload['text'] = {'format': {'type': 'json_schema', 'name': schema_name,
                                       'strict': True, 'schema': request.json_schema}}
     return payload
 

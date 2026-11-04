@@ -167,7 +167,9 @@ class CloudOrchestrator:
                          and 1 <= frozen_payload.get('max_output_tokens', 0) <= self._budget.max_output_tokens
                          and isinstance(schema, dict)
                          and schema_format.get('type') == 'json_schema'
-                         and schema_format.get('name') == 'sovereign_reasoning_v1'
+                         and schema_format.get('name') == ('sovereign_general_answer_v1'
+                                                            if schema.get('properties', {}).get('answer', {}).get('type') == 'string'
+                                                            else 'sovereign_reasoning_v1')
                          and schema_format.get('strict') is True
                          and schema_format.get('schema') == schema
                          and set(frozen_payload).issubset({'model', 'input', 'store', 'tools',
@@ -179,6 +181,12 @@ class CloudOrchestrator:
                          and schema_format.get('type') == 'json_schema'
                          and schema_spec.get('strict') is True
                          and schema_spec.get('schema') == reasoning_schema)
+
+            if (self._provider == 'openai_cloud' and isinstance(schema, dict)
+                    and schema.get('properties', {}).get('answer', {}).get('type') == 'string'):
+                valid = (valid
+                         and schema_format.get('name') == 'sovereign_general_answer_v1'
+                         and schema_format.get('schema') == schema)
             if not valid:
                 raise CloudOrchestrationError('Cloud payload does not match the approved reasoning request contract.')
             if self._provider == 'openai_cloud' and self._settings_factory is not None and int(frozen_payload.get('max_output_tokens', 0)) < 1:
@@ -212,12 +220,16 @@ class CloudOrchestrator:
                             raise CloudOrchestrationError('OpenAI accepts text input only.')
                         text_parts.append(part['text'])
                     approved_messages_list.append({'role': item['role'], 'content': ''.join(text_parts)})
+                request_schema = frozen_payload.get('text', {}).get('format', {}).get('schema', schema)
+                if not isinstance(request_schema, dict):
+                    raise CloudOrchestrationError('OpenAI response schema is invalid.')
                 approved_inference = _OpenAIRequest(
                     tuple(approved_messages_list), settings.model, approved_output_cap,
-                    self._request_timeout_seconds, schema)
+                    self._request_timeout_seconds, request_schema)
                 canonical_response_payload = responses_payload(approved_inference)
                 if canonical_response_payload != frozen_payload:
                     raise CloudOrchestrationError('OpenAI payload is not in its canonical approved form.')
+                schema = request_schema
                 approval_payload = frozen_payload
                 serialized = json.dumps(frozen_payload, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
                 tokens = self._token_counter(serialized)
