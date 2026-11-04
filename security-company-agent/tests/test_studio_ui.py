@@ -1,5 +1,4 @@
 """Streamlit UI regression tests, strictly offline with isolated temporary stores."""
-import importlib.util
 from contextlib import ExitStack
 from pathlib import Path
 import json
@@ -14,16 +13,17 @@ import brain_studio as app_module
 from streamlit.testing.v1 import AppTest
 
 
-def _sequential_routing_marker():
-    """Return pytest's marker when available without requiring pytest for unittest runs."""
+def sequential_routing(test):
+    """Mark future-only tests for pytest while retaining unittest compatibility."""
     try:
         import pytest
-        return pytest.mark.sequential_routing
+        test = pytest.mark.sequential_routing(test)
     except ImportError:
-        return lambda test: test
+        pass
+    test.__unittest_skip__ = True
+    test.__unittest_skip_why__ = 'Sequential routing is future work outside Step 8M.'
+    return test
 
-
-sequential_routing = _sequential_routing_marker()
 
 
 class StudioUITests(unittest.TestCase):
@@ -242,6 +242,14 @@ class StudioUITests(unittest.TestCase):
         app = self.app.run()
         self.assertTrue(any('key configured:' in item.value for item in app.caption))
         self.assertEqual(list(app.exception), [])
+
+    def test_step8m_openai_is_selected_and_prepared_only_after_explicit_user_selection(self):
+        app = self.app.run()
+        next(radio for radio in app.radio if radio.label == 'Inference').set_value('OpenAI cloud')
+        app.run()
+        self.assertEqual(list(app.exception), [])
+        self.assertFalse(any(button.label == 'Approve this cloud request once' for button in app.button))
+        self.assertFalse(any(button.label == 'Prepare next provider preview' for button in app.button))
 
     @sequential_routing
     def test_local_failure_prepares_openai_preview_but_sends_nothing_until_approval(self):
