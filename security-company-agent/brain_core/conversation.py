@@ -94,10 +94,22 @@ def classify_intent(text: str) -> Route:
         return Route('memory_recall', 'likely', 'Question asks about previously approved memory.')
     if re.search(r'\b(search|find|look up|retrieve) (approved )?(memory|lesson|lessons)\b', folded):
         return Route('memory_recall', 'likely', 'Explicit read-only memory search request.')
-    if re.search(r'\b(what happened|someone .* stopped responding|stopped responding|feels? hurt|i feel|they feel|uncertain about|interpret this)\b', folded):
+    if re.search(r'\b(what happened|someone .* stopped responding|stopped responding|feels? hurt|i feel|they feel|uncertain about|interpret this|my friend|my partner|my colleague|my relationship|does that mean they|do they still care|why did they)\b', folded):
         return Route('emotional_reasoning', 'likely', 'Emotional context or interpretation request.')
     if len(body.split()) <= 15 and re.search(r'\b(hello|hi|hey|good morning|good evening|how are you|thank you|thanks|who are you)\b', folded):
         return Route('general', 'likely', 'Short greeting or identity question.')
+
+    # Broad cue words only route directly when the wording has no interpersonal or emotional context.
+    direct_information_question = re.search(
+        r'\b(?:explain|define|describe|what is|what are|how does|how do|why is|why are|when did|where is|who was)\b', folded)
+    emotional_context = re.search(
+        r'\b(?:i feel|i am worried|i am concerned|i am anxious|i am upset|i am confused|'
+        r'my friend|my partner|my colleague|someone .* stopped responding|stopped responding|'
+        r'feels? hurt|uncertain about|interpret this|conversation concern|conversation)\b', folded)
+    current_information_question = re.search(
+        r'\b(?:what|who|when|where|which|how|why)\b[^?!.]{0,60}\b(?:latest|current|recent)\b', folded)
+    if (direct_information_question or current_information_question) and not emotional_context:
+        return Route('general', 'likely', 'Informational question or current-information request uses general answering.')
     return Route('emotional_reasoning', 'default', 'Unclassified content uses the grounded reasoning route.')
 
 
@@ -297,4 +309,4 @@ def respond_general(text, profile):
         return 'I do not have feelings or consciousness. I can help you think through what is happening and distinguish facts from uncertainties.'
     if re.search(r'\b(who are you|hello|hi|hey|good morning|good evening)\b', folded):
         return f"Hello. I am {profile.get('identity_name', 'Sovereign Brain')}. I am here to help you reflect carefully. I do not have personal feelings, but I can discuss emotional situations based on what you tell me."
-    return 'I can help reflect on that. What would you like to explore?'
+    return 'I can help with that general-knowledge question.'

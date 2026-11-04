@@ -156,11 +156,13 @@ class ConversationResearchUITests(unittest.TestCase):
             app_module._handle_message('I feel worried after a conversation.', self.cid, history,
                                        {'identity_name': 'Synthetic'}, Mock(local=True), None)
         reasoning.assert_called_once()
+        rows = conversation.load_messages(self.cid, data_dir=self.fixture.paths['data_dir'],
+                                         db_path=self.fixture.paths['db_path'])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual([row['role'] for row in rows], ['user', 'assistant'])
         evidence_context = reasoning.call_args.kwargs['cognitive_context']
         self.assertNotIn('research_evidence', evidence_context)
         self.assertEqual(item.status, 'awaiting_approval')
-        self.assertEqual(len(conversation.load_messages(self.cid, data_dir=self.fixture.paths['data_dir'],
-                                                        db_path=self.fixture.paths['db_path'])), 2)
 
     def test_session_store_prepares_preview_only_for_research_relevant_requests(self):
         self.assertTrue(app_module._research_relevant('What are the latest studies?'))

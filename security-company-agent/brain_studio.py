@@ -870,10 +870,6 @@ def _lesson_editor(message, pending):
 
 def _handle_message(user_text, session_id, history_messages, profile, model_config, configuration_error):
     route = conversation.classify_intent(user_text)
-    prior_message = any(item.get('role') == 'user' and item.get('content') == user_text
-                        for item in history_messages)
-    if prior_message and route.intent == 'emotional_reasoning':
-        return
     persisted_pending = conversation.load_lesson_state(session_id, data_dir=studio.DATA, db_path=studio.DB)
     # Never let an incomplete draft capture a separate request. Only an explicit
     # training signal (or a labeled field update) continues the workflow.
@@ -1026,6 +1022,8 @@ def _handle_message(user_text, session_id, history_messages, profile, model_conf
             _save_response(session_id, text, 'memory_empty')
         return
     if route.intent == 'general':
+        if _research_relevant(user_text):
+            _prepare_conversation_research(user_text, session_id)
         _save_response(session_id, conversation.respond_general(user_text, profile), 'deterministic_response')
         return
     if route.intent != 'emotional_reasoning':
