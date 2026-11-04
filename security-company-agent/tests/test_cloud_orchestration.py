@@ -82,6 +82,33 @@ class CloudOrchestrationTests(unittest.TestCase):
             profile={'identity_name': 'Synthetic'}, approved_lessons=self.lessons,
             local_error=error or RuntimeError('controlled local failure'), eligible=eligible)
 
+    def test_safe_diagnostic_categories_are_allowlisted_and_do_not_expose_secrets(self):
+        from brain_studio import _safe_cloud_failure_category
+        secret = 'synthetic-secret-token'
+        examples = (
+            (CloudOrchestrationError(secret, diagnostic='authorization'), 'authorization'),
+            (CloudOrchestrationError(secret, diagnostic='request_execution'), 'request_execution'),
+            (CloudOrchestrationError(secret, diagnostic='response_validation'), 'response_validation'),
+            (CloudOrchestrationError(secret), 'unknown'),
+            (CloudOrchestrationError(secret, diagnostic=secret), 'unknown'),
+            (RuntimeError(secret), 'unknown'),
+        )
+        for error, expected in examples:
+            with self.subTest(expected=expected):
+                displayed_category = _safe_cloud_failure_category(error)
+                self.assertEqual(displayed_category, expected)
+                self.assertNotIn(secret, displayed_category)
+                self.assertNotIn(secret, repr(displayed_category))
+        unsupported = CloudOrchestrationError(secret, diagnostic='authorization ' + secret)
+        self.assertEqual(_safe_cloud_failure_category(unsupported), 'unknown')
+
+    def test_explicit_approval_failures_have_authorization_category(self):
+        request = self.prepare()
+        with self.assertRaises(CloudOrchestrationError) as caught:
+            self.service.approve_and_execute(request=request, conversation_id='other-conversation')
+        self.assertEqual(caught.exception.diagnostic, 'authorization')
+        self.assertEqual(self.provider_factory.call_count, 0)
+
     def test_eligible_local_failure_prepares_frozen_preview_without_network(self):
         with patch('urllib.request.urlopen', side_effect=AssertionError('network forbidden')) as network:
             request = self.prepare()
@@ -155,8 +182,9 @@ class CloudOrchestrationTests(unittest.TestCase):
                 self.setUp()
                 self.provider.error = failure
                 request = self.prepare()
-                with self.assertRaises(CloudOrchestrationError):
+                with self.assertRaises(CloudOrchestrationError) as caught:
                     self.service.approve_and_execute(request=request, conversation_id='conversation-1')
+                self.assertEqual(caught.exception.diagnostic, 'request_execution')
                 self.assertEqual(self.provider.calls, 1)
                 self.assertFalse(self.manager.events[0]['success'])
                 self.assertEqual(self.manager.events[0]['error_category'], 'execution_failed')

@@ -40,6 +40,13 @@ class CloudExecution:
 class CloudOrchestrationError(RuntimeError):
     """Safe orchestration failure with no implied retry or authorization."""
 
+    DIAGNOSTICS = frozenset({'authorization', 'request_execution', 'response_validation', 'unknown'})
+
+    def __init__(self, message: str, *, diagnostic: str = 'unknown'):
+        super().__init__(message)
+        self.diagnostic = (diagnostic if isinstance(diagnostic, str) and diagnostic in self.DIAGNOSTICS
+                           else 'unknown')
+
 
 class CloudOrchestrator:
     """Coordinates cloud request preparation and single-use execution."""
@@ -288,7 +295,8 @@ class CloudOrchestrator:
             pending = self._pending.get(conversation_id)
             if (pending is None or pending[0] != request or request.conversation_id != conversation_id
                     or request.approval_id in self._executing or request.approval_id in self._completed):
-                raise CloudOrchestrationError('No unused matching request belongs to this conversation.')
+                raise CloudOrchestrationError('No unused matching request belongs to this conversation.',
+                                              diagnostic='authorization')
             self._executing.add(request.approval_id)
         _, settings, schema, payload, lessons_snapshot = pending
         try:
@@ -307,7 +315,8 @@ class CloudOrchestrator:
                 self._retire(pending)
             except Exception:
                 pass
-            raise CloudOrchestrationError('Provider configuration changed; prepare a new request.') from error
+            raise CloudOrchestrationError('Provider configuration changed; prepare a new request.',
+                                          diagnostic='authorization') from error
         approved_payload = payload
         fingerprint, canonical = self._consent.fingerprint(
             request.provider, request.model, request.region, approved_payload)
@@ -329,7 +338,8 @@ class CloudOrchestrator:
             finally:
                 with self._lock:
                     self._executing.discard(request.approval_id)
-            raise CloudOrchestrationError('Approved payload or identity changed; prepare a new request.')
+            raise CloudOrchestrationError('Approved payload or identity changed; prepare a new request.',
+                                          diagnostic='authorization')
         consumed = False
         try:
             # Consume authorization before provider construction/inference; no I/O can
@@ -369,7 +379,8 @@ class CloudOrchestrator:
                     self._pending.pop(conversation_id, None)
                     self._retired.add(request.approval_id)
                 self._retire(pending)
-                raise CloudOrchestrationError('Provider payload differs from the approved preview.')
+                raise CloudOrchestrationError('Provider payload differs from the approved preview.',
+                                              diagnostic='authorization')
             provider_fingerprint = (self._provider_fingerprint(inference, provider_payload)
                                     if self._provider != 'openai_cloud' else None)
             # Consume immediately before provider construction and I/O. No provider
@@ -387,7 +398,9 @@ class CloudOrchestrator:
                 try:
                     active_settings = self._settings_factory()
                 except Exception as error:
-                    raise CloudOrchestrationError('Provider configuration changed; authorization remains consumed.') from error
+                    raise CloudOrchestrationError(
+                        'Provider configuration changed; authorization remains consumed.',
+                        diagnostic='authorization') from error
                 active_key = getattr(active_settings, 'api_key', None)
                 configured_key = self._api_key()
                 if (active_settings.model != request.model
@@ -395,7 +408,9 @@ class CloudOrchestrator:
                         or not getattr(active_settings, 'api_key_configured', False)
                         or not isinstance(active_key, str) or not isinstance(configured_key, str)
                         or not hmac.compare_digest(active_key, configured_key)):
-                    raise CloudOrchestrationError('Provider configuration changed; authorization remains consumed.')
+                    raise CloudOrchestrationError(
+                        'Provider configuration changed; authorization remains consumed.',
+                        diagnostic='authorization')
             current_api_key = (active_settings.api_key if self._provider == 'openai_cloud'
                                and self._settings_factory is not None else self._api_key())
             provider_kwargs = {
@@ -433,7 +448,9 @@ class CloudOrchestrator:
                 try:
                     self._result_writer(conversation_id, result, lessons_snapshot)
                 except Exception as error:
-                    raise CloudOrchestrationError('Cloud response could not be persisted; authorization remains consumed.') from error
+                    raise CloudOrchestrationError(
+                        'Cloud response could not be persisted; authorization remains consumed.',
+                        diagnostic='response_validation') from error
             return CloudExecution(request, result)
         except Exception as error:
             with self._lock:
@@ -454,8 +471,11 @@ class CloudOrchestrator:
                     pass
                 raise error
             if consumed:
-                raise CloudOrchestrationError('Approved request failed; authorization remains consumed and will not be retried.') from error
-            raise CloudOrchestrationError('Cloud authorization failed safely; no request was retried.') from error
+                raise CloudOrchestrationError(
+                    'Approved request failed; authorization remains consumed and will not be retried.',
+                    diagnostic='request_execution') from error
+            raise CloudOrchestrationError(
+                'Cloud authorization failed safely; no request was retried.', diagnostic='unknown') from error
         finally:
             with self._lock:
                 self._executing.discard(request.approval_id)
