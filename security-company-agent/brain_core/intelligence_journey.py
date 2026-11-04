@@ -4,7 +4,7 @@ from typing import Any
 
 from .fallback_state import FallbackState, transition_fallback
 from .provider_selection import ProviderSelection, SelectionReason, select_provider
-from .providers import ProviderID
+from .providers import ProviderID, category_for_error
 
 
 @dataclass(frozen=True)
@@ -16,6 +16,7 @@ class IntelligenceJourney:
     attempted: tuple[ProviderID, ...]
     current_provider: ProviderID | None
     diagnostic: str | None = None
+    result: Any = None
 
 
 class IntelligenceJourneyController:
@@ -60,8 +61,8 @@ class IntelligenceJourneyController:
                 category = self._safe_category(
                     getattr(result, 'error_category', None) or
                     (result.get('error_category') if isinstance(result, dict) else None))
-        except Exception:
-            succeeded, category = False, 'provider_error'
+        except Exception as error:
+            succeeded, category = False, self._safe_category(category_for_error(error))
 
         if succeeded:
             transition = transition_fallback(

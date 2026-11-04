@@ -23,6 +23,9 @@ from brain_core.decision import emotional_transition
 from brain_core.cloud_runtime import MANAGER as _DEFAULT_CLOUD_APPROVALS
 from brain_core.providers import AlibabaQwenProvider, sanitized_cloud_context
 from brain_core.openai_provider import OpenAIResponsesProvider, openai_configuration, responses_payload
+from brain_core.intelligence_journey import IntelligenceJourneyController
+from brain_core.conversation_journey import ConversationJourneyStore
+from brain_core.providers import category_for_error
 
 
 CLOUD_CONSENT = _DEFAULT_CLOUD_APPROVALS
@@ -75,7 +78,7 @@ def _model_configuration():
         if cloud.errors:
             st.caption('Cloud configuration incomplete: ' + ' '.join(cloud.errors))
         mode = st.radio('Inference', ['Local model (Ollama)', 'OpenAI cloud', 'Alibaba Qwen cloud',
-                                      'Enterprise gateway', 'Offline demonstration'],
+                                      'Enterprise gateway', 'Offline demonstration', 'Automatic (Local first)'],
                         index=0 if ready else 4, key='studio_inference')
         remote_authorized = False
         if mode == 'Offline demonstration':
@@ -91,10 +94,12 @@ def _model_configuration():
             if not cloud.configured:
                 error = 'Configure the Alibaba cloud credentials, region, workspace, and model before selecting Alibaba Qwen cloud.'
             st.caption('Alibaba Cloud Model Studio · this selected provider is used only after per-request approval.')
-        elif mode == 'Local model (Ollama)':
+        elif mode in ('Automatic (Local first)', 'Local model (Ollama)'):
             config = ModelConfig(model=model)
             st.caption(f'Local endpoint · {model} · detected: {ready}')
-            if not ready and not str(model).startswith('offline-only-test-model'):
+            if mode == 'Automatic (Local first)':
+                st.caption('Automatic tries Local first. If Local cannot complete, OpenAI is prepared for review; it is not sent without your approval.')
+            if not ready and not str(model).startswith('offline-only-test-model') and mode == 'Local model (Ollama)':
                 error = 'Local model is not installed or Ollama is not responding.'
         else:
             remote_authorized = st.checkbox('Authorize sending this session to the configured enterprise gateway.', value=False)
@@ -167,6 +172,12 @@ def model_request_payload(payload, request):
 def _cloud_result_writer(session_id, result, approved_lessons=()):
     if result.status != 'success' or not isinstance(result.structured, dict):
         return
+    store = st.session_state.get('_conversation_journey_store')
+    turn = store.get(session_id) if store is not None else None
+    if turn is not None and turn.cloud_request is not None:
+        if turn.result_recorded:
+            return
+        turn.cloud_result_written = True
     data = result.structured
     if (data.get('version') != 'sovereign-reasoning.v1' or not data.get('facts')
             or not data.get('assumptions') or len(data.get('alternatives', [])) < 2):
@@ -328,6 +339,41 @@ def _render_cloud_approval(session_id):
                 st.success(f"{display_provider} · {result.model} · request {result.request_id or 'ID unavailable'} · {result.latency_seconds:.2f}s. This is not proof of psychological reliability.")
             st.session_state.cloud_services = services
             st.session_state['_active_cloud_service_key'] = None
+            journey_store = st.session_state.get('_conversation_journey_store')
+            turn = journey_store.get(session_id) if journey_store is not None else None
+            if turn is not None and turn.cloud_request == request and not turn.result_recorded:
+                turn.result_recorded = True
+                controller = st.session_state.get('_journey_controller')
+                if controller is not None and turn.journey is not None:
+                    turn.journey = controller.report_openai_result(
+                        turn.journey, success=result.status == 'success',
+                        failure_category=getattr(result, 'error_category', None))
+                if (result.status == 'success' and isinstance(result.structured, dict)
+                        and not turn.cloud_result_written):
+                    turn.cloud_result_written = True
+                    approved_ids = {item.get('lesson_id') for item in turn.approved_lessons}
+                    if not (set(result.structured.get('lesson_ids_used', [])) - approved_ids):
+                        from brain_core.reasoning_stages import conversational_response
+                        from brain_core.providers import ProviderID
+                        data = result.structured
+                        normalized = {'_stage_outputs': {
+                            'understanding': {'facts': data.get('facts', []),
+                                'emotions': [{'label': data.get('emotional_interpretation', ''),
+                                              'trigger': data.get('emotional_interpretation', '')}],
+                                'assumptions': data.get('assumptions', [])},
+                            'alternatives': {'alternatives': [
+                                {'action': action, 'consequence': data.get('rationale', '')}
+                                for action in data.get('alternatives', [])]},
+                            'final_decision': {'selected_action': data.get('recommended_action', ''),
+                                               'rationale': data.get('rationale', '')}},
+                            '_provenance': {'approved_lessons': list(turn.approved_lessons)},
+                            '_validation': {'schema_passed': True, 'cognitive_checks_passed': True}}
+                        try:
+                            _save_response(session_id, conversational_response(normalized),
+                                           'cloud_reasoning', 'authorized')
+                        except (KeyError, TypeError, ValueError):
+                            pass
+                turn.cloud_state = 'completed'
         except cloud_orchestration.CloudOrchestrationError:
             st.error('Cloud authorization or request failed safely. No automatic retry was attempted.')
     if right.button('Decline cloud; keep request local', key='decline_cloud_once'):
@@ -335,9 +381,10 @@ def _render_cloud_approval(session_id):
             _save_response(session_id, 'Cloud inference was declined. Your message and any retrieved approved memory remain available; no external request was sent, and no lesson or emotional state was modified.', 'cloud_declined', 'declined')
             st.info('Cloud request declined. Your message and retrieved approved memory remain available; no external request was sent.')
             st.session_state['_active_cloud_service_key'] = None
-            journey = st.session_state.get('_reasoning_journeys', {}).get(session_id)
-            if journey is not None:
-                journey['status'] = 'declined'
+            journey_store = st.session_state.get('_conversation_journey_store')
+            turn = journey_store.get(session_id) if journey_store is not None else None
+            if turn is not None and turn.cloud_request == request:
+                turn.cloud_state = 'declined'
         st.session_state.cloud_services = services
 
 
@@ -357,6 +404,96 @@ def _offer_cloud_fallback(user_text, session_id, profile, approved_lessons, *, l
         st.caption('Select Alibaba Qwen cloud explicitly to prepare a request; no automatic provider switch occurs.')
     except cloud_orchestration.CloudOrchestrationError:
         st.warning(f"Local reasoning is unavailable ({type(local_error).__name__}); cloud configuration is incomplete or exceeds a safety limit. Your message is preserved and no external request was sent.")
+
+
+def _prepare_openai_journey_preview(turn, session_id):
+    original_conversation_id = st.session_state.get('conversation_id')
+    st.session_state['conversation_id'] = session_id
+    try:
+        service = _cloud_service('openai_cloud')
+        request = service.prepare_fallback(
+            user_text=turn.text, conversation_id=session_id, profile=turn.profile,
+            approved_lessons=list(turn.approved_lessons),
+            local_error=turn.local_error or RuntimeError('Local reasoning failed.'), eligible=True)
+    except cloud_orchestration.CloudOrchestrationError:
+        turn.cloud_state = 'preparation_failed'
+        return False
+    finally:
+        if original_conversation_id is not None:
+            st.session_state['conversation_id'] = original_conversation_id
+    services = st.session_state.setdefault('_cloud_services_by_conversation', {})
+    services[(session_id, 'openai_cloud')] = service
+    if original_conversation_id is not None:
+        st.session_state['conversation_id'] = original_conversation_id
+    st.session_state['_active_cloud_service_key'] = (session_id, 'openai_cloud')
+    st.session_state.cloud_services = services
+    turn.cloud_service, turn.cloud_request = service, request
+    turn.cloud_state = 'awaiting_approval'
+    return True
+
+
+def _start_automatic_journey(user_text, session_id, profile, model_config):
+    store = st.session_state.setdefault('_conversation_journey_store', ConversationJourneyStore())
+    current_turn = store.get(session_id)
+    if current_turn is not None and current_turn.text == user_text:
+        turn, created = current_turn, False
+    else:
+        approved_lessons = lessons.retrieve(user_text, limit=3, data_dir=studio.DATA, db_path=studio.DB)
+        turn, created = store.begin(session_id, text=user_text, profile=profile,
+                                approved_lessons=approved_lessons, model_config=model_config)
+    if not created:
+        if turn.cloud_state == 'awaiting_approval':
+            st.info('This request is already waiting for approval; it will not be sent without your approval.')
+        return
+
+    def run_local(request_text):
+        reasoning_context = service.cognition.assess(
+            request_text, profile, {'emotions': dict(NEUTRAL)})
+        reasoning_context['supervised_lessons'] = list(turn.approved_lessons)
+        reasoning_context['supervised_lessons_enabled'] = True
+        reasoning_context['retrieved_lessons_context_only'] = True
+        reasoning_context['memory_provenance_guidance'] = (
+            'Retrieved approved lessons are prior trainer-authored context only. Preserve lesson IDs and sources; '
+            'do not treat a lesson as verified evidence about the current situation.')
+        return trainer.infer(request_text, '', {'emotions': dict(NEUTRAL)}, {}, config=model_config,
+                             cognitive_context=reasoning_context, persistent_profile=profile)
+
+    controller = IntelligenceJourneyController(local_runner=run_local)
+    st.session_state['_journey_controller'] = controller
+    if turn.local_state != 'pending':
+        if turn.cloud_state == 'awaiting_approval':
+            st.info('This request is already waiting for approval; nothing has been sent.')
+        return
+    try:
+        journey = controller.start(
+            user_text,
+            local_readiness={'status': 'AVAILABLE' if model_config is not None else 'UNAVAILABLE',
+                             'reason': 'Local inference selected' if model_config is not None else 'Local model unavailable'},
+            openai_readiness={'status': 'AVAILABLE' if openai_configuration().configured else 'UNAVAILABLE',
+                              'reason': 'configuration check'})
+    except Exception:
+        journey = None
+    turn.local_state = 'complete' if journey is not None and journey.state.value == 'SUCCESS' else 'failed'
+    if turn.local_state == 'complete':
+        turn.local_result = journey.result
+        if not turn.result_recorded:
+            local_result = journey.result
+            response = (local_result.get('conversational_response', local_result.get('narrative', 'Reasoning completed.'))
+                        if isinstance(local_result, dict) else 'Reasoning completed.')
+            _save_response(session_id, response, 'validated_reasoning', 'validated')
+            turn.result_recorded = True
+        return
+
+    turn.local_error = RuntimeError('Local inference failed.')
+    turn.local_state = 'failed'
+    turn.journey = journey
+    if journey is None or journey.state.value != 'AWAITING_CLOUD_APPROVAL':
+        st.warning('Local reasoning was unavailable. No eligible, configured OpenAI request could be prepared; nothing was sent.')
+        return
+    if _prepare_openai_journey_preview(turn, session_id):
+        st.info('Local reasoning was unavailable. An OpenAI preview is ready for review; nothing has been sent.')
+    else:
+        st.warning('Local reasoning was unavailable. OpenAI could not prepare a safe request; nothing was sent.')
 
 
 def _offer_selected_cloud(user_text, session_id, profile, approved_lessons, *, provider):
@@ -595,6 +732,10 @@ def _lesson_editor(message, pending):
 
 def _handle_message(user_text, session_id, history_messages, profile, model_config, configuration_error):
     route = conversation.classify_intent(user_text)
+    prior_message = any(item.get('role') == 'user' and item.get('content') == user_text
+                        for item in history_messages)
+    if prior_message and route.intent == 'emotional_reasoning':
+        return
     persisted_pending = conversation.load_lesson_state(session_id, data_dir=studio.DATA, db_path=studio.DB)
     # Never let an incomplete draft capture a separate request. Only an explicit
     # training signal (or a labeled field update) continues the workflow.
@@ -752,6 +893,9 @@ def _handle_message(user_text, session_id, history_messages, profile, model_conf
     if route.intent != 'emotional_reasoning':
         _save_response(session_id, 'I am not sure how to route that request. Could you clarify whether you want to chat, consider a situation, teach a principle, or recall an approved lesson?', 'clarification')
         return
+    if st.session_state.get('studio_inference') == 'Automatic (Local first)':
+        _start_automatic_journey(user_text, session_id, profile, model_config)
+        return
     if model_config is None and st.session_state.get('studio_inference') in ('OpenAI cloud', 'Alibaba Qwen cloud'):
         provider = ('openai_cloud' if st.session_state.studio_inference == 'OpenAI cloud'
                     else 'alibaba_qwen_cloud')
@@ -865,6 +1009,10 @@ def render_conversation(profile, ready, model_config, configuration_error):
                 st.session_state.conversation_selector = st.session_state.conversation_id
                 st.rerun()
     session_id = st.session_state.conversation_id
+    journey_store = st.session_state.get('_conversation_journey_store')
+    active_turn = journey_store.get(session_id) if journey_store is not None else None
+    if active_turn is not None and active_turn.cloud_state == 'awaiting_approval':
+        st.info('Automatic journey pending approval: review the exact OpenAI payload below. It will not be sent until you approve.')
     st.caption('Model: ' + ('available' if ready else 'not available; lessons and recall remain available'))
     history = conversation.load_messages(session_id, data_dir=studio.DATA, db_path=studio.DB)
     for item in history:
