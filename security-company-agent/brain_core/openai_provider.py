@@ -59,6 +59,34 @@ class OpenAIConfiguration:
         return self.__repr__()
 
 
+def openai_readiness(configuration=None):
+    """Report local OpenAI configuration readiness, never provider connectivity.
+
+    The function reads environment configuration only when no configuration
+    object is supplied and does not perform network requests.
+    """
+    if configuration is None:
+        try:
+            config = openai_configuration()
+        except Exception:
+            return {'status': 'UNAVAILABLE', 'reason': 'invalid_configuration'}
+    else:
+        config = configuration
+    if not isinstance(config, OpenAIConfiguration):
+        return {'status': 'UNAVAILABLE', 'reason': 'invalid_configuration'}
+    if config.errors:
+        if any('API key' in error for error in config.errors):
+            return {'status': 'UNAVAILABLE', 'reason': 'missing_key'}
+        if any('model is not configured' in error for error in config.errors):
+            return {'status': 'UNAVAILABLE', 'reason': 'missing_model'}
+        return {'status': 'UNAVAILABLE', 'reason': 'invalid_configuration'}
+    if not config.api_key_configured:
+        return {'status': 'UNAVAILABLE', 'reason': 'missing_key'}
+    if not config.model:
+        return {'status': 'UNAVAILABLE', 'reason': 'missing_model'}
+    return {'status': 'AVAILABLE', 'reason': None}
+
+
 def openai_configuration(*, environ=None):
     """Inspect environment only; no discovery or network request is performed."""
     env = os.environ if environ is None else environ
