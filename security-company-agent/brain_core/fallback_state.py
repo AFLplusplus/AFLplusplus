@@ -35,7 +35,8 @@ def _sanitize_failure_category(category):
 
 
 def transition_fallback(*, selection=None, state=None, provider=None, outcome=None,
-                         attempted=(), failure_category=None, cloud_approved=False):
+                         attempted=(), failure_category=None, cloud_approved=False,
+                         fallback_selection=None):
     """Compute one fallback state only; never call inference or consume consent.
 
     A cloud candidate is represented as AWAITING_CLOUD_APPROVAL until the caller
@@ -118,12 +119,16 @@ def transition_fallback(*, selection=None, state=None, provider=None, outcome=No
         return FallbackTransition(FallbackState.EXHAUSTED, None, None, tuple(tried),
                                   safe_category, False)
 
-    # Reuse SB-04 policy after recording Local as unavailable; only configured
-    # OpenAI can become the next candidate.
-    next_selection = select_provider(
-        local_readiness={'status': 'UNAVAILABLE', 'reason': 'unknown'},
-        openai_readiness={'status': 'AVAILABLE' if selection.provider == ProviderID.OPENAI_CLOUD
-                          else 'UNAVAILABLE', 'reason': 'unknown'})
+    # Reuse SB-04 policy after recording Local as unavailable; callers may
+    # supply a precomputed result to avoid independently re-evaluating readiness.
+    next_selection = fallback_selection
+    if next_selection is None:
+        next_selection = select_provider(
+            local_readiness={'status': 'UNAVAILABLE', 'reason': 'unknown'},
+            openai_readiness={'status': 'AVAILABLE' if selection.provider == ProviderID.OPENAI_CLOUD
+                              else 'UNAVAILABLE', 'reason': 'unknown'})
+    elif not isinstance(next_selection, ProviderSelection):
+        next_selection = ProviderSelection(None, SelectionReason.NO_CONFIGURED_PROVIDER)
     if (next_selection.provider != ProviderID.OPENAI_CLOUD
             or ProviderID.OPENAI_CLOUD in tried):
         return FallbackTransition(FallbackState.EXHAUSTED, None, None, tuple(tried),

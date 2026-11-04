@@ -11,6 +11,18 @@ from brain_core.providers import ProviderID
 
 
 class FallbackStateTests(unittest.TestCase):
+    def test_failure_uses_supplied_fallback_selection_without_reselecting(self):
+        selection = ProviderSelection(ProviderID.LOCAL_OLLAMA, SelectionReason.LOCAL_AVAILABLE)
+        fallback = ProviderSelection(
+            ProviderID.OPENAI_CLOUD, SelectionReason.LOCAL_UNAVAILABLE_OPENAI_CONFIGURED)
+        with patch('brain_core.fallback_state.select_provider', side_effect=AssertionError(
+                'must use supplied fallback selection')):
+            result = transition_fallback(
+                selection=selection, outcome='FAILED', provider=ProviderID.LOCAL_OLLAMA,
+                attempted=(), fallback_selection=fallback)
+        self.assertEqual(result.state, FallbackState.AWAITING_CLOUD_APPROVAL)
+        self.assertEqual(result.attempted, (ProviderID.LOCAL_OLLAMA,))
+
     def test_success_is_terminal_and_does_not_retry(self):
         result = transition_fallback(
             selection=ProviderSelection(ProviderID.LOCAL_OLLAMA, SelectionReason.LOCAL_AVAILABLE),
