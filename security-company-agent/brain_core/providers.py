@@ -8,6 +8,7 @@ import hashlib, hmac, json, socket, ssl, time, urllib.error, urllib.request, url
 class ProviderID(str, Enum):
     LOCAL_OLLAMA = 'local_ollama'
     ALIBABA_QWEN_CLOUD = 'alibaba_qwen_cloud'
+    OPENAI_CLOUD = 'openai_cloud'
 
 @dataclass(frozen=True)
 class InferenceRequest:
@@ -107,6 +108,7 @@ class AlibabaQwenProvider:
         fingerprint=self.fingerprint(request)
         if fingerprint != self._approved or fingerprint in self._used:
             raise PermissionError('Explicit approval is required for this exact cloud request.')
+        # Consume the provider-scoped grant before request construction or network I/O.
         self._approved=None
         self._used.add(fingerprint)
         req=urllib.request.Request(self.base_url+'/chat/completions',
@@ -126,7 +128,16 @@ class AlibabaQwenProvider:
                 time.perf_counter()-started,usage.get('prompt_tokens'),usage.get('completion_tokens'),
                 payload.get('id'),None,True,True)
         except urllib.error.HTTPError as error:
-            status=error.code; error.close(); category='authentication' if status in (401,403) else 'provider_http_error'
+            status=error.code
+            error.close()
+            if status == 401:
+                category = 'authentication'
+            elif status == 403:
+                category = 'account_or_model_access'
+            elif status == 429:
+                category = 'rate_limit'
+            else:
+                category = 'provider_http_error'
         except (TimeoutError,socket.timeout): category='timeout'
         except (urllib.error.URLError,ssl.SSLError): category='connection'
         except (ValueError,KeyError,IndexError,TypeError,UnicodeError): category='invalid_or_truncated_output'

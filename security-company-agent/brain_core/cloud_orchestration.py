@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hmac
 import json
 import threading
 from typing import Any, Callable
@@ -51,7 +52,11 @@ class CloudOrchestrator:
                  provider_fingerprint: Callable[[Any, dict], str] | None = None,
                  result_writer: Callable[..., Any] | None = None,
                  token_counter: Callable[[str], int] = approximate_token_count,
-                 budget: CloudBudget = CloudBudget(), result_accountant=None):
+                 budget: CloudBudget = CloudBudget(), result_accountant=None,
+                 provider: str | None = None, region: str = 'global',
+                 provider_settings: Callable[[], Any] | None = None,
+                 request_timeout_seconds: int = 60,
+                 validate_payload: Callable[[dict, dict], bool] | None = None):
         self._consent = consent
         self._payload_factory = payload_factory
         self._provider_factory = provider_factory
@@ -60,6 +65,15 @@ class CloudOrchestrator:
         self._provider_fingerprint = provider_fingerprint or (lambda request, payload: provider_factory.fingerprint(request))
         self._result_writer = result_writer
         self._result_accountant = result_accountant
+        self._provider = provider or self.PROVIDER
+        self._region = region
+        self._provider_settings_mode = provider_settings is not None or provider == 'openai_cloud'
+        self._provider_settings = provider_settings
+        self._settings_factory = provider_settings
+        if type(request_timeout_seconds) is not int or not 1 <= request_timeout_seconds <= 180:
+            raise ValueError('Cloud request timeout is outside the safe range.')
+        self._request_timeout_seconds = request_timeout_seconds
+        self._validate_payload = validate_payload
         self._token_counter = token_counter
         self._budget = budget
         self._pending: dict[str, tuple[CloudRequest, Any, dict, dict, tuple]] = {}
@@ -82,36 +96,134 @@ class CloudOrchestrator:
             raise TypeError('A local inference failure is required.')
         registered_approval = None
         try:
-            settings, endpoint, payload, schema = self._payload_factory(
-                user_text, profile, approved_lessons, session_id=conversation_id)
+            if self._provider_settings is None:
+                settings, endpoint, payload, schema = self._payload_factory(
+                    user_text, profile, approved_lessons, session_id=conversation_id)
+            else:
+                settings = self._settings_factory()
+                try:
+                    payload, schema = self._payload_factory(
+                        user_text, profile, approved_lessons, session_id=conversation_id, settings=settings)
+                except TypeError as error:
+                    if "settings" not in str(error):
+                        raise
+                    payload, schema = self._payload_factory(
+                        user_text, profile, approved_lessons, session_id=conversation_id)
+                endpoint = settings.endpoint
             if not getattr(settings, 'configured', False) or not getattr(settings, 'api_key_configured', False):
                 raise CloudOrchestrationError('Cloud configuration is incomplete.')
             parsed = urlsplit(endpoint)
-            if (parsed.scheme != 'https' or parsed.username or parsed.password
-                    or parsed.netloc.endswith(':443') or parsed.netloc.endswith(':80')
-                    or ':' in parsed.netloc or parsed.query or parsed.fragment or not parsed.hostname):
+            if self._provider == 'openai_cloud':
+                endpoint_ok = (endpoint == 'https://api.openai.com/v1/responses'
+                               and parsed.scheme == 'https' and parsed.hostname == 'api.openai.com'
+                               and parsed.port in (None, 443) and not parsed.username and not parsed.password
+                               and not parsed.query and not parsed.fragment)
+            else:
+                endpoint_ok = (parsed.scheme == 'https' and not parsed.username and not parsed.password
+                               and not parsed.netloc.endswith(':443') and not parsed.netloc.endswith(':80')
+                               and ':' not in parsed.netloc and not parsed.query and not parsed.fragment
+                               and bool(parsed.hostname))
+            if not endpoint_ok:
                 raise CloudOrchestrationError('Cloud endpoint is not a valid approved HTTPS endpoint.')
             frozen_payload = json.loads(json.dumps(payload, ensure_ascii=False))
-            serialized = json.dumps(frozen_payload, ensure_ascii=False, indent=2)
+            if self._provider == 'openai_cloud' and not isinstance(frozen_payload, dict):
+                raise CloudOrchestrationError('OpenAI payload must be an object.')
+            serialized = json.dumps(frozen_payload, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
             tokens = self._token_counter(serialized)
-            approved_output_cap = int(frozen_payload.get('max_tokens', self._budget.max_output_tokens))
+            approved_output_cap = int(frozen_payload.get('max_output_tokens',
+                                      frozen_payload.get('max_tokens', self._budget.max_output_tokens)))
+            configured_output_cap = (self._budget.max_output_tokens if self._provider == 'openai_cloud'
+                                     else min(768, int(frozen_payload.get('max_tokens', 768))))
+            if approved_output_cap > configured_output_cap:
+                raise CloudOrchestrationError('Payload output cap exceeds its configured safety limit.')
             schema_format = frozen_payload.get('response_format', {})
-            schema_spec = schema_format.get('json_schema', {}) if isinstance(schema_format, dict) else {}
+            if 'text' in frozen_payload and isinstance(frozen_payload['text'], dict):
+                schema_format = frozen_payload['text'].get('format', {})
+            schema_spec = (schema_format.get('json_schema', schema_format)
+                           if isinstance(schema_format, dict) else {})
             reasoning_schema = frozen_payload.get('reasoning_schema', schema)
-            if (frozen_payload.get('model') != settings.model
-                    or not isinstance(frozen_payload.get('messages'), list)
-                    or frozen_payload.get('stream') is not False
-                    or frozen_payload.get('temperature') != 0.2
-                    or not isinstance(schema, dict)
-                    or schema_format.get('type') != 'json_schema'
-                    or schema_spec.get('strict') is not True
-                    or schema_spec.get('schema') != reasoning_schema):
+            if frozen_payload.get('model') != settings.model or not isinstance(schema, dict):
                 raise CloudOrchestrationError('Cloud payload does not match the approved reasoning request contract.')
+            if self._validate_payload is not None:
+                valid = self._validate_payload(frozen_payload, schema)
+            elif self._provider == 'openai_cloud' and self._settings_factory is None:
+                valid = (isinstance(frozen_payload.get('messages'), list)
+                         and frozen_payload.get('stream') is False
+                         and schema_format.get('type') == 'json_schema'
+                         and schema_spec.get('strict') is True
+                         and schema_spec.get('schema') == schema)
+            elif self._provider == 'openai_cloud':
+                valid = (isinstance(frozen_payload.get('input'), list)
+                         and frozen_payload.get('input')
+                         and all(isinstance(item, dict) and item.get('role') in ('user', 'assistant')
+                                 and isinstance(item.get('content'), list) and item.get('content')
+                                 and all(isinstance(part, dict) and part.get('type') == 'input_text'
+                                         and isinstance(part.get('text'), str) and bool(part.get('text').strip())
+                                         for part in item['content']) for item in frozen_payload['input'])
+                         and frozen_payload.get('store') is False
+                         and (frozen_payload.get('instructions') is None
+                              or isinstance(frozen_payload.get('instructions'), str))
+                         and frozen_payload.get('tools') == []
+                         and 1 <= frozen_payload.get('max_output_tokens', 0) <= self._budget.max_output_tokens
+                         and isinstance(schema, dict)
+                         and schema_format.get('type') == 'json_schema'
+                         and schema_format.get('name') == 'sovereign_reasoning_v1'
+                         and schema_format.get('strict') is True
+                         and schema_format.get('schema') == schema
+                         and set(frozen_payload).issubset({'model', 'input', 'store', 'tools',
+                                                           'max_output_tokens', 'instructions', 'text'}))
+            else:
+                valid = (isinstance(frozen_payload.get('messages'), list)
+                         and frozen_payload.get('stream') is False
+                         and frozen_payload.get('temperature') == 0.2
+                         and schema_format.get('type') == 'json_schema'
+                         and schema_spec.get('strict') is True
+                         and schema_spec.get('schema') == reasoning_schema)
+            if not valid:
+                raise CloudOrchestrationError('Cloud payload does not match the approved reasoning request contract.')
+            if self._provider == 'openai_cloud' and self._settings_factory is not None and int(frozen_payload.get('max_output_tokens', 0)) < 1:
+                raise CloudOrchestrationError('OpenAI output token cap is missing or invalid.')
             if approved_output_cap > self._budget.max_output_tokens:
                 raise CloudOrchestrationError('Payload output cap exceeds the application safety limit.')
+            approval_payload = frozen_payload
+            if self._provider == 'openai_cloud' and self._settings_factory is not None:
+                if frozen_payload.get('tools') != [] or frozen_payload.get('store') is not False:
+                    raise CloudOrchestrationError('OpenAI requests must disable tools and server-side storage.')
+                from .openai_provider import InferenceRequest as _OpenAIRequest, responses_payload
+                input_items = frozen_payload.get('input')
+                if not isinstance(input_items, list) or not input_items:
+                    raise CloudOrchestrationError('OpenAI request input is invalid.')
+                approved_messages_list = []
+                instructions = frozen_payload.get('instructions')
+                if instructions is not None:
+                    if not isinstance(instructions, str) or not instructions.strip():
+                        raise CloudOrchestrationError('OpenAI instructions are invalid.')
+                    approved_messages_list.append({'role': 'system', 'content': instructions})
+                for item in input_items:
+                    if not isinstance(item, dict) or item.get('role') not in ('user', 'assistant'):
+                        raise CloudOrchestrationError('OpenAI input item is invalid.')
+                    content_items = item.get('content')
+                    if not isinstance(content_items, list) or not content_items:
+                        raise CloudOrchestrationError('OpenAI input content is invalid.')
+                    text_parts = []
+                    for part in content_items:
+                        if (not isinstance(part, dict) or part.get('type') != 'input_text'
+                                or not isinstance(part.get('text'), str)):
+                            raise CloudOrchestrationError('OpenAI accepts text input only.')
+                        text_parts.append(part['text'])
+                    approved_messages_list.append({'role': item['role'], 'content': ''.join(text_parts)})
+                approved_inference = _OpenAIRequest(
+                    tuple(approved_messages_list), settings.model, approved_output_cap,
+                    self._request_timeout_seconds, schema)
+                canonical_response_payload = responses_payload(approved_inference)
+                if canonical_response_payload != frozen_payload:
+                    raise CloudOrchestrationError('OpenAI payload is not in its canonical approved form.')
+                approval_payload = frozen_payload
+                serialized = json.dumps(frozen_payload, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+                tokens = self._token_counter(serialized)
             approval = self._consent.prepare(
-                provider=self.PROVIDER, model=settings.model, region=settings.region,
-                payload=frozen_payload, session_id=conversation_id,
+                provider=self._provider, model=settings.model, region=getattr(settings, 'region', self._region),
+                payload=approval_payload, session_id=conversation_id,
                 token_estimate=tokens, prompt_tokens=tokens,
                 estimated_cost_usd=None,
                 budget=CloudBudget(
@@ -124,7 +236,7 @@ class CloudOrchestrator:
             registered_approval = approval
             request = CloudRequest(
                 approval.approval_id, approval.payload_fingerprint, conversation_id,
-                self.PROVIDER, settings.model, settings.region, endpoint,
+                self._provider, settings.model, getattr(settings, 'region', self._region), endpoint,
                 serialized, tokens, approval.max_output_tokens)
             with self._lock:
                 previous = self._pending.get(conversation_id)
@@ -167,13 +279,36 @@ class CloudOrchestrator:
                 raise CloudOrchestrationError('No unused matching request belongs to this conversation.')
             self._executing.add(request.approval_id)
         _, settings, schema, payload, lessons_snapshot = pending
+        try:
+            if self._provider == 'openai_cloud' and self._settings_factory is None:
+                from types import SimpleNamespace
+                active_settings = SimpleNamespace(model=request.model, region=request.region,
+                                                  configured=True, api_key_configured=bool(self._api_key()))
+            else:
+                active_settings = self._settings_factory() if self._settings_factory is not None else settings
+        except Exception as error:
+            with self._lock:
+                self._pending.pop(conversation_id, None)
+                self._retired.add(request.approval_id)
+                self._executing.discard(request.approval_id)
+            try:
+                self._retire(pending)
+            except Exception:
+                pass
+            raise CloudOrchestrationError('Provider configuration changed; prepare a new request.') from error
+        approved_payload = payload
         fingerprint, canonical = self._consent.fingerprint(
-            request.provider, request.model, request.region, payload)
+            request.provider, request.model, request.region, approved_payload)
         preview_fingerprint, preview_canonical = self._consent.fingerprint(
             request.provider, request.model, request.region, request.preview)
-        if (fingerprint != request.fingerprint or canonical != preview_canonical
-                or fingerprint != preview_fingerprint or settings.model != request.model
-                or settings.region != request.region):
+        payload_canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+        preview_payload_canonical = json.dumps(request.preview, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+        identity_matches = (active_settings.model == request.model
+                            and getattr(active_settings, 'region', self._region) == request.region
+                            and getattr(active_settings, 'configured', False)
+                            and getattr(active_settings, 'api_key_configured', False))
+        if (fingerprint != request.fingerprint or payload_canonical != preview_payload_canonical
+                or fingerprint != preview_fingerprint or not identity_matches):
             try:
                 with self._lock:
                     self._pending.pop(conversation_id, None)
@@ -187,35 +322,91 @@ class CloudOrchestrator:
         try:
             # Consume authorization before provider construction/inference; no I/O can
             # occur before this boundary, and any following error remains consumed.
-            inference = InferenceRequest(tuple(payload['messages']), request.model,
-                                         request.max_output_tokens, 60, schema)
-            provider_payload = self._provider_request_payload(payload, inference)
-            if (provider_payload != payload or provider_payload.get('model') != request.model
-                    or provider_payload.get('messages') != payload.get('messages')
-                    or provider_payload.get('max_tokens') != request.max_output_tokens
-                    or self._consent.fingerprint(
-                        request.provider, request.model, request.region, provider_payload)[0] != request.fingerprint):
+            if self._provider == 'openai_cloud':
+                if self._settings_factory is not None:
+                    from .openai_provider import InferenceRequest as _OpenAIRequest
+                    openai_messages_list = []
+                    if payload.get('instructions'):
+                        openai_messages_list.append({'role': 'system', 'content': payload['instructions']})
+                    for item in payload['input']:
+                        openai_messages_list.append({
+                            'role': item['role'],
+                            'content': ''.join(part['text'] for part in item['content']),
+                        })
+                    inference = _OpenAIRequest(tuple(openai_messages_list), request.model,
+                                                request.max_output_tokens, self._request_timeout_seconds, schema)
+                    provider_payload = payload
+                else:
+                    inference = InferenceRequest(tuple(payload['messages']), request.model,
+                                                 request.max_output_tokens, self._request_timeout_seconds, schema)
+                    provider_payload = payload
+            else:
+                inference = InferenceRequest(tuple(payload['messages']), request.model,
+                                             request.max_output_tokens, self._request_timeout_seconds, schema)
+                provider_payload = self._provider_request_payload(payload, inference)
+                approved_provider_payload = payload
+            provider_fingerprint_data = self._consent.fingerprint(
+                request.provider, request.model, request.region, provider_payload)
+            payload_matches = (provider_payload.get('model') == request.model
+                               and provider_fingerprint_data[0] == request.fingerprint
+                               and json.loads(provider_fingerprint_data[1])['payload'] == request.preview
+                               and json.dumps(provider_payload, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+                               == json.dumps(request.preview, ensure_ascii=False, sort_keys=True, separators=(',', ':')))
+            if not payload_matches:
                 with self._lock:
                     self._pending.pop(conversation_id, None)
                     self._retired.add(request.approval_id)
                 self._retire(pending)
                 raise CloudOrchestrationError('Provider payload differs from the approved preview.')
-            provider_fingerprint = self._provider_fingerprint(inference, provider_payload)
+            provider_fingerprint = (self._provider_fingerprint(inference, provider_payload)
+                                    if self._provider != 'openai_cloud' else None)
             # Consume immediately before provider construction and I/O. No provider
             # boundary is called before this succeeds.
             self._consent.consume(
                 request.approval_id, provider=request.provider, model=request.model,
-                region=request.region, payload=payload, session_id=conversation_id,
+                region=request.region, payload=(provider_payload if self._provider == 'openai_cloud' else payload),
+                session_id=conversation_id,
                 user_approved=True, success=False, error_category='execution_started', finalize=False)
             consumed = True
             with self._lock:
                 self._pending.pop(conversation_id, None)
                 self._completed.add(request.approval_id)
-            provider = self._provider_factory(
-                base_url=request.endpoint, model=request.model, region=request.region,
-                api_key=self._api_key(), allowed_hosts=(urlsplit(request.endpoint).hostname,),
-                timeout_seconds=60, max_output_tokens=request.max_output_tokens)
-            provider.authorize_once(inference, provider_fingerprint)
+            if self._provider == 'openai_cloud' and self._settings_factory is not None:
+                try:
+                    active_settings = self._settings_factory()
+                except Exception as error:
+                    raise CloudOrchestrationError('Provider configuration changed; authorization remains consumed.') from error
+                active_key = getattr(active_settings, 'api_key', None)
+                configured_key = self._api_key()
+                if (active_settings.model != request.model
+                        or not getattr(active_settings, 'configured', False)
+                        or not getattr(active_settings, 'api_key_configured', False)
+                        or not isinstance(active_key, str) or not isinstance(configured_key, str)
+                        or not hmac.compare_digest(active_key, configured_key)):
+                    raise CloudOrchestrationError('Provider configuration changed; authorization remains consumed.')
+            current_api_key = (active_settings.api_key if self._provider == 'openai_cloud'
+                               and self._settings_factory is not None else self._api_key())
+            provider_kwargs = {
+                'base_url': request.endpoint, 'model': request.model, 'region': request.region,
+                'api_key': current_api_key, 'allowed_hosts': (urlsplit(request.endpoint).hostname,),
+                'timeout_seconds': self._request_timeout_seconds,
+                'max_output_tokens': request.max_output_tokens,
+            }
+            if self._provider == 'openai_cloud':
+                provider_kwargs = {
+                    'model': request.model, 'api_key': current_api_key,
+                    'endpoint': request.endpoint,
+                    'timeout_seconds': self._request_timeout_seconds,
+                    'max_output_tokens': request.max_output_tokens,
+                }
+            provider = self._provider_factory(**provider_kwargs)
+            if self._provider == 'openai_cloud':
+                if self._settings_factory is not None:
+                    provider.authorize_payload_once(provider_payload)
+                else:
+                    provider.authorize_once(inference, request.fingerprint)
+            else:
+                provider.authorize_once(inference, provider_fingerprint)
             result = provider.infer(inference)
             self._consent.record_result(
                 request.approval_id, success=result.status == 'success',
@@ -237,14 +428,20 @@ class CloudOrchestrator:
                 self._pending.pop(conversation_id, None)
                 if consumed:
                     self._completed.add(request.approval_id)
-            if isinstance(error, CloudOrchestrationError):
-                raise error
             if consumed:
                 try:
                     self._consent.record_result(
                         request.approval_id, success=False, error_category='execution_failed')
                 except Exception:
                     pass
+            if isinstance(error, CloudOrchestrationError):
+                try:
+                    self._consent.record_result(
+                        request.approval_id, success=False, error_category='execution_failed')
+                except Exception:
+                    pass
+                raise error
+            if consumed:
                 raise CloudOrchestrationError('Approved request failed; authorization remains consumed and will not be retried.') from error
             raise CloudOrchestrationError('Cloud authorization failed safely; no request was retried.') from error
         finally:

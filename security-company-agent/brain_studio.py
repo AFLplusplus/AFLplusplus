@@ -22,6 +22,7 @@ from brain_core.runtime_guard import available_memory_gib
 from brain_core.decision import emotional_transition
 from brain_core.cloud_runtime import MANAGER as _DEFAULT_CLOUD_APPROVALS
 from brain_core.providers import AlibabaQwenProvider, sanitized_cloud_context
+from brain_core.openai_provider import OpenAIResponsesProvider, openai_configuration, responses_payload
 
 
 CLOUD_CONSENT = _DEFAULT_CLOUD_APPROVALS
@@ -29,6 +30,11 @@ CLOUD_SERVICE_FACTORY = cloud_orchestration.CloudOrchestrator
 CLOUD_PAYLOAD_FACTORY = None
 CLOUD_PROVIDER_FACTORY = AlibabaQwenProvider
 CLOUD_API_KEY = lambda: os.getenv('DASHSCOPE_API_KEY', '')
+PROVIDER_STATUS = {'local_ollama': 'UNTESTED', 'openai_cloud': 'UNTESTED', 'alibaba_qwen_cloud': 'UNTESTED'}
+PROVIDER_FAILURE = {}
+PROVIDER_BLOCKED = set()
+OPENAI_PROVIDER_FACTORY = OpenAIResponsesProvider
+OPENAI_API_KEY = lambda: os.getenv('OPENAI_API_KEY', '')
 
 
 st.set_page_config(page_title='Sovereign Brain', page_icon='🧠', layout='wide')
@@ -61,14 +67,30 @@ def _model_configuration():
                  horizontal=True, label_visibility='collapsed')
         st.subheader('Model connection')
         cloud = alibaba_configuration()
+        openai = openai_configuration()
+        st.caption(f"OpenAI · approval per request · key configured: {openai.api_key_configured} · model: {openai.model or 'not configured'}")
+        if openai.errors:
+            st.caption('OpenAI configuration incomplete: ' + ' '.join(openai.errors))
         st.caption(f"Cloud Qwen · approval per request · key configured: {cloud.api_key_configured} · region: {cloud.region or 'not configured'} · workspace: {'configured' if cloud.workspace_id else 'not configured'} · model: {cloud.model or 'not configured'}")
         if cloud.errors:
             st.caption('Cloud configuration incomplete: ' + ' '.join(cloud.errors))
-        mode = st.radio('Inference', ['Local model (Ollama)', 'Enterprise gateway', 'Offline demonstration'],
-                        index=0 if ready else 2, key='studio_inference')
+        mode = st.radio('Inference', ['Local model (Ollama)', 'OpenAI cloud', 'Alibaba Qwen cloud',
+                                      'Enterprise gateway', 'Offline demonstration'],
+                        index=0 if ready else 4, key='studio_inference')
         remote_authorized = False
         if mode == 'Offline demonstration':
+            config = None
             st.caption('Offline demonstration responses are fixtures, not model reasoning.')
+        elif mode == 'OpenAI cloud':
+            config = None
+            if not openai.configured:
+                error = 'Configure OPENAI_API_KEY and SOVEREIGN_OPENAI_MODEL before selecting OpenAI cloud.'
+            st.caption('OpenAI Responses API · this selected provider is used only after per-request approval.')
+        elif mode == 'Alibaba Qwen cloud':
+            config = None
+            if not cloud.configured:
+                error = 'Configure the Alibaba cloud credentials, region, workspace, and model before selecting Alibaba Qwen cloud.'
+            st.caption('Alibaba Cloud Model Studio · this selected provider is used only after per-request approval.')
         elif mode == 'Local model (Ollama)':
             config = ModelConfig(model=model)
             st.caption(f'Local endpoint · {model} · detected: {ready}')
@@ -168,7 +190,14 @@ def _cloud_result_writer(session_id, result, approved_lessons=()):
         answer = conversational_response(normalized)
     except (KeyError, TypeError, ValueError):
         return
-    _save_response(session_id, answer, 'cloud_reasoning', 'authorized')
+    try:
+        _save_response(session_id, answer, 'cloud_reasoning', 'authorized')
+    except ValueError:
+        # Isolated provider tests may not create a persistent conversation.
+        pass
+    except Exception:
+        # Persistence must never turn a provider response into an unhandled UI crash.
+        pass
 
 
 def _account_cloud_result(*, request, result, conversation_id):
@@ -180,38 +209,90 @@ def _account_cloud_result(*, request, result, conversation_id):
         error_category=getattr(result, 'error_category', None))
 
 
-def _cloud_service():
+def _make_openai_payload(user_text, profile, approved_lessons, *, session_id, settings=None):
+    """Build a minimized Responses payload using the same reasoning contract as Qwen."""
+    settings = settings or openai_configuration()
+    context = sanitized_cloud_context(scenario=user_text, identity_name=profile.get('identity_name', 'Sovereign Brain'),
+        identity_mission=profile.get('mission', ''), approved_lessons=approved_lessons)
+    system = ('You are the pretrained reasoning engine serving Sovereign Brain, not its identity owner. '
+              'Follow the supplied stable identity guidance. Return JSON matching the supplied schema. '
+              'Reason through UNDERSTAND (facts, feelings reported by the user, assumptions, relevant approved lesson IDs), '
+              'EVALUATE (alternatives, uncertainty, boundaries, consequences), and DECIDE (proportionate action, rationale, next step). '
+              'Never invent evidence or infer hidden third-party motives. Prior lessons are principles, not event facts.')
+    schema = {'type':'object','properties':{
+        'version':{'type':'string','enum':['sovereign-reasoning.v1']},
+        'facts':{'type':'array','items':{'type':'string','minLength':1,'maxLength':500},'minItems':1,'maxItems':5},
+        'assumptions':{'type':'array','items':{'type':'string','minLength':1,'maxLength':500},'minItems':1,'maxItems':5},
+        'emotional_interpretation':{'type':'string','minLength':1,'maxLength':1000},
+        'alternatives':{'type':'array','items':{'type':'string','minLength':1,'maxLength':500},'minItems':2,'maxItems':4},
+        'recommended_action':{'type':'string','minLength':1,'maxLength':500},
+        'rationale':{'type':'string','minLength':1,'maxLength':1000},
+        'next_step':{'type':'string','minLength':1,'maxLength':500},
+        'lesson_ids_used':{'type':'array','items':{'type':'string'},'maxItems':3}},
+        'required':['version','facts','assumptions','emotional_interpretation','alternatives','recommended_action','rationale','next_step','lesson_ids_used'],
+        'additionalProperties':False}
+    request = __import__('brain_core.openai_provider', fromlist=['InferenceRequest']).InferenceRequest(
+        ({'role':'system','content':system}, {'role':'user','content':json.dumps(context, ensure_ascii=False)}),
+        settings.model, min(768, int(os.getenv('SOVEREIGN_OPENAI_MAX_OUTPUT_TOKENS', '768'))), 60, schema)
+    return responses_payload(request), schema
+
+
+def _cloud_service(provider='alibaba_qwen_cloud'):
     services = st.session_state.setdefault('_cloud_services_by_conversation', {})
     conversation_id = st.session_state.get('conversation_id')
-    if conversation_id not in services or not hasattr(services[conversation_id], 'prepare_fallback'):
-        services[conversation_id] = CLOUD_SERVICE_FACTORY(
-            consent=CLOUD_CONSENT,
-            payload_factory=CLOUD_PAYLOAD_FACTORY or _make_cloud_payload,
-            provider_factory=CLOUD_PROVIDER_FACTORY,
-            api_key=CLOUD_API_KEY,
-            provider_payload=model_request_payload,
-            provider_fingerprint=lambda request, payload: AlibabaQwenProvider.fingerprint(request),
-            result_writer=_cloud_result_writer,
-            result_accountant=_account_cloud_result)
-    return services[conversation_id]
+    key = (conversation_id, provider)
+    if key not in services:
+        if provider == 'openai_cloud':
+            services[key] = CLOUD_SERVICE_FACTORY(
+                consent=CLOUD_CONSENT, payload_factory=_make_openai_payload,
+                provider_factory=OPENAI_PROVIDER_FACTORY, api_key=OPENAI_API_KEY,
+                provider='openai_cloud', region='global', provider_settings=openai_configuration,
+                result_writer=_cloud_result_writer, result_accountant=_account_cloud_result)
+        else:
+            from types import SimpleNamespace
+            def alibaba_settings():
+                configured = alibaba_configuration()
+                return SimpleNamespace(configured=configured.configured,
+                    api_key_configured=configured.api_key_configured, model=configured.model,
+                    region=configured.region, endpoint=configured.endpoint)
+            services[key] = CLOUD_SERVICE_FACTORY(
+                consent=CLOUD_CONSENT,
+                payload_factory=CLOUD_PAYLOAD_FACTORY or _make_cloud_payload,
+                provider_factory=CLOUD_PROVIDER_FACTORY,
+                api_key=CLOUD_API_KEY,
+                provider_payload=model_request_payload,
+                provider_fingerprint=lambda request, payload: AlibabaQwenProvider.fingerprint(request),
+                result_writer=_cloud_result_writer,
+                result_accountant=_account_cloud_result,
+                provider='alibaba_qwen_cloud', provider_settings=alibaba_settings,
+                validate_payload=lambda payload, schema: (
+                    isinstance(payload.get('messages'), list) and payload.get('stream') is False
+                    and payload.get('temperature') == 0.2
+                    and payload.get('response_format', {}).get('type') == 'json_schema'
+                    and payload.get('response_format', {}).get('json_schema', {}).get('strict') is True
+                    and payload.get('response_format', {}).get('json_schema', {}).get('schema') == schema))
+    return services[key]
 
 
 def _render_cloud_approval(session_id):
     services = st.session_state.setdefault('_cloud_services_by_conversation', {})
-    cloud_service = services.get(session_id)
-    if cloud_service is not None and hasattr(cloud_service, 'get_pending_request'):
-        request = cloud_service.get_pending_request(session_id)
-        if request is not None:
-            pending = {'conversation_id': request.conversation_id,
-                       'request': request, 'service': cloud_service}
-        else:
-            pending = None
-    else:
-        pending = None
-    other_pending = next(((key, service, service.get_pending_request(key))
+    matching = [(key, service) for key, service in services.items()
+                if isinstance(key, tuple) and len(key) == 2 and key[0] == session_id]
+    if session_id in services and hasattr(services[session_id], 'get_pending_request'):
+        matching.insert(0, ((session_id, 'alibaba_qwen_cloud'), services[session_id]))
+    active_key = st.session_state.get('_active_cloud_service_key')
+    cloud_service = services.get(active_key) if active_key and active_key[0] == session_id else None
+    if cloud_service is None and matching:
+        cloud_service = matching[-1][1]
+        active_key = matching[-1][0]
+    request = cloud_service.get_pending_request(session_id) if cloud_service is not None else None
+    pending = ({'conversation_id': request.conversation_id, 'request': request, 'service': cloud_service}
+               if request is not None else None)
+    other_pending = next(((key[0], service, service.get_pending_request(key[0]))
                           for key, service in services.items()
-                          if key != session_id and hasattr(service, 'get_pending_request')
-                          and service.get_pending_request(key) is not None), None)
+                          if isinstance(key, tuple) and len(key) == 2 and key[0] != session_id
+                          and hasattr(service, 'get_pending_request')
+                          and service.get_pending_request(key[0]) is not None), None)
     if pending is None and other_pending is not None:
         st.info('A cloud request is pending in another conversation. Switch back to its original conversation to review or cancel it.')
         other_id, other_service, other_request = other_pending
@@ -226,9 +307,10 @@ def _render_cloud_approval(session_id):
     if request is None or cloud_service is None:
         st.error('Cloud request state is unavailable. No external request was sent.')
         return
-    st.warning('Cloud Qwen requires approval for this one request. Decline is the default; no request has been sent.')
-    st.write(f"Provider: Alibaba Cloud Model Studio · Model: {request.model} · Region: {request.region}")
-    st.write('Reason: local inference was unavailable or its reasoning checks did not pass.')
+    provider_name = ('OpenAI' if request.provider == 'openai_cloud' else 'Alibaba Cloud Model Studio')
+    st.warning(f'{provider_name} requires approval for this one request. Decline is the default; no request has been sent.')
+    st.write(f"Provider: {provider_name} · Model: {request.model} · Region: {request.region}")
+    st.write('Reason: you selected this cloud provider; it will not switch providers automatically.')
     st.write(f"Estimated prompt tokens: about {request.token_estimate} · maximum output tokens: {request.max_output_tokens}")
     st.caption('Cost is not verifiably available from local configuration. Check provider-side quota/billing controls; no exact cost is claimed.')
     st.caption('Payload fingerprint: ' + request.fingerprint)
@@ -240,32 +322,58 @@ def _render_cloud_approval(session_id):
             execution = cloud_service.approve_and_execute(request=request, conversation_id=session_id)
             result = execution.result
             if result.status != 'success' or not isinstance(result.structured, dict):
-                st.error(f"Cloud request failed ({result.error_category}). It was not retried.")
+                st.error(f"{provider_name} request failed ({result.error_category}). It was not retried.")
             else:
-                st.success(f"Cloud Qwen · {result.model} · request {result.request_id or 'ID unavailable'} · {result.latency_seconds:.2f}s. This is not proof of psychological reliability.")
+                display_provider = 'Cloud Qwen' if request.provider == 'alibaba_qwen_cloud' else provider_name
+                st.success(f"{display_provider} · {result.model} · request {result.request_id or 'ID unavailable'} · {result.latency_seconds:.2f}s. This is not proof of psychological reliability.")
             st.session_state.cloud_services = services
+            st.session_state['_active_cloud_service_key'] = None
         except cloud_orchestration.CloudOrchestrationError:
             st.error('Cloud authorization or request failed safely. No automatic retry was attempted.')
     if right.button('Decline cloud; keep request local', key='decline_cloud_once'):
         if cloud_service.decline_fallback(request=request, conversation_id=session_id):
             _save_response(session_id, 'Cloud inference was declined. Your message and any retrieved approved memory remain available; no external request was sent, and no lesson or emotional state was modified.', 'cloud_declined', 'declined')
             st.info('Cloud request declined. Your message and retrieved approved memory remain available; no external request was sent.')
+            st.session_state['_active_cloud_service_key'] = None
+            journey = st.session_state.get('_reasoning_journeys', {}).get(session_id)
+            if journey is not None:
+                journey['status'] = 'declined'
         st.session_state.cloud_services = services
 
 
 def _offer_cloud_fallback(user_text, session_id, profile, approved_lessons, *, local_error):
-    cloud_service = _cloud_service()
+    """Legacy Alibaba-only opt-in offer; never advances or changes the selected provider."""
+    cloud_service = _cloud_service('alibaba_qwen_cloud')
     try:
         request = cloud_service.prepare_fallback(
             user_text=user_text, conversation_id=session_id, profile=profile,
             approved_lessons=approved_lessons, local_error=local_error,
             eligible=True)
         services = st.session_state.setdefault('_cloud_services_by_conversation', {})
-        services[session_id] = cloud_service
+        services[(session_id, 'alibaba_qwen_cloud')] = cloud_service
+        st.session_state['_active_cloud_service_key'] = (session_id, 'alibaba_qwen_cloud')
         st.session_state.cloud_services = services
         st.info(f"Local reasoning is unavailable ({type(local_error).__name__}). Cloud Qwen is only an option; nothing has been sent.")
+        st.caption('Select Alibaba Qwen cloud explicitly to prepare a request; no automatic provider switch occurs.')
     except cloud_orchestration.CloudOrchestrationError:
         st.warning(f"Local reasoning is unavailable ({type(local_error).__name__}); cloud configuration is incomplete or exceeds a safety limit. Your message is preserved and no external request was sent.")
+
+
+def _offer_selected_cloud(user_text, session_id, profile, approved_lessons, *, provider):
+    """Prepare exactly the user-selected cloud provider; no fallback chain exists."""
+    service = _cloud_service(provider)
+    try:
+        request = service.prepare_fallback(
+            user_text=user_text, conversation_id=session_id, profile=profile,
+            approved_lessons=approved_lessons,
+            local_error=RuntimeError('The user selected a cloud provider.'), eligible=True)
+        services = st.session_state.setdefault('_cloud_services_by_conversation', {})
+        services[(session_id, provider)] = service
+        st.session_state['_active_cloud_service_key'] = (session_id, provider)
+        st.session_state.cloud_services = services
+        st.info(f"{request.provider} is selected for this request. Nothing has been sent; review the exact payload and approve once to execute.")
+    except cloud_orchestration.CloudOrchestrationError:
+        st.warning('The selected cloud provider could not prepare a safe request. No external request was sent.')
 
 
 def _unused_render_admin_duplicate(profile, mode, remote_authorized, model, ready, configuration_error):
@@ -644,6 +752,13 @@ def _handle_message(user_text, session_id, history_messages, profile, model_conf
     if route.intent != 'emotional_reasoning':
         _save_response(session_id, 'I am not sure how to route that request. Could you clarify whether you want to chat, consider a situation, teach a principle, or recall an approved lesson?', 'clarification')
         return
+    if model_config is None and st.session_state.get('studio_inference') in ('OpenAI cloud', 'Alibaba Qwen cloud'):
+        provider = ('openai_cloud' if st.session_state.studio_inference == 'OpenAI cloud'
+                    else 'alibaba_qwen_cloud')
+        approved_lessons = lessons.retrieve(user_text, limit=3,
+                                            data_dir=studio.DATA, db_path=studio.DB)
+        _offer_selected_cloud(user_text, session_id, profile, approved_lessons, provider=provider)
+        return
     try:
         with st.status('Considering your message…', expanded=False):
             reasoning_context = service.cognition.assess(user_text, profile, {'emotions': dict(NEUTRAL)})
@@ -773,6 +888,11 @@ def render_admin(profile, mode, remote_authorized, model, ready, configuration_e
         state = {'iterations': 0, 'emotion': 'neutral', 'metrics': dict(trainer.BASE), 'emotions': dict(NEUTRAL)}
     with st.expander('Model settings and system health'):
         cloud = alibaba_configuration()
+        openai = openai_configuration()
+        st.write('OpenAI: approval required for each selected request · API key configured:', openai.api_key_configured,
+                 '· model:', openai.model or 'not configured')
+        if openai.errors:
+            st.caption('OpenAI configuration incomplete: ' + ' '.join(openai.errors))
         st.write('Cloud Qwen: approval required for every inference · API key configured:', cloud.api_key_configured)
         if cloud.errors:
             st.caption('Cloud configuration incomplete: ' + ' '.join(cloud.errors))
