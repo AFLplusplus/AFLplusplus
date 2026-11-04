@@ -36,13 +36,17 @@ from brain_core.providers import category_for_error
 CLOUD_CONSENT = _DEFAULT_CLOUD_APPROVALS
 CLOUD_SERVICE_FACTORY = cloud_orchestration.CloudOrchestrator
 _CLOUD_FAILURE_CATEGORIES = cloud_orchestration.CloudOrchestrationError.DIAGNOSTICS
+_CLOUD_FAILURE_SUBSTAGES = cloud_orchestration.CloudOrchestrationError.SUBSTAGES
 CLOUD_PAYLOAD_FACTORY = None
 
 
-def _safe_cloud_failure_category(error):
-    """Return structured, allowlisted cloud-failure data only; never inspect exception text."""
-    category = getattr(error, 'diagnostic', None)
-    return category if isinstance(category, str) and category in _CLOUD_FAILURE_CATEGORIES else 'unknown'
+def _safe_cloud_failure_diagnostic(error):
+    """Return structured, allowlisted failure metadata only; never inspect exception text."""
+    stage = getattr(error, 'diagnostic', None)
+    substage = getattr(error, 'substage', None)
+    stage = stage if isinstance(stage, str) and stage in _CLOUD_FAILURE_CATEGORIES else 'unknown'
+    substage = substage if isinstance(substage, str) and substage in _CLOUD_FAILURE_SUBSTAGES else 'unknown'
+    return stage, substage
 
 CLOUD_PROVIDER_FACTORY = AlibabaQwenProvider
 CLOUD_API_KEY = lambda: os.getenv('DASHSCOPE_API_KEY', '')
@@ -649,8 +653,8 @@ def _render_cloud_approval(session_id):
                             pass
                 turn.cloud_state = 'completed'
         except cloud_orchestration.CloudOrchestrationError as error:
-            diagnostic = _safe_cloud_failure_category(error)
-            st.error(f'Cloud request failed safely · diagnostic: {diagnostic}. No automatic retry was attempted.')
+            diagnostic, substage = _safe_cloud_failure_diagnostic(error)
+            st.error(f'Cloud request failed safely · stage: {diagnostic} · substage: {substage}. No automatic retry was attempted.')
     if right.button('Decline cloud; keep request local', key='decline_cloud_once'):
         if cloud_service.decline_fallback(request=request, conversation_id=session_id):
             general_store = st.session_state.get('_general_journey_store', {})

@@ -42,10 +42,17 @@ class CloudOrchestrationError(RuntimeError):
 
     DIAGNOSTICS = frozenset({'authorization', 'request_execution', 'response_validation', 'unknown'})
 
-    def __init__(self, message: str, *, diagnostic: str = 'unknown'):
+    SUBSTAGES = frozenset({
+        'provider_construction', 'authorization_setup', 'adapter_inference',
+        'result_accounting', 'unknown'
+    })
+
+    def __init__(self, message: str, *, diagnostic: str = 'unknown', substage: str = 'unknown'):
         super().__init__(message)
         self.diagnostic = (diagnostic if isinstance(diagnostic, str) and diagnostic in self.DIAGNOSTICS
                            else 'unknown')
+        self.substage = (substage if isinstance(substage, str) and substage in self.SUBSTAGES
+                         else 'unknown')
 
 
 class CloudOrchestrator:
@@ -426,24 +433,49 @@ class CloudOrchestrator:
                     'timeout_seconds': self._request_timeout_seconds,
                     'max_output_tokens': request.max_output_tokens,
                 }
-            provider = self._provider_factory(**provider_kwargs)
-            if self._provider == 'openai_cloud':
-                if self._settings_factory is not None:
-                    provider.authorize_payload_once(provider_payload)
+            try:
+                provider = self._provider_factory(**provider_kwargs)
+            except Exception as error:
+                raise CloudOrchestrationError(
+                    'Cloud provider could not be initialized; authorization remains consumed.',
+                    diagnostic='request_execution', substage='provider_construction') from error
+            try:
+                if self._provider == 'openai_cloud':
+                    if self._settings_factory is not None:
+                        provider.authorize_payload_once(provider_payload)
+                    else:
+                        provider.authorize_once(inference, request.fingerprint)
                 else:
-                    provider.authorize_once(inference, request.fingerprint)
-            else:
-                provider.authorize_once(inference, provider_fingerprint)
-            result = provider.infer(inference)
-            self._consent.record_result(
-                request.approval_id, success=result.status == 'success',
-                input_tokens=getattr(result, 'input_tokens', None),
-                output_tokens=getattr(result, 'output_tokens', None),
-                reported_cost_usd=getattr(result, 'reported_cost_usd', None),
-                error_category=getattr(result, 'error_category', None))
-            if self._result_accountant is not None:
-                self._result_accountant(
-                    request=request, result=result, conversation_id=conversation_id)
+                    provider.authorize_once(inference, provider_fingerprint)
+            except Exception as error:
+                raise CloudOrchestrationError(
+                    'Cloud provider authorization setup failed; authorization remains consumed.',
+                    diagnostic='request_execution', substage='authorization_setup') from error
+            try:
+                result = provider.infer(inference)
+            except Exception as error:
+                raise CloudOrchestrationError(
+                    'Cloud adapter inference failed; authorization remains consumed.',
+                    diagnostic='request_execution', substage='adapter_inference') from error
+            try:
+                self._consent.record_result(
+                    request.approval_id, success=result.status == 'success',
+                    input_tokens=getattr(result, 'input_tokens', None),
+                    output_tokens=getattr(result, 'output_tokens', None),
+                    reported_cost_usd=getattr(result, 'reported_cost_usd', None),
+                    error_category=getattr(result, 'error_category', None))
+            except Exception as error:
+                raise CloudOrchestrationError(
+                    'Cloud result accounting failed; authorization remains consumed.',
+                    diagnostic='request_execution', substage='result_accounting') from error
+            try:
+                if self._result_accountant is not None:
+                    self._result_accountant(
+                        request=request, result=result, conversation_id=conversation_id)
+            except Exception as error:
+                raise CloudOrchestrationError(
+                    'Cloud result accounting failed; authorization remains consumed.',
+                    diagnostic='request_execution', substage='result_accounting') from error
             if self._result_writer is not None and result.status == 'success':
                 try:
                     self._result_writer(conversation_id, result, lessons_snapshot)
@@ -457,23 +489,25 @@ class CloudOrchestrator:
                 self._pending.pop(conversation_id, None)
                 if consumed:
                     self._completed.add(request.approval_id)
-            if consumed:
+            if consumed and not isinstance(error, CloudOrchestrationError):
                 try:
                     self._consent.record_result(
                         request.approval_id, success=False, error_category='execution_failed')
                 except Exception:
                     pass
             if isinstance(error, CloudOrchestrationError):
-                try:
-                    self._consent.record_result(
-                        request.approval_id, success=False, error_category='execution_failed')
-                except Exception:
-                    pass
+                if error.diagnostic == 'request_execution' and error.substage != 'result_accounting':
+                    try:
+                        self._consent.record_result(
+                            request.approval_id, success=False, error_category='execution_failed')
+                    except Exception:
+                        # Ignore duplicate finalization attempts without altering the first result.
+                        pass
                 raise error
             if consumed:
                 raise CloudOrchestrationError(
                     'Approved request failed; authorization remains consumed and will not be retried.',
-                    diagnostic='request_execution') from error
+                    diagnostic='request_execution', substage='unknown') from error
             raise CloudOrchestrationError(
                 'Cloud authorization failed safely; no request was retried.', diagnostic='unknown') from error
         finally:

@@ -83,24 +83,25 @@ class CloudOrchestrationTests(unittest.TestCase):
             local_error=error or RuntimeError('controlled local failure'), eligible=eligible)
 
     def test_safe_diagnostic_categories_are_allowlisted_and_do_not_expose_secrets(self):
-        from brain_studio import _safe_cloud_failure_category
+        from brain_studio import _safe_cloud_failure_diagnostic
         secret = 'synthetic-secret-token'
         examples = (
-            (CloudOrchestrationError(secret, diagnostic='authorization'), 'authorization'),
-            (CloudOrchestrationError(secret, diagnostic='request_execution'), 'request_execution'),
-            (CloudOrchestrationError(secret, diagnostic='response_validation'), 'response_validation'),
-            (CloudOrchestrationError(secret), 'unknown'),
-            (CloudOrchestrationError(secret, diagnostic=secret), 'unknown'),
-            (RuntimeError(secret), 'unknown'),
+            (CloudOrchestrationError(secret, diagnostic='authorization'), ('authorization', 'unknown')),
+            (CloudOrchestrationError(secret, diagnostic='request_execution', substage='adapter_inference'),
+             ('request_execution', 'adapter_inference')),
+            (CloudOrchestrationError(secret, diagnostic='response_validation'), ('response_validation', 'unknown')),
+            (CloudOrchestrationError(secret), ('unknown', 'unknown')),
+            (CloudOrchestrationError(secret, diagnostic=secret, substage=secret), ('unknown', 'unknown')),
+            (RuntimeError(secret), ('unknown', 'unknown')),
         )
         for error, expected in examples:
             with self.subTest(expected=expected):
-                displayed_category = _safe_cloud_failure_category(error)
-                self.assertEqual(displayed_category, expected)
-                self.assertNotIn(secret, displayed_category)
-                self.assertNotIn(secret, repr(displayed_category))
-        unsupported = CloudOrchestrationError(secret, diagnostic='authorization ' + secret)
-        self.assertEqual(_safe_cloud_failure_category(unsupported), 'unknown')
+                displayed = _safe_cloud_failure_diagnostic(error)
+                self.assertEqual(displayed, expected)
+                self.assertNotIn(secret, repr(displayed))
+        unsupported = CloudOrchestrationError(
+            secret, diagnostic='request_execution', substage='adapter_inference ' + secret)
+        self.assertEqual(_safe_cloud_failure_diagnostic(unsupported), ('request_execution', 'unknown'))
 
     def test_explicit_approval_failures_have_authorization_category(self):
         request = self.prepare()
@@ -108,6 +109,56 @@ class CloudOrchestrationTests(unittest.TestCase):
             self.service.approve_and_execute(request=request, conversation_id='other-conversation')
         self.assertEqual(caught.exception.diagnostic, 'authorization')
         self.assertEqual(self.provider_factory.call_count, 0)
+
+    def test_post_consent_failure_substages_are_precise_and_redacted(self):
+        secret = 'synthetic-private-key-or-diagnostic'
+        lesson_secret = 'private prompt payload sentinel'
+        result = self.provider.result
+        cases = (
+            ('provider_construction', Mock(side_effect=RuntimeError(secret)), None, None),
+            ('authorization_setup', Mock(return_value=Mock(
+                authorize_once=Mock(side_effect=RuntimeError(secret)))), None, None),
+            ('adapter_inference', Mock(return_value=Mock(
+                authorize_once=Mock(), infer=Mock(side_effect=RuntimeError(secret)))), None, None),
+            ('result_accounting', Mock(return_value=self.provider),
+             Mock(side_effect=RuntimeError(secret)), None),
+        )
+        for expected_substage, factory, accountant, writer in cases:
+            with self.subTest(substage=expected_substage):
+                manager = CloudApprovalManager()
+                writer = writer or Mock()
+                service = CloudOrchestrator(
+                    consent=manager, payload_factory=self.payload_factory,
+                    provider_factory=factory, api_key=lambda: secret,
+                    provider_payload=lambda payload, request: payload,
+                    provider_fingerprint=lambda request, payload: 'mock-request-fingerprint',
+                    result_writer=writer, result_accountant=accountant)
+                request = service.prepare_fallback(
+                    user_text=lesson_secret, conversation_id='diag-' + expected_substage,
+                    profile={'identity_name': 'Synthetic'},
+                    approved_lessons=[{'lesson_id': 'safe-id', 'prompt': lesson_secret}],
+                    local_error=RuntimeError('controlled local failure'))
+                with self.assertRaises(CloudOrchestrationError) as caught:
+                    service.approve_and_execute(request=request, conversation_id=request.conversation_id)
+                error = caught.exception
+                self.assertEqual(error.diagnostic, 'request_execution')
+                self.assertEqual(error.substage, expected_substage)
+                from brain_studio import _safe_cloud_failure_diagnostic
+                rendered = repr(_safe_cloud_failure_diagnostic(error))
+                self.assertNotIn(secret, rendered)
+                self.assertNotIn(lesson_secret, rendered)
+                self.assertEqual(len(manager.events), 1)
+                # Result recording happens before the separate accountant callback.
+                self.assertEqual(manager.events[0]['success'], expected_substage == 'result_accounting')
+                if manager.events[0]['error_category'] is not None:
+                    self.assertEqual(manager.events[0]['error_category'], 'execution_failed')
+
+    def test_successful_adapter_result_accounting_and_writer_are_unchanged(self):
+        request = self.prepare()
+        execution = self.service.approve_and_execute(request=request, conversation_id='conversation-1')
+        self.assertEqual(execution.result.status, 'success')
+        self.writer.assert_called_once_with('conversation-1', execution.result, tuple(self.lessons))
+        self.assertTrue(self.manager.events[0]['success'])
 
     def test_eligible_local_failure_prepares_frozen_preview_without_network(self):
         with patch('urllib.request.urlopen', side_effect=AssertionError('network forbidden')) as network:
