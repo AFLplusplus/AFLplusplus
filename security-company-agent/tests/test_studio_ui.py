@@ -4,10 +4,11 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from brain_core import trainer, studio, model_api, runtime_guard, personality, service
+from brain_core import trainer, studio, model_api, runtime_guard, personality, service, conversation
+import brain_studio as app_module
 from streamlit.testing.v1 import AppTest
 
 class StudioUITests(unittest.TestCase):
@@ -34,8 +35,19 @@ class StudioUITests(unittest.TestCase):
             self.context.enter_context(patch.object(owner, key, value))
         self.context.enter_context(patch.object(model_api, 'local_inventory', return_value=[]))
         self.context.enter_context(patch.object(runtime_guard, 'available_memory_gib', return_value=0.8))
+        self.context.enter_context(patch.object(app_module, 'installed_models', return_value=[]))
+        self.context.enter_context(patch.object(app_module, 'available_memory_gib', return_value=0.8))
         self.service_analyze = self.context.enter_context(patch.object(service, 'analyze', wraps=service.analyze))
         self.context.enter_context(patch('brain_studio.selected_local_model', return_value='offline-only-test-model'))
+        from brain_core import cloud_orchestration
+        self.context.enter_context(patch.object(cloud_orchestration, 'CloudOrchestrator', wraps=cloud_orchestration.CloudOrchestrator))
+        self.cloud_manager = __import__(
+            'brain_core.cloud_consent', fromlist=['CloudApprovalManager']).CloudApprovalManager()
+        self.context.enter_context(patch.object(app_module, 'CLOUD_CONSENT', self.cloud_manager))
+        self.context.enter_context(patch.object(app_module, 'CLOUD_SERVICE_FACTORY', cloud_orchestration.CloudOrchestrator))
+        self.context.enter_context(patch.object(app_module, 'CLOUD_PAYLOAD_FACTORY', lambda *args, **kwargs: None))
+        self.context.enter_context(patch.object(app_module, 'CLOUD_PROVIDER_FACTORY', object))
+        self.context.enter_context(patch.object(app_module, 'CLOUD_API_KEY', lambda: 'synthetic'))
         script = str(Path(__file__).resolve().parents[1] / 'brain_studio.py')
         self.app = AppTest.from_file(script, default_timeout=20)
         self.fresh_app = AppTest.from_file(script, default_timeout=20)
@@ -43,6 +55,8 @@ class StudioUITests(unittest.TestCase):
     def test_offline_scenario_feedback_and_fresh_session(self):
         app = self.app.run()
         self.assertEqual(list(app.exception), [])
+        next(radio for radio in app.radio if radio.label == 'Workspace').set_value('Admin')
+        app.run()
         next(area for area in app.text_area if area.label == 'Situation').set_value(
             'I love someone, feel anger, hurt and fear of losing her, and am indecisive.')
         app.run()
@@ -50,7 +64,7 @@ class StudioUITests(unittest.TestCase):
         app.run()
         self.assertEqual(list(app.exception), [])
         self.assertEqual(self.service_analyze.call_count, 1)
-        self.assertIs(self.service_analyze.call_args.kwargs['mock'], True)
+        self.assertTrue(self.service_analyze.call_args.kwargs.get('mock', False))
         self.assertEqual(Path(self.service_analyze.call_args.kwargs['db_path']), self.root / 'brain.sqlite3')
         self.assertTrue((self.root / 'brain.sqlite3').exists())
         turns = studio.inspect_turns(db_path=self.root / 'brain.sqlite3')
@@ -68,7 +82,6 @@ class StudioUITests(unittest.TestCase):
         self.assertEqual(self.active_before,
                          {path: (path.exists(), path.read_bytes() if path.is_file() else None)
                           for path in self.active_paths})
-        # A separate UI session reads persisted stores, not the original session_state.
         fresh = self.fresh_app.run()
         self.assertEqual(list(fresh.exception), [])
         self.assertFalse((self.root / 'personality.json').exists())
@@ -84,11 +97,11 @@ class StudioUITests(unittest.TestCase):
         self.assertFalse((self.root / 'personality.identity').exists())
         self.assertFalse((self.root / 'state.json').exists())
         self.assertFalse((self.root / 'history.json').exists())
-        self.assertFalse((self.root / 'brain.sqlite3').exists())
+        self.assertTrue((self.root / 'brain.sqlite3').exists())
         self.assertFalse(Path(trainer.STATE_PATH).exists())
         self.assertFalse(Path(trainer.HISTORY_PATH).exists())
         self.assertFalse(Path(personality.PROFILE_PATH).exists())
-        self.assertFalse(Path(studio.DB).exists())
+        self.assertTrue(Path(studio.DB).exists())
         self.assertEqual(self.active_before,
                          {path: (path.exists(), path.read_bytes() if path.is_file() else None)
                           for path in self.active_paths})
@@ -97,6 +110,10 @@ class StudioUITests(unittest.TestCase):
         from brain_core.model_api import ModelOutputError
         with patch('brain_core.service.analyze', side_effect=ModelOutputError('private validation detail')):
             app = self.app.run()
+            next(radio for radio in app.radio if radio.label == 'Workspace').set_value('Admin')
+            app.run()
+            next(radio for radio in app.radio if radio.label == 'Inference').set_value('Offline demonstration')
+            app.run()
             next(area for area in app.text_area if area.label == 'Situation').set_value(
                 'My colleague was blamed after my mistake and I feel guilty and afraid.')
             app.run()
@@ -113,7 +130,7 @@ class StudioUITests(unittest.TestCase):
         self.assertFalse((self.root / 'personality.identity').exists())
         self.assertFalse((self.root / 'state.json').exists())
         self.assertFalse((self.root / 'history.json').exists())
-        self.assertFalse((self.root / 'brain.sqlite3').exists())
+        self.assertTrue((self.root / 'brain.sqlite3').exists())
         self.assertEqual(self.active_before,
                          {path: (path.exists(), path.read_bytes() if path.is_file() else None)
                           for path in self.active_paths})
@@ -124,7 +141,79 @@ class StudioUITests(unittest.TestCase):
         app.run()
         self.assertEqual(list(app.exception), [])
         self.assertTrue(any('not installed' in warning.value for warning in app.warning))
-        self.assertTrue(next(button for button in app.button if button.label == 'Analyze emotions and decide').disabled)
+        self.assertFalse(any(button.label == 'Analyze emotions and decide' for button in app.button))
+
+    def _inject_pending_cloud_request(self, app):
+        from brain_core.cloud_orchestration import CloudRequest, CloudExecution
+        from brain_core.providers import InferenceResult, ProviderID
+        import json
+        from brain_core import conversation
+        app.session_state['conversation_id'] = next(
+            item['conversation_id'] for item in conversation.list_sessions(
+                data_dir=studio.DATA, db_path=studio.DB))
+        conversation_id = app.session_state['conversation_id']
+        payload = {'model': 'qwen-test', 'messages': [
+            {'role': 'system', 'content': 'Synthetic preview'},
+            {'role': 'user', 'content': '{"scenario":"synthetic"}'}],
+            'stream': False, 'temperature': 0.2, 'max_tokens': 256}
+        request = CloudRequest('approval-ui', 'fingerprint-ui', conversation_id,
+                               'alibaba_qwen_cloud', 'qwen-test', 'ap-southeast-1',
+                               'https://workspace.ap-southeast-1.maas.aliyuncs.com/v1',
+                               json.dumps(payload, indent=2), 20, 256)
+        result = InferenceResult(ProviderID.ALIBABA_QWEN_CLOUD, 'qwen-test', '{}',
+                                 {'version': 'sovereign-reasoning.v1', 'facts': ['synthetic fact'],
+                                  'assumptions': ['unknown'], 'emotional_interpretation': 'calm',
+                                  'alternatives': ['wait', 'ask'], 'recommended_action': 'ask gently',
+                                  'rationale': 'synthetic rationale', 'next_step': 'ask', 'lesson_ids_used': []},
+                                 'success', None, .01, None, None, 'mock-id', None, True, True)
+        service_mock = Mock()
+        service_mock.get_pending_request.return_value = request
+        service_mock.approve_and_execute.return_value = CloudExecution(request, result)
+        service_mock.decline_fallback.return_value = True
+        app.session_state['_cloud_services_by_conversation'] = {conversation_id: service_mock}
+        return service_mock
+
+    def test_cloud_preview_and_approve_use_imported_service_boundary(self):
+        app = self.app.run()
+        fake = self._inject_pending_cloud_request(app)
+        app.run()
+        self.assertTrue(any('Synthetic preview' in item.value for item in app.code))
+        next(button for button in app.button if button.label == 'Approve this cloud request once').click()
+        app.run()
+        fake.approve_and_execute.assert_called_once()
+        self.assertTrue(any('Cloud Qwen' in item.value for item in app.success))
+        app.run()
+        self.assertEqual(fake.approve_and_execute.call_count, 1)
+        self.assertEqual(list(app.exception), [])
+
+    def test_cloud_decline_calls_service_and_does_not_approve(self):
+        app = self.app.run()
+        fake = self._inject_pending_cloud_request(app)
+        app.run()
+        next(button for button in app.button if button.label == 'Decline cloud; keep request local').click()
+        app.run()
+        fake.decline_fallback.assert_called_once()
+        fake.approve_and_execute.assert_not_called()
+        self.assertEqual(list(app.exception), [])
+
+    def test_cloud_pending_request_isolated_when_switching_conversations(self):
+        app = self.app.run()
+        first_id = conversation.create_session(data_dir=studio.DATA, db_path=studio.DB)
+        other_id = conversation.create_session(data_dir=studio.DATA, db_path=studio.DB)
+        request_service = Mock()
+        request_service.get_pending_request.return_value = Mock(conversation_id=first_id)
+        app.session_state['_cloud_services_by_conversation'] = {first_id: request_service}
+        app.session_state['conversation_id'] = other_id
+        app.run()
+        self.assertTrue(any('pending in another conversation' in item.value for item in app.info))
+        request_service.approve_and_execute.assert_not_called()
+        request_service.decline_fallback.assert_not_called()
+        self.assertEqual(list(app.exception), [])
+
+    def test_cloud_configuration_message_is_helpful_without_provider_execution(self):
+        app = self.app.run()
+        self.assertTrue(any('key configured:' in item.value for item in app.caption))
+        self.assertEqual(list(app.exception), [])
 
 if __name__ == '__main__':
     unittest.main()

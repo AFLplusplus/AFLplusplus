@@ -91,8 +91,8 @@ _DIAGNOSTIC_FIELDS = {
     'id', 'scenario_length', 'stage', 'stage_duration_seconds', 'repair_duration_seconds', 'validation_passed',
     'original_validation', 'validation_error', 'repair_error', 'repair_attempted', 'repair_validation', 'repair_succeeded',
     'failed_field', 'repair_failed_field', 'failed_criterion', 'failed_alternative_index', 'repair_failed_alternative_index',
-    'validator_details', 'alternatives', 'repair_alternatives',
-    'response_fields', 'verbosity', 'at',
+    'validator_details', 'alternatives', 'repair_alternatives', 'emotion_labels',
+    'response_fields', 'verbosity', 'at', 'error_category', 'provider', 'model', 'raw_response_redacted',
 }
 _DIAGNOSTIC_SECRET_PATTERNS = (
     re.compile(r'(?i)\b(?:bearer\s+)?[A-Z0-9._~+/-]{20,}={0,2}\b'),
@@ -170,11 +170,19 @@ def _minimal_grounding_details(details):
         if isinstance(checks, dict) and isinstance(checks.get('alternative_grounding'), list):
             summary[phase] = [{key: item.get(key) for key in keys}
                               for item in checks['alternative_grounding'][:2] if isinstance(item, dict)]
+    emotion_checks = details.get('emotion_appraisal')
+    if isinstance(emotion_checks, list):
+        summary['emotion_appraisal'] = [
+            {key: item.get(key) for key in ('normalized_candidate', 'classification',
+                                             'grounding_supported', 'reason')}
+            for item in emotion_checks[:3] if isinstance(item, dict)
+        ]
     return summary
 
 
 def _write_diagnostic(diagnostic_id, scenario='', response=None, validation_error=None, repair_error=None,
-                      *, stage=None, details=None):
+                      *, stage=None, details=None, raw_text=None, error_category=None,
+                      provider=None, model=None):
     """Write an allowlisted, sanitized failure record outside training memory."""
     verbosity = _diagnostic_verbosity()
     if verbosity == 'off':
@@ -204,13 +212,18 @@ def _write_diagnostic(diagnostic_id, scenario='', response=None, validation_erro
         'failed_alternative_index': details.get('failed_alternative_index', _alternative_index(details.get('failed_field'))),
         'repair_failed_alternative_index': details.get('repair_failed_alternative_index', _alternative_index(details.get('repair_failed_field'))),
         'repair_failed_field': _sanitize_diagnostic_text(str(details.get('repair_failed_field') or ''), scenario),
+        'emotion_labels': details.get('emotion_labels', []),
         'validator_details': details.get('validator_details') if isinstance(details.get('validator_details'), dict) else {},
     }
     allowed_details['validator_details'] = _sanitize_diagnostic_value(allowed_details['validator_details'], scenario)
     response_field_allowlist = {'facts', 'emotions', 'assumptions', 'alternatives',
                                 'selected_action', 'rationale', 'emotional_tradeoff'}
+    allowed_details['emotion_labels'] = _sanitize_diagnostic_value(allowed_details['emotion_labels'], scenario)
     payload = {'id': safe_diagnostic_id, 'scenario_length': len(scenario) if isinstance(scenario, str) else 0,
                'stage': _sanitize_diagnostic_text(str(stage or ''), scenario), **allowed_details,
+               'error_category': str(error_category)[:80] if error_category else None,
+               'provider': str(provider)[:80] if provider else None,
+               'model': str(model)[:120] if model else None,
                'failed_criterion': criterion,
                'validation_error': criterion,
                'repair_error': _sanitize_diagnostic_text(str(repair_error or ''), scenario),
@@ -222,6 +235,13 @@ def _write_diagnostic(diagnostic_id, scenario='', response=None, validation_erro
         payload['validator_details'] = _sanitize_diagnostic_value(
             _minimal_grounding_details(allowed_details['validator_details']), scenario)
     if verbosity == 'local_debug':
+        # Raw completion text is strictly opt-in, local-only, bounded, and scrubbed
+        # for the current scenario plus common secrets and identifiers.
+        if isinstance(raw_text, str) and raw_text:
+            payload['raw_response_redacted'] = _sanitize_diagnostic_text(raw_text, scenario)
+        payload['emotion_labels'] = allowed_details['emotion_labels'][:6] if isinstance(allowed_details['emotion_labels'], list) else []
+        if isinstance(raw_text, str) and raw_text:
+            payload['raw_response_redacted'] = _sanitize_diagnostic_text(raw_text, scenario)
         def safe_alternatives(items):
             if not isinstance(items, list):
                 return []

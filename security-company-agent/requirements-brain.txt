@@ -1,3 +1,4 @@
 streamlit>=1.53,<2
 pypdf>=5,<7
 python-docx>=1.1,<2
+python-dotenv>=1.0,<2

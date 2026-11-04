@@ -2,7 +2,7 @@
 import json
 import sqlite3
 from pathlib import Path
-from . import studio
+from . import studio, lessons
 
 def experiences(query, limit=3, *, data_dir=None, db_path=None):
     candidates=[]
@@ -20,6 +20,11 @@ def experiences(query, limit=3, *, data_dir=None, db_path=None):
                     result.get('decision',{}).get('recommended_action', '')[:300],
                 'trainer_rating':row['rating'], 'trainer_correction':row['commentary'][:600]}))
     return [item[2] for item in sorted(candidates,key=lambda item:(item[0],item[1]),reverse=True)[:limit]]
+
+def supervised_lessons(query, limit=3, *, data_dir=None, db_path=None):
+    """Retrieve explicit human-approved lessons without inferring or changing state."""
+    return lessons.retrieve(query, limit=limit, data_dir=data_dir, db_path=db_path)
+
 
 def relationship(label, *, data_dir=None, db_path=None):
     if not isinstance(label, str) or not label.strip():

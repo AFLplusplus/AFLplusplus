@@ -25,6 +25,9 @@ def analyze(scenario, guidance='', *, mock=False, config=None, use_references=Fa
     context = cognition.assess(scenario, profile, previous,
                                relationship_state=memory.relationship(relationship_label, data_dir=data_dir, db_path=db_path),
                                experiences=memory.experiences(scenario, data_dir=data_dir, db_path=db_path) if use_feedback else [])
+    context['supervised_lessons'] = (memory.supervised_lessons(scenario, data_dir=data_dir, db_path=db_path)
+                                     if use_feedback else [])
+    context['supervised_lessons_enabled'] = bool(use_feedback)
     trainer_result = trainer.train(scenario, guidance, mock=mock, config=config,
                                   reference_context=references, past_feedback=corrections,
                                   cognitive_context=context, persistent_profile=profile,

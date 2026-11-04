@@ -139,11 +139,11 @@ class EmotionalQualityTests(unittest.TestCase):
             if schema.get('properties',{}).get('facts'):
                 if 'coworker' in request['scenario']:
                     facts=['I made a mistake that caused my closest coworker to be blamed.','Admitting the mistake could damage my reputation and promotion.','My colleague trusts me.']
-                    emotions=[{'label':'guilt and fear','trigger':'I feel guilty and fear promotion damage.'},{'label':'trust','trigger':'My colleague trusts me.'}]
+                    emotions=[{'label':'guilt','trigger':'I feel guilty and fear promotion damage.'},{'label':'fear','trigger':'I feel guilty and fear promotion damage.'},{'label':'trust','trigger':'My colleague trusts me.'}]
                     assumption='The promotion outcome is unknown.'
                 else:
                     facts=['My partner has developed a close friendship with someone they previously dated.','They openly tell me about their friendship.','I feel jealous and have no evidence of dishonesty.']
-                    emotions=[{'label':'jealousy','trigger':'I feel jealous about the friendship.'},{'label':'concern','trigger':'The friendship is with someone they previously dated.'}]
+                    emotions=[{'label':'jealousy','trigger':'I feel jealous about the friendship.'},{'label':'trust','trigger':'The partner openly tells me about their friendship.'}]
                     assumption='There is no evidence that my partner has been dishonest.'
                 return {'facts':facts,'emotions':emotions,'assumptions':[assumption]},{'source':'unit_test_mock'}
             if 'alternatives' in schema.get('properties',{}):
@@ -200,7 +200,7 @@ class EmotionalQualityTests(unittest.TestCase):
         self.assertNotIn('previous_state',calls[0]);self.assertNotIn('proposed_rules_for_review',calls[0])
 
     def test_bounded_repair_accepts_concrete_recommendation(self):
-        understanding = {'facts':['You made a mistake that led to your closest coworker being blamed.','Admitting the mistake could damage your reputation and promotion.','Your colleague trusts you.'], 'emotions':[{'label':'guilt and fear','trigger':'You feel guuilty and afraid.'},{'label':'trust','trigger':'Your colleague trusts you.'}], 'assumptions':['The promotion outcome is unknown.']}
+        understanding = {'facts':['You made a mistake that led to your closest coworker being blamed.','Admitting the mistake could damage your reputation and promotion.','Your colleague trusts you.'], 'emotions':[{'label':'guilt','trigger':'You feel guuilty and afraid.'},{'label':'fear','trigger':'You feel guuilty and afraid.'},{'label':'trust','trigger':'Your colleague trusts you.'}], 'assumptions':['The promotion outcome is unknown.']}
         alternatives = {'alternatives':[{'action':'I will acknowledge my mistake and correct the blame with my supervisor.','consequence':'Correcting the blame may reduce harm to my coworker.'},{'action':'I will check the report facts with my supervisor before deciding how to correct the blame.','consequence':'Checking facts may help ensure an accurate correction.'}]}
         final = {'selected_action':alternatives['alternatives'][0]['action'],'rationale':'My mistake led to my closest coworker being blamed, so I should correct the record.','emotional_tradeoff':'Guilt urges repair while fear about promotion makes disclosure difficult.'}
         calls=[]

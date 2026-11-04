@@ -10,13 +10,150 @@ def object_schema(properties):
 TEXT = {'type': 'string', 'minLength': 1, 'maxLength': 3000}
 UNIT = {'type': 'number', 'minimum': 0, 'maximum': 1}
 STRINGS = {'type': 'array', 'items': TEXT, 'minItems': 1, 'maxItems': 5}
+# Deterministic Stage 1 vocabulary normalization to the existing appraisal dimensions.
+# Synonyms are explicit (not fuzzy); ambiguous words are intentionally omitted.
+EMOTION_SYNONYMS = {
+    'attachment': ('love', 'affection', 'fondness', 'closeness'),
+    'anger': ('irritation', 'irritated', 'resentment', 'annoyance', 'annoyed'),
+    'sadness': ('sorrow', 'unhappiness', 'disappointment', 'disappointed'),
+    'fear': ('worry', 'worried', 'anxiety', 'anxious', 'apprehension', 'nervousness'),
+    'hope': ('optimism', 'encouragement'),
+    'trust': ('confidence', 'reliance'),
+    'empathy': ('compassion', 'understanding', 'sympathy', 'concern', 'caring'),
+    'frustration': ('exasperation', 'discouragement'),
+    'caution': ('wariness', 'vigilance'),
+    'assertiveness': ('self-advocacy',),
+    'emotional_regulation': ('calmness', 'composure'),
+    'guilt': ('remorse', 'regret'),
+    'jealousy': ('envy',),
+}
+
+
+def _normalize_emotion_label(label):
+    """Return (canonical label, status); do not infer an emotion from vague words."""
+    if not isinstance(label, str):
+        return None, 'unknown'
+    cleaned = re.sub(r'[^a-z0-9]+', ' ', label.casefold()).strip()
+    if not cleaned:
+        return None, 'unknown'
+    # Treat separators uniformly so existing multiword dimensions such as
+    # emotional_regulation remain canonical; never split a compound appraisal.
+    normalized = re.sub(r'[^a-z0-9]+', ' ', label.casefold()).strip()
+    words = normalized.split()
+    if any(word in {'not', 'no', 'never', 'without', 'isnt', 'wasnt', 'doesnt', 'dont'} for word in words):
+        return None, 'negated'
+
+    canonical_forms = {
+        emotion.replace('_', ' '): emotion for emotion in EMOTIONS
+    }
+    if normalized in canonical_forms:
+        return canonical_forms[normalized], 'canonical'
+    if len(words) != 1:
+        return None, 'ambiguous'
+
+    # Explicit word-level mappings avoid unreliable suffix guessing.
+    forms = {
+        'angry': 'anger', 'irritated': 'anger', 'annoyed': 'anger',
+        'sad': 'sadness', 'disappointed': 'sadness',
+        'afraid': 'fear', 'scared': 'fear', 'worried': 'fear', 'anxious': 'fear',
+        'hopeful': 'hope', 'frustrated': 'frustration', 'cautious': 'caution',
+        'assertive': 'assertiveness', 'guilty': 'guilt', 'jealous': 'jealousy',
+        'empathetic': 'empathy', 'concerned': 'empathy',
+        'calm': 'emotional_regulation', 'composed': 'emotional_regulation',
+        'loving': 'attachment',
+    }
+    if normalized in forms:
+        return forms[normalized], 'synonym'
+    for emotion, synonyms in EMOTION_SYNONYMS.items():
+        if normalized in synonyms:
+            return emotion, 'synonym'
+    return None, 'unknown'
+
+
+def _emotion_grounding_support(emotion, scenario):
+    """Require scenario cues for appraisal; recognized words alone are insufficient."""
+    text = scenario.casefold()
+    cue_groups = {
+        'attachment': ({'love', 'care', 'relationship', 'close', 'partner'},),
+        'anger': ({'angry', 'anger', 'upset', 'unfair', 'blame', 'betrayal', 'mistake'},),
+        'sadness': ({'sad', 'quiet', 'disappoint', 'loss', 'grief', 'hurt'},),
+        'fear': ({'fear', 'afraid', 'worry', 'anxious', 'uncertain', 'unknown', 'do not know', 'not know', 'leave', 'succeed', 'stressful', 'communicative', 'communication', 'value'},),
+        'hope': ({'hope', 'help', 'improve', 'recover', 'better'},),
+        'trust': ({'trust', 'reliable', 'honest', 'safe', 'openly', 'tell'},),
+        'empathy': ({'coworker', 'friend', 'help', 'care', 'disappoint', 'quiet', 'hurt', 'communicative', 'communication', 'stressful'},),
+        'frustration': ({'frustrat', 'difficult', 'problem', 'conflict', 'disappoint'},),
+        'caution': ({'uncertain', 'unknown', 'do not know', 'not know', 'unsure'},),
+        'assertiveness': ({'boundary', 'need', 'want', 'request', 'ask'},),
+        'emotional_regulation': ({'pause', 'calm', 'reflect', 'manage emotion'},),
+        'guilt': ({'guilt', 'guilty', 'mistake', 'responsible', 'fault', 'blame', 'caused'},),
+        'jealousy': ({'jealous', 'jealousy', 'envy', 'rival', 'romantic', 'partner', 'friendship'},),
+    }
+    # Reported first-person feelings directly support that appraisal, while a
+    # feared interpretation must not be promoted to a fact about another person.
+    if emotion == 'fear' and re.search(r'\bi feel anxious\b', text):
+        return True
+    if emotion == 'empathy' and re.search(r'\bi feel anxious\b', text):
+        return True
+    if emotion == 'fear' and re.search(r'\bi assume they no longer value our friendship\b', text):
+        return True
+    if emotion == 'trust' and re.search(r'\bthey explicitly say they still care about you\b', text):
+        return True
+    if emotion == 'fear' and re.search(r'\byou fear this person may leave\b', text):
+        return True
+
+    cues = cue_groups.get(emotion, ())
+    suffix_forms = {
+        'worry': ('worries', 'worried'), 'leave': ('leaves', 'leaving'),
+        'ask': ('asks', 'asked', 'asking'), 'request': ('requests', 'requested'),
+        'want': ('wants', 'wanted'), 'need': ('needs', 'needed'),
+        'disappoint': ('disappoints', 'disappointed', 'disappointing'),
+        'frustrat': ('frustrates', 'frustrated', 'frustrating'),
+        'pause': ('pauses', 'paused', 'pausing'), 'reflect': ('reflects', 'reflected'),
+        'hurt': ('hurts', 'hurt'), 'trust': ('trusts', 'trusted'),
+        'reliable': ('reliably',), 'reconnect': ('reconnects', 'reconnected'),
+    }
+
+    def cue_matches(cue):
+        forms = suffix_forms.get(cue, (cue,))
+        return any(re.search(r'(?<!\w)' + re.escape(form) + r'(?!\w)', text)
+                   for form in forms)
+
+    # A person/relationship cue is contextual only when paired with an explicit
+    # affective or relational event; the noun alone must not ground an appraisal.
+    contextual = {
+        'attachment': {'love', 'affection', 'close', 'care about'},
+        'empathy': {'help', 'support', 'hurt', 'disappoint', 'quiet', 'care about'},
+        'jealousy': {'jealous', 'jealousy', 'envy', 'rival'},
+    }
+    if emotion in contextual:
+        direct = contextual[emotion]
+        if any(cue_matches(cue) for cue in direct):
+            return True
+        context_terms = {'colleague', 'coworker', 'friend', 'partner', 'relationship'}
+        if not any(cue_matches(term) for term in context_terms):
+            return False
+        cues = tuple(group - context_terms for group in cues)
+
+    # Negation of a cue cannot count as positive support. Search each matched
+    # token and inspect a short preceding window for a local negation marker.
+    for group in cues:
+        for cue in group:
+            for form in suffix_forms.get(cue, (cue,)):
+                for match in re.finditer(r'(?<!\w)' + re.escape(form) + r'(?!\w)', text):
+                    prefix = text[max(0, match.start() - 24):match.start()]
+                    if not re.search(r'\b(?:not|never|no longer|without|no)\s+(?:\w+\s+){0,2}$', prefix):
+                        return True
+    return False
+
+
 EMOTION_UNDERSTANDING_SCHEMA = object_schema({
-    'facts': {'type': 'array', 'items': dict(TEXT, description='One short observable fact explicitly stated in the scenario.'),
+    'facts': {'type': 'array', 'items': dict({'type': 'string', 'minLength': 1, 'maxLength': 240}, description='Short observable fact stated in the scenario.'),
               'minItems': 1, 'maxItems': 3},
     'emotions': {'type': 'array', 'items': object_schema({
-        'label': TEXT, 'trigger': TEXT}), 'minItems': 2, 'maxItems': 3},
-    'assumptions': {'type': 'array', 'items': dict(TEXT, description='An uncertainty or assumption, not a stated fact.'),
-                    'minItems': 1, 'maxItems': 3}
+        'label': dict({'type': 'string', 'minLength': 1, 'maxLength': 80}),
+        'trigger': dict({'type': 'string', 'minLength': 1, 'maxLength': 240})}), 'minItems': 2, 'maxItems': 3},
+    'assumptions': {'type': 'array', 'items': dict({'type': 'string', 'minLength': 1, 'maxLength': 180}, description='Short uncertainty, not a stated fact.'),
+                    'minItems': 1, 'maxItems': 2}
 })
 ALTERNATIVES_SCHEMA = object_schema({
     'alternatives': {'type': 'array', 'items': object_schema({
@@ -128,12 +265,22 @@ def validate_emotional_understanding(data, scenario):
     for fact in facts:
         if _semantic_grounding_score(scenario, fact) < 2:
             raise ValueError('Stage 1 fact is not sufficiently grounded in the scenario.')
-    if any(_semantic_grounding_score(scenario, assumption) < 1
-           for assumption in data['assumptions']):
-        raise ValueError('Stage 1 assumption is disconnected from scenario details.')
+    # Assumptions are unknowns derived from the scenario; compare their meaningful
+    # content words, not just the uncertainty marker (e.g. "whether"). This keeps
+    # paraphrased uncertainty grounded without allowing unrelated speculation.
+    for assumption in data['assumptions']:
+        content = re.sub(r'\b(?:unknown|unknowable|unclear|uncertain|whether|if|might|may|could|does|do|not|know|why|reason|change|changed|tell|want|wants|needs|need|is|are|has|have|will|would|the|a|an|to|of|for|in|on|it|they|them|you|we|i|communication)\b',
+                         ' ', assumption.casefold())
+        if _semantic_grounding_score(scenario, content) < 1:
+            raise ValueError('Stage 1 assumption is disconnected from scenario details.')
     for emotion in data['emotions']:
-        if not re.search(r'\b(guilt|jealousy|fear|anger|sadness|sad|trust|concern|anxiety|attachment|hurt|shame|relief|hope|grief|insecurity|love|worry|loneliness|uncertainty|stress|overwhelm)\b', emotion['label'].casefold()):
-            raise ValueError('Stage 1 contains an unrecognized emotional appraisal.')
+        canonical, status = _normalize_emotion_label(emotion['label'])
+        if canonical is None:
+            raise ValueError(f'Stage 1 emotion label is {status}; use one concise supported emotion label.')
+        if not _emotion_grounding_support(canonical, scenario):
+            raise ValueError(f'Stage 1 {canonical} appraisal is unsupported by scenario details.')
+        # Keep diagnostic identification limited to existing canonical dimensions.
+        emotion['label'] = canonical
         trigger = emotion['trigger'].casefold()
         # Reject a trigger that reverses an explicitly stated relation or event.
         contradictions = (

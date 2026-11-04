@@ -62,6 +62,49 @@ def connect(*, initialize=False, data_dir=None, db_path=None):
       emotions_json TEXT NOT NULL,
       updated TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS supervised_lessons (
+      lesson_id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      approved_at TEXT,
+      revoked_at TEXT,
+      approval_status TEXT NOT NULL CHECK(approval_status IN ('approved','revoked')),
+      source_type TEXT NOT NULL,
+      source_provenance TEXT NOT NULL,
+      scenario_summary TEXT NOT NULL,
+      emotional_context TEXT NOT NULL,
+      observed_facts TEXT NOT NULL,
+      uncertainties TEXT NOT NULL,
+      corrective_principle TEXT NOT NULL,
+      response_pattern TEXT NOT NULL,
+      relationship_context TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS supervised_lesson_events (
+      event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      lesson_id TEXT NOT NULL,
+      event_type TEXT NOT NULL CHECK(event_type IN ('approved','revoked','corrected')),
+      occurred_at TEXT NOT NULL,
+      details_json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS conversations (
+      conversation_id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS conversation_messages (
+      message_id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('user','assistant','system')),
+      created_at TEXT NOT NULL,
+      content TEXT NOT NULL,
+      message_type TEXT NOT NULL,
+      related_lesson_id TEXT,
+      inference_status TEXT NOT NULL DEFAULT 'not_applicable',
+      FOREIGN KEY(conversation_id) REFERENCES conversations(conversation_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_conversation
+      ON conversation_messages(conversation_id, created_at);
     """)
         with conn:
             yield conn
@@ -94,6 +137,12 @@ def rate_turn(turn_id, rating, commentary, *, data_dir=None, db_path=None):
             raise ValueError("Training turn requires an explicit saved approval action.")
         db.execute("UPDATE turns SET rating=?, commentary=? WHERE id=?",
                    (rating, commentary[:4000], turn_id))
+
+def initialize_store(*, data_dir=None, db_path=None):
+    """Initialize the existing local SQLite store and its additive tables."""
+    with connect(initialize=True, data_dir=data_dir, db_path=db_path):
+        pass
+
 
 def inspect_turns(limit=20, *, data_dir=None, db_path=None):
     """Read existing turns without creating the data directory or database."""

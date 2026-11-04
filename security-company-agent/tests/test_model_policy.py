@@ -82,11 +82,46 @@ class PolicyTests(unittest.TestCase):
         body=json.loads(request.data)
         self.assertEqual(request.full_url, 'http://127.0.0.1:11434/api/chat')
         self.assertEqual(body['model'],'qwen3:0.6b')
+        self.assertIs(body['think'], False)
         self.assertEqual(body['options']['num_ctx'],2048)
         self.assertEqual(body['options']['num_predict'],768)
         self.assertEqual(body['keep_alive'],0)
         self.assertEqual(body['stream'],False)
         self.assertEqual(result['emotion'],'curious')
+
+    def test_thinking_only_native_response_is_not_parsed_as_json(self):
+        response = json.dumps({'message': {'content': '', 'thinking': 'internal thoughts'},
+                               'done': True, 'done_reason': 'stop'}).encode()
+        with patch.object(model_api, 'available_memory_gib', return_value=4), \
+             patch.object(model_api, 'opener_for') as opener:
+            opener.return_value.open.return_value = io.BytesIO(response)
+            with self.assertRaisesRegex(model_api.ModelOutputError, 'reasoning without a structured answer'):
+                model_api.complete([], model_api.ModelConfig(),
+                                   {'type': 'object', 'properties': {'partial': {'type': 'string'}},
+                                    'required': ['partial'], 'additionalProperties': False})
+
+    def test_truncated_native_response_is_reported(self):
+        response = json.dumps({'message': {'content': '{"partial":'},
+                               'done': True, 'done_reason': 'length'}).encode()
+        with patch.object(model_api, 'available_memory_gib', return_value=4), \
+             patch.object(model_api, 'opener_for') as opener:
+            opener.return_value.open.return_value = io.BytesIO(response)
+            with self.assertRaisesRegex(model_api.ModelOutputError, 'reached its configured output limit'):
+                model_api.complete([], model_api.ModelConfig(),
+                                   {'type': 'object', 'properties': {'partial': {'type': 'string'}},
+                                    'required': ['partial'], 'additionalProperties': False})
+
+    def test_non_qwen_native_requests_do_not_receive_qwen_thinking_option(self):
+        config = model_api.ModelConfig(model='controlled-test')
+        response = json.dumps({'message': {'content': json.dumps({'ok': True})},
+                               'done': True, 'done_reason': 'stop'}).encode()
+        with patch.object(model_api, 'available_memory_gib', return_value=4), \
+             patch.object(model_api, 'opener_for') as opener:
+            opener.return_value.open.return_value = io.BytesIO(response)
+            model_api.complete([], config, {'type': 'object', 'properties': {'ok': {'type': 'boolean'}},
+                                             'required': ['ok'], 'additionalProperties': False})
+            body = json.loads(opener.return_value.open.call_args.args[0].data)
+        self.assertNotIn('think', body)
 
     def test_lower_output_cap_is_honored_and_policy_settings_cannot_be_raised(self):
         config = model_api.ModelConfig(max_output_tokens=400, context_tokens=4096,

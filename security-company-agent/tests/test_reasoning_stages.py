@@ -29,7 +29,7 @@ UNDERSTANDING = {
     ],
     'emotions': [
         {'label': 'fear', 'trigger': 'The similar request recalls a past relationship ending.'},
-        {'label': 'love and trust', 'trigger': 'The person explicitly says they still care about you.'}
+        {'label': 'trust', 'trigger': 'The person explicitly says they still care about you.'}
     ],
     'assumptions': [
         'It is unknown whether this request predicts what will happen to the current relationship.'
@@ -60,6 +60,64 @@ class ReasoningStageTests(unittest.TestCase):
         value['emotions'][0]['trigger'] = 'The request for solitude echoes an earlier relationship ending.'
         decision.validate_emotional_understanding(value, SCENARIO)
 
+    def test_emotion_synonyms_normalize_only_with_scenario_support(self):
+        for label, canonical, scenario in (
+                ('Worried!', 'fear', 'They worry about whether the project will succeed.'),
+                ('disappointed', 'sadness', 'The colleague is disappointed about the project news.'),
+                ('irritated', 'anger', 'The colleague is irritated by an unfair decision.'),
+                ('calm', 'emotional_regulation', 'They pause to stay calm before replying.'),
+                ('love', 'attachment', 'They feel love for their partner.'),
+                ('concern', 'empathy', 'The colleague needs help with the difficult news.')):
+            self.assertEqual(decision._normalize_emotion_label(label)[0], canonical)
+            self.assertTrue(decision._emotion_grounding_support(canonical, scenario))
+        value = copy.deepcopy(UNDERSTANDING)
+        value['emotions'][0]['label'] = 'Worried!'
+        personality_before = copy.deepcopy(personality.inspect() or personality.DEFAULT)
+        decision.validate_emotional_understanding(value, SCENARIO)
+        self.assertEqual(value['emotions'][0]['label'], 'fear')
+        self.assertEqual(value['emotions'][1]['label'], 'trust')
+        self.assertEqual(personality.inspect() or personality.DEFAULT, personality_before)
+
+    def test_negated_labels_and_substring_only_grounding_are_rejected(self):
+        self.assertEqual(decision._normalize_emotion_label('not worried'), (None, 'negated'))
+        self.assertEqual(decision._normalize_emotion_label('guilt and fear'), (None, 'ambiguous'))
+        self.assertEqual(decision._normalize_emotion_label('affection and jealousy'), (None, 'ambiguous'))
+        self.assertFalse(decision._emotion_grounding_support('empathy', 'The careless stranger arrived.'))
+        self.assertFalse(decision._emotion_grounding_support('trust', 'They do not trust anyone.'))
+
+    def test_compound_emotion_labels_are_rejected_even_during_assembly(self):
+        value = copy.deepcopy(UNDERSTANDING)
+        value['emotions'][0]['label'] = 'guilt and fear'
+        with self.assertRaisesRegex(ValueError, 'ambiguous'):
+            decision.validate_emotional_understanding(value, SCENARIO)
+        with self.assertRaisesRegex(ValueError, 'unrecognized emotional appraisal'):
+            assemble_result(value, copy.deepcopy(ALTERNATIVES), copy.deepcopy(FINAL), SCENARIO,
+                            self.profile, self.context, {}, {})
+
+    def test_unsupported_known_emotion_is_rejected(self):
+        value = copy.deepcopy(UNDERSTANDING)
+        value['emotions'][0]['label'] = 'jealousy'
+        with self.assertRaisesRegex(ValueError, 'jealousy appraisal is unsupported'):
+            decision.validate_emotional_understanding(value, SCENARIO)
+
+    def test_unknown_ambiguous_and_negated_emotions_are_rejected(self):
+        for label, reason in (('bad vibes', 'ambiguous'), ('ecstatic', 'unknown'),
+                              ('not worried', 'negated')):
+            value = copy.deepcopy(UNDERSTANDING)
+            value['emotions'][0]['label'] = label
+            with self.subTest(label=label), self.assertRaisesRegex(ValueError, reason):
+                decision.validate_emotional_understanding(value, SCENARIO)
+
+    def test_emotion_synonym_mapping_is_deterministic_and_existing_state_only(self):
+        self.assertEqual(set(decision.EMOTION_SYNONYMS), set(__import__(
+            'brain_core.appraisal', fromlist=['EMOTIONS']).EMOTIONS))
+        for synonym, canonical in (('worried', 'fear'), ('concern', 'empathy'),
+                                   ('disappointed', 'sadness'), ('irritated', 'anger'),
+                                   ('care', 'unknown')):
+            actual = decision._normalize_emotion_label(synonym)[0]
+            self.assertEqual(actual, None if canonical == 'unknown' else canonical)
+        self.assertIsNone(decision._normalize_emotion_label('bad vibes')[0])
+
     def test_stage_one_rejects_unrelated_facts_and_contradictory_triggers(self):
         value = copy.deepcopy(UNDERSTANDING)
         value['facts'][0] = 'A sports team celebrated its championship victory.'
@@ -69,6 +127,26 @@ class ReasoningStageTests(unittest.TestCase):
         value['emotions'][1]['trigger'] = 'The person says they no longer care about you.'
         with self.assertRaisesRegex(ValueError, 'contradicts'):
             decision.validate_emotional_understanding(value, SCENARIO)
+
+    def test_stage_one_accepts_uncertainty_paraphrases_about_scenario_details(self):
+        for assumption in (
+                'It is unclear whether they want to reconnect after the day alone.',
+                'I do not know if the request for solitude predicts the future of the current relationship.'):
+            value = copy.deepcopy(UNDERSTANDING)
+            value['assumptions'] = [assumption]
+            decision.validate_emotional_understanding(value, SCENARIO)
+
+    def test_stage_one_rejects_unsupported_assumptions(self):
+        value = copy.deepcopy(UNDERSTANDING)
+        value['assumptions'] = ['The colleague plans to resign next month.']
+        with self.assertRaisesRegex(ValueError, 'assumption is disconnected'):
+            decision.validate_emotional_understanding(value, SCENARIO)
+
+    def test_stage_one_contract_bounds_output_size(self):
+        schema = decision.EMOTION_UNDERSTANDING_SCHEMA
+        self.assertEqual(schema['properties']['assumptions']['maxItems'], 2)
+        self.assertEqual(schema['properties']['facts']['items']['maxLength'], 240)
+        self.assertEqual(schema['properties']['emotions']['items']['properties']['trigger']['maxLength'], 240)
 
     def test_stage_three_reasonable_rationale_paraphrase_is_accepted(self):
         paraphrase = copy.deepcopy(FINAL)
@@ -105,19 +183,21 @@ class ReasoningStageTests(unittest.TestCase):
                                  {'understanding': False, 'alternatives': False, 'final_decision': False})
         self.assertEqual(result['decision']['recommended_action'], FINAL['selected_action'])
         self.assertEqual(result['decision']['options'], [item['action'] for item in ALTERNATIVES['alternatives']])
-        self.assertEqual(result['_stage_outputs']['understanding'], UNDERSTANDING)
+        expected_understanding = copy.deepcopy(UNDERSTANDING)
+        expected_understanding['emotions'][1]['label'] = 'trust'
+        self.assertEqual(result['_stage_outputs']['understanding'], expected_understanding)
         self.assertTrue(result['_trainer_pending'])
         self.assertEqual(result['narrative'], f"I would choose {FINAL['selected_action'].rstrip('.')} because {FINAL['rationale'].rstrip('.')}.")
-        self.assertEqual(result['emotion'], 'fear and love and trust')
+        self.assertEqual(result['emotion'], 'fear and trust')
         self.assertEqual(result['decision']['conflicting_emotions'], ['fear', 'trust'])
 
     def test_assembled_conflicting_emotions_are_distinct_and_expanded(self):
         understanding = copy.deepcopy(UNDERSTANDING)
-        understanding['emotions'][0]['label'] = 'guilt and fear'
+        understanding['emotions'][0]['label'] = 'guilt'
         result = assemble_result(understanding, copy.deepcopy(ALTERNATIVES), copy.deepcopy(FINAL),
                                  SCENARIO, self.profile, self.context,
                                  {'source': 'unit_test_mock', 'model': 'controlled-test', 'seconds': 0}, {})
-        self.assertEqual(result['decision']['conflicting_emotions'], ['guilt', 'fear', 'trust'])
+        self.assertEqual(result['decision']['conflicting_emotions'], ['guilt', 'trust'])
 
     def test_successful_pipeline_calls_and_validates_all_three_stages(self):
         responses = [copy.deepcopy(UNDERSTANDING), copy.deepcopy(ALTERNATIVES), copy.deepcopy(FINAL)]
@@ -136,12 +216,12 @@ class ReasoningStageTests(unittest.TestCase):
     def test_assembled_conflicting_emotions_are_distinct_and_expanded(self):
         understanding = copy.deepcopy(UNDERSTANDING)
         understanding['emotions'] = [
-            {'label': 'guilt and fear', 'trigger': 'I made a mistake and fear the effect.'},
+            {'label': 'guilt', 'trigger': 'I made a mistake and fear the effect.'},
             {'label': 'trust', 'trigger': 'They explicitly say they still care.'}]
         result = assemble_result(understanding, copy.deepcopy(ALTERNATIVES), copy.deepcopy(FINAL),
                                  SCENARIO, self.profile, self.context,
                                  {'source': 'unit_test_mock', 'model': 'controlled-test', 'seconds': 0}, {})
-        self.assertEqual(result['decision']['conflicting_emotions'], ['guilt', 'fear', 'trust'])
+        self.assertEqual(result['decision']['conflicting_emotions'], ['guilt', 'trust'])
 
     def test_stage_repair_is_limited_to_one_attempt(self):
         invalid = copy.deepcopy(UNDERSTANDING)
@@ -154,6 +234,55 @@ class ReasoningStageTests(unittest.TestCase):
                           self.config, SCENARIO)
         self.assertEqual(complete.call_count, 2)
 
+    def test_stage_one_prompt_is_compact_and_does_not_duplicate_context(self):
+        with patch('brain_core.reasoning_stages.run_stage', side_effect=[
+                (copy.deepcopy(UNDERSTANDING), {}, False),
+                (copy.deepcopy(ALTERNATIVES), {}, False),
+                (copy.deepcopy(FINAL), {}, False)]) as stage:
+            progressive_reasoning(SCENARIO, config=self.config,
+                                  cognitive_context=self.context, persistent_profile=self.profile)
+        messages = stage.call_args_list[0].args[1]
+        system, user = messages[0]['content'], json.loads(messages[1]['content'])
+        self.assertLess(len(system) + len(messages[1]['content']), 1700)
+        self.assertEqual(user['scenario'], SCENARIO)
+        self.assertEqual(set(user), {'scenario', 'output_budget_hint'})
+
+    def test_stage_one_repair_prompt_is_bounded_and_targets_failed_field(self):
+        invalid = copy.deepcopy(UNDERSTANDING)
+        invalid['assumptions'] = ['A distant unrelated sporting event determines their plans.']
+        with patch('brain_core.reasoning_stages.complete', side_effect=[
+                (invalid, {}), (copy.deepcopy(UNDERSTANDING), {})]) as complete:
+            _, _, repaired = run_stage('emotional understanding', [], decision.EMOTION_UNDERSTANDING_SCHEMA,
+                                       lambda value: decision.validate_emotional_understanding(value, SCENARIO),
+                                       self.config, SCENARIO)
+        self.assertTrue(repaired)
+        repair_messages = complete.call_args_list[1].args[0]
+        repair_text = ' '.join(item['content'] for item in repair_messages)
+        self.assertLess(len(repair_text), 1600)
+        self.assertIn('failed_field', repair_text)
+        self.assertIn('assumptions', repair_text)
+        self.assertNotIn('original_stage_output', repair_text)
+
+    def test_failed_stage_diagnostic_records_bounded_emotion_evidence_and_repair(self):
+        with tempfile.TemporaryDirectory() as temp:
+            invalid = copy.deepcopy(UNDERSTANDING)
+            invalid['emotions'][0]['label'] = 'Omar confidential project'
+            with patch.dict(os.environ, {'BRAIN_DIAGNOSTIC_DIR': temp,
+                                         'BRAIN_DIAGNOSTIC_VERBOSITY': 'local_debug'}), \
+                 patch('brain_core.reasoning_stages.complete', side_effect=[(invalid, {}), (invalid, {})]):
+                with self.assertRaises(ModelOutputError):
+                    run_stage('emotional understanding', [], decision.EMOTION_UNDERSTANDING_SCHEMA,
+                              lambda value: decision.validate_emotional_understanding(value, SCENARIO),
+                              self.config, SCENARIO)
+            record = json.loads(next(Path(temp).glob('*.json')).read_text(encoding='utf-8'))
+            self.assertEqual(record['failed_field'], 'emotions')
+            self.assertTrue(record['repair_attempted'])
+            self.assertFalse(record['repair_succeeded'])
+            self.assertEqual(record['emotion_labels'][0]['label'], '[unrecognized]')
+            self.assertEqual(record['emotion_labels'][0]['classification'], 'ambiguous')
+            self.assertNotIn('Omar', json.dumps(record))
+            self.assertNotIn('confidential project', json.dumps(record))
+
     def test_failed_stage_does_not_modify_persistent_memory(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -164,6 +293,9 @@ class ReasoningStageTests(unittest.TestCase):
             state_path.write_text(json.dumps({'iterations': 0, 'emotion': 'neutral', 'metrics': dict(trainer.BASE), 'emotions': dict(__import__('brain_core.appraisal', fromlist=['NEUTRAL']).NEUTRAL)}), encoding='utf-8')
             history_path.write_text(json.dumps({'iterations': 0, 'rules': [], 'history': []}), encoding='utf-8')
             paths = (profile_path, state_path, history_path)
+            db_path = root / 'studio.sqlite3'
+            db_path.write_bytes(b'unchanged test database sentinel')
+            paths = (*paths, db_path)
             before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
             invalid = copy.deepcopy(UNDERSTANDING)
             invalid['facts'][0] = 'An unrelated event occurred at work.'
@@ -171,7 +303,8 @@ class ReasoningStageTests(unittest.TestCase):
                  patch('brain_core.reasoning_stages.complete', side_effect=[(invalid, {}), (invalid, {})]):
                 with self.assertRaises(ModelOutputError):
                     trainer.infer(SCENARIO, '', {'emotions': {}}, {}, config=self.config,
-                                  profile_path=profile_path)
+                                  profile_path=profile_path, state_path=state_path,
+                                  history_path=history_path, db_path=db_path, data_dir=root)
             after = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
             self.assertEqual(before, after)
             self.assertEqual(len(list((root / 'diagnostics').glob('*.json'))), 1)
