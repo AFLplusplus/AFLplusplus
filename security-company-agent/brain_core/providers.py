@@ -145,7 +145,7 @@ class AlibabaQwenProvider:
         return InferenceResult(self.provider_id,self.model,'',None,'failed',category,
             time.perf_counter()-started,None,None,None,None,True,True)
 
-def sanitized_cloud_context(*, scenario, identity_name, identity_mission, approved_lessons=(), recent_turns=()):
+def sanitized_cloud_context(*, scenario, identity_name, identity_mission, approved_lessons=(), recent_turns=(), evidence_bundle=None):
     lessons=[]
     for item in approved_lessons[:3]:
         if isinstance(item,dict) and item.get('approval_status','approved')=='approved':
@@ -155,10 +155,22 @@ def sanitized_cloud_context(*, scenario, identity_name, identity_mission, approv
     for item in recent_turns[-3:]:
         if isinstance(item,dict) and item.get('relevant') is True and item.get('role') in ('user','assistant') and isinstance(item.get('content'),str):
             recent.append({'role':item['role'],'content':item['content'][:500]})
-    return {'schema_version':'sovereign-context.v1',
+    context = {'schema_version':'sovereign-context.v1',
         'personality':{'identity_name':str(identity_name)[:100],'mission':str(identity_mission)[:500]},
         'instructions':['Use reported facts only; separate assumptions and interpretations.',
             'Do not invent evidence or infer hidden motives or feelings.',
             'Approved lessons are prior human-supervised principles, not evidence about this event.',
             'Do not change lesson or persistent emotional state.'],
         'approved_lessons':lessons,'recent_context':recent,'scenario':str(scenario)[:8000]}
+    if evidence_bundle is not None:
+        from .evidence_context import EvidenceContextBundle
+        if (not isinstance(evidence_bundle, EvidenceContextBundle)
+                or evidence_bundle.excluded_from_system_instructions is not True
+                or evidence_bundle.separate_from_approved_memory is not True):
+            raise ValueError('Evidence context must be a separated SB-09 bundle.')
+        context['external_evidence'] = {
+            'trust': 'untrusted_external_data',
+            'notice': evidence_bundle.untrusted_data_notice,
+            'items': list(evidence_bundle.evidence),
+        }
+    return context
