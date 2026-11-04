@@ -389,6 +389,8 @@ def progressive_reasoning(scenario, *, config, feedback='', cognitive_context=No
             'previous_trainer_corrections': (past_feedback or [])[:1],
             'approved_human_supervised_lessons': context.get('supervised_lessons', [])[:3],
             'approved_lessons_enabled': context.get('supervised_lessons_enabled', False),
+            'external_evidence': context.get('research_evidence'),
+            'external_evidence_guidance': context.get('research_evidence_guidance'),
             'memory_provenance_guidance': (
                 'Retrieved approved lessons are prior trainer-authored context only. '
                 'Preserve each lesson ID and source; do not treat a lesson as verified evidence about this situation.'
@@ -412,6 +414,8 @@ def progressive_reasoning(scenario, *, config, feedback='', cognitive_context=No
             'previous_trainer_corrections': (past_feedback or [])[:1],
             'approved_human_supervised_lessons': context.get('supervised_lessons', [])[:3],
             'approved_lessons_enabled': context.get('supervised_lessons_enabled', False),
+            'external_evidence': context.get('research_evidence'),
+            'external_evidence_guidance': context.get('research_evidence_guidance'),
             'memory_provenance_guidance': (
                 'Retrieved approved lessons are prior trainer-authored context only. '
                 'Preserve each lesson ID and source; do not treat a lesson as verified evidence about this situation.'

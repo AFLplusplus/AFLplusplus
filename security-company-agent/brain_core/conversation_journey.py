@@ -20,6 +20,7 @@ class PendingTurn:
     cloud_state: str = 'not_prepared'
     cloud_result_written: bool = False
     result_recorded: bool = False
+    research_item: Any = None
 
 
 class ConversationJourneyStore:
