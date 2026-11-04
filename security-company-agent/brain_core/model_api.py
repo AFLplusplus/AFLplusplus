@@ -235,6 +235,33 @@ def local_inventory(timeout=2):
     except (OSError, ValueError, KeyError):
         return []
 
+def check_local_readiness():
+    """Inspect Ollama/model/memory readiness without performing inference.
+
+    Returns a stable availability state and an internal diagnostic reason. A
+    failed inventory probe is treated as service-offline because it is the
+    existing read-only Ollama readiness check.
+    """
+    from .model_policy import selected_local_model
+
+    model = selected_local_model()
+    try:
+        inventory = local_inventory()
+    except Exception:
+        return {'status': 'UNAVAILABLE', 'reason': 'service_offline'}
+    if not inventory:
+        return {'status': 'UNAVAILABLE', 'reason': 'service_offline'}
+    if model not in inventory:
+        return {'status': 'UNAVAILABLE', 'reason': 'model_missing'}
+
+    memory = available_memory_gib()
+    if memory is not None:
+        if memory < policy_for(model).minimum_available_gib:
+            return {'status': 'UNAVAILABLE', 'reason': 'insufficient_memory'}
+        return {'status': 'AVAILABLE', 'reason': None}
+    return {'status': 'AVAILABLE', 'reason': 'unknown'}
+
+
 def ollama_server_info(timeout=2):
     result = {'version': None, 'loaded_models': None, 'parallel_setting': 'unknown'}
     try:
