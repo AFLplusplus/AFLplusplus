@@ -9,8 +9,9 @@ import brain_studio as app
 from brain_core.providers import ProviderID
 
 
-@unittest.skip('Future sequential-routing feature; not part of Step 8M manual provider selection.')
 class ProviderRoutingTests(unittest.TestCase):
+    """Preserved, separately runnable acceptance tests for future routing work."""
+    __test__ = False
     def setUp(self):
         self.health = (dict(app.PROVIDER_STATUS), dict(app.PROVIDER_FAILURE), set(app.PROVIDER_BLOCKED))
         app.PROVIDER_STATUS.update({key: 'UNTESTED' for key in app.PROVIDER_STATUS})

@@ -1,5 +1,5 @@
 """Streamlit UI regression tests, strictly offline with isolated temporary stores."""
-import pytest
+import importlib.util
 from contextlib import ExitStack
 from pathlib import Path
 import json
@@ -12,6 +12,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from brain_core import trainer, studio, model_api, runtime_guard, personality, service, conversation
 import brain_studio as app_module
 from streamlit.testing.v1 import AppTest
+
+
+def _sequential_routing_marker():
+    """Return pytest's marker when available without requiring pytest for unittest runs."""
+    try:
+        import pytest
+        return pytest.mark.sequential_routing
+    except ImportError:
+        return lambda test: test
+
+
+sequential_routing = _sequential_routing_marker()
 
 
 class StudioUITests(unittest.TestCase):
@@ -231,7 +243,7 @@ class StudioUITests(unittest.TestCase):
         self.assertTrue(any('key configured:' in item.value for item in app.caption))
         self.assertEqual(list(app.exception), [])
 
-    @pytest.mark.sequential_routing
+    @sequential_routing
     def test_local_failure_prepares_openai_preview_but_sends_nothing_until_approval(self):
         from types import SimpleNamespace
         from brain_core.providers import ProviderID
@@ -253,7 +265,7 @@ class StudioUITests(unittest.TestCase):
         self.assertEqual(journey['attempted'], [ProviderID.LOCAL_OLLAMA.value])
         self.assertEqual(list(self.app.session_state.get('_reasoning_journeys', {})), [])
 
-    @pytest.mark.sequential_routing
+    @sequential_routing
     def test_local_openai_alibaba_journey_requires_separate_action_then_consent(self):
         from brain_core.providers import ProviderID
         app = self.app.run()
@@ -336,7 +348,7 @@ class StudioUITests(unittest.TestCase):
         service_mock.prepare_fallback.return_value = request
         return service_mock
 
-    @pytest.mark.sequential_routing
+    @sequential_routing
     def test_cloud_decline_requires_explicit_continue_before_next_preview(self):
         from brain_core.providers import ProviderID
         app = self.app.run()
@@ -377,7 +389,7 @@ class StudioUITests(unittest.TestCase):
                           ProviderID.ALIBABA_QWEN_CLOUD.value])
         self.assertEqual(list(app.exception), [])
 
-    @pytest.mark.sequential_routing
+    @sequential_routing
     def test_blocked_alibaba_is_not_prepared_and_only_explicit_revalidation_unblocks(self):
         from types import SimpleNamespace
         from brain_core.providers import ProviderID
