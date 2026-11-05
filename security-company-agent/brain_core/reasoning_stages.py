@@ -8,6 +8,7 @@ import uuid
 
 from . import cognition, personality, trainer as _trainer
 from .appraisal import offline_appraisal
+
 from .decision import (
     ALTERNATIVES_SCHEMA,
     EMOTION_UNDERSTANDING_SCHEMA,
@@ -432,6 +433,7 @@ def progressive_reasoning(scenario, *, config, feedback='', cognitive_context=No
                   'seconds': sum(float(item.get('seconds', 0)) for item in (meta1, meta2, meta3))}
     result = assemble_result(understanding, alternatives, final, scenario, profile, context, provenance,
                              {'understanding': repaired1, 'alternatives': repaired2, 'final_decision': repaired3})
+    result['_intelligence_claims'] = [result['operational_rule']['rule']]
     result['conversational_response'] = conversational_response(result)
     result['_validation'] = {'schema_version': 'sovereign-reasoning.v1',
                              'schema_passed': True, 'cognitive_checks_passed': True,

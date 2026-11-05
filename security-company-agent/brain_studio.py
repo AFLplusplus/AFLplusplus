@@ -297,19 +297,135 @@ def _record_general_answer(session_id, result, approved_lessons=(), research_evi
     data = result.structured
     if not _valid_general_answer(data, approved_lessons, research_evidence):
         return False
-    citations = ''.join(
-        f"\n\n[{item['title']}]({item['url']})" +
-        (f" — {item['claim']}" if item['claim'] else '')
-        for item in data['citations'])
+    answer = data['answer'].strip()
+    records = [from_inference_result(result)]
+    research_store = st.session_state.get('_conversation_research_store')
+    research_item = research_store.get(session_id) if research_store is not None else None
+    if research_item is not None and getattr(research_item, 'status', None) in ('completed', 'ok'):
+        records.extend(from_web_evidence(item) for item in research_item.evidence)
+    synthesis = synthesize_intelligence(compare_intelligence(records))
+    if synthesis.status == 'qualified' and len(records) > 1:
+        answer = synthesis.answer
+        citations = ''
+        source_citations = sorted({citation for source in synthesis.supporting_sources
+                                   for citation in source.citations})
+        if source_citations:
+            citations = '\n\nSources: ' + ' · '.join(source_citations)
+        if synthesis.uncertainty:
+            answer += '\n\nUncertainty: ' + '; '.join(synthesis.uncertainty)
+    else:
+        if len(records) > 1 and synthesis.status != 'qualified':
+            source_citations = sorted({
+                citation for source in synthesis.supporting_sources for citation in source.citations})
+            citations = '\n\nSources: ' + ' · '.join(source_citations) if source_citations else ''
+            uncertainty = sorted(set(synthesis.uncertainty) | {
+                'A completed source could not be used for qualified synthesis; treat retained claims as unverified.'})
+            answer += '\n\nUncertainty: ' + '; '.join(uncertainty)
+        else:
+            citations = ''.join(
+                f"\n\n[{item['title']}]({item['url']})" +
+                (f" — {item['claim']}" if item['claim'] else '')
+                for item in data['citations'])
+    response_text = answer + citations
     try:
-        _save_response(session_id, data['answer'].strip() + citations, 'general_answer', 'validated')
+        _save_response(session_id, response_text, 'general_answer', 'validated')
+        if synthesis.status == 'qualified' and len(records) > 1:
+            _offer_candidate_from_intelligence(
+                session_id, result, research_item, claims=[data['answer'].strip()])
     except (KeyError, ValueError, OSError):
         return False
     return True
 
 
+def _offer_candidate_from_intelligence(session_id, inference, research_item=None, *, claims=None):
+    """Offer an SB-25-eligible candidate from completed, already-available sources."""
+    if not isinstance(inference, InferenceResult) or inference.status != 'success':
+        return None
+    if not isinstance(session_id, str) or not session_id:
+        return None
+    if claims is not None:
+        structured = {'claims': [claim for claim in claims if isinstance(claim, str) and claim.strip()]}
+        if not structured['claims']:
+            return None
+        inference = InferenceResult(
+            provider=inference.provider, model=inference.model, text=json.dumps(structured, ensure_ascii=False),
+            structured=structured, status=inference.status, error_category=inference.error_category,
+            latency_seconds=inference.latency_seconds, input_tokens=inference.input_tokens,
+            output_tokens=inference.output_tokens, request_id=inference.request_id,
+            estimated_cost=inference.estimated_cost, cost_is_estimate=inference.cost_is_estimate,
+            external_transmission=inference.external_transmission)
+    records = [from_inference_result(inference)]
+    has_approved_research = (research_item is not None
+                             and getattr(research_item, 'status', None) in ('completed', 'ok'))
+    if has_approved_research:
+        records.extend(from_web_evidence(item) for item in research_item.evidence)
+    if not has_approved_research or not records[1:]:
+        return None
+    comparison = compare_intelligence(records)
+    synthesis = synthesize_intelligence(comparison)
+    candidate = generate_candidate(synthesis)
+    if candidate is None:
+        return None
+    candidate_id = str(uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        f'sb27:{session_id}:{inference.provider.value}:{inference.request_id or inference.model}'))
+    existing = st.session_state.get('_candidate_learning_review')
+    if isinstance(existing, dict) and existing.get('candidate_id') == candidate_id:
+        return existing
+    state = {'status': 'candidate_review', 'candidate': candidate,
+             'conversation_id': session_id, 'candidate_id': candidate_id,
+             'reviewed_text': candidate.proposed_principle,
+             'text_reviewed': False, 'action': None}
+    st.session_state['_candidate_learning_review'] = state
+    return state
+
+
+def _present_intelligence_result(session_id, inference, research_item=None, *, response=None,
+                                 claims=None, offer_candidate=True, present_sources=True):
+    """Qualify a completed provider result with already-approved research when available."""
+    if not isinstance(inference, InferenceResult) or inference.status != 'success':
+        return response
+    if claims is not None:
+        structured = {'claims': [claim for claim in claims if isinstance(claim, str) and claim.strip()]}
+        if not structured['claims']:
+            return response
+        inference = InferenceResult(
+            provider=inference.provider, model=inference.model,
+            text=json.dumps(structured, ensure_ascii=False), structured=structured,
+            status=inference.status, error_category=inference.error_category,
+            latency_seconds=inference.latency_seconds, input_tokens=inference.input_tokens,
+            output_tokens=inference.output_tokens, request_id=inference.request_id,
+            estimated_cost=inference.estimated_cost, cost_is_estimate=inference.cost_is_estimate,
+            external_transmission=inference.external_transmission)
+    records = [from_inference_result(inference)]
+    if research_item is not None and getattr(research_item, 'status', None) in ('completed', 'ok'):
+        records.extend(from_web_evidence(item) for item in research_item.evidence)
+    if len(records) == 1:
+        return response
+    synthesis = synthesize_intelligence(compare_intelligence(records))
+    qualified_multisource = synthesis.status == 'qualified' and len(records) > 1
+    if present_sources and qualified_multisource:
+        response = synthesis.answer
+        sources = [{'source_type': source.source_type, 'source_id': source.source_id,
+                    'citations': source.citations, 'provenance': source.provenance,
+                    'evidence_label': source.evidence_label}
+                   for source in synthesis.supporting_sources]
+        citations = sorted({citation for source in synthesis.supporting_sources
+                            for citation in source.citations})
+        rendered = response
+        if citations:
+            rendered += '\n\nSources: ' + ' · '.join(citations)
+        rendered += '\n\nSource references: ' + json.dumps(sources, ensure_ascii=False, default=str)
+        if synthesis.uncertainty:
+            rendered += '\n\nUncertainty: ' + '; '.join(synthesis.uncertainty)
+        response = rendered
+    if offer_candidate and present_sources and qualified_multisource:
+        _offer_candidate_from_intelligence(session_id, inference, research_item, claims=claims)
+    return response
+
+
 def _offer_candidate_from_local_result(session_id, result, research_item=None):
-    """Offer only a genuine eligible candidate from the completed Local pipeline."""
+    """Adapt only a successful, fully validated result of the existing Local journey."""
     try:
         if (not isinstance(result, dict) or result.get('_trainer_pending') is not True
                 or result.get('_validation', {}).get('schema_passed') is not True
@@ -317,39 +433,21 @@ def _offer_candidate_from_local_result(session_id, result, research_item=None):
                 or result.get('_provenance', {}).get('source') != 'local_model'):
             return None
         outputs = result.get('_stage_outputs') or {}
-        rule = result.get('operational_rule') or {}
-        principle = rule.get('rule')
-        if not isinstance(principle, str) or not principle.strip():
-            return None
         if not all(outputs.get(stage) for stage in ('understanding', 'alternatives', 'final_decision')):
             return None
+        claims = result.get('_intelligence_claims')
+        if not isinstance(claims, list) or not all(isinstance(item, str) for item in claims):
+            return None
+        provenance = result.get('_provenance') or {}
         inference = InferenceResult(
-            provider=ProviderID.LOCAL_OLLAMA, model=str(result['_provenance'].get('model') or ''),
-            text='', structured={'claims': [principle]}, status='success', error_category=None,
-            latency_seconds=result['_provenance'].get('seconds'), input_tokens=None, output_tokens=None,
-            request_id=f'conversation:{session_id}:{hashlib.sha256(principle.encode()).hexdigest()[:16]}',
+            provider=ProviderID.LOCAL_OLLAMA, model=str(provenance.get('model') or ''),
+            text=json.dumps({'claims': claims}, ensure_ascii=False), structured={'claims': claims},
+            status='success', error_category=None, latency_seconds=provenance.get('seconds'),
+            input_tokens=None, output_tokens=None,
+            request_id=f'conversation:{session_id}:{hashlib.sha256(json.dumps(claims, ensure_ascii=False).encode()).hexdigest()[:16]}',
             estimated_cost=None, cost_is_estimate=True, external_transmission=False)
-        records = [from_inference_result(inference)]
-        if research_item is not None and getattr(research_item, 'status', None) in ('completed', 'ok'):
-            records.extend(from_web_evidence(item) for item in research_item.evidence)
-        if not any(record.source_type == 'web_evidence' for record in records):
-            return None
-        # The existing Local output only contains claims, not the SB-22 SB-24
-        # structured contract. Preserve this narrow bridge as unverified and do
-        # not fabricate a candidate when independent supporting evidence is absent.
-        candidate = generate_candidate(synthesize_intelligence(compare_intelligence(records)))
-        if candidate is None:
-            return None
-        candidate_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'sb26:{session_id}:{inference.request_id}'))
-        existing = st.session_state.get('_candidate_learning_review')
-        if isinstance(existing, dict) and existing.get('candidate_id') == candidate_id:
-            return existing
-        state = {'status': 'candidate_review', 'candidate': candidate,
-                 'conversation_id': session_id, 'candidate_id': candidate_id,
-                 'reviewed_text': candidate.proposed_principle,
-                 'text_reviewed': False, 'action': None}
-        st.session_state['_candidate_learning_review'] = state
-        return state
+        return _offer_candidate_from_intelligence(
+            session_id, inference, research_item, claims=claims)
     except (TypeError, ValueError, AttributeError, KeyError):
         return None
 
@@ -740,7 +838,9 @@ def _render_cloud_approval(session_id):
                 general_turn.result_recorded = True
                 evidence = _general_research_context(session_id)
                 if result.status == 'success' and isinstance(result.structured, dict):
-                    if _record_general_answer(session_id, result, general_turn.approved_lessons, evidence):
+                    if (_valid_general_answer(result.structured, general_turn.approved_lessons, evidence)
+                            and _record_general_answer(
+                                session_id, result, general_turn.approved_lessons, evidence)):
                         general_turn.cloud_result_written = True
                         general_turn.cloud_state = 'completed'
                     else:
@@ -758,7 +858,8 @@ def _render_cloud_approval(session_id):
                 turn.result_recorded = True
                 if result.status == 'success' and isinstance(result.structured, dict):
                     evidence = _general_research_context(session_id)
-                    if _record_general_answer(session_id, result, turn.approved_lessons, evidence):
+                    if (_valid_general_answer(result.structured, turn.approved_lessons, evidence)
+                            and _record_general_answer(session_id, result, turn.approved_lessons, evidence)):
                         turn.cloud_result_written = True
                         turn.cloud_state = 'completed'
                     else:
@@ -795,8 +896,12 @@ def _render_cloud_approval(session_id):
                             '_provenance': {'approved_lessons': list(turn.approved_lessons)},
                             '_validation': {'schema_passed': True, 'cognitive_checks_passed': True}}
                         try:
-                            _save_response(session_id, conversational_response(normalized),
-                                           'cloud_reasoning', 'authorized')
+                            response = conversational_response(normalized)
+                            claims = list(data.get('facts', [])) + [data.get('recommended_action', '')]
+                            response = _present_intelligence_result(
+                                session_id, result, turn.research_item, response=response,
+                                claims=claims)
+                            _save_response(session_id, response, 'cloud_reasoning', 'authorized')
                         except (KeyError, TypeError, ValueError):
                             pass
                 turn.cloud_state = 'completed'
@@ -914,8 +1019,9 @@ def _run_general_local(user_text, session_id, profile, model_config):
     evidence = _general_research_context(session_id)
     request = _general_local_request(user_text, profile, approved, model_config.model, evidence)
     result = LocalOllamaProvider(model_config).infer(request)
-    if result.status != 'success' or not _record_general_answer(
-            session_id, result, approved, evidence):
+    if (result.status != 'success' or not _valid_general_answer(
+            result.structured if isinstance(result.structured, dict) else {}, approved, evidence)
+            or not _record_general_answer(session_id, result, approved, evidence)):
         raise ModelOutputError('General answer did not pass its response contract.')
     state.setdefault('_general_local_completed', {})[session_id] = user_text
     return True
@@ -952,8 +1058,9 @@ def _run_general_answer(user_text, session_id, profile, model_config):
         from brain_core.providers import LocalOllamaProvider
         request = _general_local_request(user_text, profile, approved, model_config.model, evidence)
         result = LocalOllamaProvider(model_config).infer(request)
-        if (result.status != 'success' or not _record_general_answer(
-                session_id, result, approved, evidence)):
+        if (result.status != 'success' or not _valid_general_answer(
+                result.structured if isinstance(result.structured, dict) else {}, approved, evidence)
+                or not _record_general_answer(session_id, result, approved, evidence)):
             raise ModelOutputError('General answer did not pass its response contract.')
         turn.local_state = 'complete'
         turn.result_recorded = True
@@ -1032,8 +1139,15 @@ def _start_automatic_journey(user_text, session_id, profile, model_config):
             local_result = journey.result
             response = (local_result.get('conversational_response', local_result.get('narrative', 'Reasoning completed.'))
                         if isinstance(local_result, dict) else 'Reasoning completed.')
+            eligible_local = (isinstance(local_result, dict)
+                              and local_result.get('_trainer_pending') is True
+                              and local_result.get('_validation', {}).get('schema_passed') is True
+                              and local_result.get('_validation', {}).get('cognitive_checks_passed') is True
+                              and local_result.get('_provenance', {}).get('source') == 'local_model')
             _save_response(session_id, response, 'validated_reasoning', 'validated')
-            _offer_candidate_from_local_result(session_id, local_result, research_item)
+            if (eligible_local and research_item is not None
+                    and research_item.status in ('completed', 'ok')):
+                _offer_candidate_from_local_result(session_id, local_result, research_item)
             turn.result_recorded = True
             _show_research_citations(session_id)
         return
