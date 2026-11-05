@@ -11,6 +11,9 @@
   #include <linux/ashmem.h>
   #include <sys/ioctl.h>
 #endif
+#ifdef __APPLE__
+  #include <TargetConditionals.h>
+#endif
 
 #ifdef __ANDROID__
   #define ASHMEM_DEVICE "/dev/ashmem"
@@ -51,6 +54,23 @@ void *shm_create(size_t size) {
   will leak the shared memory region.*/
   ioctl(fd, ASHMEM_UNPIN, &pin);
   close(fd);
+
+  return addr;
+
+}
+
+#elif defined(__APPLE__) && TARGET_OS_IPHONE
+/*
+ * iOS does not implement System V shared memory: shmget() raises SIGSYS. The
+ * region only has to be shared between the fork server parent and the children
+ * it forks, so an anonymous MAP_SHARED mapping created before the fork is
+ * inherited by every child just as the System V segment would be.
+ */
+void *shm_create(size_t size) {
+
+  void *addr =
+      mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+  if (addr == MAP_FAILED) { FFATAL("mmap failed - errno: %d\n", errno); }
 
   return addr;
 
