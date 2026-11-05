@@ -458,20 +458,16 @@ class CloudOrchestrator:
                     'Cloud adapter inference failed; authorization remains consumed.',
                     diagnostic='request_execution', substage='adapter_inference') from error
             try:
-                self._consent.record_result(
-                    request.approval_id, success=result.status == 'success',
-                    input_tokens=getattr(result, 'input_tokens', None),
-                    output_tokens=getattr(result, 'output_tokens', None),
-                    reported_cost_usd=getattr(result, 'reported_cost_usd', None),
-                    error_category=getattr(result, 'error_category', None))
-            except Exception as error:
-                raise CloudOrchestrationError(
-                    'Cloud result accounting failed; authorization remains consumed.',
-                    diagnostic='request_execution', substage='result_accounting') from error
-            try:
                 if self._result_accountant is not None:
                     self._result_accountant(
                         request=request, result=result, conversation_id=conversation_id)
+                else:
+                    self._consent.record_result(
+                        request.approval_id, success=result.status == 'success',
+                        input_tokens=getattr(result, 'input_tokens', None),
+                        output_tokens=getattr(result, 'output_tokens', None),
+                        reported_cost_usd=getattr(result, 'reported_cost_usd', None),
+                        error_category=getattr(result, 'error_category', None))
             except Exception as error:
                 raise CloudOrchestrationError(
                     'Cloud result accounting failed; authorization remains consumed.',
@@ -496,7 +492,8 @@ class CloudOrchestrator:
                 except Exception:
                     pass
             if isinstance(error, CloudOrchestrationError):
-                if error.diagnostic == 'request_execution' and error.substage != 'result_accounting':
+                if (error.diagnostic == 'request_execution' and error.substage != 'result_accounting'
+                        and error.substage != 'authorization_setup'):
                     try:
                         self._consent.record_result(
                             request.approval_id, success=False, error_category='execution_failed')

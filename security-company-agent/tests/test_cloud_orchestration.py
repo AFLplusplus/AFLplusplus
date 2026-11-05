@@ -110,6 +110,30 @@ class CloudOrchestrationTests(unittest.TestCase):
         self.assertEqual(caught.exception.diagnostic, 'authorization')
         self.assertEqual(self.provider_factory.call_count, 0)
 
+    def test_failed_provider_result_is_accounted_once_without_success(self):
+        manager = CloudApprovalManager()
+        result = InferenceResult(
+            ProviderID.ALIBABA_QWEN_CLOUD, 'qwen-test', '', None, 'failed', 'provider_http_error',
+            0.01, None, None, None, None, True, True)
+        provider = MockProvider(result=result)
+        service = CloudOrchestrator(
+            consent=manager, payload_factory=lambda *args, **kwargs: (
+                Settings(), ENDPOINT, PAYLOAD, {'type': 'object'}),
+            provider_factory=Mock(return_value=provider), api_key=lambda: 'synthetic-key',
+            provider_payload=lambda payload, request: payload,
+            provider_fingerprint=lambda request, payload: 'mock-request-fingerprint',
+            result_writer=Mock())
+        request = service.prepare_fallback(
+            user_text='synthetic failed provider response', conversation_id='failed-accountant',
+            profile={'identity_name': 'Synthetic'}, approved_lessons=[],
+            local_error=RuntimeError('controlled local failure'))
+        execution = service.approve_and_execute(request=request, conversation_id='failed-accountant')
+        self.assertEqual(execution.result.status, 'failed')
+        self.assertEqual(execution.result.error_category, 'provider_http_error')
+        self.assertEqual(len(manager.events), 1)
+        self.assertFalse(manager.events[0]['success'])
+        self.assertEqual(manager.events[0]['error_category'], 'provider_http_error')
+
     def test_post_consent_failure_substages_are_precise_and_redacted(self):
         secret = 'synthetic-private-key-or-diagnostic'
         lesson_secret = 'private prompt payload sentinel'
@@ -128,7 +152,8 @@ class CloudOrchestrationTests(unittest.TestCase):
                 manager = CloudApprovalManager()
                 writer = writer or Mock()
                 service = CloudOrchestrator(
-                    consent=manager, payload_factory=self.payload_factory,
+                    consent=manager, payload_factory=lambda *args, **kwargs: (
+                        Settings(), ENDPOINT, PAYLOAD, {'type': 'object'}),
                     provider_factory=factory, api_key=lambda: secret,
                     provider_payload=lambda payload, request: payload,
                     provider_fingerprint=lambda request, payload: 'mock-request-fingerprint',
@@ -148,9 +173,12 @@ class CloudOrchestrationTests(unittest.TestCase):
                 self.assertNotIn(secret, rendered)
                 self.assertNotIn(lesson_secret, rendered)
                 self.assertEqual(len(manager.events), 1)
-                # Result recording happens before the separate accountant callback.
-                self.assertEqual(manager.events[0]['success'], expected_substage == 'result_accounting')
-                if manager.events[0]['error_category'] is not None:
+                # Earlier execution failures finalize as unsuccessful; accounting errors preserve
+                # the event already finalized by the configured callback.
+                self.assertFalse(manager.events[0]['success'])
+                if expected_substage in ('result_accounting', 'authorization_setup'):
+                    self.assertEqual(manager.events[0]['error_category'], 'execution_started')
+                elif manager.events[0]['error_category'] is not None:
                     self.assertEqual(manager.events[0]['error_category'], 'execution_failed')
 
     def test_successful_adapter_result_accounting_and_writer_are_unchanged(self):
@@ -160,19 +188,58 @@ class CloudOrchestrationTests(unittest.TestCase):
         self.writer.assert_called_once_with('conversation-1', execution.result, tuple(self.lessons))
         self.assertTrue(self.manager.events[0]['success'])
 
+    def test_production_accountant_finalizes_once_and_duplicate_execution_is_blocked(self):
+        import brain_studio
+
+        manager = CloudApprovalManager()
+        result = InferenceResult(
+            ProviderID.ALIBABA_QWEN_CLOUD, 'qwen-test', '{}', {'ok': True}, 'success',
+            None, 0.01, 3, 2, 'synthetic-request', None, True, True)
+        provider = MockProvider(result=result)
+        accountant = Mock(wraps=brain_studio._account_cloud_result)
+        service = CloudOrchestrator(
+            consent=manager, payload_factory=lambda *args, **kwargs: (
+                Settings(), ENDPOINT, PAYLOAD, {'type': 'object'}),
+            provider_factory=Mock(return_value=provider), api_key=lambda: 'synthetic-key',
+            provider_payload=lambda payload, request: payload,
+            provider_fingerprint=lambda request, payload: 'mock-request-fingerprint',
+            result_writer=Mock(), result_accountant=accountant)
+        original_consent = brain_studio.CLOUD_CONSENT
+        brain_studio.CLOUD_CONSENT = manager
+        try:
+            request = service.prepare_fallback(
+                user_text='synthetic valid accounting response', conversation_id='production-accountant',
+                profile={'identity_name': 'Synthetic'}, approved_lessons=[],
+                local_error=RuntimeError('controlled local failure'))
+            execution = service.approve_and_execute(request=request, conversation_id='production-accountant')
+            self.assertIs(execution.result, result)
+            self.assertEqual(len(manager.events), 1)
+            self.assertTrue(manager.events[0]['success'])
+            self.assertEqual(manager.events[0]['input_tokens'], 3)
+            self.assertEqual(manager.events[0]['output_tokens'], 2)
+            accountant.assert_called_once_with(
+                request=request, result=result, conversation_id='production-accountant')
+            with self.assertRaises(CloudOrchestrationError):
+                service.approve_and_execute(request=request, conversation_id='production-accountant')
+            self.assertEqual(provider.calls, 1)
+            self.assertEqual(len(manager.events), 1)
+            accountant.assert_called_once()
+        finally:
+            brain_studio.CLOUD_CONSENT = original_consent
+
     def test_valid_provider_result_with_missing_usage_and_cost_is_accounted(self):
         manager = CloudApprovalManager()
         valid_result = InferenceResult(
             ProviderID.ALIBABA_QWEN_CLOUD, 'qwen-test', '{}', {'ok': True}, 'success',
             None, 0.01, None, None, None, None, True, True)
         provider = MockProvider(result=valid_result)
-        result_accountant = Mock()
         service = CloudOrchestrator(
-            consent=manager, payload_factory=self.payload_factory,
+            consent=manager, payload_factory=lambda *args, **kwargs: (
+                Settings(), ENDPOINT, PAYLOAD, {'type': 'object'}),
             provider_factory=Mock(return_value=provider), api_key=lambda: 'synthetic-key',
             provider_payload=lambda payload, request: payload,
             provider_fingerprint=lambda request, payload: 'mock-request-fingerprint',
-            result_writer=Mock(), result_accountant=result_accountant)
+            result_writer=Mock())
         request = service.prepare_fallback(
             user_text='synthetic result-accounting regression', conversation_id='accounting-regression',
             profile={'identity_name': 'Synthetic'}, approved_lessons=[],
@@ -184,8 +251,7 @@ class CloudOrchestrationTests(unittest.TestCase):
         self.assertIsNone(manager.events[0]['input_tokens'])
         self.assertIsNone(manager.events[0]['output_tokens'])
         self.assertIsNone(manager.events[0]['cost'])
-        result_accountant.assert_called_once_with(
-            request=request, result=valid_result, conversation_id='accounting-regression')
+        self.assertEqual(len(manager.events), 1)
 
     def test_eligible_local_failure_prepares_frozen_preview_without_network(self):
         with patch('urllib.request.urlopen', side_effect=AssertionError('network forbidden')) as network:
