@@ -160,6 +160,33 @@ class CloudOrchestrationTests(unittest.TestCase):
         self.writer.assert_called_once_with('conversation-1', execution.result, tuple(self.lessons))
         self.assertTrue(self.manager.events[0]['success'])
 
+    def test_valid_provider_result_with_missing_usage_and_cost_is_accounted(self):
+        manager = CloudApprovalManager()
+        valid_result = InferenceResult(
+            ProviderID.ALIBABA_QWEN_CLOUD, 'qwen-test', '{}', {'ok': True}, 'success',
+            None, 0.01, None, None, None, None, True, True)
+        provider = MockProvider(result=valid_result)
+        result_accountant = Mock()
+        service = CloudOrchestrator(
+            consent=manager, payload_factory=self.payload_factory,
+            provider_factory=Mock(return_value=provider), api_key=lambda: 'synthetic-key',
+            provider_payload=lambda payload, request: payload,
+            provider_fingerprint=lambda request, payload: 'mock-request-fingerprint',
+            result_writer=Mock(), result_accountant=result_accountant)
+        request = service.prepare_fallback(
+            user_text='synthetic result-accounting regression', conversation_id='accounting-regression',
+            profile={'identity_name': 'Synthetic'}, approved_lessons=[],
+            local_error=RuntimeError('controlled local failure'))
+        execution = service.approve_and_execute(request=request, conversation_id='accounting-regression')
+        self.assertIs(execution.result, valid_result)
+        self.assertEqual(execution.result.status, 'success')
+        self.assertTrue(manager.events[0]['success'])
+        self.assertIsNone(manager.events[0]['input_tokens'])
+        self.assertIsNone(manager.events[0]['output_tokens'])
+        self.assertIsNone(manager.events[0]['cost'])
+        result_accountant.assert_called_once_with(
+            request=request, result=valid_result, conversation_id='accounting-regression')
+
     def test_eligible_local_failure_prepares_frozen_preview_without_network(self):
         with patch('urllib.request.urlopen', side_effect=AssertionError('network forbidden')) as network:
             request = self.prepare()
