@@ -1,4 +1,5 @@
 """Sovereign Brain conversational interface with local Admin tools."""
+import hashlib
 import json
 import os
 import re
@@ -30,7 +31,11 @@ from brain_core.research_coordination import ResearchAuthorizationLedger
 from brain_core.research_evidence import validate_search_results
 from brain_core.evidence_context import build_evidence_context
 from brain_core import web_search
-from brain_core.providers import category_for_error
+from brain_core.providers import category_for_error, InferenceResult, ProviderID
+from brain_core.intelligence_records import from_inference_result, from_web_evidence
+from brain_core.intelligence_comparison import compare_intelligence
+from brain_core.intelligence_synthesis import synthesize_intelligence
+from brain_core.candidate_learning import CandidateLesson, generate_candidate
 
 
 CLOUD_CONSENT = _DEFAULT_CLOUD_APPROVALS
@@ -301,6 +306,149 @@ def _record_general_answer(session_id, result, approved_lessons=(), research_evi
     except (KeyError, ValueError, OSError):
         return False
     return True
+
+
+def _offer_candidate_from_local_result(session_id, result, research_item=None):
+    """Offer only a genuine eligible candidate from the completed Local pipeline."""
+    try:
+        if (not isinstance(result, dict) or result.get('_trainer_pending') is not True
+                or result.get('_validation', {}).get('schema_passed') is not True
+                or result.get('_validation', {}).get('cognitive_checks_passed') is not True
+                or result.get('_provenance', {}).get('source') != 'local_model'):
+            return None
+        outputs = result.get('_stage_outputs') or {}
+        rule = result.get('operational_rule') or {}
+        principle = rule.get('rule')
+        if not isinstance(principle, str) or not principle.strip():
+            return None
+        if not all(outputs.get(stage) for stage in ('understanding', 'alternatives', 'final_decision')):
+            return None
+        inference = InferenceResult(
+            provider=ProviderID.LOCAL_OLLAMA, model=str(result['_provenance'].get('model') or ''),
+            text='', structured={'claims': [principle]}, status='success', error_category=None,
+            latency_seconds=result['_provenance'].get('seconds'), input_tokens=None, output_tokens=None,
+            request_id=f'conversation:{session_id}:{hashlib.sha256(principle.encode()).hexdigest()[:16]}',
+            estimated_cost=None, cost_is_estimate=True, external_transmission=False)
+        records = [from_inference_result(inference)]
+        if research_item is not None and getattr(research_item, 'status', None) in ('completed', 'ok'):
+            records.extend(from_web_evidence(item) for item in research_item.evidence)
+        if not any(record.source_type == 'web_evidence' for record in records):
+            return None
+        # The existing Local output only contains claims, not the SB-22 SB-24
+        # structured contract. Preserve this narrow bridge as unverified and do
+        # not fabricate a candidate when independent supporting evidence is absent.
+        candidate = generate_candidate(synthesize_intelligence(compare_intelligence(records)))
+        if candidate is None:
+            return None
+        candidate_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'sb26:{session_id}:{inference.request_id}'))
+        existing = st.session_state.get('_candidate_learning_review')
+        if isinstance(existing, dict) and existing.get('candidate_id') == candidate_id:
+            return existing
+        state = {'status': 'candidate_review', 'candidate': candidate,
+                 'conversation_id': session_id, 'candidate_id': candidate_id,
+                 'reviewed_text': candidate.proposed_principle,
+                 'text_reviewed': False, 'action': None}
+        st.session_state['_candidate_learning_review'] = state
+        return state
+    except (TypeError, ValueError, AttributeError, KeyError):
+        return None
+
+
+def _render_candidate_learning_review(session_id):
+    """Render one session-scoped review card; persistence requires exact confirmation."""
+    state = st.session_state.get('_candidate_learning_review')
+    if not isinstance(state, dict) or state.get('status') not in ('candidate_review', 'approved'):
+        return
+    if state.get('conversation_id') != session_id:
+        return
+    if state.get('status') == 'approved':
+        st.caption('This candidate has already been submitted for approval.')
+        return
+    candidate = state.get('candidate')
+    if not isinstance(candidate, CandidateLesson) or candidate.review_status != 'pending_review':
+        return
+    st.subheader('Candidate learning · pending review')
+    st.caption('This proposal is not memory. Nothing is saved unless you approve the exact final text.')
+    st.markdown('**Proposed principle**')
+    st.write(candidate.proposed_principle)
+    st.markdown('**Uncertainty**')
+    for item in candidate.uncertainty:
+        st.write('• ' + item)
+    st.markdown('**Sources and provenance**')
+    for source_type, source_id, citations, provenance in candidate.source_references:
+        st.write({'source_type': source_type, 'source_id': source_id,
+                  'citations': citations, 'provenance': provenance})
+    edited = st.text_area('Modify proposed principle', value=state.get('reviewed_text', candidate.proposed_principle),
+                          max_chars=4000, key=f"candidate_edit_{state['candidate_id']}")
+    exact_text = edited.strip()
+    if exact_text != state.get('reviewed_text', candidate.proposed_principle):
+        state['text_reviewed'] = False
+    state['reviewed_text'] = exact_text
+    if exact_text != candidate.proposed_principle:
+        st.warning('Modified text must be reviewed and explicitly confirmed before approval.')
+    previous_text = state.get('reviewed_text_at_confirmation')
+    if exact_text != candidate.proposed_principle and exact_text != previous_text:
+        state['text_reviewed'] = False
+    reviewed = st.checkbox('I reviewed this exact final text', value=bool(state.get('text_reviewed')),
+                           key=f"candidate_confirm_{state['candidate_id']}")
+    state['reviewed_text_at_confirmation'] = exact_text if reviewed else previous_text
+    state['text_reviewed'] = bool(reviewed and
+                                 (exact_text == candidate.proposed_principle or exact_text == previous_text))
+    approve_col, modify_col, reject_col = st.columns(3)
+    if modify_col.button('Modify', key=f"candidate_modify_{state['candidate_id']}"):
+        if not exact_text:
+            st.warning('Enter the modified principle before continuing.')
+        else:
+            state['action'] = 'modify'
+            state['text_reviewed'] = False
+            st.session_state[f"candidate_confirm_{state['candidate_id']}"] = False
+            st.info('Modified text is pending review. Review the displayed text and check the confirmation before approving.')
+    if approve_col.button('Approve', key=f"candidate_approve_{state['candidate_id']}"):
+        if not exact_text or not reviewed:
+            st.warning('Approval requires explicit confirmation of the exact final text.')
+            return
+        if state.get('action') == 'approved' or state.get('status') == 'approved':
+            st.info('This candidate was already submitted for approval.')
+            return
+        if state.get('action') == 'modify':
+            st.info('Modified text is pending review. Confirm the exact text in a separate approval action.')
+            return
+        if exact_text != candidate.proposed_principle and state.get('reviewed_text_at_confirmation') != exact_text:
+            st.warning('Review and confirm this exact modified text before approving.')
+            return
+        state['action'] = 'approved'
+        state['status'] = 'approving'
+        st.session_state['_candidate_learning_review'] = state
+        try:
+            provenance = {'candidate_learning': True, 'source_references': candidate.source_references,
+                          'user_edit': exact_text != candidate.proposed_principle,
+                          'user_edit_provenance': 'human_entered' if exact_text != candidate.proposed_principle else None,
+                          'fact_status': 'not_independently_verified', 'uncertainty': candidate.uncertainty}
+            record = lessons.propose(
+                scenario='Reusable principle proposed from reviewed intelligence sources.',
+                corrective_principle=exact_text,
+                emotional_context='', observed_facts='Source assertions only; not independently verified.',
+                uncertainties='; '.join(candidate.uncertainty),
+                response_pattern=exact_text, relationship_context='')
+            record['review_status'] = 'pending_review'
+            record['approval_status'] = 'proposed'
+            record['candidate_learning_provenance'] = provenance
+            # A deterministic ID derived from the candidate guards reruns and repeated clicks.
+            record['lesson_id'] = str(uuid.uuid5(uuid.NAMESPACE_URL, 'sb26:' + state['candidate_id']))
+            lessons.approve(record, data_dir=studio.DATA, db_path=studio.DB)
+            state['status'] = 'approved'
+            st.session_state['_candidate_learning_review'] = state
+            st.success('Candidate approved and saved through supervised lessons.')
+        except (ValueError, OSError):
+            state['action'] = None
+            state['status'] = 'candidate_review'
+            st.session_state['_candidate_learning_review'] = state
+            st.error('Candidate approval failed; no success is claimed.')
+    if reject_col.button('Reject', key=f"candidate_reject_{state['candidate_id']}"):
+        state['status'] = 'rejected'
+        state['action'] = 'rejected'
+        st.session_state['_candidate_learning_review'] = state
+        st.info('Candidate rejected and discarded; no approved lesson was created.')
 
 
 def _cloud_result_writer(session_id, result, approved_lessons=()):
@@ -885,6 +1033,7 @@ def _start_automatic_journey(user_text, session_id, profile, model_config):
             response = (local_result.get('conversational_response', local_result.get('narrative', 'Reasoning completed.'))
                         if isinstance(local_result, dict) else 'Reasoning completed.')
             _save_response(session_id, response, 'validated_reasoning', 'validated')
+            _offer_candidate_from_local_result(session_id, local_result, research_item)
             turn.result_recorded = True
             _show_research_citations(session_id)
         return
@@ -1468,6 +1617,7 @@ def render_conversation(profile, ready, model_config, configuration_error):
             if item['message_type'] == 'lesson_proposal' and pending and pending.get('message_id') == item['message_id'] and pending.get('conversation_id') == session_id:
                 _lesson_editor(item, pending)
     _show_research_citations(session_id)
+    _render_candidate_learning_review(session_id)
     _render_conversation_research_approval(session_id)
     general_store = st.session_state.get('_general_journey_store', {})
     general_turn = general_store.get(session_id)
