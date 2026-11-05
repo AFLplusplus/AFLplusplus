@@ -265,6 +265,10 @@ static u8  __afl_area_initial[MAP_INITIAL_SIZE];
 static u8 *__afl_area_ptr_dummy = __afl_area_initial;
 static u8 *__afl_area_ptr_backup = __afl_area_initial;
 
+/* The coverage callbacks write through __afl_area_ptr, also in a libc function
+   that the target defines itself (getenv, free, munmap, ...). So it must always
+   point to a valid map: assign a new map only after it is checked, and switch
+   to the dummy before the current map is released. */
 u8  *__afl_area_ptr = __afl_area_initial;
 u8  *__afl_dictionary;
 u32 *__afl_child_sync = NULL;
@@ -1385,17 +1389,18 @@ static void __afl_map_shm(void) {
     if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial &&
         __afl_area_ptr != __afl_area_ptr_dummy) {
 
+      u8 *old_ptr = __afl_area_ptr;
+      __afl_area_ptr = __afl_area_ptr_dummy;
+
       if (__afl_map_addr) {
 
         munmap((void *)__afl_map_addr, __afl_final_loc);
 
       } else {
 
-        free(__afl_area_ptr);
+        free(old_ptr);
 
       }
-
-      __afl_area_ptr = __afl_area_ptr_dummy;
 
     }
 
@@ -1412,13 +1417,16 @@ static void __afl_map_shm(void) {
 
 #endif
 
+    /* Attach into a local: the code below calls getenv(), shm_open() and
+       mmap(), and __afl_area_ptr must stay valid until the map is checked. */
+
     /* Preferred path: the map was handed to us as an inherited descriptor. */
 
-    __afl_area_ptr = (u8 *)__afl_map_shm_fd(
+    u8 *attached_ptr = (u8 *)__afl_map_shm_fd(
         SHM_FD_ENV_VAR, shm_map_len, PROT_READ | PROT_WRITE,
         (void *)(uintptr_t)__afl_map_addr, &__afl_shm_map_len);
 
-    if (!__afl_area_ptr && id_str) {
+    if (!attached_ptr && id_str) {
 
 #ifdef USEMMAP
       const char    *shm_file_path = id_str;
@@ -1469,7 +1477,7 @@ static void __afl_map_shm(void) {
 
       }
 
-      __afl_area_ptr = shm_base;
+      attached_ptr = shm_base;
 #else
       u32 shm_id = atoi(id_str);
 
@@ -1499,7 +1507,7 @@ static void __afl_map_shm(void) {
 
       }
 
-      __afl_area_ptr = (u8 *)shmat(shm_id, (void *)__afl_map_addr, 0);
+      attached_ptr = (u8 *)shmat(shm_id, (void *)__afl_map_addr, 0);
 
 #endif
 
@@ -1507,7 +1515,7 @@ static void __afl_map_shm(void) {
 
     /* Whooooops. */
 
-    if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
+    if (!attached_ptr || attached_ptr == (void *)-1) {
 
       if (__afl_map_addr)
         send_forkserver_error(FS_ERROR_MAP_ADDR);
@@ -1518,6 +1526,8 @@ static void __afl_map_shm(void) {
       _exit(1);
 
     }
+
+    __afl_area_ptr = attached_ptr;
 
     /* DEFERRED IJON SETUP: Initialize on first use when actual map size is
      * known */
@@ -1536,11 +1546,11 @@ static void __afl_map_shm(void) {
 
              __afl_map_addr) {
 
-    __afl_area_ptr = (u8 *)mmap(
+    u8 *map = (u8 *)mmap(
         (void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
         MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-    if (__afl_area_ptr == MAP_FAILED) {
+    if (map == MAP_FAILED) {
 
       fprintf(stderr, "can not acquire mmap for address %p\n",
               (void *)__afl_map_addr);
@@ -1549,21 +1559,15 @@ static void __afl_map_shm(void) {
 
     }
 
+    __afl_area_ptr = map;
+
   } else if (__afl_final_loc > MAP_INITIAL_SIZE &&
 
              __afl_final_loc > __afl_first_final_loc) {
 
-    if (__afl_area_initial != __afl_area_ptr_dummy) {
+    u8 *map = (u8 *)malloc(__afl_final_loc + 1);
 
-      free(__afl_area_ptr_dummy);
-
-    }
-
-    __afl_map_size = __afl_final_loc + 1;
-    __afl_area_ptr_dummy = (u8 *)malloc(__afl_map_size);
-    __afl_area_ptr = __afl_area_ptr_dummy;
-
-    if (!__afl_area_ptr_dummy) {
+    if (!map) {
 
       fprintf(stderr,
               "Error: AFL++ could not acquire %u bytes of memory, exiting!\n",
@@ -1571,6 +1575,13 @@ static void __afl_map_shm(void) {
       exit(-1);
 
     }
+
+    u8 *old_dummy = __afl_area_ptr_dummy;
+    __afl_map_size = __afl_final_loc + 1;
+    __afl_area_ptr_dummy = map;
+    __afl_area_ptr = map;
+
+    if (old_dummy != __afl_area_initial) { free(old_dummy); }
 
   }  // else: nothing to be done
 
@@ -1840,9 +1851,12 @@ static void __afl_unmap_shm(void) {
      mapped (that may include the trailing child_sync word past
      __afl_map_size). Without one it is a SysV attachment, if it is anything. */
 
+  u8 *old_ptr = __afl_area_ptr;
+  __afl_area_ptr = __afl_area_ptr_dummy;
+
   if (__afl_shm_map_len) {
 
-    munmap((void *)__afl_area_ptr, __afl_shm_map_len);
+    munmap((void *)old_ptr, __afl_shm_map_len);
     __afl_shm_map_len = 0;
     __afl_child_sync = NULL;
 
@@ -1850,21 +1864,18 @@ static void __afl_unmap_shm(void) {
 
 #ifndef USEMMAP
 
-    shmdt((void *)__afl_area_ptr);
+    shmdt((void *)old_ptr);
 
 #endif
 
     __afl_child_sync = NULL;
 
-  } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
-
-             __afl_map_addr) {
+  } else if ((!old_ptr || old_ptr == __afl_area_initial) && __afl_map_addr) {
 
     munmap((void *)__afl_map_addr, __afl_map_size);
 
   }
 
-  __afl_area_ptr = __afl_area_ptr_dummy;
   __afl_bug_map = __afl_bug_map_active ? __afl_bug_map_local : NULL;
   __afl_bug_map_increased = 0;
 
