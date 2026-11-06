@@ -303,9 +303,25 @@ void load_extras(afl_state_t *afl, u8 *dir) {
 
   u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
 
-  /* If the name ends with @, extract level and continue. */
+  /* If the name ends with @<level>, extract level and continue. Only the last
+     '@' counts, and only if nothing but digits follows it, so that a path may
+     contain '@' elsewhere (e.g. /home/user@host/words.dict). */
 
-  if ((x = strchr(dir, '@'))) {
+  if ((x = strrchr(dir, '@'))) {
+
+    u8 *lvl = x + 1;
+
+    while (isdigit(*lvl)) {
+
+      ++lvl;
+
+    }
+
+    if (*lvl) { x = NULL; }
+
+  }
+
+  if (x) {
 
     *x = 0;
     dict_level = atoi(x + 1);
