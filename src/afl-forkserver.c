@@ -32,6 +32,7 @@
 #ifdef AFL_PERSISTENT_RECORD
   #include "afl-fuzz.h"
 #endif
+
 #include "types.h"
 #include "debug.h"
 #include "common.h"
@@ -56,6 +57,36 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <grp.h>
+
+static inline void provenance_reset_for_child(afl_forkserver_t *fsrv) {
+
+  if (!fsrv->provenance_depth || fsrv->provenance_suspended ||
+      fsrv->child_pid <= 0 ||
+      fsrv->provenance_pid == fsrv->child_pid) {
+
+    return;
+
+  }
+
+  fsrv->provenance_pid = fsrv->child_pid;
+  if (!fsrv->provenance_count) { return; }
+
+  u32 latest = (fsrv->provenance_idx + fsrv->provenance_depth - 1) %
+               fsrv->provenance_depth;
+  for (u32 i = 0; i < fsrv->provenance_depth; ++i) {
+
+    if (i == latest) { continue; }
+    afl_free(fsrv->provenance_data[i]);
+    fsrv->provenance_data[i] = NULL;
+    fsrv->provenance_len[i] = 0;
+
+  }
+
+  fsrv->provenance_count = 1;
+  fsrv->provenance_bytes = fsrv->provenance_len[latest];
+  fsrv->provenance_idx = (latest + 1) % fsrv->provenance_depth;
+
+}
 
 #ifdef __linux__
   #include <dlfcn.h>
@@ -2493,6 +2524,71 @@ void afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
 
 /* Delete the current testcase and write the buf to the testcase file */
 
+void afl_fsrv_provenance_init(afl_forkserver_t *fsrv, u32 depth,
+                              u64 max_bytes) {
+
+  fsrv->provenance_depth = depth;
+  fsrv->provenance_max_bytes = max_bytes;
+  fsrv->provenance_pid = -1;
+  fsrv->provenance_data = ck_alloc(depth * sizeof(u8 *));
+  fsrv->provenance_len = ck_alloc(depth * sizeof(u32));
+
+}
+
+static void provenance_record(afl_forkserver_t *fsrv, const u8 *buf,
+                              u32 len) {
+
+  if (!fsrv->provenance_depth || fsrv->provenance_suspended) { return; }
+
+  if (len > fsrv->provenance_max_bytes) {
+
+    for (u32 i = 0; i < fsrv->provenance_depth; ++i) {
+
+      afl_free(fsrv->provenance_data[i]);
+      fsrv->provenance_data[i] = NULL;
+      fsrv->provenance_len[i] = 0;
+
+    }
+
+    fsrv->provenance_idx = 0;
+    fsrv->provenance_count = 0;
+    fsrv->provenance_bytes = 0;
+    return;
+
+  }
+
+  while (fsrv->provenance_count &&
+         (fsrv->provenance_count == fsrv->provenance_depth ||
+          fsrv->provenance_bytes + len > fsrv->provenance_max_bytes)) {
+
+    u32 oldest = (fsrv->provenance_idx + fsrv->provenance_depth -
+                  fsrv->provenance_count) %
+                 fsrv->provenance_depth;
+    fsrv->provenance_bytes -= fsrv->provenance_len[oldest];
+    afl_free(fsrv->provenance_data[oldest]);
+    fsrv->provenance_data[oldest] = NULL;
+    fsrv->provenance_len[oldest] = 0;
+    --fsrv->provenance_count;
+
+  }
+
+  u32 slot = fsrv->provenance_idx;
+  fsrv->provenance_data[slot] = afl_realloc(
+      (void **)&fsrv->provenance_data[slot], len);
+  if (unlikely(!fsrv->provenance_data[slot])) {
+
+    FATAL("allocating crash provenance journal failed");
+
+  }
+
+  memcpy(fsrv->provenance_data[slot], buf, len);
+  fsrv->provenance_len[slot] = len;
+  fsrv->provenance_bytes += len;
+  fsrv->provenance_idx = (slot + 1) % fsrv->provenance_depth;
+  ++fsrv->provenance_count;
+
+}
+
 void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
                                                      u8 *buf, size_t len) {
 
@@ -2505,6 +2601,12 @@ void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
   }
 
 #endif
+
+  if (unlikely(fsrv->provenance_depth)) {
+
+    provenance_record(fsrv, buf, len > UINT32_MAX ? UINT32_MAX : (u32)len);
+
+  }
 
 #ifdef AFL_PERSISTENT_RECORD
   if (unlikely(fsrv->persistent_record)) {
@@ -2894,6 +2996,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 #ifdef AFL_PERSISTENT_RECORD
   afl_fsrv_persistent_record_reset(fsrv);
 #endif
+  provenance_reset_for_child(fsrv);
 
   if (!afl_fsrv_check_child_pid(fsrv, stop_soon_p)) { return 0; }
 
@@ -3140,6 +3243,21 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   }
 
 #endif
+
+  if (fsrv->provenance_data) {
+
+    for (u32 i = 0; i < fsrv->provenance_depth; ++i) {
+
+      afl_free(fsrv->provenance_data[i]);
+
+    }
+
+    ck_free(fsrv->provenance_data);
+    ck_free(fsrv->provenance_len);
+    fsrv->provenance_data = NULL;
+    fsrv->provenance_len = NULL;
+
+  }
 
 }
 

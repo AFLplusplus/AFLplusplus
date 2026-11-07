@@ -445,6 +445,20 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_persistent_record =
                 get_afl_env(afl_environment_variables[i]);
 
+          } else if (!strncmp(env, "AFL_CRASH_PROVENANCE_DEPTH",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_crash_provenance_depth =
+                get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_CRASH_PROVENANCE_MAX_BYTES",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_crash_provenance_max_bytes =
+                get_afl_env(afl_environment_variables[i]);
+
           } else if (!strncmp(env, "AFL_EXIT_ON_SEED_ISSUES",
 
                               afl_environment_variable_len)) {

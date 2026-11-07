@@ -1758,6 +1758,7 @@ may_save_fault:
       u8 *saved_trace = ck_alloc(crash_fsrv->map_size);
       u64 saved_total_execs = crash_fsrv->total_execs;
       memcpy(saved_trace, crash_fsrv->trace_bits, crash_fsrv->map_size);
+      crash_fsrv->provenance_suspended = 1;
       afl_fsrv_write_to_testcase(crash_fsrv, mem, len);
       fsrv_run_result_t verify_fault =
           fuzz_run_target(afl, crash_fsrv, fault_exec_tmout);
@@ -1800,6 +1801,7 @@ may_save_fault:
       crash_fsrv->total_execs = saved_total_execs;
       crash_fsrv->last_kill_signal = original_crash_signal;
       crash_fsrv->last_exit_code = original_crash_exit;
+      crash_fsrv->provenance_suspended = 0;
 
     }
 
@@ -1809,6 +1811,45 @@ may_save_fault:
     if (!mkdir(meta_dir, 0700) || errno == EEXIST) {
 
       u64 crash_id = afl->saved_crashes - 1;
+      u32 journal_count = crash_fsrv == &afl->fsrv
+                              ? crash_fsrv->provenance_count
+                              : 0;
+      u64 journal_bytes = crash_fsrv == &afl->fsrv
+                              ? crash_fsrv->provenance_bytes
+                              : 0;
+
+      if (journal_count) {
+
+        u8 witness_dir[PATH_MAX];
+        snprintf(witness_dir, sizeof(witness_dir), "%s/event-%06llu", meta_dir,
+                 crash_id);
+        if (!mkdir(witness_dir, 0700) || errno == EEXIST) {
+
+          u32 oldest = (crash_fsrv->provenance_idx +
+                        crash_fsrv->provenance_depth - journal_count) %
+                       crash_fsrv->provenance_depth;
+          for (u32 i = 0; i < journal_count; ++i) {
+
+            u32 slot = (oldest + i) % crash_fsrv->provenance_depth;
+            u8  witness_fn[PATH_MAX];
+            snprintf(witness_fn, sizeof(witness_fn), "%s/%06u.input",
+                     witness_dir, i);
+            s32 witness_fd = open(witness_fn, O_WRONLY | O_CREAT | O_EXCL,
+                                  afl->perm);
+            if (witness_fd >= 0) {
+
+              ck_write(witness_fd, crash_fsrv->provenance_data[slot],
+                       crash_fsrv->provenance_len[slot], witness_fn);
+              close(witness_fd);
+
+            }
+
+          }
+
+        }
+
+      }
+
       snprintf(meta_fn, sizeof(meta_fn), "%s/event-%06llu.json", meta_dir,
                crash_id);
       snprintf(meta_tmp, sizeof(meta_tmp), "%s/.event-%06llu.tmp", meta_dir,
@@ -1825,9 +1866,11 @@ may_save_fault:
             "  \"identity_strength\": \"execution_observation_only\",\n"
             "  \"signal\": %u,\n"
             "  \"exit_code\": %u,\n  \"timeout_ms\": %u,\n"
-            "  \"execution_coverage_fingerprint\": \"%016llx\"\n}\n",
+            "  \"execution_coverage_fingerprint\": \"%016llx\",\n"
+            "  \"journal_entries\": %u,\n  \"journal_bytes\": %llu\n}\n",
             crash_id, classification, original_crash_signal,
-            original_crash_exit, fault_exec_tmout, original_crash_hash);
+            original_crash_exit, fault_exec_tmout, original_crash_hash,
+            journal_count, journal_bytes);
         ck_write(meta_fd, meta, meta_len, meta_tmp);
         close(meta_fd);
         if (rename(meta_tmp, meta_fn)) { unlink(meta_tmp); }

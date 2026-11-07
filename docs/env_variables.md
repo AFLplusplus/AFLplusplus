@@ -724,6 +724,19 @@ checks or alter some of the more exotic semantics of the tool:
     child alone cannot prove those transports are fresh. The feature is off by
     default and adds one execution per saved unique crash.
 
+  - `AFL_CRASH_PROVENANCE_DEPTH` enables a bounded immutable journal of the
+    prepared inputs executed by each persistent child. On a saved crash, the
+    retained sequence is written in execution order below the corresponding
+    `crashes/.provenance/event-NNNNNN/` directory. The value is the maximum
+    number of entries (2 to 4096). `AFL_CRASH_PROVENANCE_MAX_BYTES` sets the
+    aggregate byte limit (default 16 MiB, maximum 1 GiB). Both entry and byte
+    limits are enforced by evicting the oldest complete input; input buffers
+    are copied into journal-owned storage so later mutations cannot change a
+    witness. The journal resets at the target-child boundary and therefore has
+    the same external-state limitations as `AFL_VERIFY_CRASH`. It currently
+    requires `AFL_VERIFY_CRASH`, persistent mode, and AFL++'s standard testcase
+    transport; Nyx and custom fuzz-send transports are rejected explicitly.
+
   - Setting `AFL_CUSTOM_MUTATOR_LIBRARY` to a shared library with
     afl_custom_fuzz() creates additional mutations through this library. If
     afl-fuzz is compiled with Python (which is autodetected during building

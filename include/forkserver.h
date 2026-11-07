@@ -209,6 +209,18 @@ typedef struct afl_forkserver {
   s32  persistent_record_pid;
 #endif
 
+  /* Immutable prepared-input journal for crash provenance. Enabled only by
+     explicit configuration; entries are owned by the forkserver. */
+  u32  provenance_depth;
+  u32  provenance_idx;
+  u32  provenance_count;
+  u8   provenance_suspended;
+  u64  provenance_max_bytes;
+  u64  provenance_bytes;
+  s32  provenance_pid;
+  u8 **provenance_data;
+  u32 *provenance_len;
+
   u8     uid_set;
   uid_t  uid;
   u8     gid_set;
@@ -300,6 +312,8 @@ void              afl_fsrv_resize_mapsize(afl_forkserver_t *fsrv, void *shm_p,
                                           char **use_argv, u32 map_size,
                                           volatile u8 *stop_soon, bool unicorn_mode);
 void              afl_fsrv_trim_extra_maps(afl_forkserver_t *fsrv);
+void              afl_fsrv_provenance_init(afl_forkserver_t *fsrv, u32 depth,
+                                            u64 max_bytes);
 
 #ifdef __linux__
 void nyx_load_target_hash(afl_forkserver_t *fsrv);

@@ -1736,6 +1736,40 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
 
   }
 
+  if (unlikely(afl->afl_env.afl_crash_provenance_depth)) {
+
+    if (!afl->afl_env.afl_verify_crash) {
+
+      FATAL("AFL_CRASH_PROVENANCE_DEPTH requires AFL_VERIFY_CRASH");
+
+    }
+
+    u64 depth = strtoull(afl->afl_env.afl_crash_provenance_depth, NULL, 10);
+    u64 max_bytes = 16ULL << 20;
+    if (afl->afl_env.afl_crash_provenance_max_bytes) {
+
+      max_bytes = strtoull(afl->afl_env.afl_crash_provenance_max_bytes, NULL,
+                           10);
+
+    }
+
+    if (depth < 2 || depth > 4096) {
+
+      FATAL("AFL_CRASH_PROVENANCE_DEPTH must be between 2 and 4096");
+
+    }
+
+    if (max_bytes < MAX_FILE || max_bytes > (1ULL << 30)) {
+
+      FATAL("AFL_CRASH_PROVENANCE_MAX_BYTES must be between %u and %llu",
+            MAX_FILE, 1ULL << 30);
+
+    }
+
+    afl_fsrv_provenance_init(&afl->fsrv, depth, max_bytes);
+
+  }
+
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
   OKF("AFL++ is maintained by Marc \"van Hauser\" Heuse, Dominik Maier, Andrea "
@@ -2810,6 +2844,36 @@ void afl_setup_environment(afl_state_t *afl) {
   }
 
   #endif
+
+  if (unlikely(afl->fsrv.provenance_depth)) {
+
+    if (!afl->fsrv.persistent_mode) {
+
+      FATAL("AFL_CRASH_PROVENANCE_DEPTH requires a persistent target");
+
+    }
+
+    if (afl->fsrv.nyx_mode || afl->afl_env.afl_custom_mutator_late_send) {
+
+      FATAL("crash provenance journaling does not support this transport");
+
+    }
+
+    if (afl->custom_mutators_count) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_fuzz_send) {
+
+          FATAL("crash provenance journaling requires AFL++ testcase transport");
+
+        }
+
+      });
+
+    }
+
+  }
 
   if (afl->shmem_testcase_mode) { setup_testcase_shmem(afl); }
 

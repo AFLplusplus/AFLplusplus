@@ -14,6 +14,11 @@ export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_NO_CRASH_README=1
 "$repo/afl-clang-fast" -O0 "$repo/test/test-verify-crash.c" -o "$tmp/target"
 for mode in off on fresh; do
   if [ "$mode" = off ]; then unset AFL_VERIFY_CRASH; else export AFL_VERIFY_CRASH=1; fi
+  if [ "$mode" = on ]; then
+    export AFL_CRASH_PROVENANCE_DEPTH=8 AFL_CRASH_PROVENANCE_MAX_BYTES=1048576
+  else
+    unset AFL_CRASH_PROVENANCE_DEPTH AFL_CRASH_PROVENANCE_MAX_BYTES
+  fi
   if [ "$mode" = fresh ]; then export VERIFY_CRASH_TEST_FRESH=1; else unset VERIFY_CRASH_TEST_FRESH; fi
   dict="$tmp/state.dict"
   if [ "$mode" = fresh ]; then dict="$tmp/crash.dict"; fi
@@ -29,6 +34,12 @@ for mode in off on fresh; do
   if [ "$mode" = on ]; then
     grep -q '"classification": "state_dependent"' \
       "$tmp/$mode/default/crashes/.provenance/"*.json
+    journal="$(find "$tmp/$mode/default/crashes/.provenance/event-000000" \
+      -type f -name '*.input' | wc -l)"
+    [ "$journal" -ge 2 ] || {
+      echo "provenance journal did not retain the causal sequence" >&2
+      exit 1
+    }
   elif [ "$mode" = fresh ]; then
     grep -q '"classification": "reproduced_same_observation"' \
       "$tmp/$mode/default/crashes/.provenance/"*.json
