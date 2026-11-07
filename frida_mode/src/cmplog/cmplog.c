@@ -9,6 +9,11 @@
 
 #include "util.h"
 
+#if defined(__APPLE__)
+  #include <mach/mach.h>
+  #include <mach/vm_map.h>
+#endif
+
 #define DEFAULT_MMAP_MIN_ADDR (32UL << 10)
 #define MAX_MEMFD_SIZE (64UL << 10)
 
@@ -152,6 +157,52 @@ gboolean cmplog_test_addr(guint64 addr, size_t size) {
 
 }
 
+#if defined(__APPLE__)
+static gboolean cmplog_darwin_readable(guint64 addr, size_t size) {
+
+  guint64 end = addr + size;
+  guint64 cursor = addr;
+
+  while (cursor < end) {
+
+    /* The shared cache region is a submap whose top-level entry reports read
+     * access for unmapped holes inside it; descend to the leaf mapping. */
+    vm_address_t                    region;
+    vm_size_t                       region_size;
+    vm_region_submap_info_data_64_t info;
+    natural_t                       depth = 0;
+    kern_return_t                   kr;
+
+    for (;;) {
+
+      mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
+      region = (vm_address_t)cursor;
+      region_size = 0;
+      kr = vm_region_recurse_64(mach_task_self(), &region, &region_size, &depth,
+                                (vm_region_recurse_info_t)&info, &count);
+      if (kr != KERN_SUCCESS || region > cursor || !info.is_submap) break;
+      depth++;
+
+    }
+
+    /* vm_region_recurse_64 returns the next region when cursor is unmapped. */
+    if (kr != KERN_SUCCESS || region > cursor ||
+        (info.protection & VM_PROT_READ) == 0) {
+
+      return false;
+
+    }
+
+    cursor = region + region_size;
+
+  }
+
+  return true;
+
+}
+
+#endif
+
 gboolean cmplog_is_readable(guint64 addr, size_t size) {
 
   if (cmplog_ranges == NULL) FFATAL("CMPLOG not initialized");
@@ -168,6 +219,18 @@ gboolean cmplog_is_readable(guint64 addr, size_t size) {
 
   /* Check our address/length don't wrap around */
   if (SIZE_MAX - addr < size) { return false; }
+
+#if defined(__APPLE__)
+  /*
+   * Darwin's msync() succeeds on mapped but unreadable pages (guard pages,
+   * PROT_NONE reservations), and the start-up range list and per-address
+   * caches go stale when the target maps and frees large buffers inside a
+   * persistent loop.  Either way an integer argument that happens to fall in
+   * such a page was dereferenced and killed the target with SIGBUS.  Ask the
+   * kernel for the current protection of every page instead, uncached.
+   */
+  return cmplog_darwin_readable(addr, size);
+#endif
 
   GumAddress inner_base = addr;
   GumAddress inner_limit = inner_base + size;
