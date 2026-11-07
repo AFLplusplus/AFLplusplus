@@ -682,11 +682,12 @@ checks or alter some of the more exotic semantics of the tool:
     stdout/stderr (e.g. the AddressSanitizer report and stack trace) live and,
     for each *saved unique* crash, write it to a text file named like the crash
     input with `.txt` appended (e.g. `crashes/id:000000,sig:06,....txt`).
-    Because the trace comes from the run that actually crashed (not a re-run),
-    it is captured even for crashes that do not reproduce. The capture buffer is
-    cleared before every execution, so the `.txt` holds only the crashing run's
-    own output (no output accumulated from previous runs) and is written in
-    full (no size limit). Sanitizer reports are symbolized (`symbolize=1`) when
+    By default, the trace comes from the run that actually crashed (not a
+    re-run), so it is captured even for crashes that do not reproduce. The
+    capture buffer is cleared before every execution, so the `.txt` holds only
+    the crashing run's own output (no output accumulated from previous runs)
+    and is written in full (no size limit). Sanitizer reports are symbolized
+    (`symbolize=1`) when
     you have not exported your own `*_OPTIONS` and a symbolizer (e.g.
     `llvm-symbolizer`) is on `PATH`. The feature is disabled by default (no
     effect when unset); when enabled it adds one inexpensive truncate per
@@ -706,6 +707,22 @@ checks or alter some of the more exotic semantics of the tool:
     split-sanitizer (SAND) mode a crash detected only by the separate sanitizer
     binary may not have a report in the captured output (the report comes from
     that other binary).
+
+  - `AFL_VERIFY_CRASH=1` classifies every saved unique crash with one
+    observational rerun in a fresh child. The original crash is always saved;
+    its trace and core evidence are preserved before verification. A JSON
+    result is written below `crashes/.provenance/` as reproduced with the same
+    execution observation, reproduced differently, state-dependent within the
+    reset boundary, timed out, errored, or unsupported. The reset boundary is
+    the target child process: external services, files, devices, and unrelated
+    shared memory are not reset, so this is deliberately not described as a
+    globally fresh environment. The observation combines signal or configured
+    crash exit code with an execution-coverage fingerprint; it is useful for
+    triage but is not a root-cause or vulnerability identity. Persistent
+    verifier state is discarded before fuzzing continues. Custom fuzz-send
+    transports and Nyx are currently marked unsupported because resetting a
+    child alone cannot prove those transports are fresh. The feature is off by
+    default and adds one execution per saved unique crash.
 
   - Setting `AFL_CUSTOM_MUTATOR_LIBRARY` to a shared library with
     afl_custom_fuzz() creates additional mutations through this library. If

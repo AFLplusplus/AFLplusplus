@@ -141,6 +141,7 @@ typedef struct afl_forkserver {
 
   /* Note: last_run_timed_out is u32 to send it to the child as 4 byte array */
   u32 last_run_timed_out;               /* Traced process timed out?        */
+  u32 discard_stopped_child;       /* Do not reuse an observational child */
 
   u8 last_kill_signal;                  /* Signal that killed the child     */
 

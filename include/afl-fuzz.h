@@ -611,7 +611,7 @@ typedef struct afl_env_vars {
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
       afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
       afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled,
-      afl_crash_traces, afl_starved_minimize_queue;
+      afl_crash_traces, afl_verify_crash, afl_starved_minimize_queue;
 
   u16 afl_forksrv_nb_supl_gids;
 
