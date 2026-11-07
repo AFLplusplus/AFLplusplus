@@ -91,6 +91,7 @@ u8  *afl_shm_init(sharedmem_t *, size_t, unsigned char non_instrumented_mode,
 void afl_shm_deinit(sharedmem_t *);
 void afl_shm_deinit_all(void);
 void afl_shm_fuzz_env_set(sharedmem_t *);
+void afl_shm_env_set(sharedmem_t *);
 /* Publish the descriptor a shared map was handed over on (see SHM_FD_ENV_VAR)
    under `env`. A no-op where the map is a SysV segment or was handed over by
    name, so callers do not need to know which of the two it is. */

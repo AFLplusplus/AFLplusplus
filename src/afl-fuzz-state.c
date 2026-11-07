@@ -112,6 +112,8 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->fsrv.dev_null_fd = -1;
   afl->fsrv.child_pid = -1;
   afl->fsrv.out_dir_fd = -1;
+  afl->shadow_job_fd = -1;
+  afl->shadow_worker_pid = -1;
 
   /* Init SkipDet */
   afl->skipdet_g =
@@ -328,6 +330,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
                               afl_environment_variable_len)) {
 
             afl->afl_env.afl_verify_crash =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
+          } else if (!strncmp(env, "AFL_CRASH_SHADOW",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_crash_shadow =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
           } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_LATE_SEND",
@@ -916,6 +925,8 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 /* Removes this afl_state instance and frees it. */
 
 void afl_state_deinit(afl_state_t *afl) {
+
+  afl_shadow_stop(afl);
 
   if (afl->in_place_resume) { ck_free(afl->in_dir); }
   if (afl->sync_id) { ck_free(afl->out_dir); }

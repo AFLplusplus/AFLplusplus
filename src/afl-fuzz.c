@@ -3304,6 +3304,8 @@ void afl_alloc_shared_memory(afl_state_t *afl) {
 
   }
 
+  afl_shadow_start(afl);
+
   deunicode_extras(afl);
   dedup_extras(afl);
   if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }

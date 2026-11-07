@@ -16,8 +16,10 @@ for mode in off on fresh; do
   if [ "$mode" = off ]; then unset AFL_VERIFY_CRASH; else export AFL_VERIFY_CRASH=1; fi
   if [ "$mode" = on ]; then
     export AFL_CRASH_PROVENANCE_DEPTH=8 AFL_CRASH_PROVENANCE_MAX_BYTES=1048576
+    export AFL_CRASH_SHADOW=1
   else
     unset AFL_CRASH_PROVENANCE_DEPTH AFL_CRASH_PROVENANCE_MAX_BYTES
+    unset AFL_CRASH_SHADOW
   fi
   if [ "$mode" = fresh ]; then export VERIFY_CRASH_TEST_FRESH=1; else unset VERIFY_CRASH_TEST_FRESH; fi
   dict="$tmp/state.dict"
@@ -40,6 +42,10 @@ for mode in off on fresh; do
       echo "provenance journal did not retain the causal sequence" >&2
       exit 1
     }
+    grep -q '"worker": "isolated_process"' \
+      "$tmp/$mode/default/crashes/.provenance/"*.shadow.json
+    grep -q '"classification": "state_dependent"' \
+      "$tmp/$mode/default/crashes/.provenance/"*.shadow.json
   elif [ "$mode" = fresh ]; then
     grep -q '"classification": "reproduced_same_observation"' \
       "$tmp/$mode/default/crashes/.provenance/"*.json

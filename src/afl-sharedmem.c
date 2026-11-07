@@ -242,6 +242,19 @@ void afl_shm_fuzz_env_set(sharedmem_t *shm) {
 
 }
 
+void afl_shm_env_set(sharedmem_t *shm) {
+
+#ifdef USEMMAP
+  setenv(SHM_ENV_VAR, shm->g_shm_file_path, 1);
+  afl_shm_env_set_fd(SHM_FD_ENV_VAR, shm->g_shm_fd);
+#else
+  u8 *shm_str = alloc_printf("%d", shm->shm_id);
+  setenv(SHM_ENV_VAR, shm_str, 1);
+  ck_free(shm_str);
+#endif
+
+}
+
 void afl_shm_vp_env_unset(void) {
 
   unsetenv(VP_SHM_ENV_VAR);

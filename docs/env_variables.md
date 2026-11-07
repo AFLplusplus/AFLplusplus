@@ -737,6 +737,19 @@ checks or alter some of the more exotic semantics of the tool:
     requires `AFL_VERIFY_CRASH`, persistent mode, and AFL++'s standard testcase
     transport; Nyx and custom fuzz-send transports are rejected explicitly.
 
+  - `AFL_CRASH_SHADOW=1` sends saved crash jobs to a dedicated verifier
+    process. The worker owns a separate forkserver, coverage map, testcase
+    shared memory, and immutable on-disk input, so fuzzing continues while the
+    replay runs and neither side borrows the other's mutable buffers. Results
+    are written atomically as `event-NNNNNN.shadow.json`. The job pipe is
+    nonblocking; if its bounded capacity is exhausted, the primary manifest
+    records `shadow_queued: false` rather than delaying fuzzing. This initial
+    adapter requires the provenance journal plus a native instrumented target
+    using AFL++ shared-memory testcase delivery. It rejects custom mutators,
+    value profiling, IJON, bug-map, Nyx, QEMU, Frida, Unicorn, CoreSight, and
+    non-instrumented modes until those execution environments define and test
+    an isolated reset contract.
+
   - Setting `AFL_CUSTOM_MUTATOR_LIBRARY` to a shared library with
     afl_custom_fuzz() creates additional mutations through this library. If
     afl-fuzz is compiled with Python (which is autodetected during building

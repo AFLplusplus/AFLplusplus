@@ -1817,6 +1817,7 @@ may_save_fault:
       u64 journal_bytes = crash_fsrv == &afl->fsrv
                               ? crash_fsrv->provenance_bytes
                               : 0;
+      u8 shadow_queued = 0;
 
       if (journal_count) {
 
@@ -1850,6 +1851,19 @@ may_save_fault:
 
       }
 
+      if (journal_count && afl->afl_env.afl_crash_shadow) {
+
+        afl_shadow_job_t job = {
+            .crash_id = crash_id,
+            .coverage_fingerprint = original_crash_hash,
+            .sequence_index = journal_count - 1,
+            .timeout_ms = fault_exec_tmout,
+            .signal = original_crash_signal,
+            .exit_code = original_crash_exit};
+        shadow_queued = afl_shadow_submit(afl, &job);
+
+      }
+
       snprintf(meta_fn, sizeof(meta_fn), "%s/event-%06llu.json", meta_dir,
                crash_id);
       snprintf(meta_tmp, sizeof(meta_tmp), "%s/.event-%06llu.tmp", meta_dir,
@@ -1867,10 +1881,11 @@ may_save_fault:
             "  \"signal\": %u,\n"
             "  \"exit_code\": %u,\n  \"timeout_ms\": %u,\n"
             "  \"execution_coverage_fingerprint\": \"%016llx\",\n"
-            "  \"journal_entries\": %u,\n  \"journal_bytes\": %llu\n}\n",
+            "  \"journal_entries\": %u,\n  \"journal_bytes\": %llu,\n"
+            "  \"shadow_queued\": %s\n}\n",
             crash_id, classification, original_crash_signal,
             original_crash_exit, fault_exec_tmout, original_crash_hash,
-            journal_count, journal_bytes);
+            journal_count, journal_bytes, shadow_queued ? "true" : "false");
         ck_write(meta_fd, meta, meta_len, meta_tmp);
         close(meta_fd);
         if (rename(meta_tmp, meta_fn)) { unlink(meta_tmp); }

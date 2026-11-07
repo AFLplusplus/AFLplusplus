@@ -33,6 +33,7 @@
 #include <signal.h>
 #include <limits.h>
 #include <glob.h>
+#include <sys/wait.h>
 #if !defined NAME_MAX
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
@@ -43,6 +44,249 @@
 #ifdef PROFILING
 u64 time_spent_working = 0;
 #endif
+
+static void shadow_write_result(afl_state_t *afl, const afl_shadow_job_t *job,
+                                const char *classification, u8 signal,
+                                u8 exit_code, u64 fingerprint) {
+
+  u8 fn[PATH_MAX], tmp[PATH_MAX];
+  snprintf(fn, sizeof(fn), "%s/crashes/.provenance/event-%06llu.shadow.json",
+           afl->out_dir, job->crash_id);
+  snprintf(tmp, sizeof(tmp),
+           "%s/crashes/.provenance/.event-%06llu.shadow.tmp", afl->out_dir,
+           job->crash_id);
+  s32 fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
+  if (fd < 0) { return; }
+
+  char data[512];
+  int  len = snprintf(
+      data, sizeof(data),
+      "{\n  \"schema\": 1,\n  \"crash_id\": %llu,\n"
+      "  \"worker\": \"isolated_process\",\n"
+      "  \"reset_boundary\": \"shadow_target_child_process\",\n"
+      "  \"classification\": \"%s\",\n  \"signal\": %u,\n"
+      "  \"exit_code\": %u,\n"
+      "  \"execution_coverage_fingerprint\": \"%016llx\"\n}\n",
+      job->crash_id, classification, signal, exit_code, fingerprint);
+  ck_write(fd, data, len, tmp);
+  close(fd);
+  if (rename(tmp, fn)) { unlink(tmp); }
+
+}
+
+static u8 shadow_read_job(s32 fd, afl_shadow_job_t *job) {
+
+  u8    *dst = (u8 *)job;
+  size_t done = 0;
+  while (done < sizeof(*job)) {
+
+    ssize_t got = read(fd, dst + done, sizeof(*job) - done);
+    if (!got) { return 0; }
+    if (got < 0) {
+
+      if (errno == EINTR) { continue; }
+      return 0;
+
+    }
+
+    done += got;
+
+  }
+
+  return 1;
+
+}
+
+static void shadow_worker(afl_state_t *afl, s32 job_fd, s32 ready_fd) {
+
+  signal(SIGINT, SIG_DFL);
+  signal(SIGTERM, SIG_DFL);
+  signal(SIGHUP, SIG_DFL);
+
+  if (afl->fsrv.fsrv_ctl_fd >= 0) { close(afl->fsrv.fsrv_ctl_fd); }
+  if (afl->fsrv.fsrv_st_fd >= 0) { close(afl->fsrv.fsrv_st_fd); }
+  if (afl->fsrv.out_fd >= 0) { close(afl->fsrv.out_fd); }
+
+  sharedmem_t shadow_shm = {0}, shadow_input = {0};
+  afl_forkserver_t shadow = {0};
+  afl_fsrv_init_dup(&shadow, &afl->fsrv);
+  shadow.trace_bits = afl_shm_init(
+      &shadow_shm, afl->fsrv.map_size, 0, afl->perm,
+      afl->chown_needed ? afl->fsrv.gid : -1);
+  shadow.child_sync_offset = shadow_shm.child_sync_offset;
+
+  shadow_input.shmemfuzz_mode = 1;
+  u8 *input_map = afl_shm_init(&shadow_input, SHM_FUZZ_MAP_SIZE_DEFAULT, 1,
+                               afl->perm,
+                               afl->chown_needed ? afl->fsrv.gid : -1);
+  afl_shm_fuzz_env_set(&shadow_input);
+  shadow.support_shmem_fuzz = 1;
+  shadow.shmem_fuzz_len = (u32 *)input_map;
+  shadow.shmem_fuzz = input_map + sizeof(u32);
+  shadow.out_file = NULL;
+  shadow.out_fd = -1;
+  shadow.use_stdin = 0;
+  shadow.target_path = afl->fsrv.target_path;
+  setenv("AFL_NO_AUTODICT", "1", 1);
+  afl_fsrv_start(&shadow, afl->argv, &afl->stop_soon,
+                 afl->afl_env.afl_debug_child);
+
+  u8 ready = 1;
+  if (write(ready_fd, &ready, 1) != 1) { _exit(1); }
+  close(ready_fd);
+
+  afl_shadow_job_t job;
+  while (shadow_read_job(job_fd, &job)) {
+
+    u8 input_fn[PATH_MAX];
+    snprintf(input_fn, sizeof(input_fn),
+             "%s/crashes/.provenance/event-%06llu/%06u.input", afl->out_dir,
+             job.crash_id, job.sequence_index);
+    s32 fd = open(input_fn, O_RDONLY);
+    if (fd < 0) {
+
+      shadow_write_result(afl, &job, "input_unavailable", 0, 0, 0);
+      continue;
+
+    }
+
+    struct stat st;
+    if (fstat(fd, &st) || st.st_size < 0 || st.st_size > MAX_FILE) {
+
+      close(fd);
+      shadow_write_result(afl, &job, "input_unavailable", 0, 0, 0);
+      continue;
+
+    }
+
+    u32 len = st.st_size;
+    u8 *buf = ck_alloc(len ? len : 1);
+    u32 off = 0;
+    while (off < len) {
+
+      ssize_t got = read(fd, buf + off, len - off);
+      if (got <= 0) { break; }
+      off += got;
+
+    }
+
+    close(fd);
+    if (off != len) {
+
+      ck_free(buf);
+      shadow_write_result(afl, &job, "input_unavailable", 0, 0, 0);
+      continue;
+
+    }
+
+    if (shadow.child_pid > 0) { shadow.discard_stopped_child = 1; }
+    afl_fsrv_write_to_testcase(&shadow, buf, len);
+    fsrv_run_result_t result =
+        afl_fsrv_run_target(&shadow, job.timeout_ms, &afl->stop_soon);
+    ck_free(buf);
+
+    u64 fingerprint = result == FSRV_RUN_CRASH
+                          ? hash64(shadow.trace_bits, shadow.map_size, HASH_CONST)
+                          : 0;
+    const char *classification = "verification_error";
+    if (result == FSRV_RUN_CRASH) {
+
+      classification = shadow.last_kill_signal == job.signal &&
+                               shadow.last_exit_code == job.exit_code &&
+                               fingerprint == job.coverage_fingerprint
+                           ? "reproduced_same_observation"
+                           : "reproduced_different_observation";
+
+    } else if (result == FSRV_RUN_OK) {
+
+      classification = "state_dependent";
+
+    } else if (result == FSRV_RUN_TMOUT) {
+
+      classification = "verification_timeout";
+
+    }
+
+    shadow_write_result(afl, &job, classification, shadow.last_kill_signal,
+                        shadow.last_exit_code, fingerprint);
+
+  }
+
+  close(job_fd);
+  afl_fsrv_deinit(&shadow);
+  afl_shm_deinit(&shadow_input);
+  afl_shm_deinit(&shadow_shm);
+  _exit(0);
+
+}
+
+void afl_shadow_start(afl_state_t *afl) {
+
+  if (!afl->afl_env.afl_crash_shadow) { return; }
+  if (!afl->fsrv.provenance_depth || !afl->fsrv.use_shmem_fuzz ||
+      afl->non_instrumented_mode || afl->value_profile_mode ||
+      afl->fsrv.use_ijon || afl->fsrv.use_bug_map || afl->fsrv.qemu_mode ||
+      afl->fsrv.frida_mode || afl->fsrv.unicorn_mode || afl->fsrv.cs_mode ||
+      afl->fsrv.nyx_mode || afl->custom_mutators_count) {
+
+    FATAL("AFL_CRASH_SHADOW does not support the active backend or transport");
+
+  }
+
+  s32 jobs[2], ready[2];
+  if (pipe(jobs) || pipe(ready)) { PFATAL("Unable to create shadow pipes"); }
+  s32 pid = fork();
+  if (pid < 0) { PFATAL("Unable to create shadow worker"); }
+  if (!pid) {
+
+    close(jobs[1]);
+    close(ready[0]);
+    shadow_worker(afl, jobs[0], ready[1]);
+
+  }
+
+  close(jobs[0]);
+  close(ready[1]);
+  u8 status = 0;
+  if (read(ready[0], &status, 1) != 1 || status != 1) {
+
+    FATAL("Shadow verifier failed to initialize");
+
+  }
+
+  close(ready[0]);
+  s32 flags = fcntl(jobs[1], F_GETFL, 0);
+  if (flags >= 0) { fcntl(jobs[1], F_SETFL, flags | O_NONBLOCK); }
+  afl->shadow_job_fd = jobs[1];
+  afl->shadow_worker_pid = pid;
+
+}
+
+u8 afl_shadow_submit(afl_state_t *afl, const afl_shadow_job_t *job) {
+
+  if (afl->shadow_job_fd < 0) { return 0; }
+  ssize_t written = write(afl->shadow_job_fd, job, sizeof(*job));
+  return written == sizeof(*job);
+
+}
+
+void afl_shadow_stop(afl_state_t *afl) {
+
+  if (afl->shadow_job_fd >= 0) {
+
+    close(afl->shadow_job_fd);
+    afl->shadow_job_fd = -1;
+
+  }
+
+  if (afl->shadow_worker_pid > 0) {
+
+    waitpid(afl->shadow_worker_pid, NULL, 0);
+    afl->shadow_worker_pid = -1;
+
+  }
+
+}
 
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */

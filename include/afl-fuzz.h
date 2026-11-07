@@ -611,7 +611,8 @@ typedef struct afl_env_vars {
       afl_final_sync, afl_ignore_seed_problems, afl_disable_redundant,
       afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
       afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled,
-      afl_crash_traces, afl_verify_crash, afl_starved_minimize_queue;
+      afl_crash_traces, afl_verify_crash, afl_crash_shadow,
+      afl_starved_minimize_queue;
 
   u16 afl_forksrv_nb_supl_gids;
 
@@ -644,6 +645,17 @@ struct foreign_sync {
 
 };
 
+typedef struct afl_shadow_job {
+
+  u64 crash_id;
+  u64 coverage_fingerprint;
+  u32 sequence_index;
+  u32 timeout_ms;
+  u8  signal;
+  u8  exit_code;
+
+} afl_shadow_job_t;
+
 struct sync_peer_state {
 
   u8 *name;
@@ -663,6 +675,8 @@ typedef struct afl_state {
   sharedmem_t      shm;
   sharedmem_t     *shm_fuzz;
   afl_env_vars_t   afl_env;
+  s32              shadow_job_fd;
+  s32              shadow_worker_pid;
 #ifdef __AFL_CODE_COVERAGE
   sharedmem_t shm_pcmap;                         /* Shared memory for pcmap */
   sharedmem_t shm_modmap;                       /* Shared memory for modmap */
@@ -1455,6 +1469,9 @@ void minimize_bits(afl_state_t *, u8 *, u8 *);
 u8 *describe_op(afl_state_t *, u8, size_t);
 #endif
 u8   save_if_interesting(afl_state_t *, void *, u32, u8);
+void afl_shadow_start(afl_state_t *);
+u8   afl_shadow_submit(afl_state_t *, const afl_shadow_job_t *);
+void afl_shadow_stop(afl_state_t *);
 u8   has_new_bits(afl_state_t *, u8 *);
 void virgin_undo_arm(afl_state_t *);
 void virgin_undo_save(afl_state_t *);
