@@ -952,8 +952,9 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8  is_crash_save = 0;
   u8  vp_restore_suppressed = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
-  s32 fd;
-  u32 cksum_simplified = 0, cksum_unique = 0;
+  const char *verify_crash;
+  s32         fd;
+  u32         cksum_simplified = 0, cksum_unique = 0;
 
   bool classified = false, bits_counted = false, cksumed = false;
   bool probed = false;
@@ -1607,6 +1608,31 @@ may_save_fault:
       /* This is handled in a manner roughly similar to timeouts,
          except for slightly different limits and no need to re-run test
          cases. */
+
+      /* A persistent target can crash only because earlier iterations left
+         state behind. Verify the candidate with a newly started forkserver
+         before using its trace for crash deduplication. This is deliberately
+         opt-in: restarting the forkserver has a substantial cost. */
+
+      verify_crash = getenv("AFL_VERIFY_CRASH");
+      if (unlikely(afl->fsrv.persistent_mode && !afl->fsrv.nyx_mode &&
+                   san_fault != FSRV_RUN_CRASH && verify_crash &&
+                   verify_crash[0] == '1' && verify_crash[1] == 0)) {
+
+        u8 original_signal = afl->fsrv.last_kill_signal;
+        afl_fsrv_kill(&afl->fsrv);
+        afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                       afl->afl_env.afl_debug_child);
+
+        if (unlikely(fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout) !=
+                         FSRV_RUN_CRASH ||
+                     afl->fsrv.last_kill_signal != original_signal)) {
+
+          return keeping;
+
+        }
+
+      }
 
       is_crash_save = 1;
 
