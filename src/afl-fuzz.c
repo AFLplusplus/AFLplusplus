@@ -1770,6 +1770,13 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
 
   }
 
+  if (afl->afl_env.afl_crash_shadow_adaptive &&
+      !afl->afl_env.afl_crash_shadow) {
+
+    FATAL("AFL_CRASH_SHADOW_ADAPTIVE requires AFL_CRASH_SHADOW");
+
+  }
+
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
   OKF("AFL++ is maintained by Marc \"van Hauser\" Heuse, Dominik Maier, Andrea "

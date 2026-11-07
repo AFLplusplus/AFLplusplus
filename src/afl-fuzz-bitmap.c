@@ -1818,6 +1818,7 @@ may_save_fault:
                               ? crash_fsrv->provenance_bytes
                               : 0;
       u8 shadow_queued = 0;
+      afl->shadow_last_submit = 0;
 
       if (journal_count) {
 
@@ -1863,6 +1864,13 @@ may_save_fault:
         shadow_queued = afl_shadow_submit(afl, &job);
 
       }
+      const char *shadow_submit = !afl->afl_env.afl_crash_shadow
+                                      ? "disabled"
+                                      : afl->shadow_last_submit == 1
+                                            ? "queued"
+                                            : afl->shadow_last_submit == 2
+                                                  ? "adaptive_skip"
+                                                  : "backpressure";
 
       snprintf(meta_fn, sizeof(meta_fn), "%s/event-%06llu.json", meta_dir,
                crash_id);
@@ -1871,7 +1879,7 @@ may_save_fault:
       s32 meta_fd = open(meta_tmp, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
       if (meta_fd >= 0) {
 
-        char meta[512];
+        char meta[1024];
         int  meta_len = snprintf(
             meta, sizeof(meta),
             "{\n  \"schema\": 1,\n  \"crash_id\": %llu,\n"
@@ -1882,10 +1890,17 @@ may_save_fault:
             "  \"exit_code\": %u,\n  \"timeout_ms\": %u,\n"
             "  \"execution_coverage_fingerprint\": \"%016llx\",\n"
             "  \"journal_entries\": %u,\n  \"journal_bytes\": %llu,\n"
-            "  \"shadow_queued\": %s\n}\n",
+            "  \"shadow_queued\": %s,\n  \"shadow_submit\": \"%s\",\n"
+            "  \"shadow_inflight\": %u,\n  \"shadow_completed\": %llu,\n"
+            "  \"shadow_adaptive_skipped\": %llu,\n"
+            "  \"shadow_backpressure\": %llu,\n"
+            "  \"shadow_state_ewma_q16\": %u\n}\n",
             crash_id, classification, original_crash_signal,
             original_crash_exit, fault_exec_tmout, original_crash_hash,
-            journal_count, journal_bytes, shadow_queued ? "true" : "false");
+            journal_count, journal_bytes, shadow_queued ? "true" : "false",
+            shadow_submit, afl->shadow_inflight, afl->shadow_completed,
+            afl->shadow_adaptive_skipped, afl->shadow_backpressure,
+            afl->shadow_ewma_q16);
         ck_write(meta_fd, meta, meta_len, meta_tmp);
         close(meta_fd);
         if (rename(meta_tmp, meta_fn)) { unlink(meta_tmp); }

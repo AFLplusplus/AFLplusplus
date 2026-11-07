@@ -17,9 +17,11 @@ for mode in off on fresh; do
   if [ "$mode" = on ]; then
     export AFL_CRASH_PROVENANCE_DEPTH=8 AFL_CRASH_PROVENANCE_MAX_BYTES=1048576
     export AFL_CRASH_SHADOW=1
+    export AFL_CRASH_SHADOW_ADAPTIVE=1 AFL_CRASH_SHADOW_MAX_INFLIGHT=4
   else
     unset AFL_CRASH_PROVENANCE_DEPTH AFL_CRASH_PROVENANCE_MAX_BYTES
     unset AFL_CRASH_SHADOW
+    unset AFL_CRASH_SHADOW_ADAPTIVE AFL_CRASH_SHADOW_MAX_INFLIGHT
   fi
   if [ "$mode" = fresh ]; then export VERIFY_CRASH_TEST_FRESH=1; else unset VERIFY_CRASH_TEST_FRESH; fi
   dict="$tmp/state.dict"
@@ -46,6 +48,10 @@ for mode in off on fresh; do
       "$tmp/$mode/default/crashes/.provenance/"*.shadow.json
     grep -q '"classification": "state_dependent"' \
       "$tmp/$mode/default/crashes/.provenance/"*.shadow.json
+    grep -q '"shadow_submit": "queued"' \
+      "$tmp/$mode/default/crashes/.provenance/event-000000.json"
+    grep -q '"shadow_state_ewma_q16"' \
+      "$tmp/$mode/default/crashes/.provenance/event-000000.json"
   elif [ "$mode" = fresh ]; then
     grep -q '"classification": "reproduced_same_observation"' \
       "$tmp/$mode/default/crashes/.provenance/"*.json

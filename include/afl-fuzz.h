@@ -612,6 +612,7 @@ typedef struct afl_env_vars {
       afl_sha1_filenames, afl_no_sync, afl_no_fastresume, afl_force_fastresume,
       afl_forksrv_uid_set, afl_forksrv_gid_set, afl_frameshift_disabled,
       afl_crash_traces, afl_verify_crash, afl_crash_shadow,
+      afl_crash_shadow_adaptive,
       afl_starved_minimize_queue;
 
   u16 afl_forksrv_nb_supl_gids;
@@ -622,7 +623,8 @@ typedef struct afl_env_vars {
       *afl_crash_exitcode, *afl_statsd_tags_flavor, *afl_testcache_size,
       *afl_testcache_entries, *afl_child_kill_signal, *afl_fsrv_kill_signal,
       *afl_target_env, *afl_persistent_record, *afl_crash_provenance_depth,
-      *afl_crash_provenance_max_bytes, *afl_exit_on_time;
+      *afl_crash_provenance_max_bytes, *afl_crash_shadow_max_inflight,
+      *afl_exit_on_time;
 
   s32 afl_pizza_mode, afl_ijon_history_limit;
 
@@ -656,6 +658,23 @@ typedef struct afl_shadow_job {
 
 } afl_shadow_job_t;
 
+enum afl_shadow_classification {
+
+  SHADOW_SAME_OBSERVATION,
+  SHADOW_DIFFERENT_OBSERVATION,
+  SHADOW_STATE_DEPENDENT,
+  SHADOW_TIMEOUT,
+  SHADOW_ERROR
+
+};
+
+typedef struct afl_shadow_result {
+
+  u64 crash_id;
+  u8  classification;
+
+} afl_shadow_result_t;
+
 struct sync_peer_state {
 
   u8 *name;
@@ -676,7 +695,17 @@ typedef struct afl_state {
   sharedmem_t     *shm_fuzz;
   afl_env_vars_t   afl_env;
   s32              shadow_job_fd;
+  s32              shadow_result_fd;
   s32              shadow_worker_pid;
+  u32              shadow_max_inflight;
+  u32              shadow_inflight;
+  u32              shadow_ewma_q16;
+  u32              shadow_sample_cursor;
+  u8               shadow_last_submit;
+  u64              shadow_queued;
+  u64              shadow_completed;
+  u64              shadow_adaptive_skipped;
+  u64              shadow_backpressure;
 #ifdef __AFL_CODE_COVERAGE
   sharedmem_t shm_pcmap;                         /* Shared memory for pcmap */
   sharedmem_t shm_modmap;                       /* Shared memory for modmap */

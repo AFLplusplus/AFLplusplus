@@ -40,6 +40,7 @@
 
 #include "cmplog.h"
 #include "asanfuzz.h"
+#include "afl-shadow-policy.h"
 
 #ifdef PROFILING
 u64 time_spent_working = 0;
@@ -97,7 +98,25 @@ static u8 shadow_read_job(s32 fd, afl_shadow_job_t *job) {
 
 }
 
-static void shadow_worker(afl_state_t *afl, s32 job_fd, s32 ready_fd) {
+static void shadow_send_result(s32 fd, u64 crash_id, u8 classification) {
+
+  afl_shadow_result_t result = {.crash_id = crash_id,
+                                .classification = classification};
+  size_t done = 0;
+  while (done < sizeof(result)) {
+
+    ssize_t written =
+        write(fd, (u8 *)&result + done, sizeof(result) - done);
+    if (written < 0 && errno == EINTR) { continue; }
+    if (written <= 0) { return; }
+    done += written;
+
+  }
+
+}
+
+static void shadow_worker(afl_state_t *afl, s32 job_fd, s32 result_fd,
+                          s32 ready_fd) {
 
   signal(SIGINT, SIG_DFL);
   signal(SIGTERM, SIG_DFL);
@@ -146,6 +165,7 @@ static void shadow_worker(afl_state_t *afl, s32 job_fd, s32 ready_fd) {
     if (fd < 0) {
 
       shadow_write_result(afl, &job, "input_unavailable", 0, 0, 0);
+      shadow_send_result(result_fd, job.crash_id, SHADOW_ERROR);
       continue;
 
     }
@@ -155,6 +175,7 @@ static void shadow_worker(afl_state_t *afl, s32 job_fd, s32 ready_fd) {
 
       close(fd);
       shadow_write_result(afl, &job, "input_unavailable", 0, 0, 0);
+      shadow_send_result(result_fd, job.crash_id, SHADOW_ERROR);
       continue;
 
     }
@@ -175,6 +196,7 @@ static void shadow_worker(afl_state_t *afl, s32 job_fd, s32 ready_fd) {
 
       ck_free(buf);
       shadow_write_result(afl, &job, "input_unavailable", 0, 0, 0);
+      shadow_send_result(result_fd, job.crash_id, SHADOW_ERROR);
       continue;
 
     }
@@ -189,6 +211,7 @@ static void shadow_worker(afl_state_t *afl, s32 job_fd, s32 ready_fd) {
                           ? hash64(shadow.trace_bits, shadow.map_size, HASH_CONST)
                           : 0;
     const char *classification = "verification_error";
+    u8          result_class = SHADOW_ERROR;
     if (result == FSRV_RUN_CRASH) {
 
       classification = shadow.last_kill_signal == job.signal &&
@@ -196,23 +219,32 @@ static void shadow_worker(afl_state_t *afl, s32 job_fd, s32 ready_fd) {
                                fingerprint == job.coverage_fingerprint
                            ? "reproduced_same_observation"
                            : "reproduced_different_observation";
+      result_class = shadow.last_kill_signal == job.signal &&
+                             shadow.last_exit_code == job.exit_code &&
+                             fingerprint == job.coverage_fingerprint
+                         ? SHADOW_SAME_OBSERVATION
+                         : SHADOW_DIFFERENT_OBSERVATION;
 
     } else if (result == FSRV_RUN_OK) {
 
       classification = "state_dependent";
+      result_class = SHADOW_STATE_DEPENDENT;
 
     } else if (result == FSRV_RUN_TMOUT) {
 
       classification = "verification_timeout";
+      result_class = SHADOW_TIMEOUT;
 
     }
 
     shadow_write_result(afl, &job, classification, shadow.last_kill_signal,
                         shadow.last_exit_code, fingerprint);
+    shadow_send_result(result_fd, job.crash_id, result_class);
 
   }
 
   close(job_fd);
+  close(result_fd);
   afl_fsrv_deinit(&shadow);
   afl_shm_deinit(&shadow_input);
   afl_shm_deinit(&shadow_shm);
@@ -233,19 +265,25 @@ void afl_shadow_start(afl_state_t *afl) {
 
   }
 
-  s32 jobs[2], ready[2];
-  if (pipe(jobs) || pipe(ready)) { PFATAL("Unable to create shadow pipes"); }
+  s32 jobs[2], results[2], ready[2];
+  if (pipe(jobs) || pipe(results) || pipe(ready)) {
+
+    PFATAL("Unable to create shadow pipes");
+
+  }
   s32 pid = fork();
   if (pid < 0) { PFATAL("Unable to create shadow worker"); }
   if (!pid) {
 
     close(jobs[1]);
+    close(results[0]);
     close(ready[0]);
-    shadow_worker(afl, jobs[0], ready[1]);
+    shadow_worker(afl, jobs[0], results[1], ready[1]);
 
   }
 
   close(jobs[0]);
+  close(results[1]);
   close(ready[1]);
   u8 status = 0;
   if (read(ready[0], &status, 1) != 1 || status != 1) {
@@ -257,16 +295,98 @@ void afl_shadow_start(afl_state_t *afl) {
   close(ready[0]);
   s32 flags = fcntl(jobs[1], F_GETFL, 0);
   if (flags >= 0) { fcntl(jobs[1], F_SETFL, flags | O_NONBLOCK); }
+  flags = fcntl(results[0], F_GETFL, 0);
+  if (flags >= 0) { fcntl(results[0], F_SETFL, flags | O_NONBLOCK); }
   afl->shadow_job_fd = jobs[1];
+  afl->shadow_result_fd = results[0];
   afl->shadow_worker_pid = pid;
+
+  if (afl->afl_env.afl_crash_shadow_max_inflight) {
+
+    u64 limit = strtoull(afl->afl_env.afl_crash_shadow_max_inflight, NULL, 10);
+    if (!limit || limit > 1024) {
+
+      FATAL("AFL_CRASH_SHADOW_MAX_INFLIGHT must be between 1 and 1024");
+
+    }
+
+    afl->shadow_max_inflight = limit;
+
+  }
+
+}
+
+static void shadow_poll_results(afl_state_t *afl) {
+
+  if (afl->shadow_result_fd < 0) { return; }
+  afl_shadow_result_t result;
+  for (;;) {
+
+    ssize_t got = read(afl->shadow_result_fd, &result, sizeof(result));
+    if (got == sizeof(result)) {
+
+      if (afl->shadow_inflight) { --afl->shadow_inflight; }
+      ++afl->shadow_completed;
+      u32 sample = result.classification == SHADOW_STATE_DEPENDENT
+                       ? 65535
+                       : result.classification == SHADOW_SAME_OBSERVATION
+                             ? 0
+                             : 32768;
+      afl->shadow_ewma_q16 = afl_shadow_policy_update(
+          afl->shadow_ewma_q16, sample, afl->shadow_completed - 1);
+
+      continue;
+
+    }
+
+    if (got < 0 && errno == EINTR) { continue; }
+    return;
+
+  }
 
 }
 
 u8 afl_shadow_submit(afl_state_t *afl, const afl_shadow_job_t *job) {
 
   if (afl->shadow_job_fd < 0) { return 0; }
+  shadow_poll_results(afl);
+  afl->shadow_last_submit = 0;
+
+  if (afl->afl_env.afl_crash_shadow_adaptive) {
+
+    u32 stride = afl_shadow_policy_stride(afl->shadow_completed,
+                                          afl->shadow_ewma_q16);
+    if (afl->shadow_sample_cursor++ % stride) {
+
+      ++afl->shadow_adaptive_skipped;
+      afl->shadow_last_submit = 2;
+      return 0;
+
+    }
+
+  }
+
+  if (afl->shadow_inflight >= afl->shadow_max_inflight) {
+
+    ++afl->shadow_backpressure;
+    afl->shadow_last_submit = 3;
+    return 0;
+
+  }
+
   ssize_t written = write(afl->shadow_job_fd, job, sizeof(*job));
-  return written == sizeof(*job);
+  if (written == sizeof(*job)) {
+
+    ++afl->shadow_inflight;
+    ++afl->shadow_queued;
+    afl->shadow_last_submit = 1;
+    return 1;
+
+  }
+
+  ++afl->shadow_backpressure;
+  afl->shadow_last_submit = 3;
+  return 0;
 
 }
 
@@ -281,8 +401,22 @@ void afl_shadow_stop(afl_state_t *afl) {
 
   if (afl->shadow_worker_pid > 0) {
 
-    waitpid(afl->shadow_worker_pid, NULL, 0);
+    while (waitpid(afl->shadow_worker_pid, NULL, WNOHANG) == 0) {
+
+      shadow_poll_results(afl);
+      usleep(1000);
+
+    }
+
     afl->shadow_worker_pid = -1;
+
+  }
+
+  shadow_poll_results(afl);
+  if (afl->shadow_result_fd >= 0) {
+
+    close(afl->shadow_result_fd);
+    afl->shadow_result_fd = -1;
 
   }
 

@@ -750,6 +750,17 @@ checks or alter some of the more exotic semantics of the tool:
     non-instrumented modes until those execution environments define and test
     an isolated reset contract.
 
+  - `AFL_CRASH_SHADOW_ADAPTIVE=1` enables feedback-controlled shadow sampling.
+    The first eight completed jobs are always observed. Afterwards an EWMA of
+    shadow outcomes selects a stride of 1 when state dependence is high, 2 at
+    intermediate levels, or 4 when observations are consistently reproducible.
+    This changes only clean-lane triage frequency; it never recycles or
+    shortens the main persistent fuzzing lane. `AFL_CRASH_SHADOW_MAX_INFLIGHT`
+    bounds outstanding jobs (default 16, range 1 to 1024). Queue pressure never
+    blocks fuzzing: a manifest records `adaptive_skip` or `backpressure`, along
+    with cumulative counters and the fixed-point EWMA, when a job is not
+    submitted.
+
   - Setting `AFL_CUSTOM_MUTATOR_LIBRARY` to a shared library with
     afl_custom_fuzz() creates additional mutations through this library. If
     afl-fuzz is compiled with Python (which is autodetected during building
