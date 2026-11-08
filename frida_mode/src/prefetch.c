@@ -286,6 +286,21 @@ static void prefetch_read_patches(void) {
 void prefetch_read(void) {
 
   prefetch_ranges_fresh = FALSE;
+
+  /*
+   * Only the fork server keeps the cached ranges: it no longer runs target
+   * code, so its executable mappings are never removed. A process past the
+   * entry point (a test case child, or a process the target forks itself)
+   * reaches this through the fork hook with a copy it inherited, and may have
+   * unmapped code since. List the ranges afresh there before trusting a hit.
+   */
+  if (entry_run && prefetch_data != NULL &&
+      (prefetch_data->count != 0 || prefetch_data->backpatch_size != 0)) {
+
+    prefetch_refresh_ranges();
+
+  }
+
   prefetch_read_blocks();
   prefetch_read_patches();
 
