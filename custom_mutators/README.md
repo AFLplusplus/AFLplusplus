@@ -49,6 +49,14 @@ Read the README in the [Grammar-Mutator] repository on how to use it.
 
 Note that this custom mutator is not very good though!
 
+### afl-compiler-fuzzer
+
+In `./compiler_fuzzer` you find the mutators of
+[afl-compiler-fuzzer](https://github.com/agroce/afl-compiler-fuzzer):
+mutation-testing operators applied as havoc steps, for fuzzing compilers and
+other tools that take C-like source code as input, plus an optional
+comby-decomposer based mutator.
+
 ### Other Mutators
 
 Nautilus, atnwalk and gramatron are grammar custom mutators. Example grammars are

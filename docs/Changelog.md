@@ -10,6 +10,10 @@
     - timeout fix for slow starting targets (until they reach the fork server)
     - fix for AFL_NO_STARTUP_CALIBRATION (don't use it, change your setup)
     - improve cmplog pipe, more speed (thanks to @martinus)
+  - custom mutators
+    - added `custom_mutators/compiler_fuzzer`: the afl-compiler-fuzzer
+      source-level mutations (and its comby-decomposer mode) as custom
+      mutators, for fuzzing compilers with C-like input languages
   - afl-cc
     - a plain `-fcf-protection` (part of the default hardened CFLAGS on
       Fedora/RHEL) was mistaken for `AFL_USE_CFISAN` and injected `-flto`,
