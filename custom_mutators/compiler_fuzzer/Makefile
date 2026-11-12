@@ -14,7 +14,7 @@ comby-mutator.so: comby_mutator.c compiler_common.h
 	$(CC) $(CFLAGS) $(INC) -o $@ comby_mutator.c $(PERF) $(LDFLAGS)
 
 test: all
-	./test.sh
+	sh ./test.sh
 
 clean:
 	rm -f *.so *.o *~ core
