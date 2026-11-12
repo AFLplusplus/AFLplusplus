@@ -98,7 +98,7 @@ static size_t acf_stacked_fuzz(acf_driver_t *d, const u8 *in, size_t in_len,
   u32    stacking = 1U << (1 + rand_below(afl, d->stack_pow2));
   bool   explore = afl->fuzz_mode == 0;
 
-  for (u32 i = 0; i < stacking; ++i) {
+  for (u32 i = 0; i < stacking && !afl->stop_soon; ++i) {
 
     if (rand_below(afl, 100) < d->prob && step(ctx, d->buf, &len, max_size)) {
 
