@@ -62,7 +62,7 @@ echo "[*] AFL++ QEMU bridge acceptance harness"
 echo "[*] root=$ROOT arch=$SYS work=$WORK"
 
 if [ ! -x "$BRIDGE" ]; then
-  $ECHO "$YELLOW[-] qemu_bridge not compiled, cannot test"
+  echo "[-] qemu_bridge not compiled, cannot test"
   INCOMPLETE=1
   exit 0
 fi

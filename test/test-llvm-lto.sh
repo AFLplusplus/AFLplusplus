@@ -195,6 +195,10 @@ test -e ../afl-clang-lto -a -e ../SanitizerCoverageLTO.so && {
       test-value-profile-weak-guard-stubs-lto.o \
       test-value-profile-dlopen.lto.so test-dlopen.lto test-vp-lto.out \
       vp_weak_guard_lto.log
+  } || {
+    # also keeps this block's status 0, so the "not compiled" branch below
+    # only runs when LTO really is missing
+    $ECHO "$YELLOW[-] llvm_mode LTO runtime value profiling is only tested on x86/x64"
   }
 } || {
   $ECHO "$YELLOW[-] LTO llvm_mode not compiled, cannot test"

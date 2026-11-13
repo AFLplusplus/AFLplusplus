@@ -920,7 +920,10 @@ bool ModuleSanitizerCoverageLTO::instrumentModule(
 
             /* we do something different here, putting this BB and the
                successors in a block map */
-            if (!FuncName.compare("__afl_persistent_loop")) {
+            /* "\1___..." is the Mach-O form of the __AFL_LOOP asm label, see
+               markPersistentLoopEdges() */
+            if (!FuncName.compare("__afl_persistent_loop") ||
+                !FuncName.compare("\1___afl_persistent_loop")) {
 
               BlockList.push_back(&BB);
               for (succ_iterator SI = succ_begin(&BB), SE = succ_end(&BB);
@@ -1563,7 +1566,11 @@ static void markPersistentLoopEdges(Function &F) {
       CallInst *call = dyn_cast<CallInst>(&IN);
       if (!call) continue;
       Function *callee = call->getCalledFunction();
-      if (callee && callee->getName() == "__afl_persistent_loop") {
+      /* __AFL_LOOP declares the runtime function with an asm label, which on
+         Mach-O carries the extra leading underscore and so shows up in the IR
+         behind LLVM's "\1" no-mangle marker. */
+      if (callee && (callee->getName() == "__afl_persistent_loop" ||
+                     callee->getName() == "\1___afl_persistent_loop")) {
 
         calls_loop = true;
         break;
