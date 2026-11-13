@@ -54,14 +54,17 @@ static void gum_afl_stalker_backpatcher_notify(GumStalkerObserver *self,
 
   if (sizeof(gsize) + size > remaining) { return; }
 
-  gsize *dst_backpatch_size =
-      (gsize *)&prefetch_data->backpatch_data[prefetch_data->backpatch_size];
-  *dst_backpatch_size = size;
-  prefetch_data->backpatch_size += sizeof(gsize);
-
-  memcpy(&prefetch_data->backpatch_data[prefetch_data->backpatch_size],
-         backpatch, size);
-  prefetch_data->backpatch_size += size;
+  /* AFL may SIGKILL this child (timeout) at any instruction.
+   * Publish the entry with one store to backpatch_size after its header and
+   * data are written; growing the size before the data left a torn entry,
+   * and the parent's prefetch_read_patches() then FFATALs before the next
+   * fork, which kills the whole lane. */
+  guint8 *dst = &prefetch_data->backpatch_data[prefetch_data->backpatch_size];
+  memcpy(dst, &size, sizeof(gsize));
+  memcpy(dst + sizeof(gsize), backpatch, size);
+  __atomic_store_n(&prefetch_data->backpatch_size,
+                   prefetch_data->backpatch_size + sizeof(gsize) + size,
+                   __ATOMIC_RELEASE);
 
 }
 

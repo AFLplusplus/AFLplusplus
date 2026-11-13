@@ -65,18 +65,23 @@ void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
                  size_t needlelen) {
 
   if (unlikely(needlelen > haystacklen)) { return NULL; }
+  if (unlikely(needlelen == 0)) { return (void *)haystack; }
 
-  for (u32 i = 0; i <= haystacklen - needlelen; ++i) {
+  /* memchr() jumps to the next candidate for the first needle byte */
+  const u8 *h = haystack;
+  const u8 *n = needle;
+  const u8 *last = h + (haystacklen - needlelen);
 
-    if (unlikely(memcmp(haystack + i, needle, needlelen) == 0)) {
+  while (h <= last) {
 
-      return (void *)(haystack + i);
-
-    }
+    h = memchr(h, n[0], (size_t)(last - h) + 1);
+    if (!h) { return NULL; }
+    if (memcmp(h + 1, n + 1, needlelen - 1) == 0) { return (void *)h; }
+    ++h;
 
   }
 
-  return (void *)NULL;
+  return NULL;
 
 }
 
@@ -223,8 +228,8 @@ u32 check_binary_signatures(u8 *fn) {
   if (fd < 0) { PFATAL("Unable to open '%s'", fn); }
   struct stat st;
   if (fstat(fd, &st) < 0) { PFATAL("Unable to fstat '%s'", fn); }
-  u32 f_len = st.st_size;
-  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
+  size_t f_len = st.st_size;
+  u8    *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
   if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
   close(fd);
 
@@ -732,6 +737,23 @@ void configure_afl_kill_signals(afl_forkserver_t *fsrv,
 
   fsrv->fsrv_kill_signal = parse_afl_kill_signal(afl_fsrv_kill_signal_env,
                                                  default_server_kill_signal);
+
+}
+
+void configure_afl_crash_exitcode(afl_forkserver_t *fsrv, const char *value) {
+
+  if (!value) { return; }
+
+  char *end;
+  long  exitcode = strtol(value, &end, 10);
+  if (end == value || *end || exitcode < -127 || exitcode > 128) {
+
+    FATAL("Invalid crash exitcode, expected -127 to 128, but got %s", value);
+
+  }
+
+  fsrv->uses_crash_exitcode = true;
+  fsrv->crash_exitcode = (u8)exitcode;    /* WEXITSTATUS is 8 bit unsigned. */
 
 }
 

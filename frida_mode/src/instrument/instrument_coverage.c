@@ -484,25 +484,8 @@ static void instrument_coverage_normal_run() {
 
 }
 
-static GArray *instrument_coverage_unstable_read_unstable_ids(void) {
-
-  gchar  *contents = NULL;
-  gsize   length = 0;
-  GArray *unstable_edge_ids =
-      g_array_sized_new(false, false, sizeof(gpointer), 100);
-
-  if (!g_file_get_contents(unstable_coverage_fuzzer_stats, &contents, &length,
-                           NULL)) {
-
-    FFATAL("Failed to read fuzzer_stats");
-
-  }
-
-  instrument_coverage_print("\n");
-  instrument_coverage_print("Unstable coverage stats:\n");
-  instrument_coverage_print("========================\n");
-  instrument_coverage_print("%s\n", contents);
-  instrument_coverage_print("\n");
+static gchar **instrument_coverage_unstable_parse_var_bytes(
+    const gchar *contents) {
 
   gchar **lines = g_strsplit(contents, "\n", -1);
   gchar **values = NULL;
@@ -540,12 +523,55 @@ static GArray *instrument_coverage_unstable_read_unstable_ids(void) {
 
   }
 
-  if (values == NULL) {
+  g_strfreev(lines);
+  return values;
 
-    instrument_coverage_print(
-        "Failed to find var_bytes, did you set AFL_DEBUG?\n");
+}
+
+static GArray *instrument_coverage_unstable_read_unstable_ids(void) {
+
+  gchar   *contents = NULL;
+  gchar  **values = NULL;
+  gsize    length = 0;
+  gboolean stats_read = false;
+  GArray  *unstable_edge_ids =
+      g_array_sized_new(false, false, sizeof(gpointer), 100);
+
+  /*
+   * The coverage helper starts before afl-fuzz is guaranteed to have created
+   * and populated fuzzer_stats. Wait for both the file and var_bytes so the
+   * result does not depend on startup ordering.
+   */
+  for (guint attempt = 0; attempt < 1000 && values == NULL; attempt++) {
+
+    g_free(contents);
+    contents = NULL;
+
+    if (g_file_get_contents(unstable_coverage_fuzzer_stats, &contents, &length,
+                            NULL)) {
+
+      stats_read = true;
+      values = instrument_coverage_unstable_parse_var_bytes(contents);
+
+    }
+
+    if (values == NULL && attempt != 999) { g_usleep(10000); }
 
   }
+
+  if (values == NULL) {
+
+    if (!stats_read) { FFATAL("Failed to read fuzzer_stats"); }
+
+    FFATAL("Failed to find var_bytes in fuzzer_stats, did you set AFL_DEBUG?");
+
+  }
+
+  instrument_coverage_print("\n");
+  instrument_coverage_print("Unstable coverage stats:\n");
+  instrument_coverage_print("========================\n");
+  instrument_coverage_print("%s\n", contents);
+  instrument_coverage_print("\n");
 
   for (guint i = 0; values[i] != NULL; i++) {
 
@@ -556,7 +582,6 @@ static GArray *instrument_coverage_unstable_read_unstable_ids(void) {
   }
 
   g_strfreev(values);
-  g_strfreev(lines);
   g_free(contents);
 
   for (guint i = 0; i < unstable_edge_ids->len; i++) {

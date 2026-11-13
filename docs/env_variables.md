@@ -676,7 +676,8 @@ checks or alter some of the more exotic semantics of the tool:
     example, if `AFL_CRASH_EXITCODE='-1'` is set, each input resulting in a `-1`
     return code (i.e. `exit(-1)` got called), will be treated as if a crash had
     occurred. This may be beneficial if you look for higher-level faulty
-    conditions in which your target still exits gracefully.
+    conditions in which your target still exits gracefully. `afl-cmin` and
+    `afl-merge` also use this setting when selecting crashing inputs.
 
   - Setting `AFL_CRASH_TRACES` makes afl-fuzz capture the crashing execution's
     stdout/stderr (e.g. the AddressSanitizer report and stack trace) live and,

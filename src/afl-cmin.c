@@ -1098,6 +1098,7 @@ static char **prepare_fsrv(afl_forkserver_t *fsrv, sharedmem_t *shm,
 
   // Init fsrv
   afl_fsrv_init(fsrv);
+  configure_afl_crash_exitcode(fsrv, getenv("AFL_CRASH_EXITCODE"));
   set_sanitizer_defaults();
 
   /* Set binary-only mode flags before afl_fsrv_setup_preload() so the
@@ -2810,7 +2811,8 @@ static void usage(u8 *argv0, int status) {
         "The exit status is 0 on success and 1 on any error, including a run\n"
         "in which no input matched the requested crash/timeout policy.\n\n"
 
-        "afl-merge honors 'AFL_MAP_SIZE' and 'AFL_SHA1_FILENAMES'.\n\n"
+        "afl-merge honors 'AFL_MAP_SIZE', 'AFL_SHA1_FILENAMES' and "
+        "'AFL_CRASH_EXITCODE'.\n\n"
 
         "For additional help, consult %s/README.md.\n\n",
 
@@ -2861,8 +2863,8 @@ static void usage(u8 *argv0, int status) {
       "The exit status is 0 on success and 1 on any error, including a run in\n"
       "which no input matched the requested crash/timeout policy.\n\n"
 
-      "afl-cmin honors the 'AFL_MAP_SIZE' and 'AFL_SHA1_FILENAMES' "
-      "environment variables.\n\n"
+      "afl-cmin honors 'AFL_MAP_SIZE', 'AFL_SHA1_FILENAMES' and "
+      "'AFL_CRASH_EXITCODE'.\n\n"
 
       "For additional help, consult %s/README.md.\n\n",
 

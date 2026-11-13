@@ -4,7 +4,6 @@
 #include "gramfuzz.h"
 #include "gramfuzz-rng.h"
 #define NUMINPUTS 50
-int gf_standalone_mode = 1;
 state *create_pda(u8 *automaton_file) {
 
   cJSON              *parsed_json;

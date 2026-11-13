@@ -48,6 +48,8 @@ static void classify(unsigned char *buf, int len) {
     case 'C':
       abort();
       break;
+    case 'E':
+      exit(-1);
     case 'T':
       while (1) {}
       break;
