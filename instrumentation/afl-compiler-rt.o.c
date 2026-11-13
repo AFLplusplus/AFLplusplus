@@ -1022,6 +1022,25 @@ static void __afl_bug_bind_map(void) {
 
   }
 
+  /* The tool's shared map can be shorter than our layout until the forkserver
+     handshake has told it our real size (it then restarts us against a big
+     enough map). Binding into it now would write past the mapping, so keep
+     the local bug map until then. */
+  if (__afl_shm_map_len && __afl_map_size > __afl_shm_map_len) {
+
+    if (__afl_debug) {
+
+      fprintf(stderr,
+              "DEBUG: shared map is %zu bytes, bug map needs %u - deferring\n",
+              __afl_shm_map_len, __afl_map_size);
+
+    }
+
+    __afl_bug_map = __afl_bug_map_local;
+    return;
+
+  }
+
   /* Bug map is the trailing region of trace_bits. */
   __afl_bug_map =
       (u32 *)(void *)(__afl_area_ptr + __afl_map_size - MAP_SIZE_BUG_BYTES);
@@ -3440,12 +3459,31 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   if (__afl_already_initialized_shm) {
 
-    if (__afl_final_loc > __afl_map_size) {
+    __afl_bug_configure_runtime();
+
+    /* Where the map was attached before this ran (Mach-O constructor order:
+       __afl_final_loc was still 0), it was mapped at the MAP_SIZE placeholder.
+       The coverage region may fit in that, while the IJON and bug-map regions
+       appended below do not - so compare the whole layout against what is
+       really mapped, not just the coverage size. */
+    u32 needed = __afl_final_loc + 1;
+    if (__afl_ijon_enabled) {
+
+      needed = (((needed + 63) >> 6) << 6) + MAP_SIZE_IJON_MAP +
+               MAP_SIZE_IJON_BYTES;
+
+    }
+
+    if (__afl_bug_map_active) { needed += MAP_SIZE_BUG_BYTES; }
+
+    if (__afl_final_loc > __afl_map_size ||
+        (__afl_shm_map_len && needed > __afl_shm_map_len)) {
 
       if (__afl_debug) {
 
-        fprintf(stderr, "DEBUG: Reinit shm necessary (+%u)\n",
-                __afl_final_loc - __afl_map_size);
+        fprintf(stderr,
+                "DEBUG: Reinit shm necessary (need %u, have %u mapped of %u)\n",
+                needed, (u32)__afl_shm_map_len, __afl_map_size);
 
       }
 
