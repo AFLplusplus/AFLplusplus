@@ -126,6 +126,11 @@ static inline void afl_sync_wake(void *uaddr) {
   #include <sys/uio.h>
   #define AFL_HAVE_RAW_WRITEV 1
 #endif
+#if defined(AFL_HAVE_RAW_WRITEV) && \
+    ((defined(__APPLE__) && defined(__MACH__)) || defined(__linux__))
+  /* The readability probes write to a pipe (see __afl_open_dummy_fd). */
+  #define AFL_PROBE_PIPE 1
+#endif
 #ifndef USEMMAP
   #include <sys/shm.h>
 #endif
@@ -215,6 +220,36 @@ static FORCEINLINE NOASAN void *memset_noasan(void *dst, int c, size_t n) {
 
 }
 
+/* Read target operands in the hooks without libc: the ASan interceptors abort
+   on poisoned bytes that __asan_region_is_poisoned() can miss. volatile stops
+   the compiler from turning a loop back into a libc call. */
+static FORCEINLINE NOASAN void memcpy_noasan(void *dst, const void *src,
+                                             size_t n) {
+
+  u8                *d = (u8 *)dst;
+  const volatile u8 *s = (const volatile u8 *)src;
+  while (n--) {
+
+    *d++ = *s++;
+
+  }
+
+}
+
+static FORCEINLINE NOASAN size_t strnlen_noasan(const void *str, size_t n) {
+
+  const volatile u8 *s = (const volatile u8 *)str;
+  size_t             len = 0;
+  while (len < n && s[len]) {
+
+    ++len;
+
+  }
+
+  return len;
+
+}
+
 /* Globals needed by the injected instrumentation. The __afl_area_initial region
    is used for instrumentation output before __afl_map_shm() has a chance to
    run. It will end up as .comm, so it shouldn't be too wasteful. */
@@ -230,6 +265,10 @@ static u8  __afl_area_initial[MAP_INITIAL_SIZE];
 static u8 *__afl_area_ptr_dummy = __afl_area_initial;
 static u8 *__afl_area_ptr_backup = __afl_area_initial;
 
+/* The coverage callbacks write through __afl_area_ptr, also in a libc function
+   that the target defines itself (getenv, free, munmap, ...). So it must always
+   point to a valid map: assign a new map only after it is checked, and switch
+   to the dummy before the current map is released. */
 u8  *__afl_area_ptr = __afl_area_initial;
 u8  *__afl_dictionary;
 u32 *__afl_child_sync = NULL;
@@ -983,6 +1022,25 @@ static void __afl_bug_bind_map(void) {
 
   }
 
+  /* The tool's shared map can be shorter than our layout until the forkserver
+     handshake has told it our real size (it then restarts us against a big
+     enough map). Binding into it now would write past the mapping, so keep
+     the local bug map until then. */
+  if (__afl_shm_map_len && __afl_map_size > __afl_shm_map_len) {
+
+    if (__afl_debug) {
+
+      fprintf(stderr,
+              "DEBUG: shared map is %zu bytes, bug map needs %u - deferring\n",
+              __afl_shm_map_len, __afl_map_size);
+
+    }
+
+    __afl_bug_map = __afl_bug_map_local;
+    return;
+
+  }
+
   /* Bug map is the trailing region of trace_bits. */
   __afl_bug_map =
       (u32 *)(void *)(__afl_area_ptr + __afl_map_size - MAP_SIZE_BUG_BYTES);
@@ -994,29 +1052,36 @@ static void __afl_bug_bind_map(void) {
    work: the kernel never reads the source buffer, so the probe would report
    unmapped memory as valid - which is also why there is no fallback to the
    target's own stdout or stderr, whose sink the target does not control and
-   which afl-fuzz points at /dev/null. The pipe fallback is set non-blocking
-   because nothing ever drains it: once the 64K buffer is full the probes fail
-   closed and stop collecting instead of blocking the target forever. Runs at
-   most once - until it does, the descriptor stays -1 and the probes fail
-   closed. */
+   which afl-fuzz points at /dev/null. On other platforms the pipe fallback is
+   set non-blocking because nothing ever drains it: once the 64K buffer is full
+   the probes fail closed and stop collecting instead of blocking the target
+   forever. Runs at most once - until it does, the descriptor stays -1 and the
+   probes fail closed. */
 static void __afl_open_dummy_fd(void) {
 
   static u8 attempted = 0;
 
   if (attempted) { return; }
   attempted = 1;
+  /* A failed pipe() or open() changes errno, and this can run inside target
+     code (lazy initialization from a hook). */
+  int saved_errno = errno;
 
-#if defined(__APPLE__) && defined(__MACH__)
-  /* The readability probe (area_is_valid) writes the tested bytes to this fd so
-     the kernel faults on unmapped source pages. On macOS neither sink used on
-     other platforms works: write() to /dev/urandom always returns -1, and
-     write() to /dev/null never faults (it reports success for unmapped memory).
-     A pipe faults correctly, so use it directly. Set both ends non-blocking so
-     that once the 64 KiB buffer fills the read end can be drained and the write
-     retried instead of blocking (see area_is_valid / __afl_drain_dummy_fd). */
+#ifdef AFL_PROBE_PIPE
+  /* On macOS write() to /dev/urandom always returns -1. On Linux it works, but
+     the kernel mixes every byte into the entropy pool under a global lock,
+     which is slow and serializes parallel fuzzer instances. A pipe faults
+     correctly and is cheap. Set both ends non-blocking so that once the 64 KiB
+     buffer fills the read end can be drained and the write retried instead of
+     blocking (see __afl_drain_dummy_fd). Both ends are close-on-exec so they
+     do not leak into programs the target runs. */
   if (pipe(__afl_dummy_fd) < 0) {
 
     __afl_dummy_fd[0] = __afl_dummy_fd[1] = -1;
+  #ifdef __linux__
+    /* Slower, but it faults correctly. */
+    __afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY | O_CLOEXEC);
+  #endif
 
   } else {
 
@@ -1024,13 +1089,14 @@ static void __afl_open_dummy_fd(void) {
 
       int flags = fcntl(__afl_dummy_fd[i], F_GETFL, 0);
       if (flags >= 0) { fcntl(__afl_dummy_fd[i], F_SETFL, flags | O_NONBLOCK); }
+      fcntl(__afl_dummy_fd[i], F_SETFD, FD_CLOEXEC);
 
     }
 
   }
 
 #else
-  if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
+  if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY | O_CLOEXEC)) < 0) {
 
     if (pipe(__afl_dummy_fd) < 0) {
 
@@ -1040,12 +1106,19 @@ static void __afl_open_dummy_fd(void) {
 
       int flags = fcntl(__afl_dummy_fd[1], F_GETFL, 0);
       if (flags >= 0) { fcntl(__afl_dummy_fd[1], F_SETFL, flags | O_NONBLOCK); }
+      for (int i = 0; i < 2; ++i) {
+
+        fcntl(__afl_dummy_fd[i], F_SETFD, FD_CLOEXEC);
+
+      }
 
     }
 
   }
 
 #endif
+
+  errno = saved_errno;
 
 }
 
@@ -1335,17 +1408,18 @@ static void __afl_map_shm(void) {
     if (__afl_area_ptr && __afl_area_ptr != __afl_area_initial &&
         __afl_area_ptr != __afl_area_ptr_dummy) {
 
+      u8 *old_ptr = __afl_area_ptr;
+      __afl_area_ptr = __afl_area_ptr_dummy;
+
       if (__afl_map_addr) {
 
         munmap((void *)__afl_map_addr, __afl_final_loc);
 
       } else {
 
-        free(__afl_area_ptr);
+        free(old_ptr);
 
       }
-
-      __afl_area_ptr = __afl_area_ptr_dummy;
 
     }
 
@@ -1362,13 +1436,16 @@ static void __afl_map_shm(void) {
 
 #endif
 
+    /* Attach into a local: the code below calls getenv(), shm_open() and
+       mmap(), and __afl_area_ptr must stay valid until the map is checked. */
+
     /* Preferred path: the map was handed to us as an inherited descriptor. */
 
-    __afl_area_ptr = (u8 *)__afl_map_shm_fd(
+    u8 *attached_ptr = (u8 *)__afl_map_shm_fd(
         SHM_FD_ENV_VAR, shm_map_len, PROT_READ | PROT_WRITE,
         (void *)(uintptr_t)__afl_map_addr, &__afl_shm_map_len);
 
-    if (!__afl_area_ptr && id_str) {
+    if (!attached_ptr && id_str) {
 
 #ifdef USEMMAP
       const char    *shm_file_path = id_str;
@@ -1419,7 +1496,7 @@ static void __afl_map_shm(void) {
 
       }
 
-      __afl_area_ptr = shm_base;
+      attached_ptr = shm_base;
 #else
       u32 shm_id = atoi(id_str);
 
@@ -1449,7 +1526,7 @@ static void __afl_map_shm(void) {
 
       }
 
-      __afl_area_ptr = (u8 *)shmat(shm_id, (void *)__afl_map_addr, 0);
+      attached_ptr = (u8 *)shmat(shm_id, (void *)__afl_map_addr, 0);
 
 #endif
 
@@ -1457,7 +1534,7 @@ static void __afl_map_shm(void) {
 
     /* Whooooops. */
 
-    if (!__afl_area_ptr || __afl_area_ptr == (void *)-1) {
+    if (!attached_ptr || attached_ptr == (void *)-1) {
 
       if (__afl_map_addr)
         send_forkserver_error(FS_ERROR_MAP_ADDR);
@@ -1468,6 +1545,8 @@ static void __afl_map_shm(void) {
       _exit(1);
 
     }
+
+    __afl_area_ptr = attached_ptr;
 
     /* DEFERRED IJON SETUP: Initialize on first use when actual map size is
      * known */
@@ -1486,11 +1565,11 @@ static void __afl_map_shm(void) {
 
              __afl_map_addr) {
 
-    __afl_area_ptr = (u8 *)mmap(
+    u8 *map = (u8 *)mmap(
         (void *)__afl_map_addr, __afl_map_size, PROT_READ | PROT_WRITE,
         MAP_FIXED_NOREPLACE | MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-    if (__afl_area_ptr == MAP_FAILED) {
+    if (map == MAP_FAILED) {
 
       fprintf(stderr, "can not acquire mmap for address %p\n",
               (void *)__afl_map_addr);
@@ -1499,21 +1578,15 @@ static void __afl_map_shm(void) {
 
     }
 
+    __afl_area_ptr = map;
+
   } else if (__afl_final_loc > MAP_INITIAL_SIZE &&
 
              __afl_final_loc > __afl_first_final_loc) {
 
-    if (__afl_area_initial != __afl_area_ptr_dummy) {
+    u8 *map = (u8 *)malloc(__afl_final_loc + 1);
 
-      free(__afl_area_ptr_dummy);
-
-    }
-
-    __afl_map_size = __afl_final_loc + 1;
-    __afl_area_ptr_dummy = (u8 *)malloc(__afl_map_size);
-    __afl_area_ptr = __afl_area_ptr_dummy;
-
-    if (!__afl_area_ptr_dummy) {
+    if (!map) {
 
       fprintf(stderr,
               "Error: AFL++ could not acquire %u bytes of memory, exiting!\n",
@@ -1521,6 +1594,13 @@ static void __afl_map_shm(void) {
       exit(-1);
 
     }
+
+    u8 *old_dummy = __afl_area_ptr_dummy;
+    __afl_map_size = __afl_final_loc + 1;
+    __afl_area_ptr_dummy = map;
+    __afl_area_ptr = map;
+
+    if (old_dummy != __afl_area_initial) { free(old_dummy); }
 
   }  // else: nothing to be done
 
@@ -1790,9 +1870,12 @@ static void __afl_unmap_shm(void) {
      mapped (that may include the trailing child_sync word past
      __afl_map_size). Without one it is a SysV attachment, if it is anything. */
 
+  u8 *old_ptr = __afl_area_ptr;
+  __afl_area_ptr = __afl_area_ptr_dummy;
+
   if (__afl_shm_map_len) {
 
-    munmap((void *)__afl_area_ptr, __afl_shm_map_len);
+    munmap((void *)old_ptr, __afl_shm_map_len);
     __afl_shm_map_len = 0;
     __afl_child_sync = NULL;
 
@@ -1800,21 +1883,18 @@ static void __afl_unmap_shm(void) {
 
 #ifndef USEMMAP
 
-    shmdt((void *)__afl_area_ptr);
+    shmdt((void *)old_ptr);
 
 #endif
 
     __afl_child_sync = NULL;
 
-  } else if ((!__afl_area_ptr || __afl_area_ptr == __afl_area_initial) &&
-
-             __afl_map_addr) {
+  } else if ((!old_ptr || old_ptr == __afl_area_initial) && __afl_map_addr) {
 
     munmap((void *)__afl_map_addr, __afl_map_size);
 
   }
 
-  __afl_area_ptr = __afl_area_ptr_dummy;
   __afl_bug_map = __afl_bug_map_active ? __afl_bug_map_local : NULL;
   __afl_bug_map_increased = 0;
 
@@ -3379,12 +3459,31 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
   if (__afl_already_initialized_shm) {
 
-    if (__afl_final_loc > __afl_map_size) {
+    __afl_bug_configure_runtime();
+
+    /* Where the map was attached before this ran (Mach-O constructor order:
+       __afl_final_loc was still 0), it was mapped at the MAP_SIZE placeholder.
+       The coverage region may fit in that, while the IJON and bug-map regions
+       appended below do not - so compare the whole layout against what is
+       really mapped, not just the coverage size. */
+    u32 needed = __afl_final_loc + 1;
+    if (__afl_ijon_enabled) {
+
+      needed =
+          (((needed + 63) >> 6) << 6) + MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
+
+    }
+
+    if (__afl_bug_map_active) { needed += MAP_SIZE_BUG_BYTES; }
+
+    if (__afl_final_loc > __afl_map_size ||
+        (__afl_shm_map_len && needed > __afl_shm_map_len)) {
 
       if (__afl_debug) {
 
-        fprintf(stderr, "DEBUG: Reinit shm necessary (+%u)\n",
-                __afl_final_loc - __afl_map_size);
+        fprintf(stderr,
+                "DEBUG: Reinit shm necessary (need %u, have %u mapped of %u)\n",
+                needed, (u32)__afl_shm_map_len, __afl_map_size);
 
       }
 
@@ -4526,18 +4625,62 @@ __attribute__((weak_import)) void *__asan_region_is_poisoned(void  *beg,
 __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size);
 #endif
 
-#if defined(__APPLE__) && defined(__MACH__)
+#ifdef AFL_PROBE_PIPE
 /* Empty the probe pipe (see __afl_open_dummy_fd). Both ends are non-blocking,
-   so the read loop stops at EAGAIN once the buffer is drained. */
+   so the read loop stops at EAGAIN once the buffer is drained. The contents
+   are thrown away. The buffer is on the stack, so that threads which drain
+   at the same time do not share it. */
 static void __afl_drain_dummy_fd(void) {
 
   if (__afl_dummy_fd[0] < 0) { return; }
-  u8 buf[256];
+  u8 buf[1024];
   while (read(__afl_dummy_fd[0], buf, sizeof(buf)) > 0) {}
 
 }
 
 #endif
+
+#ifdef AFL_PROBE_PIPE
+/* Run the write or writev syscall sysno with (buf, n) on the probe pipe. Drain
+   and retry once if the pipe is full. The caller keeps errno. syscall(2) is
+   flagged deprecated on modern macOS, but the BSD numbers in <sys/syscall.h>
+   remain stable, and the raw syscall avoids libc and sanitizer interception. */
+static long __afl_probe_write(long sysno, void *buf, size_t n) {
+
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  long r = syscall(sysno, __afl_dummy_fd[1], buf, n);
+  if (unlikely(r < 0 && errno == EAGAIN)) {
+
+    __afl_drain_dummy_fd();
+    r = syscall(sysno, __afl_dummy_fd[1], buf, n);
+
+  }
+
+  #pragma GCC diagnostic pop
+  return r;
+
+}
+
+#endif
+
+/* Number of bytes from ptr to the end of its page, at most len. 0 if the page
+   size is unknown. A fault always starts at a page boundary. */
+static inline size_t __afl_page_prefix(void *ptr, size_t len) {
+
+  static size_t page_size;
+  if (unlikely(!page_size)) {
+
+    long size = sysconf(_SC_PAGE_SIZE);
+    if (unlikely(size <= 0)) { return 0; }
+    page_size = (size_t)size;
+
+  }
+
+  size_t offset = (uintptr_t)ptr & (page_size - 1U);
+  return MIN(len, page_size - offset);
+
+}
 
 // POSIX shenanigan to see if an area is mapped.
 // If it is mapped as X-only, we have a problem, so maybe we should add a check
@@ -4558,29 +4701,28 @@ static int area_is_valid(void *ptr, size_t len) {
 
   }
 
+  /* Keep errno: the hooks run inside target code. */
+  int saved_errno = errno;
 #ifdef __HAIKU__
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
 #elif defined(__OpenBSD__)
   long r = write(__afl_dummy_fd[1], ptr, len);
-#elif defined(__APPLE__) && defined(__MACH__)
-  /* syscall(2) is flagged deprecated on modern macOS, but the BSD numbers
-     in <sys/syscall.h> remain stable and we deliberately want the raw
-     syscall here to avoid libc/sanitizer interception on this hot path. */
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-  if (unlikely(r < 0 && errno == EAGAIN)) {
+#elif defined(AFL_PROBE_PIPE)
+  /* A pipe write fails as a whole if any byte faults, so probe up to the page
+     end first to find the readable prefix. */
+  size_t first = __afl_page_prefix(ptr, len);
+  long   r = first ? __afl_probe_write(SYS_write, ptr, first) : -1;
+  if (r == (long)first && first < len) {
 
-    /* probe pipe buffer is full; drain it and retry the fault probe once */
-    __afl_drain_dummy_fd();
-    r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+    long r2 = __afl_probe_write(SYS_write, (u8 *)ptr + first, len - first);
+    if (r2 > 0) { r += r2; }
 
   }
 
-  #pragma GCC diagnostic pop
 #else
   long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-#endif  // HAIKU, OPENBSD, APPLE
+#endif  // HAIKU, OPENBSD, AFL_PROBE_PIPE (LINUX, APPLE)
+  errno = saved_errno;
 
   if (r <= 0 || (size_t)r > len) return 0;
   return (int)r;
@@ -4609,30 +4751,18 @@ static u32 area_pair_valid_len(void *ptr1, void *ptr2, size_t len) {
 
   }
 
-  long page_size = sysconf(_SC_PAGE_SIZE);
-  if (unlikely(page_size <= 0)) return 0;
-
-  size_t page_mask = (size_t)page_size - 1U;
-  size_t len1 = MIN(len, (size_t)page_size - ((uintptr_t)ptr1 & page_mask));
-  size_t len2 = MIN(len, (size_t)page_size - ((uintptr_t)ptr2 & page_mask));
+  size_t len1 = __afl_page_prefix(ptr1, len);
+  size_t len2 = __afl_page_prefix(ptr2, len);
+  if (unlikely(!len1 || !len2)) return 0;
   struct iovec iov[2] = {{ptr1, len1}, {ptr2, len2}};
 
-  #if defined(__APPLE__) && defined(__MACH__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  #endif
+  int saved_errno = errno;
+  #ifdef AFL_PROBE_PIPE
+  long r = __afl_probe_write(SYS_writev, iov, 2);
+  #else
   long r = syscall(SYS_writev, __afl_dummy_fd[1], iov, 2);
-  #if defined(__APPLE__) && defined(__MACH__)
-  if (unlikely(r < 0 && errno == EAGAIN)) {
-
-    /* probe pipe buffer is full; drain it and retry the fault probe once */
-    __afl_drain_dummy_fd();
-    r = syscall(SYS_writev, __afl_dummy_fd[1], iov, 2);
-
-  }
-
-    #pragma GCC diagnostic pop
   #endif
+  errno = saved_errno;
 
   if (unlikely(r != (long)(len1 + len2))) return 0;
   return (u32)MIN(len1, len2);
@@ -5063,7 +5193,7 @@ static inline u32 cmplog_string_len(u8 *ptr, u32 cap, u8 *attr) {
   int valid = cmplog_area_is_valid(ptr, cap, attr);
   if (valid <= 0) { return 0; }
   cap = (u32)valid;
-  return cmplog_string_len_with_nul((u32)strnlen((char *)ptr, cap), cap);
+  return cmplog_string_len_with_nul((u32)strnlen_noasan(ptr, cap), cap);
 
 }
 
@@ -5087,8 +5217,8 @@ static inline void cmplog_rtn_store(u64 site, u8 *ptr1, u32 len1, u8 *ptr2,
   cmpfn[slot].addr_attr = ADDR_ATTR_COMBINE(attr1, attr2);
   cmpfn[slot].occurrence = occurrence;
   cmpfn[slot].unused = semantic_len;
-  __builtin_memcpy(cmpfn[slot].v0, ptr1, len1);
-  __builtin_memcpy(cmpfn[slot].v1, ptr2, len2);
+  memcpy_noasan(cmpfn[slot].v0, ptr1, len1);
+  memcpy_noasan(cmpfn[slot].v1, ptr2, len2);
 
 }
 
@@ -5278,8 +5408,8 @@ void __valueprofile_rtn_hook_str(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
   if (cap < 2) return;
-  u32 n1 = (u32)strnlen((char *)ptr1, cap);
-  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 n1 = (u32)strnlen_noasan(ptr1, cap);
+  u32 n2 = (u32)strnlen_noasan(ptr2, cap);
   u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
   if (max_len < 2) return;
   vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len, VP_RTN_STOP_AT_ZERO);
@@ -5313,8 +5443,8 @@ void __valueprofile_rtn_hook_str_ci(u8 *ptr1, u8 *ptr2, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(ptr1, ptr2, 32);
   if (cap < 2) return;
-  u32 n1 = (u32)strnlen((char *)ptr1, cap);
-  u32 n2 = (u32)strnlen((char *)ptr2, cap);
+  u32 n1 = (u32)strnlen_noasan(ptr1, cap);
+  u32 n2 = (u32)strnlen_noasan(ptr2, cap);
   u32 max_len = MIN(MAX(n1, n2) + 1U, cap);
   if (max_len < 2) return;
   vp_runtime_record_rtn(site_token, ptr1, ptr2, max_len,
@@ -5384,8 +5514,8 @@ void __valueprofile_rtn_hook_sub(u8 *hay, u8 *needle, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(hay, needle, 32);
   if (cap < 2) return;
-  u32 hay_len = (u32)strnlen((char *)hay, cap);
-  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  u32 hay_len = (u32)strnlen_noasan(hay, cap);
+  u32 needle_len = (u32)strnlen_noasan(needle, cap);
   if (needle_len < 1 || hay_len < needle_len) return;
   vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len, 0);
 
@@ -5397,8 +5527,8 @@ void __valueprofile_rtn_hook_sub_ci(u8 *hay, u8 *needle, uint64_t site_token) {
 
   u32 cap = area_pair_valid_len(hay, needle, 32);
   if (cap < 2) return;
-  u32 hay_len = (u32)strnlen((char *)hay, cap);
-  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  u32 hay_len = (u32)strnlen_noasan(hay, cap);
+  u32 needle_len = (u32)strnlen_noasan(needle, cap);
   if (needle_len < 1 || hay_len < needle_len) return;
   vp_runtime_record_sub(site_token, hay, hay_len, needle, needle_len,
                         VP_RTN_FOLD_CASE);
@@ -5430,10 +5560,9 @@ static inline void vp_rtn_sub_hn(u8 *hay, u64 hay_len, u8 *needle,
      also stop at a nul inside a bounded haystack, so truncate there either
      way - otherwise a match found past the nul reports a solved constraint
      for a call that returns NULL. */
-  u32 hay_len_real = (u32)strnlen(
-      (char *)hay,
-      (s64)hay_len < 0 ? (size_t)cap : (size_t)MIN(hay_len, (u64)cap));
-  u32 needle_len = (u32)strnlen((char *)needle, cap);
+  u32 hay_len_real = (u32)strnlen_noasan(
+      hay, (s64)hay_len < 0 ? (size_t)cap : (size_t)MIN(hay_len, (u64)cap));
+  u32 needle_len = (u32)strnlen_noasan(needle, cap);
   if (needle_len < 1 || hay_len_real < needle_len) return;
   vp_runtime_record_sub(site_token, hay, hay_len_real, needle, needle_len,
                         flags);

@@ -25,7 +25,10 @@ import hashlib
 import platform
 
 if platform.system() != "Linux":
-    print("This script should only be run on Linux due to different formatting.")
+    # stderr, not stdout: without -i the formatted file goes to stdout, and a
+    # caller redirecting it must not get this message as file contents.
+    print("This script should only be run on Linux due to different formatting.",
+          file=sys.stderr)
     exit(0)
 
 # string_re = re.compile('(\\"(\\\\.|[^"\\\\])*\\")') # TODO: for future use

@@ -234,6 +234,19 @@ void load_extras_file(afl_state_t *afl, u8 *fname, u32 *min_len, u32 *max_len,
 
     afl->extras[afl->extras_cnt].len = klen;
 
+    /* Invalid characters and escapes are dropped above, so a keyword made only
+       of such characters ends up empty. Do not keep it as a zero-length token:
+       it is useless and only wastes executions in the insertion stages. */
+
+    if (!klen) {
+
+      WARNF("Empty keyword in line %u (no valid characters).", cur_line);
+      ck_free(afl->extras[afl->extras_cnt].data);
+      afl->extras[afl->extras_cnt].data = NULL;
+      continue;
+
+    }
+
     if (afl->extras[afl->extras_cnt].len > MAX_DICT_FILE) {
 
       WARNF(
@@ -303,9 +316,25 @@ void load_extras(afl_state_t *afl, u8 *dir) {
 
   u8 val_bufs[2][STRINGIFY_VAL_SIZE_MAX];
 
-  /* If the name ends with @, extract level and continue. */
+  /* If the name ends with @<level>, extract level and continue. Only the last
+     '@' counts, and only if nothing but digits follows it, so that a path may
+     contain '@' elsewhere (e.g. /home/user@host/words.dict). */
 
-  if ((x = strchr(dir, '@'))) {
+  if ((x = strrchr(dir, '@'))) {
+
+    u8 *lvl = x + 1;
+
+    while (isdigit(*lvl)) {
+
+      ++lvl;
+
+    }
+
+    if (*lvl) { x = NULL; }
+
+  }
+
+  if (x) {
 
     *x = 0;
     dict_level = atoi(x + 1);

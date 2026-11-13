@@ -54,14 +54,17 @@ static void gum_afl_stalker_backpatcher_notify(GumStalkerObserver *self,
 
   if (sizeof(gsize) + size > remaining) { return; }
 
-  gsize *dst_backpatch_size =
-      (gsize *)&prefetch_data->backpatch_data[prefetch_data->backpatch_size];
-  *dst_backpatch_size = size;
-  prefetch_data->backpatch_size += sizeof(gsize);
-
-  memcpy(&prefetch_data->backpatch_data[prefetch_data->backpatch_size],
-         backpatch, size);
-  prefetch_data->backpatch_size += size;
+  /* AFL may SIGKILL this child (timeout) at any instruction.
+   * Publish the entry with one store to backpatch_size after its header and
+   * data are written; growing the size before the data left a torn entry,
+   * and the parent's prefetch_read_patches() then FFATALs before the next
+   * fork, which kills the whole lane. */
+  guint8 *dst = &prefetch_data->backpatch_data[prefetch_data->backpatch_size];
+  memcpy(dst, &size, sizeof(gsize));
+  memcpy(dst + sizeof(gsize), backpatch, size);
+  __atomic_store_n(&prefetch_data->backpatch_size,
+                   prefetch_data->backpatch_size + sizeof(gsize) + size,
+                   __ATOMIC_RELEASE);
 
 }
 
@@ -99,35 +102,88 @@ void prefetch_write(void *addr) {
 
 }
 
-typedef struct {
+/* the parent checks every block and backpatch address a child
+ * reports.  Enumerating the process ranges for each address cost seconds per
+ * fork on iOS, where target code sits in the shared cache behind thousands of
+ * ranges.  Keep a sorted copy of the executable ranges across forks and search
+ * it by bisection.  The fork server parent's map hardly changes once it is
+ * running, so the copy is refreshed only when an address misses it, at most
+ * once per prefetch_read(), which still catches mappings made since. */
+static GArray  *prefetch_exec_ranges = NULL;
+static gboolean prefetch_ranges_fresh = FALSE;
 
-  GumAddress address;
-  gboolean   executable;
+static gboolean prefetch_collect_range(const GumRangeDetails *details,
+                                       gpointer               user_data) {
 
-} check_executable_t;
+  UNUSED_PARAMETER(user_data);
+  g_array_append_val(prefetch_exec_ranges, *details->range);
+  return TRUE;
 
-static gboolean prefetch_find_executable(const GumRangeDetails *details,
-                                         gpointer               user_data) {
+}
 
-  check_executable_t *ctx = (check_executable_t *)user_data;
-  if (GUM_MEMORY_RANGE_INCLUDES(details->range, ctx->address)) {
+static gint prefetch_range_sort(gconstpointer a, gconstpointer b) {
 
-    ctx->executable = TRUE;
-    return FALSE;
+  const GumMemoryRange *ra = (const GumMemoryRange *)a;
+  const GumMemoryRange *rb = (const GumMemoryRange *)b;
+  if (ra->base_address < rb->base_address) return -1;
+  if (ra->base_address > rb->base_address) return 1;
+  return 0;
+
+}
+
+static void prefetch_refresh_ranges(void) {
+
+  if (prefetch_exec_ranges == NULL) {
+
+    prefetch_exec_ranges = g_array_new(FALSE, FALSE, sizeof(GumMemoryRange));
 
   }
 
-  return TRUE;
+  g_array_set_size(prefetch_exec_ranges, 0);
+  gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, prefetch_collect_range, NULL);
+  g_array_sort(prefetch_exec_ranges, prefetch_range_sort);
+  prefetch_ranges_fresh = TRUE;
+
+}
+
+static gboolean prefetch_ranges_contain(GumAddress target) {
+
+  gsize lo = 0;
+  gsize hi = prefetch_exec_ranges->len;
+  while (lo < hi) {
+
+    gsize                 mid = lo + (hi - lo) / 2;
+    const GumMemoryRange *range =
+        &g_array_index(prefetch_exec_ranges, GumMemoryRange, mid);
+    if (target < range->base_address) {
+
+      hi = mid;
+
+    } else if (target >= range->base_address + range->size) {
+
+      lo = mid + 1;
+
+    } else {
+
+      return TRUE;
+
+    }
+
+  }
+
+  return FALSE;
 
 }
 
 static gboolean prefetch_is_executable(void *address) {
 
-  check_executable_t ctx = {.address = GUM_ADDRESS(address),
-                            .executable = FALSE};
-  gum_process_enumerate_ranges(GUM_PAGE_EXECUTE, prefetch_find_executable,
-                               &ctx);
-  return ctx.executable;
+  GumAddress target = GUM_ADDRESS(address);
+  if (prefetch_exec_ranges == NULL) { prefetch_refresh_ranges(); }
+  if (prefetch_ranges_contain(target)) { return TRUE; }
+  if (prefetch_ranges_fresh) { return FALSE; }
+
+  prefetch_refresh_ranges();
+  return prefetch_ranges_contain(target);
 
 }
 
@@ -231,6 +287,22 @@ static void prefetch_read_patches(void) {
  * Read the IPC region one block at the time and prefetch it
  */
 void prefetch_read(void) {
+
+  prefetch_ranges_fresh = FALSE;
+
+  /*
+   * Only the fork server keeps the cached ranges: it no longer runs target
+   * code, so its executable mappings are never removed. A process past the
+   * entry point (a test case child, or a process the target forks itself)
+   * reaches this through the fork hook with a copy it inherited, and may have
+   * unmapped code since. List the ranges afresh there before trusting a hit.
+   */
+  if (entry_run && prefetch_data != NULL &&
+      (prefetch_data->count != 0 || prefetch_data->backpatch_size != 0)) {
+
+    prefetch_refresh_ranges();
+
+  }
 
   prefetch_read_blocks();
   prefetch_read_patches();

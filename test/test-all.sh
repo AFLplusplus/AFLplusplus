@@ -20,7 +20,8 @@ for script in test-*.sh; do
   fi
 
 # Check if script is meant to be sourced (sources test-pre.sh)
-  if grep -q "test-pre.sh" "$script"; then
+  # Match the actual sourcing line, not mere mentions (e.g. in comments)
+  if grep -q '^\. \./test-pre\.sh' "$script"; then
     if [ -r "$script" ]; then
       . "./$script"
     fi

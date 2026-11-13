@@ -471,6 +471,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->no_unlink = false;
   fsrv->exec_tmout = EXEC_TIMEOUT;
   fsrv->init_tmout = EXEC_TIMEOUT * FORK_WAIT_MULT;
+  fsrv->child_init_tmout = 0;
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
   fsrv->child_kill_signal = SIGKILL;
@@ -585,6 +586,7 @@ void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from) {
   // These are forkserver specific.
   fsrv_to->out_dir_fd = -1;
   fsrv_to->child_pid = -1;
+  fsrv_to->child_init_tmout = 0;
   fsrv_to->use_fauxsrv = 0;
   fsrv_to->last_run_timed_out = 0;
 

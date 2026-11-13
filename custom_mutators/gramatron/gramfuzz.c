@@ -306,7 +306,7 @@ u8 afl_custom_queue_new_entry(my_mutator_t  *data,
     fd = open(filename_new_queue, O_WRONLY | O_CREAT | O_TRUNC,
               S_IRUSR | S_IWUSR);
     if (fd < 0) { PFATAL("Failed to update file '%s'", filename_new_queue); }
-    int written = write(fd, unparsed_input, new_input->inputlen + 1);
+    int written = write(fd, unparsed_input, new_input->inputlen);
     close(fd);
 
     free(new_input->start);
