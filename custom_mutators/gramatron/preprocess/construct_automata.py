@@ -153,7 +153,7 @@ def tokenize(rule):
     '''
     Gets the terminal and the corresponding stack symbols from a rule in GNF form
     '''
-    pattern = re.compile("([r])*\'([\s\S]+)\'([\s\S]*)")
+    pattern = re.compile(r"([r])*\'([\s\S]+)\'([\s\S]*)")
     terminal = None
     ss = None
     termIsRegex = False
