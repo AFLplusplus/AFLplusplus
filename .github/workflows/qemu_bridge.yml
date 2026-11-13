@@ -39,7 +39,6 @@ jobs:
             python3 python3-pip \
             gcc-aarch64-linux-gnu \
             gcc-arm-linux-gnueabi \
-            gcc-mipsel-linux-gnu \
             gcc-powerpc-linux-gnu \
             libc6-dev-i386
       - name: build afl++ core
@@ -61,7 +60,7 @@ jobs:
           ./test/test-qemu-bridge.sh
 
   arch-matrix:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     needs: build-and-test
     strategy:
       fail-fast: false
@@ -83,6 +82,7 @@ jobs:
             cross: mipsel-linux-gnu
             apt: gcc-mipsel-linux-gnu
             cflags: ''
+            os: ubuntu-24.04
           - cpu: ppc
             cross: powerpc-linux-gnu
             apt: gcc-powerpc-linux-gnu

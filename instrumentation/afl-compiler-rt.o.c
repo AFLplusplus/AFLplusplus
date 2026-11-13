@@ -3469,8 +3469,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
     u32 needed = __afl_final_loc + 1;
     if (__afl_ijon_enabled) {
 
-      needed = (((needed + 63) >> 6) << 6) + MAP_SIZE_IJON_MAP +
-               MAP_SIZE_IJON_BYTES;
+      needed =
+          (((needed + 63) >> 6) << 6) + MAP_SIZE_IJON_MAP + MAP_SIZE_IJON_BYTES;
 
     }
 
