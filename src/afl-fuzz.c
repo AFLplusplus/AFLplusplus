@@ -2126,22 +2126,7 @@ void afl_check_environment(afl_state_t *afl) {
 
   }
 
-  if (afl->afl_env.afl_crash_exitcode) {
-
-    long exitcode = strtol(afl->afl_env.afl_crash_exitcode, NULL, 10);
-    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
-        exitcode < -127 || exitcode > 128) {
-
-      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
-            afl->afl_env.afl_crash_exitcode);
-
-    }
-
-    afl->fsrv.uses_crash_exitcode = true;
-    // WEXITSTATUS is 8 bit unsigned
-    afl->fsrv.crash_exitcode = (u8)exitcode;
-
-  }
+  configure_afl_crash_exitcode(&afl->fsrv, afl->afl_env.afl_crash_exitcode);
 
   if (afl->non_instrumented_mode == 2 && afl->no_forkserver) {
 

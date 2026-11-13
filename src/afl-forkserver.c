@@ -3036,7 +3036,7 @@ classify_result:
           ((fsrv->uses_asan & 2) &&
            WEXITSTATUS(fsrv->child_status) == LSAN_ERROR) ||
           // the custom crash_exitcode was returned by the target
-          (fsrv->uses_crash_exitcode &&
+          (fsrv->uses_crash_exitcode && WIFEXITED(fsrv->child_status) &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
     // For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0

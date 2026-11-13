@@ -86,6 +86,8 @@ void configure_afl_kill_signals(afl_forkserver_t *fsrv,
                                 char             *afl_fsrv_kill_signal_env,
                                 int               default_server_kill_signal);
 
+void configure_afl_crash_exitcode(afl_forkserver_t *fsrv, const char *value);
+
 /* Read a bitmap from file fname to memory
    This is for the -B option again. */
 

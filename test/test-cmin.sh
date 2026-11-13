@@ -19,7 +19,7 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 unset AFL_SHA1_FILENAMES AFL_MAP_SIZE AFL_MAPSIZE AFL_KEEP_TRACES \
-      AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY CMIN_OBSERVED
+      AFL_CMIN_ALLOW_ANY AFL_CMIN_CRASHES_ONLY AFL_CRASH_EXITCODE CMIN_OBSERVED
 export AFL_QUIET=1 AFL_ALLOW_TMP=1 AFL_NO_UI=1
 export ASAN_OPTIONS=detect_leaks=0:abort_on_error=1:symbolize=0
 
@@ -297,6 +297,29 @@ done
 # ------------------------------------------------------------- afl-cmin only
 
 corpus "$TMP/in"
+
+mkdir -p "$TMP/in_exitcode"
+printf '0\n' > "$TMP/in_exitcode/normal"
+printf 'E\n' > "$TMP/in_exitcode/special"
+AFL_CRASH_EXITCODE=-1 run "$CMIN" -C -i "$TMP/in_exitcode" \
+  -o "$TMP/out_exitcode" -- "$TARGET"
+if [ "$RC" = 0 ] && [ "$(names "$TMP/out_exitcode")" = "special " ]; then
+  ok "afl-cmin -C keeps inputs matching AFL_CRASH_EXITCODE"
+else
+  bad "afl-cmin -C did not keep just the custom crash (exit $RC)"
+  cat "$TMP/log"
+fi
+
+if [ -n "$PERSIST" ]; then
+  AFL_CRASH_EXITCODE=$(kill -l STOP) run "$CMIN" -C -i "$TMP/in" \
+    -o "$TMP/out_persistent_exitcode" -- "$PERSIST"
+  if [ "$RC" = 1 ] && grep -q 'No input crashed the target' "$TMP/log"; then
+    ok "afl-cmin does not treat a persistent stop as an exit code"
+  else
+    bad "afl-cmin misclassified a persistent stop (exit $RC)"
+    cat "$TMP/log"
+  fi
+fi
 
 # hanging inputs are rejected, and a corpus of nothing but hangs fails
 rm -rf "$TMP/in_hang" "$TMP/out_hang"

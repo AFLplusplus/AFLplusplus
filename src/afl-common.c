@@ -740,6 +740,23 @@ void configure_afl_kill_signals(afl_forkserver_t *fsrv,
 
 }
 
+void configure_afl_crash_exitcode(afl_forkserver_t *fsrv, const char *value) {
+
+  if (!value) { return; }
+
+  char *end;
+  long  exitcode = strtol(value, &end, 10);
+  if (end == value || *end || exitcode < -127 || exitcode > 128) {
+
+    FATAL("Invalid crash exitcode, expected -127 to 128, but got %s", value);
+
+  }
+
+  fsrv->uses_crash_exitcode = true;
+  fsrv->crash_exitcode = (u8)exitcode;    /* WEXITSTATUS is 8 bit unsigned. */
+
+}
+
 static inline unsigned int helper_min3(unsigned int a, unsigned int b,
                                        unsigned int c) {
 

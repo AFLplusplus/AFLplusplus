@@ -1482,22 +1482,7 @@ int main(int argc, char **argv_orig, char **envp) {
   configure_afl_kill_signals(
       fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
-  if (getenv("AFL_CRASH_EXITCODE")) {
-
-    long exitcode = strtol(getenv("AFL_CRASH_EXITCODE"), NULL, 10);
-    if ((!exitcode && (errno == EINVAL || errno == ERANGE)) ||
-        exitcode < -127 || exitcode > 128) {
-
-      FATAL("Invalid crash exitcode, expected -127 to 128, but got %s",
-            getenv("AFL_CRASH_EXITCODE"));
-
-    }
-
-    fsrv->uses_crash_exitcode = true;
-    // WEXITSTATUS is 8 bit unsigned
-    fsrv->crash_exitcode = (u8)exitcode;
-
-  }
+  configure_afl_crash_exitcode(fsrv, getenv("AFL_CRASH_EXITCODE"));
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 
