@@ -41,6 +41,7 @@ typedef struct {
   size_t           resp_size;
   char             req_head[256];
   u64              requests, failures;
+  u8               requested;       /* a request was made in this fuzz call */
   char             desc[64];
 
 } comby_mutator_t;
@@ -167,13 +168,17 @@ static int comby_step(void *ctx, u8 *buf, size_t *len, size_t max_len) {
 
   comby_mutator_t *m = ctx;
 
-  if (*len < MIN_REQUEST_LEN) return 0;
+  /* A successful request replaces the whole buffer, discarding all earlier
+     steps, so make at most one per fuzz call (one execution); later comby
+     steps fall back to havoc.  This also bounds the cost of a dead server. */
+  if (m->requested || *len < MIN_REQUEST_LEN) return 0;
   for (size_t i = 0; i < *len; ++i)
     if (buf[i] & 0x80) return 0;          /* server only handles ASCII text */
 
   u8    *body;
   size_t body_len;
 
+  m->requested = 1;
   ++m->requests;
   if (!comby_request(m, buf, *len, max_len, &body, &body_len)) {
 
@@ -237,6 +242,7 @@ size_t afl_custom_fuzz(void *data, u8 *buf, size_t buf_size, u8 **out_buf,
                        u8 *add_buf, size_t add_buf_size, size_t max_size) {
 
   comby_mutator_t *m = data;
+  m->requested = 0;
   size_t len = acf_stacked_fuzz(&m->drv, buf, buf_size, add_buf, add_buf_size,
                                 max_size, comby_step, m);
   *out_buf = m->drv.buf;
