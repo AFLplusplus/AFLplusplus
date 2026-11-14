@@ -1916,9 +1916,17 @@ void pivot_inputs(afl_state_t *afl) {
       /* Since we're at it, let's also get the parent and figure out the
          appropriate depth for this entry. */
 
-      src_str = strchr(rsl + 3, ':');
+      /* A local parent is only recorded as "id:N,src:M,...", i.e. ",src:" has
+         to directly follow the ID. Do not take the first ':' after "id": for
+         seeds ("id:N,time:0,execs:0,orig:name") that is the one of "time:" and
+         would make every seed a child of entry 0. Synced entries
+         ("id:N,sync:fuzzer,src:M") are left alone as well, M is an ID of the
+         other fuzzer's queue. */
 
-      if (src_str && sscanf(src_str + 1, "%06u", &src_id) == 1) {
+      src_str = strncmp(rsl, CASE_PREFIX, 3) ? NULL : strchr(rsl + 3, ',');
+
+      if (src_str && !strncmp(src_str, ",src:", 5) &&
+          sscanf(src_str + 5, "%06u", &src_id) == 1) {
 
         if (src_id < afl->queued_items) {
 
