@@ -955,7 +955,11 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
   u8  vp_restore_suppressed = 0;
   u8  san_fault = 0, san_idx = 0, feed_san = 0;
   s32 fd;
-  u32 cksum_simplified = 0, cksum_unique = 0;
+  u32         cksum_simplified = 0, cksum_unique = 0;
+  u32         fault_exec_tmout = afl->fsrv.exec_tmout;
+  u64         original_crash_hash = 0;
+  u8          original_crash_signal = 0, original_crash_exit = 0;
+  afl_forkserver_t *crash_fsrv = &afl->fsrv;
 
   bool classified = false, bits_counted = false, cksumed = false;
   bool probed = false;
@@ -1423,8 +1427,9 @@ may_save_fault:
           u64 probe_us = 0;
 
           probed = true;
+          fault_exec_tmout = MAX(afl->hang_tmout, afl->exec_tmout_ceil);
           new_fault = probe_at_raised_tmout(
-              afl, &mem, &len, MAX(afl->hang_tmout, afl->exec_tmout_ceil),
+              afl, &mem, &len, fault_exec_tmout,
               &probe_us);
           classified = false;
           bits_counted = false;
@@ -1529,6 +1534,7 @@ may_save_fault:
         if (afl->fsrv.exec_tmout < probe_tmout) {
 
           probed = true;
+          fault_exec_tmout = probe_tmout;
           new_fault =
               probe_at_raised_tmout(afl, &mem, &len, probe_tmout, &probe_us);
           classified = false;
@@ -1611,6 +1617,17 @@ may_save_fault:
          cases. */
 
       is_crash_save = 1;
+
+      if (san_fault == FSRV_RUN_CRASH) { crash_fsrv = &afl->san_fsrvs[san_idx]; }
+      original_crash_signal = crash_fsrv->last_kill_signal;
+      original_crash_exit = crash_fsrv->last_exit_code;
+      if (!afl->non_instrumented_mode &&
+          !crash_fsrv->san_but_not_instrumented) {
+
+        original_crash_hash =
+            hash64(crash_fsrv->trace_bits, crash_fsrv->map_size, HASH_CONST);
+
+      }
 
       ++afl->total_crashes;
 
@@ -1720,6 +1737,106 @@ may_save_fault:
 #ifdef __linux__
     if (afl->fsrv.last_kill_signal) { save_crash_core(afl, fn); }
 #endif
+
+  }
+
+  if (unlikely(afl->afl_env.afl_verify_crash && is_crash_save)) {
+
+    const char *classification = "verification_unsupported";
+    u8          custom_send = 0;
+
+    if (afl->custom_mutators_count) {
+
+      LIST_FOREACH(&afl->custom_mutator_list, struct custom_mutator, {
+
+        if (el->afl_custom_fuzz_send) { custom_send = 1; }
+
+      });
+
+    }
+
+    if (!crash_fsrv->nyx_mode && !custom_send) {
+
+      u8 *saved_trace = ck_alloc(crash_fsrv->map_size);
+      u64 saved_total_execs = crash_fsrv->total_execs;
+      memcpy(saved_trace, crash_fsrv->trace_bits, crash_fsrv->map_size);
+      afl_fsrv_write_to_testcase(crash_fsrv, mem, len);
+      fsrv_run_result_t verify_fault =
+          fuzz_run_target(afl, crash_fsrv, fault_exec_tmout);
+
+      if (verify_fault == FSRV_RUN_CRASH) {
+
+        u64 verify_hash =
+            afl->non_instrumented_mode || crash_fsrv->san_but_not_instrumented
+                              ? 0
+                              : hash64(crash_fsrv->trace_bits,
+                                       crash_fsrv->map_size, HASH_CONST);
+        classification =
+            crash_fsrv->last_kill_signal == original_crash_signal &&
+                    crash_fsrv->last_exit_code == original_crash_exit &&
+                    verify_hash == original_crash_hash
+                ? "reproduced_same_observation"
+                : "reproduced_different_observation";
+
+      } else if (verify_fault == FSRV_RUN_OK) {
+
+        classification = "state_dependent";
+        if (crash_fsrv->persistent_mode && crash_fsrv->child_pid > 0) {
+
+          crash_fsrv->discard_stopped_child = 1;
+
+        }
+
+      } else if (verify_fault == FSRV_RUN_TMOUT) {
+
+        classification = "verification_timeout";
+
+      } else {
+
+        classification = "verification_error";
+
+      }
+
+      memcpy(crash_fsrv->trace_bits, saved_trace, crash_fsrv->map_size);
+      ck_free(saved_trace);
+      crash_fsrv->total_execs = saved_total_execs;
+      crash_fsrv->last_kill_signal = original_crash_signal;
+      crash_fsrv->last_exit_code = original_crash_exit;
+
+    }
+
+    u8 meta_dir[PATH_MAX], meta_fn[PATH_MAX], meta_tmp[PATH_MAX];
+    snprintf(meta_dir, sizeof(meta_dir), "%s/crashes/.provenance",
+             afl->out_dir);
+    if (!mkdir(meta_dir, 0700) || errno == EEXIST) {
+
+      u64 crash_id = afl->saved_crashes - 1;
+      snprintf(meta_fn, sizeof(meta_fn), "%s/event-%06llu.json", meta_dir,
+               crash_id);
+      snprintf(meta_tmp, sizeof(meta_tmp), "%s/.event-%06llu.tmp", meta_dir,
+               crash_id);
+      s32 meta_fd = open(meta_tmp, O_WRONLY | O_CREAT | O_TRUNC, afl->perm);
+      if (meta_fd >= 0) {
+
+        char meta[512];
+        int  meta_len = snprintf(
+            meta, sizeof(meta),
+            "{\n  \"schema\": 1,\n  \"crash_id\": %llu,\n"
+            "  \"classification\": \"%s\",\n"
+            "  \"reset_boundary\": \"target_child_process\",\n"
+            "  \"identity_strength\": \"execution_observation_only\",\n"
+            "  \"signal\": %u,\n"
+            "  \"exit_code\": %u,\n  \"timeout_ms\": %u,\n"
+            "  \"execution_coverage_fingerprint\": \"%016llx\"\n}\n",
+            crash_id, classification, original_crash_signal,
+            original_crash_exit, fault_exec_tmout, original_crash_hash);
+        ck_write(meta_fd, meta, meta_len, meta_tmp);
+        close(meta_fd);
+        if (rename(meta_tmp, meta_fn)) { unlink(meta_tmp); }
+
+      }
+
+    }
 
   }
 
