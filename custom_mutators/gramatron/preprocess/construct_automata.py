@@ -202,23 +202,27 @@ def postprocess():
     # Cull transitions to states which were not expanded owing to the stack limit
     if stack_limit:
 
-        blocklist = []
-        for final_state in final:
-            for transition in pda:
-                if (transition["dest"] == final_state) and (len(transition["stack"]) > 0):
-                    blocklist.append(transition["dest"])
-                    continue
-                else:
-                    culled_pda.append(transition)
-        
-        culled_final = [state for state in final if state not in blocklist]
+        culled_final = [state for state in final if any(t["dest"] == state and not t["stack"] for t in pda)]
 
         assert len(culled_final) == 1, 'More than one final state found'
 
+        # The stack limit leaves states from which the final state cannot be reached: states
+        # that were not expanded, and states whose transitions all lead to such states, even
+        # through loops. Transitions into them are culled, so that every walk can complete.
+        sources = defaultdict(list)
+        for transition in pda:
+            sources[transition["dest"]].append(transition["source"])
+        live = {culled_final[0]}
+        todo = [culled_final[0]]
+        while todo:
+            for source in sources[todo.pop()]:
+                if source not in live:
+                    live.add(source)
+                    todo.append(source)
+        culled_pda = [transition for transition in pda if transition["dest"] in live]
+
         for transition in culled_pda:
             state = transition["source"]
-            if transition["dest"] in blocklist:
-                    continue 
             num_transitions += 1
             memoized[state].append([transition["trigger"], transition["dest"], 
                 transition["terminal"]])
