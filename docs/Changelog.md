@@ -10,6 +10,13 @@
     - timeout fix for slow starting targets (until they reach the fork server)
     - fix for AFL_NO_STARTUP_CALIBRATION (don't use it, change your setup)
     - improve cmplog pipe, more speed (thanks to @martinus)
+    - queue entries that fail calibration three times are now disabled.
+      Previously they were never fuzzed but stayed selectable, so a stalled
+      campaign could lock up re-selecting such an entry (and flood the log
+      with "Fuzzing test case" lines).
+    - an uncalibrated queue entry (map size 0) no longer turns the seed
+      weights to NaN/0, which made the alias table pick that entry ~100x
+      more often than any healthy one
   - custom mutators
     - added `custom_mutators/compiler_fuzzer`: the afl-compiler-fuzzer
       source-level mutations (and its comby-decomposer mode) as custom
