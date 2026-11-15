@@ -361,7 +361,7 @@ void create_alias_table(afl_state_t *afl) {
       if (likely(!q->disabled)) {
 
         avg_exec_us += q->exec_us;
-        P[i] = log(q->bitmap_size);
+        P[i] = likely(q->bitmap_size) ? log(q->bitmap_size) : 0;
         avg_bitmap_size += P[i];
         avg_len += q->len;
         total_len += q->len;

@@ -10,16 +10,47 @@
     - timeout fix for slow starting targets (until they reach the fork server)
     - fix for AFL_NO_STARTUP_CALIBRATION (don't use it, change your setup)
     - improve cmplog pipe, more speed (thanks to @martinus)
-  - custom mutators
-    - added `custom_mutators/compiler_fuzzer`: the afl-compiler-fuzzer
-      source-level mutations (and its comby-decomposer mode) as custom
-      mutators, for fuzzing compilers with C-like input languages
+    - queue entries that fail calibration three times are now disabled.
+      Previously they were never fuzzed but stayed selectable, so a stalled
+      campaign could lock up re-selecting such an entry (and flood the log
+      with "Fuzzing test case" lines).
+    - an uncalibrated queue entry (map size 0) no longer turns the seed
+      weights to NaN/0, which made the alias table pick that entry ~100x
+      more often than any healthy one
+    - resuming without fastresume.bin no longer adds one to every entry's depth  (thanks to @sahilphad07-sudo)
+    - fix a buffer overflow into afl_state_t when syncing from an instance with a very long sync directory name (thanks to @sahilphad07-sudo)
+    - ASan/LSan/MSan detection is now per binary
+    - much faster startup for big target binaries, and `-c 0` no longer scans the same binary twice (thanks to @martinus)
+    - invalid `AFL_CRASH_EXITCODE` values (e.g. `abc`, `1x`) are now rejected by all tools (thanks to @raaller)
   - afl-cc
+    - fix fork server crash with signal 11 before the first input for targets that define their own `getenv()` and have more than 64k edges (regression in 5.03c) (thanks to @martinus)
+    - CmpLog and value profile no longer trigger ASan false positives ("unknown-crash") when reading operands next to poisoned memory, which made ASan+CmpLog C++ targets crash at startup (thanks to @martinus)
+    - macOS: `__AFL_LOOP` is now detected by the PCGUARD and LTO passes (Mach-O symbol prefix), so its edges get the same special handling as on Linux
+    - macOS: fix writes past the shared map with IJON or the bug oracle map, the map is now resized when it was attached before the final edge count was known
+    - FreeBSD: fix occasional fork server hangs in waitpid() after hours of fuzzing (thanks to @fabiankeil)
+    - parallel builds (`make -j`) no longer fail for the LLVM mode and the afl-cc man page (thanks to @maflcko)
     - a plain `-fcf-protection` (part of the default hardened CFLAGS on
       Fedora/RHEL) was mistaken for `AFL_USE_CFISAN` and injected `-flto`,
       which silently disabled PCGUARD instrumentation for the target
+  - afl-cmin
+    - `afl-cmin` and `afl-merge` now honor `AFL_CRASH_EXITCODE` when selecting crashing inputs (thanks to @raaller)
+  - afl-addseeds
+    - handle paths with spaces and special characters (thanks to @sahilphad07-sudo)
   - frida_mode:
     - bump to 17.24.3
+    - iOS: prefetch uses anonymous shared memory, System V shm killed the target with SIGSYS (thanks to @retX0)
+    - Darwin: CmpLog checks the live page protection of operands, fixes SIGBUS on guard pages and unmapped shared cache holes (thanks to @retX0)
+    - a child killed on a timeout no longer leaves a torn prefetch backpatch entry that ended the session with "Incomplete backpatch entry" (thanks to @retX0)
+    - prefetch caches the executable ranges (cost seconds per fork on iOS), children list them again instead of trusting the fork server's copy (thanks to @retX0)
+    - `AFL_FRIDA_INST_UNSTABLE_COVERAGE_FILE` waits for fuzzer_stats instead of failing or crashing when it starts before afl-fuzz wrote it (thanks to @qiyuhuating)
+  - qemu_mode
+    - qemuafl: fix CompCov for ARM `add`/`orrs` (thanks to @celi0n)
+    - qasan: fix build with libcs where `FILE` is an opaque type (thanks to @qiyuhuating)
+  - custom mutators
+    - gramatron: lots of fixes (thanks to @renatahodovan)
+    - added `custom_mutators/compiler_fuzzer`: the afl-compiler-fuzzer
+      source-level mutations (and its comby-decomposer mode) as custom
+      mutators, for fuzzing compilers with C-like input languages
 
 
 ### Version ++5.03c (release)
