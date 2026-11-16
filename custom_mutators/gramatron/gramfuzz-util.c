@@ -30,7 +30,7 @@ void insertArray(Array *a, int state, char *symbol, size_t symbol_len,
   terminal *term_ptr;
   if (a->used == a->size) {
 
-    a->size = a->size * sizeof(terminal);
+    a->size = a->size * 2;
     a->start = (terminal *)realloc(a->start, a->size * sizeof(terminal));
 
   }
