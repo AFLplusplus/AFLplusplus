@@ -157,17 +157,17 @@ u8 *unparse_walk(Array *input) {
   terminal *term_ptr;
   int       offset = 0;
   u8       *unparsed = (u8 *)malloc(input->inputlen + 1);
-  term_ptr = &input->start[offset];
-  strcpy(unparsed, term_ptr->symbol);
-  offset += 1;
+  u8       *end = unparsed;
   while (offset < input->used) {
 
     term_ptr = &input->start[offset];
-    strcat(unparsed, term_ptr->symbol);
+    memcpy(end, term_ptr->symbol, term_ptr->symbol_len);
+    end += term_ptr->symbol_len;
     offset += 1;
 
   }
 
+  *end = '\0';
   return unparsed;
 
 }
