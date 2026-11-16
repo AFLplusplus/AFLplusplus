@@ -255,6 +255,9 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
   else
     data->mut_idx += 1;
 
+  // A mutant longer than max_size is discarded.
+  if (data->mutated_walk->inputlen > max_size) { return 0; }
+
   // Unparse the mutated automaton walk
   if (data->unparsed_input) { free(data->unparsed_input); }
   data->unparsed_input = unparse_walk(data->mutated_walk);
