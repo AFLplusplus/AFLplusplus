@@ -820,7 +820,9 @@ checks or alter some of the more exotic semantics of the tool:
   - `AFL_KILL_SIGNAL`: Set the signal ID to be delivered to child processes
     on timeout. Unless you implement your own targets or instrumentation, you
     likely don't have to set it. By default, on timeout and on exit, `SIGKILL`
-    (`AFL_KILL_SIGNAL=9`) will be delivered to the child.
+    (`AFL_KILL_SIGNAL=9`) will be delivered to the child. The value must be a
+    valid signal number (1 to the highest signal of your OS); anything else
+    aborts at startup.
 
   - `AFL_FORK_SERVER_KILL_SIGNAL`: Set the signal ID to be delivered to the
     fork server when AFL++ is terminated. Unless you implement your

@@ -692,16 +692,22 @@ int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal) {
   if (numeric_signal_as_str && numeric_signal_as_str[0]) {
 
     char *endptr;
-    u8    signal_code;
-    signal_code = (u8)strtoul(numeric_signal_as_str, &endptr, 10);
-    /* Did we manage to parse the full string? */
-    if (*endptr != '\0' || endptr == (char *)numeric_signal_as_str) {
+    long  signal_code;
 
-      FATAL("Invalid signal name: %s", numeric_signal_as_str);
+    errno = 0;
+    signal_code = strtol(numeric_signal_as_str, &endptr, 10);
+
+    /* Did we manage to parse the full string? Signal 0 does not kill anything
+       and values that do not fit a signal number would silently wrap around,
+       so only accept 1 .. NSIG - 1. */
+    if (*endptr != '\0' || endptr == (char *)numeric_signal_as_str ||
+        errno == ERANGE || signal_code < 1 || signal_code >= NSIG) {
+
+      FATAL("Invalid signal number: %s", numeric_signal_as_str);
 
     } else {
 
-      return signal_code;
+      return (int)signal_code;
 
     }
 
