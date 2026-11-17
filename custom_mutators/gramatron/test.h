@@ -15,15 +15,15 @@ typedef struct terminal {
   int    state;
   int    trigger_idx;
   size_t symbol_len;
-  char * symbol;
+  char  *symbol;
 
 } terminal;
 
 typedef struct trigger {
 
-  char * id;
+  char  *id;
   int    dest;
-  char * term;
+  char  *term;
   size_t term_len;
 
 } trigger;

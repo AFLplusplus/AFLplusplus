@@ -6,10 +6,10 @@
 #define NUMINPUTS 50
 state *create_pda(u8 *automaton_file) {
 
-  cJSON              *parsed_json;
-  state              *pda;
-  cJSON              *source_obj, *attr;
-  int                arraylen, ii, ii2, trigger_len, error;
+  cJSON *parsed_json;
+  state *pda;
+  cJSON *source_obj, *attr;
+  int    arraylen, ii, ii2, trigger_len, error;
 
   printf("\n[GF] Automaton file passed:%s", automaton_file);
   // parsed_json =
@@ -19,7 +19,7 @@ state *create_pda(u8 *automaton_file) {
   // Getting final state
   source_obj = cJSON_GetObjectItem(parsed_json, "final_state");
   const char *final_state_obj = source_obj->valuestring;
-  printf("\t\nFinal=%s\n",final_state_obj);
+  printf("\t\nFinal=%s\n", final_state_obj);
   final_state = atoi(final_state_obj);
 
   // Getting initial state
@@ -34,13 +34,12 @@ state *create_pda(u8 *automaton_file) {
   printf("\tNumStates=%d\n", numstates);
 
   // Allocate state space for each pda state
-  pda = (state *)calloc(numstates + 1,
-                        sizeof(state));
+  pda = (state *)calloc(numstates + 1, sizeof(state));
 
   // Getting PDA representation
   source_obj = cJSON_GetObjectItem(parsed_json, "pda");
-  cJSON * state_item;
-  cJSON_ArrayForEach(state_item,source_obj) {
+  cJSON *state_item;
+  cJSON_ArrayForEach(state_item, source_obj) {
 
     state   *state_ptr;
     trigger *trigger_ptr;
@@ -117,6 +116,7 @@ void SanityCheck(char *automaton_path) {
 }
 
 int main(int argc, char *argv[]) {
+
   char          *mode;
   char          *automaton_path;
   char          *output_dir = NULL;

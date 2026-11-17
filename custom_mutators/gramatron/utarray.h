@@ -64,7 +64,7 @@ typedef struct {
 
   unsigned i, n;           /* i: index of next available slot, n: num slots */
   UT_icd   icd;               /* initializer, copy and destructor functions */
-  char *   d;                                     /* n slots of size icd->sz*/
+  char    *d;                                     /* n slots of size icd->sz*/
 
 } UT_array;
 

@@ -32,8 +32,8 @@ void WriteToFile(const Unit &U, const std::string &Path);
 void AppendToFile(const uint8_t *Data, size_t Size, const std::string &Path);
 void AppendToFile(const std::string &Data, const std::string &Path);
 
-void ReadDirToVectorOfUnits(const char *Path, Vector<Unit> *V,
-                            long *Epoch, size_t MaxSize, bool ExitOnError);
+void ReadDirToVectorOfUnits(const char *Path, Vector<Unit> *V, long *Epoch,
+                            size_t MaxSize, bool ExitOnError);
 
 // Returns "Dir/FileName" or equivalent for the current OS.
 std::string DirPlusFile(const std::string &DirPath,
@@ -60,8 +60,8 @@ void VPrintf(bool Verbose, const char *Fmt, ...);
 void RawPrint(const char *Str);
 
 // Platform specific functions:
-bool IsFile(const std::string &Path);
-bool IsDirectory(const std::string &Path);
+bool   IsFile(const std::string &Path);
+bool   IsDirectory(const std::string &Path);
 size_t FileSize(const std::string &Path);
 
 void ListFilesInDirRecursive(const std::string &Dir, long *Epoch,
@@ -79,9 +79,15 @@ void IterateDirRecursive(const std::string &Dir,
                          void (*FileCallback)(const std::string &Dir));
 
 struct SizedFile {
+
   std::string File;
-  size_t Size;
-  bool operator<(const SizedFile &B) const { return Size < B.Size; }
+  size_t      Size;
+  bool        operator<(const SizedFile &B) const {
+
+    return Size < B.Size;
+
+  }
+
 };
 
 void GetSizedFilesFromDir(const std::string &Dir, Vector<SizedFile> *V);
@@ -91,7 +97,7 @@ bool IsSeparator(char C);
 // Similar to the basename utility: returns the file name w/o the dir prefix.
 std::string Basename(const std::string &Path);
 
-FILE* OpenFile(int Fd, const char *Mode);
+FILE *OpenFile(int Fd, const char *Mode);
 
 int CloseFile(int Fd);
 
@@ -110,3 +116,4 @@ const std::string &getDevNull();
 }  // namespace fuzzer
 
 #endif  // LLVM_FUZZER_IO_H
+

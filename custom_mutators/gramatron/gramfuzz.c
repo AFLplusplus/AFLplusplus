@@ -30,32 +30,33 @@ typedef struct my_mutator {
 
 } my_mutator_t;
 
-
-
 state *create_pda(u8 *automaton_file) {
+
   // changed from json_object to cJSON
-  cJSON       *parsed_json;
-  state       *pda;
-  cJSON       *source_obj, *attr;
-  int          arraylen, ii, ii2, trigger_len, error;
+  cJSON *parsed_json;
+  state *pda;
+  cJSON *source_obj, *attr;
+  int    arraylen, ii, ii2, trigger_len, error;
 
   printf("\n[GF] Automaton file passed:%s", automaton_file);
   // parsed_json =
   // json_object_from_file("./gramfuzz/php_gnf_processed_full.json");
   parsed_json = load_json_file(automaton_file);
   if (!parsed_json) {
+
     PFATAL("Failed to load automaton JSON from '%s'", automaton_file);
+
   }
 
   // Getting final state
   source_obj = cJSON_GetObjectItem(parsed_json, "final_state");
-  const char * final_source_obj = source_obj->valuestring;
+  const char *final_source_obj = source_obj->valuestring;
   printf("\t\nFinal=%s\n", final_source_obj);
   final_state = atoi(final_source_obj);
 
   // Getting initial state
   source_obj = cJSON_GetObjectItem(parsed_json, "init_state");
-  const char * init_source_obj = source_obj->valuestring;
+  const char *init_source_obj = source_obj->valuestring;
   init_state = atoi(init_source_obj);
   printf("\tInit=%s\n", init_source_obj);
 
@@ -65,11 +66,11 @@ state *create_pda(u8 *automaton_file) {
   printf("\tNumStates=%d\n", numstates);
 
   // Allocate state space for each pda state
-  pda = (state *)calloc(numstates,sizeof(state));
+  pda = (state *)calloc(numstates, sizeof(state));
   // Getting PDA representation
   source_obj = cJSON_GetObjectItem(parsed_json, "pda");
-  cJSON * state_item;
-  cJSON_ArrayForEach(state_item,source_obj) {
+  cJSON *state_item;
+  cJSON_ArrayForEach(state_item, source_obj) {
 
     state   *state_ptr;
     trigger *trigger_ptr;
@@ -160,10 +161,8 @@ my_mutator_t *afl_custom_init(afl_state_t *afl, unsigned int seed) {
   // data->mutator_buf = NULL;
 
   char *automaton_file = getenv("GRAMATRON_AUTOMATION");
-  fprintf(stderr,
-        "[GF] automaton_file ptr=%p, value='%s'\n",
-        (void *)automaton_file,
-        automaton_file ? automaton_file : "(null)");
+  fprintf(stderr, "[GF] automaton_file ptr=%p, value='%s'\n",
+          (void *)automaton_file, automaton_file ? automaton_file : "(null)");
   fflush(stderr);
 
   if (automaton_file) {
@@ -217,7 +216,7 @@ size_t afl_custom_fuzz(my_mutator_t *data, uint8_t *buf, size_t buf_size,
   } else if (data->mut_idx == 2) {  // Perform splice mutation
 
     // we cannot use the supplied splice data so choose a new random file
-    u32                 tid = gf_rand_below(global_afl, data->afl->queued_items);
+    u32 tid = gf_rand_below(global_afl, data->afl->queued_items);
     struct queue_entry *q = data->afl->queue_buf[tid];
 
     // Read the input representation for the splice candidate

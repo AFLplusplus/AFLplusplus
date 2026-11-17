@@ -48,7 +48,7 @@ void PrintMemoryProfile();
 unsigned NumberOfCpuCores();
 
 // Platform specific functions.
-void SetSignalHandler(const FuzzingOptions& Options);
+void SetSignalHandler(const FuzzingOptions &Options);
 
 void SleepSeconds(int Seconds);
 
@@ -56,30 +56,33 @@ unsigned long GetPid();
 
 size_t GetPeakRSSMb();
 
-int ExecuteCommand(const Command &Cmd);
+int  ExecuteCommand(const Command &Cmd);
 bool ExecuteCommand(const Command &Cmd, std::string *CmdOutput);
 
 // Fuchsia does not have popen/pclose.
 FILE *OpenProcessPipe(const char *Command, const char *Mode);
-int CloseProcessPipe(FILE *F);
+int   CloseProcessPipe(FILE *F);
 
 const void *SearchMemory(const void *haystack, size_t haystacklen,
                          const void *needle, size_t needlelen);
 
-std::string CloneArgsWithoutX(const Vector<std::string> &Args,
-                              const char *X1, const char *X2);
+std::string CloneArgsWithoutX(const Vector<std::string> &Args, const char *X1,
+                              const char *X2);
 
 inline std::string CloneArgsWithoutX(const Vector<std::string> &Args,
-                                     const char *X) {
+                                     const char                *X) {
+
   return CloneArgsWithoutX(Args, X, X);
+
 }
 
 inline std::pair<std::string, std::string> SplitBefore(std::string X,
                                                        std::string S) {
+
   auto Pos = S.find(X);
-  if (Pos == std::string::npos)
-    return std::make_pair(S, "");
+  if (Pos == std::string::npos) return std::make_pair(S, "");
   return std::make_pair(S.substr(0, Pos), S.substr(Pos));
+
 }
 
 void DiscardOutput(int Fd);
@@ -90,28 +93,55 @@ std::string SearchRegexCmd(const std::string &Regex);
 
 size_t SimpleFastHash(const uint8_t *Data, size_t Size);
 
-inline uint32_t Log(uint32_t X) { return 32 - Clz(X) - 1; }
+inline uint32_t Log(uint32_t X) {
 
-inline size_t PageSize() { return 4096; }
+  return 32 - Clz(X) - 1;
+
+}
+
+inline size_t PageSize() {
+
+  return 4096;
+
+}
+
 inline uint8_t *RoundUpByPage(uint8_t *P) {
+
   uintptr_t X = reinterpret_cast<uintptr_t>(P);
-  size_t Mask = PageSize() - 1;
+  size_t    Mask = PageSize() - 1;
   X = (X + Mask) & ~Mask;
   return reinterpret_cast<uint8_t *>(X);
+
 }
+
 inline uint8_t *RoundDownByPage(uint8_t *P) {
+
   uintptr_t X = reinterpret_cast<uintptr_t>(P);
-  size_t Mask = PageSize() - 1;
+  size_t    Mask = PageSize() - 1;
   X = X & ~Mask;
   return reinterpret_cast<uint8_t *>(X);
+
 }
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-template <typename T> T HostToLE(T X) { return X; }
+template <typename T>
+T HostToLE(T X) {
+
+  return X;
+
+}
+
 #else
-template <typename T> T HostToLE(T X) { return Bswap(X); }
+template <typename T>
+T HostToLE(T X) {
+
+  return Bswap(X);
+
+}
+
 #endif
 
 }  // namespace fuzzer
 
 #endif  // LLVM_FUZZER_UTIL_H
+

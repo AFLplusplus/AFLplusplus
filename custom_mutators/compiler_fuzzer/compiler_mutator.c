@@ -39,14 +39,10 @@ typedef struct {
 
 } rule_t;
 
-#define S(f, t) \
-  { RULE_SIMPLE, f, t, 0, 0, 0 }
-#define REP(l, r, t) \
-  { RULE_DELIM_REP, NULL, t, l, 0, r }
-#define DUP(l, r) \
-  { RULE_DELIM_DUP, NULL, NULL, l, 0, r }
-#define SWAP(l, m, r) \
-  { RULE_DELIM_SWAP, NULL, NULL, l, m, r }
+#define S(f, t) {RULE_SIMPLE, f, t, 0, 0, 0}
+#define REP(l, r, t) {RULE_DELIM_REP, NULL, t, l, 0, r}
+#define DUP(l, r) {RULE_DELIM_DUP, NULL, NULL, l, 0, r}
+#define SWAP(l, m, r) {RULE_DELIM_SWAP, NULL, NULL, l, m, r}
 
 /* Same 64 operators, in the same order, as use_mutation_tool() in
    afl-compiler-fuzzer's afl-fuzz.c. */

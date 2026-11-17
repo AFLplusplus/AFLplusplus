@@ -49,3 +49,4 @@ void afl_custom_deinit(my_mutator_t *data) {
   free(data);
 
 }
+

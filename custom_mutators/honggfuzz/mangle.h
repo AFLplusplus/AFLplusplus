@@ -26,6 +26,7 @@
 
 #include "honggfuzz.h"
 
-extern void mangle_mangleContent(run_t* run, int speed_factor);
+extern void mangle_mangleContent(run_t *run, int speed_factor);
 
 #endif
+

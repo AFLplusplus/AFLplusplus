@@ -9,3 +9,4 @@ struct afl_state;
 u32 gf_rand_below(struct afl_state *afl, u32 limit);
 
 #endif  // AFLPLUSPLUS_GRAMFUZZ_RNG_H
+

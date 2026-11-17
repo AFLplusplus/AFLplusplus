@@ -19,15 +19,19 @@
 namespace fuzzer {
 
 class MutationDispatcher {
-public:
+
+ public:
   MutationDispatcher(Random &Rand, const FuzzingOptions &Options);
-  ~MutationDispatcher() {}
+  ~MutationDispatcher() {
+
+  }
+
   /// Indicate that we are about to start a new sequence of mutations.
   void StartMutationSequence();
   /// Print the current sequence of mutations. Only prints the full sequence
   /// when Verbose is true.
   const char *WriteMutationSequence();
-  void PrintMutationSequence(bool Verbose = true);
+  void        PrintMutationSequence(bool Verbose = true);
   /// Return the current sequence of mutations.
   std::string MutationSequence();
   /// Indicate that the current sequence of mutations was successful.
@@ -92,14 +96,24 @@ public:
 
   void PrintRecommendedDictionary();
 
-  void SetCrossOverWith(const Unit *U) { CrossOverWith = U; }
+  void SetCrossOverWith(const Unit *U) {
 
-  Random &GetRand() { return Rand; }
+    CrossOverWith = U;
+
+  }
+
+  Random &GetRand() {
+
+    return Rand;
+
+  }
 
  private:
   struct Mutator {
+
     size_t (MutationDispatcher::*Fn)(uint8_t *Data, size_t Size, size_t Max);
     const char *Name;
+
   };
 
   size_t AddWordFromDictionary(Dictionary &D, uint8_t *Data, size_t Size,
@@ -120,12 +134,12 @@ public:
   DictionaryEntry MakeDictionaryEntryFromCMP(const Word &Arg1, const Word &Arg2,
                                              const uint8_t *Data, size_t Size);
   DictionaryEntry MakeDictionaryEntryFromCMP(const void *Arg1, const void *Arg2,
-                                             const void *Arg1Mutation,
-                                             const void *Arg2Mutation,
-                                             size_t ArgSize,
+                                             const void    *Arg1Mutation,
+                                             const void    *Arg2Mutation,
+                                             size_t         ArgSize,
                                              const uint8_t *Data, size_t Size);
 
-  Random &Rand;
+  Random              &Rand;
   const FuzzingOptions Options;
 
   // Dictionary provided by the user via -dict=DICT_FILE.
@@ -140,10 +154,10 @@ public:
   Vector<DictionaryEntry *> CurrentDictionaryEntrySequence;
 
   static const size_t kCmpDictionaryEntriesDequeSize = 16;
-  DictionaryEntry CmpDictionaryEntriesDeque[kCmpDictionaryEntriesDequeSize];
-  size_t CmpDictionaryEntriesDequeIdx = 0;
+  DictionaryEntry     CmpDictionaryEntriesDeque[kCmpDictionaryEntriesDequeSize];
+  size_t              CmpDictionaryEntriesDequeIdx = 0;
 
-  const Unit *CrossOverWith = nullptr;
+  const Unit     *CrossOverWith = nullptr;
   Vector<uint8_t> MutateInPlaceHere;
   Vector<uint8_t> MutateWithMaskTemp;
   // CustomCrossOver needs its own buffer as a custom implementation may call
@@ -153,8 +167,10 @@ public:
   Vector<Mutator> Mutators;
   Vector<Mutator> DefaultMutators;
   Vector<Mutator> CurrentMutatorSequence;
+
 };
 
 }  // namespace fuzzer
 
 #endif  // LLVM_FUZZER_MUTATE_H
+

@@ -30,3 +30,4 @@ std::string Hash(const Unit &U);
 }  // namespace fuzzer
 
 #endif  // LLVM_FUZZER_SHA1_H
+
