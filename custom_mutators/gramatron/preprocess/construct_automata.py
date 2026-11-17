@@ -1,14 +1,15 @@
 import sys
 import json
 import re
-from collections import defaultdict
+from collections import defaultdict, deque
 # import pygraphviz as pgv
 
 gram_data = None
 state_count = 1
 pda = []
-worklist = []
+worklist = deque()
 state_stacks = {} 
+stack_states = {}
 
 # === If user provides upper bound on the stack size during FSA creation ===
 # Specifies the upper bound to which the stack is allowed to grow
@@ -37,7 +38,7 @@ def main(grammar, limit):
         # Take an element from the worklist
         # print ('================')
         # print ('Worklist:', worklist)
-        element = worklist.pop(0)
+        element = worklist.popleft()
         prep_transitions(element)
     
     pda_file = filename + '_transition.json'
@@ -79,7 +80,7 @@ def prep_transitions(element):
     '''
     Generates transitions
     '''
-    global gram_data, state_count, pda, worklist, state_stacks, stack_limit, unexpanded_rules
+    global gram_data, state_count, pda, worklist, state_stacks, stack_states, stack_limit, unexpanded_rules
     state = element[0]
     try:
         nonterminal = element[1][0] 
@@ -117,17 +118,13 @@ def prep_transitions(element):
         # Check if a recursive transition state being created, if so make a backward
         # edge and don't add anything to the worklist
         # print (state_stacks)
-        if state_stacks:
-            for state_element, stack in state_stacks.items():
-                # print ('Stack:', sorted(stack))
-                # print ('State stack:', sorted(state_stack))
-                if sorted(stack) == sorted(state_stack):
-                    transition['dest'] = state_element
-                    # print ('Recursive:', transition)
-                    pda.append(transition)
-                    count += 1
-                    isRecursive = True
-                    break 
+        state_element = stack_states.get(tuple(sorted(state_stack)))
+        if state_element is not None:
+            transition['dest'] = state_element
+            # print ('Recursive:', transition)
+            pda.append(transition)
+            count += 1
+            isRecursive = True
         # If a recursive transition exercised don't add the same transition as a new
         # edge, continue onto the next transitions
         if isRecursive:
@@ -146,6 +143,7 @@ def prep_transitions(element):
         pda.append(transition)
         worklist.append([transition['dest'], transition['stack']])
         state_stacks[transition['dest']] = state_stack
+        stack_states.setdefault(tuple(sorted(state_stack)), transition['dest'])
         state_count += 1
         count += 1
 
