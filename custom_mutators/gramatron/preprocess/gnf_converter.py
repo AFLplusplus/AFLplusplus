@@ -8,6 +8,8 @@ from collections import defaultdict
 
 NONTERMINALSET = []
 COUNT = 1
+# Nonterminal lookup created by remove_mixed() and break_rules(), indexed by the terminal or rule prefix the nonterminal replaces
+NONTERMINAL_FOR = {}
 
 def main(grammar_file, out, start):
     grammar = None
@@ -201,6 +203,7 @@ def remove_mixed(grammar):
                     else:
                         new_nonterm = get_nonterminal()
                         new_grammar[new_nonterm].append(token)
+                        NONTERMINAL_FOR[token] = new_nonterm
                         regen_rule.append(new_nonterm)
                 else:
                     regen_rule.append(token)
@@ -224,6 +227,7 @@ def break_rules(grammar):
                     else:
                         nonterminal = get_nonterminal()
                         new_grammar[nonterminal].append(' '.join(split))
+                        NONTERMINAL_FOR[' '.join(split)] = nonterminal
                         newrule = ' '.join([nonterminal, tokens[-1]])
                         new_grammar[lhs].append(newrule)
                 else:
@@ -259,10 +263,7 @@ def _repopulate():
     COUNT += 1
 
 def terminal_exist(token, grammar):
-    for nonterminal, rules in grammar.items():
-        if token in rules:
-            return nonterminal
-    return None
+    return NONTERMINAL_FOR.get(token)
 
 
 
