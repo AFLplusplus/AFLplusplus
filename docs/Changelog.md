@@ -47,6 +47,7 @@
     - qemuafl: fix CompCov for ARM `add`/`orrs` (thanks to @celi0n)
     - qasan: fix build with libcs where `FILE` is an opaque type (thanks to @qiyuhuating)
   - custom mutators
+    - grammar_mutator: fixes
     - gramatron: lots of fixes (thanks to @renatahodovan)
     - added `custom_mutators/compiler_fuzzer`: the afl-compiler-fuzzer
       source-level mutations (and its comby-decomposer mode) as custom
