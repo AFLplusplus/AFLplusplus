@@ -645,11 +645,12 @@ struct foreign_sync {
 
 struct sync_peer_state {
 
-  u8 *name;
-  u32 cursor;
-  u32 max_start_id;
-  u8  have_max;
-  u8  loaded;
+  u8    *name;
+  u32    cursor;
+  u32    max_start_id;
+  time_t last_sync;              /* when we last looked at this peer (secs) */
+  u8     have_max;
+  u8     loaded;
 
 };
 
