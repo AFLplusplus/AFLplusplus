@@ -128,7 +128,8 @@ git pull >/dev/null 2>&1
 sh -c 'git stash && git stash drop' 1>/dev/null 2>/dev/null
 git checkout "$GRAMMAR_VERSION" || exit 1
 echo "[*] Downloading antlr..."
-wget -q https://www.antlr.org/download/antlr-4.8-complete.jar
+# The grammar mutator knows which ANTLR jar version its build needs.
+$MAKECMD -f GNUmakefile antlr-jar || exit 1
 cd ..
 
 echo
