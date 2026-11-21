@@ -2667,7 +2667,8 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
   s32 res;
   u32 exec_ms;
-  u32 write_value = fsrv->last_run_timed_out;
+  u32 write_value =
+      fsrv->last_run_timed_out || fsrv->discard_stopped_child;
 
   /* AFL_CRASH_TRACES: clear the capture buffer before each run so a crash's
      trace file holds only the crashing run's own stdout/stderr, not output
@@ -2775,6 +2776,18 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   First, tell it if the previous run timed out. */
 
 #if defined(__linux__) || defined(__APPLE__)
+  if (unlikely(fsrv->discard_stopped_child && fsrv->use_futex &&
+               fsrv->child_pid > 0)) {
+
+    __atomic_store_n(fsrv->child_sync, AFL_CHILD_EXITED, __ATOMIC_RELEASE);
+    afl_sync_wake(fsrv->child_sync);
+    kill(fsrv->child_pid, fsrv->child_kill_signal);
+    if (!read_status_or_escalate(fsrv, stop_soon_p)) { return 0; }
+    fsrv->child_pid = -1;
+    __atomic_store_n(fsrv->child_sync, AFL_CHILD_IDLE, __ATOMIC_RELEASE);
+
+  }
+
   if (likely(fsrv->use_futex && fsrv->child_pid > 0)) {
 
     // Futex protocol: see afl_child_state_t in types.h
@@ -2835,6 +2848,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   }
 
   fsrv->last_run_timed_out = 0;
+  fsrv->discard_stopped_child = 0;
 
   if ((res = read(fsrv->fsrv_st_fd, &fsrv->child_pid, 4)) != 4) {
 

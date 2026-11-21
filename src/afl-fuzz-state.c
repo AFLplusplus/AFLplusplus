@@ -323,6 +323,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_custom_mutator_only =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_VERIFY_CRASH",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_verify_crash =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_CUSTOM_MUTATOR_LATE_SEND",
 
                               afl_environment_variable_len)) {
