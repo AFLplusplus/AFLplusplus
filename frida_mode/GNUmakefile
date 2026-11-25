@@ -128,20 +128,20 @@ else ifeq "$(shell uname)" "Darwin"
   TARGET_CC= \
   	"clang" \
   	"-target" \
-	"arm64-apple-macos10.9"
+	"arm64-apple-macos15.4"
   TARGET_CXX= \
  	"clang++" \
  	"-target" \
-	"arm64-apple-macos10.9"
+	"arm64-apple-macos15.4"
  else
   TARGET_CC= \
   	"clang" \
   	"-target" \
-	"x86_64-apple-macos10.9"
+	"x86_64-apple-macos15.4"
   TARGET_CXX= \
  	"clang++" \
  	"-target" \
-	"x86_64-apple-macos10.9"
+	"x86_64-apple-macos15.4"
  endif
 else
 ifdef DEBUG

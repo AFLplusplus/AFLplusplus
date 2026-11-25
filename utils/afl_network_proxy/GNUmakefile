@@ -20,6 +20,13 @@ ifeq "$(SYS)" "SunOS"
   LDFLAGS += -lnsl -lsocket
 endif
 
+ifeq "$(SYS)" "Darwin"
+  INSTALL_T :=
+else
+  INSTALL_T := -T
+endif
+
+
 ifeq "$(shell echo '$(HASH)include <libdeflate.h>@int main() { struct libdeflate_compressor *d = libdeflate_alloc_compressor(1); return 0;}' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test2 -ldeflate 2>/dev/null && echo 1 || echo 0 ; rm -f .test2 )" "1"
  CFLAGS += -DUSE_DEFLATE=1
  LDFLAGS += -ldeflate 
@@ -47,5 +54,5 @@ clean:
 install: all
 	install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(DOC_PATH)
 	install -m 755 $(PROGRAMS) $${DESTDIR}$(BIN_PATH)
-	install -T -m 644 README.md $${DESTDIR}$(DOC_PATH)/README.network_proxy.md
+	install $(INSTALL_T)  -m 644 README.md $${DESTDIR}$(DOC_PATH)/README.network_proxy.md
 

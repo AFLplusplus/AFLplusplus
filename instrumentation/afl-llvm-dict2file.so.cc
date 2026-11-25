@@ -64,7 +64,11 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Constants.h"
 
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/FileSystem.h"
+
 #include "afl-llvm-common.h"
+#include "llvm/Support/FileSystem.h"
 
 #ifndef O_DSYNC
   #define O_DSYNC O_SYNC
@@ -76,8 +80,7 @@ namespace {
 
 class AFLdict2filePass : public PassInfoMixin<AFLdict2filePass> {
 
-  std::ofstream of;
-  void          dict2file(u8 *, u32);
+  void          dict2file(raw_fd_ostream&, u8 *, u32);
 
  public:
   AFLdict2filePass() {
@@ -115,7 +118,7 @@ llvmGetPassPluginInfo() {
 
 }
 
-void AFLdict2filePass::dict2file(u8 *mem, u32 len) {
+void AFLdict2filePass::dict2file(raw_fd_ostream& of, u8 *mem, u32 len) {
 
   u32  i, j, binary = 0;
   char line[MAX_AUTO_EXTRA * 8], tmp[8];
@@ -159,6 +162,7 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
   DenseMap<Value *, std::string *> valueMap;
   char                            *ptr;
   int                              found = 0, handle_main = 1;
+  std::error_code EC;
 
   /* Show a banner */
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -190,10 +194,10 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
   if (*ptr != '/')
     FATAL("AFL_LLVM_DICT2FILE is not set to an absolute path: %s", ptr);
 
-  of.open(ptr, std::ofstream::out | std::ofstream::app);
-  if (!of.is_open()) PFATAL("Could not open/create %s.", ptr);
-
   /* Instrument all the things! */
+
+  raw_fd_ostream  of(ptr, EC, sys::fs::OF_Append);
+  if (EC) PFATAL("Could not open/create %s: %s", ptr, EC.message().c_str());
 
   for (auto &F : M) {
 
@@ -325,11 +329,11 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
               }
 
-              dict2file((u8 *)&val, len);
+              dict2file(of, (u8 *)&val, len);
               found++;
               if (val2) {
 
-                dict2file((u8 *)&val2, len);
+                dict2file(of, (u8 *)&val2, len);
                 found++;
 
               }
@@ -733,7 +737,7 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
           ptr = (char *)thestring.c_str();
 
-          dict2file((u8 *)ptr, optLen);
+          dict2file(of, (u8 *)ptr, optLen);
           found++;
 
         }
@@ -743,8 +747,6 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
     }
 
   }
-
-  of.close();
 
   /* Say something nice. */
 
