@@ -68,7 +68,6 @@
 #include "llvm/Support/FileSystem.h"
 
 #include "afl-llvm-common.h"
-#include "llvm/Support/FileSystem.h"
 
 #ifndef O_DSYNC
   #define O_DSYNC O_SYNC
