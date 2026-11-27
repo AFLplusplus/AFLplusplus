@@ -35,7 +35,6 @@
 
 #include <list>
 #include <string>
-#include <fstream>
 #include <set>
 
 #include "llvm/Config/llvm-config.h"
@@ -76,8 +75,8 @@ namespace {
 
 class AFLdict2filePass : public PassInfoMixin<AFLdict2filePass> {
 
-  std::ofstream of;
-  void          dict2file(u8 *, u32);
+  FILE *of = nullptr;
+  void  dict2file(u8 *, u32);
 
  public:
   AFLdict2filePass() {
@@ -147,8 +146,8 @@ void AFLdict2filePass::dict2file(u8 *mem, u32 len) {
 
   line[j] = 0;
   strcat(line, "\"\n");
-  of << line;
-  of.flush();
+  fputs(line, of);
+  fflush(of);
 
   if (!be_quiet) fprintf(stderr, "Found dictionary token: %s", line);
 
@@ -190,8 +189,8 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
   if (*ptr != '/')
     FATAL("AFL_LLVM_DICT2FILE is not set to an absolute path: %s", ptr);
 
-  of.open(ptr, std::ofstream::out | std::ofstream::app);
-  if (!of.is_open()) PFATAL("Could not open/create %s.", ptr);
+  of = fopen(ptr, "a");
+  if (!of) PFATAL("Could not open/create %s.", ptr);
 
   /* Instrument all the things! */
 
@@ -744,7 +743,8 @@ PreservedAnalyses AFLdict2filePass::run(Module &M, ModuleAnalysisManager &MAM) {
 
   }
 
-  of.close();
+  fclose(of);
+  of = nullptr;
 
   /* Say something nice. */
 
