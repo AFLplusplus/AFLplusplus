@@ -991,7 +991,7 @@ void sync_fuzzers(afl_state_t *afl) {
     max_start_id = sp->have_max ? sp->max_start_id : 0;
 
     // It could be that the target syncing instance was restarted, check!
-    time_t      last_mtime = sp->last_sync;
+    time_t last_mtime = sp->last_sync;
     sp->last_sync = (time_t)(get_cur_time() / 1000);
     char        id0[PATH_MAX];
     struct stat st;
